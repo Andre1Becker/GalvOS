@@ -4,20 +4,19 @@
 
 GalvOS is a fully custom firmware and hardware project that replaces the original control board of a Mikoy 5W RGB laser projector with an ESP32-S3-based system featuring a 16-bit DAC, browser-based WebUI (PWA), DMX/Art-Net input, ILDA file playback, and hardware safety interlocks.
 
-> Developed by Andre. Community contributions welcome.
+> Community contributions welcome :-)
 
 ---
 
 ## ⚠️ SAFETY WARNING — READ BEFORE PROCEEDING
 
-**This project involves a Class 4 laser device.**
+**This project involves a  laser device.**
 
-Class 4 lasers are capable of causing immediate and permanent eye injury and skin burns, and can ignite materials. This is the highest hazard class for laser products.
+Lasers are capable of causing immediate and permanent eye injury and skin burns, and can ignite materials. This is the highest hazard class for laser products.
 
 - **Never** look into the beam or at specular reflections.
 - **Always** use appropriate laser safety eyewear (OD rating matched to wavelength and power).
 - **Never** operate the laser without proper enclosure or beam stops in place.
-- This project is subject to national laser safety regulations. In Germany: **DGUV Vorschrift 11** and **TROS Laserstrahlung**.
 - By modifying this device, the original CE marking and safety certification are **void**.
 - **You are solely responsible** for the safe operation of any device built using this project.
 
