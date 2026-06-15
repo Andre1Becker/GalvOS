@@ -180,7 +180,7 @@ uint8_t scanFiles() {
             if (len > 4) {
                 const char* ext = name + len - 4;
                 if (strcasecmp(ext, ".ild") == 0) {
-                    // Full Pfad
+                    // full path
                     snprintf(s_paths[s_file_count], ILDA_MAX_PATH, "/ilda/%s", name);
                     strncpy(s_names[s_file_count], name, 63);
                     s_names[s_file_count][63] = '\0';

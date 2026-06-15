@@ -2,10 +2,10 @@
 /**
  * text_renderer.h -- vector text renderer for the laser
  *
- * Single-Stroke and Outline-Font (Hershey-inspiriert).
+ * Single-stroke and outline font (Hershey-inspired).
  * All letters A-Z, 0-9, space, .,:!?-+
  *
- * Animationen: Static, Scroll L/R, Bounce, Typewriter,
+ * Animations: Static, Scroll L/R, Bounce, Typewriter,
  *              Wave, Pulse, Rotate, Zoom
  */
 #include "config.h"
@@ -13,16 +13,16 @@
 
 namespace textrender {
 
-// Maximale Ausgabe-Punkte
+// maximum output points
 static constexpr size_t TEXT_MAX_PTS = 1024;
 
 /**
- * Text-Frame erzeugen.
- * @param out      Ausgabe-Buffer
- * @param max_pts  Buffer-size
+ * Generate text frame.
+ * @param out      output buffer
+ * @param max_pts  buffer size
  * @param cfg      TextConfig (text, font, anim, ...)
  * @param phase    animation phase (incremented by the task)
- * @return         Count Punkte
+ * @return         point count
  */
 size_t generate(LaserPoint* out, size_t max_pts,
                 const TextConfig& cfg, uint32_t phase);

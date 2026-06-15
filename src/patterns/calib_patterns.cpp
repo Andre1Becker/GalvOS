@@ -2,7 +2,7 @@
  * calib_patterns.cpp -- calibration and color-gradient test patterns
  *
  * IMPORTANT: all patterns apply gamma LUT + white balance,
- * so that reale Laserprojektion = Preview-Simulation.
+ * so that real laser projection matches the preview simulation.
  *
  * Coordinates: +-32767 (ILDA default, 16-bit signed)
  * SC = 32767 * 0.88 = 28834 (laesst 6% Rand)
@@ -14,14 +14,14 @@
 
 namespace calib_patterns {
 
-// ── Konstanten ────────────────────────────────────────────────
+// ── constants ────────────────────────────────────────────────
 static constexpr float PI2  = 6.2831853f;
-static constexpr float SC   = 28000.0f;  // ±88% Vollauslenkung
+static constexpr float SC   = 28000.0f;  // ±88% full deflection
 
-// ── Hilfsfunktionen ───────────────────────────────────────────
+// ── helper functions ──────────────────────────────────────────
 
 // Gamma LUT (γ=2.2) -- identical to galvo_out.cpp
-// Extern available if gamma_enable=true, sonst lineare Durchleitung
+// Applied if gamma_enable=true, otherwise linear pass-through
 static inline uint8_t applyGamma(uint8_t v) {
     if (!gConfig.gamma_enable) return v;
     // Inline LUT (copy from galvo_out.cpp -- no cross-include needed)
@@ -50,9 +50,9 @@ static inline uint8_t applyGamma(uint8_t v) {
 static inline void colorOut(uint8_t ri, uint8_t gi, uint8_t bi,
                              uint8_t bright,
                              uint8_t& ro, uint8_t& go, uint8_t& bo) {
-    // 1. Master-brightness
-    // 2. white balance (Gain from gConfig)
-    // 3. Gamma-Korrektur
+    // 1. Master brightness
+    // 2. white balance (gain from gConfig)
+    // 3. Gamma correction
     ro = applyGamma((uint8_t)(((uint32_t)ri * bright * gConfig.gain_r) / (255UL * 255)));
     go = applyGamma((uint8_t)(((uint32_t)gi * bright * gConfig.gain_g) / (255UL * 255)));
     bo = applyGamma((uint8_t)(((uint32_t)bi * bright * gConfig.gain_b) / (255UL * 255)));
@@ -72,7 +72,7 @@ static inline void ap(LaserPoint* o, size_t& n, size_t mx,
     n++;
 }
 
-// line zeichnen (N Punkte interpoliert)
+// draw line (N interpolated points)
 static void line(LaserPoint* o, size_t& n, size_t mx,
                   float x0, float y0, float x1, float y1,
                   uint8_t r, uint8_t g, uint8_t b,
@@ -118,8 +118,8 @@ static size_t gamma_ramp(LaserPoint* o, size_t mx,
                           uint32_t phase, uint8_t bright, uint8_t ch) {
     size_t n = 0;
     const int STEPS = 60;
-    const float Y_TOP =  SC * 0.55f;  // obere Rampe
-    const float Y_BOT = -SC * 0.55f;  // untere Rampe (ohne Gamma)
+    const float Y_TOP =  SC * 0.55f;  // upper ramp
+    const float Y_BOT = -SC * 0.55f;  // lower ramp (without gamma)
 
     for (int i = 0; i <= STEPS; i++) {
         float t = (float)i / STEPS;
@@ -160,18 +160,18 @@ static size_t gamma_ramp(LaserPoint* o, size_t mx,
 }
 
 // ══════════════════════════════════════════════════════════════
-// PATTERN 1: WEISSABGLEICH
-// 4 horizontale linen: white, Rot, Gruen, Blau
+// PATTERN 1: WHITE BALANCE
+// 4 horizontal lines: white, Red, Green, Blue
 // All with the same input value 'bright' -> should appear equally bright
 // ══════════════════════════════════════════════════════════════
 static size_t white_balance(LaserPoint* o, size_t mx,
                              uint32_t phase, uint8_t bright, uint8_t) {
     size_t n = 0;
     struct { uint8_t r,g,b; float y; } rows[4] = {
-        {255,255,255,  SC*0.68f},  // Weiss
-        {255,  0,  0,  SC*0.23f},  // Rot
-        {  0,255,  0, -SC*0.23f},  // Gruen
-        {  0,  0,255, -SC*0.68f},  // Blau
+        {255,255,255,  SC*0.68f},  // White
+        {255,  0,  0,  SC*0.23f},  // Red
+        {  0,255,  0, -SC*0.23f},  // Green
+        {  0,  0,255, -SC*0.68f},  // Blue
     };
     for (auto& row : rows) {
         uint8_t ro,go,bo;
@@ -192,7 +192,7 @@ static size_t rainbow(LaserPoint* o, size_t mx,
                        uint32_t phase, uint8_t bright, uint8_t) {
     size_t n = 0;
     const int STEPS = 180;
-    const float rot_offset = (phase % 3600) * 0.001f;  // langsame Rotation
+    const float rot_offset = (phase % 3600) * 0.001f;  // slow rotation
 
     for (int i = 0; i <= STEPS; i++) {
         float t = (float)i / STEPS;
@@ -226,7 +226,7 @@ static size_t rainbow(LaserPoint* o, size_t mx,
 }
 
 // ══════════════════════════════════════════════════════════════
-// PATTERN 3: STUFENTREPPE
+// PATTERN 3: STEP RAMP
 // 8 vertical bars with brightness steps 1/8 to 8/8
 // Checks that all steps are distinguishable and appear equally large
 // ══════════════════════════════════════════════════════════════
@@ -234,7 +234,7 @@ static size_t step_ramp(LaserPoint* o, size_t mx,
                          uint32_t phase, uint8_t bright, uint8_t ch) {
     size_t n = 0;
     const int STEPS_V = 30;
-    const float anim = sinf(phase * 0.008f) * 0.1f;  // leichte heightnbewegung
+    const float anim = sinf(phase * 0.008f) * 0.1f;  // gentle vertical movement
 
     for (int s = 0; s < 8; s++) {
         float t = (float)(s + 1) / 8.0f;
@@ -247,16 +247,16 @@ static size_t step_ramp(LaserPoint* o, size_t mx,
         uint8_t ro, go, bo;
         colorOut(ri, gi, bi, bright, ro, go, bo);
 
-        // x-Position des barss
+        // x position of the bars
         float x_center = -SC*0.85f + (s + 0.5f) / 8.0f * SC * 1.70f;
         float bar_w    = SC * 1.70f / 8.0f * 0.7f;
         float bar_h    = (SC * 0.8f) * t + anim * SC;
 
-        // Horizontale line oben
+        // horizontal top edge
         ap(o, n, mx, x_center - bar_w/2, bar_h, ro, go, bo, 1);
         ap(o, n, mx, x_center + bar_w/2, bar_h, ro, go, bo, 0);
 
-        // Vertikale line runter
+        // vertical edge downward
         for (int i = 0; i <= STEPS_V; i++) {
             float yy = bar_h - bar_h * 1.8f * i / STEPS_V;
             ap(o, n, mx, x_center + bar_w/2, yy, ro, go, bo, i==0?1:0);
@@ -267,7 +267,7 @@ static size_t step_ramp(LaserPoint* o, size_t mx,
         ap(o, n, mx, x_center - bar_w/2,  bar_h,    ro, go, bo, 0);
     }
 
-    // Basis-line
+    // base line
     ap(o, n, mx, -SC*0.88f, -SC*0.85f, 30, 30, 30, 1);
     ap(o, n, mx,  SC*0.88f, -SC*0.85f, 30, 30, 30, 0);
 
@@ -275,8 +275,8 @@ static size_t step_ramp(LaserPoint* o, size_t mx,
 }
 
 // ══════════════════════════════════════════════════════════════
-// PATTERN 4: KANALTRENNUNG
-// 7 horizontale linen: R, G, B, RG(Gelb), GB(Cyan), RB(Magenta), white
+// PATTERN 4: CHANNEL SEPARATION
+// 7 horizontal lines: R, G, B, RG(Yellow), GB(Cyan), RB(Magenta), White
 // Checks that channels are independent and no crosstalk occurs
 // ══════════════════════════════════════════════════════════════
 static size_t channel_sep(LaserPoint* o, size_t mx,
@@ -299,7 +299,7 @@ static size_t channel_sep(LaserPoint* o, size_t mx,
         uint8_t ro, go, bo;
         colorOut(c.r, c.g, c.b, bright, ro, go, bo);
 
-        // Sinusfoermige line (slightly animiert)
+        // sinusoidal line (slightly animated)
         const int STEPS = 60;
         for (int k = 0; k <= STEPS; k++) {
             float tt = (float)k / STEPS;
@@ -313,7 +313,7 @@ static size_t channel_sep(LaserPoint* o, size_t mx,
 }
 
 // ══════════════════════════════════════════════════════════════
-// PATTERN 5: SAeTTIGUNGS-RAD
+// PATTERN 5: SATURATION WHEEL
 // spoke wheel: outer = full color, inner = white
 // 12 spokes with evenly distributed hues
 // checks whether hue->white mixing is correct
@@ -323,7 +323,7 @@ static size_t saturation_wheel(LaserPoint* o, size_t mx,
     size_t n = 0;
     const int SPOKES    = 12;
     const int PTS_SPOKE = 35;
-    const float rot = (phase % 36000) * 0.0001f;  // sehr langsame Rotation
+    const float rot = (phase % 36000) * 0.0001f;  // very slow rotation
 
     for (int s = 0; s < SPOKES; s++) {
         float hue = (float)s / SPOKES * 360.0f;

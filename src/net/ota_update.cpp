@@ -27,7 +27,7 @@ void init() {
         safety::emergencyStop();  // laser off during update
     });
     ArduinoOTA.onEnd([]() {
-        ESP_LOGI(TAG, "OTA Ende — Neustart");
+        ESP_LOGI(TAG, "OTA done — restarting");
     });
     ArduinoOTA.onError([](ota_error_t e) {
         ESP_LOGE(TAG, "OTA Error: %u", e);
@@ -57,11 +57,11 @@ void init() {
             "<html><head><meta charset='UTF-8'>"
             "<title>OTA Update</title></head><body>"
             "<h2>Mikoy Laser — Firmware Update</h2>"
-            "<p style='font-family:monospace;color:#666'>Passwort: Chip-ID (see Serial / Dashboard)</p>"
+            "<p style='font-family:monospace;color:#666'>Password: Chip-ID (see Serial / Dashboard)</p>"
             "<form method='POST' action='/api/ota/upload' "
             "enctype='multipart/form-data'>"
             "<input type='file' name='firmware' accept='.bin'><br><br>"
-            "<input type='submit' value='Firmware hochload'>"
+            "<input type='submit' value='Upload Firmware'>"
             "</form></body></html>");
     });
 
@@ -72,7 +72,7 @@ void init() {
             bool ok = !Update.hasError();
             AsyncWebServerResponse* r = req->beginResponse(
                 ok ? 200 : 500, "text/plain",
-                ok ? "Update OK — ESP32 startet neu..." : "Update failed");
+                ok ? "Update OK — restarting ESP32..." : "Update failed");
             r->addHeader("Connection", "close");
             req->send(r);
             if (ok) {
@@ -82,7 +82,7 @@ void init() {
         },
         [](AsyncWebServerRequest* req, String filename, size_t index,
            uint8_t* data, size_t len, bool final) {
-            // safetyspruefungen vor OTA-Start
+            // safety checks before OTA start
             if (index == 0) {
                 if (!req->authenticate(OTA_USER, s_ota_pass)) {
                     req->send(401, "text/plain", "Unauthorized");
@@ -90,7 +90,7 @@ void init() {
                 }
                 if (gState.laser_armed.load()) {
                     ESP_LOGE(TAG, "OTA rejected: laser is armed!");
-                    req->send(403, "text/plain", "Laser armed — OTA not erlaubt");
+                    req->send(403, "text/plain", "Laser armed — OTA not allowed");
                     return;
                 }
                 ESP_LOGI(TAG, "HTTP-OTA Start: %s", filename.c_str());
@@ -109,7 +109,7 @@ void init() {
             }
             if (final) {
                 if (Update.end(true)) {
-                    ESP_LOGI(TAG, "HTTP-OTA fertig: %u Bytes", index+len);
+                    ESP_LOGI(TAG, "HTTP-OTA done: %u bytes", index+len);
                 } else {
                     ESP_LOGE(TAG, "HTTP-OTA end() failed: %s",
                              Update.errorString());
@@ -120,7 +120,7 @@ void init() {
     // OTA password in log (visible on serial -- for setup only)
     ESP_LOGW(TAG, "HTTP-OTA Auth: user='admin' pass='%s'", s_ota_pass);
 
-    ESP_LOGI(TAG, "OTA bereit | Hostname: %s | ArduinoOTA-PW: %s",
+    ESP_LOGI(TAG, "OTA ready | Hostname: %s | ArduinoOTA-PW: %s",
              gConfig.hostname, ota_pass);
 }
 

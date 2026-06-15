@@ -62,7 +62,7 @@ void loadSensorNames() {
     }
     prefs.end();
     if (!any_set) {
-        // Erster Start: default names in NVS schreiben
+        // first boot: write default names to NVS
         Preferences prefs_w;
         prefs_w.begin("temp_names", false);
         for (uint8_t i = 0; i < NUM_SENSORS; i++) {
@@ -228,7 +228,7 @@ static uint8_t calcFanDuty() {
 }
 
 // ============================================================
-// Haupt-Task
+// main task
 // ============================================================
 void init() {
     loadSensorNames();

@@ -49,7 +49,7 @@ void subsystemHeartbeat(int sys) {
 void requestArm(bool v) {
     s_user_arm_request = v;
     if (!v) { ESP_LOGW(TAG, "User DISARM");       LOG_W(logbuf::CAT_SAFETY, "DISARM"); }
-    else    { ESP_LOGI(TAG, "User ARM request");   LOG_I(logbuf::CAT_SAFETY, "ARM angefordert"); }
+    else    { ESP_LOGI(TAG, "User ARM request");   LOG_I(logbuf::CAT_SAFETY, "ARM requested"); }
 }
 
 bool watchdogOk() {
@@ -84,7 +84,7 @@ void emergencyStop() {
     digitalWrite(PIN_LASER_ENABLE, LOW);
     gState.laser_armed.store(false);
     LOG_W(logbuf::CAT_SAFETY, "EMERGENCY STOP");
-    ESP_LOGW(TAG, "Emergency Stop ausgeloest");
+    ESP_LOGW(TAG, "Emergency stop triggered");
 }
 
 void task(void*) {
@@ -93,7 +93,7 @@ void task(void*) {
 
     for (;;) {
         // Inputs are LOW-active in this wiring (reed switch closes to GND)
-        gState.estop_ok.store(digitalRead(PIN_ESTOP) == HIGH);  // E-Stop offen = OK
+        gState.estop_ok.store(digitalRead(PIN_ESTOP) == HIGH);  // E-Stop open = OK
         // scanfail_ok: NE555 not yet populated, INPUT_PULLUP holds HIGH = OK
         gState.scanfail_ok.store(digitalRead(PIN_SCAN_FAIL_IN) == HIGH);
 
@@ -114,7 +114,7 @@ void task(void*) {
             last_state = now_armed;
         }
 
-        vTaskDelay(pdMS_TO_TICKS(20));  // 50 Hz Safety-Loop
+        vTaskDelay(pdMS_TO_TICKS(20));  // 50 Hz safety loop
     }
 }
 

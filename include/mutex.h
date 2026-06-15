@@ -1,11 +1,11 @@
 #pragma once
 /**
- * mutex.h — Zentrale Mutex-Definitionen for thread-sichere Zugriffe
+ * mutex.h — central mutex definitions for thread-safe access
  *
  * All global state objects (gConfig, gState, gLivePreset, etc.)
  * MUST be accessed via the corresponding guard macros.
  *
- * Verwendung:
+ * Usage:
  *   { GRD_CONFIG auto _g = lock_config();  gConfig.gain_r = x; }
  *   { GRD_STATE  auto _g = lock_state();   gState.master_dimmer = x; }
  *   { GRD_SD                               sd_card::scanFiles(); }
@@ -16,15 +16,15 @@
 
 namespace mtx {
 
-// Mutex-Handles — in main.cpp initialisiert
+// Mutex handles — initialized in main.cpp
 extern SemaphoreHandle_t config;   // gConfig, gSafety
 extern SemaphoreHandle_t state;    // gState, gLivePreset, gTextConfig
 extern SemaphoreHandle_t sd;       // SD card (all SD.open / scanFiles)
-extern SemaphoreHandle_t preview;  // gPreview, Websocket-Frame
+extern SemaphoreHandle_t preview;  // gPreview, WebSocket frame
 
 void init();  // create all mutexes
 
-// RAII-Guard: automatisch sperren/entsperren
+// RAII guard: lock on construction, unlock on destruction
 struct Guard {
     SemaphoreHandle_t mx;
     bool ok;
@@ -36,7 +36,7 @@ struct Guard {
 
 } // namespace mtx
 
-// Convenience-Makros
+// Convenience macros
 #define LOCK_CONFIG()  mtx::Guard _cfg_guard(mtx::config)
 #define LOCK_STATE()   mtx::Guard _st_guard(mtx::state)
 #define LOCK_SD()      mtx::Guard _sd_guard(mtx::sd)

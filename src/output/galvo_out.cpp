@@ -53,7 +53,7 @@ static volatile uint32_t s_pps_cached   = 0;
  * happens immediately on the 24th SCLK falling edge -- no extra LDAC
  * pulse needed.
  * SPI mode 1 (CPOL=0, CPHA=1): data stable on falling edge,
- * steigender Flanke gelesen.
+ * latched on rising edge.
  * ============================================================ */
 static inline void IRAM_ATTR writeDAC8562(uint8_t channel, uint16_t value) {
     uint8_t tx[3];
@@ -94,7 +94,7 @@ static inline void IRAM_ATTR writeDAC8562(uint8_t channel, uint16_t value) {
  * Must be called once after power-on.
  * ============================================================ */
 static void dac8562Init() {
-    // FIX v1.4: /CLR freigeben (GPIO13 HIGH) — DAC verlaesst Reset
+    // FIX v1.4: release /CLR (GPIO13 HIGH) — DAC exits reset
     // GPIO13 was set LOW in galvo::init() (safe boot).
     // Release only now, after SPI init and before the first transfer.
     gpio_set_direction((gpio_num_t)13, GPIO_MODE_OUTPUT);
@@ -145,15 +145,15 @@ static void dac8562Init() {
  * LEDC channel 2/3/4 @ 50 kHz, 8-Bit:
  *   duty=0   -> LOW  -> laser OFF
  *   duty=255 -> HIGH -> laser fully ON
- *   duty=128 → 50% Duty-Cycle → ~50% brightness (durch PWM-Persistenz)
+ *   duty=128 → 50% duty cycle → ~50% brightness (via PWM persistence)
  *
- * Hardware: GPIO → 100Ω → Laser TTL-Eingang
+ * Hardware: GPIO → 100Ω → laser TTL input
  * ============================================================ */
 static volatile uint8_t s_rgb_r = 0;
 static volatile uint8_t s_rgb_g = 0;
 static volatile uint8_t s_rgb_b = 0;
 
-// Hardware debug: direkte Ausgabe bypassing Pattern-Engine
+// Hardware debug: direct output bypassing pattern engine
 static volatile bool    s_hw_debug_active = false;
 static volatile int16_t s_dbg_x = 0;      // DAC-value: -32767..+32767
 static volatile int16_t s_dbg_y = 0;
@@ -173,9 +173,9 @@ static volatile int      s_raw_cmd_result = -1;  // -1=pending, 0=fail, 1=ok
  * Gamma-Lookup-Tabelle γ=2.2 (sRGB-default)
  * Corrects the linear PWM output to a perceptually linear
  * brightness: a color value of 128 feels visually like
- * ~50% brightness an (not wie die physikalischen 22%).
+ * ~50% brightness (not the physical 22%).
  *
- * white balance-Berechnung (Laser-Spezifikation):
+ * white balance calculation (laser specification):
  *   R: 1000mW × sens(638nm,0.265) = 265 mW_vis → gain=115
  *   G: 1000mW × sens(520nm,0.710) = 710 mW_vis → gain=43
  *   B: 3000mW × sens(445nm,0.040) = 120 mW_vis → gain=255
@@ -222,16 +222,16 @@ static inline void rgbOff() {
 }
 
 /* ============================================================
- * Galvo-Streaming-Task — Core 1, max. Prioritaet
+ * Galvo streaming task — Core 1, max. priority
  * Busy-wait with esp_timer_get_time() for precise 20µs timing.
  * ============================================================ */
 /* ============================================================
- * GalvoSnapshot — thread-sicheres Config-Abbild for Core 1
+ * GalvoSnapshot — thread-safe config snapshot for Core 1
  *
  * FIX: race condition on gConfig (core 0 writes / core 1 reads)
  *
- * Strategie: Snapshot-Pattern
- *   - Einmal per Frame is gConfig kurz (< 1µs) unter Mutex gelesen
+ * Strategy: snapshot pattern
+ *   - Once per frame, gConfig is briefly (< 1µs) read under mutex
  *     and written into a local, core-1-exclusive copy.
  *   - galvoTask accesses only s_snap -- no direct
  *     gConfig access in the 50-kHz path.
@@ -250,7 +250,7 @@ struct GalvoSnapshot {
 static GalvoSnapshot s_snap;
 
 // Called by galvoTask once per frame (not per point!)
-// Unter Mutex: < 200 ns, deutlich unter 20µs-Frame-Budget
+// Under mutex: < 200 ns, well within the 20µs frame budget
 static inline void updateSnapshot() {
     if (xSemaphoreTake(mtx::config, 0) == pdTRUE) {
         s_snap.gain_r   = gConfig.gain_r;
@@ -261,7 +261,7 @@ static inline void updateSnapshot() {
         s_snap.dac_limit_max = gConfig.dac_limit_max;
         xSemaphoreGive(mtx::config);
     }
-    // Falls Mutex not sofort available: alten Snapshot keep (safe)
+    // If mutex not immediately available: keep old snapshot (safe)
 }
 
 // Forward declaration: defined after galvoTask, called from within it.
@@ -306,7 +306,7 @@ static void IRAM_ATTR galvoTask(void*) {
         }
         s_points_total++;
 
-        updateSnapshot();  // FIX: gConfig-Snapshot einmal pro Iteration
+        updateSnapshot();  // FIX: gConfig snapshot once per iteration
 
         // Execute any pending raw DAC debug command (Config tab -> DAC
         // Low-Level Commands). Runs here so only galvoTask touches SPI2.
@@ -381,7 +381,7 @@ static void IRAM_ATTR galvoTask(void*) {
 
                 // int16_t [-32767..32767] → uint16_t [0..65535] for DAC8562
                 // DAC8562 with internal VREF: 0x0000=0V, 0x8000=VRef/2, 0xFFFF=VRef
-                // Galvo erwartet typisch ±5V um GND → 0x8000 = Mittelpunkt = 0V
+                // Galvo typically expects ±5V around GND → 0x8000 = midpoint = 0V
                 int32_t x = constrain((int32_t)p.x + 0x8000, 0, 0xFFFF);
                 int32_t y = constrain((int32_t)p.y + 0x8000, 0, 0xFFFF);
                 // DAC output limiting (Config -> Output Limiting): clamp to
@@ -395,7 +395,7 @@ static void IRAM_ATTR galvoTask(void*) {
                 if (p.blank) {
                     rgbOff();
                 } else {
-                    // PWM-Duty: 8-Bit. Dimmer + Gain anwenden.
+                    // PWM duty: 8-bit. Apply dimmer + gain.
                     // Clamp result to 0-255 (no overflow).
                     uint8_t dim = gState.master_dimmer.load();  // atomic load
                     // FIX: s_snap instead of gConfig — Race-Condition-frei
@@ -437,7 +437,7 @@ void init() {
         }
     }
     if (gDebugNoHW) {
-        ESP_LOGW(TAG, "galvo::init() NoHW: Ring-Buffer OK, SPI uebersprungen");
+        ESP_LOGW(TAG, "galvo::init() NoHW: ring buffer OK, SPI skipped");
         for(int p:{PIN_LASER_R,PIN_LASER_G,PIN_LASER_B}){
             gpio_set_direction((gpio_num_t)p,GPIO_MODE_OUTPUT);
             gpio_set_level((gpio_num_t)p,0);
@@ -488,12 +488,12 @@ void init() {
     //   2. Kurze Pause (10ms) for definierten Reset-Zustand
     //   3. dac8562Init() → /CLR via GPIO13 HIGH → DAC active
     // Hardware: 10kOhm pulldown remains (crash protection),
-    //           GPIO13 HIGH-Treiber ueberschreibt Pulldown sicher.
+    //           GPIO13 HIGH driver safely overrides the pull-down.
     gpio_set_direction((gpio_num_t)PIN_DAC_CLR_N, GPIO_MODE_OUTPUT);
     gpio_set_level((gpio_num_t)PIN_DAC_CLR_N, 0);  // CLR active
     vTaskDelay(pdMS_TO_TICKS(10));
 
-    // Ring-Buffer already in init() oben alloziert — here only sizen reset
+    // Ring buffer already allocated in init() above — here only reset sizes
     for (size_t i = 0; i < RING_FRAMES; i++) s_ring_sizes[i] = 0;
 
     dac8562Init();

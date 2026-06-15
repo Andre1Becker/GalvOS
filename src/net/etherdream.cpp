@@ -6,8 +6,8 @@
  *
  * Ablauf:
  *   1. UDP broadcast on port 7654 (beacon every 1s)
- *      → Software findet Geraet automatisch
- *   2. TCP Port 7765 (Steuer-connection)
+ *      → software discovers device automatically
+ *   2. TCP port 7765 (control connection)
  *      → PREPARE / BEGIN_PLAYBACK / DATA / STOP Commands
  *   3. ESP32 → applyCalibration() → galvo::pushFrame()
  */
@@ -27,7 +27,7 @@ static const char* TAG = "edream";
 static const uint16_t PORT_DISC = 7654;   // UDP Broadcast Discovery
 static const uint16_t PORT_DATA = 7765;   // TCP Data/Control
 
-// ── EtherDream Protokoll-Strukturen ────────────────────────────
+// ── EtherDream protocol structures ──────────────────────────────
 struct __attribute__((packed)) DACStatus {
     uint8_t  protocol          = 0;
     uint8_t  light_engine_state= 1;  // ready
@@ -54,7 +54,7 @@ struct __attribute__((packed)) CommandHeader {
     uint8_t command;
 };
 
-// EtherDream Befehle
+// EtherDream commands
 enum ECmd : uint8_t {
     CMD_PREPARE     = 0x70,  // 'p'
     CMD_BEGIN       = 0x62,  // 'b'
@@ -71,7 +71,7 @@ struct __attribute__((packed)) DataPoint {
     uint16_t control;         // Bit 15 = shutter
     int16_t  x;
     int16_t  y;
-    uint16_t r, g, b;         // 16-Bit (wir nutzen only High-Byte)
+    uint16_t r, g, b;         // 16-bit (only the high byte is used)
     uint16_t i, u1, u2;
 };
 
@@ -80,7 +80,7 @@ struct __attribute__((packed)) DataHeader {
     uint16_t point_count;
 };
 
-// ── Interne State ────────────────────────────────────────────
+// ── internal state ────────────────────────────────────────────
 static WiFiUDP    s_udp;
 static WiFiServer s_tcp(PORT_DATA);
 static WiFiClient s_client;
@@ -90,10 +90,10 @@ static bool     s_prepared    = false;
 static uint32_t s_total_pts   = 0;
 static uint32_t s_last_beacon = 0;
 
-// Antwort-Puffer
+// response buffer
 static uint8_t  s_resp[64];
 
-// ── Antwort senden ───────────────────────────────────────────
+// ── send response ──────────────────────────────────────────────
 static void sendResponse(uint8_t cmd, uint8_t response, const DACStatus* st) {
     DACStatus cur_st{};
     cur_st.playback_state = s_running ? 1 : 0;
@@ -109,7 +109,7 @@ static void sendResponse(uint8_t cmd, uint8_t response, const DACStatus* st) {
     s_client.write(s_resp, 3 + sizeof(DACStatus));
 }
 
-// ── Beacon senden ─────────────────────────────────────────────
+// ── send beacon ───────────────────────────────────────────────
 static void sendBeacon() {
     // Only send when WiFi is actually up — avoids filling lwIP socket
     // buffers with failed broadcasts (ENOMEM / error 118), which would
@@ -136,7 +136,7 @@ static void sendBeacon() {
     }
 }
 
-// ── Punkt-Daten verarbeiten ──────────────────────────────────
+// ── process point data ───────────────────────────────────────
 static void processDataPoints(uint8_t* buf, uint16_t count) {
     // Temporary frame buffer (stack -- count limited by TCP-MTU)
     const size_t MAX_PTS = 256;
@@ -162,7 +162,7 @@ static void processDataPoints(uint8_t* buf, uint16_t count) {
     }
 }
 
-// ── TCP-Client verarbeiten ───────────────────────────────────
+// ── handle TCP client ─────────────────────────────────────────
 static void handleClient() {
     if (!s_client.connected()) return;
 
@@ -183,7 +183,7 @@ static void handleClient() {
                 break;
 
             case CMD_BEGIN: {
-                // BEGIN hat: low_water_mark(u32) + point_rate(u32)
+                // BEGIN payload: low_water_mark(u32) + point_rate(u32)
                 uint8_t args[8];
                 if (s_client.readBytes(args, 8) == 8) {
                     uint32_t rate;
@@ -196,7 +196,7 @@ static void handleClient() {
             }
 
             case CMD_DATA: {
-                // DATA-Header lesen
+                // read DATA header
                 DataHeader hdr;
                 if (s_client.readBytes((uint8_t*)&hdr, sizeof(hdr)) != sizeof(hdr))
                     break;
@@ -250,13 +250,13 @@ static void handleClient() {
                 break;
 
             default:
-                ESP_LOGW(TAG, "Unbecanter Befehl: 0x%02X", cmd);
+                ESP_LOGW(TAG, "Unknown command: 0x%02X", cmd);
                 break;
         }
     }
 }
 
-// ── Oeffentliche API ──────────────────────────────────────────
+// ── public API ────────────────────────────────────────────────
 void init() {
     s_udp.begin(PORT_DISC);
     s_tcp.begin();
@@ -274,7 +274,7 @@ void task(void*) {
             s_last_beacon = millis();
         }
 
-        // Neuen Client akzeptieren
+        // accept new client
         if (!s_client.connected()) {
             s_client = s_tcp.available();
             if (s_client) {

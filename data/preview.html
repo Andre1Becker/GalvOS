@@ -47,15 +47,15 @@ function getInertia(ctx) {
 }
 
 var RO = {
-  inertia: false,       // Galvo-Trägheitssimulation
-  inertiaAlpha: 0.25,   // 0=träge, 1=sofort (0.2–0.4 typisch für RDM-15K)
-  showBlanking: false,  // Blanking-Sprünge als rote Linien
+  inertia: false,       // galvo inertia simulation
+  inertiaAlpha: 0.25,   // 0=sluggish, 1=instant (0.2–0.4 typical for RDM-15K)
+  showBlanking: false,  // blanking jumps as red lines
 };
 
-// Farb-Quantisierung: reduziert Anzahl der Path2D-Gruppen
-// (Laserpunkte haben ohnehin nur ~8-16 Farben pro Pattern)
+// color quantization: reduces number of Path2D groups
+// (laser points typically have only ~8-16 colors per pattern)
 function quantCol(r,g,b) {
-  // Auf 32er-Schritte runden → max. 512 Farbgruppen, praktisch <20
+  // round to 32-step increments → max. 512 color groups, typically <20
   return ((r>>4)<<8)|((g>>4)<<4)|(b>>4);
 }
 function quantToRGB(q) {
@@ -77,9 +77,9 @@ function render(ctx, pts, W, H=W) {
   const tx = x => PAX+(x+1)/2*RX;
   const ty = y => PAY+(1-(y+1)/2)*RY;
 
-  // ── Inertia-Filter anwenden ──
+  // ── apply inertia filter ──
   let filtered = pts;
-  if (RO.inertia && W > 200) {  // nur auf großen Canvas (nicht Grid-Tiles)
+  if (RO.inertia && W > 200) {  // only on large canvas (not grid tiles)
     const st = getInertia(ctx);
     const alpha = RO.inertiaAlpha;
     filtered = [];
@@ -92,11 +92,11 @@ function render(ctx, pts, W, H=W) {
     st.x = fx; st.y = fy;
   }
 
-  // ── Blanking-Sprünge separat sammeln ──
+  // ── collect blanking jumps separately ──
   const blankPath = RO.showBlanking ? new Path2D() : null;
   let bpx = null, bpy = null;
 
-  // ── Pass-Konfiguration: 3 Passes für Bloom-Effekt ──
+  // ── pass configuration: 3 passes for bloom effect ──
   const PASSES = [
     {lw: 4.5, alp: 0.12},  // breiter Glow
     {lw: 2.0, alp: 0.45},  // mittlerer Kern
@@ -107,21 +107,21 @@ function render(ctx, pts, W, H=W) {
     const paths = new Map();
     const colMap = new Map();
 
-    // pb entfernt — blank-Punkt setzt nur px/py (Start der nächsten Linie)
-    // Non-blank zeichnet IMMER von letzter Position, auch nach Pen-Up
+    // pb removed — blank point only sets px/py (start of next line)
+    // Non-blank always draws from last position, even after Pen-Up
     let px = null, py = null;
 
     for (const p of filtered) {
       const cx = tx(p.x), cy = ty(p.y);
 
       if (p.blank) {
-        // Blanking-Sprung anzeigen
+        // show blanking jump
         if (blankPath && px !== null) {
           blankPath.moveTo(px, py);
           blankPath.lineTo(cx, cy);
         }
-        // Pen-Up: Position merken, KEIN Zeichnen
-        // Nächster Non-Blank zeichnet VON hier → erste Polygonkante bleibt erhalten!
+        // Pen-Up: remember position, NO drawing
+        // Next Non-Blank draws FROM here → first polygon edge preserved!
         px = cx; py = cy;
         continue;
       }
@@ -129,7 +129,7 @@ function render(ctx, pts, W, H=W) {
       // Allererster Punkt: nur Position merken
       if (px === null) { px = cx; py = cy; continue; }
 
-      // Linie von letzter Position (blank oder non-blank) nach hier
+      // line from last position (blank or non-blank) to here
       const qk = quantCol(p.r, p.g, p.b);
       if (!paths.has(qk)) {
         paths.set(qk, new Path2D());
@@ -151,7 +151,7 @@ function render(ctx, pts, W, H=W) {
     }
   }
 
-  // ── Blanking-Sprünge rendern (dünne rote gestrichelte Linien) ──
+  // ── render blanking jumps (thin red dashed lines) ──
   if (blankPath && RO.showBlanking) {
     ctx.save();
     ctx.lineWidth = 0.5;

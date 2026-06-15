@@ -1,7 +1,7 @@
 #pragma once
 #include <atomic>
 /**
- * config.h -- Laufzeit-Konfiguration and gemeinsame Datentypen
+ * config.h -- runtime configuration and shared data types
  */
 
 #include <Arduino.h>
@@ -15,37 +15,37 @@ constexpr uint16_t GALVO_RATE_HZ      = GALVO_SAMPLE_RATE_HZ;
 constexpr size_t   PATTERN_POINTS_MAX = 2048;
 
 enum DmxChannel : uint8_t {
-    // ── default Pattern-Steuerung (CH 1-16) ──────────────────────────
-    DMX_MASTER = 0,     // CH 1:  Master-Dimmer 0-255
+    // ── default pattern control (CH 1-16) ────────────────────────────
+    DMX_MASTER = 0,     // CH 1:  master dimmer 0-255
     DMX_COLOR,          // CH 2:  Color Preset 0-255
-    DMX_COLOR_SPEED,    // CH 3:  Farb-Animations-speed
-    DMX_PATTERN_GROUP,  // CH 4:  Pattern Group (0=Geometrie,1=Wellen...)
-    DMX_PATTERN_SELECT, // CH 5:  Pattern innerhalb Gruppe 0-255
-    DMX_DYN_EFFECT,     // CH 6:  Dynamischer Effekt (Rotation, Pulse...)
-    DMX_EFFECT_SPEED,   // CH 7:  Effekt-speed
+    DMX_COLOR_SPEED,    // CH 3:  color animation speed
+    DMX_PATTERN_GROUP,  // CH 4:  Pattern Group (0=Geometry, 1=Waves...)
+    DMX_PATTERN_SELECT, // CH 5:  pattern within group 0-255
+    DMX_DYN_EFFECT,     // CH 6:  Dynamic effect (Rotation, Pulse...)
+    DMX_EFFECT_SPEED,   // CH 7:  Effect speed
     DMX_SIZE,           // CH 8:  size/scaling 0-255
     DMX_AUTO_SCALE,     // CH 9:  auto-scaling on/off
     DMX_ROTATION,       // CH 10: Rotation 0-255 (0-360)
-    DMX_HFLIP,          // CH 11: Horizontal spiegeln (0=normal, 128+=flip)
-    DMX_VFLIP,          // CH 12: Vertikal spiegeln
-    DMX_HMOVE,          // CH 13: Horizontale Position
-    DMX_VMOVE,          // CH 14: Vertikale Position
-    DMX_WAVE_AMP,       // CH 15: Wave Amplitude (for Wellen-Patterns)
+    DMX_HFLIP,          // CH 11: Horizontal flip (0=normal, 128+=flip)
+    DMX_VFLIP,          // CH 12: Vertical flip
+    DMX_HMOVE,          // CH 13: Horizontal position
+    DMX_VMOVE,          // CH 14: Vertical position
+    DMX_WAVE_AMP,       // CH 15: Wave Amplitude (for wave patterns)
     DMX_WAVE_FREQ,      // CH 16: Wave Frequency
 
     // ── ILDA SD-Card Player (CH 17-22) ──────────────────────────────
-    // Einfach in vorhandene DMX-Tabelle einreihen, no Luecken
+    // Appended to existing DMX table, no gaps
     DMX_ILDA_SELECT,    // CH 17: 0=off, 1-40=file 1-40, 255=last
-    DMX_ILDA_SPEED,     // CH 18: Abspiel-speed 0-255
+    DMX_ILDA_SPEED,     // CH 18: Playback speed 0-255
     DMX_ILDA_SIZE,      // CH 19: scaling 0-255 (128=original)
-    DMX_ILDA_LOOP,      // CH 20: 0=einmal, 1-255=endlos
+    DMX_ILDA_LOOP,      // CH 20: 0=once, 1-255=loop
     DMX_ILDA_BRIGHT,    // CH 21: brightness override 0-255 (255=use dimmer)
-    DMX_ILDA_REPEAT,    // CH 22: Frame-Repeat 0=normal, 1-255=langsamer
+    DMX_ILDA_REPEAT,    // CH 22: Frame repeat 0=normal, 1-255=slower
 
-    DMX_CHANNELS_USED = 22  // Gesamt: 22 DMX-channels
+    DMX_CHANNELS_USED = 22  // total: 22 DMX channels
 };
 
-// DMX-channel-Beschreibungen (for WebUI and Dokumentation)
+// DMX channel names (for WebUI and documentation)
 static const char* DMX_CHANNEL_NAMES[22] = {
     "Master Dimmer",        // 1
     "Color Preset",          // 2
@@ -77,15 +77,15 @@ enum ControlSource : uint8_t {
 };
 
 struct __attribute__((packed)) LaserPoint {
-    int16_t  x, y;          // 4 Bytes: Galvo-Position ±32767
-    uint8_t  r, g, b;       // 3 Bytes: color 0-255
+    int16_t  x, y;          // 4 bytes: galvo position ±32767
+    uint8_t  r, g, b;       // 3 bytes: color 0-255
     uint8_t  blank;         // 1 byte:  1 = beam off (blanking)
 
-    // Konstruktor for Brace-Initialization (packed verhindert aggregate-init)
+    // Constructor for brace-initialization (packed prevents aggregate-init)
     LaserPoint() : x(0), y(0), r(0), g(0), b(0), blank(0) {}
     LaserPoint(int16_t x, int16_t y, uint8_t r, uint8_t g, uint8_t b, uint8_t blank)
         : x(x), y(y), r(r), g(g), b(b), blank(blank) {}
-};                          // = 8 Bytes exakt
+};                          // = exactly 8 bytes
 static_assert(sizeof(LaserPoint) == 8, "LaserPoint padding check");
 
 struct RuntimeConfig {
@@ -109,7 +109,7 @@ struct RuntimeConfig {
     uint16_t  dac_limit_min  = 0x0666;
     uint16_t  dac_limit_max  = 0xF999;
 
-    // white balance — berechnet from Laser-Spezifikation:
+    // white balance — calculated from laser specification:
     // R=1000mW × sens(638nm,0.265) = 265 mW_vis
     // G=1000mW × sens(520nm,0.710) = 710 mW_vis
     // B=3000mW × sens(445nm,0.040) = 120 mW_vis  <- weakest
@@ -117,8 +117,8 @@ struct RuntimeConfig {
     uint8_t   gain_r = 115;   // 1000mW × 45% × 0.265 ≈ 120 mW_vis ✓
     uint8_t   gain_g =  43;   // 1000mW × 17% × 0.710 ≈ 120 mW_vis ✓
     uint8_t   gain_b = 255;   // 3000mW ×100% × 0.040 = 120 mW_vis ✓
-    bool      gamma_enable = true;   // Gamma-Korrektur γ=2.2
-    float     gamma_val    = 2.2f;   // einstellbar 1.0–3.0 via WebUI
+    bool      gamma_enable = true;   // gamma correction γ=2.2
+    float     gamma_val    = 2.2f;   // adjustable 1.0–3.0 via WebUI
 
     uint16_t  scanfail_timeout_ms = 50;
     uint16_t  watchdog_period_ms  = 100;
@@ -135,22 +135,22 @@ struct RuntimeConfig {
     bool      safety_override = false;
     bool      dac_debug_log   = false;  // log DAC8562 writes (hex) to Serial+UI, rate-limited
 
-    // network: DHCP or Statisch
+    // network: DHCP or static
     bool      wifi_static   = false;
-    char      wifi_ip[16]   = {0};      // z.B. "192.168.1.100"
-    char      wifi_gw[16]   = {0};      // z.B. "192.168.1.1"
-    char      wifi_mask[16] = {0};      // z.B. "255.255.255.0"
-    char      wifi_dns[16]  = {0};      // z.B. "8.8.8.8"
+    char      wifi_ip[16]   = {0};      // e.g. "192.168.1.100"
+    char      wifi_gw[16]   = {0};      // e.g. "192.168.1.1"
+    char      wifi_mask[16] = {0};      // e.g. "255.255.255.0"
+    char      wifi_dns[16]  = {0};      // e.g. "8.8.8.8"
 
-    // SHA-256 Hex (64 char) des Passworts. Default: leer = "laser"
+    // SHA-256 hex (64 chars) of the password. Default: empty = "laser"
     char      auth_hash[65] = {0};
 };
 
 extern RuntimeConfig gConfig;
 
 struct RuntimeState {
-    // ── safetyskritische Flags → std::atomic (FIX: Race Condition) ──
-    // atomic<> garantiert atomare Lese/Schreib-Operationen ohne Mutex.
+    // ── safety-critical flags → std::atomic (FIX: race condition) ──
+    // atomic<> guarantees atomic read/write operations without a mutex.
     // No lock needed, no overhead -- ideal for frequently read flags.
     std::atomic<bool>     laser_armed       {false};
     std::atomic<bool>     estop_ok          {false};
@@ -183,7 +183,7 @@ extern WebOverride gOverride;
 // Pattern buffer snapshot for preview (atomically filled by pattern task)
 struct PreviewSnapshot {
     SemaphoreHandle_t mux;
-    LaserPoint        points[512];   // gesampelter Subset
+    LaserPoint        points[512];   // sampled subset
     size_t            count;
 };
 
@@ -200,10 +200,10 @@ struct LivePresetControls {
     volatile uint8_t  col_g      = 255;
     volatile uint8_t  col_b      = 255;
     volatile bool     col_override = false;
-    volatile int16_t  rotation   = 0;   // Z-Achse (Grad)
-    volatile bool     rot_x      = false;  // X-Achse active
-    volatile bool     rot_y      = false;  // Y-Achse active
-    volatile bool     rot_z      = false;  // Z-Achse — off by default
+    volatile int16_t  rotation   = 0;   // Z-axis (degrees)
+    volatile bool     rot_x      = false;  // X-axis active
+    volatile bool     rot_y      = false;  // Y-axis active
+    volatile bool     rot_z      = false;  // Z-axis — off by default
     volatile float    rot_speed_x = 0.015f;
     volatile float    rot_speed_y = 0.018f;
     volatile float    rot_speed_z = 0.020f;
@@ -213,16 +213,16 @@ struct LivePresetControls {
     volatile bool     mirror_x   = false;
     volatile bool     mirror_y   = false;
     volatile uint8_t  trail      = 0;
-    volatile uint8_t  pattern_idx = 0;   // Encor: aktueller Preset-Index
+    volatile uint8_t  pattern_idx = 0;   // encoder: current preset index
     // Wave parameters (apply to all wave patterns #35-52)
-    volatile float    wave_amp   = 1.0f;  // 0.1 – 2.0  (Amplituden-Faktor)
-    volatile float    wave_freq  = 1.0f;  // 0.25 – 4.0 (Frequenz-Multiplikator)
+    volatile float    wave_amp   = 1.0f;  // 0.1 – 2.0  (amplitude factor)
+    volatile float    wave_freq  = 1.0f;  // 0.25 – 4.0 (frequency multiplier)
 };
 
 extern LivePresetControls gLivePreset;
 
 /* ============================================================
- * Text-Konfiguration
+ * Text configuration
  * ============================================================ */
 enum TextFont   : uint8_t { FONT_SIMPLE=0, FONT_BOLD=1, FONT_OUTLINE=2 };
 enum TextAnim   : uint8_t {
@@ -242,7 +242,7 @@ struct TextConfig {
     uint8_t   col_g       = 255;
     uint8_t   col_b       = 255;
     bool      rainbow     = false;
-    bool      active      = false;   // Text-Modus active (ueberschreibt Preset + DMX)
+    bool      active      = false;   // text mode active (overrides preset + DMX)
 };
 
 extern TextConfig gTextConfig;
@@ -255,14 +255,14 @@ extern TextConfig gTextConfig;
 
 
 /* ============================================================
- * Safety-Konfiguration (Feature 5) — temperaturbasiert
+ * Safety configuration (Feature 5) — temperature-based
  * ============================================================ */
 struct SafetyConfig {
-    uint8_t  temp_warn_c     = 45;   // C → Fan 100%
-    uint8_t  temp_reduce_c   = 55;   // C → Laserleistung 50%
-    uint8_t  temp_shutdown_c = 70;   // C → Sofortabschaltung
-    uint8_t  fan_min_pct     = 15;   // % Mindest-PWM beim Anlauf
-    bool     fan_auto        = true; // Automatische Fandrehzahl
+    uint8_t  temp_warn_c     = 45;   // C → fan 100%
+    uint8_t  temp_reduce_c   = 55;   // C → laser power 50%
+    uint8_t  temp_shutdown_c = 70;   // C → immediate shutdown
+    uint8_t  fan_min_pct     = 15;   // % minimum PWM for startup
+    bool     fan_auto        = true; // automatic fan speed
 };
 extern SafetyConfig gSafety;
 
@@ -272,8 +272,8 @@ extern SafetyConfig gSafety;
 #define PLAYLIST_MAX_ENTRIES  32
 struct PlaylistEntry {
     uint8_t  file_idx;      // SD-file-Index
-    uint8_t  loop_count;    // 0 = endlos
-    uint16_t pause_ms;      // Pause nach diesem entry
+    uint8_t  loop_count;    // 0 = infinite loop
+    uint16_t pause_ms;      // pause after this entry
 };
 struct PlaylistConfig {
     bool          active      = false;

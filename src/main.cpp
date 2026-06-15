@@ -248,7 +248,7 @@ void setup() {
     safety::init();
     galvo::init();
 
-    // ── FIX 9: Task-Start-Helfer ──────────────────────────────
+    // ── FIX 9: task start helper ──────────────────────────────
     ilda::init();
     // NOTE: sd_card::init() is called AFTER galvo::start() below.
     // SPIClass(FSPI).begin() must not run while SPI2 DAC self-test is active.
@@ -324,7 +324,7 @@ void setup() {
     startTask(dmx_in::task,   "dmx_rx",  4096, 5, 0);
     startTask(temp::task,     "temp",    3072, 1, 0);
     startTask(modeSwitchTask, "modesw",  2048, 3, 0);
-    startTask(web_ui::task,   "webui",   10240, 3, 0); // p=3: unter safety/dmx
+    startTask(web_ui::task,   "webui",   10240, 3, 0); // p=3: below safety/dmx
     startTask(wifiWatchdogTask, "wifi_wd", 3072, 2, 0);
     if (WiFi.status() == WL_CONNECTED) {
         startTask(artnet_in::task,  "artnet", 4096, 3, 0);
@@ -333,7 +333,7 @@ void setup() {
     }
 
     // Galvo task on core 1 uses busy-wait (50 kHz, 20us loop).
-    // IDLE1 (Core 1) bekommt dadurch kaum CPU-Zeit -> WDT wuerde feuern.
+    // IDLE1 (Core 1) gets almost no CPU time → WDT would fire.
     // Solution: remove IDLE1 from WDT monitoring.
     // IDLE0 (core 0) stays monitored -- safety net for all other tasks.
     {
@@ -357,16 +357,16 @@ void setup() {
     //    safety(6) > dmx_rx(5) > webui(4) > artnet(4) > edream(4)
     //    > pattern(4) > encor(3) > playlist(3) > temp(3) > modesw(3)
     //
-    //  Core 1 (EXKLUSIV for Echtzeit):
+    //  Core 1 (EXCLUSIVE for real-time):
     //    galvoTask(configMAX_PRIORITIES-1) — Busy-Wait 50kHz
     //    -> no other task on core 1!
     //    → patterns::task liefert Frames via Ring-Buffer (thread-sicher)
     // ══════════════════════════════════════════════════════════
     // FIX 2: patterns::task on core 0 (not core 1!)
-    // Core 1 = exklusiv galvoTask (Busy-Wait, hoechste Prioritaet)
+    // Core 1 = exclusive for galvoTask (busy-wait, highest priority)
     // -> patterns::task on core 1 would starve (task starvation)
     // → Core 0 shares CPU fairly (FreeRTOS round-robin at equal priority)
-    startTask(patterns::task, "pattern", 8192,  2, 0); // p=2: Preview-Berechnung
+    startTask(patterns::task, "pattern", 8192,  2, 0); // p=2: preview calculation
     galvo::start();   // starts galvoTask on core 1 at highest priority
 
     // SD card init runs in a separate one-shot task on Core 0.

@@ -1,7 +1,7 @@
 /**
- * text_renderer.cpp — Vektor-Text for Laser
+ * text_renderer.cpp — vector text renderer for laser
  * v1.1 — Fixes:
- *   - Typewriter: temporaerer String, wirklich only N Zeichen gerendert
+ *   - Typewriter: temporary string, truly only N characters rendered
  *   - Blanking between letters: explicit blank point after each glyph
  */
 #include "text_renderer.h"
@@ -13,7 +13,7 @@ namespace textrender {
 
 // ============================================================
 // Stroke-Font  (x,y) Paare, x=127 = Pen-Up, Terminator = {127,127}
-// Koordinatenraum: x ∈ [-5,5], y ∈ [-7,7]  (+y = oben)
+// coordinate space: x ∈ [-5,5], y ∈ [-7,7]  (+y = up)
 // renderGlyph: screen_y = oy - sy * sc  →  y-Flip korrekt
 // ============================================================
 
@@ -93,7 +93,7 @@ static const FontGlyph GLYPHS[] = {
 static const int GLYPH_COUNT = (int)(sizeof(GLYPHS) / sizeof(GLYPHS[0]));
 
 // ============================================================
-// addPt — Hilfsfunktion
+// addPt — helper function
 // ============================================================
 static inline void addPt(LaserPoint* o, size_t& n, size_t max,
                           float x, float y, uint8_t r, uint8_t g, uint8_t b,
@@ -112,8 +112,8 @@ static inline void addPt(LaserPoint* o, size_t& n, size_t max,
 //   so the caller can set a clean blank point.
 // ============================================================
 struct GlyphResult {
-    float last_x, last_y;   // letzte gezeichnete Koordinate (for Blanking)
-    bool  had_points;        // true if tatsaechlich Punkte ausgegeben wurden
+    float last_x, last_y;   // last drawn coordinate (for blanking)
+    bool  had_points;        // true if any points were actually output
 };
 
 static GlyphResult renderGlyph(LaserPoint* out, size_t& n, size_t max,
@@ -130,7 +130,7 @@ static GlyphResult renderGlyph(LaserPoint* out, size_t& n, size_t max,
         if (sx == PU) { pen_up = true; continue; }
 
         float x = ox + sx * sc;
-        float y = oy + sy * sc;  // no Flip — +y=oben in Font and Laser   // +y im Font = oben = positives y im Laserraum
+        float y = oy + sy * sc;  // no flip — +y=up in font and laser space
 
         addPt(out, n, max, x, y, r, g, b, pen_up ? 1 : 0);
 
@@ -193,14 +193,14 @@ static size_t renderTextString(LaserPoint* out, size_t max,
     for (int ci = 0; ci < text_len && text[ci]; ci++) {
         char c = toupper((unsigned char)text[ci]);
 
-        // Glyph-Suche
+        // glyph lookup
         const FontGlyph* glyph = nullptr;
         for (int i = 0; i < GLYPH_COUNT; i++) {
             if (GLYPHS[i].ch == (uint8_t)c) { glyph = &GLYPHS[i]; break; }
         }
         if (!glyph) { cx += 10.f * sc; continue; }
 
-        // Wave: Y-Versatz per Buchstabe
+        // Wave: Y offset per character
         float char_ty = ty;
         if (wave_on) char_ty += sinf(wave_t + ci * 0.6f) * sc * 3.f;
 
@@ -221,7 +221,7 @@ static size_t renderTextString(LaserPoint* out, size_t max,
             }
         }
 
-        // Glyph rendern
+        // render glyph
         GlyphResult gr = renderGlyph(out, n, max,
                                       glyph->strokes, cx, char_ty, sc,
                                       r, g, b, bold);
@@ -235,7 +235,7 @@ static size_t renderTextString(LaserPoint* out, size_t max,
         // Without this explicit blank the galvo would draw the path with
         // through with the laser still active -> visible drag line.
         if (gr.had_points && n < max) {
-            // Naechste Zeichenposition bestimmen (wave-korrigiert falls active)
+            // determine next character position (wave-corrected if active)
             float next_ty = ty;
             if (wave_on && text[ci+1])
                 next_ty += sinf(wave_t + (ci+1) * 0.6f) * sc * 3.f;
@@ -244,7 +244,7 @@ static size_t renderTextString(LaserPoint* out, size_t max,
         // ────────────────────────────────────────────────────────────────
     }
 
-    // Rotation um Ursprung anwenden
+    // apply rotation around origin
     if (fabsf(rot) > 0.001f) {
         const float cos_r = cosf(rot), sin_r = sinf(rot);
         for (size_t i = 0; i < n; i++) {
@@ -258,7 +258,7 @@ static size_t renderTextString(LaserPoint* out, size_t max,
 }
 
 // ============================================================
-// generate — oeffentliche Schnittstelle
+// generate — public interface
 // ============================================================
 size_t generate(LaserPoint* out, size_t max_pts, const TextConfig& cfg, uint32_t phase) {
     if (!cfg.active || !cfg.text[0]) return 0;
@@ -306,11 +306,11 @@ size_t generate(LaserPoint* out, size_t max_pts, const TextConfig& cfg, uint32_t
 
         case TANIM_TYPEWRITER: {
             // frames-per-char: at speed=80 -> 38 frames -> ~1 char/s
-            // phase is ~40x/s inkrementiert (25ms Task-period)
+            // phase is incremented ~40x/s (25ms task period)
             const int fpc     = max(4, (int)(255 * 12 / max(1, (int)cfg.speed)));
             const int tw_cycle = full_len + 3;  // +3 = pause at end
             int visible = (int)(safe_phase / fpc) % tw_cycle;
-            if (visible > full_len) visible = full_len;  // Pause zeigt ganzen Text
+            if (visible > full_len) visible = full_len;  // pause shows full text
 
             if (visible == 0) return 0;
 

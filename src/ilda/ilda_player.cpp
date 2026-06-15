@@ -2,7 +2,7 @@
  * ilda_player.cpp -- ILDA .ild file player
  *
  * ILDA binary format (big-endian):
- *   Jeder Section-Header: 32 Bytes
+ *   Each section header: 32 bytes
  *     bytes  0- 3: "ILDA"  magic
  *     Bytes  4- 6: reserved (0)
  *     Byte   7:    Format-ID
@@ -14,13 +14,13 @@
  *     Byte  30:    Scanner-Head
  *     Byte  31:    reserved
  *
- * Punkt-Formate:
+ * Point formats:
  *   Fmt 0 (3D indexed):   X(i16), Y(i16), Z(i16), Status(u8), ColorIdx(u8) = 8B
  *   Fmt 1 (2D indexed):   X(i16), Y(i16),          Status(u8), ColorIdx(u8) = 6B
  *   Fmt 4 (3D true-color):X(i16), Y(i16), Z(i16), Status(u8), B(u8), G(u8), R(u8) = 10B (1 Pad)
  *   Fmt 5 (2D true-color): X(i16), Y(i16),         Status(u8), B(u8), G(u8), R(u8) = 8B (1 Pad)
  *
- * Status-Byte: Bit 6 = Blanking (1=Laser from)
+ * Status byte: Bit 6 = Blanking (1=laser off)
  */
 #include "ilda_player.h"
 #include "storage/sd_card.h"
@@ -35,7 +35,7 @@ static const char* TAG = "ilda";
 
 namespace ilda {
 
-// ── Globaler Zustand ────────────────────────────────────────────────
+// ── global state ────────────────────────────────────────────────────
 ILDAConfig gILDA;
 
 // ── ILDA default color palette (64 colors, indexed format) ──────
@@ -56,11 +56,11 @@ static const uint8_t ILDA_PALETTE[64][3] = {
 // ── Frame structure in PSRAM ──────────────────────────────────────
 struct ILDAFrame {
     uint16_t    point_count;
-    LaserPoint* points;      // zeigt in PSRAM-Pool
+    LaserPoint* points;      // points into PSRAM pool
 };
 
 static ILDAFrame*   s_frames     = nullptr;  // array in PSRAM
-static LaserPoint*  s_point_pool = nullptr;  // Grosser PSRAM-Block
+static LaserPoint*  s_point_pool = nullptr;  // large PSRAM block
 static uint16_t     s_frame_count = 0;
 static volatile uint16_t s_play_frame = 0;
 static volatile bool     s_has_new   = false;
@@ -87,7 +87,7 @@ static inline int16_t  bei16(uint8_t* p) { return (int16_t)be16(p); }
 
 // ── load file and all frames into PSRAM buffer ─────────────────
 static bool loadILDA(const char* path) {
-    // Vorherigen Speicher freigeben
+    // free previous allocation
     if (s_frames)    { heap_caps_free(s_frames); s_frames = nullptr; }
     if (s_point_pool){ heap_caps_free(s_point_pool); s_point_pool = nullptr; }
     s_frame_count = 0;
@@ -99,7 +99,7 @@ static bool loadILDA(const char* path) {
         return false;
     }
 
-    // ── Pass 1: Zaehlen (Frames + Punkte gesamt) ──────────────────
+    // ── Pass 1: count (total frames + points) ────────────────────
     uint16_t total_frames = 0;
     uint32_t total_points = 0;
     uint8_t  hdr_buf[32];
@@ -135,12 +135,12 @@ static bool loadILDA(const char* path) {
         return false;
     }
 
-    // ── PSRAM allozieren ─────────────────────────────────────────
+    // ── allocate PSRAM ───────────────────────────────────────────
     s_frames = (ILDAFrame*)ps_malloc(total_frames * sizeof(ILDAFrame));
     s_point_pool = (LaserPoint*)ps_malloc(total_points * sizeof(LaserPoint));
 
     if (!s_frames || !s_point_pool) {
-        ESP_LOGE(TAG, "PSRAM-Allokation failed (frames=%u, points=%u)",
+        ESP_LOGE(TAG, "PSRAM allocation failed (frames=%u, points=%u)",
                  total_frames, total_points);
         if (s_frames) { heap_caps_free(s_frames); s_frames = nullptr; }
         if (s_point_pool) { heap_caps_free(s_point_pool); s_point_pool = nullptr; }
@@ -148,7 +148,7 @@ static bool loadILDA(const char* path) {
         return false;
     }
 
-    // ── Pass 2: Daten einlesen ───────────────────────────────────
+    // ── Pass 2: read data ─────────────────────────────────────────
     f.seek(0);
     uint32_t pool_offset = 0;
     uint16_t fi = 0;
@@ -164,7 +164,7 @@ static bool loadILDA(const char* path) {
         s_frames[fi].point_count = npts;
         s_frames[fi].points = &s_point_pool[pool_offset];
 
-        uint8_t raw[10];  // max. 10 Byte pro Punkt
+        uint8_t raw[10];  // max. 10 bytes per point
         uint8_t pt_size = (fmt==0)?8 : (fmt==1)?6 : (fmt==4)?10 : 8;
 
         for (uint16_t pi = 0; pi < npts; pi++) {

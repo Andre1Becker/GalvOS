@@ -80,7 +80,7 @@ extern TempState gTempState;
 // Initialization (after galvo::init() call)
 void init();
 
-// FreeRTOS-Task (Core 0, Prioritaet 3)
+// FreeRTOS task (Core 0, priority 3)
 void task(void*);
 
 // Manually override fans (0-100%, 255=auto)

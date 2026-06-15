@@ -284,7 +284,7 @@ static void streamPreviewToWs() {
 }
 
 /* ============================================================
- * WiFi-Scan Task (Hintergrand, blockierend ~3s)
+ * WiFi scan task (background, blocking ~3s)
  * ============================================================ */
 static void wifiScanTask(void*) {
     s_scan_running = true;
@@ -310,7 +310,7 @@ void init() {
 
     // ---- Statische SPA ----
     // register serveStatic at end -- API routes take precedence
-    // (is further unten direkt vor s_server.begin() aufgerufen)
+    // (called further below, directly before s_server.begin())
 
     // ---- GET /api/state ----
     s_server.on("/api/state", HTTP_GET, [](AsyncWebServerRequest* req) {
@@ -466,7 +466,7 @@ void init() {
         req->send(200, "application/json", out);
     });
 
-    // ---- POST /api/preset ----  Preset activeieren/deactiveieren
+    // ---- POST /api/preset ---- activate/deactivate preset
     s_server.on("/api/preset", HTTP_POST,
         [](AsyncWebServerRequest* req) {},
         nullptr,
@@ -506,7 +506,7 @@ void init() {
             req->send(200, "text/plain", "OK");
         });
 
-    // ---- POST /api/preset-live ---- Echtzeit-Parameter for laufendes Preset
+    // ---- POST /api/preset-live ---- real-time parameters for running preset
     s_server.on("/api/preset-live", HTTP_POST,
         [](AsyncWebServerRequest* req) {},
         nullptr,
@@ -536,7 +536,7 @@ void init() {
             req->send(200, "text/plain", "OK");
         });
 
-    // ---- POST /api/text ---- Text-Modus
+    // ---- POST /api/text ---- text mode
     // ── /api/curves GET — curve state + param definitions ───────────────────
     s_server.on("/api/curves", HTTP_GET, [](AsyncWebServerRequest* req) {
         // Initialize defaults on first access
@@ -849,7 +849,7 @@ void init() {
         });
 
 
-    // ── Feature 5: Safety-Konfiguration ───────────────────────
+    // ── Feature 5: safety configuration ──────────────────────
     s_server.on("/api/safety/config", HTTP_GET, [](AsyncWebServerRequest* req) {
         JsonDocument doc;
         doc["temp_warn"]     = gSafety.temp_warn_c;
@@ -1055,7 +1055,7 @@ void init() {
                 s_upload_file.write(data, len);
             if (final && s_upload_file) {
                 s_upload_file.close();
-                ESP_LOGI("upload", "Fertig: %s (%u Bytes)", filename.c_str(), index+len);
+                ESP_LOGI("upload", "Done: %s (%u bytes)", filename.c_str(), index+len);
             }
         });
 
@@ -1347,9 +1347,9 @@ void init() {
 
     // ---- GET /api/status ---- dashboard state (browser polls every 1-2s) ----
     s_server.on("/api/status", HTTP_GET, [](AsyncWebServerRequest* req) {
-        // No JsonDocument/serializeJson — direktes sprintf spart Heap + CPU
+        // No JsonDocument/serializeJson — direct sprintf saves heap + CPU
         static char buf[512];
-        // OTA-Passwort for Dashboard anzeigen (Chip-ID-basiert)
+        // OTA password for dashboard (chip-ID based)
         char ota_pw[12];
         snprintf(ota_pw, sizeof(ota_pw), "%08X",
                  (uint32_t)(ESP.getEfuseMac() >> 16));
@@ -1687,9 +1687,9 @@ void task(void*) {
     // This greatly reduces core 0 load: no JSON serialization in the task loop.
     for (;;) {
         s_ws.cleanupClients(2);
-        streamPreviewToWs();           // only if s_preview_active && 200ms abgelaufen
+        streamPreviewToWs();           // only if s_preview_active && 200ms elapsed
         cpu_mon::update();             // has internal 500ms rate-limit
-        vTaskDelay(pdMS_TO_TICKS(20)); // kurzes Delay, streamPreviewToWs hat eigenen Rate-Limit
+        vTaskDelay(pdMS_TO_TICKS(20)); // short delay; streamPreviewToWs has its own rate-limit
     }
 }
 

@@ -1575,8 +1575,8 @@ async function apiCall(method, url, body) {
     const r = await fetch(url, opts);
     if (!r.ok) {
       // Try to extract a structured error message from the response body
-      // ({"error":"..."}); fall back to generic "Fehler <status>".
-      let msg = 'Fehler ' + r.status;
+      // ({"error":"..."}); fall back to generic "Error <status>".
+      let msg = 'Error ' + r.status;
       try {
         const ct = r.headers.get('content-type') || '';
         if (ct.includes('json')) {
@@ -1595,7 +1595,7 @@ async function apiCall(method, url, body) {
     }
     const ct = r.headers.get('content-type') || '';
     return ct.includes('json') ? await r.json() : await r.text();
-  } catch(e) { toast('Network-Fehler', true); return null; }
+  } catch(e) { toast('Network error', true); return null; }
 }
 
 
@@ -2764,7 +2764,7 @@ async function pollScanResults() {
     document.getElementById('scan-status').textContent = `${nets.length} network(s) found`;
   } catch(e) {
     clearInterval(s_scanTimer); s_scanTimer = null;
-    document.getElementById('scan-status').textContent = 'Fehler beim Scan';
+    document.getElementById('scan-status').textContent = 'Scan error';
   }
 }
 
