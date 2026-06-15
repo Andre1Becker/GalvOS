@@ -24,7 +24,6 @@
 #include "net/ota_update.h"
 #include "net/etherdream.h"
 #include "storage/playlist.h"
-
 #include "ilda/ilda_player.h"
 #include "net/artnet_in.h"
 #include "net/ntp_client.h"

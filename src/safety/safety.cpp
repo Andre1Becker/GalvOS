@@ -21,7 +21,7 @@ void init() {
     pinMode(PIN_WATCHDOG_OUT, OUTPUT);
     digitalWrite(PIN_LASER_ENABLE, LOW);
     digitalWrite(PIN_WATCHDOG_OUT, LOW);
-
+    s_last_heartbeat_ms = millis();  // prevent watchdog timeout before loop() starts
     ESP_LOGI(TAG, "Safety initialized -- laser disabled at boot");
 }
 
