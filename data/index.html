@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-<title>Laser Controller</title>
+<title>GalvOS - Laser Controller</title>
 <style>
   :root {
     --bg: #0a0a0a; --panel: #161616; --panel2: #1f1f1f;
@@ -188,9 +188,9 @@
 <body>
 
 <header>
-  <h1>🚀 Mikoy Laser</h1>
+  <h1>GalvOS Laser Controller</h1>
   <div class="status">
-    <span id="conn-pill" class="pill">verbinde…</span>
+    <span id="conn-pill" class="pill">connecting…</span>
     <span id="armed-pill" class="pill disarmed" title="">DISARMED</span>
     <span id="active-mode-pill" class="pill" style="display:none"></span>
     <span id="ui-override-pill" class="pill" style="display:none;background:var(--accent);color:#fff">🖥 UI</span>
@@ -330,7 +330,7 @@
       <div id="v-sd-status" style="font-size:11px;color:var(--dim);min-height:14px;margin-top:4px"></div>
       <div class="stat-row"><span>HTTP-OTA Pass</span><span id="dash-ota-pass" class="val" style="font-family:monospace;color:var(--warn)">--</span></div>
       <div class="stat-row"><span>API Token</span><span id="dash-auth-token" class="val" style="font-family:monospace;font-size:11px;color:var(--dim);cursor:pointer" title="Click to copy" onclick="navigator.clipboard?.writeText(this.textContent);this.style.color='var(--ok)';setTimeout(()=>this.style.color='',1200)">--</span></div>
-      <div style="font-size:11px;color:var(--dim);margin-top:4px">OTA: <code>http://laser.local/update</code> · User: <code>admin</code><br>API write access requires <code>X-Auth: &lt;token&gt;</code> header</div>
+      <div style="font-size:11px;color:var(--dim);margin-top:4px">OTA: <code>http://laser/update</code> · User: <code>admin</code><br>API write access requires <code>X-Auth: &lt;token&gt;</code> header</div>
     </div>
   </div>
 </section>
@@ -346,13 +346,13 @@
       <strong style="color:var(--warn)">DISARM</strong> recommended for safe switching while the laser is running.
     </p>
 
-    <!-- Aktiv-Anzeige + Deactiveieren -->
+    <!-- Active-inactive diplay -->
     <div style="display:flex;gap:12px;align-items:center;margin-bottom:16px;flex-wrap:wrap">
       <div>Active: <span id="preset-active-name" style="color:var(--blue);font-weight:600">-- none --</span></div>
       <button class="btn secondary" onclick="deactivatePreset()">⏹ Preset off</button>
     </div>
 
-    <!-- Kategorie-Filter -->
+    <!-- Category-Filter -->
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px" id="cat-filters"></div>
 
     <!-- Preset-Grid -->
@@ -416,7 +416,7 @@
       <input type="range" id="lv-sp" min="0" max="255" value="80" oninput="liveSlider()">
       <label>Size  <span id="lv-sz-val" style="color:var(--accent);font-family:monospace">128</span></label>
       <input type="range" id="lv-sz" min="10" max="255" value="128" oninput="liveSlider()">
-      <label>Rotation (2D / Z-Achse)  <span id="lv-rot-val" style="color:var(--accent);font-family:monospace">0°</span></label>
+      <label>Rotation (2D / Z axis)  <span id="lv-rot-val" style="color:var(--accent);font-family:monospace">0°</span></label>
       <input type="range" id="lv-rot" min="-180" max="180" value="0" oninput="liveSlider()">
       <div style="margin-top:12px;padding:10px;background:#050510;border:1px solid var(--border);border-radius:6px">
         <div style="font-family:monospace;font-size:10px;color:var(--accent);margin-bottom:8px">AUTO-ROTATION</div>
@@ -504,7 +504,7 @@
 
     <div class="card">
       <h2>🌊 Wave Parameters</h2>
-      <p style="color:var(--dim);font-size:12px;margin-bottom:12px">Applies to patterns #35-52 (waves-Kategorie).</p>
+      <p style="color:var(--dim);font-size:12px;margin-bottom:12px">Applies to patterns #35-52 (waves-category).</p>
       <label>Amplitude <span id="lv-amp-val" style="color:var(--accent);font-family:monospace">1.00</span></label>
       <input type="range" id="lv-amp" min="10" max="200" value="100" oninput="liveSlider()">
       <label>Frequency x <span id="lv-freq-val" style="color:var(--accent);font-family:monospace">1.00</span></label>
@@ -606,11 +606,11 @@
       <p style="color:var(--dim);font-size:12px;margin-bottom:12px">
         Text overrides presets and DMX. Only uppercase A-Z, 0-9 and .,:!?-+
       </p>
-      <label>Text eingeben</label>
+      <label>Enter text</label>
       <input id="tx-text" type="text" maxlength="40" placeholder="HELLO WORLD"
              style="font-size:16px;font-family:monospace;letter-spacing:0.1em">
 
-      <label>Schriftart</label>
+      <label>Font</label>
       <select id="tx-font">
         <option value="0">Simple (thin, fast)</option>
         <option value="1">Bold (thick stroke)</option>
@@ -983,10 +983,10 @@
   <div class="grid cols-2">
 
     <div class="card">
-      <h2>DMX & Art-Net</h2>
+      <h2>DMX and Art-Net</h2>
       <label>DMX Start Address (1–512)</label>
       <input id="cfg-addr" type="number" min="1" max="497">
-      <label>Art-Net Universum (0–32767)</label>
+      <label>Art-Net Universe (0–32767)</label>
       <input id="cfg-uni" type="number" min="0" max="32767">
       <button class="btn" style="margin-top: 16px;" onclick="saveDmxConfig()">Save</button>
     </div>
@@ -1377,7 +1377,7 @@
 
       <div style="margin-top:12px;padding:10px;background:#0a0a0a;border-radius:4px;
            font-size:10px;color:#555;line-height:1.7">
-        ⚠ This device is a <strong style="color:#888">Class 4 laser</strong> under IEC 60825-1.<br>
+        ⚠ This device is a <strong style="color:#888">laser</strong>.<br>
         All figures are estimates based on configured values. Consult your local
         laser safety regulations and verify with calibrated measurement equipment.
       </div>
@@ -1443,7 +1443,7 @@
     </div>
 
     <div class="card">
-      <h2>Schwellwerte (°C)</h2>
+      <h2>Thresholds (°C)</h2>
       <p style="color:var(--dim);font-size:12px;">
         Warn = Fan 100% - Alert = ARM disarmed - Crit = Emergency shutdown
       </p>
@@ -1550,7 +1550,7 @@ document.querySelectorAll('nav button').forEach(btn => {
   btn.addEventListener('click', () => {
     document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
     document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-    // Preview-Stream steuern
+    // Preview-Stream control
     btn.classList.add('active');
     document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
     // Lazy-load tab data on first visit
@@ -1642,7 +1642,7 @@ function handleStateUpdate(s) {
   const tokenEl = document.getElementById('dash-auth-token');
   if (tokenEl && s.auth_token) { tokenEl.textContent = s.auth_token; window._apiToken = s.auth_token; }
 
-  // Heap-Anzeige
+  // Heap-Display
   const heapEl = document.getElementById('dash-heap');
   if (heapEl) {
     const heapKB = Math.round((s.free_heap||0)/1024);
@@ -2497,7 +2497,7 @@ let SENSOR_NAMES  = ['Laser Driver','Galvo Board','Buck-Converter','Ambient','Se
 let SENSOR_FOUND  = 0;  // Number of actually detected sensors
 const SENSOR_COLORS = ['#ff3060','#ff8c00','#ffd700','#4caf50','#4af'];
 const TEMP_HISTORY  = [];   // [{ts, temps:[5]}, ...]
-const HISTORY_SECS  = 300;  // 5 Minuten
+const HISTORY_SECS  = 300;  // 5 Minutes
 
 // Default thresholds if none received from server yet
 let thresholdData = [
@@ -2665,7 +2665,7 @@ function drawTempChart() {
   const recent = TEMP_HISTORY.filter(p => p.ts >= oldest);
   if (recent.length < 2) return;
 
-  // Y-Achse: 0..90°C
+  // Y-Axis: 0..90°C
   const yMin = 0, yMax = 90;
   const mapY = t => H - ((t - yMin) / (yMax - yMin)) * H;
   const mapX = ts => ((ts - oldest) / (HISTORY_SECS * 1000)) * W;
@@ -2732,11 +2732,11 @@ function handleTempState(s) {
 let s_scanTimer = null;
 
 async function startWifiScan() {
-  document.getElementById('scan-status').textContent = '⏳ Scanne…';
-  document.getElementById('cfg-ssid-select').innerHTML = '<option value="">Scanne…</option>';
-  // Neuen Scan erzwingen
+  document.getElementById('scan-status').textContent = '⏳ Scanning…';
+  document.getElementById('cfg-ssid-select').innerHTML = '<option value="">Scanning…</option>';
+  // force rescan
   await fetch('/api/wifi-scan', { method: 'POST' });
-  // Polling bis Ergebnis da
+  // Polling till result is in
   if (s_scanTimer) clearInterval(s_scanTimer);
   s_scanTimer = setInterval(pollScanResults, 1000);
 }
@@ -2746,7 +2746,7 @@ async function pollScanResults() {
     const r = await fetch('/api/wifi-scan');
     const data = await r.json();
     if (data.status === 'scanning') {
-      document.getElementById('scan-status').textContent = '⏳ Scanne…';
+      document.getElementById('scan-status').textContent = '⏳ Scanning…';
       return;
     }
     // done
@@ -3128,7 +3128,7 @@ function liveSlider() {
     document.getElementById('lv-b-val').textContent   = document.getElementById('lv-b').value;
     document.getElementById('lv-amp-val').textContent = (document.getElementById('lv-amp').value/100).toFixed(2);
     document.getElementById('lv-freq-val').textContent= (document.getElementById('lv-freq').value/100).toFixed(2);
-    // Farbvorschau
+    // Color Preview
     const r=document.getElementById('lv-r').value,g=document.getElementById('lv-g').value,b=document.getElementById('lv-b').value;
     document.getElementById('lv-col-preview').style.background = `rgb(${r},${g},${b})`;
     // Debounced API call (50ms) so slider dragging does not spam
@@ -3498,15 +3498,15 @@ function getInertia(ctx) {
 }
 
 var RO = {
-  inertia: false,       // Galvo-Trägheitssimulation
-  inertiaAlpha: 0.25,   // 0=träge, 1=sofort (0.2–0.4 typisch für RDM-15K)
-  showBlanking: false,  // Blanking-Sprünge als rote Linien
+  inertia: false,       // Galvo-Inertia Simulation
+  inertiaAlpha: 0.25,   // 0=inertia, 1=instand (0.2–0.4 typical for RDM-15K)
+  showBlanking: false,  // Blanking-jump as red line
 };
 
-// Farb-Quantisierung: reduziert Anzahl der Path2D-Gruppen
-// (Laserpunkte haben ohnehin nur ~8-16 Farben pro Pattern)
+// Color Quantization: reduce numbers of Path2D Groups
+// (Laser points really have only 8-16 Colors per pattern)
 function quantCol(r,g,b) {
-  // Auf 32er-Schritte runden → max. 512 Farbgruppen, praktisch <20
+  // Round to 32 Steps  → max. 512 Colorgroups, really <20
   return ((r>>4)<<8)|((g>>4)<<4)|(b>>4);
 }
 function quantToRGB(q) {
@@ -3528,9 +3528,9 @@ function render(ctx, pts, W, H=W) {
   const tx = x => PAX+(x+1)/2*RX;
   const ty = y => PAY+(1-(y+1)/2)*RY;
 
-  // ── Inertia-Filter anwenden ──
+  // ── Apply inertia filter ──
   let filtered = pts;
-  if (RO.inertia && W > 200) {  // nur auf großen Canvas (nicht Grid-Tiles)
+  if (RO.inertia && W > 200) {  // only on large canvases (not grid tiles)
     const st = getInertia(ctx);
     const alpha = RO.inertiaAlpha;
     filtered = [];
@@ -3543,44 +3543,44 @@ function render(ctx, pts, W, H=W) {
     st.x = fx; st.y = fy;
   }
 
-  // ── Blanking-Sprünge separat sammeln ──
+  // ── Collect blanking jumps separately ──
   const blankPath = RO.showBlanking ? new Path2D() : null;
   let bpx = null, bpy = null;
 
-  // ── Pass-Konfiguration: 3 Passes für Bloom-Effekt ──
+  // ── Pass configuration: 3 passes for bloom effect ──
   const PASSES = [
-    {lw: 4.5, alp: 0.12},  // breiter Glow
-    {lw: 2.0, alp: 0.45},  // mittlerer Kern
-    {lw: 0.8, alp: 1.00},  // scharfer Kern
+    {lw: 4.5, alp: 0.12},  // wider Glow
+    {lw: 2.0, alp: 0.45},  // middle core
+    {lw: 0.8, alp: 1.00},  // sharp core
   ];
 
   for (const {lw, alp} of PASSES) {
     const paths = new Map();
     const colMap = new Map();
 
-    // pb entfernt — blank-Punkt setzt nur px/py (Start der nächsten Linie)
-    // Non-blank zeichnet IMMER von letzter Position, auch nach Pen-Up
+    // pb removed — blank point sets only px/py (start of the next line)
+    // Non-blank ALWAYS draws from the last position, even after a pen-up.
     let px = null, py = null;
 
     for (const p of filtered) {
       const cx = tx(p.x), cy = ty(p.y);
 
       if (p.blank) {
-        // Blanking-Sprung anzeigen
+        // show blanking jumps
         if (blankPath && px !== null) {
           blankPath.moveTo(px, py);
           blankPath.lineTo(cx, cy);
         }
-        // Pen-Up: Position merken, KEIN Zeichnen
-        // Nächster Non-Blank zeichnet VON hier → erste Polygonkante bleibt erhalten!
+        // Pen-up: Remember position, NO drawing
+        // Next non-blank starts FROM here → first polygon edge is preserved!
         px = cx; py = cy;
         continue;
       }
 
-      // Allererster Punkt: nur Position merken
+      // First point of all: just note the position.
       if (px === null) { px = cx; py = cy; continue; }
 
-      // Linie von letzter Position (blank oder non-blank) nach hier
+      // Line from the last position (blank or non-blank) to here
       const qk = quantCol(p.r, p.g, p.b);
       if (!paths.has(qk)) {
         paths.set(qk, new Path2D());
@@ -3602,7 +3602,7 @@ function render(ctx, pts, W, H=W) {
     }
   }
 
-  // ── Blanking-Sprünge rendern (dünne rote gestrichelte Linien) ──
+  // ── Render blanking jumps (thin red dashed lines) ──
   if (blankPath && RO.showBlanking) {
     ctx.save();
     ctx.lineWidth = 0.5;
@@ -4752,7 +4752,7 @@ async function saveNtpConfig() {
       </div>
 
       <hr style="border-color:var(--border);margin:14px 0">
-      <h3 style="font-size:13px;margin-bottom:8px">Gamma &amp; Weissabgleich</h3>
+      <h3 style="font-size:13px;margin-bottom:8px">Gamma &amp; White balance</h3>
       <div style="font-family:monospace;font-size:11px;color:var(--dim);line-height:2">
         <div>Gamma: <span id="cp-gamma-v" style="color:var(--accent)">–</span></div>
         <div>gain R: <span id="cp-gr" style="color:#ff8080">–</span>
@@ -4840,7 +4840,7 @@ async function setDebugMode(enabled) {
   const sts = document.getElementById('debug-status');
   const r = await apiCall('POST', '/api/debug-mode', {enabled});
   if (r !== null) {
-    lbl.textContent = enabled ? 'Safety-Bypass AN ⚠' : 'Safety-Bypass AUS';
+    lbl.textContent = enabled ? 'Safety-Bypass ON ⚠' : 'Safety-Bypass OFF';
     lbl.style.color = enabled ? 'var(--danger)' : 'var(--warn)';
     sts.textContent = enabled
       ? '⚠ Debug active: master_dimmer=255, laser_armed=true'
@@ -4876,13 +4876,13 @@ async function pollState() {
     const s = await r.json();
     handleStateUpdate(s);
     handleTempState(s);
-  } catch(e) { /* ESP kurz beschaeftigt -- retry in 1s */ }
+  } catch(e) { /* ESP busy -- retry in 1s */ }
 }
 // Immediately + then every 1500ms
 pollState();
 setInterval(pollState, 1500);
 
-// ── Hardware-Debug Funktionen ────────────────────────────────────────
+// ── Hardware-Debug functions ────────────────────────────────────────
 let hwDbgTimer = null;
 let hwDbgPending = false;
 
