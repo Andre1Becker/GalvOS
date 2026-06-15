@@ -333,6 +333,10 @@ void task(void*) {
     uint32_t phase = 0;
 
     for (;;) {
+        // Notify safety subsystem that the pattern engine is alive.
+        // Without this, safety::subsystemsOk() would time out and DISARM
+        // the laser mid-pattern, causing spurious blank-point frames.
+        safety::subsystemHeartbeat(0);  // SYS_PATTERN = 0
         if (s_test_pattern >= 0) {
             size_t n = 0;
             switch (s_test_pattern) {

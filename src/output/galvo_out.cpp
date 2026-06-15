@@ -281,7 +281,13 @@ static void IRAM_ATTR galvoTask(void*) {
     uint64_t next_tick = esp_timer_get_time();
 
     uint32_t hb_count = 0;
+    uint32_t sub_hb_count = 0;
     while (s_running) {
+        // Notify safety subsystem that galvoTask is alive (SYS_GALVO = 1).
+        // Rate-limited to once per 100 iterations (~3ms @ 30kpps) to avoid
+        // overhead in the tight 20µs timing loop.
+        if (++sub_hb_count >= 100) { sub_hb_count = 0; safety::subsystemHeartbeat(1); }
+
         // Hardware heartbeat: toggle every 100ms (retriggerable monoflop possible)
         // Refresh period every frame (cheap, handles runtime changes)
         period_us = getPeriodUs();

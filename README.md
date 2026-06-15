@@ -41,7 +41,8 @@ Lasers are capable of causing immediate and permanent eye injury and skin burns,
 - **ESP32-S3** (WROOM-1 N16R8) — dual-core, Wi-Fi, BLE
 - **16-bit DAC** (DAC8562) via SPI — high-resolution X/Y galvo control
 - **Differential output stage** (OPA4134) for galvo drive (±5V)
-- **DMX/Art-Net input** via MAX485
+- **DMX via MAX485
+- **Art-Net node**
 - **ILDA file playback** from SD card (FAT32, Class 10 UHS-I required)
 - **Browser-based WebUI** (PWA, single-file LittleFS) — no app install needed
 - **Hardware safety interlocks:**

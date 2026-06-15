@@ -83,7 +83,14 @@ static void loadConfig() {
     s_prefs.getString("mask", gConfig.wifi_mask,  sizeof(gConfig.wifi_mask));
     s_prefs.getString("dns",  gConfig.wifi_dns,   sizeof(gConfig.wifi_dns));
     s_prefs.getString("auth_hash", gConfig.auth_hash, sizeof(gConfig.auth_hash));
-    if (strlen(gConfig.hostname) == 0) strcpy(gConfig.hostname, "laser-greven");
+    
+    // Generate unique hostname from last 3 MAC bytes if none stored in NVS
+    if (strlen(gConfig.hostname) == 0) {
+        uint8_t mac[6];
+        WiFi.macAddress(mac);
+        snprintf(gConfig.hostname, sizeof(gConfig.hostname),
+                 "galvos-%02X%02X%02X", mac[3], mac[4], mac[5]);
+    }
     s_prefs.end();
     ESP_LOGI(TAG, "Config loaded. DMX=%u Hostname=%s Auth=%s",
              gConfig.dmx_address, gConfig.hostname,

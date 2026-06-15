@@ -121,11 +121,11 @@ struct RuntimeConfig {
     float     gamma_val    = 2.2f;   // adjustable 1.0–3.0 via WebUI
 
     uint16_t  scanfail_timeout_ms = 50;
-    uint16_t  watchdog_period_ms  = 100;
+    uint16_t  watchdog_period_ms  = 500;
 
     char      wifi_ssid[33] = {0};
     char      wifi_pass[65] = {0};
-    char      hostname[32]  = "laser-greven";
+    char      hostname[32]  = "galvOS";
 
     // NTP
     char      ntp_server[64] = "pool.ntp.org";
