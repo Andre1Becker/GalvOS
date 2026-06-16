@@ -4890,6 +4890,11 @@ var uiControlTimer = null;
 function uiControlUpdate() {
   var override = document.getElementById('ui-override-toggle').checked;
   var dimmer   = parseInt(document.getElementById('ui-master-dimmer').value);
+  // Auto-enable ui_override when dimmer is set > 0
+  if (dimmer > 0) {
+    override = true;
+    document.getElementById('ui-override-toggle').checked = true;
+  }
   // Update UI Override pill in header
   var pill = document.getElementById('ui-override-pill');
   if (pill) pill.style.display = override ? '' : 'none';

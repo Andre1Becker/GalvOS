@@ -552,7 +552,7 @@ void task(void*) {
             phase++;
             // Dynamic delay: match push rate to galvoTask drain rate.
             { uint32_t drain_ms = n / (uint32_t)gProjection.galvo_kpps;
-              if (drain_ms < 2) drain_ms = 2;
+              if (drain_ms < 10) drain_ms = 10;  // FreeRTOS tick = 10ms minimum
               vTaskDelay(pdMS_TO_TICKS(drain_ms + drain_ms / 4)); }
             continue;
         }
