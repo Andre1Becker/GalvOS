@@ -23,6 +23,7 @@ static volatile int8_t   s_preset_idx    = -1;  // -1 = no Preset active
 
 void setPreset(int8_t idx) {
     s_preset_idx = (idx >= 0 && idx < (int8_t)presets::PRESET_COUNT) ? idx : -1;
+    ESP_LOGI("pattern", "setPreset(%d) -> s_preset_idx=%d", idx, (int)s_preset_idx);
     s_test_pattern = -1;  // cancel any running hw test pattern
 }
 int8_t getPreset() { return s_preset_idx; }
@@ -347,7 +348,7 @@ void task(void*) {
                 case 4: n = genIldaTestPattern(s_frame); break;
             }
             gState.master_dimmer.store(255);
-            if (n == 0) { static LaserPoint blank_pt={0,0,0,0,0,1}; galvo::pushFrame(&blank_pt,1); vTaskDelay(pdMS_TO_TICKS(40)); continue; }  // guard
+            if (n == 0) { static LaserPoint blank_pt={0,0,0,0,0,1}; galvo::pushFrame(&blank_pt,1); vTaskDelay(pdMS_TO_TICKS(50)); continue; }  // max 20fps — headroom for galvoTask drain
             applyCalibration(s_frame, n);
             web_ui::publishPreviewFrame(s_frame, n);   // immer
             { uint32_t _t0=millis(); while (!galvo::pushFrame(s_frame, n)) { if (millis()-_t0 > 500) { safety::emergencyStop(); LOG_E(logbuf::CAT_SAFETY,"Pattern engine: pushFrame timeout, emergency stop"); break; } vTaskDelay(pdMS_TO_TICKS(2)); } }
@@ -445,7 +446,7 @@ void task(void*) {
                     galvo::pushFrame(&blank_pt, 1);
                 }
                 phase++;
-                vTaskDelay(pdMS_TO_TICKS(16));  // ~60fps for smooth animation
+                vTaskDelay(pdMS_TO_TICKS(35));  // ~28fps — longest curve (Butterfly 1024pts @ 30kpps = 34ms drain)
                 continue;
             }
         }

@@ -80,7 +80,9 @@ bool allOk() {
 }
 
 void emergencyStop() {
-    s_user_arm_request = false;
+    if (!gConfig.safety_override) {
+        s_user_arm_request = false;
+    }
     digitalWrite(PIN_LASER_ENABLE, LOW);
     gState.laser_armed.store(false);
     LOG_W(logbuf::CAT_SAFETY, "EMERGENCY STOP");
