@@ -175,7 +175,6 @@ extern RuntimeState gState;
 
 struct WebOverride {
     volatile bool     active = false;
-    volatile uint8_t  values[DMX_CHANNELS_USED] = {0};
     volatile uint8_t  values[DMX_CHANNELS_USED] = {
         0,    // CH1  DMX_MASTER       (0 = off)
         0,    // CH2  DMX_COLOR        (0 = white)
