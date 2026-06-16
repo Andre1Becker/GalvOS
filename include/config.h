@@ -176,6 +176,30 @@ extern RuntimeState gState;
 struct WebOverride {
     volatile bool     active = false;
     volatile uint8_t  values[DMX_CHANNELS_USED] = {0};
+    volatile uint8_t  values[DMX_CHANNELS_USED] = {
+        0,    // CH1  DMX_MASTER       (0 = off)
+        0,    // CH2  DMX_COLOR        (0 = white)
+        0,    // CH3  DMX_COLOR_SPEED
+        0,    // CH4  DMX_PATTERN_GROUP
+        0,    // CH5  DMX_PATTERN_SELECT
+        0,    // CH6  DMX_DYN_EFFECT
+        0,    // CH7  DMX_EFFECT_SPEED
+        128,  // CH8  DMX_SIZE         (128 = 50% = default size)
+        0,    // CH9  DMX_AUTO_SCALE
+        0,    // CH10 DMX_ROTATION     (0 = no rotation)
+        0,    // CH11 DMX_HFLIP
+        0,    // CH12 DMX_VFLIP
+        128,  // CH13 DMX_HMOVE        (128 = center)
+        128,  // CH14 DMX_VMOVE        (128 = center)
+        0,    // CH15 DMX_WAVE_AMP
+        0,    // CH16 DMX_WAVE_FREQ
+        0,    // CH17 DMX_ILDA_SELECT
+        0,    // CH18 DMX_ILDA_SPEED
+        128,  // CH19 DMX_ILDA_SIZE    (128 = original size)
+        0,    // CH20 DMX_ILDA_LOOP
+        255,  // CH21 DMX_ILDA_BRIGHT  (255 = use dimmer)
+        0,    // CH22 DMX_ILDA_REPEAT
+    };
 };
 
 extern WebOverride gOverride;
