@@ -366,6 +366,17 @@ static void IRAM_ATTR galvoTask(void*) {
         } else {
             size_t tail = s_ring_tail;
             bool underrun = false;
+            // Debug: count underruns and log ring state every 5s
+            { static uint32_t _ur=0; static uint32_t _t=0;
+              static uint32_t _fr=0; _fr++;
+              size_t _rh=s_ring_head, _rt=s_ring_tail;
+              size_t _fill=(_rh>=_rt)?(_rh-_rt):(RING_FRAMES-_rt+_rh);
+              if (s_point_idx==0 && _fill==0) _ur++;
+              if (millis()-_t>=5000) {
+                ESP_LOGI("GV","frames/5s=%u underruns=%u ring_fill=%u/%u tail_size=%u",
+                         (unsigned)_fr,(unsigned)_ur,(unsigned)_fill,
+                         (unsigned)RING_FRAMES,(unsigned)s_ring_sizes[s_ring_tail]);
+                _t=millis(); _ur=0; _fr=0; } }
             __atomic_thread_fence(__ATOMIC_ACQUIRE);
             if (s_point_idx >= s_ring_sizes[tail]) {
                 size_t next_tail = (tail + 1) % RING_FRAMES;

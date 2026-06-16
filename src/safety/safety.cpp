@@ -112,10 +112,11 @@ void task(void*) {
         digitalWrite(PIN_WATCHDOG_OUT, toggle);
 
         if (now_armed != last_state) {
-            ESP_LOGW(TAG, "Laser %s | ESTOP:%d SCAN:%d WD:%d ARM:%d",
+            ESP_LOGW(TAG, "Laser %s | ESTOP:%d SCAN:%d WD:%d SUB:%d ARM:%d OVR:%d",
                      now_armed ? "ARMED" : "DISARMED",
                      (int)gState.estop_ok.load(), (int)gState.scanfail_ok.load(),
-                     (int)watchdogOk(), (int)s_user_arm_request);
+                     (int)watchdogOk(), (int)subsystemsOk(),
+                     (int)s_user_arm_request, (int)gConfig.safety_override);
             last_state = now_armed;
         }
 

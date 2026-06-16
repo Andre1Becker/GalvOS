@@ -462,7 +462,14 @@ void task(void*) {
             uint8_t sz      = gLivePreset.size_val;
             size_t n = presets::generate((uint8_t)s_preset_idx, s_frame,
                                          PATTERN_POINTS_MAX, phase, speed, sz);
-
+            // Debug: log preset output every 5s
+            { static uint32_t _t=0; static uint32_t _f=0; _f++;
+              if (millis()-_t>=5000) {
+                ESP_LOGI("PE","preset=%d n=%u frames/5s=%u dimmer=%u",
+                         s_preset_idx,(unsigned)n,(unsigned)_f,
+                         (unsigned)gState.master_dimmer.load());
+                _t=millis(); _f=0; } }
+                
             // Color override from Live-Controls
             if (gLivePreset.col_override) {
                 for (size_t i = 0; i < n; i++) {
