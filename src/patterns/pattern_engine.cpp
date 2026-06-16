@@ -554,7 +554,7 @@ void task(void*) {
             if (n == 0) { static LaserPoint blank_pt={0,0,0,0,0,1}; galvo::pushFrame(&blank_pt,1); vTaskDelay(pdMS_TO_TICKS(40)); continue; }
             { uint32_t _t0=millis(); while (!galvo::pushFrame(s_frame, n)) { if (millis()-_t0 > 500) { safety::emergencyStop(); LOG_E(logbuf::CAT_SAFETY,"Pattern engine: pushFrame timeout, emergency stop"); break; } vTaskDelay(pdMS_TO_TICKS(2)); } }
             phase++;
-            vTaskDelay(pdMS_TO_TICKS(40)); // max 25fps, save Core-0-CPU ressources
+            vTaskDelay(pdMS_TO_TICKS(50)); // max 25fps, save Core-0-CPU ressources
         }
     }
 }
