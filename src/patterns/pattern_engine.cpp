@@ -469,7 +469,7 @@ void task(void*) {
                          s_preset_idx,(unsigned)n,(unsigned)_f,
                          (unsigned)gState.master_dimmer.load());
                 _t=millis(); _f=0; } }
-                
+
             // Color override from Live-Controls
             if (gLivePreset.col_override) {
                 for (size_t i = 0; i < n; i++) {
@@ -542,7 +542,10 @@ void task(void*) {
                 galvo::pushFrame(&blank_pt, 1);
             }
             phase++;
-            vTaskDelay(pdMS_TO_TICKS(40)); // max 25fps, save Core-0-CPU ressources
+            // Dynamic delay: match push rate to galvoTask drain rate.
+            { uint32_t drain_ms = n / (uint32_t)gProjection.galvo_kpps;
+              if (drain_ms < 2) drain_ms = 2;
+              vTaskDelay(pdMS_TO_TICKS(drain_ms + drain_ms / 4)); }
             continue;
         }
 
