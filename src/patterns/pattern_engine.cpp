@@ -164,9 +164,14 @@ static void readDmx(DmxView& v) {
     if (gOverride.active || gState.ui_override.load()) {
         for (int i = 0; i < DMX_CHANNELS_USED; i++) raw[i] = gOverride.values[i];
         gState.source = SRC_WEBUI;
-    } else {
+    } else if (dmx_in::isReceiving()) {
         dmx_in::getChannels(raw);
-        if (dmx_in::isReceiving()) gState.source = SRC_DMX;
+        gState.source = SRC_DMX;
+    } else {
+        // No DMX and no UI override — use gOverride.values as safe defaults
+        // (hmove=128=center, vmove=128=center, rotation=0, etc.)
+        for (int i = 0; i < DMX_CHANNELS_USED; i++) raw[i] = gOverride.values[i];
+        gState.source = SRC_WEBUI;
     }
     v.master = raw[DMX_MASTER]; v.color = raw[DMX_COLOR];
     v.color_speed = raw[DMX_COLOR_SPEED]; v.pattern_group = raw[DMX_PATTERN_GROUP];
