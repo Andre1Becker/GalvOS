@@ -374,14 +374,13 @@ static void IRAM_ATTR galvoTask(void*) {
                     tail        = next_tail;
                     s_point_idx = 0;
                 } else {
-                    underrun = true;
+                     // Underrun: no new frame ready. Replay current frame from
+                    // beginning instead of blanking — eliminates flicker caused
+                    // by the 37ms gap between pattern_engine pushes at 25fps.
+                    s_point_idx = 0;
                 }
             }
-            if (underrun) {
-                writeDAC8562(0, 0x8000);
-                writeDAC8562(1, 0x8000);
-                rgbOff();
-            } else {
+            {
                 if (!s_ring[tail]) { s_point_idx=0; continue; }  // Null-Guard
 
                 const LaserPoint& p = s_ring[tail][s_point_idx++];
