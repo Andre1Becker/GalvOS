@@ -366,6 +366,7 @@ static void IRAM_ATTR galvoTask(void*) {
         } else {
             size_t tail = s_ring_tail;
             bool underrun = false;
+            __atomic_thread_fence(__ATOMIC_ACQUIRE);
             if (s_point_idx >= s_ring_sizes[tail]) {
                 size_t next_tail = (tail + 1) % RING_FRAMES;
                 if (next_tail != s_ring_head) {
@@ -582,6 +583,10 @@ bool pushFrame(const LaserPoint* pts, size_t count) {
     }
     memcpy(s_ring[s_ring_head], pts, count * sizeof(LaserPoint));
     s_ring_sizes[s_ring_head] = count;
+    // RELEASE fence: ensure memcpy + size write are visible on Core 1
+    // before s_ring_head advances and galvoTask sees the new slot.
+    __atomic_thread_fence(__ATOMIC_RELEASE);
+     s_ring_head = next_head;
     s_ring_head = next_head;
     return true;
 }

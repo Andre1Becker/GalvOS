@@ -80,6 +80,9 @@ bool allOk() {
 }
 
 void emergencyStop() {
+    // v4.5.15: do not revoke ARM when safety_override is active —
+    // otherwise every pushFrame timeout triggers a permanent DISARM
+    // that the user cannot recover from without a page reload.
     if (!gConfig.safety_override) {
         s_user_arm_request = false;
     }
