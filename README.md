@@ -2,9 +2,10 @@
 
 **Open-source ESP32-S3 laser show controller — built to replace proprietary OEM controllers in RGB galvo laser projectors.**
 
-GalvOS is a fully custom firmware and hardware project that replaces the original control board of a Mikoy 5W RGB laser projector with an ESP32-S3-based system featuring a 16-bit DAC, browser-based WebUI (PWA), DMX/Art-Net input, ILDA file playback, and hardware safety interlocks.
+**GalvOS** is a fully custom firmware and hardware project that replaces the original control board of a Mikoy 5W RGB laser projector with an ESP32-S3-based system featuring a 16-bit DAC, browser-based WebUI (PWA), DMX/Art-Net input, ILDA file playback, and hardware safety interlocks.
 
 **But WHY?!?**
+
 Initially, I thought there was a bug in the proprietary firmware because it was not possible to dim the laser beam, only ON or OFF. After some thinking with my favorite AI, I decided to take this journey.
 This turned out to be a huge undertaking – but in the end, it is now much more feature-rich than anything else out there – and the best part: it's open source! 
 

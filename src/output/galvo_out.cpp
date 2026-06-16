@@ -332,7 +332,7 @@ static void IRAM_ATTR galvoTask(void*) {
             // resulting WebUI/WiFi latency.
             writeDAC8562(0, 0x8000);
             writeDAC8562(1, 0x8000);
-            s_rgb_r = s_rgb_g = s_rgb_b = 0;
+            rgbOff(); 
             size_t tail = s_ring_tail;
             if (s_point_idx >= s_ring_sizes[tail]) {
                 size_t next_tail = (tail + 1) % RING_FRAMES;
@@ -381,7 +381,7 @@ static void IRAM_ATTR galvoTask(void*) {
                 writeDAC8562(1, 0x8000);
                 rgbOff();
             } else {
-                if (!s_ring[tail]) { s_point_idx=0; break; }  // Null-Guard
+                if (!s_ring[tail]) { s_point_idx=0; continue; }  // Null-Guard
 
                 const LaserPoint& p = s_ring[tail][s_point_idx++];
 
