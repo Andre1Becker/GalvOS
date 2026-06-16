@@ -1758,14 +1758,18 @@ function handleStateUpdate(s) {
   var uiOverridePill   = document.getElementById('ui-override-pill');
   if (uiOverrideToggle && s.ui_override !== undefined) {
     if (!uiOverrideToggle.matches(':active') && !document.activeElement === uiOverrideToggle) {
+      uiOverrideToggle.removeEventListener('change', uiControlUpdate);
       uiOverrideToggle.checked = s.ui_override;
+      uiOverrideToggle.addEventListener('change', uiControlUpdate);
     }
     if (uiOverridePill) uiOverridePill.style.display = s.ui_override ? '' : 'none';
   }
   if (uiDimmerSlider && s.ui_master_dimmer !== undefined) {
     if (document.activeElement !== uiDimmerSlider) {
+      uiDimmerSlider.removeEventListener('input', uiControlUpdate);
       uiDimmerSlider.value = s.ui_master_dimmer;
       if (uiDimmerVal) uiDimmerVal.textContent = s.ui_master_dimmer;
+        uiDimmerSlider.addEventListener('input', uiControlUpdate);
     }
   }
 
