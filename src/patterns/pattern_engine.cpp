@@ -365,6 +365,14 @@ void task(void*) {
         DmxView v;
         readDmx(v);
         gState.master_dimmer.store(resolveMasterDimmer(v.master));
+        { static uint8_t _last=255;
+         uint8_t _cur=gState.master_dimmer.load();
+         if (_cur != _last) {
+           ESP_LOGW("PE","master_dimmer changed: %u -> %u ui_override=%d ui_dim=%d",
+                    (unsigned)_last,(unsigned)_cur,
+                    (int)gState.ui_override.load(),
+                    (int)gState.ui_master_dimmer.load());
+           _last=_cur; } }
 
         // ---- ILDA SD-card mode (highest priority) ----
         if (ilda::gILDA.active && ilda::hasNewFrame()) {
