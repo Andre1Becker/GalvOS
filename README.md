@@ -56,9 +56,9 @@ Lasers are capable of causing immediate and permanent eye injury and skin burns,
   - Emergency stop (E-Stop) input
   - Optocoupler-isolated laser TTL (6N137)
   - Fail-safe pull-ups on laser GPIO pins
-- **1-Wire temperature monitoring** (DS18B20)
-- **Fan PWM control**
-- **Incremental versioning** with changelog
+- **1-Wire temperature monitoring** (DS18B20) Default 5 Sensors for Diode Module, PowerSupply, Galvo-Board, Chassis and TTL Module
+- **Fan PWM control** Fans only active if needed.
+  
 
 ---
 
