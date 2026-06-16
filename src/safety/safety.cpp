@@ -101,7 +101,11 @@ void task(void*) {
         gState.estop_ok.store(digitalRead(PIN_ESTOP) == HIGH);  // E-Stop open = OK
         // scanfail_ok: NE555 not yet populated, INPUT_PULLUP holds HIGH = OK
         gState.scanfail_ok.store(digitalRead(PIN_SCAN_FAIL_IN) == HIGH);
-
+        { static bool _last_scan=true;
+          bool _scan = gState.scanfail_ok.load();
+          if (_scan != _last_scan) {
+            ESP_LOGW(TAG, "SCAN_FAIL changed: %s", _scan ? "OK" : "FAIL");
+            _last_scan = _scan; } }
         bool now_armed = allOk();
         digitalWrite(PIN_LASER_ENABLE, now_armed ? HIGH : LOW);
         gState.laser_armed.store(now_armed);  // atomic store
