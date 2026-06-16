@@ -347,6 +347,7 @@ void task(void*) {
                 case 4: n = genIldaTestPattern(s_frame); break;
             }
             gState.master_dimmer.store(255);
+            if (n == 0) { static LaserPoint blank_pt={0,0,0,0,0,1}; galvo::pushFrame(&blank_pt,1); vTaskDelay(pdMS_TO_TICKS(40)); continue; }  // guard
             applyCalibration(s_frame, n);
             web_ui::publishPreviewFrame(s_frame, n);   // immer
             { uint32_t _t0=millis(); while (!galvo::pushFrame(s_frame, n)) { if (millis()-_t0 > 500) { safety::emergencyStop(); LOG_E(logbuf::CAT_SAFETY,"Pattern engine: pushFrame timeout, emergency stop"); break; } vTaskDelay(pdMS_TO_TICKS(2)); } }
@@ -398,10 +399,11 @@ void task(void*) {
             }
         }
 
-        // ---- Text-Modus (hoechste Pattern-Prioritaet) ----
+        // ---- Text Mode (highest preset priority) ----
         if (gTextConfig.active && gTextConfig.text[0]) {
             size_t n = textrender::generate(s_frame, PATTERN_POINTS_MAX,
                                              gTextConfig, phase);
+            if (n == 0) { static LaserPoint blank_pt={0,0,0,0,0,1}; galvo::pushFrame(&blank_pt,1); vTaskDelay(pdMS_TO_TICKS(40)); continue; }  // guard
             applyCalibration(s_frame, n);
             web_ui::publishPreviewFrame(s_frame, n);
             if (gState.master_dimmer.load() > 0) {
@@ -448,7 +450,7 @@ void task(void*) {
             }
         }
 
-        // ---- Preset-Modus (ueberschreibt DMX) ----
+        // ---- Preset Mode (overrride DMX) ----
         if (s_preset_idx >= 0) {
             uint8_t speed   = gLivePreset.speed;
             uint8_t sz      = gLivePreset.size_val;
@@ -516,6 +518,7 @@ void task(void*) {
             // Mirror
             if (gLivePreset.mirror_x) for (size_t i=0;i<n;i++) s_frame[i].x = -s_frame[i].x;
             if (gLivePreset.mirror_y) for (size_t i=0;i<n;i++) s_frame[i].y = -s_frame[i].y;
+            if (n == 0) { static LaserPoint blank_pt={0,0,0,0,0,1}; galvo::pushFrame(&blank_pt,1); vTaskDelay(pdMS_TO_TICKS(40)); continue; }  // guard: preset generated 0 points
             applyTransform(s_frame, n, v, phase);
             applyCalibration(s_frame, n);
             web_ui::publishPreviewFrame(s_frame, n);
@@ -526,11 +529,11 @@ void task(void*) {
                 galvo::pushFrame(&blank_pt, 1);
             }
             phase++;
-            vTaskDelay(pdMS_TO_TICKS(40)); // 25fps genug, spart Core-0-CPU
+            vTaskDelay(pdMS_TO_TICKS(40)); // max 25fps, save Core-0-CPU ressources
             continue;
         }
 
-        // Pattern immer vollstaendig berechnen (for Preview)
+        // always fully calculate Pattern (for Preview)
         size_t n = genPattern(v, s_frame);
         uint8_t r, g, b;
         resolveColor(v.color, r, g, b);
@@ -538,22 +541,19 @@ void task(void*) {
         if (v.color >= 90 && v.color <= 92) applyRainbow(s_frame, n, v.color_speed, phase);
         applyTransform(s_frame, n, v, phase);
         applyCalibration(s_frame, n);
-        // FIX v1.1: publishPreviewFrame AFTER applyCalibration
-        // -> Web preview shows exactly what the laser does (incl. calibration
-        //   offset, mirroring, scaling). Previously the preview showed the
-        //   uncalibrated image while the laser output the calibrated one.
         web_ui::publishPreviewFrame(s_frame, n);
 
-        // Galvo-Output: only if Dimmer > 0 (Laser-Closure respektieren)
+        // Galvo-Output: only if Dimmer > 0 (honor Laser-Closure )
         if (gState.master_dimmer.load() == 0) {
             // Send a blanked point so galvos do not stand still
             static LaserPoint blank_pt = {0, 0, 0, 0, 0, 1};
             galvo::pushFrame(&blank_pt, 1);
             vTaskDelay(pdMS_TO_TICKS(30));
         } else {
+            if (n == 0) { static LaserPoint blank_pt={0,0,0,0,0,1}; galvo::pushFrame(&blank_pt,1); vTaskDelay(pdMS_TO_TICKS(40)); continue; }
             { uint32_t _t0=millis(); while (!galvo::pushFrame(s_frame, n)) { if (millis()-_t0 > 500) { safety::emergencyStop(); LOG_E(logbuf::CAT_SAFETY,"Pattern engine: pushFrame timeout, emergency stop"); break; } vTaskDelay(pdMS_TO_TICKS(2)); } }
             phase++;
-            vTaskDelay(pdMS_TO_TICKS(40)); // 25fps genug, spart Core-0-CPU
+            vTaskDelay(pdMS_TO_TICKS(40)); // max 25fps, save Core-0-CPU ressources
         }
     }
 }
