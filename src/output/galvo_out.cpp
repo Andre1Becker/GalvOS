@@ -373,9 +373,11 @@ static void IRAM_ATTR galvoTask(void*) {
               size_t _fill=(_rh>=_rt)?(_rh-_rt):(RING_FRAMES-_rt+_rh);
               if (s_point_idx==0 && _fill==0) _ur++;
               if (millis()-_t>=5000) {
-                ESP_LOGI("GV","frames/5s=%u underruns=%u ring_fill=%u/%u tail_size=%u",
+                UBaseType_t stack_hwm = uxTaskGetStackHighWaterMark(nullptr);
+                ESP_LOGI("GV","frames/5s=%u underruns=%u ring_fill=%u/%u tail_size=%u stack_free=%u",
                          (unsigned)_fr,(unsigned)_ur,(unsigned)_fill,
-                         (unsigned)RING_FRAMES,(unsigned)s_ring_sizes[s_ring_tail]);
+                         (unsigned)RING_FRAMES,(unsigned)s_ring_sizes[s_ring_tail],
+                         (unsigned)stack_hwm);
                 _t=millis(); _ur=0; _fr=0; } }
             __atomic_thread_fence(__ATOMIC_ACQUIRE);
             if (s_point_idx >= s_ring_sizes[tail]) {

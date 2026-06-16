@@ -548,6 +548,9 @@ void task(void*) {
             } else {
                 static LaserPoint blank_pt = {0,0,0,0,0,1};
                 galvo::pushFrame(&blank_pt, 1);
+                vTaskDelay(pdMS_TO_TICKS(40));
+                phase++;
+                continue;
             }
             phase++;
             // Dynamic delay: match push rate to galvoTask drain rate.
