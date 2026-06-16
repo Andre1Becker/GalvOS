@@ -4894,6 +4894,8 @@ var uiControlTimer = null;
 function uiControlUpdate() {
   var override = document.getElementById('ui-override-toggle').checked;
   var dimmer   = parseInt(document.getElementById('ui-master-dimmer').value);
+  // Guard: if element not found or value invalid, do not send 0
+  if (isNaN(dimmer) || dimmer < 0 || dimmer > 255) return;
   // Auto-enable ui_override when dimmer is set > 0
   if (dimmer > 0) {
     override = true;
