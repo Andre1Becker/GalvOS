@@ -1450,10 +1450,11 @@ void init() {
             if (deserializeJson(doc, data, len)) { req->send(400, "text/plain", "bad json"); return; }
             bool ui_override   = doc["ui_override"] | false;
             uint8_t master_dim = (uint8_t)(doc["master_dimmer"] | 0);
+            bool prev_override = gState.ui_override.load();
             gState.ui_override.store(ui_override);
             gState.ui_master_dimmer.store(master_dim);
-            // Auto-exit HW debug mode and stop any hw test pattern
-            if (ui_override) {
+            // Auto-exit HW debug mode only on rising edge of ui_override
+            if (ui_override && !prev_override) {
                 galvo::clearDebugOutput();
                 patterns::stopTestPattern();
             }
