@@ -410,18 +410,29 @@ static void IRAM_ATTR galvoTask(void*) {
                 y = constrain(y, (int32_t)s_snap.dac_limit_min, (int32_t)s_snap.dac_limit_max);
                 writeDAC8562(0, (uint16_t)x);
                 writeDAC8562(1, (uint16_t)y);
-               // Debug: log first+last point once per second (rate-limited)
+               // Debug: log X/Y range per frame, once per second
                { static uint32_t _fc=0; static uint32_t _last_log=0;
-                 bool _log_this = (millis()-_last_log >= 1000);
-                 if (_log_this && s_point_idx == 1) {
-                   ESP_LOGI("GVP","frame#%u start: X=0x%04X Y=0x%04X blank=%d sz=%u",
-                            (unsigned)_fc,(unsigned)x,(unsigned)y,(int)p.blank,
-                            (unsigned)s_ring_sizes[s_ring_tail]);
-                   _last_log=millis();
-                 }
+                 static uint32_t _xmin=0xFFFF,_xmax=0,_ymin=0xFFFF,_ymax=0;
+                 if ((uint32_t)x < _xmin) _xmin=(uint32_t)x;
+                 if ((uint32_t)x > _xmax) _xmax=(uint32_t)x;
+                 if ((uint32_t)y < _ymin) _ymin=(uint32_t)y;
+                 if ((uint32_t)y > _ymax) _ymax=(uint32_t)y;
                  if (s_point_idx == s_ring_sizes[s_ring_tail]-1) {
-                   if (_log_this) ESP_LOGI("GVP","frame#%u end:   X=0x%04X Y=0x%04X blank=%d",
-                            (unsigned)_fc,(unsigned)x,(unsigned)y,(int)p.blank);
+                   uint32_t _xrange = _xmax - _xmin;
+                   uint32_t _yrange = _ymax - _ymin;
+                   // Log if X or Y range collapses below 10% of expected
+                   // (circle should have range ~0x1000 minimum)
+                   bool _anomaly = (_xrange < 0x0500 || _yrange < 0x0500);
+                   bool _periodic = (millis()-_last_log >= 2000);
+                   if (_anomaly || _periodic) {
+                     ESP_LOGI("GVP","frame#%u X=[0x%04X..0x%04X](%u) Y=[0x%04X..0x%04X](%u)%s",
+                              (unsigned)_fc,
+                              (unsigned)_xmin,(unsigned)_xmax,(unsigned)_xrange,
+                              (unsigned)_ymin,(unsigned)_ymax,(unsigned)_yrange,
+                              _anomaly ? " *** ANOMALY ***" : "");
+                     _last_log=millis();
+                   }
+                   _xmin=0xFFFF; _xmax=0; _ymin=0xFFFF; _ymax=0;
                    _fc++;
                  }
                }
