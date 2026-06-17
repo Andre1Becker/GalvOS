@@ -1,4 +1,6 @@
 # GalvOS
+# Warning: This is still Work in Progress!!!
+# There is currently a problem that the Galvos dont project patterns correctly!
 
 **Open-source ESP32-S3 laser show controller — built to replace proprietary OEM controllers in RGB galvo laser projectors.**
 
