@@ -410,6 +410,27 @@ static void IRAM_ATTR galvoTask(void*) {
                 y = constrain(y, (int32_t)s_snap.dac_limit_min, (int32_t)s_snap.dac_limit_max);
                 writeDAC8562(0, (uint16_t)x);
                 writeDAC8562(1, (uint16_t)y);
+               // Debug: log first and last point of each frame + any blank transitions
+               { static uint32_t _fc=0; static bool _in_blank=false;
+                 bool _bl = p.blank;
+                 if (s_point_idx == 1) {  // first real point
+                   ESP_LOGI("GVP","frame#%u start: X=0x%04X Y=0x%04X blank=%d sz=%u",
+                            (unsigned)_fc,(unsigned)x,(unsigned)y,(int)_bl,
+                            (unsigned)s_ring_sizes[s_ring_tail]);
+                 }
+                 if (s_point_idx == s_ring_sizes[s_ring_tail]-1) {  // last point
+                   ESP_LOGI("GVP","frame#%u end:   X=0x%04X Y=0x%04X blank=%d",
+                            (unsigned)_fc,(unsigned)x,(unsigned)y,(int)_bl);
+                   _fc++;
+                 }
+                 if (_bl != _in_blank) {  // blank state change
+                   ESP_LOGI("GVP","frame#%u pt#%u blank->%d X=0x%04X Y=0x%04X",
+                            (unsigned)_fc,(unsigned)s_point_idx,(int)_bl,
+                            (unsigned)x,(unsigned)y);
+                   _in_blank=_bl;
+                 }
+               }
+
                 { static uint32_t _t=0; static uint16_t _lx=0,_ly=0;
                   if (x<0x1000||x>0xF000||y<0x1000||y>0xF000) {  // near rail = suspicious
                     if (millis()-_t>1000) {
