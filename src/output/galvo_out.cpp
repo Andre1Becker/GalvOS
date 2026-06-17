@@ -410,24 +410,19 @@ static void IRAM_ATTR galvoTask(void*) {
                 y = constrain(y, (int32_t)s_snap.dac_limit_min, (int32_t)s_snap.dac_limit_max);
                 writeDAC8562(0, (uint16_t)x);
                 writeDAC8562(1, (uint16_t)y);
-               // Debug: log first and last point of each frame + any blank transitions
-               { static uint32_t _fc=0; static bool _in_blank=false;
-                 bool _bl = p.blank;
-                 if (s_point_idx == 1) {  // first real point
+               // Debug: log first+last point once per second (rate-limited)
+               { static uint32_t _fc=0; static uint32_t _last_log=0;
+                 bool _log_this = (millis()-_last_log >= 1000);
+                 if (_log_this && s_point_idx == 1) {
                    ESP_LOGI("GVP","frame#%u start: X=0x%04X Y=0x%04X blank=%d sz=%u",
-                            (unsigned)_fc,(unsigned)x,(unsigned)y,(int)_bl,
+                            (unsigned)_fc,(unsigned)x,(unsigned)y,(int)p.blank,
                             (unsigned)s_ring_sizes[s_ring_tail]);
+                   _last_log=millis();
                  }
-                 if (s_point_idx == s_ring_sizes[s_ring_tail]-1) {  // last point
-                   ESP_LOGI("GVP","frame#%u end:   X=0x%04X Y=0x%04X blank=%d",
-                            (unsigned)_fc,(unsigned)x,(unsigned)y,(int)_bl);
+                 if (s_point_idx == s_ring_sizes[s_ring_tail]-1) {
+                   if (_log_this) ESP_LOGI("GVP","frame#%u end:   X=0x%04X Y=0x%04X blank=%d",
+                            (unsigned)_fc,(unsigned)x,(unsigned)y,(int)p.blank);
                    _fc++;
-                 }
-                 if (_bl != _in_blank) {  // blank state change
-                   ESP_LOGI("GVP","frame#%u pt#%u blank->%d X=0x%04X Y=0x%04X",
-                            (unsigned)_fc,(unsigned)s_point_idx,(int)_bl,
-                            (unsigned)x,(unsigned)y);
-                   _in_blank=_bl;
                  }
                }
 
