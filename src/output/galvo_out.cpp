@@ -152,6 +152,7 @@ static void dac8562Init() {
 static volatile uint8_t s_rgb_r = 0;
 static volatile uint8_t s_rgb_g = 0;
 static volatile uint8_t s_rgb_b = 0;
+static volatile bool    s_ledc_active = true;
 
 // Hardware debug: direct output bypassing pattern engine
 static volatile bool    s_hw_debug_active = false;
@@ -204,21 +205,29 @@ static inline uint8_t applyGamma(uint8_t v) {
     return gConfig.gamma_enable ? GAMMA_LUT[v] : v;  // applyGamma: gConfig OK (only init-Zeit)
 }
 
+static inline void rgbOff() {
+    // Drive GPIO HIGH immediately — bypasses PWM phase delay.
+    // 6N137 conducts -> Pin6 LOW -> laser OFF.
+    gpio_set_level((gpio_num_t)PIN_LASER_R, 1);
+    gpio_set_level((gpio_num_t)PIN_LASER_G, 1);
+    gpio_set_level((gpio_num_t)PIN_LASER_B, 1);
+    s_ledc_active = false;
+}
+
 static inline void rgbWrite(uint8_t r, uint8_t g, uint8_t b) {
     // Inverted logic: HIGH = laser OFF, LOW = laser ON
     // Driver MN-1W5AT is active-HIGH: TTL HIGH (1.65V) enables laser
     // 6N137 inverts: GPIO HIGH -> conducts -> Pin6 LOW -> laser OFF
     //                GPIO LOW  -> off       -> Pin6 HIGH (1.65V) -> laser ON
+    if (!s_ledc_active) {
+        ledcAttachPin(PIN_LASER_R, LEDC_CH_R);
+        ledcAttachPin(PIN_LASER_G, LEDC_CH_G);
+        ledcAttachPin(PIN_LASER_B, LEDC_CH_B);
+        s_ledc_active = true;
+    }
     ledcWrite(LEDC_CH_R, 255 - applyGamma(r));
     ledcWrite(LEDC_CH_G, 255 - applyGamma(g));
     ledcWrite(LEDC_CH_B, 255 - applyGamma(b));
-}
-
-static inline void rgbOff() {
-    // duty=255 -> GPIO HIGH -> 6N137 conducts -> Pin6 LOW -> laser OFF
-    ledcWrite(LEDC_CH_R, 255);
-    ledcWrite(LEDC_CH_G, 255);
-    ledcWrite(LEDC_CH_B, 255);
 }
 
 /* ============================================================
