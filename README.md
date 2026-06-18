@@ -1,6 +1,15 @@
 # GalvOS
-# Warning: This is still Work in Progress!!!
-# There is currently a problem that the Galvos dont project patterns correctly!
+
+## Warning: This is still Work in Progress!!! 
+
+## To be done / needs fix: 
+
+- SD-Card: Currently, if an SD-Card is populated, Galvos go crazy
+- Presets: Some Presets render garbage
+- Remove Debug Code
+- Cleanup Calibration Menu
+- Add Central Color Wheel
+- Polish Preset Tab to be more visual structured
 
 **Open-source ESP32-S3 laser show controller — built to replace proprietary OEM controllers in RGB galvo laser projectors.**
 
@@ -61,7 +70,6 @@ Lasers are capable of causing immediate and permanent eye injury and skin burns,
 - **1-Wire temperature monitoring** (DS18B20) Default 5 Sensors for Diode Module, PowerSupply, Galvo-Board, Chassis and TTL Module
 - **Fan PWM control** Fans only active if needed.
   
-
 ---
 
 ## Hardware Overview
@@ -85,7 +93,7 @@ Full netlist and wiring diagrams are in the `/Hardware` directory.
 
 ## Repository Structure
 
-```
+```text
 GalvOS/
 ├── Firmware/          # PlatformIO project (ESP32-S3, Arduino framework)
 ├── Hardware/          # Netlists, KiCad schematics

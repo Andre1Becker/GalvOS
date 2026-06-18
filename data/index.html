@@ -324,7 +324,7 @@
       <div class="stat-row"><span>SD Free</span><span id="v-sd-free" class="val">--</span></div>
       <div class="stat-row"><span>SD Files</span><span id="v-sd-files" class="val">--</span></div>
       <div style="display:flex;gap:8px;margin-top:6px">
-        <button class="btn" id="btn-sd-remount" onclick="sdRemount()" style="flex:1;font-size:12px;padding:5px 8px">⟳ Remount</button>
+        <button class="btn" id="btn-sd-remount" onclick="sdRemount()" style="flex:1;font-size:12px;padding:5px 8px">⟳ Mount</button>
         <button class="btn" id="btn-sd-eject"   onclick="sdEject()"   style="flex:1;font-size:12px;padding:5px 8px;background:var(--warn);color:#000">⏏ Eject</button>
       </div>
       <div id="v-sd-status" style="font-size:11px;color:var(--dim);min-height:14px;margin-top:4px"></div>
@@ -4793,12 +4793,12 @@ async function sdRemount() {
   const btn = document.getElementById('btn-sd-remount');
   const sts = document.getElementById('v-sd-status');
   if (btn) { btn.disabled = true; btn.textContent = '\u23f3 Mounting...'; }
-  if (sts) { sts.textContent = 'Remounting SD card...'; sts.style.color = 'var(--dim)'; }
+  if (sts) { sts.textContent = 'Mounting SD card...'; sts.style.color = 'var(--dim)'; }
   const r = await apiCall('POST', '/api/sd/remount');
-  if (btn) { btn.disabled = false; btn.textContent = '\u27f3 Remount'; }
+  if (btn) { btn.disabled = false; btn.textContent = '\u27f3 Mount'; }
   if (r !== null) {
     if (r.ok) {
-      if (sts) { sts.textContent = '\u2713 Remount OK'; sts.style.color = 'var(--ok)'; }
+      if (sts) { sts.textContent = '\u2713 Mount OK'; sts.style.color = 'var(--ok)'; }
       toast('SD card mounted successfully');
     } else {
       if (sts) { sts.textContent = '\u2717 Mount failed — check card'; sts.style.color = 'var(--bad)'; }

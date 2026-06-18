@@ -367,18 +367,6 @@ static void IRAM_ATTR galvoTask(void*) {
             size_t tail = s_ring_tail;
             bool underrun = false;
             // Debug: count underruns and log ring state every 5s
-            { static uint32_t _ur=0; static uint32_t _t=0;
-              static uint32_t _fr=0; _fr++;
-              size_t _rh=s_ring_head, _rt=s_ring_tail;
-              size_t _fill=(_rh>=_rt)?(_rh-_rt):(RING_FRAMES-_rt+_rh);
-              if (s_point_idx==0 && _fill==0) _ur++;
-              if (millis()-_t>=5000) {
-                UBaseType_t stack_hwm = uxTaskGetStackHighWaterMark(nullptr);
-                ESP_LOGI("GV","frames/5s=%u underruns=%u ring_fill=%u/%u tail_size=%u stack_free=%u",
-                         (unsigned)_fr,(unsigned)_ur,(unsigned)_fill,
-                         (unsigned)RING_FRAMES,(unsigned)s_ring_sizes[s_ring_tail],
-                         (unsigned)stack_hwm);
-                _t=millis(); _ur=0; _fr=0; } }
             __atomic_thread_fence(__ATOMIC_ACQUIRE);
             if (s_point_idx >= s_ring_sizes[tail]) {
                 size_t next_tail = (tail + 1) % RING_FRAMES;
@@ -410,32 +398,6 @@ static void IRAM_ATTR galvoTask(void*) {
                 y = constrain(y, (int32_t)s_snap.dac_limit_min, (int32_t)s_snap.dac_limit_max);
                 writeDAC8562(0, (uint16_t)x);
                 writeDAC8562(1, (uint16_t)y);
-               // Debug: log X/Y range per frame, once per second
-               { static uint32_t _fc=0; static uint32_t _last_log=0;
-                 static uint32_t _xmin=0xFFFF,_xmax=0,_ymin=0xFFFF,_ymax=0;
-                 if ((uint32_t)x < _xmin) _xmin=(uint32_t)x;
-                 if ((uint32_t)x > _xmax) _xmax=(uint32_t)x;
-                 if ((uint32_t)y < _ymin) _ymin=(uint32_t)y;
-                 if ((uint32_t)y > _ymax) _ymax=(uint32_t)y;
-                 if (s_point_idx == s_ring_sizes[s_ring_tail]-1) {
-                   uint32_t _xrange = _xmax - _xmin;
-                   uint32_t _yrange = _ymax - _ymin;
-                   // Log if X or Y range collapses below 10% of expected
-                   // (circle should have range ~0x1000 minimum)
-                   bool _anomaly = (_xrange < 0x0500 || _yrange < 0x0500);
-                   bool _periodic = (millis()-_last_log >= 2000);
-                   if (_anomaly || _periodic) {
-                     ESP_LOGI("GVP","frame#%u X=[0x%04X..0x%04X](%u) Y=[0x%04X..0x%04X](%u)%s",
-                              (unsigned)_fc,
-                              (unsigned)_xmin,(unsigned)_xmax,(unsigned)_xrange,
-                              (unsigned)_ymin,(unsigned)_ymax,(unsigned)_yrange,
-                              _anomaly ? " *** ANOMALY ***" : "");
-                     _last_log=millis();
-                   }
-                   _xmin=0xFFFF; _xmax=0; _ymin=0xFFFF; _ymax=0;
-                   _fc++;
-                 }
-               }
 
                 { static uint32_t _t=0; static uint16_t _lx=0,_ly=0;
                   if (x<0x1000||x>0xF000||y<0x1000||y>0xF000) {  // near rail = suspicious

@@ -1,3 +1,4 @@
+=== src/patterns/preset_patterns.cpp ===
 #include "preset_patterns.h"
 #include "countdown_timer.h"
 #include <math.h>
@@ -41,17 +42,42 @@ static inline int adaptN(uint8_t sz, int base, int min_pts=8, int max_pts=512){
 static void line(LaserPoint*o,size_t&n,size_t mx,float x0,float y0,float x1,float y1,
                  uint8_t r,uint8_t g,uint8_t b,int S=20){
     for(int i=0;i<=S;i++) ap(o,n,mx,L(x0,x1,i/float(S)),L(y0,y1,i/float(S)),r,g,b,i==0?1:0);
+    // Closing blank: prevent lit retrace when galvo jumps to next segment
+    if(n>0 && n<mx){LaserPoint cl=o[n-1];cl.blank=1;o[n++]=cl;}
 }
 static size_t ngon(LaserPoint*o,size_t mx,int sides,float sc,float off,uint8_t r,uint8_t g,uint8_t b){
     size_t n=0;
-    for(int i=0;i<=sides;i++){float a=PI2*i/sides+off;ap(o,n,mx,cosf(a)*sc,sinf(a)*sc,r,g,b,i==0?1:0);}
+    // Interpolate per side so galvo can follow straight edges accurately.
+    // Minimum 8 steps per side; more sides = fewer steps needed.
+    int sps = (sides <= 4) ? 20 : (sides <= 6) ? 14 : 10;
+    for(int s=0;s<sides;s++){
+        float a0=PI2*s/sides+off, a1=PI2*(s+1)/sides+off;
+        float x0=cosf(a0)*sc, y0=sinf(a0)*sc;
+        float x1=cosf(a1)*sc, y1=sinf(a1)*sc;
+        for(int k=0;k<=sps;k++){
+            float t=(float)k/sps;
+            ap(o,n,mx, x0+(x1-x0)*t, y0+(y1-y0)*t, r,g,b, (s==0&&k==0)?1:0);
+        }
+    }
     // Closing blank: move back to start with laser off to prevent lit retrace on next frame
     if(n>0 && n<mx){LaserPoint cl=o[0];cl.blank=1;o[n++]=cl;}
     return n;
 }
 static size_t star(LaserPoint*o,size_t mx,int pts,float outer,float inner,float off,uint8_t r,uint8_t g,uint8_t b){
     size_t n=0;
-    for(int i=0;i<=pts*2;i++){float a=PI2*i/(pts*2)+off-M_PI/2;float rad=(i%2==0)?outer:inner;ap(o,n,mx,cosf(a)*rad,sinf(a)*rad,r,g,b,i==0?1:0);}
+    // Interpolate per segment so galvo can follow straight edges accurately.
+    const int sps = 16;
+    int segs = pts*2;
+    for(int s=0;s<segs;s++){
+        float a0=PI2*s/segs+off-(float)(M_PI/2), a1=PI2*(s+1)/segs+off-(float)(M_PI/2);
+        float r0=(s%2==0)?outer:inner, r1=((s+1)%2==0)?outer:inner;
+        float x0=cosf(a0)*r0, y0=sinf(a0)*r0;
+        float x1=cosf(a1)*r1, y1=sinf(a1)*r1;
+        for(int k=0;k<=sps;k++){
+            float t=(float)k/sps;
+            ap(o,n,mx, x0+(x1-x0)*t, y0+(y1-y0)*t, r,g,b, (s==0&&k==0)?1:0);
+        }
+    }
     // Closing blank: prevent lit retrace on next frame
     if(n>0 && n<mx){LaserPoint cl=o[0];cl.blank=1;o[n++]=cl;}
     return n;
@@ -66,7 +92,7 @@ static const P3D CV[]={{-1,-1,-1},{1,-1,-1},{1,1,-1},{-1,1,-1},{-1,-1,1},{1,-1,1
 static const int CE[][2]={{0,1},{1,2},{2,3},{3,0},{4,5},{5,6},{6,7},{7,4},{0,4},{1,5},{2,6},{3,7}};
 static size_t wf(LaserPoint*o,size_t mx,const P3D*V,int nv,const int(*E)[2],int ne,float ry,float rx,float sc,uint8_t r,uint8_t g,uint8_t b){
     size_t n=0;
-    for(int e=0;e<ne;e++){for(int k=0;k<=14;k++){float t=k/14.f;P3D v={L(V[E[e][0]].x,V[E[e][1]].x,t),L(V[E[e][0]].y,V[E[e][1]].y,t),L(V[E[e][0]].z,V[E[e][1]].z,t)};float ox,oy;prj(v,ry,rx,sc,ox,oy);ap(o,n,mx,ox,oy,r,g,b,k==0?1:0);}}
+    for(int e=0;e<ne;e++){for(int k=0;k<=28;k++){float t=k/28.f;P3D v={L(V[E[e][0]].x,V[E[e][1]].x,t),L(V[E[e][0]].y,V[E[e][1]].y,t),L(V[E[e][0]].z,V[E[e][1]].z,t)};float ox,oy;prj(v,ry,rx,sc,ox,oy);ap(o,n,mx,ox,oy,r,g,b,k==0?1:0);}}
     return n;
 }
 
@@ -890,11 +916,11 @@ static const PFn DISPATCH[PRESET_COUNT] = {
     p29,p30,p31,p32,p33,p34,
     p35,p36,p37,p38,p39,p40,p41,p42,p43,p44,p45,p46,p47,p48,p49,p50,p51,p52,
     p53,p54,p55,p56,p57,p58,
-    p59,p60,p61,p62,p63,
+    p59,p60,p61,p62,p63,p83,
     p64,p65,p66,p67,p68,p69,p70,p71,p72,p73,p74,p75,p76,p77,p78,p79,p80,p81,p82,p83,p84,p85,p86,p87,p88,p89,
     p90,
-    p91,p92,p93,p94,p95,p96,p97,p98,p99,
     p100,
+    p91,p92,p93,p94,p95,p96,p97,p98,
 };
 
 size_t generate(uint8_t idx, LaserPoint* out, size_t max_pts,

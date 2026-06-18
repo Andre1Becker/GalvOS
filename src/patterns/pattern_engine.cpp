@@ -1,3 +1,4 @@
+=== src/patterns/pattern_engine.cpp ===
 #include "pattern_engine.h"
 #include "preset_patterns.h"
 #include "calib_patterns.h"
@@ -23,7 +24,6 @@ static volatile int8_t   s_preset_idx    = -1;  // -1 = no Preset active
 
 void setPreset(int8_t idx) {
     s_preset_idx = (idx >= 0 && idx < (int8_t)presets::PRESET_COUNT) ? idx : -1;
-    ESP_LOGI("pattern", "setPreset(%d) -> s_preset_idx=%d", idx, (int)s_preset_idx);
     s_test_pattern = -1;  // cancel any running hw test pattern
 }
 int8_t getPreset() { return s_preset_idx; }
@@ -365,14 +365,6 @@ void task(void*) {
         DmxView v;
         readDmx(v);
         gState.master_dimmer.store(resolveMasterDimmer(v.master));
-        { static uint8_t _last=255;
-         uint8_t _cur=gState.master_dimmer.load();
-         if (_cur != _last) {
-           ESP_LOGW("PE","master_dimmer changed: %u -> %u ui_override=%d ui_dim=%d",
-                    (unsigned)_last,(unsigned)_cur,
-                    (int)gState.ui_override.load(),
-                    (int)gState.ui_master_dimmer.load());
-           _last=_cur; } }
 
         // ---- ILDA SD-card mode (highest priority) ----
         if (ilda::gILDA.active && ilda::hasNewFrame()) {
@@ -470,13 +462,6 @@ void task(void*) {
             uint8_t sz      = gLivePreset.size_val;
             size_t n = presets::generate((uint8_t)s_preset_idx, s_frame,
                                          PATTERN_POINTS_MAX, phase, speed, sz);
-            // Debug: log preset output every 5s
-            { static uint32_t _t=0; static uint32_t _f=0; _f++;
-              if (millis()-_t>=5000) {
-                ESP_LOGI("PE","preset=%d n=%u frames/5s=%u dimmer=%u",
-                         s_preset_idx,(unsigned)n,(unsigned)_f,
-                         (unsigned)gState.master_dimmer.load());
-                _t=millis(); _f=0; } }
 
             // Color override from Live-Controls
             if (gLivePreset.col_override) {
