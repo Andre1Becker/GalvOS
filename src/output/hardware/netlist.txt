@@ -1,0 +1,225 @@
+================================================================================
+  galvOS LASER CONTROLLER v3.2 — WIRING NETLIST
+  ESP32-S3-WROOM-1 N16R8
+================================================================================
+
+── SUPPLY +5V_BUCK ─────────────────────────────────────────────────────────────
+Laser PSU DC              -> D1 1N5819 Anode
+D1 1N5819 Cathode         -> Buck-Converter IN+
+Buck-Converter GND        -> GND
+Buck-Converter OUT+       -> +5V_BUCK (main rail)
++5V_BUCK                  -> C_BULK 100µF [Electrolytic: +] -> GND
++5V_BUCK                  -> C_HF   100nF [Ceramic]         -> GND
++5V_BUCK                  -> U1 ESP32-S3 J1-Pin21 (VIN)
++5V_BUCK                  -> U2 DAC8562 Pin9 (AVDD)
++5V_BUCK                  -> MAX485 Module VCC
++5V_BUCK                  -> U11 NE555 Pin8 (VCC)
++5V_BUCK                  -> U12 NE555 Pin8 (VCC)
++5V_BUCK                  -> SSR1 IN+ (via R_EN 1kΩ from GPIO38)
++5V_BUCK                  -> U_6N_R Pin8 (VCC)
++5V_BUCK                  -> U_6N_G Pin8 (VCC)
++5V_BUCK                  -> U_6N_B Pin8 (VCC)
++5V_BUCK                  -> U_6N_R Pin7 (VE)
++5V_BUCK                  -> U_6N_G Pin7 (VE)
++5V_BUCK                  -> U_6N_B Pin7 (VE)
++5V_BUCK                  -> R_PU_R 1kΩ -> U_6N_R Pin6 (Vo)
++5V_BUCK                  -> R_PU_G 1kΩ -> U_6N_G Pin6 (Vo)
++5V_BUCK                  -> R_PU_B 1kΩ -> U_6N_B Pin6 (Vo)
++5V_BUCK                  -> U2 DAC8562 Pin5 /CLR via R_CLR 10kΩ
+
+── SUPPLY +3.3V (ESP32 internal regulator) ─────────────────────────────────────
+U1 ESP32-S3 J1-Pin1       -> +3V3
+U1 ESP32-S3 J1-Pin2       -> +3V3
++3V3                       -> C 10µF  [Electrolytic: +] -> GND
++3V3                       -> C 100nF [Ceramic]         -> GND
++3V3                       -> R_ESTOP 10kΩ -> J_ESTOP Pin1
++3V3                       -> R_1W 4.7kΩ   -> J_1W Pin2 (Data)
+
+── SUPPLY ±15V (Galvo PSU direct) ─────────────────────────────────────────────
+Galvo PSU +15V             -> C 100µF [Electrolytic: +] -> AGND
+Galvo PSU +15V             -> C 100nF [Ceramic]         -> AGND
+Galvo PSU +15V             -> U_OPA OPA4134 Pin4 (V+)
+Galvo PSU -15V             -> C 100µF [Electrolytic: -] (+ to AGND)
+Galvo PSU -15V             -> C 100nF [Ceramic]         -> AGND
+Galvo PSU -15V             -> U_OPA OPA4134 Pin11 (V-)
+
+── GROUND ───────────────────────────────────────────────────────────────────────
+U1 ESP32-S3 J1-Pin22       -> GND
+U1 ESP32-S3 J2-Pin1        -> GND
+U1 ESP32-S3 J2-Pin21       -> GND
+U1 ESP32-S3 J2-Pin22       -> GND
+U2 DAC8562 Pin3            -> AGND
+MAX485 Module GND          -> GND
+U11 NE555 Pin1             -> GND
+U12 NE555 Pin1             -> GND
+U_6N_R Pin5 (GND)          -> GND
+U_6N_G Pin5 (GND)          -> GND
+U_6N_B Pin5 (GND)          -> GND
+SSR1 IN-                   -> GND
+AGND <-> GND               -> 0Ω star point (next to U2 DAC8562)
+
+── SPI BUS (DAC8562 + SD Card) ─────────────────────────────────────────────────
+U1 ESP32-S3 J1-Pin18 GPIO12 -> U2 DAC8562 Pin7 (SCLK)
+U1 ESP32-S3 J1-Pin18 GPIO12 -> J_SD Pin3 (SCK)
+U1 ESP32-S3 J1-Pin17 GPIO11 -> U2 DAC8562 Pin8 (DIN)
+U1 ESP32-S3 J1-Pin17 GPIO11 -> J_SD Pin2 (MOSI)
+U1 ESP32-S3 J1-Pin16 GPIO10 -> U2 DAC8562 Pin6 /SYNC (CS)
+U1 ESP32-S3 J1-Pin15 GPIO9  -> J_SD Pin4 (CS)
+U1 ESP32-S3 J2-Pin5  GPIO2  -> J_SD Pin1 (MISO)
+U2 DAC8562 Pin4 (/LDAC)     -> AGND
+
+── DAC8562 VREF + OPA4134 VREF BUFFER ──────────────────────────────────────────
+U2 DAC8562 Pin10 (VREFOUT)  -> C_vr 100nF [Ceramic] -> AGND
+U2 DAC8562 Pin10 (VREFOUT)  -> U_OPA OPA4134 Pin10 (3IN+)
+U_OPA OPA4134 Pin9  (3IN-)  -> U_OPA OPA4134 Pin8 (3OUT)
+U_OPA OPA4134 Pin8  (3OUT)  -> C_REF 100nF [Ceramic] -> AGND
+U_OPA OPA4134 Pin8  (3OUT)  -> VREF_BUF (2.5V net)
+
+── GALVO SIGNAL PATH X (differential amplifier, VOUT = 2×(2.5V − VDAC)) ────────
+U2 DAC8562 Pin1 (VOUTA)     -> R_X1 100Ω -> Node_X
+Node_X                      -> C_X 1nF [Ceramic] -> AGND
+Node_X                      -> R1_X 10kΩ -> U_OPA OPA4134 Pin2 (1IN-)
+U_OPA OPA4134 Pin1 (1OUT)   -> R2_X 22kΩ -> U_OPA OPA4134 Pin2 (1IN-)
+VREF_BUF                    -> R3_X 10kΩ -> U_OPA OPA4134 Pin3 (1IN+)
+U_OPA OPA4134 Pin3 (1IN+)   -> R4_X 22kΩ -> AGND
+U_OPA OPA4134 Pin1 (1OUT)   -> R_XO 100Ω -> J_GALVO Pin2 (XIN)
+
+── GALVO SIGNAL PATH Y (differential amplifier) ────────────────────────────────
+U2 DAC8562 Pin2 (VOUTB)     -> R_Y1 100Ω -> Node_Y
+Node_Y                      -> C_Y 1nF [Ceramic] -> AGND
+Node_Y                      -> R1_Y 10kΩ -> U_OPA OPA4134 Pin6 (2IN-)
+U_OPA OPA4134 Pin7 (2OUT)   -> R2_Y 22kΩ -> U_OPA OPA4134 Pin6 (2IN-)
+VREF_BUF                    -> R3_Y 10kΩ -> U_OPA OPA4134 Pin5 (2IN+)
+U_OPA OPA4134 Pin5 (2IN+)   -> R4_Y 22kΩ -> AGND
+U_OPA OPA4134 Pin7 (2OUT)   -> R_YO 100Ω -> J_GALVO Pin4 (YIN)
+
+── OPA4134 CHANNEL 4 (unused, secured) ─────────────────────────────────────────
+U_OPA OPA4134 Pin12 (4IN+)  -> AGND
+U_OPA OPA4134 Pin13 (4IN-)  -> U_OPA OPA4134 Pin14 (4OUT)
+
+── GALVO CONNECTOR ─────────────────────────────────────────────────────────────
+J_GALVO Pin1 (PXY)          -> NC
+J_GALVO Pin2 (XIN)          -> from R_XO (see Galvo X)
+J_GALVO Pin3 (GND)          -> AGND
+J_GALVO Pin4 (YIN)          -> from R_YO (see Galvo Y)
+
+── LASER ENABLE (SSR) ──────────────────────────────────────────────────────────
+U1 ESP32-S3 J2-Pin10 GPIO38 -> R_EN 1kΩ    -> SSR1 IN+
+U1 ESP32-S3 J2-Pin10 GPIO38 -> R_PD_EN 10kΩ -> GND
+SSR1 IN-                    -> GND
+
+── LASER TTL R/G/B (via 6N137) ─────────────────────────────────────────────────
+U1 ESP32-S3 J1-Pin7  GPIO7  -> R_R 220Ω -> U_6N_R Pin2 (Anode)
+U1 ESP32-S3 J1-Pin12 GPIO8  -> R_G 220Ω -> U_6N_G Pin2 (Anode)
+U1 ESP32-S3 J2-Pin18 GPIO21 -> R_B 220Ω -> U_6N_B Pin2 (Anode)
+U_6N_R Pin3 (Cathode)       -> GND
+U_6N_G Pin3 (Cathode)       -> GND
+U_6N_B Pin3 (Cathode)       -> GND
+U_6N_R Pin6 (Vo)            -> J_LASER Pin1 (R_TTL)
+U_6N_G Pin6 (Vo)            -> J_LASER Pin3 (G_TTL)
+U_6N_B Pin6 (Vo)            -> J_LASER Pin5 (B_TTL)
+J_LASER Pin2                -> GND
+J_LASER Pin4                -> GND
+J_LASER Pin6                -> GND
+U_6N_R Pin1, Pin4           -> NC
+U_6N_G Pin1, Pin4           -> NC
+U_6N_B Pin1, Pin4           -> NC
+U_6N_R Pin8 VCC, Pin7 VE    -> +5V_BUCK
+U_6N_G Pin8 VCC, Pin7 VE    -> +5V_BUCK
+U_6N_B Pin8 VCC, Pin7 VE    -> +5V_BUCK
+U_6N_R Pin8/Pin5            -> C 100nF [Ceramic, direct] -> GND
+U_6N_G Pin8/Pin5            -> C 100nF [Ceramic, direct] -> GND
+U_6N_B Pin8/Pin5            -> C 100nF [Ceramic, direct] -> GND
+
+── DMX (MAX485 Module) ─────────────────────────────────────────────────────────
+J_DMX XLR Pin1 (Shield)     -> GND
+J_DMX XLR Pin2 (D-)         -> MAX485 Module B
+J_DMX XLR Pin3 (D+)         -> MAX485 Module A
+MAX485 Module DE             -> GND
+MAX485 Module RE             -> GND
+MAX485 Module VCC            -> +5V_BUCK
+MAX485 Module GND            -> GND
+MAX485 Module RO             -> U1 ESP32-S3 J1-Pin4 GPIO4
+
+── NE555 SCAN-FAIL ─────────────────────────────────────────────────────────────
+U2 DAC8562 Pin1 (VOUTA)     -> C_AC 100nF [Ceramic] -> U11 NE555 Pin2 (TRIG)
+U11 NE555 Pin8 (VCC)        -> R_T 100kΩ -> U11 NE555 Pin7 (DIS)
+U11 NE555 Pin6 (THR)        -> U11 NE555 Pin7 (DIS)
+U11 NE555 Pin7 (DIS)        -> C_T 10µF [Electrolytic: +] -> GND
+U11 NE555 Pin4 (RST)        -> +5V_BUCK
+U11 NE555 Pin5 (CTRL)       -> C 100nF [Ceramic] -> GND
+U11 NE555 Pin3 (OUT)        -> U1 ESP32-S3 J2-Pin9 GPIO39
+
+── NE555 HARDWARE WATCHDOG ─────────────────────────────────────────────────────
+U1 ESP32-S3 J1-Pin20 GPIO14 -> R_HB 1kΩ           -> U12 NE555 Pin2 (TRIG)
+U12 NE555 Pin8 (VCC)        -> R_W1 10kΩ           -> U12 NE555 Pin7 (DIS)
+U12 NE555 Pin7 (DIS)        -> R_W2 Trimmer 50kΩ   -> U12 NE555 Pin6 (THR)
+U12 NE555 Pin6 (THR)        -> C_W 100µF [Electrolytic: +] -> GND
+U12 NE555 Pin4 (RST)        -> +5V_BUCK
+U12 NE555 Pin5 (CTRL)       -> C 100nF [Ceramic] -> GND
+U12 NE555 Pin3 (OUT)        -> WD Relay Control -> SSR1 Enable Path
+
+── EMERGENCY STOP ───────────────────────────────────────────────────────────────
+J_ESTOP Pin1                -> U1 ESP32-S3 J2-Pin17 GPIO47
+J_ESTOP Pin2                -> GND
+
+── ENCODER ─────────────────────────────────────────────────────────────────────
+REMOVED in v3.2 (GPIO15, GPIO40, GPIO41 free)
+
+── FAN ──────────────────────────────────────────────────────────────────────────
+U1 ESP32-S3 J1-Pin9  GPIO16 -> R 100Ω -> J_FAN1 Pin1 (PWM)
+U1 ESP32-S3 J1-Pin10 GPIO17 -> R 100Ω -> J_FAN2 Pin1 (PWM)
+J_FAN1 Pin2                 -> GND
+J_FAN2 Pin2                 -> GND
+
+── TEMPERATURE SENSOR (1-Wire) ─────────────────────────────────────────────────
+J_1W Pin1 (VCC)             -> +3V3
+J_1W Pin2 (Data)            -> U1 ESP32-S3 J1-Pin11 GPIO18
+J_1W Pin3 (GND)             -> GND
+
+── DEBUG UART ──────────────────────────────────────────────────────────────────
+U1 ESP32-S3 J2-Pin2 GPIO43  -> J_UART Pin1 (TX)
+U1 ESP32-S3 J2-Pin3 GPIO44  -> J_UART Pin2 (RX)
+J_UART Pin3                 -> +3V3
+J_UART Pin4                 -> GND
+
+── SD CARD ──────────────────────────────────────────────────────────────────────
+J_SD Pin5 (VCC)             -> +3V3
+J_SD Pin6 (GND)             -> GND
+
+================================================================================
+  RESISTOR SUMMARY
+================================================================================
+220Ω × 3   6N137 input series resistor Laser R/G/B
+1kΩ  × 3   6N137 output pull-up R/G/B
+1kΩ  × 3   6N137 output pull-down R/G/B
+1kΩ  × 1   SSR1 series resistor
+1kΩ  × 1   NE555 Watchdog trigger
+10kΩ × 1   SSR1 pull-down GPIO38
+10kΩ × 1   DAC8562 /CLR pull-up
+10kΩ × 1   E-Stop pull-up
+4.7kΩ× 1   1-Wire pull-up
+100kΩ× 1   NE555 Scan-Fail timing
+10kΩ + Trimmer 50kΩ × 1   NE555 Watchdog timing
+10kΩ × 4   OPA4134 differential R1/R3 (1% metal film)
+22kΩ × 4   OPA4134 differential R2/R4 (1% metal film)
+100Ω × 5   RC filter + output protection Galvo
+100Ω × 2   Fan PWM
+
+================================================================================
+  CAPACITOR SUMMARY
+================================================================================
+100µF  Elec.  +→+5V_BUCK    Buck bulk
+100µF  Elec.  +→Pin7        NE555 Watchdog timing
+10µF   Elec.  +→Pin7        NE555 Scan-Fail timing
+10µF   Elec.  +→+3V3        ESP32 decoupling
+10µF   Elec.  +→Pin4        OPA4134 V+ bulk
+10µF   Elec.  +→AGND−→Pin11 OPA4134 V- bulk
+100nF  Cer.   ×11            Decoupling caps (3× direct 6N137 VCC/GND)
+100nF  Cer.   ×1             DAC8562 VREF pin (Pin10)
+100nF  Cer.   ×1             AC coupling Scan-Fail
+1nF    Cer.   ×2             RC filter Galvo X/Y
+
+================================================================================
+NETLIST END — galvOS Laser Controller v3.2
+================================================================================

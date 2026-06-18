@@ -51,17 +51,17 @@
  * RGB TTL-Laser moduleation via LEDC-PWM
  * RGB: GPIO TTL via 6N137 optocouplers (GPIO7=R, GPIO8=G, GPIO21=B)
  * OPA4134 quad op-amp: galvo diff-amp X/Y + VREF unity buffer
- * PWM 50 kHz, 8-bit -> brightness via duty cycle (0=off, 255=full on)
+ * PWM 100 kHz, 8-bit -> brightness via duty cycle (0=off, 255=full on)
  * 100Ω series resistor on each laser TTL input
  * ============================================================ */
 #define PIN_LASER_R       7   /* Red   638 nm — GPIO 7 (was I2C_SCL, now free) */
 #define PIN_LASER_G       8   /* Green 520 nm — GPIO 8 (was I2C_SDA, now free) */
-#define PIN_LASER_B      21   /* J2-Pin18 = GPIO21 */   /* Blue  445 nm — GPIO 21 (free) */
+#define PIN_LASER_B      21   /* Blue  445 nm — GPIO 21 (free) */
 
 #define LEDC_CH_R         2   /* LEDC-channels 0+1 reserviert for Fan */
 #define LEDC_CH_G         3
 #define LEDC_CH_B         4
-#define LEDC_FREQ_RGB 50000   /* 50 kHz — invisible flicker, TTL-compatible */
+#define LEDC_FREQ_RGB 100000  /* 100 kHz — reduces blank latency per galvo tick */
 #define LEDC_RES_RGB      8   /* 8-Bit = 256 brightness steps */
 
 /* GPIO 35/36/37 BLOCKED on N16R8 -- are Octal-PSRAM pins!
