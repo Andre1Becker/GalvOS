@@ -1,4 +1,3 @@
-=== src/patterns/pattern_engine.cpp ===
 #include "pattern_engine.h"
 #include "preset_patterns.h"
 #include "calib_patterns.h"

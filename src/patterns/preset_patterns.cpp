@@ -1,4 +1,3 @@
-=== src/patterns/preset_patterns.cpp ===
 #include "preset_patterns.h"
 #include "countdown_timer.h"
 #include <math.h>
