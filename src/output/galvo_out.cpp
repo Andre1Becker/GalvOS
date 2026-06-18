@@ -396,18 +396,10 @@ static void IRAM_ATTR galvoTask(void*) {
                 // (hardware gain is 2.2x, full DAC range would exceed +/-5V).
                 x = constrain(x, (int32_t)s_snap.dac_limit_min, (int32_t)s_snap.dac_limit_max);
                 y = constrain(y, (int32_t)s_snap.dac_limit_min, (int32_t)s_snap.dac_limit_max);
+                if (p.blank) { rgbOff(); }
                 writeDAC8562(0, (uint16_t)x);
                 writeDAC8562(1, (uint16_t)y);
-
-                { static uint32_t _t=0; static uint16_t _lx=0,_ly=0;
-                  if (x<0x1000||x>0xF000||y<0x1000||y>0xF000) {  // near rail = suspicious
-                    if (millis()-_t>1000) {
-                      ESP_LOGW("GV","DAC near-rail: X=0x%04X Y=0x%04X blank=%d pt=%u",
-                               (unsigned)x,(unsigned)y,(int)p.blank,(unsigned)s_point_idx);
-                      _t=millis(); } } }
-                    if (p.blank) {
-                        rgbOff();
-                    } else {
+                    if (!p.blank) {
                     // PWM duty: 8-bit. Apply dimmer + gain.
                     // Clamp result to 0-255 (no overflow).
                     uint8_t dim = gState.master_dimmer.load();  // atomic load
