@@ -10,6 +10,7 @@
 - Cleanup Calibration Menu
 - Add Central Color Wheel
 - Polish Preset Tab to be more visual structured
+- And: (Drum Roll please:) Documentation :-)
 
 **Open-source ESP32-S3 laser show controller — built to replace proprietary OEM controllers in RGB galvo laser projectors.**
 
