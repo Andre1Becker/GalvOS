@@ -6,11 +6,11 @@
 
 - SD-Card: Currently, if an SD-Card is populated, Galvos go crazy
 - Presets: Some Presets render garbage
-- Remove Debug Code
+- Remove Debug Code (Mostly done)
 - Cleanup Calibration Menu
 - Add Central Color Wheel
 - Polish Preset Tab to be more visual structured
-- And: (Drum Roll please:) Documentation :-)
+- And: (Drum Roll please) Documentation :-)
 
 **Open-source ESP32-S3 laser show controller — built to replace proprietary OEM controllers in RGB galvo laser projectors.**
 
@@ -27,7 +27,7 @@ This turned out to be a huge undertaking – but in the end, it is now much more
 
 ## ⚠️ SAFETY WARNING — READ BEFORE PROCEEDING
 
-**This project involves a  laser device.**
+**This project involves a laser device.**
 
 Lasers are capable of causing immediate and permanent eye injury and skin burns, and can ignite materials. This is the highest hazard class for laser products.
 
