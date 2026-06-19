@@ -1,5 +1,5 @@
 /**
- * main.cpp -- Mikoy Laser Replacement Firmware (WebUI-Focus)
+ * main.cpp -- galvOS - A Mikoy Laser Replacement Firmware (WebUI-Focus)
  *
  * Core 0: WiFi, WebUI, Art-Net, Ether Dream, Safety, DMX
  * Core 1: Galvo-Timer-ISR + Pattern-Engine
@@ -10,7 +10,7 @@
 #include <Preferences.h>
 #include <LittleFS.h>
 #include <esp_log.h>
-#include <esp_task_wdt.h>   // WDT-Kontrolle
+#include <esp_task_wdt.h>   // WDT-control
 #include "config.h"
 #include "pinmap.h"
 #include "safety/safety.h"
@@ -97,7 +97,6 @@ static void loadConfig() {
 }
 
 static void modeSwitchTask(void*) {
-    // PIN_MODE_SWITCH removed (v3.0) -- ESP32 is always the active controller
     LOG_W(logbuf::CAT_SYSTEM, "ModeSwitch -> ESP32 active");
     ESP_LOGW(TAG, "ModeSwitch -> ESP32 active");
     for (;;) {
@@ -105,9 +104,8 @@ static void modeSwitchTask(void*) {
     }
 }
 
-
 // ══════════════════════════════════════════════════════════════
-// FIX 3: Hardware panic blanking -- laser off on ANY crash
+// Hardware panic blanking -- laser off on ANY crash
 //
 // Called on: Guru Meditation, Double Exception,
 // Stack Smash, Hardfault, Brownout, WDT
@@ -118,7 +116,7 @@ static void modeSwitchTask(void*) {
 #include <esp_private/panic_internal.h>
 
 static void IRAM_ATTR laser_panic_blanking(const char* reason) {
-    // Direkte GPIO-Register-Manipulation (no Arduino, no FreeRTOS)
+    // Direct GPIO-Register-Manipulation (no Arduino, no FreeRTOS)
     // Works even with a complete stack overflow
     // Inverted logic: HIGH = laser OFF (active-HIGH driver MN-1W5AT)
     gpio_set_level((gpio_num_t)PIN_LASER_R,  1);  // HIGH = laser OFF
@@ -126,8 +124,8 @@ static void IRAM_ATTR laser_panic_blanking(const char* reason) {
     gpio_set_level((gpio_num_t)PIN_LASER_B,  1);
     gpio_set_level((gpio_num_t)PIN_LASER_EN, 0);  // SSR off
     // Call ESP-IDF default panic handler (prints backtrace + reset)
-    // esp_panic_handler(reason);  // auskommentiert: reboot direkt
-    esp_restart();  // sicherer Neustart
+    // esp_panic_handler(reason);  
+    esp_restart();  // safety reboot
 }
 
 // Brownout-Callback (registriert in setup)
@@ -138,7 +136,7 @@ static void IRAM_ATTR brownout_cb() {
     gpio_set_level((gpio_num_t)PIN_LASER_EN, 0);
 }
 
-// ── FIX 9: Task-start helper with error checking ─────────────
+// ── Task-start helper with error checking ─────────────
 static bool startTask(TaskFunction_t fn, const char* name,
                       uint32_t stack, UBaseType_t prio, BaseType_t core = 0) {
     TaskHandle_t h = nullptr;
@@ -196,20 +194,9 @@ void setup() {
     Serial.begin(115200);
     delay(200);
 
-    // ── FIX 2+3: mutexes first above all else ─────────────────
+    // ── mutexes first above all else ─────────────────
     mtx::init();
     cpu_mon::init();
-
-    // ── FIX 10: shutdown handler — Laser at HW level from ───────
-    // FIX 3a: Panic-Handler for Hardfault/Guru Meditation
-    // esp_set_esp_panic_handler unavailable in the Arduino framework
-    // Panic-Blanking via shutdown handler instead of direktem Panic-Hook
-
-    // FIX 3b: Brownout-Handler
-    // (esp_brownout_init() already active in IDF -- extend callback)
-    // Note: esp_brownout_disable() NOT call — detection keep!
-
-    // FIX 3c: shutdown handler for normalen esp_restart()
     esp_register_shutdown_handler([]() {
         gpio_set_level((gpio_num_t)PIN_LASER_R,  1);  // HIGH = laser OFF
         gpio_set_level((gpio_num_t)PIN_LASER_G,  1);
@@ -253,8 +240,6 @@ void setup() {
 
     safety::init();
     galvo::init();
-
-    // ── FIX 9: task start helper ──────────────────────────────
     ilda::init();
     // NOTE: sd_card::init() is called AFTER galvo::start() below.
     // SPIClass(FSPI).begin() must not run while SPI2 DAC self-test is active.
@@ -266,7 +251,7 @@ void setup() {
     WiFi.mode(WIFI_STA);
     WiFi.setHostname(gConfig.hostname);
     if (strlen(gConfig.wifi_ssid) > 0) {
-        // Static IP konfigurieren falls enabled
+        // configure Static IP if enabled
         if (gConfig.wifi_static && strlen(gConfig.wifi_ip) > 0) {
             IPAddress ip, gw, mask, dns;
             if (ip.fromString(gConfig.wifi_ip) &&
@@ -323,7 +308,6 @@ void setup() {
     // ── Feature 4: Playlist ──────────────────────────────────
     playlist::loadFromSD();
     startTask(playlist::task, "playlist", 4096, 2, 0);
-
 
     // Tasks
     startTask(safety::task,   "safety",  4096, 6, 0);
