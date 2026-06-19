@@ -152,7 +152,7 @@ static void dac8562Init() {
 static volatile uint8_t s_rgb_r = 0;
 static volatile uint8_t s_rgb_g = 0;
 static volatile uint8_t s_rgb_b = 0;
-static volatile bool    s_ledc_active = false;
+// Removed for debugging static volatile bool    s_ledc_active = false;
 
 // Hardware debug: direct output bypassing pattern engine
 static volatile bool    s_hw_debug_active = false;
@@ -206,22 +206,14 @@ static inline uint8_t applyGamma(uint8_t v) {
 }
 
 static inline void rgbOff() {
-    // Detach LEDC first — while attached, the LEDC peripheral owns the
-    // pin and gpio_set_level() below has no effect (silently ignored).
-    if (s_ledc_active) {
-        ledcDetachPin(PIN_LASER_R);
-        ledcDetachPin(PIN_LASER_G);
-        ledcDetachPin(PIN_LASER_B);
-        s_ledc_active = false;
-    }
-    // Drive GPIO HIGH immediately — bypasses PWM phase delay.
-    // 6N137 conducts -> Pin6 LOW -> laser OFF.
-    gpio_set_direction((gpio_num_t)PIN_LASER_R, GPIO_MODE_OUTPUT);
-    gpio_set_direction((gpio_num_t)PIN_LASER_G, GPIO_MODE_OUTPUT);
-    gpio_set_direction((gpio_num_t)PIN_LASER_B, GPIO_MODE_OUTPUT);
-    gpio_set_level((gpio_num_t)PIN_LASER_R, 1);
-    gpio_set_level((gpio_num_t)PIN_LASER_G, 1);
-    gpio_set_level((gpio_num_t)PIN_LASER_B, 1);
+    // Pure register write — LEDC stays permanently attached after setup().
+    // Duty 255 = pin HIGH = 6N137 conducts = laser OFF (inverted logic).
+    // No attach/detach here: at 15-30kpps that caused visible flicker
+    // on patterns with frequent blank/unblank transitions (wireframes,
+    // multi-segment presets).
+    ledcWrite(LEDC_CH_R, 255);
+    ledcWrite(LEDC_CH_G, 255);
+    ledcWrite(LEDC_CH_B, 255);
 }
 
 static inline void rgbWrite(uint8_t r, uint8_t g, uint8_t b) {
@@ -229,12 +221,6 @@ static inline void rgbWrite(uint8_t r, uint8_t g, uint8_t b) {
     // Driver MN-1W5AT is active-HIGH: TTL HIGH (1.65V) enables laser
     // 6N137 inverts: GPIO HIGH -> conducts -> Pin6 LOW -> laser OFF
     //                GPIO LOW  -> off       -> Pin6 HIGH (1.65V) -> laser ON
-    if (!s_ledc_active) {
-        ledcAttachPin(PIN_LASER_R, LEDC_CH_R);
-        ledcAttachPin(PIN_LASER_G, LEDC_CH_G);
-        ledcAttachPin(PIN_LASER_B, LEDC_CH_B);
-        s_ledc_active = true;
-    }
     ledcWrite(LEDC_CH_R, 255 - applyGamma(r));
     ledcWrite(LEDC_CH_G, 255 - applyGamma(g));
     ledcWrite(LEDC_CH_B, 255 - applyGamma(b));
@@ -494,27 +480,24 @@ void init() {
     gpio_set_level((gpio_num_t)PIN_LASER_G, 1);
     gpio_set_level((gpio_num_t)PIN_LASER_B, 1);
 
-// ── TTL-RGB-PWM via LEDC ──────────────────────────────────────
-    // NOTE: ledcAttachPin() is intentionally NOT called here.
-    // Attaching immediately hands the pin to the LEDC peripheral,
-    // whose initial duty is 0 (= LOW = laser ON in our inverted logic),
-    // overwriting the HIGH level set above and causing laser-on-boot.
-    // LEDC attach now happens lazily inside rgbWrite() on first use.
+        // ── TTL-RGB-PWM via LEDC ──────────────────────────────────────
+    // Attach once here, permanently. rgbOff()/rgbWrite() only ever
+    // call ledcWrite() afterwards — no per-point attach/detach, which
+    // at 15-30kpps caused visible dotted-line flicker on patterns with
+    // frequent blank/unblank transitions (wireframes, multi-segment
+    // presets). The GPIO HIGH set above covers the brief window until
+    // attach; rgbOff() immediately drives duty=255 (=laser OFF) right
+    // after attach, closing the laser-on-boot window.
     ledcSetup(LEDC_CH_R, LEDC_FREQ_RGB, LEDC_RES_RGB);
     ledcSetup(LEDC_CH_G, LEDC_FREQ_RGB, LEDC_RES_RGB);
     ledcSetup(LEDC_CH_B, LEDC_FREQ_RGB, LEDC_RES_RGB);
+    ledcAttachPin(PIN_LASER_R, LEDC_CH_R);
+    ledcAttachPin(PIN_LASER_G, LEDC_CH_G);
+    ledcAttachPin(PIN_LASER_B, LEDC_CH_B);
     rgbOff();  // explicitly OFF -- no laser on boot
     ESP_LOGI(TAG, "TTL-RGB PWM: GPIO R=%d G=%d B=%d @ %dHz 8-Bit",
              PIN_LASER_R, PIN_LASER_G, PIN_LASER_B, LEDC_FREQ_RGB);
 
-    // ── DAC8562 /CLR: FIX v1.4 ────────────────────────────────────
-    // Analyse-Feedback: Pulldown hielt CLR active → DAC koennte
-    // remain in reset permanently. New logic:
-    //   1. GPIO13 = OUTPUT LOW -> CLR active (DAC in reset, safe)
-    //   2. Kurze Pause (10ms) for definierten Reset-Zustand
-    //   3. dac8562Init() → /CLR via GPIO13 HIGH → DAC active
-    // Hardware: 10kOhm pulldown remains (crash protection),
-    //           GPIO13 HIGH driver safely overrides the pull-down.
     gpio_set_direction((gpio_num_t)PIN_DAC_CLR_N, GPIO_MODE_OUTPUT);
     gpio_set_level((gpio_num_t)PIN_DAC_CLR_N, 0);  // CLR active
     vTaskDelay(pdMS_TO_TICKS(10));
