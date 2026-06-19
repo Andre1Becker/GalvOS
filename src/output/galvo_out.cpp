@@ -152,7 +152,7 @@ static void dac8562Init() {
 static volatile uint8_t s_rgb_r = 0;
 static volatile uint8_t s_rgb_g = 0;
 static volatile uint8_t s_rgb_b = 0;
-static volatile bool    s_ledc_active = true;
+static volatile bool    s_ledc_active = false;
 
 // Hardware debug: direct output bypassing pattern engine
 static volatile bool    s_hw_debug_active = false;
@@ -206,12 +206,22 @@ static inline uint8_t applyGamma(uint8_t v) {
 }
 
 static inline void rgbOff() {
+    // Detach LEDC first — while attached, the LEDC peripheral owns the
+    // pin and gpio_set_level() below has no effect (silently ignored).
+    if (s_ledc_active) {
+        ledcDetachPin(PIN_LASER_R);
+        ledcDetachPin(PIN_LASER_G);
+        ledcDetachPin(PIN_LASER_B);
+        s_ledc_active = false;
+    }
     // Drive GPIO HIGH immediately — bypasses PWM phase delay.
     // 6N137 conducts -> Pin6 LOW -> laser OFF.
+    gpio_set_direction((gpio_num_t)PIN_LASER_R, GPIO_MODE_OUTPUT);
+    gpio_set_direction((gpio_num_t)PIN_LASER_G, GPIO_MODE_OUTPUT);
+    gpio_set_direction((gpio_num_t)PIN_LASER_B, GPIO_MODE_OUTPUT);
     gpio_set_level((gpio_num_t)PIN_LASER_R, 1);
     gpio_set_level((gpio_num_t)PIN_LASER_G, 1);
     gpio_set_level((gpio_num_t)PIN_LASER_B, 1);
-    s_ledc_active = false;
 }
 
 static inline void rgbWrite(uint8_t r, uint8_t g, uint8_t b) {
@@ -484,13 +494,15 @@ void init() {
     gpio_set_level((gpio_num_t)PIN_LASER_G, 1);
     gpio_set_level((gpio_num_t)PIN_LASER_B, 1);
 
-    // ── TTL-RGB-PWM via LEDC ──────────────────────────────────────
+// ── TTL-RGB-PWM via LEDC ──────────────────────────────────────
+    // NOTE: ledcAttachPin() is intentionally NOT called here.
+    // Attaching immediately hands the pin to the LEDC peripheral,
+    // whose initial duty is 0 (= LOW = laser ON in our inverted logic),
+    // overwriting the HIGH level set above and causing laser-on-boot.
+    // LEDC attach now happens lazily inside rgbWrite() on first use.
     ledcSetup(LEDC_CH_R, LEDC_FREQ_RGB, LEDC_RES_RGB);
     ledcSetup(LEDC_CH_G, LEDC_FREQ_RGB, LEDC_RES_RGB);
     ledcSetup(LEDC_CH_B, LEDC_FREQ_RGB, LEDC_RES_RGB);
-    ledcAttachPin(PIN_LASER_R, LEDC_CH_R);
-    ledcAttachPin(PIN_LASER_G, LEDC_CH_G);
-    ledcAttachPin(PIN_LASER_B, LEDC_CH_B);
     rgbOff();  // explicitly OFF -- no laser on boot
     ESP_LOGI(TAG, "TTL-RGB PWM: GPIO R=%d G=%d B=%d @ %dHz 8-Bit",
              PIN_LASER_R, PIN_LASER_G, PIN_LASER_B, LEDC_FREQ_RGB);

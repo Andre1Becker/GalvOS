@@ -61,7 +61,7 @@
 #define LEDC_CH_R         2   /* LEDC-channels 0+1 reserviert for Fan */
 #define LEDC_CH_G         3
 #define LEDC_CH_B         4
-#define LEDC_FREQ_RGB 100000  /* 100 kHz — reduces blank latency per galvo tick */
+#define LEDC_FREQ_RGB 50000  /* 50 kHz — reduces blank latency per galvo tick */
 #define LEDC_RES_RGB      8   /* 8-Bit = 256 brightness steps */
 
 /* GPIO 35/36/37 BLOCKED on N16R8 -- are Octal-PSRAM pins!

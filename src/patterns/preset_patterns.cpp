@@ -27,8 +27,8 @@ static inline float L(float a,float b,float t){return a+(b-a)*t;}
  * Small sizes need fewer points (prevents galvo overheating).
  * Large projections need more points for smooth curves.
  * base     = default point count at size=128
- * min_pts  = Minimum (nie weniger)
- * max_pts  = Maximum (nie mehr)
+ * min_pts  = Minimum (never less)
+ * max_pts  = Maximum (never more)
  */
 static inline int adaptN(uint8_t sz, int base, int min_pts=8, int max_pts=512){
     float factor = 0.4f + (sz / 255.f) * 1.2f;   // 0.4 at sz=0, 1.6 at sz=255
@@ -38,11 +38,28 @@ static inline int adaptN(uint8_t sz, int base, int min_pts=8, int max_pts=512){
     return n;
 }
 
-static void line(LaserPoint*o,size_t&n,size_t mx,float x0,float y0,float x1,float y1,
-                 uint8_t r,uint8_t g,uint8_t b,int S=20){
-    for(int i=0;i<=S;i++) ap(o,n,mx,L(x0,x1,i/float(S)),L(y0,y1,i/float(S)),r,g,b,i==0?1:0);
-    // Closing blank: prevent lit retrace when galvo jumps to next segment
-    if(n>0 && n<mx){LaserPoint cl=o[n-1];cl.blank=1;o[n++]=cl;}
+static void line(LaserPoint*o,size_t&n,size_t mx,
+                 float x0,float y0,float x1,float y1,
+                 uint8_t r,uint8_t g,uint8_t b,
+                 int S=20)
+    {
+    // Move to Target point first
+    for(int k=0;k<40 && n<mx;k++)
+        ap(o,n,mx,x0,y0,0,0,0,1);
+
+    // Linie zeichnen
+    for(int i=0;i<=S;i++)
+    {
+        ap(o,n,mx,
+           L(x0,x1,i/float(S)),
+           L(y0,y1,i/float(S)),
+           r,g,b,
+           0);
+    }
+    // stop and endpoint
+    for(int k=0;k<40 && n<mx;k++)
+        ap(o,n,mx,x1,y1,0,0,0,1);
+
 }
 static size_t ngon(LaserPoint*o,size_t mx,int sides,float sc,float off,uint8_t r,uint8_t g,uint8_t b){
     size_t n=0;
