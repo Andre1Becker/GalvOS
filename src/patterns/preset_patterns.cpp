@@ -75,8 +75,8 @@ static size_t ngon(LaserPoint*o,size_t mx,int sides,float sc,float off,uint8_t r
             ap(o,n,mx, x0+(x1-x0)*t, y0+(y1-y0)*t, r,g,b, (s==0&&k==0)?1:0);
         }
     }
-    // Closing blank: move back to start with laser off to prevent lit retrace on next frame
-    if(n>0 && n<mx){LaserPoint cl=o[0];cl.blank=1;o[n++]=cl;}
+// Closing blank: move back to start with laser off to prevent lit retrace on next frame
+    if(n>0 && n<mx){LaserPoint cl=o[0];cl.blank=1;for(int k=0;k<40 && n<mx;k++)o[n++]=cl;}
     return n;
 }
 static size_t star(LaserPoint*o,size_t mx,int pts,float outer,float inner,float off,uint8_t r,uint8_t g,uint8_t b){
@@ -94,8 +94,8 @@ static size_t star(LaserPoint*o,size_t mx,int pts,float outer,float inner,float 
             ap(o,n,mx, x0+(x1-x0)*t, y0+(y1-y0)*t, r,g,b, (s==0&&k==0)?1:0);
         }
     }
-    // Closing blank: prevent lit retrace on next frame
-    if(n>0 && n<mx){LaserPoint cl=o[0];cl.blank=1;o[n++]=cl;}
+// Closing blank: prevent lit retrace on next frame
+    if(n>0 && n<mx){LaserPoint cl=o[0];cl.blank=1;for(int k=0;k<40 && n<mx;k++)o[n++]=cl;}
     return n;
 }
 
@@ -108,14 +108,27 @@ static const P3D CV[]={{-1,-1,-1},{1,-1,-1},{1,1,-1},{-1,1,-1},{-1,-1,1},{1,-1,1
 static const int CE[][2]={{0,1},{1,2},{2,3},{3,0},{4,5},{5,6},{6,7},{7,4},{0,4},{1,5},{2,6},{3,7}};
 static size_t wf(LaserPoint*o,size_t mx,const P3D*V,int nv,const int(*E)[2],int ne,float ry,float rx,float sc,uint8_t r,uint8_t g,uint8_t b){
     size_t n=0;
-    for(int e=0;e<ne;e++){for(int k=0;k<=28;k++){float t=k/28.f;P3D v={L(V[E[e][0]].x,V[E[e][1]].x,t),L(V[E[e][0]].y,V[E[e][1]].y,t),L(V[E[e][0]].z,V[E[e][1]].z,t)};float ox,oy;prj(v,ry,rx,sc,ox,oy);ap(o,n,mx,ox,oy,r,g,b,k==0?1:0);}}
+    for(int e=0;e<ne;e++){
+        // Move to edge start with laser off, giving the galvo enough
+        // sample-time to settle before the laser re-enables. A single
+        // blank sample is not enough for large jumps (e.g. across the
+        // cube) -- the laser was turning back on before the galvo
+        // physically reached the target, creating a visible dotted
+        // retrace line.
+        P3D v0={V[E[e][0]].x,V[E[e][0]].y,V[E[e][0]].z};
+        float sx,sy;prj(v0,ry,rx,sc,sx,sy);
+        for(int k=0;k<40 && n<mx;k++) ap(o,n,mx,sx,sy,0,0,0,1);
+        for(int k=0;k<=28;k++){float t=k/28.f;P3D v={L(V[E[e][0]].x,V[E[e][1]].x,t),L(V[E[e][0]].y,V[E[e][1]].y,t),L(V[E[e][0]].z,V[E[e][1]].z,t)};float ox,oy;prj(v,ry,rx,sc,ox,oy);ap(o,n,mx,ox,oy,r,g,b,0);}
+    }
     return n;
 }
 
 static size_t sinewave(LaserPoint*o,size_t mx,float A,float f,float ph_off,float sc,uint8_t r,uint8_t g,uint8_t b,int N=120){
     size_t n=0;
     const float effA=A*gLivePreset.wave_amp, effF=f*gLivePreset.wave_freq;
-    for(int i=0;i<=N;i++){float x=L(-1.f,1.f,i/float(N));ap(o,n,mx,x*sc,effA*sinf(effF*x*PI2+ph_off)*sc,r,g,b,i==0?1:0);}
+    float sx=-1.f*sc, sy=effA*sinf(effF*-1.f*PI2+ph_off)*sc;
+    for(int k=0;k<40 && n<mx;k++) ap(o,n,mx,sx,sy,0,0,0,1);
+    for(int i=0;i<=N;i++){float x=L(-1.f,1.f,i/float(N));ap(o,n,mx,x*sc,effA*sinf(effF*x*PI2+ph_off)*sc,r,g,b,0);}
     return n;
 }
 
@@ -969,14 +982,17 @@ size_t generate(uint8_t idx, LaserPoint* out, size_t max_pts,
     const uint32_t safe_phase = phase % 0xFFFFFF;  // ~194 Tage @ 1kHz
     size_t n = DISPATCH[idx](out, max_pts, safe_phase, speed, size_val);
 
-    // Centralized closing blank: many open-path presets (waves, spirals,
+// Centralized closing blank: many open-path presets (waves, spirals,
     // multi-segment silhouettes) draw from out[0] to out[n-1] without
     // returning to the start. When the engine loops the frame, the galvo
     // then jumps straight from the last lit point back to out[0] with the
     // laser still on -- a visible diagonal "retrace" line (dotted due to
     // galvo settling, seen on wireframes/waves/pyramids).
     // ngon()/star()/wf()/sinewave() already append their own closing
-    // blank point identical to out[0], so this is a no-op for them.
+    // blank settling samples identical to out[0], so this is a no-op
+    // for them. 40 samples matches line()'s proven settling time --
+    // a single blank sample isn't enough for large jumps; the laser
+    // was re-enabling before the galvo physically reached the target.
     if (n > 0 && n < max_pts) {
         const LaserPoint& last = out[n - 1];
         const LaserPoint& first = out[0];
@@ -984,7 +1000,7 @@ size_t generate(uint8_t idx, LaserPoint* out, size_t max_pts,
         if (!already_closed) {
             LaserPoint cl = first;
             cl.blank = 1;
-            out[n++] = cl;
+            for (int k = 0; k < 40 && n < max_pts; k++) out[n++] = cl;
         }
     }
     return n;
