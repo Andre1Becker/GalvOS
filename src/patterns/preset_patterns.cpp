@@ -329,6 +329,27 @@ static size_t p63(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     return n;
 }
 
+// p101 — Disco Ball (6th Combo preset, previously missing)
+static size_t p101(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
+    size_t n=0;float sc=SC*ssc(sz)*.9f,rot=aang(ph,sp);
+    // Outline circle (ball silhouette)
+    for(int i=0;i<=48;i++){float a=PI2*i/48.f;ap(o,n,m,cosf(a)*sc,sinf(a)*sc,220,220,220,i==0?1:0);}
+    // Latitude rings (horizontal facet bands, foreshortened by row)
+    for(int row=-2;row<=2;row++){
+        if(row==0) continue; // equator drawn separately below
+        float y=row*.32f,rx=sqrtf(fmaxf(0.f,1.f-y*y));
+        for(int i=0;i<=24;i++){float a=PI2*i/24.f;ap(o,n,m,cosf(a)*rx*sc,y*sc,(uint8_t)(128+127*sinf(a+rot)),(uint8_t)(128+127*sinf(a+rot+2.094f)),(uint8_t)(128+127*sinf(a+rot+4.189f)),i==0?1:0);}
+    }
+    // Equator
+    for(int i=0;i<=24;i++){float a=PI2*i/24.f;ap(o,n,m,cosf(a)*sc,0,255,255,255,i==0?1:0);}
+    // Longitude facet lines (rotating, mirror-ball sparkle effect)
+    for(int i=0;i<8;i++){
+        float a=PI2*i/8.f+rot;
+        for(int k=0;k<=16;k++){float t=k/16.f-.5f,y=t*2.f*sc,rx=sqrtf(fmaxf(0.f,1.f-(t*2.f)*(t*2.f)))*sc;ap(o,n,m,cosf(a)*rx,y,(uint8_t)(128+127*cosf(a*2+rot)),(uint8_t)(128+127*sinf(a*3-rot)),255,k==0?1:0);}
+    }
+    return n;
+}
+
 // ─── PARTY-SILHOUETTEN 64-89 ─────────────────────────────────
 static size_t p64(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){ // Martini
     size_t n=0;float sc=SC*ssc(sz)*.9f;
@@ -932,7 +953,7 @@ static const PFn DISPATCH[PRESET_COUNT] = {
     p29,p30,p31,p32,p33,p34,
     p35,p36,p37,p38,p39,p40,p41,p42,p43,p44,p45,p46,p47,p48,p49,p50,p51,p52,
     p53,p54,p55,p56,p57,p58,
-    p59,p60,p61,p62,p63,p83,
+    p59,p60,p61,p62,p63,p101,
     p64,p65,p66,p67,p68,p69,p70,p71,p72,p73,p74,p75,p76,p77,p78,p79,p80,p81,p82,p83,p84,p85,p86,p87,p88,p89,
     p90,
     p100,
