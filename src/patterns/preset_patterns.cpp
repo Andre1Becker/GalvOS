@@ -946,7 +946,27 @@ size_t generate(uint8_t idx, LaserPoint* out, size_t max_pts,
     // fmodf(ph * f) stays precise, but at very large ph
     // ph * factor may lose float precision. Clamp to safe range.
     const uint32_t safe_phase = phase % 0xFFFFFF;  // ~194 Tage @ 1kHz
-    return DISPATCH[idx](out, max_pts, safe_phase, speed, size_val);
+    size_t n = DISPATCH[idx](out, max_pts, safe_phase, speed, size_val);
+
+    // Centralized closing blank: many open-path presets (waves, spirals,
+    // multi-segment silhouettes) draw from out[0] to out[n-1] without
+    // returning to the start. When the engine loops the frame, the galvo
+    // then jumps straight from the last lit point back to out[0] with the
+    // laser still on -- a visible diagonal "retrace" line (dotted due to
+    // galvo settling, seen on wireframes/waves/pyramids).
+    // ngon()/star()/wf()/sinewave() already append their own closing
+    // blank point identical to out[0], so this is a no-op for them.
+    if (n > 0 && n < max_pts) {
+        const LaserPoint& last = out[n - 1];
+        const LaserPoint& first = out[0];
+        bool already_closed = last.blank && last.x == first.x && last.y == first.y;
+        if (!already_closed) {
+            LaserPoint cl = first;
+            cl.blank = 1;
+            out[n++] = cl;
+        }
+    }
+    return n;
 }
 
 } // namespace presets
