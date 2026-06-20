@@ -226,42 +226,36 @@ size_t optimize(const PathSegment* segments, size_t segment_count,
     //    ngon can fit easily within max_out=2048 while still flickering)
     size_t effective_cap = std::min(max_out, (size_t)cfg.max_pts_per_frame);
 
-    if (needed > effective_cap && interior_total > 0) {
-        // Fixed overhead (corners + blanking) is subtracted first; only
-        // the remaining budget is divided among interior points. This is
-        // what makes the scale factor self-consistent -- scaling
-        // pts_per_1000_units by (available / planned_total) would still
-        // overshoot effective_cap by however many points the unscaled
-        // corner_total contributes (corner points don't shrink, so
-        // dividing by the *combined* total under-corrects).
-        float available_for_interior =
-            (float)effective_cap - (float)blank_overhead - (float)corner_total;
-        if (available_for_interior < 0.0f) available_for_interior = 0.0f;
-        float scale = available_for_interior / (float)interior_total;
-        cfg.pts_per_1000_units = std::max(0.1f, cfg.pts_per_1000_units * scale);
-    }
-
-    // Second-stage clamp: shapes with many short/open segments (e.g. a
-    // 30-edge wireframe, each edge its own blank-jump-in PathSegment) can
-    // have blank_overhead alone exceed effective_cap, before a single
-    // interior point is even considered -- scaling pts_per_1000_units to
-    // zero doesn't help there, since the floor is corner_total +
-    // blank_overhead, not zero. In that case, shrink blank_samples itself
-    // (down to min_blank_samples) until the *fixed* overhead fits.
-    // Interim measure pending Pillar 2 (distance-proportional + eased
-    // blanking, see design doc Section 5) -- this just scales the existing
-    // fixed-count blanking down uniformly, it does not change its shape.
-    // Stage 1 triggers in two cases:
+    // Stage 1 (MUST run before Stage 2 below): shrink blank_samples FIRST,
+    // before touching interior density. Stage 1 triggers in two cases:
     //  (a) fixed overhead (corners + blanking at the default 40 samples)
-    //      alone exceeds the cap -- the original trigger, e.g. 30-edge
-    //      dodecahedron where blank_overhead is 1240 pts on its own.
+    //      alone exceeds the cap -- e.g. 30-edge dodecahedron where
+    //      blank_overhead is 1240 pts on its own.
     //  (b) fixed overhead fits the cap, but leaves less than
     //      min_interior_pts_per_segment reserved per segment -- e.g. a
     //      6-edge tetrahedron fits at 292/310, but only 18 points (3/edge)
     //      remain for interior density, too sparse to read as a line
-    //      rather than a dotted/broken edge. Without this check, Stage 1
-    //      never fires for low-edge-count shapes and they're left with
-    //      whatever scrap of budget Stage 2 computes.
+    //      rather than a dotted/broken edge.
+    //
+    // Running this BEFORE the interior-density clamp (Stage 2) is
+    // required: Stage 2 computes available_for_interior using
+    // blank_overhead, and if that still reflects the default 40
+    // samples/run, available_for_interior is driven to ~0 for any shape
+    // with more than a few segments -- collapsing every edge to isolated
+    // corner dots with no connecting line. THIS WAS THE ACTUAL BUG behind
+    // the "still no lines" report: an earlier patch pass left Stage 2
+    // (interior scale) physically ABOVE Stage 1 (blank shrink) in this
+    // file, so Stage 2 always ran against the inflated blank_overhead
+    // regardless of what Stage 1 later computed. Confirmed against real
+    // hardware logs (Cube/Octahedron/Tetrahedron: blank-point counts
+    // matched simulation exactly, lit-point counts were 5-8x too low --
+    // consistent with Stage 2 having scaled pts_per_1000_units down to
+    // its 0.1 floor before Stage 1 ever ran).
+    //
+    // Interim measure pending Pillar 2 (distance-proportional + eased
+    // blanking, see design doc Section 5) -- this just scales the
+    // existing fixed-count blanking down uniformly, it does not change
+    // its shape.
     uint32_t fixed_overhead_at_default_blank = corner_total + blank_overhead;
     uint32_t min_interior_reserve = (uint32_t)cfg.min_interior_pts_per_segment * segment_count;
     bool cap_exceeded   = fixed_overhead_at_default_blank > effective_cap;
@@ -272,14 +266,29 @@ size_t optimize(const PathSegment* segments, size_t segment_count,
         // Go straight to min_blank_samples rather than solving for an
         // intermediate value that exactly fits corner_total+blank_overhead
         // into effective_cap: that calculation can still leave too little
-        // (or zero) budget for interior points, which is exactly the bug
-        // this fix addresses -- edges with no/few interior points render
-        // as isolated corner dots, not lines. Dropping straight to the
+        // (or zero) budget for interior points. Dropping straight to the
         // floor leaves maximum room for Stage 2 to allocate interior
         // density.
         cfg.blank_samples = cfg.min_blank_samples;
         blank_overhead = (uint32_t)cfg.blank_samples * (segment_count + 1);
         needed = planned_total + blank_overhead;
+    }
+
+    // Stage 2: scale interior (length-proportional) density against the
+    // now-correct (possibly Stage-1-reduced) blank_overhead. Fixed
+    // overhead (corners + blanking) is subtracted first; only the
+    // remaining budget is divided among interior points -- this is what
+    // makes the scale factor self-consistent. Scaling pts_per_1000_units
+    // by (available / planned_total) would still overshoot effective_cap
+    // by however many points the unscaled corner_total contributes
+    // (corner points don't shrink, so dividing by the *combined* total
+    // under-corrects).
+    if (needed > effective_cap && interior_total > 0) {
+        float available_for_interior =
+            (float)effective_cap - (float)blank_overhead - (float)corner_total;
+        if (available_for_interior < 0.0f) available_for_interior = 0.0f;
+        float scale = available_for_interior / (float)interior_total;
+        cfg.pts_per_1000_units = std::max(0.1f, cfg.pts_per_1000_units * scale);
     }
 
     size_t n = 0;

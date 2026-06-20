@@ -20,12 +20,15 @@ constexpr size_t   PATTERN_POINTS_MAX = 2048;
 // the optimizer's geometry types into every translation unit that already
 // includes config.h.
 struct OptimizerLiveConfig {
-    float   corner_angle_deg   = 25.0f;
-    uint8_t min_corner_pts     = 1;
-    uint8_t max_corner_pts     = 6;
-    float   pts_per_1000_units = 4.0f;
-    uint8_t min_segment_pts    = 2;
-    uint8_t blank_samples      = 40;
+    float    corner_angle_deg   = 25.0f;
+    uint8_t  min_corner_pts     = 1;
+    uint8_t  max_corner_pts     = 6;
+    float    pts_per_1000_units = 4.0f;
+    uint8_t  min_segment_pts    = 2;
+    uint8_t  blank_samples      = 40;
+    uint16_t max_pts_per_frame  = 310;
+    uint8_t  min_blank_samples  = 8;
+    uint8_t  min_interior_pts_per_segment = 6;
 };
 extern OptimizerLiveConfig gOptimizerConfig;
 
