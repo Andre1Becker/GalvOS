@@ -59,14 +59,23 @@ struct PathSegment {
 // passed explicitly here rather than read as a global so the function
 // stays testable / has no hidden state).
 struct OptimizerConfig {
-    float   corner_angle_deg   = 25.0f;  // exterior angle below which a
-                                          // vertex is NOT a "sharp corner"
-    uint8_t min_corner_pts     = 1;      // points placed at the softest corners
-    uint8_t max_corner_pts     = 6;      // points placed at the sharpest (180°) corners
-    float   pts_per_1000_units = 4.0f;   // interior straight-segment density
-    uint8_t min_segment_pts    = 2;      // floor per edge (>=2 = start+end)
-    uint8_t blank_samples      = 40;     // fixed blank-jump length (Pillar 2 will
-                                          // make this a max instead of a constant)
+    float    corner_angle_deg   = 25.0f;  // exterior angle below which a
+                                           // vertex is NOT a "sharp corner"
+    uint8_t  min_corner_pts     = 1;      // points placed at the softest corners
+    uint8_t  max_corner_pts     = 6;      // points placed at the sharpest (180°) corners
+    float    pts_per_1000_units = 4.0f;   // interior straight-segment density
+    uint8_t  min_segment_pts    = 2;      // floor per edge (>=2 = start+end)
+    uint8_t  blank_samples      = 40;     // fixed blank-jump length (Pillar 2 will
+                                           // make this a max instead of a constant)
+    uint16_t max_pts_per_frame  = 280;    // FLICKER BUDGET, separate from max_out
+                                           // (buffer capacity). At 15kpps, n points
+                                           // per frame -> 15000/n Hz frame rate.
+                                           // Measured on hardware: >=310 pts/frame
+                                           // visibly strobes (square=460pts flickers,
+                                           // star4=176pts does not). 280 gives ~10%
+                                           // margin below the observed 310pt threshold
+                                           // (15000/280 ~= 53Hz). Tune via WebUI slider
+                                           // if a given setup needs more/less margin.
 };
 
 // Runs Pillar-1 density optimization across all given segments and writes

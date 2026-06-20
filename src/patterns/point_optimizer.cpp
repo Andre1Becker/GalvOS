@@ -76,13 +76,21 @@ struct PlannedSegment {
 };
 
 // First pass: compute how many points each segment would need at the
-// given pts_per_1000_units scale, without writing any output.
-static uint16_t planSegment(const PathSegment& seg, const OptimizerConfig& cfg) {
-    if (seg.count == 0) return 0;
-    if (seg.count == 1) return 1;  // single isolated point
+// given pts_per_1000_units scale, without writing any output. Optionally
+// reports the corner-point and interior-point sub-totals separately
+// (out_corner_pts / out_interior_pts may be nullptr) so the caller can
+// scale only the interior (length-proportional) portion when the overall
+// budget is exceeded -- corner points are capped by max_corner_pts
+// already and matter most for tracking accuracy, so they're treated as
+// fixed overhead rather than scaled down.
+static uint16_t planSegment(const PathSegment& seg, const OptimizerConfig& cfg,
+                             uint16_t* out_corner_pts = nullptr,
+                             uint16_t* out_interior_pts = nullptr) {
+    if (seg.count == 0) { if(out_corner_pts)*out_corner_pts=0; if(out_interior_pts)*out_interior_pts=0; return 0; }
+    if (seg.count == 1) { if(out_corner_pts)*out_corner_pts=1; if(out_interior_pts)*out_interior_pts=0; return 1; }
 
     size_t edge_count = seg.closed ? seg.count : (seg.count - 1);
-    uint32_t total = 0;
+    uint32_t corner_total = 0, interior_total = 0;
 
     for (size_t i = 0; i < seg.count; i++) {
         // Corner point count at vertex i (only meaningful if this vertex
@@ -99,7 +107,7 @@ static uint16_t planSegment(const PathSegment& seg, const OptimizerConfig& cfg) 
                                        seg.vertices[ni].x, seg.vertices[ni].y);
             cpts = cornerPointCount(ang, cfg);
         }
-        total += cpts;
+        corner_total += cpts;
     }
 
     for (size_t e = 0; e < edge_count; e++) {
@@ -107,9 +115,13 @@ static uint16_t planSegment(const PathSegment& seg, const OptimizerConfig& cfg) 
         float dx = seg.vertices[b].x - seg.vertices[a].x;
         float dy = seg.vertices[b].y - seg.vertices[a].y;
         float len = sqrtf(dx * dx + dy * dy);
-        total += edgeInteriorCount(len, cfg);
+        interior_total += edgeInteriorCount(len, cfg);
     }
 
+    if (out_corner_pts)   *out_corner_pts   = (corner_total > 0xFFFF) ? 0xFFFF : (uint16_t)corner_total;
+    if (out_interior_pts) *out_interior_pts = (interior_total > 0xFFFF) ? 0xFFFF : (uint16_t)interior_total;
+
+    uint32_t total = corner_total + interior_total;
     if (total < cfg.min_segment_pts) total = cfg.min_segment_pts;
     if (total > 0xFFFF) total = 0xFFFF;
     return (uint16_t)total;
@@ -181,25 +193,51 @@ size_t optimize(const PathSegment* segments, size_t segment_count,
 
     OptimizerConfig cfg = cfg_in;
 
-    // Budget check: plan at the requested density first.
-    uint32_t planned_total = 0;
-    for (size_t s = 0; s < segment_count; s++)
-        planned_total += planSegment(segments[s], cfg);
-    // Reserve room for inter-segment blank jumps (one per segment after
-    // the first) plus the final closing blank back to the first point.
-    uint32_t blank_overhead = (uint32_t)cfg.blank_samples * segment_count;
+    // Budget check: plan at the requested density first, tracking corner
+    // and interior sub-totals separately (corner points are fixed
+    // overhead -- capped by max_corner_pts, not scaled down; only
+    // interior/length-proportional density is reduced to fit budget).
+    uint32_t corner_total = 0, interior_total = 0;
+    for (size_t s = 0; s < segment_count; s++) {
+        uint16_t cp = 0, ip = 0;
+        planSegment(segments[s], cfg, &cp, &ip);
+        corner_total += cp;
+        interior_total += ip;
+    }
+    uint32_t planned_total = corner_total + interior_total;
+    // Reserve room for inter-segment blank jumps (one per segment) plus
+    // the final closing blank back to the first point -- that's
+    // (segment_count + 1) blank runs total, not segment_count: each
+    // segment gets a leading jump-to-start blank (emitted in the loop
+    // below), and there is one additional trailing closing-blank after
+    // the loop. Forgetting the "+1" here was the original bug -- it
+    // under-reserved by exactly one blank_samples-worth of points,
+    // which is why the first cut of this budget fix landed at
+    // effective_cap + blank_samples instead of effective_cap.
+    uint32_t blank_overhead = (uint32_t)cfg.blank_samples * (segment_count + 1);
     uint32_t needed = planned_total + blank_overhead;
 
-    if (needed > max_out && planned_total > 0) {
-        // Scale pts_per_1000_units down once so the whole pass fits.
-        // (Corner points are not scaled -- they're capped at
-        // max_corner_pts already and matter most for tracking accuracy;
-        // shaving interior density first is the same trade-off the old
-        // adaptN()-based per-pattern tuning made.)
-        float available = (float)max_out - (float)blank_overhead;
-        if (available < (float)segment_count * cfg.min_segment_pts)
-            available = (float)segment_count * cfg.min_segment_pts;
-        float scale = available / (float)planned_total;
+    // Effective cap = the tighter of two independent limits:
+    //  - max_out: hard buffer-capacity ceiling (never write past the
+    //    caller's array; PATTERN_POINTS_MAX-derived)
+    //  - max_pts_per_frame: flicker-budget ceiling (frame rate at 15kpps
+    //    must stay above the eye's flicker-fusion threshold -- this is
+    //    almost always the tighter constraint in practice, e.g. a single
+    //    ngon can fit easily within max_out=2048 while still flickering)
+    size_t effective_cap = std::min(max_out, (size_t)cfg.max_pts_per_frame);
+
+    if (needed > effective_cap && interior_total > 0) {
+        // Fixed overhead (corners + blanking) is subtracted first; only
+        // the remaining budget is divided among interior points. This is
+        // what makes the scale factor self-consistent -- scaling
+        // pts_per_1000_units by (available / planned_total) would still
+        // overshoot effective_cap by however many points the unscaled
+        // corner_total contributes (corner points don't shrink, so
+        // dividing by the *combined* total under-corrects).
+        float available_for_interior =
+            (float)effective_cap - (float)blank_overhead - (float)corner_total;
+        if (available_for_interior < 0.0f) available_for_interior = 0.0f;
+        float scale = available_for_interior / (float)interior_total;
         cfg.pts_per_1000_units = std::max(0.1f, cfg.pts_per_1000_units * scale);
     }
 
