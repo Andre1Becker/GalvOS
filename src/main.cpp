@@ -44,6 +44,7 @@ LivePresetControls gLivePreset;
 TextConfig       gTextConfig;
 CurveConfig      gCurves;
 ProjectionConfig gProjection;
+OptimizerLiveConfig gOptimizerConfig;   // GalvOS v5 Point Optimizer (Pillar 1)
 volatile bool    gDebugNoHW = false;
 
 static const char* TAG = "main";

@@ -1,5 +1,6 @@
 #include "preset_patterns.h"
 #include "countdown_timer.h"
+#include "point_optimizer.h"
 #include <math.h>
 #include <string.h>
 #include <Arduino.h>
@@ -61,24 +62,42 @@ static void line(LaserPoint*o,size_t&n,size_t mx,
         ap(o,n,mx,x1,y1,0,0,0,1);
 
 }
-static size_t ngon(LaserPoint*o,size_t mx,int sides,float sc,float off,uint8_t r,uint8_t g,uint8_t b){
-    size_t n=0;
-    // Interpolate per side so galvo can follow straight edges accurately.
-    // Minimum 8 steps per side; more sides = fewer steps needed.
-    int sps = (sides <= 4) ? 20 : (sides <= 6) ? 14 : 10;
-    for(int s=0;s<sides;s++){
-        float a0=PI2*s/sides+off, a1=PI2*(s+1)/sides+off;
-        float x0=cosf(a0)*sc, y0=sinf(a0)*sc;
-        float x1=cosf(a1)*sc, y1=sinf(a1)*sc;
-        for(int k=0;k<=sps;k++){
-            float t=(float)k/sps;
-            ap(o,n,mx, x0+(x1-x0)*t, y0+(y1-y0)*t, r,g,b, (s==0&&k==0)?1:0);
-        }
-    }
-// Closing blank: move back to start with laser off to prevent lit retrace on next frame
-    if(n>0 && n<mx){LaserPoint cl=o[0];cl.blank=1;for(int k=0;k<40 && n<mx;k++)o[n++]=cl;}
-    return n;
+// liveOptimizerConfig() -- converts the WebUI-tunable OptimizerLiveConfig
+// (config.h) into the optimizer module's own OptimizerConfig type.
+// Explicit conversion: the two structs have matching fields but are
+// distinct aggregate types, so no implicit conversion exists between
+// them (this is a free function rather than a constructor/operator to
+// keep point_optimizer.h decoupled from config.h's global state).
+static inline optimizer::OptimizerConfig liveOptimizerConfig() {
+    optimizer::OptimizerConfig cfg;
+    cfg.corner_angle_deg   = gOptimizerConfig.corner_angle_deg;
+    cfg.min_corner_pts     = gOptimizerConfig.min_corner_pts;
+    cfg.max_corner_pts     = gOptimizerConfig.max_corner_pts;
+    cfg.pts_per_1000_units = gOptimizerConfig.pts_per_1000_units;
+    cfg.min_segment_pts    = gOptimizerConfig.min_segment_pts;
+    cfg.blank_samples      = gOptimizerConfig.blank_samples;
+    return cfg;
 }
+
+// ngon() -- GalvOS v5: migrated to point_optimizer (Pillar 1, adaptive
+// density). Previously did manual fixed-step interpolation per side
+// (sps=10..20); now describes the polygon as `sides` corner vertices and
+// lets optimizer::optimize() decide point placement (corner-angle-aware +
+// length-proportional). For a regular n-gon every corner has the same
+// exterior angle (360/sides), so density is uniform across the shape --
+// the win here is mainly removing manual per-pattern tuning, with the
+// adaptive behavior mattering more for star()/wf() (irregular angles).
+static size_t ngon(LaserPoint*o,size_t mx,int sides,float sc,float off,uint8_t r,uint8_t g,uint8_t b){
+    if (sides < 3 || sides > 64) return 0;  // sanity guard, same range as before
+    optimizer::PathVertex verts[64];
+    for (int s = 0; s < sides; s++) {
+        float a = PI2 * s / sides + off;
+        verts[s] = { cosf(a) * sc, sinf(a) * sc, r, g, b, false };
+    }
+    optimizer::PathSegment seg{ verts, (size_t)sides, /*closed=*/true };
+    return optimizer::optimize(&seg, 1, o, mx, liveOptimizerConfig());
+}
+
 static size_t star(LaserPoint*o,size_t mx,int pts,float outer,float inner,float off,uint8_t r,uint8_t g,uint8_t b){
     size_t n=0;
     // Interpolate per segment so galvo can follow straight edges accurately.

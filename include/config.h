@@ -14,6 +14,21 @@ extern volatile bool gDebugNoHW;
 constexpr uint16_t GALVO_RATE_HZ      = GALVO_SAMPLE_RATE_HZ;
 constexpr size_t   PATTERN_POINTS_MAX = 2048;
 
+// GalvOS v5 Point Optimizer (Pillar 1) -- runtime-tunable via WebUI slider.
+// Mirrors optimizer::OptimizerConfig field-for-field; kept as a separate
+// struct here (rather than including point_optimizer.h) to avoid pulling
+// the optimizer's geometry types into every translation unit that already
+// includes config.h.
+struct OptimizerLiveConfig {
+    float   corner_angle_deg   = 25.0f;
+    uint8_t min_corner_pts     = 1;
+    uint8_t max_corner_pts     = 6;
+    float   pts_per_1000_units = 4.0f;
+    uint8_t min_segment_pts    = 2;
+    uint8_t blank_samples      = 40;
+};
+extern OptimizerLiveConfig gOptimizerConfig;
+
 enum DmxChannel : uint8_t {
     // ── default pattern control (CH 1-16) ────────────────────────────
     DMX_MASTER = 0,     // CH 1:  master dimmer 0-255
