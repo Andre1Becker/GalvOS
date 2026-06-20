@@ -98,6 +98,31 @@ uint8_t  min_blank_samples  = 8;      // floor for blank_samples when the budget
                                            // low end. This is an interim measure;
                                            // proper distance-proportional + eased
                                            // blanking is Pillar 2 (see design doc).
+float    blank_pts_per_1000_units = 6.0f;
+                                           // PILLAR 2: distance-proportional blank
+                                           // jump density, same "per 1000 units"
+                                           // convention as pts_per_1000_units.
+                                           // emitBlankJump() picks
+                                           // round(dist/1000 * this), clamped to
+                                           // [min_blank_samples, blank_samples].
+                                           // Short jumps (adjacent wireframe
+                                           // vertices) get few samples; long
+                                           // diagonal jumps get up to
+                                           // blank_samples. Budget planning
+                                           // (Stage 1/2 above) still reserves
+                                           // blank_samples as a conservative
+                                           // worst case per jump -- actual usage
+                                           // is typically less, so output stays
+                                           // within the planned budget.
+                                           // Also applies smoothstep ease-in/out
+                                           // instead of linear interpolation
+                                           // during the jump, to reduce
+                                           // overshoot/undershoot at the landing
+                                           // point (previously: edges meeting at
+                                           // a shared vertex didn't quite close,
+                                           // and straight segments looked
+                                           // slightly curved while the servo was
+                                           // still settling).
     uint8_t  min_interior_pts_per_segment = 6;
                                            // Minimum interior points to RESERVE per
                                            // segment before computing the blank

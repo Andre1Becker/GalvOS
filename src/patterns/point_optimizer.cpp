@@ -26,6 +26,48 @@ static inline void emitBlankRun(LaserPoint* out, size_t& n, size_t max,
         emit(out, n, max, x, y, 0, 0, 0, 1);
 }
 
+// smoothstep ease-in/ease-out: 3t^2 - 2t^3. At t=0 and t=1, the derivative
+// is 0 -- the galvo starts and stops the jump gently instead of being
+// commanded to an instantaneous velocity change at both ends, which is
+// what produces overshoot/undershoot at the landing point (visible as
+// edges that don't quite meet at a shared vertex) and curved-looking
+// straight segments (the servo is still settling from the jump while the
+// first few "interior" points of the next edge are being drawn).
+static inline float smoothstep(float t) {
+    if (t < 0.0f) t = 0.0f;
+    if (t > 1.0f) t = 1.0f;
+    return t * t * (3.0f - 2.0f * t);
+}
+
+// Pillar 2 (interim): distance-proportional + eased blank jump from
+// (x0,y0) to (x1,y1). Sample count scales with jump distance using the
+// same "points per 1000 units" convention as interior density
+// (cfg.blank_pts_per_1000_units), clamped to [min_blank_samples,
+// blank_samples] -- short jumps (e.g. between adjacent wireframe
+// vertices) get fewer samples, long diagonal jumps get more, instead of
+// every jump paying the same fixed cost regardless of distance.
+// Falls back to a simple stay-at-target run (old emitBlankRun behavior)
+// when there is no prior point to jump from (n==0).
+static void emitBlankJump(LaserPoint* out, size_t& n, size_t max,
+                           float x1, float y1, const OptimizerConfig& cfg) {
+    if (n == 0) {
+        emitBlankRun(out, n, max, x1, y1, cfg.blank_samples);
+        return;
+    }
+    float x0 = out[n - 1].x, y0 = out[n - 1].y;
+    float dx = x1 - x0, dy = y1 - y0;
+    float dist = sqrtf(dx * dx + dy * dy);
+
+    int count = (int)lroundf((dist / 1000.0f) * cfg.blank_pts_per_1000_units);
+    if (count < (int)cfg.min_blank_samples) count = cfg.min_blank_samples;
+    if (count > (int)cfg.blank_samples)     count = cfg.blank_samples;
+
+    for (int k = 1; k <= count && n < max; k++) {
+        float t = smoothstep((float)k / (float)count);
+        emit(out, n, max, x0 + dx * t, y0 + dy * t, 0, 0, 0, 1);
+    }
+}
+
 // Exterior angle (0..PI) between the incoming edge (prev->cur) and the
 // outgoing edge (cur->next), measured at "cur". 0 = straight through
 // (collinear, dot=+1, acos=0), PI = full reversal (dot=-1, acos=PI).
@@ -296,9 +338,9 @@ size_t optimize(const PathSegment* segments, size_t segment_count,
         const PathSegment& seg = segments[s];
         if (seg.count == 0) continue;
 
-        // Blank jump to this segment's first vertex.
-        emitBlankRun(out, n, max_out, seg.vertices[0].x, seg.vertices[0].y,
-                     cfg.blank_samples);
+        // Blank jump to this segment's first vertex -- distance-
+        // proportional + eased (Pillar 2), see emitBlankJump().
+        emitBlankJump(out, n, max_out, seg.vertices[0].x, seg.vertices[0].y, cfg);
 
         emitSegment(seg, cfg, out, n, max_out);
     }
@@ -308,9 +350,8 @@ size_t optimize(const PathSegment* segments, size_t segment_count,
     // as the existing per-pattern closing-blank convention in
     // preset_patterns.cpp (ngon()/star()).
     if (n > 0 && segment_count > 0 && segments[0].count > 0) {
-        emitBlankRun(out, n, max_out,
-                     segments[0].vertices[0].x, segments[0].vertices[0].y,
-                     cfg.blank_samples);
+        emitBlankJump(out, n, max_out,
+                      segments[0].vertices[0].x, segments[0].vertices[0].y, cfg);
     }
 
     return n;
