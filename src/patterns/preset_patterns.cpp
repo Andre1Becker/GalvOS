@@ -92,9 +92,12 @@ static size_t ngon(LaserPoint*o,size_t mx,int sides,float sc,float off,uint8_t r
     optimizer::PathVertex verts[64];
     for (int s = 0; s < sides; s++) {
         float a = PI2 * s / sides + off;
-        verts[s] = { cosf(a) * sc, sinf(a) * sc, r, g, b, false };
+        verts[s].x = cosf(a) * sc;
+        verts[s].y = sinf(a) * sc;
+        verts[s].r = r; verts[s].g = g; verts[s].b = b;
+        verts[s].lift = false;
     }
-    optimizer::PathSegment seg{ verts, (size_t)sides, /*closed=*/true };
+    optimizer::PathSegment seg(verts, (size_t)sides, /*closed=*/true);
     return optimizer::optimize(&seg, 1, o, mx, liveOptimizerConfig());
 }
 

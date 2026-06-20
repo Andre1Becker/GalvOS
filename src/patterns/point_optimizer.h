@@ -23,20 +23,36 @@ namespace optimizer {
 // One vertex in a path. lift=true means: blank-jump TO this vertex
 // (it starts a new disconnected sub-path, e.g. after a pen-up in a
 // text glyph, or the first vertex of an isolated wireframe edge).
+//
+// NOTE: explicit constructors, not default member initializers --
+// PlatformIO/Arduino-ESP32 builds under -std=gnu++11, where a struct
+// with a default member initializer is no longer an aggregate and
+// brace-init (`PathVertex v{...}` or `v = {...}`) stops compiling
+// ("no match for operator=" / "no matching constructor"). Explicit
+// constructors work under every standard.
 struct PathVertex {
     float   x, y;
     uint8_t r, g, b;
-    bool    lift = false;
+    bool    lift;
+
+    PathVertex() : x(0), y(0), r(0), g(0), b(0), lift(false) {}
+    PathVertex(float x, float y, uint8_t r, uint8_t g, uint8_t b, bool lift = false)
+        : x(x), y(y), r(r), g(g), b(b), lift(lift) {}
 };
 
 // One path = a sequence of vertices connected by straight segments.
 // closed=true adds an implicit edge from vertices[count-1] back to
 // vertices[0] (e.g. ngon, star). closed=false is an open polyline
 // (e.g. one wireframe edge, one text-glyph stroke run).
+//
+// Same C++11/aggregate note as PathVertex above -- explicit constructor.
 struct PathSegment {
     const PathVertex* vertices;
     size_t            count;
-    bool              closed = false;
+    bool              closed;
+
+    PathSegment(const PathVertex* vertices, size_t count, bool closed = false)
+        : vertices(vertices), count(count), closed(closed) {}
 };
 
 // Runtime-tunable parameters (mirrors gOptimizerConfig in config.h --
