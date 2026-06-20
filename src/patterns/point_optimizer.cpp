@@ -251,18 +251,35 @@ size_t optimize(const PathSegment* segments, size_t segment_count,
     // Interim measure pending Pillar 2 (distance-proportional + eased
     // blanking, see design doc Section 5) -- this just scales the existing
     // fixed-count blanking down uniformly, it does not change its shape.
-    uint32_t fixed_overhead = corner_total + blank_overhead;
-    if (fixed_overhead > effective_cap && cfg.blank_samples > cfg.min_blank_samples) {
-        // Corner points are not reducible (see above) -- solve for the
-        // blank_samples value that makes corner_total + blank_samples*(segment_count+1)
-        // fit, then clamp to the configured floor.
-        float budget_for_blank = (float)effective_cap - (float)corner_total;
-        float per_run = budget_for_blank / (float)(segment_count + 1);
-        int new_blank = (int)per_run;  // floor, not round -- never overshoot
-        if (new_blank < (int)cfg.min_blank_samples) new_blank = cfg.min_blank_samples;
-        if (new_blank > (int)cfg.blank_samples)     new_blank = cfg.blank_samples;
-        cfg.blank_samples = (uint8_t)new_blank;
+    // Stage 1 triggers in two cases:
+    //  (a) fixed overhead (corners + blanking at the default 40 samples)
+    //      alone exceeds the cap -- the original trigger, e.g. 30-edge
+    //      dodecahedron where blank_overhead is 1240 pts on its own.
+    //  (b) fixed overhead fits the cap, but leaves less than
+    //      min_interior_pts_per_segment reserved per segment -- e.g. a
+    //      6-edge tetrahedron fits at 292/310, but only 18 points (3/edge)
+    //      remain for interior density, too sparse to read as a line
+    //      rather than a dotted/broken edge. Without this check, Stage 1
+    //      never fires for low-edge-count shapes and they're left with
+    //      whatever scrap of budget Stage 2 computes.
+    uint32_t fixed_overhead_at_default_blank = corner_total + blank_overhead;
+    uint32_t min_interior_reserve = (uint32_t)cfg.min_interior_pts_per_segment * segment_count;
+    bool cap_exceeded   = fixed_overhead_at_default_blank > effective_cap;
+    bool reserve_too_low = (effective_cap >= fixed_overhead_at_default_blank) &&
+        ((effective_cap - fixed_overhead_at_default_blank) < min_interior_reserve);
+
+    if ((cap_exceeded || reserve_too_low) && cfg.blank_samples > cfg.min_blank_samples) {
+        // Go straight to min_blank_samples rather than solving for an
+        // intermediate value that exactly fits corner_total+blank_overhead
+        // into effective_cap: that calculation can still leave too little
+        // (or zero) budget for interior points, which is exactly the bug
+        // this fix addresses -- edges with no/few interior points render
+        // as isolated corner dots, not lines. Dropping straight to the
+        // floor leaves maximum room for Stage 2 to allocate interior
+        // density.
+        cfg.blank_samples = cfg.min_blank_samples;
         blank_overhead = (uint32_t)cfg.blank_samples * (segment_count + 1);
+        needed = planned_total + blank_overhead;
     }
 
     size_t n = 0;

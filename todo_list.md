@@ -7,3 +7,4 @@ Things need to be done:
 - make features toggable via UI (fe. disable art net if not needed)
 - display temps, cpu load, buffer in status bar
 - fix calibration tab redundancy and non working stuff
+- Version Number in Page Title

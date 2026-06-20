@@ -524,6 +524,22 @@ void task(void*) {
             if (gLivePreset.mirror_x) for (size_t i=0;i<n;i++) s_frame[i].x = -s_frame[i].x;
             if (gLivePreset.mirror_y) for (size_t i=0;i<n;i++) s_frame[i].y = -s_frame[i].y;
             if (n == 0) { static LaserPoint blank_pt={0,0,0,0,0,1}; galvo::pushFrame(&blank_pt,1); vTaskDelay(pdMS_TO_TICKS(40)); continue; }  // guard: preset generated 0 points
+            {
+                // TEMP DEBUG: log point count (total/lit/blank) per frame,
+                // rate-limited to ~1x/2s. Covers ALL presets (ngon/star/wf/
+                // curves), since every preset path reaches this point
+                // before pushFrame(). Remove once point_optimizer density
+                // is validated across all migrated presets.
+                static uint32_t s_lastLogMs = 0;
+                uint32_t nowMs = millis();
+                if (nowMs - s_lastLogMs > 2000) {
+                    s_lastLogMs = nowMs;
+                    size_t litCount = 0;
+                    for (size_t i = 0; i < n; i++) if (!s_frame[i].blank) litCount++;
+                    LOG_I(logbuf::CAT_GALVO, "Preset frame: n=%u lit=%u blank=%u",
+                          (unsigned)n, (unsigned)litCount, (unsigned)(n - litCount));
+                }
+            }
             applyTransform(s_frame, n, v, phase);
             applyCalibration(s_frame, n);
             web_ui::publishPreviewFrame(s_frame, n);

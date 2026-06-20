@@ -83,7 +83,7 @@ struct OptimizerConfig {
                                            // margin below the observed 310pt threshold
                                            // (15000/280 ~= 53Hz). Tune via WebUI slider
                                            // if a given setup needs more/less margin.
-    uint8_t  min_blank_samples  = 8;      // floor for blank_samples when the budget
+uint8_t  min_blank_samples  = 8;      // floor for blank_samples when the budget
                                            // clamp needs to shrink blanking itself,
                                            // not just interior density (relevant for
                                            // many-short-edges shapes like wireframes,
@@ -94,10 +94,24 @@ struct OptimizerConfig {
                                            // visible point is drawn). The original
                                            // v4.5.29 fix found 1 sample insufficient
                                            // for large jumps -- 8 is a conservative
-                                           // floor, NOT YET HARDWARE-VALIDATED at the
+                                           // floor, not yet hardware-validated at the
                                            // low end. This is an interim measure;
                                            // proper distance-proportional + eased
                                            // blanking is Pillar 2 (see design doc).
+    uint8_t  min_interior_pts_per_segment = 6;
+                                           // Minimum interior points to RESERVE per
+                                           // segment before computing the blank
+                                           // budget. Without this, blank_samples
+                                           // only shrinks once the OVERALL cap is
+                                           // exceeded -- a 6-edge tetrahedron at the
+                                           // default 40 blank samples uses only
+                                           // 292/310 of the cap, so the cap-based
+                                           // trigger never fires, yet the 18 points
+                                           // left over for interior density (3/edge)
+                                           // is still too sparse to read as a line,
+                                           // not a dotted/broken edge. This forces
+                                           // blank_samples to give up budget earlier
+                                           // so each edge gets a usable minimum.
 };
 
 // Runs Pillar-1 density optimization across all given segments and writes
