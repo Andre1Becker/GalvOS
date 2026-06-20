@@ -241,6 +241,30 @@ size_t optimize(const PathSegment* segments, size_t segment_count,
         cfg.pts_per_1000_units = std::max(0.1f, cfg.pts_per_1000_units * scale);
     }
 
+    // Second-stage clamp: shapes with many short/open segments (e.g. a
+    // 30-edge wireframe, each edge its own blank-jump-in PathSegment) can
+    // have blank_overhead alone exceed effective_cap, before a single
+    // interior point is even considered -- scaling pts_per_1000_units to
+    // zero doesn't help there, since the floor is corner_total +
+    // blank_overhead, not zero. In that case, shrink blank_samples itself
+    // (down to min_blank_samples) until the *fixed* overhead fits.
+    // Interim measure pending Pillar 2 (distance-proportional + eased
+    // blanking, see design doc Section 5) -- this just scales the existing
+    // fixed-count blanking down uniformly, it does not change its shape.
+    uint32_t fixed_overhead = corner_total + blank_overhead;
+    if (fixed_overhead > effective_cap && cfg.blank_samples > cfg.min_blank_samples) {
+        // Corner points are not reducible (see above) -- solve for the
+        // blank_samples value that makes corner_total + blank_samples*(segment_count+1)
+        // fit, then clamp to the configured floor.
+        float budget_for_blank = (float)effective_cap - (float)corner_total;
+        float per_run = budget_for_blank / (float)(segment_count + 1);
+        int new_blank = (int)per_run;  // floor, not round -- never overshoot
+        if (new_blank < (int)cfg.min_blank_samples) new_blank = cfg.min_blank_samples;
+        if (new_blank > (int)cfg.blank_samples)     new_blank = cfg.blank_samples;
+        cfg.blank_samples = (uint8_t)new_blank;
+        blank_overhead = (uint32_t)cfg.blank_samples * (segment_count + 1);
+    }
+
     size_t n = 0;
     for (size_t s = 0; s < segment_count; s++) {
         const PathSegment& seg = segments[s];

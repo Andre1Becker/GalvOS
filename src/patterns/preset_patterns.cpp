@@ -128,21 +128,37 @@ static void prj(P3D v,float ry,float rx,float sc,float&ox,float&oy){
 }
 static const P3D CV[]={{-1,-1,-1},{1,-1,-1},{1,1,-1},{-1,1,-1},{-1,-1,1},{1,-1,1},{1,1,1},{-1,1,1}};
 static const int CE[][2]={{0,1},{1,2},{2,3},{3,0},{4,5},{5,6},{6,7},{7,4},{0,4},{1,5},{2,6},{3,7}};
+
+// wf() -- GalvOS v5: migrated to point_optimizer (Pillar 1, adaptive
+// density + budget-aware blanking). Previously: fixed 40 blank samples
+// + fixed 29 interior points PER EDGE, regardless of edge count or
+// length -- a 30-edge dodecahedron cost ~2070 pts/frame (15000/2070 ~=
+// 7Hz, badly strobing). Now: project each edge to 2D first (prj()
+// unchanged), describe it as one open 2-vertex PathSegment, and hand
+// ALL edges to optimize() in a single call so the flicker budget
+// (OptimizerConfig::max_pts_per_frame) is shared across the whole shape
+// -- more edges means less budget per edge, automatically.
+static const int WF_MAX_EDGES = 64;  // generous upper bound; current
+                                      // shapes top out at 30 (dodecahedron)
 static size_t wf(LaserPoint*o,size_t mx,const P3D*V,int nv,const int(*E)[2],int ne,float ry,float rx,float sc,uint8_t r,uint8_t g,uint8_t b){
-    size_t n=0;
-    for(int e=0;e<ne;e++){
-        // Move to edge start with laser off, giving the galvo enough
-        // sample-time to settle before the laser re-enables. A single
-        // blank sample is not enough for large jumps (e.g. across the
-        // cube) -- the laser was turning back on before the galvo
-        // physically reached the target, creating a visible dotted
-        // retrace line.
-        P3D v0={V[E[e][0]].x,V[E[e][0]].y,V[E[e][0]].z};
-        float sx,sy;prj(v0,ry,rx,sc,sx,sy);
-        for(int k=0;k<40 && n<mx;k++) ap(o,n,mx,sx,sy,0,0,0,1);
-        for(int k=0;k<=28;k++){float t=k/28.f;P3D v={L(V[E[e][0]].x,V[E[e][1]].x,t),L(V[E[e][0]].y,V[E[e][1]].y,t),L(V[E[e][0]].z,V[E[e][1]].z,t)};float ox,oy;prj(v,ry,rx,sc,ox,oy);ap(o,n,mx,ox,oy,r,g,b,0);}
+    if (ne > WF_MAX_EDGES) ne = WF_MAX_EDGES;  // sanity guard
+    optimizer::PathSegment segs[WF_MAX_EDGES];
+    optimizer::PathVertex  verts[WF_MAX_EDGES][2];
+    for (int e = 0; e < ne; e++) {
+        float x0, y0, x1, y1;
+        prj(V[E[e][0]], ry, rx, sc, x0, y0);
+        prj(V[E[e][1]], ry, rx, sc, x1, y1);
+        verts[e][0].x = x0; verts[e][0].y = y0;
+        verts[e][0].r = r;  verts[e][0].g = g;  verts[e][0].b = b;
+        verts[e][0].lift = true;   // blank-jump TO the start of this edge
+        verts[e][1].x = x1; verts[e][1].y = y1;
+        verts[e][1].r = r;  verts[e][1].g = g;  verts[e][1].b = b;
+        verts[e][1].lift = false;
+        segs[e] = optimizer::PathSegment(verts[e], 2, /*closed=*/false);
     }
-    return n;
+    // ne, not WF_MAX_EDGES -- passing the unused array tail as segments
+    // would reserve blank budget for edges that don't exist.
+    return optimizer::optimize(segs, ne, o, mx, liveOptimizerConfig());
 }
 
 static size_t sinewave(LaserPoint*o,size_t mx,float A,float f,float ph_off,float sc,uint8_t r,uint8_t g,uint8_t b,int N=120){

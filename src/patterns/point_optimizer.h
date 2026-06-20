@@ -51,6 +51,13 @@ struct PathSegment {
     size_t            count;
     bool              closed;
 
+    // Default constructor (count=0 -> optimize() skips this segment, see
+    // the `if (seg.count == 0) continue;` guard) -- needed so callers
+    // with a variable/upper-bounded number of segments can declare a
+    // fixed-size PathSegment array and fill only the first N entries
+    // (e.g. wf()'s wireframe edges: declare PathSegment segs[64], use
+    // only segs[0..edge_count-1]).
+    PathSegment() : vertices(nullptr), count(0), closed(false) {}
     PathSegment(const PathVertex* vertices, size_t count, bool closed = false)
         : vertices(vertices), count(count), closed(closed) {}
 };
@@ -67,7 +74,7 @@ struct OptimizerConfig {
     uint8_t  min_segment_pts    = 2;      // floor per edge (>=2 = start+end)
     uint8_t  blank_samples      = 40;     // fixed blank-jump length (Pillar 2 will
                                            // make this a max instead of a constant)
-    uint16_t max_pts_per_frame  = 280;    // FLICKER BUDGET, separate from max_out
+    uint16_t max_pts_per_frame  = 310;    // FLICKER BUDGET, separate from max_out
                                            // (buffer capacity). At 15kpps, n points
                                            // per frame -> 15000/n Hz frame rate.
                                            // Measured on hardware: >=310 pts/frame
@@ -76,6 +83,21 @@ struct OptimizerConfig {
                                            // margin below the observed 310pt threshold
                                            // (15000/280 ~= 53Hz). Tune via WebUI slider
                                            // if a given setup needs more/less margin.
+    uint8_t  min_blank_samples  = 8;      // floor for blank_samples when the budget
+                                           // clamp needs to shrink blanking itself,
+                                           // not just interior density (relevant for
+                                           // many-short-edges shapes like wireframes,
+                                           // where blank overhead -- not interior
+                                           // density -- dominates the point count;
+                                           // e.g. 30-edge dodecahedron: 31 blank runs
+                                           // x 40 samples = 1240 pts before a single
+                                           // visible point is drawn). The original
+                                           // v4.5.29 fix found 1 sample insufficient
+                                           // for large jumps -- 8 is a conservative
+                                           // floor, NOT YET HARDWARE-VALIDATED at the
+                                           // low end. This is an interim measure;
+                                           // proper distance-proportional + eased
+                                           // blanking is Pillar 2 (see design doc).
 };
 
 // Runs Pillar-1 density optimization across all given segments and writes
