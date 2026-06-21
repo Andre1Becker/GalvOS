@@ -194,18 +194,25 @@ static int buildWfChains(int nv, const int(*E)[2], int ne,
         chain[len++] = start;
         chain[len++] = cur;
 
-        // Extend forward through cur as long as it has exactly one
-        // other unused incident edge (a genuine pass-through vertex).
+        // Extend forward through cur only if it is a genuine
+        // degree-2 vertex (exactly 2 edges in the WHOLE shape, not
+        // just currently-unused ones). Using "currently free edges"
+        // here is processing-order-dependent: a degree-3 corner can
+        // end up with only 1 unused edge left by the time a later
+        // chain reaches it, making it look like a pass-through and
+        // rounding off a real corner. Degree is fixed at build time
+        // and never changes, so it's order-independent.
         while (len <= WF_MAX_VERTS) {
-            int next_edge = -1, next_v = -1, free_count = 0;
+            if (adj_count[cur] != 2) break;  // branch point or dead end -- stop chain here
+            int next_edge = -1, next_v = -1;
             for (int k = 0; k < adj_count[cur]; k++) {
                 if (!used[adj_edge[cur][k]]) {
-                    free_count++;
                     next_edge = adj_edge[cur][k];
                     next_v = adj_other[cur][k];
+                    break;
                 }
             }
-            if (free_count != 1) break;  // branch point or dead end -- stop chain here
+            if (next_edge < 0) break;  // both edges already used -- dead end
             if (next_v == start) {
                 // closes the loop back to chain start
                 used[next_edge] = true;
