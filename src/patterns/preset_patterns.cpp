@@ -170,11 +170,13 @@ static int buildWfChains(int nv, const int(*E)[2], int ne,
                           int out_chain_len[], bool out_closed[],
                           int max_chains) {
     if (nv > WF_MAX_VERTS) return 0;  // sanity guard
-    bool used[WF_MAX_EDGES] = {false};
+    static bool used[WF_MAX_EDGES];
+    memset(used, 0, sizeof(used));
     // adjacency: for each vertex, list of (edge_idx, other_vertex)
-    int adj_edge[WF_MAX_VERTS][WF_MAX_VERTS];   // adj_edge[v][k] = edge idx
-    int adj_other[WF_MAX_VERTS][WF_MAX_VERTS];  // adj_other[v][k] = other vertex
-    int adj_count[WF_MAX_VERTS] = {0};
+    static int adj_edge[WF_MAX_VERTS][WF_MAX_VERTS];   // adj_edge[v][k] = edge idx
+    static int adj_other[WF_MAX_VERTS][WF_MAX_VERTS];  // adj_other[v][k] = other vertex
+    static int adj_count[WF_MAX_VERTS];
+    memset(adj_count, 0, sizeof(adj_count));
     for (int e = 0; e < ne && e < WF_MAX_EDGES; e++) {
         int a = E[e][0], b = E[e][1];
         if (a < 0 || a >= nv || b < 0 || b >= nv) continue;
@@ -187,7 +189,7 @@ static int buildWfChains(int nv, const int(*E)[2], int ne,
         if (used[e0]) continue;
         used[e0] = true;
         int start = E[e0][0], cur = E[e0][1];
-        int chain[WF_MAX_VERTS + 1];
+        static int chain[WF_MAX_VERTS + 1];
         int len = 0;
         chain[len++] = start;
         chain[len++] = cur;
