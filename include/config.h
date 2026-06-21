@@ -28,8 +28,10 @@ struct OptimizerLiveConfig {
     uint8_t  blank_samples      = 40;
     uint16_t max_pts_per_frame  = 310;
     uint8_t  min_blank_samples  = 8;
+    float    blank_pts_per_1000_units = 10.0f;
     uint8_t  min_interior_pts_per_segment = 6;
 };
+
 extern OptimizerLiveConfig gOptimizerConfig;
 
 enum DmxChannel : uint8_t {

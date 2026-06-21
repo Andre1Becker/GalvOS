@@ -107,6 +107,16 @@ static void persistConfig() {
     s_prefs.putString("gw",         gConfig.wifi_gw);
     s_prefs.putString("mask",       gConfig.wifi_mask);
     s_prefs.putString("dns",        gConfig.wifi_dns);
+    s_prefs.putFloat ("opt_cad",    gOptimizerConfig.corner_angle_deg);
+    s_prefs.putUChar ("opt_mincp",  gOptimizerConfig.min_corner_pts);
+    s_prefs.putUChar ("opt_maxcp",  gOptimizerConfig.max_corner_pts);
+    s_prefs.putFloat ("opt_ppu",    gOptimizerConfig.pts_per_1000_units);
+    s_prefs.putUChar ("opt_minsp",  gOptimizerConfig.min_segment_pts);
+    s_prefs.putUChar ("opt_blank",  gOptimizerConfig.blank_samples);
+    s_prefs.putUShort("opt_maxppf", gOptimizerConfig.max_pts_per_frame);
+    s_prefs.putUChar ("opt_minbl",  gOptimizerConfig.min_blank_samples);
+    s_prefs.putFloat ("opt_blppu",  gOptimizerConfig.blank_pts_per_1000_units);
+    s_prefs.putUChar ("opt_minip",  gOptimizerConfig.min_interior_pts_per_segment);
     s_prefs.end();
 }
 
@@ -210,6 +220,16 @@ static void buildConfigJson(JsonDocument& doc) {
     doc["dac_debug_log"]   = gConfig.dac_debug_log;
     doc["dac_limit_min"]   = gConfig.dac_limit_min;
     doc["dac_limit_max"]   = gConfig.dac_limit_max;
+    doc["opt_corner_angle_deg"]   = gOptimizerConfig.corner_angle_deg;
+    doc["opt_min_corner_pts"]     = gOptimizerConfig.min_corner_pts;
+    doc["opt_max_corner_pts"]     = gOptimizerConfig.max_corner_pts;
+    doc["opt_pts_per_1000_units"] = gOptimizerConfig.pts_per_1000_units;
+    doc["opt_min_segment_pts"]    = gOptimizerConfig.min_segment_pts;
+    doc["opt_blank_samples"]      = gOptimizerConfig.blank_samples;
+    doc["opt_max_pts_per_frame"]  = gOptimizerConfig.max_pts_per_frame;
+    doc["opt_min_blank_samples"]  = gOptimizerConfig.min_blank_samples;
+    doc["opt_blank_pts_per_1000_units"] = gOptimizerConfig.blank_pts_per_1000_units;
+    doc["opt_min_interior_pts_per_segment"] = gOptimizerConfig.min_interior_pts_per_segment;
 }
 
 /* ============================================================
@@ -429,6 +449,45 @@ void init() {
             if (doc["gamma_enable"].is<bool>()) gConfig.gamma_enable = doc["gamma_enable"];
             if (doc["gamma_val"].is<float>()) gConfig.gamma_val = constrain((float)doc["gamma_val"], 1.0f, 3.0f);
             req->send(200, "text/plain", "OK");
+        });
+
+    // ---- POST /api/optimizer-live ---- (apply immediately, no persist)
+    s_server.on("/api/optimizer-live", HTTP_POST,
+        [](AsyncWebServerRequest* req) {},
+        nullptr,
+        [](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t, size_t) {
+            JsonDocument doc;
+            if (deserializeJson(doc, data, len)) { req->send(400, "text/plain", "bad json"); return; }
+            if (doc["corner_angle_deg"].is<float>())
+                gOptimizerConfig.corner_angle_deg = constrain((float)doc["corner_angle_deg"], 0.0f, 180.0f);
+            if (doc["min_corner_pts"].is<int>())
+                gOptimizerConfig.min_corner_pts = constrain((int)doc["min_corner_pts"], 1, 20);
+            if (doc["max_corner_pts"].is<int>())
+                gOptimizerConfig.max_corner_pts = constrain((int)doc["max_corner_pts"], 1, 20);
+            if (doc["pts_per_1000_units"].is<float>())
+                gOptimizerConfig.pts_per_1000_units = constrain((float)doc["pts_per_1000_units"], 0.1f, 50.0f);
+            if (doc["min_segment_pts"].is<int>())
+                gOptimizerConfig.min_segment_pts = constrain((int)doc["min_segment_pts"], 2, 20);
+            if (doc["blank_samples"].is<int>())
+                gOptimizerConfig.blank_samples = constrain((int)doc["blank_samples"], 1, 100);
+            if (doc["max_pts_per_frame"].is<int>())
+                gOptimizerConfig.max_pts_per_frame = constrain((int)doc["max_pts_per_frame"], 50, (int)PATTERN_POINTS_MAX);
+            if (doc["min_blank_samples"].is<int>())
+                gOptimizerConfig.min_blank_samples = constrain((int)doc["min_blank_samples"], 1, 100);
+            if (doc["blank_pts_per_1000_units"].is<float>())
+                gOptimizerConfig.blank_pts_per_1000_units = constrain((float)doc["blank_pts_per_1000_units"], 0.1f, 50.0f);
+            if (doc["min_interior_pts_per_segment"].is<int>())
+                gOptimizerConfig.min_interior_pts_per_segment = constrain((int)doc["min_interior_pts_per_segment"], 0, 50);
+            req->send(200, "text/plain", "OK");
+        });
+
+    // ---- POST /api/optimizer-save ---- (persist current values to NVS)
+    s_server.on("/api/optimizer-save", HTTP_POST,
+        [](AsyncWebServerRequest* req) {},
+        nullptr,
+        [](AsyncWebServerRequest* req, uint8_t*, size_t, size_t, size_t) {
+            persistConfig();
+            req->send(200, "text/plain", "saved");
         });
 
     // ---- POST /api/calib-save ----

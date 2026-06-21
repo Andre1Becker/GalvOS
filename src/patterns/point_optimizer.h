@@ -83,7 +83,7 @@ struct OptimizerConfig {
                                            // margin below the observed 310pt threshold
                                            // (15000/280 ~= 53Hz). Tune via WebUI slider
                                            // if a given setup needs more/less margin.
-uint8_t  min_blank_samples  = 8;      // floor for blank_samples when the budget
+uint8_t  min_blank_samples  = 18;      // floor for blank_samples when the budget
                                            // clamp needs to shrink blanking itself,
                                            // not just interior density (relevant for
                                            // many-short-edges shapes like wireframes,
@@ -98,7 +98,7 @@ uint8_t  min_blank_samples  = 8;      // floor for blank_samples when the budget
                                            // low end. This is an interim measure;
                                            // proper distance-proportional + eased
                                            // blanking is Pillar 2 (see design doc).
-float    blank_pts_per_1000_units = 6.0f;
+float    blank_pts_per_1000_units = 10.0f;
                                            // PILLAR 2: distance-proportional blank
                                            // jump density, same "per 1000 units"
                                            // convention as pts_per_1000_units.

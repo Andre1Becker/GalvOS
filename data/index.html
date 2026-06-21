@@ -1153,7 +1153,51 @@
         <input type="number" id="dac-hold-secs" min="1" max="60" value="5"
                style="width:60px;background:#0a0a14;border:1px solid var(--border);color:var(--text);padding:3px 6px;border-radius:4px;font-family:monospace">
       </div>
-      <div id="dac-cmd-status" style="font-size:12px;color:var(--dim);padding:8px 12px;background:#0a0a14;border-radius:4px;border:1px solid var(--border);min-height:18px"></div>
+<div id="dac-cmd-status" style="font-size:12px;color:var(--dim);padding:8px 12px;background:#0a0a14;border-radius:4px;border:1px solid var(--border);min-height:18px"></div>
+    </div>
+
+    <div class="card">
+      <h2>📐 Point Optimizer (GalvOS v5)</h2>
+      <p style="color:var(--dim);font-size:12px;margin-bottom:12px">
+        Adaptive point density &amp; blank-jump tuning for migrated presets
+        (ngon, wireframes). Changes apply live; click Save to persist across reboots.
+      </p>
+
+      <label>Corner angle threshold (°) <span id="opt-cad-val" style="color:var(--accent);font-family:monospace">25.0</span></label>
+      <input type="range" id="opt-cad" min="0" max="180" step="1" value="25" oninput="optimizerSlider()">
+
+      <label>Min corner points <span id="opt-mincp-val" style="color:var(--accent);font-family:monospace">1</span></label>
+      <input type="range" id="opt-mincp" min="1" max="20" step="1" value="1" oninput="optimizerSlider()">
+
+      <label>Max corner points <span id="opt-maxcp-val" style="color:var(--accent);font-family:monospace">6</span></label>
+      <input type="range" id="opt-maxcp" min="1" max="20" step="1" value="6" oninput="optimizerSlider()">
+
+      <label>Interior density (pts / 1000 units) <span id="opt-ppu-val" style="color:var(--accent);font-family:monospace">4.0</span></label>
+      <input type="range" id="opt-ppu" min="1" max="500" step="1" value="40" oninput="optimizerSlider()">
+
+      <label>Min segment points <span id="opt-minsp-val" style="color:var(--accent);font-family:monospace">2</span></label>
+      <input type="range" id="opt-minsp" min="2" max="20" step="1" value="2" oninput="optimizerSlider()">
+
+      <label>Blank samples (max) <span id="opt-blank-val" style="color:var(--accent);font-family:monospace">40</span></label>
+      <input type="range" id="opt-blank" min="1" max="100" step="1" value="40" oninput="optimizerSlider()">
+
+      <label>Max points / frame (flicker budget) <span id="opt-maxppf-val" style="color:var(--accent);font-family:monospace">310</span></label>
+      <input type="range" id="opt-maxppf" min="50" max="2048" step="1" value="310" oninput="optimizerSlider()">
+
+      <label>Min blank samples (floor) <span id="opt-minbl-val" style="color:var(--accent);font-family:monospace">8</span></label>
+      <input type="range" id="opt-minbl" min="1" max="100" step="1" value="8" oninput="optimizerSlider()">
+
+      <label>Blank jump density (pts / 1000 units) <span id="opt-blppu-val" style="color:var(--accent);font-family:monospace">10.0</span></label>
+      <input type="range" id="opt-blppu" min="1" max="500" step="1" value="100" oninput="optimizerSlider()">
+
+      <label>Min interior pts / segment <span id="opt-minip-val" style="color:var(--accent);font-family:monospace">6</span></label>
+      <input type="range" id="opt-minip" min="0" max="50" step="1" value="6" oninput="optimizerSlider()">
+
+      <div class="btns" style="margin-top:12px">
+        <button class="btn secondary" onclick="saveOptimizerConfig()">💾 Save to flash</button>
+        <button class="btn secondary" onclick="resetOptimizerDefaults()">↺ Reset defaults</button>
+      </div>
+      <div id="opt-save-status" style="font-size:12px;color:var(--dim);margin-top:8px"></div>
     </div>
 
   </div>
@@ -2488,6 +2532,7 @@ async function loadConfig() {
     }
   }
   loadCalibration();
+  loadOptimizerConfig(c);
 }
 
 
@@ -3138,8 +3183,75 @@ function liveSlider() {
     const r=document.getElementById('lv-r').value,g=document.getElementById('lv-g').value,b=document.getElementById('lv-b').value;
     document.getElementById('lv-col-preview').style.background = `rgb(${r},${g},${b})`;
     // Debounced API call (50ms) so slider dragging does not spam
-    clearTimeout(liveDebounce);
+clearTimeout(liveDebounce);
     liveDebounce = setTimeout(sendLiveControls, 50);
+}
+
+let optimizerDebounce;
+function optimizerSlider() {
+    document.getElementById('opt-cad-val').textContent   = (+document.getElementById('opt-cad').value).toFixed(1);
+    document.getElementById('opt-mincp-val').textContent  = document.getElementById('opt-mincp').value;
+    document.getElementById('opt-maxcp-val').textContent  = document.getElementById('opt-maxcp').value;
+    document.getElementById('opt-ppu-val').textContent    = (document.getElementById('opt-ppu').value/10).toFixed(1);
+    document.getElementById('opt-minsp-val').textContent  = document.getElementById('opt-minsp').value;
+    document.getElementById('opt-blank-val').textContent  = document.getElementById('opt-blank').value;
+    document.getElementById('opt-maxppf-val').textContent = document.getElementById('opt-maxppf').value;
+    document.getElementById('opt-minbl-val').textContent  = document.getElementById('opt-minbl').value;
+    document.getElementById('opt-blppu-val').textContent  = (document.getElementById('opt-blppu').value/10).toFixed(1);
+    document.getElementById('opt-minip-val').textContent  = document.getElementById('opt-minip').value;
+    clearTimeout(optimizerDebounce);
+    optimizerDebounce = setTimeout(sendOptimizerLive, 50);
+}
+
+async function sendOptimizerLive() {
+    await apiCall('POST', '/api/optimizer-live', {
+        corner_angle_deg:    +document.getElementById('opt-cad').value,
+        min_corner_pts:      +document.getElementById('opt-mincp').value,
+        max_corner_pts:      +document.getElementById('opt-maxcp').value,
+        pts_per_1000_units:  +document.getElementById('opt-ppu').value/10,
+        min_segment_pts:     +document.getElementById('opt-minsp').value,
+        blank_samples:       +document.getElementById('opt-blank').value,
+        max_pts_per_frame:   +document.getElementById('opt-maxppf').value,
+        min_blank_samples:   +document.getElementById('opt-minbl').value,
+        blank_pts_per_1000_units: +document.getElementById('opt-blppu').value/10,
+        min_interior_pts_per_segment: +document.getElementById('opt-minip').value,
+    });
+}
+
+async function saveOptimizerConfig() {
+    await apiCall('POST', '/api/optimizer-save');
+    const el = document.getElementById('opt-save-status');
+    el.textContent = 'Saved ✓';
+    setTimeout(() => { el.textContent = ''; }, 2000);
+}
+
+function resetOptimizerDefaults() {
+    document.getElementById('opt-cad').value   = 25;
+    document.getElementById('opt-mincp').value = 1;
+    document.getElementById('opt-maxcp').value = 6;
+    document.getElementById('opt-ppu').value   = 40;
+    document.getElementById('opt-minsp').value = 2;
+    document.getElementById('opt-blank').value = 40;
+    document.getElementById('opt-maxppf').value= 310;
+    document.getElementById('opt-minbl').value = 8;
+    document.getElementById('opt-blppu').value = 100;
+    document.getElementById('opt-minip').value = 6;
+    optimizerSlider();
+}
+
+function loadOptimizerConfig(cfg) {
+    if (!cfg) return;
+    document.getElementById('opt-cad').value   = cfg.opt_corner_angle_deg;
+    document.getElementById('opt-mincp').value = cfg.opt_min_corner_pts;
+    document.getElementById('opt-maxcp').value = cfg.opt_max_corner_pts;
+    document.getElementById('opt-ppu').value   = Math.round(cfg.opt_pts_per_1000_units*10);
+    document.getElementById('opt-minsp').value = cfg.opt_min_segment_pts;
+    document.getElementById('opt-blank').value = cfg.opt_blank_samples;
+    document.getElementById('opt-maxppf').value= cfg.opt_max_pts_per_frame;
+    document.getElementById('opt-minbl').value = cfg.opt_min_blank_samples;
+    document.getElementById('opt-blppu').value = Math.round(cfg.opt_blank_pts_per_1000_units*10);
+    document.getElementById('opt-minip').value = cfg.opt_min_interior_pts_per_segment;
+    optimizerSlider();
 }
 
 async function sendLiveControls() {

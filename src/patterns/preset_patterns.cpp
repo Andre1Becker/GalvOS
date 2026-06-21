@@ -76,6 +76,10 @@ static inline optimizer::OptimizerConfig liveOptimizerConfig() {
     cfg.pts_per_1000_units = gOptimizerConfig.pts_per_1000_units;
     cfg.min_segment_pts    = gOptimizerConfig.min_segment_pts;
     cfg.blank_samples      = gOptimizerConfig.blank_samples;
+    cfg.max_pts_per_frame  = gOptimizerConfig.max_pts_per_frame;
+    cfg.min_blank_samples  = gOptimizerConfig.min_blank_samples;
+    cfg.blank_pts_per_1000_units = gOptimizerConfig.blank_pts_per_1000_units;
+    cfg.min_interior_pts_per_segment = gOptimizerConfig.min_interior_pts_per_segment;
     return cfg;
 }
 

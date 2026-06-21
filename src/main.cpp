@@ -68,7 +68,16 @@ static void loadConfig() {
     gConfig.gain_b          = s_prefs.getUChar("gain_b", 255);  // FIX: B=3W
     gConfig.gamma_enable    = s_prefs.getBool ("gamma_en", true);
     gConfig.gamma_val       = s_prefs.getFloat("gamma_val", 2.2f);
-    // Safety-Config (Feature 5)
+    gOptimizerConfig.corner_angle_deg   = s_prefs.getFloat("opt_cad",   25.0f);
+    gOptimizerConfig.min_corner_pts     = s_prefs.getUChar("opt_mincp", 1);
+    gOptimizerConfig.max_corner_pts     = s_prefs.getUChar("opt_maxcp", 6);
+    gOptimizerConfig.pts_per_1000_units = s_prefs.getFloat("opt_ppu",   4.0f);
+    gOptimizerConfig.min_segment_pts    = s_prefs.getUChar("opt_minsp", 2);
+    gOptimizerConfig.blank_samples      = s_prefs.getUChar("opt_blank", 40);
+    gOptimizerConfig.max_pts_per_frame  = s_prefs.getUShort("opt_maxppf", 310);
+    gOptimizerConfig.min_blank_samples  = s_prefs.getUChar("opt_minbl", 8);
+    gOptimizerConfig.blank_pts_per_1000_units = s_prefs.getFloat("opt_blppu", 10.0f);
+    gOptimizerConfig.min_interior_pts_per_segment = s_prefs.getUChar("opt_minip", 6);
     gSafety.temp_warn_c     = s_prefs.getUChar("t_warn",  45);
     gSafety.temp_reduce_c   = s_prefs.getUChar("t_red",   55);
     gSafety.temp_shutdown_c = s_prefs.getUChar("t_shut",  70);
