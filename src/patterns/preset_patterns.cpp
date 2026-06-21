@@ -139,31 +139,113 @@ static const int CE[][2]={{0,1},{1,2},{2,3},{3,0},{4,5},{5,6},{6,7},{7,4},{0,4},
 // + fixed 29 interior points PER EDGE, regardless of edge count or
 // length -- a 30-edge dodecahedron cost ~2070 pts/frame (15000/2070 ~=
 // 7Hz, badly strobing). Now: project each edge to 2D first (prj()
-// unchanged), describe it as one open 2-vertex PathSegment, and hand
-// ALL edges to optimize() in a single call so the flicker budget
-// (OptimizerConfig::max_pts_per_frame) is shared across the whole shape
-// -- more edges means less budget per edge, automatically.
+// unchanged), then CHAIN adjacent edges into polylines (see
+// buildWfChains()) before handing them to optimize() -- this fixes
+// corner-angle-aware density (corner_angle_deg/min_corner_pts/
+// max_corner_pts), which was previously a no-op for wf() because every
+// edge was its own isolated 2-vertex open PathSegment, so no vertex
+// ever had both an incoming AND outgoing edge (has_incoming &&
+// has_outgoing was always false -- see point_optimizer.cpp
+// planSegment()/emitSegment()). Chaining preserves the flicker-budget
+// sharing across the whole shape (all chains still go to optimize() in
+// one call).
 static const int WF_MAX_EDGES = 64;  // generous upper bound; current
                                       // shapes top out at 30 (dodecahedron)
+static const int WF_MAX_VERTS = 32;  // generous upper bound; current
+                                      // shapes top out at 20 (dodecahedron)
+
+// Greedily groups edges into polylines by walking shared vertices.
+// Real branch points (3+ edges meeting, e.g. a cube corner where 3
+// edges join) become segment boundaries since a chain can only pass
+// straight through a vertex that has exactly 2 incident unused edges;
+// this is what lets cube/octahedron/etc. corners get correct
+// has_incoming && has_outgoing treatment in the optimizer, while
+// fan-out vertices correctly become endpoints of multiple chains.
+// Returns the number of chains written into out_chains/out_chain_len
+// (each out_chains[c] is a list of vertex INDICES into V, length
+// out_chain_len[c]); out_closed[c] is true if the chain loops back to
+// its own start vertex.
+static int buildWfChains(int nv, const int(*E)[2], int ne,
+                          int out_chains[][WF_MAX_VERTS + 1],
+                          int out_chain_len[], bool out_closed[],
+                          int max_chains) {
+    if (nv > WF_MAX_VERTS) return 0;  // sanity guard
+    bool used[WF_MAX_EDGES] = {false};
+    // adjacency: for each vertex, list of (edge_idx, other_vertex)
+    int adj_edge[WF_MAX_VERTS][WF_MAX_VERTS];   // adj_edge[v][k] = edge idx
+    int adj_other[WF_MAX_VERTS][WF_MAX_VERTS];  // adj_other[v][k] = other vertex
+    int adj_count[WF_MAX_VERTS] = {0};
+    for (int e = 0; e < ne && e < WF_MAX_EDGES; e++) {
+        int a = E[e][0], b = E[e][1];
+        if (a < 0 || a >= nv || b < 0 || b >= nv) continue;
+        if (adj_count[a] < WF_MAX_VERTS) { adj_edge[a][adj_count[a]] = e; adj_other[a][adj_count[a]] = b; adj_count[a]++; }
+        if (adj_count[b] < WF_MAX_VERTS) { adj_edge[b][adj_count[b]] = e; adj_other[b][adj_count[b]] = a; adj_count[b]++; }
+    }
+
+    int nchains = 0;
+    for (int e0 = 0; e0 < ne && e0 < WF_MAX_EDGES && nchains < max_chains; e0++) {
+        if (used[e0]) continue;
+        used[e0] = true;
+        int start = E[e0][0], cur = E[e0][1];
+        int chain[WF_MAX_VERTS + 1];
+        int len = 0;
+        chain[len++] = start;
+        chain[len++] = cur;
+
+        // Extend forward through cur as long as it has exactly one
+        // other unused incident edge (a genuine pass-through vertex).
+        while (len <= WF_MAX_VERTS) {
+            int next_edge = -1, next_v = -1, free_count = 0;
+            for (int k = 0; k < adj_count[cur]; k++) {
+                if (!used[adj_edge[cur][k]]) {
+                    free_count++;
+                    next_edge = adj_edge[cur][k];
+                    next_v = adj_other[cur][k];
+                }
+            }
+            if (free_count != 1) break;  // branch point or dead end -- stop chain here
+            if (next_v == start) {
+                // closes the loop back to chain start
+                used[next_edge] = true;
+                out_closed[nchains] = true;
+                goto chain_done;
+            }
+            used[next_edge] = true;
+            chain[len++] = next_v;
+            cur = next_v;
+        }
+        out_closed[nchains] = false;
+        chain_done:
+        for (int i = 0; i < len; i++) out_chains[nchains][i] = chain[i];
+        out_chain_len[nchains] = len;
+        nchains++;
+    }
+    return nchains;
+}
+
 static size_t wf(LaserPoint*o,size_t mx,const P3D*V,int nv,const int(*E)[2],int ne,float ry,float rx,float sc,uint8_t r,uint8_t g,uint8_t b){
     if (ne > WF_MAX_EDGES) ne = WF_MAX_EDGES;  // sanity guard
+    static int chains[WF_MAX_EDGES][WF_MAX_VERTS + 1];
+    static int chain_len[WF_MAX_EDGES];
+    static bool chain_closed[WF_MAX_EDGES];
+    int nchains = buildWfChains(nv, E, ne, chains, chain_len, chain_closed, WF_MAX_EDGES);
+
     optimizer::PathSegment segs[WF_MAX_EDGES];
-    optimizer::PathVertex  verts[WF_MAX_EDGES][2];
-    for (int e = 0; e < ne; e++) {
-        float x0, y0, x1, y1;
-        prj(V[E[e][0]], ry, rx, sc, x0, y0);
-        prj(V[E[e][1]], ry, rx, sc, x1, y1);
-        verts[e][0].x = x0; verts[e][0].y = y0;
-        verts[e][0].r = r;  verts[e][0].g = g;  verts[e][0].b = b;
-        verts[e][0].lift = true;   // blank-jump TO the start of this edge
-        verts[e][1].x = x1; verts[e][1].y = y1;
-        verts[e][1].r = r;  verts[e][1].g = g;  verts[e][1].b = b;
-        verts[e][1].lift = false;
-        segs[e] = optimizer::PathSegment(verts[e], 2, /*closed=*/false);
+    static optimizer::PathVertex verts[WF_MAX_EDGES][WF_MAX_VERTS + 1];
+    for (int c = 0; c < nchains; c++) {
+        int len = chain_len[c];
+        for (int i = 0; i < len; i++) {
+            float ox, oy;
+            prj(V[chains[c][i]], ry, rx, sc, ox, oy);
+            verts[c][i].x = ox; verts[c][i].y = oy;
+            verts[c][i].r = r;  verts[c][i].g = g;  verts[c][i].b = b;
+            verts[c][i].lift = (i == 0);  // blank-jump TO the start of this chain
+        }
+        segs[c] = optimizer::PathSegment(verts[c], (size_t)len, chain_closed[c]);
     }
-    // ne, not WF_MAX_EDGES -- passing the unused array tail as segments
-    // would reserve blank budget for edges that don't exist.
-    return optimizer::optimize(segs, ne, o, mx, liveOptimizerConfig());
+    // nchains, not WF_MAX_EDGES -- passing the unused array tail as
+    // segments would reserve blank budget for chains that don't exist.
+    return optimizer::optimize(segs, nchains, o, mx, liveOptimizerConfig());
 }
 
 static size_t sinewave(LaserPoint*o,size_t mx,float A,float f,float ph_off,float sc,uint8_t r,uint8_t g,uint8_t b,int N=120){
