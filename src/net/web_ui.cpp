@@ -117,6 +117,7 @@ static void persistConfig() {
     s_prefs.putUChar ("opt_minbl",  gOptimizerConfig.min_blank_samples);
     s_prefs.putFloat ("opt_blppu",  gOptimizerConfig.blank_pts_per_1000_units);
     s_prefs.putUChar ("opt_minip",  gOptimizerConfig.min_interior_pts_per_segment);
+    s_prefs.putUChar ("opt_s1tgt",  gOptimizerConfig.stage1_blank_target);
     s_prefs.end();
 }
 
@@ -230,6 +231,7 @@ static void buildConfigJson(JsonDocument& doc) {
     doc["opt_min_blank_samples"]  = gOptimizerConfig.min_blank_samples;
     doc["opt_blank_pts_per_1000_units"] = gOptimizerConfig.blank_pts_per_1000_units;
     doc["opt_min_interior_pts_per_segment"] = gOptimizerConfig.min_interior_pts_per_segment;
+    doc["opt_stage1_blank_target"] = gOptimizerConfig.stage1_blank_target;
 }
 
 /* ============================================================
@@ -478,6 +480,8 @@ void init() {
                 gOptimizerConfig.blank_pts_per_1000_units = constrain((float)doc["blank_pts_per_1000_units"], 0.1f, 50.0f);
             if (doc["min_interior_pts_per_segment"].is<int>())
                 gOptimizerConfig.min_interior_pts_per_segment = constrain((int)doc["min_interior_pts_per_segment"], 0, 50);
+            if (doc["stage1_blank_target"].is<int>())
+                gOptimizerConfig.stage1_blank_target = constrain((int)doc["stage1_blank_target"], 1, 100);
             req->send(200, "text/plain", "OK");
         });
 

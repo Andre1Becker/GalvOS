@@ -26,10 +26,11 @@ struct OptimizerLiveConfig {
     float    pts_per_1000_units = 4.0f;
     uint8_t  min_segment_pts    = 2;
     uint8_t  blank_samples      = 40;
-    uint16_t max_pts_per_frame  = 310;
+    uint16_t max_pts_per_frame  = 340;
     uint8_t  min_blank_samples  = 8;
     float    blank_pts_per_1000_units = 10.0f;
     uint8_t  min_interior_pts_per_segment = 6;
+    uint8_t  stage1_blank_target = 20;
 };
 
 extern OptimizerLiveConfig gOptimizerConfig;

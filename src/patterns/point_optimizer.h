@@ -83,7 +83,7 @@ struct OptimizerConfig {
                                            // margin below the observed 310pt threshold
                                            // (15000/280 ~= 53Hz). Tune via WebUI slider
                                            // if a given setup needs more/less margin.
-uint8_t  min_blank_samples  = 18;      // floor for blank_samples when the budget
+uint8_t  min_blank_samples  = 8;           // floor for blank_samples when the budget
                                            // clamp needs to shrink blanking itself,
                                            // not just interior density (relevant for
                                            // many-short-edges shapes like wireframes,
@@ -98,6 +98,26 @@ uint8_t  min_blank_samples  = 18;      // floor for blank_samples when the budge
                                            // low end. This is an interim measure;
                                            // proper distance-proportional + eased
                                            // blanking is Pillar 2 (see design doc).
+ uint8_t  stage1_blank_target = 20;        // Stage 1 (budget clamp) reduces
+                                           // cfg.blank_samples to THIS value, not
+                                           // all the way to min_blank_samples.
+                                           // cfg.blank_samples is the CEILING
+                                           // emitBlankJump() can scale up to for
+                                           // long jumps -- if Stage 1 collapses it
+                                           // to min_blank_samples, every jump gets
+                                           // clamped to that single value and
+                                           // blank_pts_per_1000_units (distance
+                                           // scaling) has no room to do anything
+                                           // (this was a real bug: WebUI slider
+                                           // for blank jump density had zero
+                                           // visible effect on Cube/Octahedron,
+                                           // because Stage 1 had already collapsed
+                                           // blank_samples to 8 == min_blank_samples
+                                           // before emitBlankJump() ever ran).
+                                           // Must be >= min_blank_samples; if
+                                           // budget is too tight even for this
+                                           // target, Stage 1 still falls back to
+                                           // min_blank_samples as a last resort.
 float    blank_pts_per_1000_units = 10.0f;
                                            // PILLAR 2: distance-proportional blank
                                            // jump density, same "per 1000 units"

@@ -78,6 +78,7 @@ static void loadConfig() {
     gOptimizerConfig.min_blank_samples  = s_prefs.getUChar("opt_minbl", 8);
     gOptimizerConfig.blank_pts_per_1000_units = s_prefs.getFloat("opt_blppu", 10.0f);
     gOptimizerConfig.min_interior_pts_per_segment = s_prefs.getUChar("opt_minip", 6);
+    gOptimizerConfig.stage1_blank_target = s_prefs.getUChar("opt_s1tgt", 20);
     gSafety.temp_warn_c     = s_prefs.getUChar("t_warn",  45);
     gSafety.temp_reduce_c   = s_prefs.getUChar("t_red",   55);
     gSafety.temp_shutdown_c = s_prefs.getUChar("t_shut",  70);

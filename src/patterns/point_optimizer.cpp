@@ -311,7 +311,22 @@ size_t optimize(const PathSegment* segments, size_t segment_count,
         // (or zero) budget for interior points. Dropping straight to the
         // floor leaves maximum room for Stage 2 to allocate interior
         // density.
-        cfg.blank_samples = cfg.min_blank_samples;
+        // Reduce toward stage1_blank_target first -- NOT straight to
+        // min_blank_samples. Collapsing blank_samples all the way to the
+        // floor leaves emitBlankJump() no range to scale into (every jump
+        // gets clamped to the same single value), which silently defeats
+        // blank_pts_per_1000_units (distance-proportional scaling has
+        // nothing left to scale within). Only fall back to the hard floor
+        // if even the target doesn't fit the budget.
+        uint8_t target = (cfg.stage1_blank_target >= cfg.min_blank_samples)
+                              ? cfg.stage1_blank_target : cfg.min_blank_samples;
+        cfg.blank_samples = target;
+        // Re-check: does the target still leave the fixed overhead over
+        // budget? If so, fall back further toward the hard floor.
+        uint32_t retry_overhead = corner_total + (uint32_t)cfg.blank_samples * (segment_count + 1);
+        if (retry_overhead > effective_cap) {
+            cfg.blank_samples = cfg.min_blank_samples;
+        }
         blank_overhead = (uint32_t)cfg.blank_samples * (segment_count + 1);
         needed = planned_total + blank_overhead;
     }
