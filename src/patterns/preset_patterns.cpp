@@ -833,14 +833,28 @@ static size_t p89(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){ // P
 }
 
 // ─── SZENEN 90 ─────────────────────────────────────────────
-// p90 Starfield: single-point dots. Each star is a 1-sample point,
-// not a geometric shape -- optimizer adds no value here (no edges,
-// no corners, no blanking between consecutive stars that matters).
-// Left as direct ap() calls intentionally.
+// p90 Starfield: falling star field, top→bottom with wrap.
+// Not migrated to optimizer -- single-point dots have no edges/corners.
+//
+// sp  = fall speed (0=slow, 255=fast)
+// sz  = star count (0=~20 stars, 255=~100 stars)
+//
+// DWELL FIX (v5.3): original version emitted 1 blank-move + 1 lit-point
+// per star (2 ticks = ~66µs @ 30kpps). Galvo inertia means it never
+// reaches the target in one tick -- the "dot" appears as a short smeared
+// streak or is invisible. Fix: emit STAR_DWELL lit-points at the same
+// position so the galvo has time to settle and the phosphor integrates
+// enough light. STAR_DWELL is scaled by sz so sparse fields get more
+// dwell (fewer stars = more ticks available per star) while dense fields
+// trade dwell for count. Minimum 3 ticks always guaranteed.
 static size_t p90(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     size_t n=0;
-    const int nStars = 20 + (int)(sz / 255.f * 180.f);
+    const int nStars   = 20 + (int)(sz / 255.f * 80.f);   // 20..100 stars
     const float baseSpd = 0.3f + (sp / 255.f) * 4.7f;
+    // Dwell: more ticks per dot. Scale inversely with star count so
+    // total point budget stays roughly constant (~400 pts/frame).
+    // nStars*DWELL ~ constant: at nStars=20 → dwell=6, at nStars=100 → dwell=3
+    const int dwell = (int)fmaxf(3.f, 6.f - (nStars - 20) * (3.f / 80.f));
     auto fr = [](int seed) -> float {
         float x = sinf((float)seed * 127.1f + 1.f) * 43758.5453f;
         return x - floorf(x);
@@ -852,11 +866,15 @@ static size_t p90(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
         const float yNorm = 1.1f - fmodf(ph * iSpd * 0.0004f + off, 2.2f);
         if (yNorm < -1.1f || yNorm > 1.1f) continue;
         const float yPos  = yNorm * SC * 0.95f;
-        const int period = (int)(ph * iSpd * 0.0004f);
+        const int period  = (int)(ph * iSpd * 0.0004f);
         const uint8_t bright = (uint8_t)(80 + (int)(fr(i * 2 + period) * 175.f));
         const uint8_t blue   = (uint8_t)fminf(255.f, bright + 60.f);
-        ap(o, n, m, xPos, yPos, 0,      0,      0,    1);
-        ap(o, n, m, xPos, yPos, bright, bright, blue, 0);
+        // blank-move to star position (laser off, galvo travels)
+        ap(o, n, m, xPos, yPos, 0, 0, 0, 1);
+        // dwell: multiple lit ticks at same position -- galvo settles,
+        // eye integrates enough brightness to see the dot clearly
+        for (int d = 0; d < dwell && n < m; d++)
+            ap(o, n, m, xPos, yPos, bright, bright, blue, 0);
     }
     return n;
 }

@@ -414,10 +414,11 @@
       <p style="color:var(--dim);font-size:12px;margin-bottom:14px">
         Acts immediately on the active preset. Preset must be active (🎭 tab).
       </p>
-      <label>Speed  <span id="lv-sp-val" style="color:var(--accent);font-family:monospace">80</span></label>
+      <label><span id="lv-sp-label">Speed</span>  <span id="lv-sp-val" style="color:var(--accent);font-family:monospace">80</span></label>
       <input type="range" id="lv-sp" min="0" max="255" value="80" oninput="liveSlider()">
-      <label>Size  <span id="lv-sz-val" style="color:var(--accent);font-family:monospace">128</span></label>
+      <label><span id="lv-sz-label">Size</span>  <span id="lv-sz-val" style="color:var(--accent);font-family:monospace">128</span></label>
       <input type="range" id="lv-sz" min="10" max="255" value="128" oninput="liveSlider()">
+      <div id="lv-preset-hint" style="display:none;margin:8px 0 4px;padding:8px 10px;background:#050514;border:1px solid var(--border);border-radius:5px;font-size:11px;color:var(--dim);line-height:1.5"></div>
       <label>Rotation (2D / Z axis)  <span id="lv-rot-val" style="color:var(--accent);font-family:monospace">0°</span></label>
       <input type="range" id="lv-rot" min="-180" max="180" value="0" oninput="liveSlider()">
       <div style="margin-top:12px;padding:10px;background:#050510;border:1px solid var(--border);border-radius:6px">
@@ -3149,7 +3150,36 @@ async function activatePreset(idx) {
         document.getElementById('preset-active-name').textContent =
             p ? `${p.name} (${p.cat})` : `#${idx}`;
         renderPresets();
+        updatePresetHint(idx);
         toast(`Preset: ${p ? p.name : idx}`);
+    }
+}
+
+// Per-preset parameter hints shown in Live Controls card.
+// Maps preset index to {spLabel, szLabel, hint} so the Speed/Size sliders
+// get meaningful names and a short description for scene/special presets.
+const PRESET_PARAM_HINTS = {
+    90: { sp: 'Fall Speed', sz: 'Star Count',
+          hint: '⭐ Starfield — Speed controls how fast stars fall top→bottom. Size sets the number of stars (20–100). Twinkle brightness varies automatically.' },
+    91: { sp: 'Fall Speed', sz: 'Star Count',
+          hint: '⭐ Starfield — Speed controls how fast stars fall top→bottom. Size sets the number of stars (20–100). Twinkle brightness varies automatically.' },
+   100: { sp: 'Blink Speed', sz: 'Digit Size',
+          hint: '⏱ Countdown Timer — Speed controls the blink rate when expired. Size scales the digit height.' },
+};
+
+function updatePresetHint(idx) {
+    const hint = PRESET_PARAM_HINTS[idx];
+    const hintEl   = document.getElementById('lv-preset-hint');
+    const spLabel  = document.getElementById('lv-sp-label');
+    const szLabel  = document.getElementById('lv-sz-label');
+    if (hint) {
+        if (spLabel) spLabel.textContent = hint.sp;
+        if (szLabel) szLabel.textContent = hint.sz;
+        if (hintEl) { hintEl.textContent = hint.hint; hintEl.style.display = 'block'; }
+    } else {
+        if (spLabel) spLabel.textContent = 'Speed';
+        if (szLabel) szLabel.textContent = 'Size';
+        if (hintEl) hintEl.style.display = 'none';
     }
 }
 
@@ -3985,25 +4015,25 @@ var PRESET_RENDER_FNS = {};
   // ── Starfish (86) ──
   PRESET_RENDER_FNS[86]=(ph,sp,sz)=>star_pts(5,.85*ss(sz),.35*ss(sz),[255,150,0]);
 
-  // ── Starfield (91) — individual points with blank moves ──
+  // ── Starfield (91) — falling stars with dwell, matches firmware p90 ──
+  // sp=fall speed, sz=star count (20-100), stars fall top→bottom with wrap.
+  // Dwell: 3 repeated lit-points per star so preview matches hardware behavior.
   PRESET_RENDER_FNS[91]=function(ph,sp,sz){
-    // sp (0-255) = twinkle speed   sz (0-255) = star count (10-120)
     function fr(seed){var x=Math.sin(seed*127.1+1)*43758.5453;return x-Math.floor(x);}
     var pts=[],sc=.92;
-    var nStars=Math.round(10+sz/255*110);
-    var speed=0.01+sp/255*0.12;
+    var nStars=Math.round(20+sz/255*80);  // 20..100, matches firmware
+    var baseSpd=0.3+sp/255*4.7;
+    var dwell=Math.max(3,Math.round(6-(nStars-20)*(3/80)));
     for(var i=0;i<nStars;i++){
-      var x=(fr(i*7)*2-1)*sc,y=(fr(i*5)*2-1)*sc;
-      var bright=Math.floor(fr(i*3)*180+60);
-      var twinkle=Math.sin(ph*speed+i*.7)>.6?255:bright;
-      var hue=fr(i*11);
-      var cr=Math.round(bright*.85+twinkle*.15);
-      var cb=Math.round(bright*.85+twinkle*.15);
-      var cg=cr;
-      if(hue<.3){cb=Math.min(255,Math.round(twinkle*1.2));}
-      else if(hue<.6){cr=Math.min(255,Math.round(twinkle*1.1));}
-      pts.push(pt(x,y,0,0,0,1));
-      pts.push(pt(x,y,cr,cg,cb,0));
+      var xPos=(fr(i*7)*2-1)*sc;
+      var iSpd=baseSpd*(0.3+fr(i*3)*1.4);
+      var off=fr(i*5)*2.2;
+      var yNorm=1.1-((ph*iSpd*0.0004+off)%2.2);
+      if(yNorm<-1.1||yNorm>1.1) continue;
+      var bright=Math.floor(80+fr(i*2+Math.floor(ph*iSpd*0.0004))*175);
+      var blue=Math.min(255,bright+60);
+      pts.push(pt(xPos,yNorm,0,0,0,1));
+      for(var d=0;d<dwell;d++) pts.push(pt(xPos,yNorm,bright,bright,blue,0));
     }
     return pts;};
 
