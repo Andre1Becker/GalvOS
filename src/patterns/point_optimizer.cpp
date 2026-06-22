@@ -58,42 +58,24 @@ static void emitBlankJump(LaserPoint* out, size_t& n, size_t max,
     float dx = x1 - x0, dy = y1 - y0;
     float dist = sqrtf(dx * dx + dy * dy);
 
-    // Settle point: blanked, parked at the PREVIOUS (still-lit) position.
-    // rgbOff() at galvo_out.cpp only fires once this point is consumed --
-    // without it, the very first DAC move of the jump happens in the same
-    // tick the laser is commanded off, racing the 6N137/MN-1W5AT turn-off
-    // latency. Visible as a short lit hook at the corner before blanking
-    // catches up, worst on near-zero-distance jumps (wf() chain endpoints
-    // sharing a vertex) where count clamps to min_blank_samples and there's
-    // no slack to absorb the delay.
-    emit(out, n, max, x0, y0, 0, 0, 0, 1);
-
     int count = (int)lroundf((dist / 1000.0f) * cfg.blank_pts_per_1000_units);
     if (count < (int)cfg.min_blank_samples) count = cfg.min_blank_samples;
     if (count > (int)cfg.blank_samples)     count = cfg.blank_samples;
 
+    // Settle ticks are carved from the end of count (no budget increase).
+    // Cap at count/2 so there are always enough move ticks for the galvo
+    // to decelerate smoothly -- without this, short jumps get settle=count
+    // and move=0, forcing an instantaneous position jump that causes overshoot.
     int settle = (int)cfg.min_blank_samples;
-    if (settle > count) settle = count;
+    if (settle > count / 2) settle = count / 2;
+    if (settle < 1) settle = 1;
     int move = count - settle;
 
     for (int k = 1; k <= move && n < max; k++) {
         float t = smoothstep((float)k / (float)move);
         emit(out, n, max, x0 + dx * t, y0 + dy * t, 0, 0, 0, 1);
     }
-    // Settle: park on target for the last `settle` ticks of the blank budget.
-    // The galvo decelerates and damps out while parked; the laser turns on
-    // only after this window, so the first lit point lands at the true vertex.
-    // This does NOT increase blank_overhead -- settle ticks are carved out of
-    // the existing count, not added on top.
     for (int k = 0; k < settle && n < max; k++) {
-        emit(out, n, max, x1, y1, 0, 0, 0, 1);
-    }
-    // Settle: park on the target for a few extra blank ticks so the galvo
-    // servo has time to reach x1,y1 and damp out before the laser turns on.
-    // Without this the laser lights up while the galvo is still decelerating
-    // into the corner, causing the first lit points to appear displaced from
-    // the true vertex position -- visible as open/mismatched corners.
-    for (int k = 0; k < (int)cfg.min_blank_samples && n < max; k++) {
         emit(out, n, max, x1, y1, 0, 0, 0, 1);
     }
 }
