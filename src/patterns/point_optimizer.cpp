@@ -58,6 +58,16 @@ static void emitBlankJump(LaserPoint* out, size_t& n, size_t max,
     float dx = x1 - x0, dy = y1 - y0;
     float dist = sqrtf(dx * dx + dy * dy);
 
+    // Settle point: blanked, parked at the PREVIOUS (still-lit) position.
+    // rgbOff() at galvo_out.cpp only fires once this point is consumed --
+    // without it, the very first DAC move of the jump happens in the same
+    // tick the laser is commanded off, racing the 6N137/MN-1W5AT turn-off
+    // latency. Visible as a short lit hook at the corner before blanking
+    // catches up, worst on near-zero-distance jumps (wf() chain endpoints
+    // sharing a vertex) where count clamps to min_blank_samples and there's
+    // no slack to absorb the delay.
+    emit(out, n, max, x0, y0, 0, 0, 0, 1);
+
     int count = (int)lroundf((dist / 1000.0f) * cfg.blank_pts_per_1000_units);
     if (count < (int)cfg.min_blank_samples) count = cfg.min_blank_samples;
     if (count > (int)cfg.blank_samples)     count = cfg.blank_samples;
@@ -256,7 +266,7 @@ size_t optimize(const PathSegment* segments, size_t segment_count,
     // under-reserved by exactly one blank_samples-worth of points,
     // which is why the first cut of this budget fix landed at
     // effective_cap + blank_samples instead of effective_cap.
-    uint32_t blank_overhead = (uint32_t)cfg.blank_samples * (segment_count + 1);
+    uint32_t blank_overhead = (uint32_t)(cfg.blank_samples + 1) * (segment_count + 1);
     uint32_t needed = planned_total + blank_overhead;
 
     // Effective cap = the tighter of two independent limits:
@@ -323,11 +333,11 @@ size_t optimize(const PathSegment* segments, size_t segment_count,
         cfg.blank_samples = target;
         // Re-check: does the target still leave the fixed overhead over
         // budget? If so, fall back further toward the hard floor.
-        uint32_t retry_overhead = corner_total + (uint32_t)cfg.blank_samples * (segment_count + 1);
+        uint32_t retry_overhead = corner_total + (uint32_t)(cfg.blank_samples + 1) * (segment_count + 1);
         if (retry_overhead > effective_cap) {
             cfg.blank_samples = cfg.min_blank_samples;
         }
-        blank_overhead = (uint32_t)cfg.blank_samples * (segment_count + 1);
+        blank_overhead = (uint32_t)(cfg.blank_samples + 1) * (segment_count + 1);
         needed = planned_total + blank_overhead;
     }
 
