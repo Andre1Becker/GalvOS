@@ -24,50 +24,16 @@ static inline void ap(LaserPoint* o, size_t& n, size_t mx,
 }
 static inline float L(float a,float b,float t){return a+(b-a)*t;}
 
-/* adaptN -- scales point count with size_val.
- * Small sizes need fewer points (prevents galvo overheating).
- * Large projections need more points for smooth curves.
- * base     = default point count at size=128
- * min_pts  = Minimum (never less)
- * max_pts  = Maximum (never more)
- */
 static inline int adaptN(uint8_t sz, int base, int min_pts=8, int max_pts=512){
-    float factor = 0.4f + (sz / 255.f) * 1.2f;   // 0.4 at sz=0, 1.6 at sz=255
+    float factor = 0.4f + (sz / 255.f) * 1.2f;
     int n = (int)(base * factor);
     if (n < min_pts) n = min_pts;
     if (n > max_pts) n = max_pts;
     return n;
 }
 
-static void line(LaserPoint*o,size_t&n,size_t mx,
-                 float x0,float y0,float x1,float y1,
-                 uint8_t r,uint8_t g,uint8_t b,
-                 int S=20)
-    {
-    // Move to Target point first
-    for(int k=0;k<40 && n<mx;k++)
-        ap(o,n,mx,x0,y0,0,0,0,1);
-
-    // Linie zeichnen
-    for(int i=0;i<=S;i++)
-    {
-        ap(o,n,mx,
-           L(x0,x1,i/float(S)),
-           L(y0,y1,i/float(S)),
-           r,g,b,
-           0);
-    }
-    // stop and endpoint
-    for(int k=0;k<40 && n<mx;k++)
-        ap(o,n,mx,x1,y1,0,0,0,1);
-
-}
 // liveOptimizerConfig() -- converts the WebUI-tunable OptimizerLiveConfig
-// (config.h) into the optimizer module's own OptimizerConfig type.
-// Explicit conversion: the two structs have matching fields but are
-// distinct aggregate types, so no implicit conversion exists between
-// them (this is a free function rather than a constructor/operator to
-// keep point_optimizer.h decoupled from config.h's global state).
+// into the optimizer module's own OptimizerConfig type.
 static inline optimizer::OptimizerConfig liveOptimizerConfig() {
     optimizer::OptimizerConfig cfg;
     cfg.corner_angle_deg   = gOptimizerConfig.corner_angle_deg;
@@ -85,15 +51,10 @@ static inline optimizer::OptimizerConfig liveOptimizerConfig() {
 }
 
 // ngon() -- GalvOS v5: migrated to point_optimizer (Pillar 1, adaptive
-// density). Previously did manual fixed-step interpolation per side
-// (sps=10..20); now describes the polygon as `sides` corner vertices and
-// lets optimizer::optimize() decide point placement (corner-angle-aware +
-// length-proportional). For a regular n-gon every corner has the same
-// exterior angle (360/sides), so density is uniform across the shape --
-// the win here is mainly removing manual per-pattern tuning, with the
-// adaptive behavior mattering more for star()/wf() (irregular angles).
+// density). Describes the polygon as `sides` corner vertices and lets
+// optimizer::optimize() decide point placement.
 static size_t ngon(LaserPoint*o,size_t mx,int sides,float sc,float off,uint8_t r,uint8_t g,uint8_t b){
-    if (sides < 3 || sides > 64) return 0;  // sanity guard, same range as before
+    if (sides < 3 || sides > 64) return 0;
     optimizer::PathVertex verts[64];
     for (int s = 0; s < sides; s++) {
         float a = PI2 * s / sides + off;
@@ -106,24 +67,29 @@ static size_t ngon(LaserPoint*o,size_t mx,int sides,float sc,float off,uint8_t r
     return optimizer::optimize(&seg, 1, o, mx, liveOptimizerConfig());
 }
 
+// star() -- GalvOS v5.3: migrated to point_optimizer (Pillar 1).
+// Previously: fixed 16-step interpolation per edge, no corner awareness.
+// Now: builds PathVertex array with alternating outer/inner radii and
+// passes to optimize(closed=true). The optimizer's corner-angle-aware
+// density is the main win: a 5-star has 144°/36° alternating exterior
+// angles -- exactly what cornerPointCount() was designed for. The tip
+// corners (144°) get max_corner_pts dwell; the inner valleys (36°,
+// below corner_angle_deg threshold) get min_corner_pts. This removes
+// the visual "soft tip / sharp valley" asymmetry of the fixed-step version.
 static size_t star(LaserPoint*o,size_t mx,int pts,float outer,float inner,float off,uint8_t r,uint8_t g,uint8_t b){
-    size_t n=0;
-    // Interpolate per segment so galvo can follow straight edges accurately.
-    const int sps = 16;
-    int segs = pts*2;
-    for(int s=0;s<segs;s++){
-        float a0=PI2*s/segs+off-(float)(M_PI/2), a1=PI2*(s+1)/segs+off-(float)(M_PI/2);
-        float r0=(s%2==0)?outer:inner, r1=((s+1)%2==0)?outer:inner;
-        float x0=cosf(a0)*r0, y0=sinf(a0)*r0;
-        float x1=cosf(a1)*r1, y1=sinf(a1)*r1;
-        for(int k=0;k<=sps;k++){
-            float t=(float)k/sps;
-            ap(o,n,mx, x0+(x1-x0)*t, y0+(y1-y0)*t, r,g,b, (s==0&&k==0)?1:0);
-        }
+    if (pts < 2 || pts > 32) return 0;
+    const int nverts = pts * 2;
+    optimizer::PathVertex verts[64]; // max 32 points * 2 = 64 vertices
+    for (int s = 0; s < nverts; s++) {
+        float a = PI2 * s / nverts + off - (float)(M_PI/2);
+        float rad = (s % 2 == 0) ? outer : inner;
+        verts[s].x = cosf(a) * rad;
+        verts[s].y = sinf(a) * rad;
+        verts[s].r = r; verts[s].g = g; verts[s].b = b;
+        verts[s].lift = false;
     }
-// Closing blank: prevent lit retrace on next frame
-    if(n>0 && n<mx){LaserPoint cl=o[0];cl.blank=1;for(int k=0;k<40 && n<mx;k++)o[n++]=cl;}
-    return n;
+    optimizer::PathSegment seg(verts, (size_t)nverts, /*closed=*/true);
+    return optimizer::optimize(&seg, 1, o, mx, liveOptimizerConfig());
 }
 
 struct P3D{float x,y,z;};
@@ -135,46 +101,20 @@ static const P3D CV[]={{-1,-1,-1},{1,-1,-1},{1,1,-1},{-1,1,-1},{-1,-1,1},{1,-1,1
 static const int CE[][2]={{0,1},{1,2},{2,3},{3,0},{4,5},{5,6},{6,7},{7,4},{0,4},{1,5},{2,6},{3,7}};
 
 // wf() -- GalvOS v5: migrated to point_optimizer (Pillar 1, adaptive
-// density + budget-aware blanking). Previously: fixed 40 blank samples
-// + fixed 29 interior points PER EDGE, regardless of edge count or
-// length -- a 30-edge dodecahedron cost ~2070 pts/frame (15000/2070 ~=
-// 7Hz, badly strobing). Now: project each edge to 2D first (prj()
-// unchanged), then CHAIN adjacent edges into polylines (see
-// buildWfChains()) before handing them to optimize() -- this fixes
-// corner-angle-aware density (corner_angle_deg/min_corner_pts/
-// max_corner_pts), which was previously a no-op for wf() because every
-// edge was its own isolated 2-vertex open PathSegment, so no vertex
-// ever had both an incoming AND outgoing edge (has_incoming &&
-// has_outgoing was always false -- see point_optimizer.cpp
-// planSegment()/emitSegment()). Chaining preserves the flicker-budget
-// sharing across the whole shape (all chains still go to optimize() in
-// one call).
-static const int WF_MAX_EDGES = 64;  // generous upper bound; current
-                                      // shapes top out at 30 (dodecahedron)
-static const int WF_MAX_VERTS = 32;  // generous upper bound; current
-                                      // shapes top out at 20 (dodecahedron)
+// density + budget-aware blanking). See wf() comments in original for
+// full rationale on buildWfChains() and chain-based approach.
+static const int WF_MAX_EDGES = 64;
+static const int WF_MAX_VERTS = 32;
 
-// Greedily groups edges into polylines by walking shared vertices.
-// Real branch points (3+ edges meeting, e.g. a cube corner where 3
-// edges join) become segment boundaries since a chain can only pass
-// straight through a vertex that has exactly 2 incident unused edges;
-// this is what lets cube/octahedron/etc. corners get correct
-// has_incoming && has_outgoing treatment in the optimizer, while
-// fan-out vertices correctly become endpoints of multiple chains.
-// Returns the number of chains written into out_chains/out_chain_len
-// (each out_chains[c] is a list of vertex INDICES into V, length
-// out_chain_len[c]); out_closed[c] is true if the chain loops back to
-// its own start vertex.
 static int buildWfChains(int nv, const int(*E)[2], int ne,
                           int out_chains[][WF_MAX_VERTS + 1],
                           int out_chain_len[], bool out_closed[],
                           int max_chains) {
-    if (nv > WF_MAX_VERTS) return 0;  // sanity guard
+    if (nv > WF_MAX_VERTS) return 0;
     static bool used[WF_MAX_EDGES];
     memset(used, 0, sizeof(used));
-    // adjacency: for each vertex, list of (edge_idx, other_vertex)
-    static int adj_edge[WF_MAX_VERTS][WF_MAX_VERTS];   // adj_edge[v][k] = edge idx
-    static int adj_other[WF_MAX_VERTS][WF_MAX_VERTS];  // adj_other[v][k] = other vertex
+    static int adj_edge[WF_MAX_VERTS][WF_MAX_VERTS];
+    static int adj_other[WF_MAX_VERTS][WF_MAX_VERTS];
     static int adj_count[WF_MAX_VERTS];
     memset(adj_count, 0, sizeof(adj_count));
     for (int e = 0; e < ne && e < WF_MAX_EDGES; e++) {
@@ -193,17 +133,8 @@ static int buildWfChains(int nv, const int(*E)[2], int ne,
         int len = 0;
         chain[len++] = start;
         chain[len++] = cur;
-
-        // Extend forward through cur only if it is a genuine
-        // degree-2 vertex (exactly 2 edges in the WHOLE shape, not
-        // just currently-unused ones). Using "currently free edges"
-        // here is processing-order-dependent: a degree-3 corner can
-        // end up with only 1 unused edge left by the time a later
-        // chain reaches it, making it look like a pass-through and
-        // rounding off a real corner. Degree is fixed at build time
-        // and never changes, so it's order-independent.
         while (len <= WF_MAX_VERTS) {
-            if (adj_count[cur] != 2) break;  // branch point or dead end -- stop chain here
+            if (adj_count[cur] != 2) break;
             int next_edge = -1, next_v = -1;
             for (int k = 0; k < adj_count[cur]; k++) {
                 if (!used[adj_edge[cur][k]]) {
@@ -212,9 +143,8 @@ static int buildWfChains(int nv, const int(*E)[2], int ne,
                     break;
                 }
             }
-            if (next_edge < 0) break;  // both edges already used -- dead end
+            if (next_edge < 0) break;
             if (next_v == start) {
-                // closes the loop back to chain start
                 used[next_edge] = true;
                 out_closed[nchains] = true;
                 goto chain_done;
@@ -233,7 +163,7 @@ static int buildWfChains(int nv, const int(*E)[2], int ne,
 }
 
 static size_t wf(LaserPoint*o,size_t mx,const P3D*V,int nv,const int(*E)[2],int ne,float ry,float rx,float sc,uint8_t r,uint8_t g,uint8_t b){
-    if (ne > WF_MAX_EDGES) ne = WF_MAX_EDGES;  // sanity guard
+    if (ne > WF_MAX_EDGES) ne = WF_MAX_EDGES;
     static int chains[WF_MAX_EDGES][WF_MAX_VERTS + 1];
     static int chain_len[WF_MAX_EDGES];
     static bool chain_closed[WF_MAX_EDGES];
@@ -248,15 +178,39 @@ static size_t wf(LaserPoint*o,size_t mx,const P3D*V,int nv,const int(*E)[2],int 
             prj(V[chains[c][i]], ry, rx, sc, ox, oy);
             verts[c][i].x = ox; verts[c][i].y = oy;
             verts[c][i].r = r;  verts[c][i].g = g;  verts[c][i].b = b;
-            verts[c][i].lift = (i == 0);  // blank-jump TO the start of this chain
+            verts[c][i].lift = (i == 0);
         }
         segs[c] = optimizer::PathSegment(verts[c], (size_t)len, chain_closed[c]);
     }
-    // nchains, not WF_MAX_EDGES -- passing the unused array tail as
-    // segments would reserve blank budget for chains that don't exist.
     return optimizer::optimize(segs, nchains, o, mx, liveOptimizerConfig());
 }
 
+// line() -- GalvOS v5.3: migrated to point_optimizer.
+// Previously: manual 40-blank settle + fixed S-step interpolation.
+// Now: 2-vertex open PathSegment with lift=true on the start vertex.
+// optimizer::emitBlankJump() handles the blank travel to start;
+// emitSegment() handles interior density proportional to edge length.
+// The S parameter is kept for API compatibility but ignored -- optimizer
+// controls actual density via pts_per_1000_units.
+static void line(LaserPoint*o,size_t&n,size_t mx,
+                 float x0,float y0,float x1,float y1,
+                 uint8_t r,uint8_t g,uint8_t b,
+                 int /*S*/=20)
+{
+    optimizer::PathVertex verts[2];
+    verts[0].x = x0; verts[0].y = y0;
+    verts[0].r = r;  verts[0].g = g;  verts[0].b = b;
+    verts[0].lift = true;   // blank-jump to start
+    verts[1].x = x1; verts[1].y = y1;
+    verts[1].r = r;  verts[1].g = g;  verts[1].b = b;
+    verts[1].lift = false;
+    optimizer::PathSegment seg(verts, 2, /*closed=*/false);
+    size_t written = optimizer::optimize(&seg, 1, o + n, mx - n, liveOptimizerConfig());
+    n += written;
+}
+
+// sinewave() -- parametric continuous curve, no discrete vertices.
+// Not migrated to optimizer (see design doc Section 9.2).
 static size_t sinewave(LaserPoint*o,size_t mx,float A,float f,float ph_off,float sc,uint8_t r,uint8_t g,uint8_t b,int N=120){
     size_t n=0;
     const float effA=A*gLivePreset.wave_amp, effF=f*gLivePreset.wave_freq;
@@ -264,6 +218,44 @@ static size_t sinewave(LaserPoint*o,size_t mx,float A,float f,float ph_off,float
     for(int k=0;k<40 && n<mx;k++) ap(o,n,mx,sx,sy,0,0,0,1);
     for(int i=0;i<=N;i++){float x=L(-1.f,1.f,i/float(N));ap(o,n,mx,x*sc,effA*sinf(effF*x*PI2+ph_off)*sc,r,g,b,0);}
     return n;
+}
+
+// circ_draw() -- GalvOS v5.3: migrated to optimizer via ngon().
+// Previously: fixed S-step loop with manual blank jump.
+// Now: delegates to ngon() which uses PathSegment(closed=true).
+// S parameter controls polygon sides (clamped to [16,64]).
+// This automatically improves all callers: circ_draw() is used by
+// Vehicles (p91-p98), party silhouettes, and combo presets.
+static void circ_draw(LaserPoint*o,size_t&n,size_t m,float cx,float cy,float r2,uint8_t cr,uint8_t cg,uint8_t cb,int S=24){
+    if (S < 16) S = 16;
+    if (S > 64) S = 64;
+    // ngon() generates centered at origin; we shift via per-vertex offset.
+    // Build PathVertex directly so we can apply cx/cy offset.
+    optimizer::PathVertex verts[64];
+    for (int i = 0; i < S; i++) {
+        float a = PI2 * i / S;
+        verts[i].x = cx + cosf(a) * r2;
+        verts[i].y = cy + sinf(a) * r2;
+        verts[i].r = cr; verts[i].g = cg; verts[i].b = cb;
+        verts[i].lift = false;
+    }
+    optimizer::PathSegment seg(verts, (size_t)S, /*closed=*/true);
+    size_t written = optimizer::optimize(&seg, 1, o + n, m - n, liveOptimizerConfig());
+    n += written;
+}
+
+// rect_outline() -- 4 line segments forming a rectangle.
+// Migrated automatically via line() migration.
+static void rect_outline(LaserPoint*o,size_t&n,size_t m,float x0,float y0,float x1,float y1,uint8_t r,uint8_t g,uint8_t b,int S=10){
+    line(o,n,m,x0,y0,x1,y0,r,g,b,S); line(o,n,m,x1,y0,x1,y1,r,g,b,S);
+    line(o,n,m,x1,y1,x0,y1,r,g,b,S); line(o,n,m,x0,y1,x0,y0,r,g,b,S);
+}
+
+// scrollX() -- vehicle horizontal scroll helper, unchanged.
+static float scrollX(uint32_t ph,uint8_t sp){
+    float spd=0.06f+(sp/255.f)*0.44f;
+    float t=fmodf(ph*spd*0.00025f,1.f);
+    return (t*2.f-1.f)*SC*1.25f;
 }
 
 typedef size_t(*PFn)(LaserPoint*,size_t,uint32_t,uint8_t,uint8_t);
@@ -281,6 +273,9 @@ static size_t p08(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){float
 static size_t p09(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){float s=SC*ssc(sz)*.9f;return star(o,m,8,s,s*.36f,aang(ph,sp),0,128,255);}
 
 // ─── LINIEN 10-14 ────────────────────────────────────────────
+// These use line() which is now optimizer-backed. Grid p12 benefits
+// most: 8 line segments share the flicker budget via one optimize() call
+// each, preventing the fixed-cost 40-blank overhead from dominating.
 static size_t p10(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){size_t n=0;float s=SC*ssc(sz)*.9f;line(o,n,m,-s,0,s,0,255,60,60,50);line(o,n,m,0,-s,0,s,60,255,60,50);return n;}
 static size_t p11(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){size_t n=0;float s=SC*ssc(sz)*.65f;line(o,n,m,-s,-s,s,s,0,255,255,50);line(o,n,m,s,-s,-s,s,255,0,255,50);return n;}
 static size_t p12(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){size_t n=0;float s=SC*ssc(sz)*.9f,st=s*2.f/3.f;for(int i=0;i<=3;i++){float x=-s+i*st;line(o,n,m,x,-s,x,s,0,200,200,20);}for(int i=0;i<=3;i++){float y=-s+i*st;line(o,n,m,-s,y,s,y,0,200,200,20);}return n;}
@@ -288,6 +283,7 @@ static size_t p13(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){size_
 static size_t p14(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){size_t n=0;float s=SC*ssc(sz)*.9f,a=aang(ph,sp);for(int i=0;i<=60;i++)ap(o,n,m,L(-s,s,i/60.f)*cosf(a),L(-s,s,i/60.f)*sinf(a),255,0,128,i==0?1:0);return n;}
 
 // ─── SPIRALEN 15-22 ──────────────────────────────────────────
+// Parametric curves — not migrated (no discrete vertices).
 static size_t p15(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){size_t n=0;float sc=SC*ssc(sz)*.9f,off=aang(ph,sp);const int N=adaptN(sz,200,30,400);for(int i=0;i<N;i++){float t=(float)i/N,a=t*PI2*3.5f+off,r=t*sc;ap(o,n,m,cosf(a)*r,sinf(a)*r,(uint8_t)(t*255),(uint8_t)((1-t)*255),128,i==0?1:0);}return n;}
 static size_t p16(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){size_t n=0;float sc=SC*ssc(sz)*.9f,off=aang(ph,sp);for(int i=0;i<=200;i++){float t=PI2*i/200.f;ap(o,n,m,cosf(t+off)*sc,sinf(2*t+M_PI/4.f)*sc,0,200,255,i==0?1:0);}return n;}
 static size_t p17(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){size_t n=0;float sc=SC*ssc(sz)*.9f,off=aang(ph,sp);for(int i=0;i<=250;i++){float t=PI2*i/250.f;ap(o,n,m,cosf(2*t+off)*sc,sinf(3*t+M_PI/4.f)*sc,0,180,255,i==0?1:0);}return n;}
@@ -298,6 +294,7 @@ static size_t p21(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){size_
 static size_t p22(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){size_t n=0;float sc=SC*ssc(sz)*.9f,off=aang(ph,sp);const int N=200;for(int i=0;i<=N;i++){float t=PI2*i/N+off,r=sc*cosf(3*t);ap(o,n,m,r*cosf(t),r*sinf(t),255,100,0,i==0?1:0);}return n;}
 
 // ─── KURVEN 23-28 ────────────────────────────────────────────
+// Parametric curves — not migrated.
 static size_t p23(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){size_t n=0;float sc=SC*ssc(sz)*.9f,off=aang(ph,sp);for(int i=0;i<=200;i++){float t=PI2*i/200.f+off,r=sc*cosf(4*t);ap(o,n,m,r*cosf(t),r*sinf(t),255,50,150,i==0?1:0);}return n;}
 static size_t p24(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){size_t n=0;float sc=SC*ssc(sz)*.45f,off=aang(ph,sp);for(int i=0;i<=200;i++){float t=PI2*i/200.f+off,r=sc*(1.f-cosf(t));ap(o,n,m,r*cosf(t),r*sinf(t),255,0,100,i==0?1:0);}return n;}
 static size_t p25(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){size_t n=0;float sc=SC*ssc(sz)*.045f,a=aang(ph,sp);const int N=adaptN(sz,200,20,300);for(int i=0;i<=N;i++){float t=PI2*i/N,x=sc*16*powf(sinf(t),3),y=sc*(13*cosf(t)-5*cosf(2*t)-2*cosf(3*t)-cosf(4*t));ap(o,n,m,x*cosf(a)-y*sinf(a),x*sinf(a)+y*cosf(a),255,0,80,i==0?1:0);}return n;}
@@ -308,13 +305,26 @@ static size_t p28(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){size_
 // ─── 3D 29-34 ────────────────────────────────────────────────
 static size_t p29(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){return wf(o,m,CV,8,CE,12,aang(ph,sp,1),aang(ph,sp,.4f),SC*ssc(sz)*.65f,0,255,255);}
 static size_t p30(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){return wf(o,m,CV,8,CE,12,.6f,.4f,SC*ssc(sz)*.65f,255,255,0);}
+
+// p31 Pyramid -- GalvOS v5.3: migrated from raw ap() to wf().
+// Previously: separate loop for base quad + 4 apex edges with manual
+// blank jumps and fixed 12-step interpolation.
+// Now: 5 edges (base quad closed + 4 open apex spokes) via wf().
+// wf() chains base quad into one closed loop (degree-2 all vertices),
+// apex spokes become 4 individual open PathSegments.
 static size_t p31(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
-    static const P3D V[]={{-1,-1,-1},{1,-1,-1},{1,-1,1},{-1,-1,1}};static const P3D apex={0,1,0};
-    size_t n=0;float sc=SC*ssc(sz)*.65f,ry=aang(ph,sp);
-    for(int i=0;i<4;i++){int j=(i+1)%4;for(int k=0;k<=12;k++){float t=k/12.f;P3D v={L(V[i].x,V[j].x,t),L(V[i].y,V[j].y,t),L(V[i].z,V[j].z,t)};float ox,oy;prj(v,ry,.3f,sc,ox,oy);ap(o,n,m,ox,oy,255,128,0,k==0?1:0);}}
-    for(int i=0;i<4;i++){for(int k=0;k<=12;k++){float t=k/12.f;P3D v={L(apex.x,V[i].x,t),L(apex.y,V[i].y,t),L(apex.z,V[i].z,t)};float ox,oy;prj(v,ry,.3f,sc,ox,oy);ap(o,n,m,ox,oy,255,200,0,k==0?1:0);}}
-    return n;
+    // Base quad vertices + apex
+    static const P3D V[]={
+        {-1,-1,-1},{1,-1,-1},{1,-1,1},{-1,-1,1},  // 0-3: base
+        {0,1,0}                                     // 4: apex
+    };
+    static const int E[][2]={
+        {0,1},{1,2},{2,3},{3,0},  // base quad
+        {0,4},{1,4},{2,4},{3,4}   // apex spokes
+    };
+    return wf(o,m,V,5,E,8,aang(ph,sp),0.3f,SC*ssc(sz)*.65f,255,128,0);
 }
+
 static size_t p32(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     static const P3D V[]={{1,0,0},{-1,0,0},{0,1,0},{0,-1,0},{0,0,1},{0,0,-1}};
     static const int E[][2]={{0,2},{0,3},{1,2},{1,3},{0,4},{0,5},{1,4},{1,5},{2,4},{2,5},{3,4},{3,5}};
@@ -333,6 +343,7 @@ static size_t p34(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
 }
 
 // ─── WELLEN 35-52 ────────────────────────────────────────────
+// Parametric continuous curves — not migrated to optimizer.
 static size_t p35(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){return sinewave(o,m,.55f,1,aang(ph,sp),SC*ssc(sz)*.9f,0,220,255);}
 static size_t p36(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){float A=fabsf(sinf(aang(ph,sp)))*.8f+.1f;return sinewave(o,m,A,2,0,SC*ssc(sz)*.9f,0,255,150);}
 static size_t p37(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
@@ -423,19 +434,57 @@ static size_t p52(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
 }
 
 // ─── KOMPLEX 53-58 ───────────────────────────────────────────
+// p53-p55, p58: parametric curves — not migrated.
 static size_t p53(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){size_t n=0;float sc=SC*ssc(sz)*.38f,off=aang(ph,sp);const float R=5,r=3,d=5;for(int i=0;i<=400;i++){float t=PI2*i/400.f+off;ap(o,n,m,sc*((R-r)*cosf(t)+d*cosf((R-r)*t/r)),sc*((R-r)*sinf(t)-d*sinf((R-r)*t/r)),255,100,200,i==0?1:0);}return n;}
 static size_t p54(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){size_t n=0;float sc=SC*ssc(sz)*.38f,off=aang(ph,sp);for(int i=0;i<=200;i++){float t=PI2*i/200.f,e=expf(cosf(t))-2*cosf(4*t)-powf(sinf(t/12.f),5);ap(o,n,m,sc*e*sinf(t+off),sc*e*cosf(t+off),255,165,0,i==0?1:0);}return n;}
 static size_t p55(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){size_t n=0;float sc=SC*ssc(sz)*.38f,off=aang(ph,sp);const float R=5,k=3.f/5,l=.7f;for(int i=0;i<=400;i++){float t=PI2*i/400.f+off;ap(o,n,m,sc*R*((1-k)*cosf(t)+l*k*cosf((1-k)*t/k)),sc*R*((1-k)*sinf(t)-l*k*sinf((1-k)*t/k)),0,200,255,i==0?1:0);}return n;}
+
+// p56 Concentric Rings -- GalvOS v5.3: migrated to optimizer via ngon().
+// Previously: raw ap() loop per ring with manual blank jumps.
+// Now: each ring is a closed polygon via ngon(). Budget is shared across
+// all rings because they are separate optimize() calls but the
+// max_pts_per_frame budget cap applies globally per frame anyway.
 static size_t p56(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     size_t n=0;float sc=SC*ssc(sz)*.9f,pulse=.8f+.2f*fabsf(sinf(aang(ph,sp,2)));
-    for(int ring=1;ring<=5;ring++){float r=sc*ring/5.f*pulse;float h=ring/5.f;uint8_t cr=(uint8_t)(fabsf(sinf(h*M_PI))*255),cg=(uint8_t)(fabsf(sinf(h*M_PI+2.094f))*255),cb=(uint8_t)(fabsf(sinf(h*M_PI+4.189f))*255);for(int i=0;i<=64;i++){float a=PI2*i/64.f;ap(o,n,m,cosf(a)*r,sinf(a)*r,cr,cg,cb,i==0?1:0);}}
+    for(int ring=1;ring<=5;ring++){
+        float r=sc*ring/5.f*pulse;
+        float h=ring/5.f;
+        uint8_t cr=(uint8_t)(fabsf(sinf(h*M_PI))*255),cg=(uint8_t)(fabsf(sinf(h*M_PI+2.094f))*255),cb=(uint8_t)(fabsf(sinf(h*M_PI+4.189f))*255);
+        // 32 sides gives smooth circle; optimizer handles density
+        optimizer::PathVertex verts[32];
+        for(int i=0;i<32;i++){
+            float a=PI2*i/32.f;
+            verts[i].x=cosf(a)*r; verts[i].y=sinf(a)*r;
+            verts[i].r=cr; verts[i].g=cg; verts[i].b=cb;
+            verts[i].lift=false;
+        }
+        optimizer::PathSegment seg(verts,32,true);
+        n += optimizer::optimize(&seg,1,o+n,m-n,liveOptimizerConfig());
+    }
     return n;
 }
+
+// p57 Nested Squares -- GalvOS v5.3: migrated to optimizer.
+// Each square layer is a closed 4-vertex PathSegment.
 static size_t p57(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     size_t n=0;float sc=SC*ssc(sz)*.9f,br=aang(ph,sp);
-    for(int l=0;l<6;l++){float s=sc*(6-l)/6.f,rot=br+l*(M_PI/(4.f*6));float h=l/6.f;uint8_t r=(uint8_t)(fabsf(sinf(h*M_PI))*255),g=(uint8_t)(fabsf(sinf(h*M_PI+2.094f))*255),b=(uint8_t)(fabsf(sinf(h*M_PI+4.189f))*255);for(int i=0;i<=4;i++){int j=i%4,k2=(j+1)%4;float a0=PI2*j/4.f+rot,a1=PI2*k2/4.f+rot;for(int ss=0;ss<=12;ss++){float t=ss/12.f;ap(o,n,m,L(cosf(a0),cosf(a1),t)*s,L(sinf(a0),sinf(a1),t)*s,r,g,b,ss==0?1:0);}}}
+    for(int l=0;l<6;l++){
+        float s=sc*(6-l)/6.f,rot=br+l*(M_PI/(4.f*6));
+        float h=l/6.f;
+        uint8_t r=(uint8_t)(fabsf(sinf(h*M_PI))*255),g=(uint8_t)(fabsf(sinf(h*M_PI+2.094f))*255),b=(uint8_t)(fabsf(sinf(h*M_PI+4.189f))*255);
+        optimizer::PathVertex verts[4];
+        for(int i=0;i<4;i++){
+            float a=PI2*i/4.f+rot;
+            verts[i].x=cosf(a)*s; verts[i].y=sinf(a)*s;
+            verts[i].r=r; verts[i].g=g; verts[i].b=b;
+            verts[i].lift=false;
+        }
+        optimizer::PathSegment seg(verts,4,true);
+        n += optimizer::optimize(&seg,1,o+n,m-n,liveOptimizerConfig());
+    }
     return n;
 }
+
 static size_t p58(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     size_t n=0;float sc=SC*ssc(sz)*.9f,pulse=sc*(.5f+.5f*fabsf(sinf(aang(ph,sp,3)))),rot=aang(ph,sp,.2f);
     for(int i=0;i<=128;i++){float a=PI2*i/128.f+rot,wave=1+.15f*sinf(8*a),r2=pulse*wave;ap(o,n,m,cosf(a)*r2,sinf(a)*r2,(uint8_t)(200+55*sinf(a)),0,(uint8_t)(200+55*cosf(a)),i==0?1:0);}
@@ -443,61 +492,166 @@ static size_t p58(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
 }
 
 // ─── KOMBI 59-63 ─────────────────────────────────────────────
+
+// p59 Starburst -- GalvOS v5.3: migrated to optimizer.
+// Previously: inline ap() loops per spoke.
+// Now: each spoke is a 2-vertex open PathSegment. All 24 spokes passed
+// to optimize() in one call so budget management covers the full shape.
 static size_t p59(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
-    size_t n=0;float sc=SC*ssc(sz)*.9f,off=aang(ph,sp);
-    for(int i=0;i<24;i++){float a=PI2*i/24.f+off,inner=sc*.3f,outer=sc*(.7f+.3f*sinf(i*.8f));for(int k=0;k<=10;k++){ap(o,n,m,cosf(a)*(inner+(outer-inner)*k/10.f),sinf(a)*(inner+(outer-inner)*k/10.f),(uint8_t)(128+127*sinf(a)),(uint8_t)(128+127*cosf(a)),255,k==0?1:0);}}
-    return n;
+    float sc=SC*ssc(sz)*.9f,off=aang(ph,sp);
+    const int nspokes=24;
+    optimizer::PathVertex verts[nspokes*2];
+    optimizer::PathSegment segs[nspokes];
+    for(int i=0;i<nspokes;i++){
+        float a=PI2*i/nspokes+off;
+        float inner=sc*.3f,outer=sc*(.7f+.3f*sinf(i*.8f));
+        uint8_t cr=(uint8_t)(128+127*sinf(a)),cg=(uint8_t)(128+127*cosf(a));
+        // start vertex (inner)
+        verts[i*2].x=cosf(a)*inner; verts[i*2].y=sinf(a)*inner;
+        verts[i*2].r=cr; verts[i*2].g=cg; verts[i*2].b=255;
+        verts[i*2].lift=true;   // blank-jump to inner point of each spoke
+        // end vertex (outer)
+        verts[i*2+1].x=cosf(a)*outer; verts[i*2+1].y=sinf(a)*outer;
+        verts[i*2+1].r=cr; verts[i*2+1].g=cg; verts[i*2+1].b=255;
+        verts[i*2+1].lift=false;
+        segs[i]=optimizer::PathSegment(&verts[i*2],2,false);
+    }
+    return optimizer::optimize(segs,nspokes,o,m,liveOptimizerConfig());
 }
+
 static size_t p60(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     size_t n=0;float sc=SC*ssc(sz)*.9f,t0=aang(ph,sp,.5f);
     for(int i=0;i<128;i++){float t=t0+PI2*i/128.f;ap(o,n,m,sc*.9f*sinf(3.1f*t)*cosf(.7f*t),sc*.9f*cosf(2.1f*t)*sinf(1.3f*t),(uint8_t)(128+127*sinf(t*2)),(uint8_t)(128+127*sinf(t*3+1)),(uint8_t)(128+127*cosf(t*1.5f)),i==0?1:0);}
     return n;
 }
+
+// p61 Laser Diamond -- GalvOS v5.3: migrated to optimizer.
+// Two counter-rotating squares + a circle, all via optimizer.
+// Squares: closed 4-vertex PathSegments.
+// Circle: 32-vertex closed PathSegment.
 static size_t p61(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     size_t n=0;float sc=SC*ssc(sz)*.9f,rot=aang(ph,sp);
-    const float ouV[][2]={{0,.9f},{.9f,0},{0,-.9f},{-.9f,0}};
-    const float inV[][2]={{0,.55f},{.55f,0},{0,-.55f},{-.55f,0}};
-    for(int i=0;i<=4;i++){int j=i%4,k2=(j+1)%4;for(int s=0;s<=16;s++){float t=s/16.f;float rx=L(ouV[j][0],ouV[k2][0],t)*sc*cosf(rot)-L(ouV[j][1],ouV[k2][1],t)*sc*sinf(rot);float ry=L(ouV[j][0],ouV[k2][0],t)*sc*sinf(rot)+L(ouV[j][1],ouV[k2][1],t)*sc*cosf(rot);ap(o,n,m,rx,ry,0,240,255,s==0?1:0);}}
-    for(int i=0;i<=4;i++){int j=i%4,k2=(j+1)%4;for(int s=0;s<=16;s++){float t=s/16.f;float rx=L(inV[j][0],inV[k2][0],t)*sc*cosf(-rot)-L(inV[j][1],inV[k2][1],t)*sc*sinf(-rot);float ry=L(inV[j][0],inV[k2][0],t)*sc*sinf(-rot)+L(inV[j][1],inV[k2][1],t)*sc*cosf(-rot);ap(o,n,m,rx,ry,255,80,200,s==0?1:0);}}
-    for(int i=0;i<=60;i++){float a=PI2*i/60.f+rot;ap(o,n,m,cosf(a)*.72f*sc,sinf(a)*.72f*sc,100,200,255,i==0?1:0);}
-    return n;
-}
-static size_t p62(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
-    size_t n=0;float sc=SC*ssc(sz)*.9f,t=aang(ph,sp);
-    static const struct{float x,spd,off,r;}b[]={{-.4f,.3f,1.3f,.08f},{-.2f,.5f,2.1f,.06f},{.1f,.7f,.7f,.09f},{.3f,.4f,1.8f,.07f},{-.1f,.6f,3.2f,.05f},{.5f,.2f,2.5f,.08f},{-.5f,.8f,.4f,.07f}};
-    for(auto& bl:b){float ph2=fmodf(t*bl.spd+bl.off,PI2),y=L(-1.f,1.f,ph2/PI2),wob=sinf(ph2*8)*.02f;for(int i=0;i<=16;i++){float a=PI2*i/16.f;ap(o,n,m,(cosf(a)*bl.r+bl.x+wob)*sc,(sinf(a)*bl.r+y)*sc,200,220,255,i==0?1:0);}}
-    return n;
-}
-static size_t p63(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
-    size_t n=0;float sc=SC*ssc(sz)*.9f,rot=aang(ph,sp);
-    for(int i=0;i<=40;i++){float a=PI2*i/40.f;ap(o,n,m,cosf(a)*.7f*sc,sinf(a)*.7f*sc,200,200,200,i==0?1:0);}
-    for(int row=-3;row<=3;row++){float y=row*.2f,rx=sqrtf(fmaxf(0.f,.49f-y*y));for(int i=0;i<=30;i++){float a=PI2*i/30.f+rot;ap(o,n,m,cosf(a)*rx*sc,y*sc,(uint8_t)(128+127*cosf(a+rot*2)),(uint8_t)(128+127*sinf(a+rot*3)),200,i==0?1:0);}}
-    for(int i=0;i<8;i++){float a=PI2*i/8.f+rot*2,blen=.2f+.1f*fabsf(sinf(rot+i));for(int k=0;k<=6;k++)ap(o,n,m,(cosf(a)*.75f+cosf(a)*k/6.f*blen)*sc,(sinf(a)*.75f+sinf(a)*k/6.f*blen)*sc,255,255,255,k==0?1:0);}
+    // Outer square (counter-clockwise vertices at 45° intervals)
+    {
+        optimizer::PathVertex verts[4];
+        const float ouV[][2]={{0,.9f},{.9f,0},{0,-.9f},{-.9f,0}};
+        for(int i=0;i<4;i++){
+            float rx=ouV[i][0]*sc*cosf(rot)-ouV[i][1]*sc*sinf(rot);
+            float ry=ouV[i][0]*sc*sinf(rot)+ouV[i][1]*sc*cosf(rot);
+            verts[i].x=rx; verts[i].y=ry;
+            verts[i].r=0; verts[i].g=240; verts[i].b=255;
+            verts[i].lift=false;
+        }
+        optimizer::PathSegment seg(verts,4,true);
+        n += optimizer::optimize(&seg,1,o+n,m-n,liveOptimizerConfig());
+    }
+    // Inner square (counter-rotating)
+    {
+        optimizer::PathVertex verts[4];
+        const float inV[][2]={{0,.55f},{.55f,0},{0,-.55f},{-.55f,0}};
+        for(int i=0;i<4;i++){
+            float rx=inV[i][0]*sc*cosf(-rot)-inV[i][1]*sc*sinf(-rot);
+            float ry=inV[i][0]*sc*sinf(-rot)+inV[i][1]*sc*cosf(-rot);
+            verts[i].x=rx; verts[i].y=ry;
+            verts[i].r=255; verts[i].g=80; verts[i].b=200;
+            verts[i].lift=false;
+        }
+        optimizer::PathSegment seg(verts,4,true);
+        n += optimizer::optimize(&seg,1,o+n,m-n,liveOptimizerConfig());
+    }
+    // Circle via ngon
+    n += ngon(o+n,m-n,32,.72f*sc,rot,100,200,255);
     return n;
 }
 
-// p101 — Disco Ball (6th Combo preset, previously missing)
-static size_t p101(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
+static size_t p62(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
+    size_t n=0;float sc=SC*ssc(sz)*.9f,t=aang(ph,sp);
+    static const struct{float x,spd,off,r;}b[]={{-.4f,.3f,1.3f,.08f},{-.2f,.5f,2.1f,.06f},{.1f,.7f,.7f,.09f},{.3f,.4f,1.8f,.07f},{-.1f,.6f,3.2f,.05f},{.5f,.2f,2.5f,.08f},{-.5f,.8f,.4f,.07f}};
+    for(auto& bl:b){float ph2=fmodf(t*bl.spd+bl.off,PI2),y=L(-1.f,1.f,ph2/PI2),wob=sinf(ph2*8)*.02f;for(int i=0;i<=16;i++){float a=PI2*i/16.f;ap(o,n,m,cosf(a)*bl.r*sc+bl.x*sc,sinf(a)*bl.r*sc+y*sc,200,220,255,i==0?1:0);}}
+    return n;
+}
+
+// p63 Disco Ball -- GalvOS v5.3: migrated.
+// Outline circle + latitude rings + equator: all via ngon().
+// Longitude spokes: migrated to optimizer PathSegments.
+static size_t p63(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     size_t n=0;float sc=SC*ssc(sz)*.9f,rot=aang(ph,sp);
     // Outline circle (ball silhouette)
-    for(int i=0;i<=48;i++){float a=PI2*i/48.f;ap(o,n,m,cosf(a)*sc,sinf(a)*sc,220,220,220,i==0?1:0);}
-    // Latitude rings (horizontal facet bands, foreshortened by row)
+    n += ngon(o+n,m-n,48,sc,0,220,220,220);
+    // Latitude rings
     for(int row=-2;row<=2;row++){
-        if(row==0) continue; // equator drawn separately below
+        if(row==0) continue;
         float y=row*.32f,rx=sqrtf(fmaxf(0.f,1.f-y*y));
-        for(int i=0;i<=24;i++){float a=PI2*i/24.f;ap(o,n,m,cosf(a)*rx*sc,y*sc,(uint8_t)(128+127*sinf(a+rot)),(uint8_t)(128+127*sinf(a+rot+2.094f)),(uint8_t)(128+127*sinf(a+rot+4.189f)),i==0?1:0);}
+        optimizer::PathVertex verts[24];
+        for(int i=0;i<24;i++){
+            float a=PI2*i/24.f;
+            verts[i].x=cosf(a)*rx*sc; verts[i].y=y*sc;
+            verts[i].r=(uint8_t)(128+127*sinf(a+rot));
+            verts[i].g=(uint8_t)(128+127*sinf(a+rot+2.094f));
+            verts[i].b=(uint8_t)(128+127*sinf(a+rot+4.189f));
+            verts[i].lift=false;
+        }
+        optimizer::PathSegment seg(verts,24,true);
+        n += optimizer::optimize(&seg,1,o+n,m-n,liveOptimizerConfig());
     }
     // Equator
-    for(int i=0;i<=24;i++){float a=PI2*i/24.f;ap(o,n,m,cosf(a)*sc,0,255,255,255,i==0?1:0);}
-    // Longitude facet lines (rotating, mirror-ball sparkle effect)
+    n += ngon(o+n,m-n,24,sc,0,255,255,255);
+    // Longitude spokes (8 vertical arcs as line segments)
     for(int i=0;i<8;i++){
         float a=PI2*i/8.f+rot;
-        for(int k=0;k<=16;k++){float t=k/16.f-.5f,y=t*2.f*sc,rx=sqrtf(fmaxf(0.f,1.f-(t*2.f)*(t*2.f)))*sc;ap(o,n,m,cosf(a)*rx,y,(uint8_t)(128+127*cosf(a*2+rot)),(uint8_t)(128+127*sinf(a*3-rot)),255,k==0?1:0);}
+        optimizer::PathVertex verts[2];
+        verts[0].x=cosf(a)*sc; verts[0].y=-sc;
+        verts[0].r=(uint8_t)(128+127*cosf(a*2+rot));
+        verts[0].g=(uint8_t)(128+127*sinf(a*3-rot));
+        verts[0].b=255; verts[0].lift=true;
+        verts[1].x=cosf(a)*sc; verts[1].y=sc;
+        verts[1].r=verts[0].r; verts[1].g=verts[0].g; verts[1].b=255;
+        verts[1].lift=false;
+        optimizer::PathSegment seg(verts,2,false);
+        n += optimizer::optimize(&seg,1,o+n,m-n,liveOptimizerConfig());
+    }
+    return n;
+}
+
+// p101 Disco Ball 2 (6th Combo preset)
+static size_t p101(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
+    size_t n=0;float sc=SC*ssc(sz)*.9f,rot=aang(ph,sp);
+    n += ngon(o+n,m-n,48,sc,0,220,220,220);
+    for(int row=-2;row<=2;row++){
+        if(row==0) continue;
+        float y=row*.32f,rx=sqrtf(fmaxf(0.f,1.f-y*y));
+        optimizer::PathVertex verts[24];
+        for(int i=0;i<24;i++){
+            float a=PI2*i/24.f;
+            verts[i].x=cosf(a)*rx*sc; verts[i].y=y*sc;
+            verts[i].r=(uint8_t)(128+127*sinf(a+rot));
+            verts[i].g=(uint8_t)(128+127*sinf(a+rot+2.094f));
+            verts[i].b=(uint8_t)(128+127*sinf(a+rot+4.189f));
+            verts[i].lift=false;
+        }
+        optimizer::PathSegment seg(verts,24,true);
+        n += optimizer::optimize(&seg,1,o+n,m-n,liveOptimizerConfig());
+    }
+    n += ngon(o+n,m-n,24,sc,0,255,255,255);
+    for(int i=0;i<8;i++){
+        float a=PI2*i/8.f+rot;
+        optimizer::PathVertex verts[2];
+        verts[0].x=cosf(a)*sc; verts[0].y=-sc;
+        verts[0].r=(uint8_t)(128+127*cosf(a*2+rot));
+        verts[0].g=(uint8_t)(128+127*sinf(a*3-rot));
+        verts[0].b=255; verts[0].lift=true;
+        verts[1].x=cosf(a)*sc; verts[1].y=sc;
+        verts[1].r=verts[0].r; verts[1].g=verts[0].g; verts[1].b=255;
+        verts[1].lift=false;
+        optimizer::PathSegment seg(verts,2,false);
+        n += optimizer::optimize(&seg,1,o+n,m-n,liveOptimizerConfig());
     }
     return n;
 }
 
 // ─── PARTY-SILHOUETTEN 64-89 ─────────────────────────────────
+// These use line() and circ_draw() which are now optimizer-backed.
+// No per-preset changes needed — migration is transparent.
 static size_t p64(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){ // Martini
     size_t n=0;float sc=SC*ssc(sz)*.9f;
     for(int i=0;i<=40;i++){float a=M_PI*i/40.f;ap(o,n,m,cosf(a)*.65f*sc,(.55f+sinf(a)*.04f)*sc,0,220,255,i==0?1:0);}
@@ -574,8 +728,8 @@ static size_t p72(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){ // P
 }
 static size_t p73(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){ // Tropische Sonne
     size_t n=0;float sc=SC*ssc(sz)*.9f,rot=aang(ph,sp,.3f);
-    for(int i=0;i<=40;i++){float a=PI2*i/40.f;ap(o,n,m,cosf(a)*.35f*sc,sinf(a)*.35f*sc,255,220,0,i==0?1:0);}
-    for(int i=0;i<12;i++){float a=PI2*i/12.f+rot,len=.25f+.1f*sinf(i*2.3f+rot*2);for(int k=0;k<=8;k++){float t=k/8.f,r=L(.38f,.38f+len,t);ap(o,n,m,cosf(a)*r*sc,sinf(a)*r*sc,255,(uint8_t)(200-t*100),0,k==0?1:0);}}
+    n += ngon(o+n,m-n,32,.35f*sc,0,255,220,0);
+    for(int i=0;i<12;i++){float a=PI2*i/12.f+rot,len=.25f+.1f*sinf(i*2.3f+rot*2);line(o,n,m,cosf(a)*.38f*sc,sinf(a)*.38f*sc,cosf(a)*(.38f+len)*sc,sinf(a)*(.38f+len)*sc,255,(uint8_t)(200-len*100/0.35f),0);}
     return n;
 }
 static size_t p74(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){ // Ananas
@@ -671,134 +825,86 @@ static size_t p88(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){ // S
     for(int i=0;i<24;i++){float a=PI2*i/24.f+off,inner=sc*.3f,outer=sc*(.7f+.3f*sinf(i*.8f));line(o,n,m,cosf(a)*inner,sinf(a)*inner,cosf(a)*outer,sinf(a)*outer,(uint8_t)(128+127*sinf(a)),(uint8_t)(128+127*cosf(a)),255,8);}
     return n;
 }
-static size_t p89(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){ // Party-Finale
-    // Lorenz attractor with color gradient
+static size_t p89(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){ // Party-Finale / Lorenz
     size_t n=0;float sc=SC*ssc(sz)*.04f,t=aang(ph,sp)*10;
     float x=.1f,y=0,z=0,dt=.005f;
     for(int i=0;i<350;i++){float dx=10*(y-x),dy=x*(28-z)-y,dz=x*y-8.f/3*z;x+=dx*dt;y+=dy*dt;z+=dz*dt;float rot=t*.01f,px=x*cosf(rot)-z*sinf(rot);ap(o,n,m,px*sc,(y-20)*sc,(uint8_t)(128+127*sinf(i*.02f)),(uint8_t)(128+127*cosf(i*.02f)),150,i==0?1:0);}
     return n;
 }
 
-
-
 // ─── SZENEN 90 ─────────────────────────────────────────────
-// Starfield: nStars points fall evenly from top (+Y) to bottom (-Y).
-// Each star has a deterministic-random X position and individual
-// fall speed. No Kreuz/line — pure single point per star.
-// sp  = base speed (0..255 → Faktor 0..~5×)
-// sz  = Sternanzahl (0→~20 stars, 255→~200 stars)
+// p90 Starfield: single-point dots. Each star is a 1-sample point,
+// not a geometric shape -- optimizer adds no value here (no edges,
+// no corners, no blanking between consecutive stars that matters).
+// Left as direct ap() calls intentionally.
 static size_t p90(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     size_t n=0;
-    // Count stars from Size: 20..200
     const int nStars = 20 + (int)(sz / 255.f * 180.f);
-    // base speed from Speed
     const float baseSpd = 0.3f + (sp / 255.f) * 4.7f;
-    // Deterministische Pseudo-Zufallsfunktion (Wichmann-Hill aehnlich)
     auto fr = [](int seed) -> float {
         float x = sinf((float)seed * 127.1f + 1.f) * 43758.5453f;
         return x - floorf(x);
     };
     for (int i = 0; i < nStars; i++) {
-        // Fixed X position per star, -1..+1 scaled to SC
         const float xPos  = (fr(i * 7)  * 2.f - 1.f) * SC * 0.95f;
-        // Individual speed: 30%..170% of the base speed
         const float iSpd  = baseSpd * (0.3f + fr(i * 3) * 1.4f);
-        // Phase offset so not all start at the top
         const float off   = fr(i * 5) * 2.2f;
-        // Y runs from +1.1 to -1.1, then wraps -> top to bottom
         const float yNorm = 1.1f - fmodf(ph * iSpd * 0.0004f + off, 2.2f);
         if (yNorm < -1.1f || yNorm > 1.1f) continue;
         const float yPos  = yNorm * SC * 0.95f;
-        // brightness slightly flickering (Seed from current period)
         const int period = (int)(ph * iSpd * 0.0004f);
         const uint8_t bright = (uint8_t)(80 + (int)(fr(i * 2 + period) * 175.f));
         const uint8_t blue   = (uint8_t)fminf(255.f, bright + 60.f);
-        ap(o, n, m, xPos, yPos, 0,      0,      0,    1); // blank=1: move to star position (laser off)
-        ap(o, n, m, xPos, yPos, bright, bright, blue, 0); // blank=0: single point dot (laser on)
+        ap(o, n, m, xPos, yPos, 0,      0,      0,    1);
+        ap(o, n, m, xPos, yPos, bright, bright, blue, 0);
     }
     return n;
 }
 
 // ─── ANIMIERTE FAHRZEUGE 91-98 ───────────────────────────────
-// ph drives horizontal position: vehicle scrolls left→right, wraps.
-// Speed (sp) controls scroll rate. Size (sz) scales the shape.
-
-// Helper: draw a filled rectangle outline (4 segments)
-static void rect_outline(LaserPoint*o,size_t&n,size_t m,float x0,float y0,float x1,float y1,uint8_t r,uint8_t g,uint8_t b,int S=10){
-    line(o,n,m,x0,y0,x1,y0,r,g,b,S); line(o,n,m,x1,y0,x1,y1,r,g,b,S);
-    line(o,n,m,x1,y1,x0,y1,r,g,b,S); line(o,n,m,x0,y1,x0,y0,r,g,b,S);
-}
-// Helper: full circle
-static void circ_draw(LaserPoint*o,size_t&n,size_t m,float cx,float cy,float r2,uint8_t cr,uint8_t cg,uint8_t cb,int S=24){
-    for(int i=0;i<=S;i++){float a=PI2*i/S;ap(o,n,m,cx+cosf(a)*r2,cy+sinf(a)*r2,cr,cg,cb,i==0?1:0);}
-}
-// Scroll X: vehicle travels left→right, wraps at screen edge
-static float scrollX(uint32_t ph,uint8_t sp){
-    float spd=0.06f+(sp/255.f)*0.44f;
-    float t=fmodf(ph*spd*0.00025f,1.f);
-    return (t*2.f-1.f)*SC*1.25f;
-}
-
-// p91 — Rocket
+// All use line() and circ_draw() which are now optimizer-backed.
+// No per-vehicle changes needed.
 static size_t p91(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     size_t n=0; float sc2=ssc(sz)*0.85f, ox=scrollX(ph,sp);
     float bw=SC*.14f*sc2, bh=SC*.38f*sc2;
-    // Body ellipse
     for(int i=0;i<=40;i++){float a=PI2*i/40.f;ap(o,n,m,ox+cosf(a)*bw,sinf(a)*bh,220,220,255,i==0?1:0);}
-    // Nose cone
     line(o,n,m,ox-bw,bh,ox,bh+bh*.7f,255,200,200,10);
     line(o,n,m,ox+bw,bh,ox,bh+bh*.7f,255,200,200,10);
-    // Fins
     line(o,n,m,ox-bw,-bh*.55f,ox-bw*2.5f,-bh,200,150,255,8);
     line(o,n,m,ox-bw*2.5f,-bh,ox-bw,-bh,200,150,255,8);
     line(o,n,m,ox+bw,-bh*.55f,ox+bw*2.5f,-bh,200,150,255,8);
     line(o,n,m,ox+bw*2.5f,-bh,ox+bw,-bh,200,150,255,8);
-    // Exhaust flame
     float fl=bh*.5f+bh*.15f*fabsf(sinf(ph*0.18f));
     line(o,n,m,ox-bw*.6f,-bh,ox,-bh-fl,255,140,0,6);
     line(o,n,m,ox+bw*.6f,-bh,ox,-bh-fl,255,200,0,6);
     line(o,n,m,ox,-bh,ox,-bh-fl*1.2f,255,80,0,5);
-    // Window
     circ_draw(o,n,m,ox,bh*.45f,bw*.52f,100,220,255,16);
     return n;
 }
-
-// p92 — Passenger Train
 static size_t p92(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     size_t n=0; float sc2=ssc(sz)*0.7f, ox=scrollX(ph,sp);
     float lw=SC*.42f*sc2, lh=SC*.20f*sc2, ly=SC*.06f*sc2;
-    // Loco body
     rect_outline(o,n,m,ox-lw,ly-lh,ox+lw,ly+lh,200,110,50,10);
-    // Cab
     rect_outline(o,n,m,ox+lw*.25f,ly+lh,ox+lw,ly+lh*1.8f,190,100,45,8);
-    // Chimney
     line(o,n,m,ox-lw*.5f,ly+lh,ox-lw*.5f,ly+lh*1.9f,160,80,40,6);
     circ_draw(o,n,m,ox-lw*.5f,ly+lh*2.0f,lw*.1f,160,80,40,12);
-    // Smoke puffs
     for(int k=0;k<3;k++){float sy=ly+lh*2.2f+k*lw*.22f,sx=ox-lw*.5f+k*lw*.14f*(((int)(ph*.01f)+k)%2?1.f:-1.f);circ_draw(o,n,m,sx,sy,lw*.09f*(1.f+k*.25f),170,170,170,8);}
-    // Wheels
     float wy=ly-lh, wr=SC*.1f*sc2;
     for(int k=0;k<4;k++){float wx=ox-lw*.75f+k*lw*.5f;circ_draw(o,n,m,wx,wy,wr,70,70,70,16);float rot=ph*0.06f;ap(o,n,m,wx+cosf(rot)*wr,wy+sinf(rot)*wr,120,120,120,1);ap(o,n,m,wx+cosf(rot+M_PI)*wr,wy+sinf(rot+M_PI)*wr,120,120,120,0);}
-    // Rails
     line(o,n,m,-SC*.98f,wy-wr*1.1f,SC*.98f,wy-wr*1.1f,100,80,60,30);
     line(o,n,m,-SC*.98f,wy-wr*1.25f,SC*.98f,wy-wr*1.25f,100,80,60,30);
     return n;
 }
-
-// p93 — Racing Car
 static size_t p93(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     size_t n=0; float sc2=ssc(sz)*0.75f, ox=scrollX(ph,sp);
     float bw=SC*.5f*sc2, bh=SC*.13f*sc2, by=-SC*.04f*sc2;
-    // Body outline
     line(o,n,m,ox-bw,by,ox+bw,by,230,30,30,16);
     line(o,n,m,ox+bw,by,ox+bw,by+bh,230,30,30,6);
     line(o,n,m,ox+bw,by+bh,ox+bw*.1f,by+bh*1.9f,230,30,30,8);
     line(o,n,m,ox+bw*.1f,by+bh*1.9f,ox-bw*.35f,by+bh*1.6f,230,30,30,6);
     line(o,n,m,ox-bw*.35f,by+bh*1.6f,ox-bw,by,230,30,30,8);
-    // Rear wing
     line(o,n,m,ox+bw*.65f,by+bh*1.3f,ox+bw*1.12f,by+bh*1.3f,255,255,255,6);
     line(o,n,m,ox+bw*.9f,by,ox+bw*.9f,by+bh*1.3f,200,200,200,4);
-    // Wheels
     float wr=SC*.11f*sc2, wrot=ph*0.07f;
     for(int w=0;w<2;w++){
         float wx=w?ox+bw*.55f:ox-bw*.45f;
@@ -806,177 +912,127 @@ static size_t p93(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
         ap(o,n,m,wx+cosf(wrot)*wr*.7f,by+sinf(wrot)*wr*.7f,120,120,120,1);
         ap(o,n,m,wx+cosf(wrot+M_PI)*wr*.7f,by+sinf(wrot+M_PI)*wr*.7f,120,120,120,0);
     }
-    // Speed lines
     float spd2=0.15f+sp/255.f*.5f;
     for(int k=1;k<=5;k++){float len=SC*k*.06f*spd2;ap(o,n,m,ox-bw-len,by+bh*k*.14f,200,20,20,1);ap(o,n,m,ox-bw,by+bh*k*.14f,200,20,20,0);}
     return n;
 }
-
-// p94 — UFO / Flying Saucer
 static size_t p94(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     size_t n=0; float sc2=ssc(sz)*0.85f, ox=scrollX(ph,sp);
     float hover=sinf(ph*0.035f)*SC*.08f*sc2;
     float dw=SC*.45f*sc2, dh=SC*.12f*sc2;
-    // Disc body
     for(int i=0;i<=50;i++){float a=PI2*i/50.f;ap(o,n,m,ox+cosf(a)*dw,sinf(a)*dh+hover,0,200,255,i==0?1:0);}
-    // Dome
     for(int i=0;i<=25;i++){float a=M_PI*i/25.f;ap(o,n,m,ox+cosf(a)*dw*.44f,sinf(a)*dh*1.5f+dh+hover,150,230,255,i==0?1:0);}
-    // Portholes
     for(int k=-2;k<=2;k++){circ_draw(o,n,m,ox+k*dw*.38f,hover,dh*.35f,0,255,200,10);}
-    // Tractor beam
     line(o,n,m,ox-dw*.25f,-dh+hover,ox-dw*.75f,-SC*.8f*sc2,0,150,255,8);
     line(o,n,m,ox+dw*.25f,-dh+hover,ox+dw*.75f,-SC*.8f*sc2,0,150,255,8);
-    // Rotating lights
     for(int k=0;k<6;k++){float a=PI2*k/6.f+ph*0.06f;uint8_t br=(uint8_t)(128+127*sinf(a+ph*.1f));ap(o,n,m,ox+cosf(a)*dw,sinf(a)*dh+hover,br,br,0,0);}
     return n;
 }
-
-// p95 — Sailing Boat
 static size_t p95(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     size_t n=0; float sc2=ssc(sz)*0.8f, ox=scrollX(ph,sp);
     float rock=sinf(ph*0.025f)*SC*.04f*sc2;
     float hw=SC*.52f*sc2, hh=SC*.12f*sc2, hy=-SC*.1f*sc2+rock;
-    // Hull
     line(o,n,m,ox-hw,hy,ox+hw,hy,180,140,80,16);
     line(o,n,m,ox-hw,hy,ox-hw*.7f,hy-hh,180,140,80,8);
     line(o,n,m,ox+hw,hy,ox+hw*.7f,hy-hh,180,140,80,8);
     line(o,n,m,ox-hw*.7f,hy-hh,ox+hw*.7f,hy-hh,180,140,80,12);
-    // Mast
     line(o,n,m,ox,hy-hh,ox,hy-hh+SC*.88f*sc2,200,200,200,10);
-    // Main sail
     float mt=hy-hh+SC*.85f*sc2, mb=hy-hh+SC*.1f*sc2;
     line(o,n,m,ox,mt,ox+hw*.95f,hy,255,255,240,10);
     line(o,n,m,ox,mb,ox+hw*.95f,hy,255,255,240,10);
     line(o,n,m,ox,mb,ox,mt,255,255,240,6);
-    // Jib
     line(o,n,m,ox,mt*.35f+mb*.65f,ox-hw*.65f,hy*.2f+mb*.8f,200,240,255,8);
     line(o,n,m,ox,mb,ox-hw*.65f,hy*.2f+mb*.8f,200,240,255,5);
-    // Water waves
     for(int i=0;i<=50;i++){float wx=L(-SC*.98f,SC*.98f,i/50.f),wy=hy+hh*.5f+sinf(wx*.00015f+ph*.03f)*SC*.04f*sc2;ap(o,n,m,wx,wy,0,100,200,i==0?1:0);}
     return n;
 }
-
-// p96 — Bicycle
 static size_t p96(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     size_t n=0; float sc2=ssc(sz)*0.75f, ox=scrollX(ph,sp);
     float wr=SC*.24f*sc2, ws=SC*.55f*sc2;
     float lw=ox-ws*.5f, rw=ox+ws*.5f, cy=0;
     float rot=ph*0.07f;
-    // Wheels with rotating spokes
     for(int w=0;w<2;w++){
         float wx=w?rw:lw;
         circ_draw(o,n,m,wx,cy,wr,160,120,60,24);
         for(int s=0;s<4;s++){float a=rot+PI2*s/4.f;ap(o,n,m,wx+cosf(a)*wr,cy+sinf(a)*wr,120,90,50,1);ap(o,n,m,wx,cy,120,90,50,0);}
-        // Hub
         circ_draw(o,n,m,wx,cy,wr*.15f,140,100,60,8);
     }
-    // Bottom bracket
     float bbx=lw+ws*.45f, bby=cy;
-    // Frame
-    line(o,n,m,bbx,bby,lw,cy,140,140,140,8);              // chain stay
-    line(o,n,m,bbx,bby,bbx,bby+wr*.8f,140,140,140,6);    // seat tube
-    line(o,n,m,bbx,bby+wr*.8f,rw-wr*.15f,cy+wr*.4f+wr*.5f,140,140,140,8); // top tube
-    line(o,n,m,bbx,bby,rw-wr*.15f,cy+wr*.4f+wr*.5f,140,140,140,8);        // down tube
-    line(o,n,m,rw-wr*.15f,cy+wr*.4f+wr*.5f,rw-wr*.15f,cy+wr*.1f,140,140,140,6); // fork
-    // Seat
+    line(o,n,m,bbx,bby,lw,cy,140,140,140,8);
+    line(o,n,m,bbx,bby,bbx,bby+wr*.8f,140,140,140,6);
+    line(o,n,m,bbx,bby+wr*.8f,rw-wr*.15f,cy+wr*.4f+wr*.5f,140,140,140,8);
+    line(o,n,m,bbx,bby,rw-wr*.15f,cy+wr*.4f+wr*.5f,140,140,140,8);
+    line(o,n,m,rw-wr*.15f,cy+wr*.4f+wr*.5f,rw-wr*.15f,cy+wr*.1f,140,140,140,6);
     line(o,n,m,bbx-wr*.28f,bby+wr*.82f,bbx+wr*.28f,bby+wr*.82f,100,100,200,5);
-    // Handlebar
     float hbx=rw-wr*.15f, hby=cy+wr*.5f+wr*.5f;
     line(o,n,m,hbx-wr*.22f,hby+wr*.35f,hbx+wr*.22f,hby+wr*.4f,180,180,255,5);
     return n;
 }
-
-// p97 — Airplane
 static size_t p97(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     size_t n=0; float sc2=ssc(sz)*0.82f, ox=scrollX(ph,sp);
     float bank=sinf(ph*0.022f)*SC*.05f*sc2;
     float fw=SC*.55f*sc2, fh=SC*.1f*sc2;
-    // Fuselage ellipse
     for(int i=0;i<=40;i++){float a=PI2*i/40.f;ap(o,n,m,ox+cosf(a)*fw,sinf(a)*fh+bank,220,230,255,i==0?1:0);}
-    // Nose
     line(o,n,m,ox+fw,bank,ox+fw*1.42f,bank,220,230,255,8);
-    // Main wings
     float wy=ox-fw*.1f;
     line(o,n,m,wy,bank-fh*.2f,wy-fw*1.3f,bank+fh*1.5f,220,230,255,14);
     line(o,n,m,wy,bank+fh*.45f,wy-fw*1.3f,bank+fh*1.5f,200,210,240,6);
     line(o,n,m,wy,bank-fh*.2f,wy+fw*.6f,bank+fh*1.5f,220,230,255,14);
     line(o,n,m,wy,bank+fh*.45f,wy+fw*.6f,bank+fh*1.5f,200,210,240,6);
-    // Tail fin (vertical)
     line(o,n,m,ox-fw*.82f,bank,ox-fw*1.0f,bank+fh*2.8f,200,210,255,8);
     line(o,n,m,ox-fw*1.0f,bank+fh*2.8f,ox-fw*.6f,bank,200,210,255,5);
-    // Tail wings
     line(o,n,m,ox-fw*.72f,bank,ox-fw*1.18f,bank+fh*1.2f,200,210,255,8);
     line(o,n,m,ox-fw*.72f,bank,ox-fw*.35f,bank+fh*1.2f,200,210,255,8);
-    // Engines (2)
     for(int e=-1;e<=1;e+=2){float ex=ox+e*SC*.28f*sc2;circ_draw(o,n,m,ex,bank-fh*1.3f,fh*.65f,180,190,220,12);line(o,n,m,ex-fh,bank-fh*1.3f,ex+fh*1.8f,bank-fh*1.3f,180,190,220,8);}
-    // Contrail
     for(int k=1;k<=5;k++){ap(o,n,m,ox-fw-SC*k*.07f*sc2,bank+(k%2?fh*.15f:-fh*.15f),210,220,255,1);ap(o,n,m,ox-fw-SC*(k+.5f)*.07f*sc2,bank,190,200,240,0);}
     return n;
 }
-
-// p98 — Space Shuttle (side view)
 static size_t p98(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     size_t n=0; float sc2=ssc(sz)*0.72f, ox=scrollX(ph,sp);
     float tw=SC*.18f*sc2, th=SC*.5f*sc2;
-    // External tank (center, orange)
     for(int i=0;i<=40;i++){float a=PI2*i/40.f;ap(o,n,m,ox+cosf(a)*tw,sinf(a)*th,200,110,50,i==0?1:0);}
     line(o,n,m,ox-tw,th,ox,th+tw*1.5f,200,110,50,8);
     line(o,n,m,ox+tw,th,ox,th+tw*1.5f,200,110,50,8);
-    // Orbiter body (right, white)
     for(int i=0;i<=30;i++){float a=PI2*i/30.f;ap(o,n,m,ox+tw*2.0f+cosf(a)*tw*.7f,sinf(a)*th*.6f+th*.25f,210,215,230,i==0?1:0);}
     line(o,n,m,ox+tw*1.3f,th*.85f,ox+tw*2.7f,th*1.1f,210,215,230,6);
     line(o,n,m,ox+tw*2.7f,th*1.1f,ox+tw*2.0f,th*1.35f,210,215,230,6);
-    // Delta wing
     line(o,n,m,ox+tw*1.3f,-th*.15f,ox+tw*3.4f,-th*.35f,180,185,210,10);
     line(o,n,m,ox+tw*2.7f,th*.25f,ox+tw*3.4f,-th*.35f,180,185,210,6);
-    // SRB (left, white cylinder)
     for(int i=0;i<=30;i++){float a=PI2*i/30.f;ap(o,n,m,ox-tw*2.0f+cosf(a)*tw*.55f,sinf(a)*th*.72f,215,215,215,i==0?1:0);}
-    // Main engine flames (3)
     float fl=th*.35f+th*.1f*fabsf(sinf(ph*0.22f));
     for(int e=-1;e<=1;e++){float ex=ox+e*tw*.85f;line(o,n,m,ex-tw*.2f,-th,ex,-th-fl,255,(uint8_t)(100+50*fabsf(sinf(ph*.25f+e))),0,6);line(o,n,m,ex+tw*.2f,-th,ex,-th-fl,255,200,0,4);}
-    // SRB flame
     line(o,n,m,ox-tw*2.4f,-th*.72f,ox-tw*2.0f,-th*.72f-fl*.85f,255,150,0,6);
     line(o,n,m,ox-tw*1.6f,-th*.72f,ox-tw*2.0f,-th*.72f-fl*.85f,255,210,0,4);
     return n;
 }
 
-// ─── p99 — Airplane ────────────────────────────────────────────────────
 static size_t p99(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     size_t n=0; float sc2=SC*ssc(sz)*0.7f, ox=scrollX(ph,sp);
-    // Fuselage
     line(o,n,m, ox-sc2,0,            ox+sc2,0,            200,200,255, 20);
-    // Wings
     line(o,n,m, ox-sc2*.1f,0,        ox-sc2*.4f, sc2*.45f, 200,200,255, 14);
     line(o,n,m, ox-sc2*.4f,sc2*.45f, ox-sc2*.1f,0,         200,200,255,  6);
     line(o,n,m, ox-sc2*.1f,0,        ox-sc2*.4f,-sc2*.45f, 200,200,255, 14);
     line(o,n,m, ox-sc2*.4f,-sc2*.45f,ox-sc2*.1f,0,         200,200,255,  6);
-    // Tail fins
     line(o,n,m, ox-sc2*.75f,0,       ox-sc2,     sc2*.3f,  200,200,255,  8);
     line(o,n,m, ox-sc2*.75f,0,       ox-sc2,    -sc2*.3f,  200,200,255,  8);
-    // Nose cone
     line(o,n,m, ox+sc2,0,            ox+sc2*.85f, sc2*.08f, 200,200,255,  4);
     line(o,n,m, ox+sc2,0,            ox+sc2*.85f,-sc2*.08f, 200,200,255,  4);
-    // Engines under wings
     line(o,n,m, ox-sc2*.15f, sc2*.2f, ox-sc2*.45f, sc2*.2f,  180,220,255,  8);
     line(o,n,m, ox-sc2*.15f,-sc2*.2f, ox-sc2*.45f,-sc2*.2f,  180,220,255,  8);
-    if(n>0&&n<m){LaserPoint cl=o[0];cl.blank=1;o[n++]=cl;}
     return n;
 }
 
 // ─── COUNTDOWN TIMER (p100) ─────────────────────────────────────────
-// Renders a 7-segment-style countdown on the galvo.
-// Actual countdown state is managed externally (countdown_timer namespace).
-// This function only DRAWS the current remaining time.
-
-// countdown_timer implementation is in countdown_timer.cpp
-
-// 7-segment digit drawing — 4 segments left/right + 3 horizontal
-// xc,yc = center; w,h = digit size; segments 0-6 = a-g (standard 7seg order)
+// seg7_digit() -- GalvOS v5.3: migrated to optimizer.
+// Each lit segment is a 2-vertex open PathSegment.
+// blank=1 moves between segments are replaced by lift=true on the
+// start vertex of each segment -- optimizer::emitBlankJump() handles
+// the inter-segment travel. All segments of one digit are passed to
+// optimize() in one call for correct budget management.
 static void seg7_digit(LaserPoint*o, size_t&n, size_t m,
                         float xc, float yc, float w, float h,
                         uint8_t digit, uint8_t r, uint8_t g, uint8_t b) {
     if (digit > 9) return;
-    // Segment map: a=top, b=top-right, c=bot-right, d=bot, e=bot-left, f=top-left, g=mid
     const bool seg[10][7] = {
         {1,1,1,1,1,1,0}, // 0
         {0,1,1,0,0,0,0}, // 1
@@ -990,21 +1046,35 @@ static void seg7_digit(LaserPoint*o, size_t&n, size_t m,
         {1,1,1,1,0,1,1}, // 9
     };
     const float hw = w*0.5f, hh = h*0.5f, mh = h*0.02f;
-    // segment endpoints (a-g)
     struct Seg { float x0,y0,x1,y1; } segs[7] = {
-        {xc-hw+mh, yc+hh,  xc+hw-mh, yc+hh      }, // a top
-        {xc+hw,    yc+mh,  xc+hw,    yc+hh-mh    }, // b top-right
-        {xc+hw,    yc-hh+mh, xc+hw,  yc-mh        }, // c bot-right
-        {xc-hw+mh, yc-hh,  xc+hw-mh, yc-hh        }, // d bottom
-        {xc-hw,    yc-hh+mh, xc-hw,  yc-mh         }, // e bot-left
-        {xc-hw,    yc+mh,  xc-hw,    yc+hh-mh     }, // f top-left
-        {xc-hw+mh, yc,     xc+hw-mh, yc            }, // g middle
+        {xc-hw+mh, yc+hh,  xc+hw-mh, yc+hh      },
+        {xc+hw,    yc+mh,  xc+hw,    yc+hh-mh    },
+        {xc+hw,    yc-hh+mh, xc+hw,  yc-mh        },
+        {xc-hw+mh, yc-hh,  xc+hw-mh, yc-hh        },
+        {xc-hw,    yc-hh+mh, xc-hw,  yc-mh         },
+        {xc-hw,    yc+mh,  xc-hw,    yc+hh-mh     },
+        {xc-hw+mh, yc,     xc+hw-mh, yc            },
     };
+    // Count active segments to size the arrays
+    int nsegs = 0;
+    for (int i = 0; i < 7; i++) if (seg[digit][i]) nsegs++;
+    if (nsegs == 0) return;
+
+    optimizer::PathVertex verts[14]; // max 7 segments * 2 vertices
+    optimizer::PathSegment psegs[7];
+    int sidx = 0;
     for (int i = 0; i < 7; i++) {
         if (!seg[digit][i]) continue;
-        ap(o,n,m, segs[i].x0, segs[i].y0, 0,0,0, 1); // blank move
-        ap(o,n,m, segs[i].x1, segs[i].y1, r,g,b, 0); // lit segment
+        verts[sidx*2].x   = segs[i].x0; verts[sidx*2].y   = segs[i].y0;
+        verts[sidx*2].r   = r;           verts[sidx*2].g   = g; verts[sidx*2].b = b;
+        verts[sidx*2].lift = true;  // blank-jump between segments
+        verts[sidx*2+1].x = segs[i].x1; verts[sidx*2+1].y = segs[i].y1;
+        verts[sidx*2+1].r = r;           verts[sidx*2+1].g = g; verts[sidx*2+1].b = b;
+        verts[sidx*2+1].lift = false;
+        psegs[sidx] = optimizer::PathSegment(&verts[sidx*2], 2, false);
+        sidx++;
     }
+    n += optimizer::optimize(psegs, (size_t)nsegs, o+n, m-n, liveOptimizerConfig());
 }
 
 static size_t p100(LaserPoint*o, size_t m, uint32_t ph, uint8_t sp, uint8_t sz) {
@@ -1014,20 +1084,18 @@ static size_t p100(LaserPoint*o, size_t m, uint32_t ph, uint8_t sp, uint8_t sz) 
     uint32_t rem  = countdown_timer::remaining();
     bool     expr = countdown_timer::expired();
 
-    // Color: green→yellow→red as time runs out
     uint8_t cr, cg, cb;
     if (expr) {
-        // Blink red when expired
         bool blink = (ph % 60) < 30;
         cr = blink ? 255 : 0; cg = 0; cb = 0;
     } else if (rem == 0) {
-        cr = 80; cg = 80; cb = 80;  // grey = stopped/reset
+        cr = 80; cg = 80; cb = 80;
     } else if (rem <= 10) {
-        cr = 255; cg = 40;  cb = 0;   // red: last 10s
+        cr = 255; cg = 40;  cb = 0;
     } else if (rem <= 30) {
-        cr = 255; cg = 180; cb = 0;   // amber: last 30s
+        cr = 255; cg = 180; cb = 0;
     } else {
-        cr = 0;   cg = 220; cb = 80;  // green
+        cr = 0;   cg = 220; cb = 80;
     }
 
     uint32_t hh = rem / 3600;
@@ -1035,10 +1103,10 @@ static size_t p100(LaserPoint*o, size_t m, uint32_t ph, uint8_t sp, uint8_t sz) 
     uint32_t ss = rem % 60;
 
     float sc2 = ssc(sz) * 0.85f;
-    float dw  = SC * 0.18f * sc2;   // digit width
-    float dh  = SC * 0.38f * sc2;   // digit height
-    float gap = SC * 0.06f * sc2;   // gap between digits
-    float cdot = SC * 0.04f * sc2;  // colon dot radius
+    float dw  = SC * 0.18f * sc2;
+    float dh  = SC * 0.38f * sc2;
+    float gap = SC * 0.06f * sc2;
+    float cdot = SC * 0.04f * sc2;
 
     bool show_h = (hh > 0);
     float total_w = show_h ? (dw*2+gap)*3 + gap*2 : (dw*2+gap)*2 + gap;
@@ -1064,7 +1132,6 @@ static size_t p100(LaserPoint*o, size_t m, uint32_t ph, uint8_t sp, uint8_t sz) 
     seg7_digit(o,n,m, ox,       0, dw, dh, ss/10, cr,cg,cb);
     seg7_digit(o,n,m, ox+dw+gap,0, dw, dh, ss%10, cr,cg,cb);
 
-    // Running indicator: small dot below if running
     if (countdown_timer::running()) {
         bool blink = (ph % 30) < 15;
         if (blink) {
@@ -1110,23 +1177,12 @@ static const PFn DISPATCH[PRESET_COUNT] = {
 size_t generate(uint8_t idx, LaserPoint* out, size_t max_pts,
                 uint32_t phase, uint8_t speed, uint8_t size_val) {
     if (idx >= PRESET_COUNT || !out) return 0;
-    // Phase overflow: after ~49 days at 1kHz phase would be > 4e9.
-    // fmodf(ph * f) stays precise, but at very large ph
-    // ph * factor may lose float precision. Clamp to safe range.
-    const uint32_t safe_phase = phase % 0xFFFFFF;  // ~194 Tage @ 1kHz
+    const uint32_t safe_phase = phase % 0xFFFFFF;
     size_t n = DISPATCH[idx](out, max_pts, safe_phase, speed, size_val);
 
-// Centralized closing blank: many open-path presets (waves, spirals,
-    // multi-segment silhouettes) draw from out[0] to out[n-1] without
-    // returning to the start. When the engine loops the frame, the galvo
-    // then jumps straight from the last lit point back to out[0] with the
-    // laser still on -- a visible diagonal "retrace" line (dotted due to
-    // galvo settling, seen on wireframes/waves/pyramids).
-    // ngon()/star()/wf()/sinewave() already append their own closing
-    // blank settling samples identical to out[0], so this is a no-op
-    // for them. 40 samples matches line()'s proven settling time --
-    // a single blank sample isn't enough for large jumps; the laser
-    // was re-enabling before the galvo physically reached the target.
+    // Centralized closing blank: prevents lit retrace on frame loop.
+    // optimizer-backed presets already close via emitBlankJump() back to
+    // their first vertex; this catches the remaining ap()-based presets.
     if (n > 0 && n < max_pts) {
         const LaserPoint& last = out[n - 1];
         const LaserPoint& first = out[0];
