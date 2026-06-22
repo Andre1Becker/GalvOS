@@ -3258,7 +3258,31 @@ function loadOptimizerConfig(cfg) {
     document.getElementById('opt-blppu').value = Math.round(cfg.opt_blank_pts_per_1000_units*10);
     document.getElementById('opt-minip').value = cfg.opt_min_interior_pts_per_segment;
     document.getElementById('opt-s1tgt').value = cfg.opt_stage1_blank_target;
-    optimizerSlider();
+    // Update labels and force slider thumb repaint (hidden tab workaround).
+    // optimizerSlider() is called without the debounced POST -- we only want
+    // visual sync here, not an immediate /api/optimizer-live call on load.
+    document.getElementById('opt-cad-val').textContent   = (+document.getElementById('opt-cad').value).toFixed(1);
+    document.getElementById('opt-mincp-val').textContent  = document.getElementById('opt-mincp').value;
+    document.getElementById('opt-maxcp-val').textContent  = document.getElementById('opt-maxcp').value;
+    document.getElementById('opt-ppu-val').textContent    = (document.getElementById('opt-ppu').value/10).toFixed(1);
+    document.getElementById('opt-minsp-val').textContent  = document.getElementById('opt-minsp').value;
+    document.getElementById('opt-blank-val').textContent  = document.getElementById('opt-blank').value;
+    document.getElementById('opt-maxppf-val').textContent = document.getElementById('opt-maxppf').value;
+    document.getElementById('opt-minbl-val').textContent  = document.getElementById('opt-minbl').value;
+    document.getElementById('opt-blppu-val').textContent  = (document.getElementById('opt-blppu').value/10).toFixed(1);
+    document.getElementById('opt-minip-val').textContent  = document.getElementById('opt-minip').value;
+    document.getElementById('opt-s1tgt-val').textContent  = document.getElementById('opt-s1tgt').value;
+    // Nudge each slider by +1/-1 to force the browser to repaint the thumb
+    // at the correct position when the tab was hidden during initial load.
+    var ids = ['opt-cad','opt-mincp','opt-maxcp','opt-ppu','opt-minsp',
+               'opt-blank','opt-maxppf','opt-minbl','opt-blppu','opt-minip','opt-s1tgt'];
+    for (var i = 0; i < ids.length; i++) {
+        var el = document.getElementById(ids[i]);
+        if (!el) continue;
+        var v = +el.value, mx = +el.max;
+        el.value = (v < mx) ? v + 1 : v - 1;
+        el.value = v;
+    }
 }
 
 async function sendLiveControls() {
