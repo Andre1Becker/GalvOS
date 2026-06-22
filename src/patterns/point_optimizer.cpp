@@ -72,9 +72,21 @@ static void emitBlankJump(LaserPoint* out, size_t& n, size_t max,
     if (count < (int)cfg.min_blank_samples) count = cfg.min_blank_samples;
     if (count > (int)cfg.blank_samples)     count = cfg.blank_samples;
 
-    for (int k = 1; k <= count && n < max; k++) {
-        float t = smoothstep((float)k / (float)count);
+    int settle = (int)cfg.min_blank_samples;
+    if (settle > count) settle = count;
+    int move = count - settle;
+
+    for (int k = 1; k <= move && n < max; k++) {
+        float t = smoothstep((float)k / (float)move);
         emit(out, n, max, x0 + dx * t, y0 + dy * t, 0, 0, 0, 1);
+    }
+    // Settle: park on target for the last `settle` ticks of the blank budget.
+    // The galvo decelerates and damps out while parked; the laser turns on
+    // only after this window, so the first lit point lands at the true vertex.
+    // This does NOT increase blank_overhead -- settle ticks are carved out of
+    // the existing count, not added on top.
+    for (int k = 0; k < settle && n < max; k++) {
+        emit(out, n, max, x1, y1, 0, 0, 0, 1);
     }
     // Settle: park on the target for a few extra blank ticks so the galvo
     // servo has time to reach x1,y1 and damp out before the laser turns on.
