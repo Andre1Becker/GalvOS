@@ -435,10 +435,6 @@ static void IRAM_ATTR galvoTask(void*) {
                     uint8_t r = (uint8_t)(((uint32_t)p.r * dim * s_snap.gain_r) / (255UL * 255));
                     uint8_t g = (uint8_t)(((uint32_t)p.g * dim * s_snap.gain_g) / (255UL * 255));
                     uint8_t b = (uint8_t)(((uint32_t)p.b * dim * s_snap.gain_b) / (255UL * 255));
-                    // DEBUG: force red-only output to eliminate color mixing
-                    // and isolate blanking/geometry issues. Remove when done.
-                    if (r == 0 && (g > 0 || b > 0)) r = (g > b) ? g : b;
-                    g = 0; b = 0;
                     rgbWrite(r, g, b);
                     s_last_dac_x = (uint16_t)x;
                     s_last_dac_y = (uint16_t)y;
