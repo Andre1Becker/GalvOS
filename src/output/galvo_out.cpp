@@ -23,6 +23,19 @@ static volatile size_t  s_ring_head = 0;
 static volatile size_t  s_ring_tail = 0;
 static volatile size_t  s_point_idx = 0;
 
+// Laser-off latency compensation: tracks whether the previous output point
+// was lit (blank=false). On the first blank tick after a lit tick, we hold
+// the DAC at the previous position for one extra sample and assert rgbOff()
+// without moving -- giving the LEDC PWM + 6N137 optocoupler one full output
+// period (~33µs at 30kpps) to fully extinguish before the galvo begins
+// moving. Without this, rgbOff() and the first DAC move happen in the same
+// tick, and LEDC's finite turn-off time (next PWM cycle boundary) means the
+// laser is still partially lit while the galvo is already departing the
+// corner -- visible as a short lit hook at every blank-jump start.
+static bool             s_laser_was_on = false;
+static uint16_t         s_last_dac_x   = 0x8000;
+static uint16_t         s_last_dac_y   = 0x8000;
+
 static spi_device_handle_t s_galvo_spi   = nullptr;
 static volatile bool       s_running     = false;
 static TaskHandle_t        s_task_handle = nullptr;
@@ -401,19 +414,33 @@ static void IRAM_ATTR galvoTask(void*) {
                 // (hardware gain is 2.2x, full DAC range would exceed +/-5V).
                 x = constrain(x, (int32_t)s_snap.dac_limit_min, (int32_t)s_snap.dac_limit_max);
                 y = constrain(y, (int32_t)s_snap.dac_limit_min, (int32_t)s_snap.dac_limit_max);
-                if (p.blank) { rgbOff(); }
-                writeDAC8562(0, (uint16_t)x);
-                writeDAC8562(1, (uint16_t)y);
-                    if (!p.blank) {
+if (p.blank) {
+                    rgbOff();
+                    if (s_laser_was_on) {
+                        // First blank tick after a lit tick: hold DAC at the
+                        // previous position. The galvo stays parked while the
+                        // laser extinguishes. Next blank tick will move normally.
+                        writeDAC8562(0, s_last_dac_x);
+                        writeDAC8562(1, s_last_dac_y);
+                    } else {
+                        writeDAC8562(0, (uint16_t)x);
+                        writeDAC8562(1, (uint16_t)y);
+                    }
+                    s_laser_was_on = false;
+                } else {
+                    writeDAC8562(0, (uint16_t)x);
+                    writeDAC8562(1, (uint16_t)y);
                     // PWM duty: 8-bit. Apply dimmer + gain.
-                    // Clamp result to 0-255 (no overflow).
                     uint8_t dim = gState.master_dimmer.load();  // atomic load
                     // FIX: s_snap instead of gConfig — Race-Condition-frei
                     uint8_t r = (uint8_t)(((uint32_t)p.r * dim * s_snap.gain_r) / (255UL * 255));
                     uint8_t g = (uint8_t)(((uint32_t)p.g * dim * s_snap.gain_g) / (255UL * 255));
                     uint8_t b = (uint8_t)(((uint32_t)p.b * dim * s_snap.gain_b) / (255UL * 255));
                     rgbWrite(r, g, b);
+                    s_laser_was_on = true;
                 }
+                s_last_dac_x = (uint16_t)x;
+                s_last_dac_y = (uint16_t)y;
             }
         }
 
