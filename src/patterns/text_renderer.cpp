@@ -137,7 +137,7 @@ static GlyphResult renderGlyph(LaserPoint* out, size_t& n, size_t max,
             // Interpolate from last point to current
             float dx = x - res.last_x, dy = y - res.last_y;
             float dist = sqrtf(dx*dx + dy*dy);
-            int steps = (int)(dist / 800.f);  // one point per 800 DAC-units
+            int steps = (int)(dist / 2000.f);  // one point per 800 DAC-units
             if (steps > 1) {
                 for (int s = 1; s < steps && n < max; s++) {
                     float t = (float)s / steps;
