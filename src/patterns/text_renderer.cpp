@@ -131,8 +131,20 @@ static GlyphResult renderGlyph(LaserPoint* out, size_t& n, size_t max,
         if (sx == PU) { pen_up = true; continue; }
 
         float x = ox + sx * sc;
-        float y = oy - sy * sc;  // no flip — +y=up in font and laser space
+        float y = oy + sy * sc;
 
+        if (!pen_up && res.had_points) {
+            // Interpolate from last point to current
+            float dx = x - res.last_x, dy = y - res.last_y;
+            float dist = sqrtf(dx*dx + dy*dy);
+            int steps = (int)(dist / 800.f);  // one point per 800 DAC-units
+            if (steps > 1) {
+                for (int s = 1; s < steps && n < max; s++) {
+                    float t = (float)s / steps;
+                    addPt(out, n, max, res.last_x + dx*t, res.last_y + dy*t, r, g, b, 0);
+                }
+            }
+        }
         addPt(out, n, max, x, y, r, g, b, pen_up ? 1 : 0);
         // for Debugging text ESP_LOGI("TXT", "pt sx=%d sy=%d x=%.0f y=%.0f blank=%d", sx, sy, x, y, pen_up?1:0);
         // Bold is rendered as a second offset pass after the glyph — see below
@@ -227,6 +239,7 @@ static size_t renderTextString(LaserPoint* out, size_t max,
                                       r, g, b, bold);
 
         cx += glyph->advance * sc;
+        // ESP_LOGI("TXT","ci=%d c=%c cx=%.0f advance=%d", ci, c, cx, glyph->advance);
 
         // ── FIX v1.1: Blanking after each glyph ──────────────────────
         // Set blank point at the position of the NEXT character start.
@@ -273,7 +286,7 @@ size_t generate(LaserPoint* out, size_t max_pts, const TextConfig& cfg, uint32_t
 
     const int full_len = (int)strlen(cfg.text);
     float tw = textWidth(cfg.text, full_len) * sc;
-    ESP_LOGI("TXT","tw=%.0f sc=%.1f start_x=%.0f full_len=%d", tw, sc, -tw/2.f, full_len);
+    // ESP_LOGI("TXT","tw=%.0f sc=%.1f start_x=%.0f full_len=%d", tw, sc, -tw/2.f, full_len);
 
     float max_half = 28000.f;
     float display_sc = (tw / 2.f > max_half) ? sc * max_half / (tw / 2.f) : sc;

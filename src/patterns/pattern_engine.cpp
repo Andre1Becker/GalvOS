@@ -265,6 +265,7 @@ static void applyCalibration(LaserPoint* pts, size_t n) {
         y += gConfig.galvo_y_offset;
         pts[i].x = (int16_t)constrain(x, -32760, 32760);
         pts[i].y = (int16_t)constrain(y, -32760, 32760);
+        //if (i < 3) ESP_LOGI("CAL","x=%.0f y=%.0f -> %d %d", (float)pts[i].x, (float)pts[i].y, pts[i].x, pts[i].y);
     }
 }
 
@@ -411,6 +412,7 @@ void task(void*) {
         if (textSnap.active && textSnap.text[0]) {
             size_t n = textrender::generate(s_frame, PATTERN_POINTS_MAX, textSnap, phase);
             if (n == 0) { static LaserPoint blank_pt={0,0,0,0,0,1}; galvo::pushFrame(&blank_pt,1); vTaskDelay(pdMS_TO_TICKS(40)); continue; }  // guard
+            // ESP_LOGI("TXT","frame n=%d", (int)n);
             applyCalibration(s_frame, n);
             web_ui::publishPreviewFrame(s_frame, n);
             if (gState.master_dimmer.load() > 0) {
