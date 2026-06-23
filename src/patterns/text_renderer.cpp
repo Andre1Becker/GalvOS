@@ -134,10 +134,8 @@ static GlyphResult renderGlyph(LaserPoint* out, size_t& n, size_t max,
         float y = oy - sy * sc;  // no flip — +y=up in font and laser space
 
         addPt(out, n, max, x, y, r, g, b, pen_up ? 1 : 0);
-        ESP_LOGI("TXT", "pt sx=%d sy=%d x=%.0f y=%.0f blank=%d", sx, sy, x, y, pen_up?1:0);
-
+        // for Debugging text ESP_LOGI("TXT", "pt sx=%d sy=%d x=%.0f y=%.0f blank=%d", sx, sy, x, y, pen_up?1:0);
         // Bold is rendered as a second offset pass after the glyph — see below
-
         pen_up = false;
         res.last_x = x;
         res.last_y = y;
@@ -225,7 +223,7 @@ static size_t renderTextString(LaserPoint* out, size_t max,
 
         // render glyph
         GlyphResult gr = renderGlyph(out, n, max,
-                                      glyph->strokes, cx, char_ty, sc,
+                                      glyph->strokes, cx, char_ty, display_sc,
                                       r, g, b, bold);
 
         cx += glyph->advance * sc;
@@ -268,14 +266,18 @@ size_t generate(LaserPoint* out, size_t max_pts, const TextConfig& cfg, uint32_t
     // Phase overflow protection (wraps after ~49 days at 1kHz)
     const uint32_t safe_phase = phase % 0xFFFFFF;
 
-    const float BASE_SCALE = 18000.f / 80.f;
+    const float BASE_SCALE = 18000.f / 55.f;
     float sc  = BASE_SCALE * (0.25f + cfg.size_val / 255.f * 1.5f);
     float spd = cfg.speed / 255.f;
     float t   = safe_phase * spd * 0.02f;
 
     const int full_len = (int)strlen(cfg.text);
     float tw = textWidth(cfg.text, full_len) * sc;
+    ESP_LOGI("TXT","tw=%.0f sc=%.1f start_x=%.0f full_len=%d", tw, display_sc, -tw/2.f, full_len);
 
+    float max_half = 28000.f;
+    float display_sc = (tw / 2.f > max_half) ? sc * max_half / (tw / 2.f) : sc;
+    if (display_sc != sc) tw = textWidth(cfg.text, full_len) * display_sc;
     float start_x = -tw / 2.f;
     float base_y  = 0.f;
 
@@ -283,27 +285,27 @@ size_t generate(LaserPoint* out, size_t max_pts, const TextConfig& cfg, uint32_t
 
         case TANIM_STATIC:
             return renderTextString(out, max_pts, cfg.text, full_len,
-                                    cfg, start_x, base_y, sc);
+                                    cfg, start_x, base_y, display_sc);
 
         case TANIM_SCROLL_L: {
             float period = tw + 20000.f;
             float ox = 18000.f - fmodf(t * 8000.f, period);
             return renderTextString(out, max_pts, cfg.text, full_len,
-                                    cfg, ox, base_y, sc);
+                                    cfg, ox, base_y, display_sc);
         }
 
         case TANIM_SCROLL_R: {
             float period = tw + 20000.f;
             float ox = -tw - 18000.f + fmodf(t * 8000.f, period);
             return renderTextString(out, max_pts, cfg.text, full_len,
-                                    cfg, ox, base_y, sc);
+                                    cfg, ox, base_y, display_sc);
         }
 
         case TANIM_BOUNCE: {
             float range = fmaxf(0.f, 18000.f - tw * 0.5f);
             float bx    = sinf(t * 2.f) * range;
             return renderTextString(out, max_pts, cfg.text, full_len,
-                                    cfg, start_x + bx, base_y, sc);
+                                    cfg, start_x + bx, base_y, display_sc);
         }
 
         case TANIM_TYPEWRITER: {
@@ -324,12 +326,12 @@ size_t generate(LaserPoint* out, size_t max_pts, const TextConfig& cfg, uint32_t
 
             float vw = textWidth(temp, visible) * sc;
             return renderTextString(out, max_pts, temp, visible,
-                                    cfg, -vw * 0.5f, base_y, sc);
+                                    cfg, -vw * 0.5f, base_y, display_sc);
         }
 
         case TANIM_WAVE:
             return renderTextString(out, max_pts, cfg.text, full_len,
-                                    cfg, start_x, base_y, sc,
+                                    cfg, start_x, base_y, display_sc,
                                     0.f, /*wave_on=*/true, t);
 
         case TANIM_PULSE: {
@@ -342,12 +344,12 @@ size_t generate(LaserPoint* out, size_t max_pts, const TextConfig& cfg, uint32_t
         case TANIM_ROTATE: {
             float rot = fmodf(t * 1.5f, 2.f * (float)M_PI);
             return renderTextString(out, max_pts, cfg.text, full_len,
-                                    cfg, start_x, base_y, sc, rot);
+                                    cfg, start_x, base_y, display_sc, rot);
         }
 
         case TANIM_ZOOM: {
             float zoom    = 0.3f + 0.7f * (0.5f + 0.5f * sinf(t * 2.f));
-            float zoom_sc = sc * zoom;
+            float zoom_sc = sdisplay_sc * zoom;
             float zw      = textWidth(cfg.text, full_len) * zoom_sc;
             return renderTextString(out, max_pts, cfg.text, full_len,
                                     cfg, -zw * 0.5f, base_y, zoom_sc);
@@ -356,7 +358,7 @@ size_t generate(LaserPoint* out, size_t max_pts, const TextConfig& cfg, uint32_t
         case TANIM_3D_EXT: {
             // 3D-Extrusion: Text + Schattenkopie versetzt
             size_t n = renderTextString(out, max_pts, cfg.text, full_len,
-                                        cfg, start_x, base_y, sc);
+                                        cfg, start_x, base_y, display_sc);
             // Shadow copy to bottom-right
             size_t base_n = n;
             float sdx = sc * 0.55f, sdy = -sc * 0.25f;
@@ -380,7 +382,7 @@ size_t generate(LaserPoint* out, size_t max_pts, const TextConfig& cfg, uint32_t
             float ory  = sinf(rot2) * 5000.f;
             size_t n = renderTextString(out, max_pts, cfg.text, full_len,
                                         cfg, start_x * sp2 + orx,
-                                        base_y * sp2 + ory, sc * sp2);
+                                        base_y * sp2 + ory, display_sc * sp2);
             return n;
         }
 
@@ -419,7 +421,7 @@ size_t generate(LaserPoint* out, size_t max_pts, const TextConfig& cfg, uint32_t
 
         default:
             return renderTextString(out, max_pts, cfg.text, full_len,
-                                    cfg, start_x, base_y, sc);
+                                    cfg, start_x, base_y, display_sc);
     }
 }
 

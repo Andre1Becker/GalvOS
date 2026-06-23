@@ -414,6 +414,7 @@ static void IRAM_ATTR galvoTask(void*) {
                 y = constrain(y, (int32_t)s_snap.dac_limit_min, (int32_t)s_snap.dac_limit_max);
             if (p.blank) {
                     rgbOff();
+                    static int s_blank_log=0; if(++s_blank_log%500==0) ESP_LOGI("GAL","blank fired %d",s_blank_log);
                     if (s_laser_off_hold > 0) {
                         // Still within hold window: keep DAC parked at the
                         // last lit position while LEDC/6N137 finish turning off.
