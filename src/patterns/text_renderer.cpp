@@ -266,7 +266,7 @@ size_t generate(LaserPoint* out, size_t max_pts, const TextConfig& cfg, uint32_t
     // Phase overflow protection (wraps after ~49 days at 1kHz)
     const uint32_t safe_phase = phase % 0xFFFFFF;
 
-    const float BASE_SCALE = 18000.f / 16.f;
+    const float BASE_SCALE = 18000.f / 80.f;
     float sc  = BASE_SCALE * (0.25f + cfg.size_val / 255.f * 1.5f);
     float spd = cfg.speed / 255.f;
     float t   = safe_phase * spd * 0.02f;
