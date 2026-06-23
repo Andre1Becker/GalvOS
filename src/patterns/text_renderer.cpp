@@ -17,40 +17,40 @@ namespace textrender {
 // renderGlyph: screen_y = oy - sy * sc  →  y-Flip korrekt
 // ============================================================
 
-#define PU 127
+#define PU 126
 #define EN 127
 
-static const int8_t FONT_A[] = {-4,-7, 0,7, 4,-7, PU,PU, -3,-2, 3,-2, EN,EN};
-static const int8_t FONT_B[] = {-4,-7,-4,7, PU,PU,-4,7,1,7,3,5,3,2,1,0,-4,0, PU,PU,-4,0,1,0,3,-2,3,-5,1,-7,-4,-7, EN,EN};
+static const int8_t FONT_A[] = {-4,-7, 0,7, 4,-7, PU,0, -3,-2, 3,-2, EN,EN};
+static const int8_t FONT_B[] = {-4,-7,-4,7, PU,0,-4,7,1,7,3,5,3,2,1,0,-4,0, PU,0,-4,0,1,0,3,-2,3,-5,1,-7,-4,-7, EN,EN};
 static const int8_t FONT_C[] = {4,-5,2,-7,-2,-7,-4,-5,-4,5,-2,7,2,7,4,5, EN,EN};
-static const int8_t FONT_D[] = {-4,-7,-4,7, PU,PU,-4,7,1,7,4,4,4,-4,1,-7,-4,-7, EN,EN};
-static const int8_t FONT_E[] = {-4,7,4,7, PU,PU,-4,7,-4,-7, PU,PU,-4,-7,4,-7, PU,PU,-4,0,2,0, EN,EN};
-static const int8_t FONT_F[] = {-4,7,4,7, PU,PU,-4,7,-4,-7, PU,PU,-4,0,2,0, EN,EN};
+static const int8_t FONT_D[] = {-4,-7,-4,7, PU,0,-4,7,1,7,4,4,4,-4,1,-7,-4,-7, EN,EN};
+static const int8_t FONT_E[] = {-4,7,4,7, PU,0,-4,7,-4,-7, PU,0,-4,-7,4,-7, PU,0,-4,0,2,0, EN,EN};
+static const int8_t FONT_F[] = {-4,7,4,7, PU,0,-4,7,-4,-7, PU,0,-4,0,2,0, EN,EN};
 static const int8_t FONT_G[] = {4,-5,2,-7,-2,-7,-4,-5,-4,5,-2,7,2,7,4,5,4,0,1,0, EN,EN};
-static const int8_t FONT_H[] = {-4,-7,-4,7, PU,PU,4,-7,4,7, PU,PU,-4,0,4,0, EN,EN};
-static const int8_t FONT_I[] = {-2,-7,2,-7, PU,PU,0,-7,0,7, PU,PU,-2,7,2,7, EN,EN};
+static const int8_t FONT_H[] = {-4,-7,-4,7, PU,0,4,-7,4,7, PU,0,-4,0,4,0, EN,EN};
+static const int8_t FONT_I[] = {-2,-7,2,-7, PU,0,0,-7,0,7, PU,0,-2,7,2,7, EN,EN};
 static const int8_t FONT_J[] = {4,-7,4,5,2,7,-1,7,-3,5,-3,3, EN,EN};
-static const int8_t FONT_K[] = {-4,-7,-4,7, PU,PU,4,-7,-4,0, PU,PU,-1,3,4,7, EN,EN};
-static const int8_t FONT_L[] = {-4,7,-4,-7, PU,PU,-4,-7,4,-7, EN,EN};
+static const int8_t FONT_K[] = {-4,-7,-4,7, PU,0,4,-7,-4,0, PU,0,-1,3,4,7, EN,EN};
+static const int8_t FONT_L[] = {-4,7,-4,-7, PU,0,-4,-7,4,-7, EN,EN};
 static const int8_t FONT_M[] = {-4,-7,-4,7,0,1,4,7,4,-7, EN,EN};
 static const int8_t FONT_N[] = {-4,-7,-4,7,4,-7,4,7, EN,EN};
 static const int8_t FONT_O[] = {-2,-7,-4,-5,-4,5,-2,7,2,7,4,5,4,-5,2,-7,-2,-7, EN,EN};
-static const int8_t FONT_P[] = {-4,-7,-4,7, PU,PU,-4,7,2,7,4,5,4,2,2,0,-4,0, EN,EN};
-static const int8_t FONT_Q[] = {-2,-7,-4,-5,-4,5,-2,7,2,7,4,5,4,-5,2,-7,-2,-7, PU,PU,1,4,4,7, EN,EN};
-static const int8_t FONT_R[] = {-4,-7,-4,7, PU,PU,-4,7,2,7,4,5,4,2,2,0,-4,0, PU,PU,-1,0,4,-7, EN,EN};
+static const int8_t FONT_P[] = {-4,-7,-4,7, PU,0,-4,7,2,7,4,5,4,2,2,0,-4,0, EN,EN};
+static const int8_t FONT_Q[] = {-2,-7,-4,-5,-4,5,-2,7,2,7,4,5,4,-5,2,-7,-2,-7, PU,0,1,4,4,7, EN,EN};
+static const int8_t FONT_R[] = {-4,-7,-4,7, PU,0,-4,7,2,7,4,5,4,2,2,0,-4,0, PU,0,-1,0,4,-7, EN,EN};
 static const int8_t FONT_S[] = {4,6,2,7,-2,7,-4,5,-4,2,-2,0,2,0,4,-2,4,-5,2,-7,-2,-7,-4,-6, EN,EN};
-static const int8_t FONT_T[] = {-4,7,4,7, PU,PU,0,7,0,-7, EN,EN};
+static const int8_t FONT_T[] = {-4,7,4,7, PU,0,0,7,0,-7, EN,EN};
 static const int8_t FONT_U[] = {-4,7,-4,-5,-2,-7,2,-7,4,-5,4,7, EN,EN};
 static const int8_t FONT_V[] = {-4,7,0,-7,4,7, EN,EN};
 static const int8_t FONT_W[] = {-4,7,-2,-7,0,1,2,-7,4,7, EN,EN};
-static const int8_t FONT_X[] = {-4,-7,4,7, PU,PU,4,-7,-4,7, EN,EN};
-static const int8_t FONT_Y[] = {-4,7,0,0, PU,PU,4,7,0,0,0,-7, EN,EN};
+static const int8_t FONT_X[] = {-4,-7,4,7, PU,0,4,-7,-4,7, EN,EN};
+static const int8_t FONT_Y[] = {-4,7,0,0, PU,0,4,7,0,0,0,-7, EN,EN};
 static const int8_t FONT_Z[] = {-4,7,4,7,4,5,-4,-5,-4,-7,4,-7, EN,EN};
-static const int8_t FONT_0[] = {-2,-7,-4,-5,-4,5,-2,7,2,7,4,5,4,-5,2,-7,-2,-7, PU,PU,-3,5,3,-5, EN,EN};
-static const int8_t FONT_1[] = {-2,5,0,7,0,-7, PU,PU,-3,-7,3,-7, EN,EN};
+static const int8_t FONT_0[] = {-2,-7,-4,-5,-4,5,-2,7,2,7,4,5,4,-5,2,-7,-2,-7, PU,0,-3,5,3,-5, EN,EN};
+static const int8_t FONT_1[] = {-2,5,0,7,0,-7, PU,0,-3,-7,3,-7, EN,EN};
 static const int8_t FONT_2[] = {-4,5,-2,7,2,7,4,5,4,2,-4,-4,-4,-7,4,-7, EN,EN};
-static const int8_t FONT_3[] = {-4,6,-2,7,2,7,4,5,4,2,2,0, PU,PU,2,0,4,-2,4,-5,2,-7,-2,-7,-4,-6, EN,EN};
-static const int8_t FONT_4[] = {4,-2,-4,-2,-1,7, PU,PU,4,7,4,-7, EN,EN};
+static const int8_t FONT_3[] = {-4,6,-2,7,2,7,4,5,4,2,2,0, PU,0,2,0,4,-2,4,-5,2,-7,-2,-7,-4,-6, EN,EN};
+static const int8_t FONT_4[] = {4,-2,-4,-2,-1,7, PU,0,4,7,4,-7, EN,EN};
 static const int8_t FONT_5[] = {4,7,-4,7,-4,0,2,0,4,-2,4,-5,2,-7,-2,-7,-4,-5, EN,EN};
 static const int8_t FONT_6[] = {3,7,0,7,-4,4,-4,-5,-2,-7,2,-7,4,-5,4,-2,2,0,-4,0, EN,EN};
 static const int8_t FONT_7[] = {-4,7,4,7,4,5,-1,-7, EN,EN};
@@ -58,15 +58,15 @@ static const int8_t FONT_8[] = {-2,0,-4,2,-4,5,-2,7,2,7,4,5,4,2,-2,0,-4,-2,-4,-5
 static const int8_t FONT_9[] = {4,2,4,5,2,7,-2,7,-4,5,-4,2,-2,0,4,0,4,-6,2,-7,-1,-7, EN,EN};
 static const int8_t FONT_SP[]    = {EN,EN};
 static const int8_t FONT_DOT[]   = {0,7,0,6, EN,EN};
-static const int8_t FONT_COMMA[] = {0,7,0,6, PU,PU,0,7,-1,9, EN,EN};
-static const int8_t FONT_EXCL[]  = {0,-7,0,2, PU,PU,0,5,0,7, EN,EN};
-static const int8_t FONT_QUES[]  = {-3,5,-2,7,2,7,4,5,4,3,0,0,0,-3, PU,PU,0,-6,0,-7, EN,EN};
+static const int8_t FONT_COMMA[] = {0,7,0,6, PU,0,0,7,-1,9, EN,EN};
+static const int8_t FONT_EXCL[]  = {0,-7,0,2, PU,0,0,5,0,7, EN,EN};
+static const int8_t FONT_QUES[]  = {-3,5,-2,7,2,7,4,5,4,3,0,0,0,-3, PU,0,0,-6,0,-7, EN,EN};
 static const int8_t FONT_HYPH[]  = {-3,0,3,0, EN,EN};
-static const int8_t FONT_PLUS[]  = {0,4,0,-4, PU,PU,-4,0,4,0, EN,EN};
-static const int8_t FONT_COLON[] = {0,3,0,2, PU,PU,0,-2,0,-3, EN,EN};
-static const int8_t FONT_HASH[]  = {-2,5,-2,-5, PU,PU,2,5,2,-5, PU,PU,-4,2,4,2, PU,PU,-4,-2,4,-2, EN,EN};
+static const int8_t FONT_PLUS[]  = {0,4,0,-4, PU,0,-4,0,4,0, EN,EN};
+static const int8_t FONT_COLON[] = {0,3,0,2, PU,0,0,-2,0,-3, EN,EN};
+static const int8_t FONT_HASH[]  = {-2,5,-2,-5, PU,0,2,5,2,-5, PU,0,-4,2,4,2, PU,0,-4,-2,4,-2, EN,EN};
 static const int8_t FONT_AT[]    = {2,0,-1,0,-3,2,-3,5,-1,7,2,7,4,5,4,-5,2,-7,-2,-7,-4,-5,-4,5,-2,7, EN,EN};
-static const int8_t FONT_STAR[]  = {0,5,0,-5, PU,PU,-4,3,4,-3, PU,PU,-4,-3,4,3, EN,EN};
+static const int8_t FONT_STAR[]  = {0,5,0,-5, PU,0,-4,3,4,-3, PU,0,-4,-3,4,3, EN,EN};
 
 struct FontGlyph { uint8_t ch; const int8_t* strokes; int8_t advance; };
 
@@ -125,14 +125,16 @@ static GlyphResult renderGlyph(LaserPoint* out, size_t& n, size_t max,
     bool pen_up = true;
 
     for (int i = 0; ; i += 2) {
-        int8_t sx = strokes[i], sy = strokes[i+1];
-        if (sx == EN && sy == EN) break;
+        int8_t sx = strokes[i];
+        if (sx == EN) break;
+        int8_t sy = strokes[i+1];
         if (sx == PU) { pen_up = true; continue; }
 
         float x = ox + sx * sc;
-        float y = oy + sy * sc;  // no flip — +y=up in font and laser space
+        float y = oy - sy * sc;  // no flip — +y=up in font and laser space
 
         addPt(out, n, max, x, y, r, g, b, pen_up ? 1 : 0);
+        ESP_LOGI("TXT", "pt sx=%d sy=%d x=%.0f y=%.0f blank=%d", sx, sy, x, y, pen_up?1:0);
 
         // Bold is rendered as a second offset pass after the glyph — see below
 
