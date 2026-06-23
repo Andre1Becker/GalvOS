@@ -286,7 +286,7 @@ struct TextConfig {
     uint8_t   col_g       = 255;
     uint8_t   col_b       = 255;
     bool      rainbow     = false;
-    bool      active      = false;   // text mode active (overrides preset + DMX)
+    volatile bool      active      = false;   // text mode active (overrides preset + DMX)
 };
 
 extern TextConfig gTextConfig;

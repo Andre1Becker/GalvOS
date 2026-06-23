@@ -699,16 +699,18 @@ void init() {
         [](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t, size_t) {
             JsonDocument doc;
             if (deserializeJson(doc, data, len)) { req->send(400, "text/plain", "bad json"); return; }
-            if (doc["text"].is<const char*>())   strlcpy(gTextConfig.text, doc["text"], sizeof(gTextConfig.text));
-            if (doc["font"].is<int>())           gTextConfig.font      = (TextFont)(int)doc["font"];
-            if (doc["anim"].is<int>())           gTextConfig.animation = (TextAnim)(int)doc["anim"];
-            if (doc["speed"].is<int>())          gTextConfig.speed     = doc["speed"];
-            if (doc["size"].is<int>())           gTextConfig.size_val  = doc["size"];
-            if (doc["col_r"].is<int>())          gTextConfig.col_r     = doc["col_r"];
-            if (doc["col_g"].is<int>())          gTextConfig.col_g     = doc["col_g"];
-            if (doc["col_b"].is<int>())          gTextConfig.col_b     = doc["col_b"];
-            if (doc["rainbow"].is<bool>())       gTextConfig.rainbow   = doc["rainbow"];
-            if (doc["active"].is<bool>())        gTextConfig.active    = doc["active"];
+            { LOCK_STATE();
+                if (doc["text"].is<const char*>())   strlcpy(gTextConfig.text, doc["text"], sizeof(gTextConfig.text));
+                if (doc["font"].is<int>())           gTextConfig.font      = (TextFont)(int)doc["font"];
+                if (doc["anim"].is<int>())           gTextConfig.animation = (TextAnim)(int)doc["anim"];
+                if (doc["speed"].is<int>())          gTextConfig.speed     = doc["speed"];
+                if (doc["size"].is<int>())           gTextConfig.size_val  = doc["size"];
+                if (doc["col_r"].is<int>())          gTextConfig.col_r     = doc["col_r"];
+                if (doc["col_g"].is<int>())          gTextConfig.col_g     = doc["col_g"];
+                if (doc["col_b"].is<int>())          gTextConfig.col_b     = doc["col_b"];
+                if (doc["rainbow"].is<bool>())       gTextConfig.rainbow   = doc["rainbow"];
+                if (doc["active"].is<bool>())        gTextConfig.active    = doc["active"];
+            }
             req->send(200, "text/plain", "OK");
         });
 

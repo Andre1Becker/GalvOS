@@ -1,4 +1,5 @@
 #include "pattern_engine.h"
+#include "mutex.h"
 #include "preset_patterns.h"
 #include "calib_patterns.h"
 #include "text_renderer.h"
@@ -405,9 +406,10 @@ void task(void*) {
         }
 
         // ---- Text Mode (highest preset priority) ----
-        if (gTextConfig.active && gTextConfig.text[0]) {
-            size_t n = textrender::generate(s_frame, PATTERN_POINTS_MAX,
-                                             gTextConfig, phase);
+        TextConfig textSnap;
+        { LOCK_STATE(); textSnap = gTextConfig; }
+        if (textSnap.active && textSnap.text[0]) {
+            size_t n = textrender::generate(s_frame, PATTERN_POINTS_MAX, textSnap, phase);
             if (n == 0) { static LaserPoint blank_pt={0,0,0,0,0,1}; galvo::pushFrame(&blank_pt,1); vTaskDelay(pdMS_TO_TICKS(40)); continue; }  // guard
             applyCalibration(s_frame, n);
             web_ui::publishPreviewFrame(s_frame, n);
@@ -418,7 +420,7 @@ void task(void*) {
                 galvo::pushFrame(&blank_pt, 1);
             }
             phase++;
-            vTaskDelay(pdMS_TO_TICKS(40)); // 25fps genug, spart Core-0-CPU
+            vTaskDelay(pdMS_TO_TICKS(40));
             continue;
         }
 
