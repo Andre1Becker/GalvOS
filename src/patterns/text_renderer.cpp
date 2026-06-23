@@ -273,7 +273,7 @@ size_t generate(LaserPoint* out, size_t max_pts, const TextConfig& cfg, uint32_t
 
     const int full_len = (int)strlen(cfg.text);
     float tw = textWidth(cfg.text, full_len) * sc;
-    ESP_LOGI("TXT","tw=%.0f sc=%.1f start_x=%.0f full_len=%d", tw, display_sc, -tw/2.f, full_len);
+    ESP_LOGI("TXT","tw=%.0f sc=%.1f start_x=%.0f full_len=%d", tw, sc, -tw/2.f, full_len);
 
     float max_half = 28000.f;
     float display_sc = (tw / 2.f > max_half) ? sc * max_half / (tw / 2.f) : sc;
@@ -324,7 +324,7 @@ size_t generate(LaserPoint* out, size_t max_pts, const TextConfig& cfg, uint32_t
             strncpy(temp, cfg.text, (size_t)visible);
             temp[visible] = '\0';
 
-            float vw = textWidth(temp, visible) * sc;
+            float vw = textWidth(temp, visible) * display_sc;
             return renderTextString(out, max_pts, temp, visible,
                                     cfg, -vw * 0.5f, base_y, display_sc);
         }
@@ -349,7 +349,7 @@ size_t generate(LaserPoint* out, size_t max_pts, const TextConfig& cfg, uint32_t
 
         case TANIM_ZOOM: {
             float zoom    = 0.3f + 0.7f * (0.5f + 0.5f * sinf(t * 2.f));
-            float zoom_sc = sdisplay_sc * zoom;
+            float zoom_sc = display_sc * zoom;
             float zw      = textWidth(cfg.text, full_len) * zoom_sc;
             return renderTextString(out, max_pts, cfg.text, full_len,
                                     cfg, -zw * 0.5f, base_y, zoom_sc);
