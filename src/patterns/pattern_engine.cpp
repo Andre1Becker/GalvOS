@@ -33,6 +33,7 @@ int8_t getPreset() { return s_preset_idx; }
  * ============================================================ */
 static size_t genCircle(LaserPoint* out, uint16_t radius, uint8_t r, uint8_t g, uint8_t b) {
     const size_t N = 128;
+    static_assert(N <= PATTERN_POINTS_MAX, "genCircle exceeds frame buffer");
     for (size_t i = 0; i < N; i++) {
         float a = (2.0f * PI * i) / N;
         out[i].x = (int16_t)(cosf(a) * radius);
@@ -45,6 +46,7 @@ static size_t genCircle(LaserPoint* out, uint16_t radius, uint8_t r, uint8_t g, 
 
 static size_t genSquare(LaserPoint* out, uint16_t size, uint8_t r, uint8_t g, uint8_t b) {
     const size_t per_side = 40;  // more points = smoother on fast galvos
+    static_assert(1 + 4 * (40 + 1) <= PATTERN_POINTS_MAX, "genSquare exceeds frame buffer");
     int16_t s = (int16_t)size;
     // corners: bottom-left → bottom-right → top-right → top-left → close
     int16_t corners[5][2] = {
@@ -75,6 +77,7 @@ static size_t genSquare(LaserPoint* out, uint16_t size, uint8_t r, uint8_t g, ui
 static size_t genStar(LaserPoint* out, uint16_t radius, uint8_t r, uint8_t g, uint8_t b) {
     const size_t POINTS = 5;
     const size_t per_seg = 40;
+    static_assert(5 * 40 <= PATTERN_POINTS_MAX, "genStar exceeds frame buffer");
     int16_t verts[POINTS][2];
     for (size_t i = 0; i < POINTS; i++) {
         float a = (2.0f * PI * 2 * i) / POINTS - PI / 2;
@@ -103,6 +106,7 @@ static size_t genCenterPoint(LaserPoint* out) {
 
 static size_t genCross(LaserPoint* out) {
     const size_t per_line = 60;
+    static_assert(1 + 2 * 60 <= PATTERN_POINTS_MAX, "genCross exceeds frame buffer");
     size_t idx = 0;
     // Blank to start of H-line
     out[idx] = LaserPoint((int16_t)(-20000), 0, 0, 0, 0, 1); idx++;

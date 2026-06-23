@@ -158,9 +158,11 @@ static GlyphResult renderGlyph(LaserPoint* out, size_t& n, size_t max,
     if (bold_offset > 0.f && res.had_points) {
         bool pen2 = true;
         for (int i = 0; ; i += 2) {
-            int8_t sx = strokes[i], sy = strokes[i+1];
-            if (sx == EN && sy == EN) break;
+            int8_t sx = strokes[i];
+            if (sx == EN) break;
+            int8_t sy = strokes[i+1];
             if (sx == PU) { pen2 = true; continue; }
+            if (n >= max) break;
             float x2 = ox + sx * sc + bold_offset;
             float y2 = oy + sy * sc + bold_offset * 0.3f;
             addPt(out, n, max, x2, y2, r, g, b, pen2 ? 1 : 0);
@@ -257,13 +259,18 @@ static size_t renderTextString(LaserPoint* out, size_t max,
         // ────────────────────────────────────────────────────────────────
     }
 
-    // apply rotation around origin
-    if (fabsf(rot) > 0.001f) {
+    // apply rotation around text center (not origin -- text is laid out
+    // starting at tx=-tw/2, so rotating about (0,0) made it orbit the left
+    // edge instead of spinning in place). Compute centroid of emitted points.
+    if (fabsf(rot) > 0.001f && n > 0) {
+        float cxc = 0.f, cyc = 0.f;
+        for (size_t i = 0; i < n; i++) { cxc += out[i].x; cyc += out[i].y; }
+        cxc /= n; cyc /= n;
         const float cos_r = cosf(rot), sin_r = sinf(rot);
         for (size_t i = 0; i < n; i++) {
-            float px = out[i].x, py = out[i].y;
-            out[i].x = (int16_t)(px * cos_r - py * sin_r);
-            out[i].y = (int16_t)(px * sin_r + py * cos_r);
+            float px = out[i].x - cxc, py = out[i].y - cyc;
+            out[i].x = (int16_t)(cxc + px * cos_r - py * sin_r);
+            out[i].y = (int16_t)(cyc + px * sin_r + py * cos_r);
         }
     }
 
@@ -289,7 +296,14 @@ size_t generate(LaserPoint* out, size_t max_pts, const TextConfig& cfg, uint32_t
     // ESP_LOGI("TXT","tw=%.0f sc=%.1f start_x=%.0f full_len=%d", tw, sc, -tw/2.f, full_len);
 
     float max_half = 28000.f;
-    float display_sc = (tw / 2.f > max_half) ? sc * max_half / (tw / 2.f) : sc;
+    // Clamp scale so neither half-width NOR glyph half-height exceeds the
+    // galvo range. Glyphs span +/-7 font units vertically (see FONT_* tables),
+    // so half-height = 7*sc. Previously only width was clamped -> tall text at
+    // high size_val clipped top/bottom at +/-32767.
+    const float GLYPH_HALF_H = 7.f;
+    float sc_w = (tw / 2.f > max_half) ? sc * max_half / (tw / 2.f) : sc;
+    float sc_h = (GLYPH_HALF_H * sc > max_half) ? max_half / GLYPH_HALF_H : sc;
+    float display_sc = fminf(sc_w, sc_h);
     if (display_sc != sc) tw = textWidth(cfg.text, full_len) * display_sc;
     float start_x = -tw / 2.f;
     float base_y  = 0.f;
@@ -334,6 +348,7 @@ size_t generate(LaserPoint* out, size_t max_pts, const TextConfig& cfg, uint32_t
             // Use temporary string trimmed to visible characters.
             // cfg.text is const -> local copy on the stack (max 128 bytes).
             char temp[128];
+            if (visible > (int)sizeof(temp) - 1) visible = sizeof(temp) - 1;
             strncpy(temp, cfg.text, (size_t)visible);
             temp[visible] = '\0';
 
@@ -407,6 +422,14 @@ size_t generate(LaserPoint* out, size_t max_pts, const TextConfig& cfg, uint32_t
             for (int copy = 0; copy < 2; copy++) {
                 float yBase = -32767.f * 0.7f + yScroll * 32767.f + copy * period * 32767.f;
                 // Perspective: bottom large, top small
+                // Perspective: bottom large, top small. cx2 advanced
+                // incrementally across the line -- the previous version
+                // recomputed it with an inner O(n) loop (plus an O(GLYPH_COUNT)
+                // lookup each) per character, i.e. O(n^3) per frame at 25fps.
+                float yW = base_y * 0.25f + yBase / 32767.f * sc * 16.f;
+                float persp = fmaxf(0.1f, (yW / (sc * 8.f) + 1.5f) / 3.0f);
+                float scP = sc * (0.25f + persp * 1.5f);
+                float cx2 = start_x * scP / sc;
                 for (int ci = 0; ci < full_len && cfg.text[ci]; ci++) {
                     char ch = toupper((unsigned char)cfg.text[ci]);
                     const FontGlyph* g2 = nullptr;
@@ -414,19 +437,14 @@ size_t generate(LaserPoint* out, size_t max_pts, const TextConfig& cfg, uint32_t
                         if (GLYPHS[i].ch == (uint8_t)ch) { g2 = &GLYPHS[i]; break; }
                     }
                     if (!g2) continue;
-                    float yW = base_y * 0.25f + yBase / 32767.f * sc * 16.f;
-                    float persp = fmaxf(0.1f, (yW / (sc * 8.f) + 1.5f) / 3.0f);
-                    float scP = sc * (0.25f + persp * 1.5f);
-                    float cx2 = start_x * scP / sc;
-                    for (int j = 0; j < ci; j++) {
-                        char prev = toupper((unsigned char)cfg.text[j]);
-                        for (int k = 0; k < GLYPH_COUNT; k++) {
-                            if (GLYPHS[k].ch == (uint8_t)prev) { cx2 += GLYPHS[k].advance * scP; break; }
-                        }
-                    }
+                    // Blank jump to glyph start -- avoids lit drag line between
+                    // characters (renderGlyph alone emits no leading blank here).
+                    if (total < max_pts)
+                        addPt(out, total, max_pts, cx2, yW, 0, 0, 0, 1);
                     renderGlyph(out, total, max_pts, g2->strokes,
                                 cx2, yW, scP,
                                 cfg.col_r, cfg.col_g, cfg.col_b);
+                    cx2 += g2->advance * scP;
                 }
             }
             return total;

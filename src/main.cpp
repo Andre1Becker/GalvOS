@@ -107,14 +107,6 @@ static void loadConfig() {
              strlen(gConfig.auth_hash) ? "custom" : "default ('laser')");
 }
 
-static void modeSwitchTask(void*) {
-    LOG_W(logbuf::CAT_SYSTEM, "ModeSwitch -> ESP32 active");
-    ESP_LOGW(TAG, "ModeSwitch -> ESP32 active");
-    for (;;) {
-        vTaskDelay(pdMS_TO_TICKS(5000)); // Stub-Task
-    }
-}
-
 // ══════════════════════════════════════════════════════════════
 // Hardware panic blanking -- laser off on ANY crash
 //
@@ -164,6 +156,7 @@ static bool startTask(TaskFunction_t fn, const char* name,
 
 // ── WiFi watchdog — reconnects and starts services after late connection ──────
 static bool s_wifi_services_started = false;
+static bool s_services_created = false;  // init()/tasks run once per boot only
 
 static void wifiWatchdogTask(void*) {
     for (;;) {
@@ -174,12 +167,20 @@ static void wifiWatchdogTask(void*) {
             if (!s_wifi_services_started) {
                 // Connected (possibly via auto-reconnect after AP-mode boot)
                 s_wifi_services_started = true;
-                artnet_in::init();
-                ntp_client::init();
-                etherdream::init();
-                xTaskCreatePinnedToCore(artnet_in::task,  "artnet", 4096, nullptr, 3, nullptr, 0);
-                xTaskCreatePinnedToCore(etherdream::task, "edream", 8192, nullptr, 3, nullptr, 0);
-                xTaskCreatePinnedToCore(ntp_client::task, "ntp",    4096, nullptr, 2, nullptr, 0);
+                // init()/tasks must run only once per boot. A fast down/up
+                // flap inside the 15s window clears s_wifi_services_started
+                // (else branch below), so guarding on it alone re-ran init()
+                // and spawned duplicate artnet/edream/ntp tasks. s_services_created
+                // is never reset, so reconnects skip re-creation.
+                if (!s_services_created) {
+                    s_services_created = true;
+                    artnet_in::init();
+                    ntp_client::init();
+                    etherdream::init();
+                    xTaskCreatePinnedToCore(artnet_in::task,  "artnet", 4096, nullptr, 3, nullptr, 0);
+                    xTaskCreatePinnedToCore(etherdream::task, "edream", 8192, nullptr, 3, nullptr, 0);
+                    xTaskCreatePinnedToCore(ntp_client::task, "ntp",    4096, nullptr, 2, nullptr, 0);
+                }
                 // Switch off AP if STA is now up (clean up AP mode)
                 if (WiFi.getMode() == WIFI_AP_STA) {
                     WiFi.softAPdisconnect(true);
@@ -290,6 +291,7 @@ void setup() {
         ntp_client::init();
         etherdream::init();
         s_wifi_services_started = true;  // prevent watchdog from re-starting tasks
+        s_services_created      = true;  // tasks spawned below in setup(); block watchdog re-create
     } else {
         // No WiFi within timeout — start AP for config access
         // Arduino's setAutoReconnect(true) will keep retrying in the background;
@@ -324,7 +326,6 @@ void setup() {
     startTask(safety::task,   "safety",  4096, 6, 0);
     startTask(dmx_in::task,   "dmx_rx",  4096, 5, 0);
     startTask(temp::task,     "temp",    3072, 1, 0);
-    startTask(modeSwitchTask, "modesw",  2048, 3, 0);
     startTask(web_ui::task,   "webui",   10240, 3, 0); // p=3: below safety/dmx
     startTask(wifiWatchdogTask, "wifi_wd", 3072, 2, 0);
     if (WiFi.status() == WL_CONNECTED) {

@@ -193,7 +193,8 @@ static volatile int      s_raw_cmd_result = -1;  // -1=pending, 0=fail, 1=ok
  *   B: 3000mW × sens(445nm,0.040) = 120 mW_vis → gain=255
  * All three channels deliver ~120 mW_vis at full drive.
  * ============================================================ */
-static const uint8_t GAMMA_LUT[256] PROGMEM = {
+// PROGMEM is a no-op on ESP32 (no AVR Harvard split) -- plain DRAM array.
+static const uint8_t GAMMA_LUT[256] = {
       0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,
       1,  1,  1,  1,  1,  1,  1,  1,  1,  2,  2,  2,  2,  2,  2,  2,
       3,  3,  3,  3,  3,  4,  4,  4,  4,  5,  5,  5,  5,  6,  6,  6,
@@ -261,6 +262,7 @@ struct GalvoSnapshot {
     bool     gamma_en    = true;
     uint16_t dac_limit_min = 0x0666;
     uint16_t dac_limit_max = 0xF999;
+    uint32_t period_us     = 33;   // derived from gProjection.galvo_kpps (12..60)
     // Galvo geometry (from applyCalibration -- already applied before frame)
 };
 static GalvoSnapshot s_snap;
@@ -277,6 +279,11 @@ static inline void updateSnapshot() {
         s_snap.dac_limit_max = gConfig.dac_limit_max;
         xSemaphoreGive(mtx::config);
     }
+    // kpps changes rarely; recompute period once per frame, not per tick.
+    uint16_t kpps = gProjection.galvo_kpps;
+    if (kpps < 12) kpps = 12;
+    if (kpps > 60) kpps = 60;
+    s_snap.period_us = 1000000UL / ((uint32_t)kpps * 1000UL);
     // If mutex not immediately available: keep old snapshot (safe)
 }
 
@@ -284,16 +291,10 @@ static inline void updateSnapshot() {
 static bool sendRawCommandImpl(uint8_t cmd3, uint8_t addr3, uint16_t data);
 
 static void IRAM_ATTR galvoTask(void*) {
-    // Dynamic rate from ProjectionConfig (12..60 kpps), default 30 kpps.
-    // Reread every frame — the task loop is fast enough that one extra
-    // read per 20-83µs is harmless.
-    auto getPeriodUs = []() -> uint32_t {
-        uint16_t kpps = gProjection.galvo_kpps;
-        if (kpps < 12) kpps = 12;
-        if (kpps > 60) kpps = 60;
-        return 1000000UL / ((uint32_t)kpps * 1000UL);
-    };
-    uint32_t period_us = getPeriodUs();
+    // Dynamic rate from ProjectionConfig (12..60 kpps). period_us is now
+    // computed in updateSnapshot() once per frame (not per tick) to keep
+    // the 50kHz loop free of a division + 2 branches on every point.
+    uint32_t period_us = s_snap.period_us;
     uint64_t next_tick = esp_timer_get_time();
 
     uint32_t hb_count = 0;
@@ -305,8 +306,7 @@ static void IRAM_ATTR galvoTask(void*) {
         if (++sub_hb_count >= 100) { sub_hb_count = 0; safety::subsystemHeartbeat(1); }
 
         // Hardware heartbeat: toggle every 100ms (retriggerable monoflop possible)
-        // Refresh period every frame (cheap, handles runtime changes)
-        period_us = getPeriodUs();
+        // period_us refreshed from snapshot (updated once per frame below).
         if (++hb_count >= (1000000UL / (period_us * 10UL))) {
             hb_count = 0;
             #ifdef PIN_HEARTBEAT
@@ -316,6 +316,9 @@ static void IRAM_ATTR galvoTask(void*) {
         }
         // debug mode: no SPI, Ring-Buffer leeren so that Pattern-Task not blockiert
         if (gDebugNoHW) {
+            { uint16_t k = gProjection.galvo_kpps;
+              if (k < 12) k = 12; if (k > 60) k = 60;
+              period_us = 1000000UL / ((uint32_t)k * 1000UL); }
             size_t tail = s_ring_tail;
             if (s_point_idx >= s_ring_sizes[tail]) {
                 size_t nx = (tail+1) % RING_FRAMES;
@@ -329,6 +332,7 @@ static void IRAM_ATTR galvoTask(void*) {
         s_points_total++;
 
         updateSnapshot();  // FIX: gConfig snapshot once per iteration
+        period_us = s_snap.period_us;  // pick up runtime kpps changes
 
         // Execute any pending raw DAC debug command (Config tab -> DAC
         // Low-Level Commands). Runs here so only galvoTask touches SPI2.
@@ -372,9 +376,15 @@ static void IRAM_ATTR galvoTask(void*) {
             if (!gState.laser_armed.load()) {
                 s_hw_debug_active = false;  // Auto-Deactiveierung if disarmed
             } else {
-                writeDAC8562(0, (uint16_t)(s_dbg_x + 32768));
-                writeDAC8562(1, (uint16_t)(s_dbg_y + 32768));
-                rgbWrite(s_dbg_r, s_dbg_g, s_dbg_b);
+                // ACQUIRE: pair with RELEASE in setDebugOutput() so all five
+                // debug fields are seen consistently (no torn read where
+                // s_hw_debug_active is true but x/y/rgb are stale).
+                __atomic_thread_fence(__ATOMIC_ACQUIRE);
+                int16_t dx = s_dbg_x, dy = s_dbg_y;
+                uint8_t dr = s_dbg_r, dg = s_dbg_g, db = s_dbg_b;
+                writeDAC8562(0, (uint16_t)(dx + 32768));
+                writeDAC8562(1, (uint16_t)(dy + 32768));
+                rgbWrite(dr, dg, db);
             }
             next_tick += period_us;
             while (esp_timer_get_time() < (int64_t)next_tick) {}
@@ -414,7 +424,6 @@ static void IRAM_ATTR galvoTask(void*) {
                 y = constrain(y, (int32_t)s_snap.dac_limit_min, (int32_t)s_snap.dac_limit_max);
             if (p.blank) {
                     rgbOff();
-                    // tatic int s_blank_log=0; if(++s_blank_log%500==0) ESP_LOGI("GAL","blank fired %d",s_blank_log);
                     if (s_laser_off_hold > 0) {
                         // Still within hold window: keep DAC parked at the
                         // last lit position while LEDC/6N137 finish turning off.
@@ -615,7 +624,6 @@ bool pushFrame(const LaserPoint* pts, size_t count) {
     // RELEASE fence: ensure memcpy + size write are visible on Core 1
     // before s_ring_head advances and galvoTask sees the new slot.
     __atomic_thread_fence(__ATOMIC_RELEASE);
-     s_ring_head = next_head;
     s_ring_head = next_head;
     return true;
 }
@@ -642,19 +650,29 @@ uint32_t bufferFillLevel() {
 // ── applyCalibration: Offset, Gain, Flip from gConfig ─────────────────
 // Called by etherdream.cpp for externally received frames.
 void applyCalibration(LaserPoint* pts, size_t n) {
+    // Snapshot calibration once under mutex (runs on Core 0 / etherdream);
+    // gConfig is concurrently written by the WebUI handler task. Reading the
+    // 7 fields directly in the loop could mix old/new values mid-frame.
+    int16_t x_gain, y_gain, x_off, y_off;
+    bool swap, inv_x, inv_y;
+    if (xSemaphoreTake(mtx::config, pdMS_TO_TICKS(2)) == pdTRUE) {
+        x_gain = gConfig.galvo_x_gain; y_gain = gConfig.galvo_y_gain;
+        x_off  = gConfig.galvo_x_offset; y_off = gConfig.galvo_y_offset;
+        swap   = gConfig.swap_xy; inv_x = gConfig.invert_x; inv_y = gConfig.invert_y;
+        xSemaphoreGive(mtx::config);
+    } else {
+        // Mutex busy: skip calibration this frame rather than risk a torn read.
+        return;
+    }
     for (size_t i = 0; i < n; i++) {
         int32_t x = pts[i].x, y = pts[i].y;
-        // Gain (scaling, symmetry adjustment)
-        x = (int32_t)x * gConfig.galvo_x_gain / 32767;
-        y = (int32_t)y * gConfig.galvo_y_gain / 32767;
-        // Offset
-        x += gConfig.galvo_x_offset;
-        y += gConfig.galvo_y_offset;
-        // axis swap
-        if (gConfig.swap_xy) { int32_t tmp = x; x = y; y = tmp; }
-        // inversion
-        if (gConfig.invert_x) x = -x;
-        if (gConfig.invert_y) y = -y;
+        x = (int32_t)x * x_gain / 32767;
+        y = (int32_t)y * y_gain / 32767;
+        x += x_off;
+        y += y_off;
+        if (swap) { int32_t tmp = x; x = y; y = tmp; }
+        if (inv_x) x = -x;
+        if (inv_y) y = -y;
         pts[i].x = (int16_t)constrain(x, -32767, 32767);
         pts[i].y = (int16_t)constrain(y, -32767, 32767);
     }
@@ -664,6 +682,9 @@ void applyCalibration(LaserPoint* pts, size_t n) {
 void setDebugOutput(int16_t x, int16_t y, uint8_t r, uint8_t g, uint8_t b) {
     s_dbg_x = x; s_dbg_y = y;
     s_dbg_r = r; s_dbg_g = g; s_dbg_b = b;
+    // RELEASE: ensure all five fields are committed before galvoTask (Core 1)
+    // observes s_hw_debug_active=true via its ACQUIRE fence.
+    __atomic_thread_fence(__ATOMIC_RELEASE);
     s_hw_debug_active = true;
     ESP_LOGW(TAG, "HW-Debug: X=%d Y=%d R=%u G=%u B=%u", x, y, r, g, b);
     LOG_W(logbuf::CAT_GALVO, "HW-Debug: X=%d Y=%d R=%u G=%u B=%u", x, y, r, g, b);

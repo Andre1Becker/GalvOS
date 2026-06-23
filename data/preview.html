@@ -407,7 +407,7 @@ var PRESET_RENDER_FNS = {};
     return pts;};
 
   // ── Vehicle: Train (93) with animated wheels ──
-  PRESET_RENDER_FNS[93]=function(ph,sp,sz){
+  PRESET_RENDER_FNS[94]=function(ph,sp,sz){
     var ox=scrollOx(ph,sp),sc=ss(sz)*.7,lw=.42*sc,lh=.20*sc,ly=.06*sc,pts=[];
     // body
     [[-lw,ly-lh,lw,ly-lh],[lw,ly-lh,lw,ly+lh],[lw,ly+lh,-lw,ly+lh],[-lw,ly+lh,-lw,ly-lh]].forEach(function(l,i){pts.push(pt(ox+l[0],l[1],200,110,50,1),pt(ox+l[2],l[3],200,110,50,0));});
@@ -425,7 +425,7 @@ var PRESET_RENDER_FNS = {};
     return pts;};
 
   // ── Vehicle: Bicycle (96) with spokes ──
-  PRESET_RENDER_FNS[96]=function(ph,sp,sz){
+  PRESET_RENDER_FNS[97]=function(ph,sp,sz){
     var ox=scrollOx(ph,sp),sc=ss(sz)*.75,wr=.24*sc,ws=.55*sc,pts=[];
     var lw=ox-ws*.5,rw=ox+ws*.5,rot=ph*.07;
     [lw,rw].forEach(function(wx){
@@ -440,7 +440,7 @@ var PRESET_RENDER_FNS = {};
     return pts;};
 
   // ── Vehicle: Airplane (97) ──
-  PRESET_RENDER_FNS[97]=function(ph,sp,sz){
+  PRESET_RENDER_FNS[98]=function(ph,sp,sz){
     var ox=scrollOx(ph,sp),sc=ss(sz)*.82,fw=.55*sc,fh=.1*sc,pts=[];
     for(var i=0;i<=40;i++){var a=PI2*i/40;pts.push(pt(ox+Math.cos(a)*fw,Math.sin(a)*fh,220,230,255,i===0?1:0));}
     pts.push(pt(ox+fw,0,220,230,255,1),pt(ox+fw*1.42,0,220,230,255,0));
@@ -453,7 +453,7 @@ var PRESET_RENDER_FNS = {};
     return pts;};
 
   // ── Space Shuttle (99) ──
-  PRESET_RENDER_FNS[99]=function(ph,sp,sz){
+  PRESET_RENDER_FNS[100]=function(ph,sp,sz){
     var ox=scrollOx(ph,sp),sc=ss(sz)*.72,tw=.18*sc,th=.5*sc,pts=[];
     for(var i=0;i<=40;i++){var a=PI2*i/40;pts.push(pt(ox+Math.cos(a)*tw,Math.sin(a)*th,200,110,50,i===0?1:0));}
     pts.push(pt(ox-tw,th,200,110,50,1),pt(ox,th+tw*1.5,200,110,50,0),pt(ox+tw,th,200,110,50,1),pt(ox,th+tw*1.5,200,110,50,0));
@@ -463,8 +463,8 @@ var PRESET_RENDER_FNS = {};
     [-1,0,1].forEach(function(e){pts.push(pt(ox+e*tw*.85-tw*.2,-th,255,120,0,1),pt(ox+e*tw*.85,-th-fl,255,200,0,0));});
     return pts;};
 
-  // ── Countdown Timer (100) — shown from C++ state ──
-  PRESET_RENDER_FNS[100]=function(ph,sp,sz){
+  // ── Countdown Timer (92) — shown from C++ state ──
+  PRESET_RENDER_FNS[92]=function(ph,sp,sz){
     // Draw a pulsing countdown indicator ring
     var s=.75*ss(sz),t=ph*.04;
     var pts=[];
@@ -584,24 +584,24 @@ var PRESET_RENDER_FNS = {};
 
   // ── Vehicles: scrolling ox ──
   function scrollOx(ph,sp){return((ph*(0.06+(sp/255)*.44)*.00025)%1)*2.2-1.1;}
-  PRESET_RENDER_FNS[92]=function(ph,sp,sz){var ox=scrollOx(ph,sp),sc=ss(sz)*.85,bw=.14*sc,bh=.38*sc,pts=[];
+  PRESET_RENDER_FNS[93]=function(ph,sp,sz){var ox=scrollOx(ph,sp),sc=ss(sz)*.85,bw=.14*sc,bh=.38*sc,pts=[];
     for(var i=0;i<=40;i++){var a=PI2*i/40;pts.push(pt(ox+Math.cos(a)*bw,Math.sin(a)*bh,220,220,255,i===0?1:0));}
     pts.push(pt(ox-bw,bh,255,200,200,1),pt(ox,bh+bh*.7,255,200,200,0),pt(ox+bw,bh,255,200,200,1),pt(ox,bh+bh*.7,255,200,200,0));
     var fl=bh*.55+bh*.15*Math.abs(Math.sin(ph*.18));
     pts.push(pt(ox,-bh,255,140,0,1),pt(ox,-bh-fl,255,80,0,0));
     return pts;};
-  PRESET_RENDER_FNS[94]=function(ph,sp,sz){var ox=scrollOx(ph,sp),sc=ss(sz)*.75,bw=.5*sc,bh=.13*sc,by=-.04*sc,pts=[];
+  PRESET_RENDER_FNS[95]=function(ph,sp,sz){var ox=scrollOx(ph,sp),sc=ss(sz)*.75,bw=.5*sc,bh=.13*sc,by=-.04*sc,pts=[];
     pts.push(pt(ox-bw,by,230,30,30,1),pt(ox+bw,by,230,30,30,0),pt(ox+bw,by+bh,230,30,30,0),
              pt(ox+bw*.1,by+bh*1.9,230,30,30,0),pt(ox-bw*.35,by+bh*1.6,230,30,30,0),pt(ox-bw,by,230,30,30,0));
     var wr=.11*sc,wrot=ph*.07;
     [ox+bw*.55,ox-bw*.45].forEach(function(wx){
       for(var i=0;i<=18;i++){var a=PI2*i/18;pts.push(pt(wx+Math.cos(a)*wr,by+Math.sin(a)*wr,50,50,50,i===0?1:0));}});
     return pts;};
-  PRESET_RENDER_FNS[95]=function(ph,sp,sz){var ox=scrollOx(ph,sp),sc=ss(sz)*.85,hov=Math.sin(ph*.035)*.08*sc,dw=.45*sc,dh=.12*sc,pts=[];
+  PRESET_RENDER_FNS[96]=function(ph,sp,sz){var ox=scrollOx(ph,sp),sc=ss(sz)*.85,hov=Math.sin(ph*.035)*.08*sc,dw=.45*sc,dh=.12*sc,pts=[];
     for(var i=0;i<=50;i++){var a=PI2*i/50;pts.push(pt(ox+Math.cos(a)*dw,Math.sin(a)*dh+hov,0,200,255,i===0?1:0));}
     for(var i=0;i<=25;i++){var a=Math.PI*i/25;pts.push(pt(ox+Math.cos(a)*dw*.44,Math.sin(a)*dh*1.5+dh+hov,150,230,255,i===0?1:0));}
     return pts;};
-  PRESET_RENDER_FNS[98]=function(ph,sp,sz){var ox=scrollOx(ph,sp),sc=ss(sz)*.82,fw=.55*sc,fh=.1*sc,pts=[];
+  PRESET_RENDER_FNS[99]=function(ph,sp,sz){var ox=scrollOx(ph,sp),sc=ss(sz)*.82,fw=.55*sc,fh=.1*sc,pts=[];
     for(var i=0;i<=40;i++){var a=PI2*i/40;pts.push(pt(ox+Math.cos(a)*fw,Math.sin(a)*fh,220,230,255,i===0?1:0));}
     pts.push(pt(ox+fw,0,220,230,255,1),pt(ox+fw*1.42,0,220,230,255,0));
     return pts;};

@@ -849,12 +849,28 @@ static size_t p89(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){ // P
 // trade dwell for count. Minimum 3 ticks always guaranteed.
 static size_t p90(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     size_t n=0;
-    const int nStars   = 20 + (int)(sz / 255.f * 80.f);   // 20..100 stars
+    int nStars   = 20 + (int)(sz / 255.f * 80.f);   // 20..100 stars
     const float baseSpd = 0.3f + (sp / 255.f) * 4.7f;
-    // Dwell: more ticks per dot. Scale inversely with star count so
-    // total point budget stays roughly constant (~400 pts/frame).
-    // nStars*DWELL ~ constant: at nStars=20 → dwell=6, at nStars=100 → dwell=3
-    const int dwell = (int)fmaxf(3.f, 6.f - (nStars - 20) * (3.f / 80.f));
+    // DWELL FIX (v5.4): dwell is a SETTLE TIME, not a fixed tick count.
+    // One tick lasts 1/kpps seconds (33us @ 30kpps, 83us @ 12kpps, 17us @ 60kpps),
+    // but galvo mechanical settle (~120us) is time-constant. A fixed dwell of 3
+    // ticks therefore over-dwells at low kpps (wastes budget) and under-dwells at
+    // high kpps (dot smears / invisible). Derive dwell from real kpps to hold a
+    // constant ~120us settle window.
+    uint16_t kpps = gProjection.galvo_kpps; if (kpps < 12) kpps = 12; if (kpps > 60) kpps = 60;
+    const float tick_us = 1000000.f / ((float)kpps * 1000.f);
+    int dwell = (int)ceilf(120.f / tick_us);          // ~120us settle
+    if (dwell < 3) dwell = 3;
+    // Frame budget: nStars*(1 blank + dwell) must stay within both the buffer
+    // and the flicker cap (~max_pts_per_frame). Reduce star count if needed so
+    // the frame still refreshes above flicker-fusion at the current kpps.
+    const size_t budget = (m < (size_t)gOptimizerConfig.max_pts_per_frame)
+                              ? m : (size_t)gOptimizerConfig.max_pts_per_frame;
+    int per_star = 1 + dwell;
+    if ((size_t)(nStars * per_star) > budget) {
+        nStars = (int)(budget / per_star);
+        if (nStars < 1) nStars = 1;
+    }
     auto fr = [](int seed) -> float {
         float x = sinf((float)seed * 127.1f + 1.f) * 43758.5453f;
         return x - floorf(x);
