@@ -223,7 +223,7 @@ static size_t renderTextString(LaserPoint* out, size_t max,
 
         // render glyph
         GlyphResult gr = renderGlyph(out, n, max,
-                                      glyph->strokes, cx, char_ty, display_sc,
+                                      glyph->strokes, cx, char_ty, sc,
                                       r, g, b, bold);
 
         cx += glyph->advance * sc;
