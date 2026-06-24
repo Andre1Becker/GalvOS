@@ -185,6 +185,16 @@
     .channel-row { grid-template-columns: 36px 1fr 50px; gap: 8px; }
     .channel-row .name { display: none; }
   }
+  @media (max-width: 900px) {
+    #tab-presets > div[style*="grid-template-columns"] {
+      grid-template-columns: 1fr !important;
+    }
+  }
+  @media (min-width: 901px) and (max-width: 1200px) {
+    #tab-presets > div[style*="grid-template-columns"] {
+      grid-template-columns: 1.2fr 1fr !important;
+    }
+  }
 </style>
 </head>
 <body>
@@ -340,243 +350,345 @@
 <!-- ============= DMX LIVE ============= -->
 <!-- ============= PRESETS ============= -->
 <section id="tab-presets" class="tab">
-  <div class="card">
-    <h2>Pattern Presets</h2>
-    <p style="color:var(--dim);font-size:13px;margin:0 0 16px">
-      Select a preset -- it takes control immediately (overrides DMX/Art-Net).
-      Color (CH2), Size (CH8) and Speed (CH7) still come from DMX/sliders.
-      <strong style="color:var(--warn)">DISARM</strong> recommended for safe switching while the laser is running.
-    </p>
 
-    <!-- Active-inactive diplay -->
-    <div style="display:flex;gap:12px;align-items:center;margin-bottom:16px;flex-wrap:wrap">
-      <div>Active: <span id="preset-active-name" style="color:var(--blue);font-weight:600">-- none --</span></div>
-      <button class="btn secondary" onclick="deactivatePreset()">⏹ Preset off</button>
-    </div>
+  <!-- ── 3-Column Layout ───────────────────────────────────────────────────── -->
+  <div style="display:grid;grid-template-columns:minmax(260px,1.2fr) minmax(220px,1fr) minmax(260px,1.1fr);gap:14px;align-items:start">
 
-    <!-- Category-Filter -->
-    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px" id="cat-filters"></div>
+    <!-- ══ COLUMN 1: Preset Selector ═══════════════════════════════════════ -->
+    <div style="display:flex;flex-direction:column;gap:12px">
 
-    <!-- Preset-Grid -->
-    <div id="preset-grid" style="
-      display:grid;
-      grid-template-columns:repeat(auto-fill,minmax(100px,1fr));
-      gap:8px;
-    "></div>
-  </div>
-
-  <!-- ── Mathematical Curves ─────────────────────────────────────────── -->
-  <div class="card" style="margin-top:16px">
-    <h2>Mathematical Curves</h2>
-    <p style="color:var(--dim);font-size:13px;margin:0 0 12px">
-      Parametric curves driven by continuous animation. Runs independently of DMX presets.
-    </p>
-
-    <!-- Active indicator + off button -->
-    <div style="display:flex;gap:12px;align-items:center;margin-bottom:14px;flex-wrap:wrap">
-      <div>Active: <span id="curve-active-name" style="color:var(--accent);font-weight:600">-- none --</span></div>
-      <button class="btn secondary" onclick="selectCurve(-1)">⏹ Curves off</button>
-    </div>
-
-    <!-- Curve selector buttons -->
-    <div id="curve-btn-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;margin-bottom:16px"></div>
-
-    <!-- Parameter panel (shown when a curve is selected) -->
-    <div id="curve-param-panel" style="display:none">
-      <hr style="border:0;border-top:1px solid var(--border);margin:0 0 14px">
-
-      <!-- Curve description -->
-      <p id="curve-desc" style="color:var(--dim);font-size:12px;margin:0 0 14px;font-style:italic"></p>
-
-      <!-- 5 parameter sliders -->
-      <div id="curve-sliders" style="display:flex;flex-direction:column;gap:10px;margin-bottom:14px"></div>
-
-      <!-- Color pickers -->
-      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
-        <span style="font-size:12px;color:var(--dim)">Color:</span>
-        <label style="font-size:12px">R <input type="range" min="0" max="255" id="curve-col-r"
-          style="width:80px;vertical-align:middle" oninput="updateCurveColor()"></label>
-        <label style="font-size:12px">G <input type="range" min="0" max="255" id="curve-col-g"
-          style="width:80px;vertical-align:middle" oninput="updateCurveColor()"></label>
-        <label style="font-size:12px">B <input type="range" min="0" max="255" id="curve-col-b"
-          style="width:80px;vertical-align:middle" oninput="updateCurveColor()"></label>
-        <div id="curve-col-swatch" style="width:32px;height:22px;border-radius:4px;border:1px solid var(--border)"></div>
-      </div>
-
-      <button class="btn ok" onclick="resetCurveParams()">↺ Reset defaults</button>
-    </div>
-  </div>
-
-
-  <div class="grid cols-2">
-    <div class="card">
-      <h2>🎛 Live Preset Controls</h2>
-      <p style="color:var(--dim);font-size:12px;margin-bottom:14px">
-        Acts immediately on the active preset. Preset must be active (🎭 tab).
-      </p>
-      <label><span id="lv-sp-label">Speed</span>  <span id="lv-sp-val" style="color:var(--accent);font-family:monospace">80</span></label>
-      <input type="range" id="lv-sp" min="0" max="255" value="80" oninput="liveSlider()">
-      <label><span id="lv-sz-label">Size</span>  <span id="lv-sz-val" style="color:var(--accent);font-family:monospace">128</span></label>
-      <input type="range" id="lv-sz" min="10" max="255" value="128" oninput="liveSlider()">
-      <div id="lv-preset-hint" style="display:none;margin:8px 0 4px;padding:8px 10px;background:#050514;border:1px solid var(--border);border-radius:5px;font-size:11px;color:var(--dim);line-height:1.5"></div>
-      <label>Rotation (2D / Z axis)  <span id="lv-rot-val" style="color:var(--accent);font-family:monospace">0°</span></label>
-      <input type="range" id="lv-rot" min="-180" max="180" value="0" oninput="liveSlider()">
-      <div style="margin-top:12px;padding:10px;background:#050510;border:1px solid var(--border);border-radius:6px">
-        <div style="font-family:monospace;font-size:10px;color:var(--accent);margin-bottom:8px">AUTO-ROTATION</div>
-        <label class="toggle" style="margin-bottom:10px">
-          <input type="checkbox" id="lv-autorot" onchange="toggleAutoRed(this.checked)">
-          <span class="slider"></span><span>Continuous rotation</span>
-        </label>
-        <div style="display:flex;flex-direction:column;gap:8px">
-          <div>
-            <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:3px">
-              <span>Z axis (normal)</span><span id="lv-rspd-z-val" style="color:var(--accent);font-family:monospace">20</span>
-            </div>
-            <input type="range" id="lv-rot-z" min="0" max="100" value="20"
-              oninput="document.getElementById('lv-rspd-z-val').textContent=this.value;sendLiveControls()">
-          </div>
-          <div>
-            <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:3px">
-              <span>Y axis (tilt)</span><span id="lv-rspd-y-val" style="color:var(--accent);font-family:monospace">0</span>
-            </div>
-            <input type="range" id="lv-rot-y" min="0" max="100" value="0"
-              oninput="document.getElementById('lv-rspd-y-val').textContent=this.value;sendLiveControls()">
-          </div>
-          <div>
-            <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:3px">
-              <span>X axis (pitch)</span><span id="lv-rspd-x-val" style="color:var(--accent);font-family:monospace">0</span>
-            </div>
-            <input type="range" id="lv-rot-x" min="0" max="100" value="0"
-              oninput="document.getElementById('lv-rspd-x-val').textContent=this.value;sendLiveControls()">
+      <div class="card" style="padding:14px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+          <h2 style="margin:0">🎭 Presets</h2>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <span style="font-size:12px;color:var(--dim)">Active:</span>
+            <span id="preset-active-name" style="color:var(--blue);font-weight:600;font-size:12px">-- none --</span>
+            <button class="btn secondary" onclick="deactivatePreset()" style="padding:4px 10px;font-size:11px">⏹ Off</button>
           </div>
         </div>
-        <div style="margin-top:8px;display:flex;justify-content:space-between;align-items:center;font-size:11px">
-          <span style="color:var(--dim)">Master speed</span>
-          <span id="lv-rspd-val" style="color:var(--accent);font-family:monospace">20</span>
-        </div>
-        <input type="range" id="lv-rspd" min="1" max="100" value="20"
-          oninput="document.getElementById('lv-rspd-val').textContent=this.value;sendLiveControls()">
+        <!-- Category filter -->
+        <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px" id="cat-filters"></div>
+        <!-- Preset grid -->
+        <div id="preset-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:7px;max-height:420px;overflow-y:auto;padding-right:2px"></div>
       </div>
 
-      <div style="margin-top:12px">
-        <label class="toggle" style="margin-bottom:10px">
-          <input type="checkbox" id="lv-col-on" onchange="liveSlider()">
-          <span class="slider"></span>
-          <span>Color override</span>
-        </label>
-        <div id="lv-col-row" style="display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap;margin-top:6px">
-          <!-- Color Wheel Canvas -->
+      <!-- Mathematical Curves -->
+      <div class="card" style="padding:14px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px">
+          <h2 style="margin:0">∿ Curves</h2>
+          <div style="display:flex;gap:8px;align-items:center">
+            <span id="curve-active-name" style="color:var(--accent);font-weight:600;font-size:12px">-- none --</span>
+            <button class="btn secondary" onclick="selectCurve(-1)" style="padding:4px 10px;font-size:11px">⏹ Off</button>
+          </div>
+        </div>
+        <div id="curve-btn-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:6px;margin-bottom:10px;max-height:200px;overflow-y:auto"></div>
+        <div id="curve-param-panel" style="display:none">
+          <hr style="border:0;border-top:1px solid var(--border);margin:0 0 10px">
+          <p id="curve-desc" style="color:var(--dim);font-size:12px;margin:0 0 10px;font-style:italic"></p>
+          <div id="curve-sliders" style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px"></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
+            <span style="font-size:11px;color:var(--dim)">Color:</span>
+            <label style="font-size:11px">R <input type="range" min="0" max="255" id="curve-col-r" style="width:60px;vertical-align:middle" oninput="updateCurveColor()"></label>
+            <label style="font-size:11px">G <input type="range" min="0" max="255" id="curve-col-g" style="width:60px;vertical-align:middle" oninput="updateCurveColor()"></label>
+            <label style="font-size:11px">B <input type="range" min="0" max="255" id="curve-col-b" style="width:60px;vertical-align:middle" oninput="updateCurveColor()"></label>
+            <div id="curve-col-swatch" style="width:26px;height:18px;border-radius:3px;border:1px solid var(--border)"></div>
+          </div>
+          <button class="btn ok" onclick="resetCurveParams()" style="padding:4px 10px;font-size:11px">↺ Reset</button>
+        </div>
+      </div>
+
+      <!-- Countdown Timer (compact) -->
+      <div class="card" style="padding:14px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <h2 style="margin:0">⏱ Timer</h2>
+          <span id="timer-display" style="font-family:monospace;font-size:22px;color:var(--accent);letter-spacing:3px">00:00</span>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
+          <div style="flex:1;min-width:60px">
+            <div style="font-size:10px;color:var(--dim);margin-bottom:3px">Hours</div>
+            <input type="number" id="timer-h" min="0" max="99" value="0" style="width:100%" oninput="updateTimerPreview()">
+          </div>
+          <div style="flex:1;min-width:60px">
+            <div style="font-size:10px;color:var(--dim);margin-bottom:3px">Minutes</div>
+            <input type="number" id="timer-m" min="0" max="59" value="5" style="width:100%" oninput="updateTimerPreview()">
+          </div>
+          <div style="flex:1;min-width:60px">
+            <div style="font-size:10px;color:var(--dim);margin-bottom:3px">Seconds</div>
+            <input type="number" id="timer-s" min="0" max="59" value="0" style="width:100%" oninput="updateTimerPreview()">
+          </div>
+        </div>
+        <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px">
+          <button class="btn ok"        onclick="timerSet()"   style="flex:1;font-size:11px;padding:5px 4px">⏲ Set</button>
+          <button class="btn ok"        onclick="timerStart()" style="flex:1;font-size:11px;padding:5px 4px">▶ Start</button>
+          <button class="btn secondary" onclick="timerPause()" style="flex:1;font-size:11px;padding:5px 4px">⏸ Pause</button>
+          <button class="btn danger"    onclick="timerStop()"  style="flex:1;font-size:11px;padding:5px 4px">■ Stop</button>
+          <button class="btn secondary" onclick="timerReset()" style="flex:1;font-size:11px;padding:5px 4px">↺</button>
+        </div>
+        <div style="padding:8px;background:#050510;border:1px solid var(--border);border-radius:5px">
+          <div style="font-family:monospace;font-size:10px;color:var(--accent);margin-bottom:6px">ON EXPIRE</div>
+          <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:5px">
+            <label style="font-size:11px;cursor:pointer"><input type="radio" name="timer-expire" value="none" checked> Nothing</label>
+            <label style="font-size:11px;cursor:pointer"><input type="radio" name="timer-expire" value="text"> Text</label>
+            <label style="font-size:11px;cursor:pointer"><input type="radio" name="timer-expire" value="ilda"> ILDA</label>
+          </div>
+          <div id="timer-expire-text" style="display:none;margin-top:4px">
+            <input type="text" id="timer-text-msg" placeholder="Time's up!" style="width:100%">
+          </div>
+          <div id="timer-expire-ilda" style="display:none;margin-top:4px">
+            <select id="timer-ilda-file" style="width:100%"><option value="">-- select ILDA file --</option></select>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /col1 -->
+
+    <!-- ══ COLUMN 2: Motion / Transform ═════════════════════════════════════ -->
+    <div style="display:flex;flex-direction:column;gap:12px">
+
+      <div class="card" style="padding:14px">
+        <h2>🎛 Controls</h2>
+
+        <!-- Speed + Size -->
+        <div style="margin-bottom:10px">
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:3px">
+            <span id="lv-sp-label">Speed</span><span id="lv-sp-val" style="color:var(--accent);font-family:monospace">80</span>
+          </div>
+          <input type="range" id="lv-sp" min="0" max="255" value="80" oninput="liveSlider()">
+        </div>
+        <div style="margin-bottom:10px">
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:3px">
+            <span id="lv-sz-label">Size</span><span id="lv-sz-val" style="color:var(--accent);font-family:monospace">128</span>
+          </div>
+          <input type="range" id="lv-sz" min="10" max="255" value="128" oninput="liveSlider()">
+        </div>
+        <div id="lv-preset-hint" style="display:none;margin:0 0 8px;padding:8px;background:#050514;border:1px solid var(--border);border-radius:5px;font-size:11px;color:var(--dim);line-height:1.5"></div>
+
+        <!-- Rotation -->
+        <div style="margin-bottom:10px">
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:3px">
+            <span>Rotation (Z)</span><span id="lv-rot-val" style="color:var(--accent);font-family:monospace">0°</span>
+          </div>
+          <input type="range" id="lv-rot" min="-180" max="180" value="0" oninput="liveSlider()">
+        </div>
+
+        <!-- Auto-Rotation block -->
+        <div style="padding:10px;background:#050510;border:1px solid var(--border);border-radius:6px;margin-bottom:10px">
+          <div style="font-family:monospace;font-size:10px;color:var(--accent);margin-bottom:8px">AUTO-ROTATION</div>
+          <label class="toggle" style="margin-bottom:8px">
+            <input type="checkbox" id="lv-autorot" onchange="toggleAutoRed(this.checked)">
+            <span class="slider"></span><span style="font-size:12px">Continuous rotation</span>
+          </label>
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <div>
+              <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:2px">
+                <span>Z axis</span><span id="lv-rspd-z-val" style="color:var(--accent);font-family:monospace">20</span>
+              </div>
+              <input type="range" id="lv-rot-z" min="0" max="100" value="20"
+                oninput="document.getElementById('lv-rspd-z-val').textContent=this.value;sendLiveControls()">
+            </div>
+            <div>
+              <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:2px">
+                <span>Y axis (tilt)</span><span id="lv-rspd-y-val" style="color:var(--accent);font-family:monospace">0</span>
+              </div>
+              <input type="range" id="lv-rot-y" min="0" max="100" value="0"
+                oninput="document.getElementById('lv-rspd-y-val').textContent=this.value;sendLiveControls()">
+            </div>
+            <div>
+              <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:2px">
+                <span>X axis (pitch)</span><span id="lv-rspd-x-val" style="color:var(--accent);font-family:monospace">0</span>
+              </div>
+              <input type="range" id="lv-rot-x" min="0" max="100" value="0"
+                oninput="document.getElementById('lv-rspd-x-val').textContent=this.value;sendLiveControls()">
+            </div>
+            <div>
+              <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:2px">
+                <span>Master speed</span><span id="lv-rspd-val" style="color:var(--accent);font-family:monospace">20</span>
+              </div>
+              <input type="range" id="lv-rspd" min="1" max="100" value="20"
+                oninput="document.getElementById('lv-rspd-val').textContent=this.value;sendLiveControls()">
+            </div>
+          </div>
+        </div>
+
+        <!-- Mirror + Wave -->
+        <div style="display:flex;gap:14px;margin-bottom:10px">
+          <label class="toggle"><input type="checkbox" id="lv-mx" onchange="liveSlider()"><span class="slider"></span>Mirror X</label>
+          <label class="toggle"><input type="checkbox" id="lv-my" onchange="liveSlider()"><span class="slider"></span>Mirror Y</label>
+        </div>
+
+        <!-- Wave Parameters (inline, compact) -->
+        <div style="padding:10px;background:#050510;border:1px solid var(--border);border-radius:6px">
+          <div style="font-family:monospace;font-size:10px;color:var(--accent);margin-bottom:8px">WAVE PARAMETERS <span style="color:var(--dim);font-family:sans-serif;font-style:italic">(#35–52)</span></div>
+          <div>
+            <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:2px">
+              <span>Amplitude</span><span id="lv-amp-val" style="color:var(--accent);font-family:monospace">1.00</span>
+            </div>
+            <input type="range" id="lv-amp" min="10" max="200" value="100" oninput="liveSlider()">
+          </div>
+          <div style="margin-top:6px">
+            <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:2px">
+              <span>Frequency ×</span><span id="lv-freq-val" style="color:var(--accent);font-family:monospace">1.00</span>
+            </div>
+            <input type="range" id="lv-freq" min="25" max="400" value="100" oninput="liveSlider()">
+          </div>
+        </div>
+
+        <button class="btn secondary" onclick="resetLiveControls()" style="width:100%;margin-top:10px;font-size:11px;padding:6px">↺ Reset all parameters</button>
+
+      </div><!-- /Controls card -->
+
+    </div><!-- /col2 -->
+
+    <!-- ══ COLUMN 3: Color ══════════════════════════════════════════════════ -->
+    <div style="display:flex;flex-direction:column;gap:12px">
+
+      <div class="card" style="padding:14px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <h2 style="margin:0">🎨 Color</h2>
+          <label class="toggle" style="margin:0">
+            <input type="checkbox" id="lv-col-on" onchange="liveSlider()">
+            <span class="slider"></span>
+            <span style="font-size:12px">Override</span>
+          </label>
+        </div>
+
+        <!-- Color Wheel -->
+        <div style="display:flex;gap:14px;align-items:flex-start;margin-bottom:10px">
           <div style="position:relative;flex-shrink:0">
-            <canvas id="lv-color-wheel" width="130" height="130"
+            <canvas id="lv-color-wheel" width="160" height="160"
               style="border-radius:50%;cursor:crosshair;display:block"
               onclick="colorWheelClick(event)"
               onmousemove="colorWheelDrag(event)"
               onmousedown="colorWheelDrag(event)"></canvas>
-            <div id="lv-wheel-cursor" style="position:absolute;width:10px;height:10px;
+            <div id="lv-wheel-cursor" style="position:absolute;width:12px;height:12px;
               border-radius:50%;border:2px solid #fff;box-shadow:0 0 4px #000;
               pointer-events:none;transform:translate(-50%,-50%);
-              left:65px;top:65px"></div>
+              left:80px;top:80px"></div>
           </div>
-          <!-- Value slider + preview -->
-          <div style="display:flex;flex-direction:column;gap:8px;justify-content:center;min-width:80px">
+          <div style="display:flex;flex-direction:column;gap:8px;justify-content:center">
             <div style="font-size:11px;color:var(--dim)">Brightness</div>
             <input type="range" id="lv-brightness" min="0" max="255" value="255"
-              style="width:80px;writing-mode:vertical-lr;direction:rtl;height:80px"
+              style="writing-mode:vertical-lr;direction:rtl;height:100px;width:32px"
               oninput="colorWheelBrightness(this.value)">
-            <div id="lv-col-preview"
-              style="width:50px;height:28px;border-radius:6px;
-                     border:1px solid var(--border);background:rgb(255,255,255);
-                     margin-top:4px"></div>
-            <div style="font-family:monospace;font-size:10px;color:var(--dim)" id="lv-col-hex">#ffffff</div>
+            <div id="lv-col-preview" style="width:44px;height:26px;border-radius:5px;border:1px solid var(--border);background:rgb(255,255,255)"></div>
+            <div style="font-family:monospace;font-size:11px;color:var(--dim)" id="lv-col-hex">#ffffff</div>
           </div>
-          <!-- Hidden RGB inputs kept for API compatibility -->
-          <input type="hidden" id="lv-r" value="255">
-          <input type="hidden" id="lv-g" value="255">
-          <input type="hidden" id="lv-b" value="255">
-          <span id="lv-r-val" style="display:none">255</span>
-          <span id="lv-g-val" style="display:none">255</span>
-          <span id="lv-b-val" style="display:none">255</span>
         </div>
-      </div>
 
-      <div style="display:flex;gap:16px;margin-top:12px">
-        <label class="toggle"><input type="checkbox" id="lv-mx" onchange="liveSlider()"><span class="slider"></span>Mirror X</label>
-        <label class="toggle"><input type="checkbox" id="lv-my" onchange="liveSlider()"><span class="slider"></span>Mirror Y</label>
-      </div>
-    </div>
+        <!-- Quick Color Buttons: primaries + mixes -->
+        <div style="margin-bottom:12px">
+          <div style="font-size:10px;color:var(--dim);font-family:monospace;margin-bottom:5px">QUICK COLORS</div>
+          <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px">
+            <!-- Row 1: pure colors -->
+            <div onclick="setQuickColor(255,0,0)"   title="Red"     style="height:26px;border-radius:4px;background:#f00;cursor:pointer;border:1px solid #333;transition:transform 0.1s" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform=''"></div>
+            <div onclick="setQuickColor(0,255,0)"   title="Green"   style="height:26px;border-radius:4px;background:#0f0;cursor:pointer;border:1px solid #333;transition:transform 0.1s" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform=''"></div>
+            <div onclick="setQuickColor(0,0,255)"   title="Blue"    style="height:26px;border-radius:4px;background:#00f;cursor:pointer;border:1px solid #333;transition:transform 0.1s" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform=''"></div>
+            <div onclick="setQuickColor(255,0,255)" title="R+B Magenta" style="height:26px;border-radius:4px;background:#f0f;cursor:pointer;border:1px solid #333;transition:transform 0.1s" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform=''"></div>
+            <div onclick="setQuickColor(255,255,0)" title="R+G Yellow"  style="height:26px;border-radius:4px;background:#ff0;cursor:pointer;border:1px solid #333;transition:transform 0.1s" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform=''"></div>
+            <div onclick="setQuickColor(0,255,255)" title="G+B Cyan"    style="height:26px;border-radius:4px;background:#0ff;cursor:pointer;border:1px solid #333;transition:transform 0.1s" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform=''"></div>
+            <div onclick="setQuickColor(255,255,255)" title="White"    style="height:26px;border-radius:4px;background:#fff;cursor:pointer;border:1px solid #555;transition:transform 0.1s" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform=''"></div>
+          </div>
+          <!-- Labels -->
+          <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-top:2px">
+            <div style="font-size:8px;color:var(--dim);text-align:center">R</div>
+            <div style="font-size:8px;color:var(--dim);text-align:center">G</div>
+            <div style="font-size:8px;color:var(--dim);text-align:center">B</div>
+            <div style="font-size:8px;color:var(--dim);text-align:center">R+B</div>
+            <div style="font-size:8px;color:var(--dim);text-align:center">R+G</div>
+            <div style="font-size:8px;color:var(--dim);text-align:center">G+B</div>
+            <div style="font-size:8px;color:var(--dim);text-align:center">W</div>
+          </div>
+        </div>
 
-    <div class="card">
-      <h2>🌊 Wave Parameters</h2>
-      <p style="color:var(--dim);font-size:12px;margin-bottom:12px">Applies to patterns #35-52 (waves-category).</p>
-      <label>Amplitude <span id="lv-amp-val" style="color:var(--accent);font-family:monospace">1.00</span></label>
-      <input type="range" id="lv-amp" min="10" max="200" value="100" oninput="liveSlider()">
-      <label>Frequency x <span id="lv-freq-val" style="color:var(--accent);font-family:monospace">1.00</span></label>
-      <input type="range" id="lv-freq" min="25" max="400" value="100" oninput="liveSlider()">
-      <div style="margin-top:12px;padding:10px;background:#000;border:1px solid var(--border);border-radius:4px;font-family:monospace;font-size:11px;color:var(--dim)">
-        API: <span style="color:var(--accent)">POST /api/preset-live</span><br>
-        {"wave_amp": 1.0, "wave_freq": 1.0}
-      </div>
-    </div>
-  </div>
+        <!-- Hidden RGB inputs (API compatibility) -->
+        <input type="hidden" id="lv-r" value="255">
+        <input type="hidden" id="lv-g" value="255">
+        <input type="hidden" id="lv-b" value="255">
+        <span id="lv-r-val" style="display:none">255</span>
+        <span id="lv-g-val" style="display:none">255</span>
+        <span id="lv-b-val" style="display:none">255</span>
 
+        <!-- Color Animations -->
+        <div style="padding:10px;background:#050510;border:1px solid var(--border);border-radius:6px">
+          <div style="font-family:monospace;font-size:10px;color:var(--accent);margin-bottom:8px">COLOR ANIMATIONS</div>
 
-  <!-- ── Countdown Timer ────────────────────────────────── -->
-  <div class="card" style="grid-column:1/-1">
-    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px">
-      <h2 style="margin:0">&#9202; Countdown Timer</h2>
-      <span id="timer-display" style="font-family:monospace;font-size:30px;color:var(--accent);letter-spacing:4px;min-width:100px;text-align:right">00:00</span>
-    </div>
+          <!-- Animation type tabs -->
+          <div style="display:flex;gap:3px;flex-wrap:wrap;margin-bottom:8px" id="anim-type-btns">
+            <button onclick="setAnimType('gradient')" id="anim-btn-gradient" class="btn secondary" style="flex:1;font-size:10px;padding:4px 2px;min-width:0">Gradient</button>
+            <button onclick="setAnimType('chase')"    id="anim-btn-chase"    class="btn secondary" style="flex:1;font-size:10px;padding:4px 2px;min-width:0">Chase</button>
+            <button onclick="setAnimType('strobe')"   id="anim-btn-strobe"   class="btn secondary" style="flex:1;font-size:10px;padding:4px 2px;min-width:0">Strobe</button>
+            <button onclick="setAnimType('pulse')"    id="anim-btn-pulse"    class="btn secondary" style="flex:1;font-size:10px;padding:4px 2px;min-width:0">Pulse</button>
+            <button onclick="setAnimType('twinkle')"  id="anim-btn-twinkle"  class="btn secondary" style="flex:1;font-size:10px;padding:4px 2px;min-width:0">Twinkle</button>
+            <button onclick="setAnimType('colorflip')"id="anim-btn-colorflip"class="btn secondary" style="flex:1;font-size:10px;padding:4px 2px;min-width:0">Flip</button>
+          </div>
 
-    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">
-      <div style="flex:1;min-width:90px">
-        <div style="font-size:11px;color:var(--dim);margin-bottom:4px">Hours</div>
-        <input type="number" id="timer-h" min="0" max="99" value="0"
-               style="width:100%" oninput="updateTimerPreview()">
-      </div>
-      <div style="flex:1;min-width:90px">
-        <div style="font-size:11px;color:var(--dim);margin-bottom:4px">Minutes</div>
-        <input type="number" id="timer-m" min="0" max="59" value="5"
-               style="width:100%" oninput="updateTimerPreview()">
-      </div>
-      <div style="flex:1;min-width:90px">
-        <div style="font-size:11px;color:var(--dim);margin-bottom:4px">Seconds</div>
-        <input type="number" id="timer-s" min="0" max="59" value="0"
-               style="width:100%" oninput="updateTimerPreview()">
-      </div>
-    </div>
+          <!-- Gradient sequence grid (shown for gradient type) -->
+          <div id="anim-panel-gradient">
+            <div id="grad-seq-grid" style="display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-bottom:8px"></div>
+          </div>
 
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
-      <button class="btn ok"        onclick="timerSet()">&#9203; Set &amp; Activate</button>
-      <button class="btn ok"        onclick="timerStart()">&#9654; Start</button>
-      <button class="btn secondary" onclick="timerPause()">&#9646;&#9646; Pause</button>
-      <button class="btn danger"    onclick="timerStop()">&#9632; Stop</button>
-      <button class="btn secondary" onclick="timerReset()">&#8634; Reset</button>
-    </div>
+          <!-- Chase: color sequence selector -->
+          <div id="anim-panel-chase" style="display:none">
+            <div style="font-size:10px;color:var(--dim);margin-bottom:5px">Color sequence for Chase</div>
+            <div id="chase-seq-grid" style="display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-bottom:8px"></div>
+          </div>
 
-    <div style="padding:10px;background:#050510;border:1px solid var(--border);border-radius:6px">
-      <div style="font-family:monospace;font-size:10px;color:var(--accent);margin-bottom:8px">ON EXPIRE</div>
-      <div style="display:flex;gap:18px;flex-wrap:wrap;margin-bottom:6px">
-        <label style="font-size:12px;cursor:pointer">
-          <input type="radio" name="timer-expire" value="none" checked> Nothing
-        </label>
-        <label style="font-size:12px;cursor:pointer">
-          <input type="radio" name="timer-expire" value="text"> Play text
-        </label>
-        <label style="font-size:12px;cursor:pointer">
-          <input type="radio" name="timer-expire" value="ilda"> Play ILDA file
-        </label>
-      </div>
-      <div id="timer-expire-text" style="display:none;margin-top:6px">
-        <input type="text" id="timer-text-msg" placeholder="Time's up!" style="width:100%">
-      </div>
-      <div id="timer-expire-ilda" style="display:none;margin-top:6px">
-        <select id="timer-ilda-file" style="width:100%">
-          <option value="">-- select ILDA file --</option>
-        </select>
-      </div>
-    </div>
+          <!-- Strobe: color picker -->
+          <div id="anim-panel-strobe" style="display:none">
+            <div style="font-size:10px;color:var(--dim);margin-bottom:5px">Strobe color</div>
+            <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px">
+              <div onclick="setStrobeColor(255,255,255)" style="width:28px;height:22px;background:#fff;border-radius:3px;cursor:pointer;border:2px solid transparent" id="sc-w"></div>
+              <div onclick="setStrobeColor(255,0,0)"     style="width:28px;height:22px;background:#f00;border-radius:3px;cursor:pointer;border:2px solid transparent" id="sc-r"></div>
+              <div onclick="setStrobeColor(0,255,0)"     style="width:28px;height:22px;background:#0f0;border-radius:3px;cursor:pointer;border:2px solid transparent" id="sc-g"></div>
+              <div onclick="setStrobeColor(0,0,255)"     style="width:28px;height:22px;background:#00f;border-radius:3px;cursor:pointer;border:2px solid transparent" id="sc-b"></div>
+              <div onclick="setStrobeColor(255,0,255)"   style="width:28px;height:22px;background:#f0f;border-radius:3px;cursor:pointer;border:2px solid transparent" id="sc-m"></div>
+              <div onclick="setStrobeColor(0,255,255)"   style="width:28px;height:22px;background:#0ff;border-radius:3px;cursor:pointer;border:2px solid transparent" id="sc-c"></div>
+              <div onclick="setStrobeColor(255,255,0)"   style="width:28px;height:22px;background:#ff0;border-radius:3px;cursor:pointer;border:2px solid transparent" id="sc-y"></div>
+            </div>
+          </div>
 
-      </div>
+          <!-- Pulse: color -->
+          <div id="anim-panel-pulse" style="display:none">
+            <div style="font-size:10px;color:var(--dim);margin-bottom:5px">Pulse color</div>
+            <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px">
+              <div onclick="setPulseColor(255,255,255)" style="width:28px;height:22px;background:#fff;border-radius:3px;cursor:pointer;border:2px solid transparent" id="pc-w"></div>
+              <div onclick="setPulseColor(255,0,0)"     style="width:28px;height:22px;background:#f00;border-radius:3px;cursor:pointer;border:2px solid transparent" id="pc-r"></div>
+              <div onclick="setPulseColor(0,255,0)"     style="width:28px;height:22px;background:#0f0;border-radius:3px;cursor:pointer;border:2px solid transparent" id="pc-g"></div>
+              <div onclick="setPulseColor(0,0,255)"     style="width:28px;height:22px;background:#00f;border-radius:3px;cursor:pointer;border:2px solid transparent" id="pc-b"></div>
+              <div onclick="setPulseColor(255,0,255)"   style="width:28px;height:22px;background:#f0f;border-radius:3px;cursor:pointer;border:2px solid transparent" id="pc-m"></div>
+              <div onclick="setPulseColor(0,255,255)"   style="width:28px;height:22px;background:#0ff;border-radius:3px;cursor:pointer;border:2px solid transparent" id="pc-c"></div>
+              <div onclick="setPulseColor(255,200,0)"   style="width:28px;height:22px;background:#fc0;border-radius:3px;cursor:pointer;border:2px solid transparent" id="pc-y"></div>
+            </div>
+          </div>
+
+          <!-- Twinkle / ColorFlip: no extra config needed -->
+          <div id="anim-panel-twinkle"   style="display:none">
+            <div style="font-size:10px;color:var(--dim);margin-bottom:8px">Random brightness spikes on current color — simulates spark/glitter effect.</div>
+          </div>
+          <div id="anim-panel-colorflip" style="display:none">
+            <div style="font-size:10px;color:var(--dim);margin-bottom:8px">Hard cuts between R, G, B, W at the set speed.</div>
+          </div>
+
+          <!-- Speed + Direction (shared) -->
+          <div style="margin-bottom:6px">
+            <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:3px">
+              <span>Speed</span><span id="grad-speed-val" style="color:var(--accent);font-family:monospace">50</span>
+            </div>
+            <input type="range" id="grad-speed" min="0" max="100" value="50"
+              oninput="document.getElementById('grad-speed-val').textContent=this.value;applyGradient()">
+          </div>
+          <div style="display:flex;gap:10px;margin-bottom:8px" id="anim-dir-row">
+            <label style="font-size:11px;cursor:pointer"><input type="radio" name="grad-dir" value="1"  checked onchange="applyGradient()"> → Fwd</label>
+            <label style="font-size:11px;cursor:pointer"><input type="radio" name="grad-dir" value="-1"        onchange="applyGradient()"> ← Rev</label>
+          </div>
+          <button class="btn secondary" onclick="stopGradient()" style="width:100%;font-size:11px;padding:5px">⏹ Stop Animation</button>
+        </div>
+
+      </div><!-- /Color card -->
+
+    </div><!-- /col3 -->
+
+  </div><!-- /3-col grid -->
 
 </section>
 
@@ -3349,6 +3461,7 @@ function resetLiveControls() {
     var bEl = document.getElementById('lv-brightness');
     if (bEl) { bEl.value = 255; if (typeof colorWheelBrightness === 'function') colorWheelBrightness(255); }
     if (typeof drawWheel === 'function') drawWheel();
+    if (typeof stopGradient === 'function') stopGradient();
     liveSlider();
 }
 
@@ -4527,6 +4640,25 @@ function openPreviewWindow() {
     drawWheel();
     applyWheelColor();
   };
+  // Allow external code to update wheel cursor position (e.g. quick color buttons)
+  window._cwSetState = function(h, s, v) {
+    cwH = h; cwS = s; cwV = v;
+    // Reposition cursor
+    var canvas = document.getElementById('lv-color-wheel');
+    if (!canvas) return;
+    var cx = canvas.width/2, r = cx - 2;
+    var rad = h * Math.PI / 180;
+    var dist = (s / 100) * r;
+    var cur = document.getElementById('lv-wheel-cursor');
+    if (cur) {
+      cur.style.left = (cx + Math.cos(rad) * dist) + 'px';
+      cur.style.top  = (cx + Math.sin(rad) * dist) + 'px';
+    }
+    // Sync brightness slider
+    var bEl = document.getElementById('lv-brightness');
+    if (bEl) bEl.value = v;
+    drawWheel();
+  };
 
   // Init wheel when DOM is ready
   document.addEventListener('DOMContentLoaded', function() {
@@ -4535,6 +4667,361 @@ function openPreviewWindow() {
     var obs = new MutationObserver(function() {
       var tab = document.getElementById('tab-presets');
       if (tab && tab.classList.contains('active')) drawWheel();
+    });
+    var presets = document.getElementById('tab-presets');
+    if (presets) obs.observe(presets, { attributes: true });
+  });
+})();
+
+
+// ── Color Animation Engine ────────────────────────────────────────────────────
+(function() {
+  // ── Gradient sequences ───────────────────────────────────────────────────
+  var GRADIENTS = [
+    { name:'Rainbow', stops:[[255,0,0],[255,128,0],[255,255,0],[0,255,0],[0,200,255],[128,0,255]] },
+    { name:'Fire',    stops:[[255,0,0],[255,80,0],[255,200,0],[255,255,80]] },
+    { name:'Ocean',   stops:[[0,0,80],[0,80,200],[0,200,255],[80,255,255]] },
+    { name:'Neon',    stops:[[255,0,128],[128,0,255],[0,255,200],[255,255,0]] },
+    { name:'Sunset',  stops:[[80,0,40],[200,0,80],[255,80,0],[255,200,0]] },
+    { name:'Forest',  stops:[[0,40,0],[0,128,40],[80,255,80],[200,255,100]] },
+    { name:'Ice',     stops:[[200,230,255],[100,180,255],[40,100,200],[200,230,255]] },
+    { name:'Lava',    stops:[[80,0,0],[255,0,0],[255,80,0],[255,255,0],[255,0,0]] },
+    { name:'Candy',   stops:[[255,100,200],[200,100,255],[100,200,255],[255,255,100]] },
+    { name:'Mono',    stops:[[0,0,0],[255,255,255],[0,0,0]] },
+  ];
+
+  // Chase sequences: hard-step color cycles
+  var CHASE_SEQS = [
+    { name:'RGB',    colors:[[255,0,0],[0,255,0],[0,0,255]] },
+    { name:'RGBW',   colors:[[255,0,0],[0,255,0],[0,0,255],[255,255,255]] },
+    { name:'CMY',    colors:[[0,255,255],[255,0,255],[255,255,0]] },
+    { name:'Pastel', colors:[[255,150,150],[150,255,150],[150,150,255],[255,255,150]] },
+    { name:'Hot',    colors:[[255,0,0],[255,80,0],[255,200,0],[255,255,255]] },
+    { name:'Cold',   colors:[[0,0,255],[0,100,255],[0,200,255],[200,230,255]] },
+    { name:'Party',  colors:[[255,0,0],[255,128,0],[255,255,0],[0,255,0],[0,0,255],[128,0,255]] },
+    { name:'BW',     colors:[[255,255,255],[0,0,0]] },
+    { name:'RB',     colors:[[255,0,0],[0,0,255]] },
+    { name:'RGW',    colors:[[255,0,0],[0,255,0],[255,255,255]] },
+  ];
+
+  // ── State ─────────────────────────────────────────────────────────────────
+  var s_gradActive   = -1;
+  var s_chaseActive  = -1;
+  var s_chaseStep    = 0;
+  var s_animType     = 'gradient';
+  var s_gradPhase    = 0;
+  var s_gradTimer    = null;
+  var s_strobeOn     = false;
+  var s_strobeColor  = [255,255,255];
+  var s_pulsePhase   = 0;
+  var s_pulseColor   = [255,0,255];
+  var s_twinkleVal   = 200;
+  var s_twinkleTgt   = 200;
+  var s_flipStep     = 0;
+  var FLIP_COLORS    = [[255,0,0],[0,255,0],[0,0,255],[255,255,255]];
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
+  function getSpeed() {
+    var el = document.getElementById('grad-speed');
+    return el ? (+el.value / 100) : 0.5;
+  }
+  function getDir() {
+    var el = document.querySelector('input[name="grad-dir"]:checked');
+    return el ? +el.value : 1;
+  }
+
+  function sendRGB(r, g, b) {
+    var er = document.getElementById('lv-r');
+    var eg = document.getElementById('lv-g');
+    var eb = document.getElementById('lv-b');
+    if (er) er.value = r;
+    if (eg) eg.value = g;
+    if (eb) eb.value = b;
+    var preview = document.getElementById('lv-col-preview');
+    var hexEl   = document.getElementById('lv-col-hex');
+    if (preview) preview.style.background = 'rgb('+r+','+g+','+b+')';
+    if (hexEl) hexEl.textContent = '#' +
+      ('0'+r.toString(16)).slice(-2) +
+      ('0'+g.toString(16)).slice(-2) +
+      ('0'+b.toString(16)).slice(-2);
+    var colOn = document.getElementById('lv-col-on');
+    if (colOn && !colOn.checked) colOn.checked = true;
+    if (typeof liveSlider === 'function') liveSlider();
+  }
+
+  function lerpColor(stops, t) {
+    t = ((t % 1) + 1) % 1;
+    var n = stops.length - 1;
+    var seg = t * n;
+    var i = Math.floor(seg);
+    var f = seg - i;
+    if (i >= n) { i = n-1; f = 1; }
+    var a = stops[i], b = stops[i+1];
+    return [
+      Math.round(a[0] + (b[0]-a[0])*f),
+      Math.round(a[1] + (b[1]-a[1])*f),
+      Math.round(a[2] + (b[2]-a[2])*f)
+    ];
+  }
+
+  // ── Tick functions ────────────────────────────────────────────────────────
+  function tickGradient() {
+    var g = GRADIENTS[s_gradActive];
+    if (!g) return;
+    s_gradPhase = ((s_gradPhase + getDir() * getSpeed() * 0.002) + 10) % 1;
+    var rgb = lerpColor(g.stops, s_gradPhase);
+    sendRGB(rgb[0], rgb[1], rgb[2]);
+  }
+
+  function tickChase() {
+    var seq = CHASE_SEQS[s_chaseActive];
+    if (!seq) return;
+    var c = seq.colors[s_chaseStep % seq.colors.length];
+    sendRGB(c[0], c[1], c[2]);
+    var dir = getDir() > 0 ? 1 : -1;
+    s_chaseStep = ((s_chaseStep + dir) + seq.colors.length * 100) % seq.colors.length;
+  }
+
+  function tickStrobe() {
+    s_strobeOn = !s_strobeOn;
+    if (s_strobeOn) sendRGB(s_strobeColor[0], s_strobeColor[1], s_strobeColor[2]);
+    else            sendRGB(0, 0, 0);
+  }
+
+  function tickPulse() {
+    s_pulsePhase = (s_pulsePhase + getSpeed() * 0.05) % (Math.PI * 2);
+    var v = Math.sin(s_pulsePhase) * 0.5 + 0.5;
+    sendRGB(Math.round(s_pulseColor[0]*v), Math.round(s_pulseColor[1]*v), Math.round(s_pulseColor[2]*v));
+  }
+
+  function tickTwinkle() {
+    if (Math.abs(s_twinkleVal - s_twinkleTgt) < 8) {
+      s_twinkleTgt = Math.random() > 0.7
+        ? Math.round(Math.random() * 255)
+        : Math.round(100 + Math.random() * 155);
+    }
+    s_twinkleVal += (s_twinkleTgt - s_twinkleVal) * 0.3;
+    var v = Math.round(s_twinkleVal) / 255;
+    var br = +(document.getElementById('lv-r') || {value:255}).value;
+    var bg = +(document.getElementById('lv-g') || {value:255}).value;
+    var bb = +(document.getElementById('lv-b') || {value:255}).value;
+    sendRGB(Math.round(br*v), Math.round(bg*v), Math.round(bb*v));
+  }
+
+  function tickColorFlip() {
+    var c = FLIP_COLORS[s_flipStep % FLIP_COLORS.length];
+    sendRGB(c[0], c[1], c[2]);
+    s_flipStep++;
+  }
+
+  // ── Timer management ──────────────────────────────────────────────────────
+  function getInterval() {
+    var spd = getSpeed();
+    if (s_animType === 'strobe')    return Math.max(20,  Math.round(500 - spd * 480));
+    if (s_animType === 'chase')     return Math.max(50,  Math.round(2000 - spd * 1950));
+    if (s_animType === 'colorflip') return Math.max(50,  Math.round(2000 - spd * 1950));
+    return 40; // gradient, pulse, twinkle
+  }
+
+  function getTickFn() {
+    if (s_animType === 'gradient')  return tickGradient;
+    if (s_animType === 'chase')     return tickChase;
+    if (s_animType === 'strobe')    return tickStrobe;
+    if (s_animType === 'pulse')     return tickPulse;
+    if (s_animType === 'twinkle')   return tickTwinkle;
+    if (s_animType === 'colorflip') return tickColorFlip;
+    return tickGradient;
+  }
+
+  function startTimer() {
+    if (s_gradTimer) clearInterval(s_gradTimer);
+    s_gradTimer = setInterval(getTickFn(), getInterval());
+  }
+
+  // ── Grid builders ─────────────────────────────────────────────────────────
+  function buildGradientGrid() {
+    var grid = document.getElementById('grad-seq-grid');
+    if (!grid) return;
+    grid.innerHTML = GRADIENTS.map(function(g, i) {
+      var cs = g.stops.map(function(c){ return 'rgb('+c[0]+','+c[1]+','+c[2]+')'; }).join(',');
+      var active = (i === s_gradActive && s_animType === 'gradient');
+      return '<div onclick="window.selectGradient('+i+')" title="'+g.name+'" style="'+
+        'height:26px;border-radius:4px;cursor:pointer;'+
+        'background:linear-gradient(90deg,'+cs+');'+
+        'border:2px solid '+(active?'var(--accent)':'transparent')+';'+
+        'box-shadow:'+(active?'0 0 6px var(--accent)':'none')+'">' +
+        '<div style="font-size:8px;color:rgba(255,255,255,0.85);text-align:center;line-height:24px;text-shadow:0 0 3px #000">'+g.name+'</div></div>';
+    }).join('');
+  }
+
+  function buildChaseGrid() {
+    var grid = document.getElementById('chase-seq-grid');
+    if (!grid) return;
+    grid.innerHTML = CHASE_SEQS.map(function(s, i) {
+      var cs = s.colors.map(function(c){ return 'rgb('+c[0]+','+c[1]+','+c[2]+')'; }).join(',');
+      var active = (i === s_chaseActive && s_animType === 'chase');
+      return '<div onclick="window.selectChase('+i+')" title="'+s.name+'" style="'+
+        'height:26px;border-radius:4px;cursor:pointer;'+
+        'background:linear-gradient(90deg,'+cs+');'+
+        'border:2px solid '+(active?'var(--accent)':'transparent')+'">' +
+        '<div style="font-size:8px;color:rgba(255,255,255,0.85);text-align:center;line-height:24px;text-shadow:0 0 3px #000">'+s.name+'</div></div>';
+    }).join('');
+  }
+
+  // ── UI helpers ────────────────────────────────────────────────────────────
+  function highlightTypeBtn() {
+    ['gradient','chase','strobe','pulse','twinkle','colorflip'].forEach(function(t) {
+      var btn = document.getElementById('anim-btn-'+t);
+      if (!btn) return;
+      var isActive = (t === s_animType) && s_gradTimer;
+      btn.style.background  = isActive ? 'var(--accent)' : '';
+      btn.style.color       = isActive ? '#fff' : '';
+      btn.style.borderColor = isActive ? 'var(--accent)' : '';
+    });
+    var dirRow = document.getElementById('anim-dir-row');
+    if (dirRow) dirRow.style.display =
+      (s_animType==='strobe'||s_animType==='colorflip'||s_animType==='pulse'||s_animType==='twinkle') ? 'none' : 'flex';
+  }
+
+  function showPanel(type) {
+    ['gradient','chase','strobe','pulse','twinkle','colorflip'].forEach(function(t) {
+      var p = document.getElementById('anim-panel-'+t);
+      if (p) p.style.display = (t === type) ? '' : 'none';
+    });
+  }
+
+  // ── Public API ────────────────────────────────────────────────────────────
+  window.setAnimType = function(type) {
+    s_animType = type;
+    if (type !== 'gradient') s_gradActive = -1;
+    if (type !== 'chase')    s_chaseActive = -1;
+    // Stateless types start immediately
+    if (type === 'strobe' || type === 'pulse' || type === 'twinkle' || type === 'colorflip') {
+      s_pulsePhase=0; s_flipStep=0; s_strobeOn=false; s_twinkleVal=200; s_twinkleTgt=200;
+      startTimer();
+    } else {
+      if (s_gradTimer) { clearInterval(s_gradTimer); s_gradTimer=null; }
+    }
+    highlightTypeBtn(); showPanel(type); buildGradientGrid(); buildChaseGrid();
+  };
+
+  window.selectGradient = function(idx) {
+    if (s_gradActive===idx && s_animType==='gradient' && s_gradTimer) { window.stopGradient(); return; }
+    s_animType='gradient'; s_gradActive=idx; s_gradPhase=0;
+    highlightTypeBtn(); showPanel('gradient'); buildGradientGrid(); startTimer();
+  };
+
+  window.selectChase = function(idx) {
+    if (s_chaseActive===idx && s_animType==='chase' && s_gradTimer) { window.stopGradient(); return; }
+    s_animType='chase'; s_chaseActive=idx; s_chaseStep=0;
+    highlightTypeBtn(); showPanel('chase'); buildChaseGrid(); startTimer();
+  };
+
+  window.setStrobeColor = function(r,g,b) {
+    s_strobeColor=[r,g,b];
+    var map={'sc-w':[255,255,255],'sc-r':[255,0,0],'sc-g':[0,255,0],'sc-b':[0,0,255],'sc-m':[255,0,255],'sc-c':[0,255,255],'sc-y':[255,255,0]};
+    Object.keys(map).forEach(function(id){
+      var el=document.getElementById(id);
+      if(el) el.style.borderColor=(map[id][0]===r&&map[id][1]===g&&map[id][2]===b)?'var(--accent)':'transparent';
+    });
+  };
+
+  window.setPulseColor = function(r,g,b) {
+    s_pulseColor=[r,g,b];
+    var map={'pc-w':[255,255,255],'pc-r':[255,0,0],'pc-g':[0,255,0],'pc-b':[0,0,255],'pc-m':[255,0,255],'pc-c':[0,255,255],'pc-y':[255,200,0]};
+    Object.keys(map).forEach(function(id){
+      var el=document.getElementById(id);
+      if(el) el.style.borderColor=(map[id][0]===r&&map[id][1]===g&&map[id][2]===b)?'var(--accent)':'transparent';
+    });
+  };
+
+  window.stopGradient = function() {
+    s_gradActive=-1; s_chaseActive=-1;
+    if (s_gradTimer) { clearInterval(s_gradTimer); s_gradTimer=null; }
+    buildGradientGrid(); buildChaseGrid(); highlightTypeBtn();
+  };
+
+  window.applyGradient = function() {
+    if (s_gradTimer && (s_animType==='strobe'||s_animType==='chase'||s_animType==='colorflip')) startTimer();
+  };
+
+  // Quick-color helper: set wheel + hidden inputs + send
+  window.setQuickColor = function(r, g, b) {
+    window.stopGradient();
+
+    // Write hidden inputs
+    // Stop any running gradient
+    if (s_gradActive >= 0) window.stopGradient();
+
+    // Write hidden inputs
+    var er = document.getElementById('lv-r');
+    var eg = document.getElementById('lv-g');
+    var eb = document.getElementById('lv-b');
+    if (er) er.value = r;
+    if (eg) eg.value = g;
+    if (eb) eb.value = b;
+
+    // Sync value spans
+    var sr = document.getElementById('lv-r-val');
+    var sg = document.getElementById('lv-g-val');
+    var sb = document.getElementById('lv-b-val');
+    if (sr) sr.textContent = r;
+    if (sg) sg.textContent = g;
+    if (sb) sb.textContent = b;
+
+    // Update preview + hex
+    var preview = document.getElementById('lv-col-preview');
+    var hexEl   = document.getElementById('lv-col-hex');
+    var css = 'rgb('+r+','+g+','+b+')';
+    if (preview) preview.style.background = css;
+    if (hexEl) hexEl.textContent = '#' +
+      ('0'+r.toString(16)).slice(-2) +
+      ('0'+g.toString(16)).slice(-2) +
+      ('0'+b.toString(16)).slice(-2);
+
+    // Apply current brightness scaling to wheel state
+    // Convert RGB back to HSV for wheel cursor position
+    var rn = r/255, gn = g/255, bn = b/255;
+    var max = Math.max(rn,gn,bn), min = Math.min(rn,gn,bn), d = max-min;
+    var h = 0, s = max === 0 ? 0 : d/max * 100, v = max * 255;
+    if (d > 0) {
+      if      (max === rn) h = 60 * (((gn-bn)/d) % 6);
+      else if (max === gn) h = 60 * (((bn-rn)/d) + 2);
+      else                 h = 60 * (((rn-gn)/d) + 4);
+      if (h < 0) h += 360;
+    }
+    // Update internal wheel state via exposed globals
+    if (typeof window._cwSetState === 'function') window._cwSetState(h, s, v);
+
+    // Enable color override and send
+    var colOn = document.getElementById('lv-col-on');
+    if (colOn && !colOn.checked) colOn.checked = true;
+    if (typeof liveSlider === 'function') liveSlider();
+  };
+
+  document.addEventListener('DOMContentLoaded', function() {
+    buildGradientGrid();
+    // Rebuild grid when presets tab becomes visible
+    var obs = new MutationObserver(function() {
+      var tab = document.getElementById('tab-presets');
+      if (tab && tab.classList.contains('active')) buildGradientGrid();
+    });
+    var presets = document.getElementById('tab-presets');
+    if (presets) obs.observe(presets, { attributes: true });
+  });
+})();
+
+
+  document.addEventListener('DOMContentLoaded', function() {
+    showPanel('gradient');
+    highlightTypeBtn();
+    buildGradientGrid();
+    buildChaseGrid();
+    var obs = new MutationObserver(function() {
+      var tab = document.getElementById('tab-presets');
+      if (tab && tab.classList.contains('active')) {
+        buildGradientGrid(); buildChaseGrid(); highlightTypeBtn();
+      }
     });
     var presets = document.getElementById('tab-presets');
     if (presets) obs.observe(presets, { attributes: true });
