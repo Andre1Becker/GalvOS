@@ -680,6 +680,8 @@ void applyCalibration(LaserPoint* pts, size_t n) {
 
 // ── Hardware debug API ────────────────────────────────────────────────────
 void setDebugOutput(int16_t x, int16_t y, uint8_t r, uint8_t g, uint8_t b) {
+    if (gConfig.invert_x) x = -x;
+    if (gConfig.invert_y) y = -y;
     s_dbg_x = x; s_dbg_y = y;
     s_dbg_r = r; s_dbg_g = g; s_dbg_b = b;
     // RELEASE: ensure all five fields are committed before galvoTask (Core 1)
