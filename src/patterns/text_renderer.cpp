@@ -5,6 +5,9 @@
  *   - Blanking between letters: explicit blank point after each glyph
  */
 #include "text_renderer.h"
+#include "text_renderer.h"
+#include "point_optimizer.h"
+#include "preset_patterns.h"
 #include <math.h>
 #include <string.h>
 #include <Arduino.h>
@@ -122,52 +125,47 @@ static GlyphResult renderGlyph(LaserPoint* out, size_t& n, size_t max,
                                  uint8_t r, uint8_t g, uint8_t b,
                                  float bold_offset = 0.f) {
     GlyphResult res = {ox, oy, false};
-    bool pen_up = true;
+
+    // Build PathVertex array from stroke data, split at PU into segments
+    optimizer::PathVertex verts[64];
+    optimizer::PathSegment segs[16];
+    int nsegs = 0, nverts = 0;
+    int seg_start = 0;
 
     for (int i = 0; ; i += 2) {
         int8_t sx = strokes[i];
-        if (sx == EN) break;
-        int8_t sy = strokes[i+1];
-        if (sx == PU) { pen_up = true; continue; }
-
-        float x = ox + sx * sc;
-        float y = oy + sy * sc;
-
-        if (!pen_up && res.had_points) {
-            // Interpolate from last point to current
-            float dx = x - res.last_x, dy = y - res.last_y;
-            float dist = sqrtf(dx*dx + dy*dy);
-            int steps = (int)(dist / 2000.f);  // one point per 800 DAC-units
-            if (steps > 1) {
-                for (int s = 1; s < steps && n < max; s++) {
-                    float t = (float)s / steps;
-                    addPt(out, n, max, res.last_x + dx*t, res.last_y + dy*t, r, g, b, 0);
-                }
+        if (sx == EN) {
+            if (nverts > seg_start) {
+                segs[nsegs++] = optimizer::PathSegment(&verts[seg_start], nverts - seg_start, false);
             }
+            break;
         }
-        addPt(out, n, max, x, y, r, g, b, pen_up ? 1 : 0);
-        // for Debugging text ESP_LOGI("TXT", "pt sx=%d sy=%d x=%.0f y=%.0f blank=%d", sx, sy, x, y, pen_up?1:0);
-        // Bold is rendered as a second offset pass after the glyph — see below
-        pen_up = false;
-        res.last_x = x;
-        res.last_y = y;
-        res.had_points = true;
+        int8_t sy = strokes[i+1];
+        if (sx == PU) {
+            if (nverts > seg_start) {
+                segs[nsegs++] = optimizer::PathSegment(&verts[seg_start], nverts - seg_start, false);
+                seg_start = nverts;
+            }
+            continue;
+        }
+        if (nverts >= 64) break;
+        verts[nverts].x = ox + sx * sc;
+        verts[nverts].y = oy + sy * sc;
+        verts[nverts].r = r; verts[nverts].g = g; verts[nverts].b = b;
+        verts[nverts].lift = false;
+        if (nverts == seg_start) verts[nverts].lift = true; // first point of segment = blank-jump
+        nverts++;
     }
 
-    // Bold second pass: repeat glyph slightly offset (clean separate path)
-    if (bold_offset > 0.f && res.had_points) {
-        bool pen2 = true;
-        for (int i = 0; ; i += 2) {
-            int8_t sx = strokes[i];
-            if (sx == EN) break;
-            int8_t sy = strokes[i+1];
-            if (sx == PU) { pen2 = true; continue; }
-            if (n >= max) break;
-            float x2 = ox + sx * sc + bold_offset;
-            float y2 = oy + sy * sc + bold_offset * 0.3f;
-            addPt(out, n, max, x2, y2, r, g, b, pen2 ? 1 : 0);
-            pen2 = false;
-        }
+    if (nsegs == 0) return res;
+
+    size_t before = n;
+    n += optimizer::optimize(segs, nsegs, out + n, max - n, presets::liveOptimizerConfig());
+
+    if (n > before) {
+        res.last_x = out[n-1].x;
+        res.last_y = out[n-1].y;
+        res.had_points = true;
     }
 
     return res;
