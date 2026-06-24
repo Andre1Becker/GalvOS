@@ -72,7 +72,7 @@ enum DmxChannel : uint8_t {
 };
 
 // DMX channel names (for WebUI and documentation)
-static const char* DMX_CHANNEL_NAMES[22] = {
+static const char* DMX_CHANNEL_NAMES[25] = {
     "Master Dimmer",        // 1
     "Color Preset",          // 2
     "Color Speed",           // 3
