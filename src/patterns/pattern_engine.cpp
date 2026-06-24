@@ -326,12 +326,19 @@ void setCurve(int8_t idx) {
 int8_t getCurve() { return gCurves.active_curve; }
 
 void triggerTestPattern(const char* name) {
+    if (strcmp(name, "ilda") == 0) {
+        s_test_pattern = -1;
+        gState.calib_active = true;
+        gState.calib_idx    = 12;
+        gState.calib_bright = 128;
+        gState.ui_master_dimmer.store(200);
+        return;
+    }
     int id = -1;
     if      (strcmp(name, "center") == 0) id = 0;
     else if (strcmp(name, "cross")  == 0) id = 1;
     else if (strcmp(name, "square") == 0) id = 2;
     else if (strcmp(name, "circle") == 0) id = 3;
-    else if (strcmp(name, "ilda")   == 0) id = 4;
     s_test_pattern = id;
     s_test_started = millis();
 }
