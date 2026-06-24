@@ -935,9 +935,6 @@
       <button class="btn secondary" onclick="testPattern('blue')">🔵 Blue only</button>
       <button class="btn secondary" onclick="testPattern('white')">⬜ White</button>
       <button class="btn danger"    onclick="testPattern('off')">⬛ Laser off</button>
-    </div>
-
-
     <div class="card">
       <h2>🎨 Color Override</h2>
       <p style="color:var(--dim);font-size:12px;margin-bottom:12px">
@@ -1042,7 +1039,7 @@
       </div>
       <div id="hw-debug-status" style="font-family:monospace;font-size:11px;color:var(--dim);min-height:16px"></div>
     </div>
-
+  </div>
   </div>
 </section>
 
@@ -1858,13 +1855,15 @@ function handleStateUpdate(s) {
   // Telemetry
   const srcNames = ['--', 'DMX', 'Art-Net', 'Ether Dream', 'Helios USB', 'Internal', 'WebUI'];
   setText('v-source', srcNames[s.source] || '?');
-  setText('v-dim', s.master_dimmer + ' / 255');
-  setText('v-dmxcount', s.dmx_frame_count);
-  setText('v-pps', s.points_per_sec.toLocaleString() + ' pps');
-  const ppsPct = Math.min(100, (s.points_per_sec / 50000) * 100);
-  document.getElementById('pps-bar-fill').style.width = ppsPct + '%';
-  setText('v-buf', s.buffer_fill + ' %');
-  setText('v-lastdmx', s.last_dmx_age_ms === null ? 'never' : s.last_dmx_age_ms + ' ms');
+  setText('v-dim', s.master_dimmer != null ? s.master_dimmer + ' / 255' : '--');
+  setText('v-dmxcount', s.dmx_frame_count != null ? s.dmx_frame_count : '--');
+  const pps = s.points_per_sec || 0;
+  setText('v-pps', pps.toLocaleString() + ' pps');
+  const ppsPct = Math.min(100, (pps / 50000) * 100);
+  const ppsBar = document.getElementById('pps-bar-fill');
+  if (ppsBar) ppsBar.style.width = ppsPct + '%';
+  setText('v-buf', s.buffer_fill != null ? s.buffer_fill + ' %' : '--');
+  setText('v-lastdmx', s.last_dmx_age_ms == null ? 'never' : s.last_dmx_age_ms + ' ms');
 
   // System
   setText('v-host',   s.hostname || '--');
@@ -5395,7 +5394,7 @@ let calibActiveIdx=-1,calibPatterns=[];
 async function calibPlay(idx){calibActiveIdx=idx;calibPatterns=calibPatterns||[];await calibSend();document.getElementById('calib-status').textContent='▶ Pattern '+idx;loadCalibPatterns();}
 async function calibSend(){await apiCall('POST','/api/calib-pattern',{active:calibActiveIdx>=0,idx:Math.max(0,calibActiveIdx),bright:+document.getElementById('cp-bright').value,channel:+document.getElementById('cp-ch').value});}
 async function calibStop(){calibActiveIdx=-1;await apiCall('POST','/api/calib-pattern/stop');document.getElementById('calib-status').textContent='No calibration pattern active';loadCalibPatterns();}
-async function ildaTestPlay(){const size=+document.getElementById('ilda-size').value;await apiCall('POST','/api/calib-pattern',{active:true,idx:12,bright:200,channel:size});
+async function ildaTestPlay(){const size=+document.getElementById('ilda-size').value;await apiCall('POST','/api/calib-pattern',{active:true,idx:12,bright:200,channel:size});}
 async function ildaTestStop(){await apiCall('POST','/api/calib-pattern/stop');document.getElementById('ilda-status').textContent='Pattern inactive';if(document.getElementById('btn-ilda-play'))document.getElementById('btn-ilda-play').style.opacity='1';}
 async function ildaTestSend(){if(document.getElementById('ilda-status').textContent.startsWith('▶')){await ildaTestPlay();}}
 document.querySelectorAll('[data-tab]').forEach(btn=>{btn.addEventListener('click',()=>{
