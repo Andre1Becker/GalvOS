@@ -24,7 +24,8 @@ static volatile int8_t   s_preset_idx    = -1;  // -1 = no Preset active
 
 void setPreset(int8_t idx) {
     s_preset_idx = (idx >= 0 && idx < (int8_t)presets::PRESET_COUNT) ? idx : -1;
-    s_test_pattern = -1;  // cancel any running hw test pattern
+    s_test_pattern = -1;
+    gState.calib_active = false;
 }
 int8_t getPreset() { return s_preset_idx; }
 
