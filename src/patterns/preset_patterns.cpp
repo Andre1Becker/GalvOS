@@ -851,7 +851,7 @@ static size_t p90(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     size_t n=0;
     int nStars   = 20 + (int)(sz / 255.f * 80.f);   // 20..100 stars
     const float baseSpd = 0.3f + (sp / 255.f) * 4.7f;
-    // DWELL FIX (v5.4): dwell is a SETTLE TIME, not a fixed tick count.
+   // DWELL FIX (v5.4): dwell is a SETTLE TIME, not a fixed tick count.
     // One tick lasts 1/kpps seconds (33us @ 30kpps, 83us @ 12kpps, 17us @ 60kpps),
     // but galvo mechanical settle (~120us) is time-constant. A fixed dwell of 3
     // ticks therefore over-dwells at low kpps (wastes budget) and under-dwells at
@@ -861,12 +861,22 @@ static size_t p90(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     const float tick_us = 1000000.f / ((float)kpps * 1000.f);
     int dwell = (int)ceilf(120.f / tick_us);          // ~120us settle
     if (dwell < 3) dwell = 3;
-    // Frame budget: nStars*(1 blank + dwell) must stay within both the buffer
-    // and the flicker cap (~max_pts_per_frame). Reduce star count if needed so
-    // the frame still refreshes above flicker-fusion at the current kpps.
+    // BLANK-SETTLE FIX (v5.5): a single blank tick is not enough for the galvo
+    // to traverse a long jump between two stars -- the lit dwell then starts
+    // while the mirror is still in flight, drawing a visible streak toward the
+    // star. Emit blank_settle ticks (laser OFF, target parked) BEFORE the lit
+    // dwell so the mirror has time to arrive. Sized from the same ~120us
+    // mechanical settle constant as dwell. Jumps are also minimized by sorting
+    // stars top->bottom (see below) so the galvo travels monotonically downward
+    // instead of jumping randomly across the field.
+    int blank_settle = (int)ceilf(120.f / tick_us);
+    if (blank_settle < 3) blank_settle = 3;
+    // Frame budget: nStars*(blank_settle + dwell) must stay within both the
+    // buffer and the flicker cap (~max_pts_per_frame). Reduce star count if
+    // needed so the frame still refreshes above flicker-fusion at current kpps.
     const size_t budget = (m < (size_t)gOptimizerConfig.max_pts_per_frame)
                               ? m : (size_t)gOptimizerConfig.max_pts_per_frame;
-    int per_star = 1 + dwell;
+    int per_star = blank_settle + dwell;
     if ((size_t)(nStars * per_star) > budget) {
         nStars = (int)(budget / per_star);
         if (nStars < 1) nStars = 1;
@@ -875,22 +885,41 @@ static size_t p90(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
         float x = sinf((float)seed * 127.1f + 1.f) * 43758.5453f;
         return x - floorf(x);
     };
-    for (int i = 0; i < nStars; i++) {
+    // Collect currently-visible stars, then sort top->bottom to minimize galvo
+    // jump distance. Random X stays (field looks random) but emission order is
+    // monotonic in Y, so the mirror sweeps downward instead of darting around.
+    struct Star { float x, y; uint8_t r, g, b; };
+    static Star stars[128];
+    int ns = 0;
+    for (int i = 0; i < nStars && ns < 128; i++) {
         const float xPos  = (fr(i * 7)  * 2.f - 1.f) * SC * 0.95f;
         const float iSpd  = baseSpd * (0.3f + fr(i * 3) * 1.4f);
         const float off   = fr(i * 5) * 2.2f;
         const float yNorm = 1.1f - fmodf(ph * iSpd * 0.0004f + off, 2.2f);
         if (yNorm < -1.1f || yNorm > 1.1f) continue;
-        const float yPos  = yNorm * SC * 0.95f;
         const int period  = (int)(ph * iSpd * 0.0004f);
         const uint8_t bright = (uint8_t)(80 + (int)(fr(i * 2 + period) * 175.f));
         const uint8_t blue   = (uint8_t)fminf(255.f, bright + 60.f);
-        // blank-move to star position (laser off, galvo travels)
-        ap(o, n, m, xPos, yPos, 0, 0, 0, 1);
-        // dwell: multiple lit ticks at same position -- galvo settles,
-        // eye integrates enough brightness to see the dot clearly
+        stars[ns].x = xPos;
+        stars[ns].y = yNorm * SC * 0.95f;
+        stars[ns].r = bright; stars[ns].g = bright; stars[ns].b = blue;
+        ns++;
+    }
+    // Insertion sort by descending Y (top of screen = +Y = drawn first).
+    for (int a = 1; a < ns; a++) {
+        Star key = stars[a];
+        int b = a - 1;
+        while (b >= 0 && stars[b].y < key.y) { stars[b + 1] = stars[b]; b--; }
+        stars[b + 1] = key;
+    }
+    for (int i = 0; i < ns; i++) {
+        const Star& s = stars[i];
+        // blank-settle: laser OFF, galvo travels to and arrives at the star
+        for (int d = 0; d < blank_settle && n < m; d++)
+            ap(o, n, m, s.x, s.y, 0, 0, 0, 1);
+        // dwell: lit ticks at same position -- eye integrates the dot
         for (int d = 0; d < dwell && n < m; d++)
-            ap(o, n, m, xPos, yPos, bright, bright, blue, 0);
+            ap(o, n, m, s.x, s.y, s.r, s.g, s.b, 0);
     }
     return n;
 }
