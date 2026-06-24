@@ -3420,6 +3420,10 @@ async function sendLiveControls() {
     const sy     = +(document.getElementById('lv-rot-y').value || 0);
     const sx     = +(document.getElementById('lv-rot-x').value || 0);
     const mspd   = +(document.getElementById('lv-rspd').value  || 20) / 1000;
+    // Anim state is owned by the animation IIFE; read via globals set there
+    var animType  = (typeof window._animActiveType  !== 'undefined') ? window._animActiveType  : 0;
+    var animSeq   = (typeof window._animActiveSeq   !== 'undefined') ? window._animActiveSeq   : 0;
+    var animSpeed = (typeof window._animActiveSpeed !== 'undefined') ? window._animActiveSpeed : 128;
     await apiCall('POST', '/api/preset-live', {
         speed:        +document.getElementById('lv-sp').value,
         size:         +document.getElementById('lv-sz').value,
@@ -3437,6 +3441,9 @@ async function sendLiveControls() {
         col_r:        +document.getElementById('lv-r').value,
         col_g:        +document.getElementById('lv-g').value,
         col_b:        +document.getElementById('lv-b').value,
+        col_anim_type:  animType,
+        col_anim_seq:   animSeq,
+        col_anim_speed: animSpeed,
         wave_amp:     document.getElementById('lv-amp').value/100,
         wave_freq:    document.getElementById('lv-freq').value/100,
     });
@@ -4676,6 +4683,13 @@ function openPreviewWindow() {
 
   var s_activeType = '';
   var s_activeSeq  = -1;
+  // Expose for sendLiveControls
+  var TYPE_NUM = {gradient:1, chase:2, strobe:3, pulse:4, twinkle:5, colorflip:6};
+  function syncGlobals() {
+    window._animActiveType  = TYPE_NUM[s_activeType] || 0;
+    window._animActiveSeq   = s_activeSeq >= 0 ? s_activeSeq : 0;
+    window._animActiveSpeed = +(document.getElementById('grad-speed') || {value:128}).value;
+  }
 
   // Gradient/chase sequence names (for grid labels + CSS preview)
   var GRAD_SEQS = [
@@ -4697,6 +4711,7 @@ function openPreviewWindow() {
   ];
 
   function sendAnimConfig() {
+    syncGlobals();
     var type  = TYPE_MAP[s_activeType] || 0;
     var seq   = (s_activeSeq >= 0) ? s_activeSeq : 0;
     var speed = +(document.getElementById('grad-speed') || {value:128}).value;
