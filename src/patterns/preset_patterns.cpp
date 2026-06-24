@@ -861,16 +861,14 @@ static size_t p90(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     const float tick_us = 1000000.f / ((float)kpps * 1000.f);
     int dwell = (int)ceilf(120.f / tick_us);          // ~120us settle
     if (dwell < 3) dwell = 3;
-    // BLANK-SETTLE FIX (v5.5): a single blank tick is not enough for the galvo
-    // to traverse a long jump between two stars -- the lit dwell then starts
-    // while the mirror is still in flight, drawing a visible streak toward the
-    // star. Emit blank_settle ticks (laser OFF, target parked) BEFORE the lit
-    // dwell so the mirror has time to arrive. Sized from the same ~120us
-    // mechanical settle constant as dwell. Jumps are also minimized by sorting
-    // stars top->bottom (see below) so the galvo travels monotonically downward
-    // instead of jumping randomly across the field.
-    int blank_settle = (int)ceilf(120.f / tick_us);
-    if (blank_settle < 3) blank_settle = 3;
+    // BLANK-SETTLE FIX (v5.5b): galvo needs time to traverse the jump between
+    // two stars before the lit dwell starts. With random X positions, jumps can
+    // span the full field (~34k units). Jolooyo 15K: ~1ms for full-range
+    // travel => worst-case ~30 ticks @ 30kpps. Use 400us (≈ 40% of worst-case)
+    // as a practical settle budget -- covers the avg jump (~12k units ≈ 12 ticks)
+    // with headroom, keeping dots visually tight.
+    int blank_settle = (int)ceilf(400.f / tick_us);
+    if (blank_settle < 4) blank_settle = 4;
     // Frame budget: nStars*(blank_settle + dwell) must stay within both the
     // buffer and the flicker cap (~max_pts_per_frame). Reduce star count if
     // needed so the frame still refreshes above flicker-fusion at current kpps.
