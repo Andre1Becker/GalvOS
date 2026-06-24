@@ -903,11 +903,26 @@ static size_t p90(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
         stars[ns].r = bright; stars[ns].g = bright; stars[ns].b = blue;
         ns++;
     }
-    // Insertion sort by descending Y (top of screen = +Y = drawn first).
+    // Sort along the fall axis to minimize galvo jump distance.
+    // Stars fall top->bottom visually; account for invert_y/invert_x so
+    // emission order matches the physical mirror sweep direction.
+    // invert_y: visual top = DAC low-Y  => sort ascending Y
+    // invert_x active on the fall axis (swap_xy case): sort ascending X
+    // default (no invert): visual top = DAC high-Y => sort descending Y
+    bool sort_asc;
+    if (gConfig.swap_xy) sort_asc = gConfig.invert_x;
+    else                 sort_asc = gConfig.invert_y;
     for (int a = 1; a < ns; a++) {
         Star key = stars[a];
         int b = a - 1;
-        while (b >= 0 && stars[b].y < key.y) { stars[b + 1] = stars[b]; b--; }
+        float key_v = gConfig.swap_xy ? key.x : key.y;
+        if (sort_asc) {
+            while (b >= 0 && (gConfig.swap_xy ? stars[b].x : stars[b].y) > key_v)
+                { stars[b + 1] = stars[b]; b--; }
+        } else {
+            while (b >= 0 && (gConfig.swap_xy ? stars[b].x : stars[b].y) < key_v)
+                { stars[b + 1] = stars[b]; b--; }
+        }
         stars[b + 1] = key;
     }
     for (int i = 0; i < ns; i++) {
