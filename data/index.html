@@ -1796,16 +1796,12 @@ function handleStateUpdate(s) {
   if (tokenEl && s.auth_token) { tokenEl.textContent = s.auth_token; window._apiToken = s.auth_token; }
 
   // Heap-Display
-  const heapEl = document.getElementById('dash-heap');
-  if (heapEl) {
-    const heapKB = Math.round((s.free_heap||0)/1024);
-    const psramKB = Math.round((s.free_psram||0)/1024);
-    heapEl.textContent = heapKB + ' KB';
-    heapEl.style.color = heapKB < 30 ? 'var(--danger)' : 'var(--dim)';
-    const psEl = document.getElementById('dash-psram');
-    if (psEl) { psEl.textContent = psramKB + ' KB';
-                psEl.style.color = psramKB < 200 ? 'var(--warn)' : 'var(--dim)'; }
-  }
+  const heapKB  = Math.round((s.free_heap  || 0) / 1024);
+  const psramKB = Math.round((s.free_psram || 0) / 1024);
+  const heapEl  = document.getElementById('v-heap');
+  const psEl    = document.getElementById('v-psram');
+  if (heapEl)  { heapEl.textContent  = heapKB  + ' KB'; heapEl.style.color  = heapKB  < 30  ? 'var(--danger)' : 'var(--dim)'; }
+  if (psEl)    { psEl.textContent    = psramKB + ' KB'; psEl.style.color    = psramKB < 200 ? 'var(--warn)'   : 'var(--dim)'; }
 
   // Fault hint
   const faults = [];
