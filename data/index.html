@@ -4966,13 +4966,6 @@ async function saveNtpConfig() {
     <input type="range" id="ilda-size" min="10" max="255" value="128"
       oninput="document.getElementById('ilda-size-v').textContent=this.value;ildaTestSend()">
 
-    <label style="margin-top:10px">
-      Brightness
-      <span id="ilda-bright-v" style="color:var(--accent);font-family:monospace">200</span>
-    </label>
-    <input type="range" id="ilda-bright" min="20" max="255" value="200"
-      oninput="document.getElementById('ilda-bright-v').textContent=this.value;ildaTestSend()">
-
     <hr style="border-color:var(--border);margin:14px 0">
 
     <h3 style="font-size:12px;margin-bottom:10px;color:var(--accent)">📋 Tuning Procedure</h3>
@@ -5091,7 +5084,7 @@ let calibActiveIdx=-1,calibPatterns=[];
 async function calibPlay(idx){calibActiveIdx=idx;calibPatterns=calibPatterns||[];await calibSend();document.getElementById('calib-status').textContent='▶ Pattern '+idx;loadCalibPatterns();}
 async function calibSend(){await apiCall('POST','/api/calib-pattern',{active:calibActiveIdx>=0,idx:Math.max(0,calibActiveIdx),bright:+document.getElementById('cp-bright').value,channel:+document.getElementById('cp-ch').value});}
 async function calibStop(){calibActiveIdx=-1;await apiCall('POST','/api/calib-pattern/stop');document.getElementById('calib-status').textContent='No calibration pattern active';loadCalibPatterns();}
-async function ildaTestPlay(){const bright=+document.getElementById('ilda-bright').value;const size=+document.getElementById('ilda-size').value;await apiCall('POST','/api/calib-pattern',{active:true,idx:12,bright:bright,channel:size});document.getElementById('ilda-status').textContent='▶ ILDA Test Pattern active';if(document.getElementById('btn-ilda-play'))document.getElementById('btn-ilda-play').style.opacity='0.5';}
+async function ildaTestPlay(){const size=+document.getElementById('ilda-size').value;await apiCall('POST','/api/calib-pattern',{active:true,idx:12,bright:size,channel:0});document.getElementById('ilda-status').textContent='▶ ILDA Test Pattern active';if(document.getElementById('btn-ilda-play'))document.getElementById('btn-ilda-play').style.opacity='0.5';}
 async function ildaTestStop(){await apiCall('POST','/api/calib-pattern/stop');document.getElementById('ilda-status').textContent='Pattern inactive';if(document.getElementById('btn-ilda-play'))document.getElementById('btn-ilda-play').style.opacity='1';}
 async function ildaTestSend(){if(document.getElementById('ilda-status').textContent.startsWith('▶')){await ildaTestPlay();}}
 document.querySelectorAll('[data-tab]').forEach(btn=>{btn.addEventListener('click',()=>{
