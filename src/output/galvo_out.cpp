@@ -331,8 +331,16 @@ static void IRAM_ATTR galvoTask(void*) {
         }
         s_points_total++;
 
-        updateSnapshot();  // FIX: gConfig snapshot once per iteration
-        period_us = s_snap.period_us;  // pick up runtime kpps changes
+        // Snapshot once per FRAME, not per point. Calling updateSnapshot()
+        // every tick costs an xSemaphoreTake/Give + a 64-bit division per
+        // point; at 45kpps (22us budget) that overruns the per-point window,
+        // so galvoTask cannot reach the target rate, the ring drains slower
+        // than pattern_engine pushes, and the buffer overflows (= flicker).
+        // s_point_idx==0 marks the start of a new frame.
+        if (s_point_idx == 0) {
+            updateSnapshot();
+            period_us = s_snap.period_us;  // pick up runtime kpps changes
+        }
 
         // Execute any pending raw DAC debug command (Config tab -> DAC
         // Low-Level Commands). Runs here so only galvoTask touches SPI2.
