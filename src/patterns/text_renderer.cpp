@@ -7,17 +7,31 @@
 #include "text_renderer.h"
 #include "text_renderer.h"
 #include "point_optimizer.h"
-#include "preset_patterns.h"
 #include <math.h>
 #include <string.h>
 #include <Arduino.h>
 
+static inline optimizer::OptimizerConfig textOptimizerConfig() {
+    optimizer::OptimizerConfig cfg;
+    cfg.corner_angle_deg             = gOptimizerConfig.corner_angle_deg;
+    cfg.min_corner_pts               = gOptimizerConfig.min_corner_pts;
+    cfg.max_corner_pts               = gOptimizerConfig.max_corner_pts;
+    cfg.pts_per_1000_units           = gOptimizerConfig.pts_per_1000_units;
+    cfg.min_segment_pts              = gOptimizerConfig.min_segment_pts;
+    cfg.blank_samples                = gOptimizerConfig.blank_samples;
+    cfg.max_pts_per_frame            = gOptimizerConfig.max_pts_per_frame;
+    cfg.min_blank_samples            = gOptimizerConfig.min_blank_samples;
+    cfg.blank_pts_per_1000_units     = gOptimizerConfig.blank_pts_per_1000_units;
+    cfg.min_interior_pts_per_segment = gOptimizerConfig.min_interior_pts_per_segment;
+    cfg.stage1_blank_target          = gOptimizerConfig.stage1_blank_target;
+    return cfg;
+}
 namespace textrender {
 
 // ============================================================
-// Stroke-Font  (x,y) Paare, x=127 = Pen-Up, Terminator = {127,127}
+// Stroke-Font  (x,y) pairs, x=127 = Pen-Up, Terminator = {127,127}
 // coordinate space: x ∈ [-5,5], y ∈ [-7,7]  (+y = up)
-// renderGlyph: screen_y = oy - sy * sc  →  y-Flip korrekt
+// renderGlyph: screen_y = oy - sy * sc  →  y-Flip correctly
 // ============================================================
 
 #define PU 126
@@ -160,7 +174,7 @@ static GlyphResult renderGlyph(LaserPoint* out, size_t& n, size_t max,
     if (nsegs == 0) return res;
 
     size_t before = n;
-    n += optimizer::optimize(segs, nsegs, out + n, max - n, presets::liveOptimizerConfig());
+    n += optimizer::optimize(segs, nsegs, out + n, max - n, textOptimizerConfig());
 
     if (n > before) {
         res.last_x = out[n-1].x;
