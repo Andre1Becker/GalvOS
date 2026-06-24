@@ -20,7 +20,7 @@
 
 namespace calib_patterns {
 
-constexpr uint8_t CALIB_PATTERN_COUNT = 12;
+constexpr uint8_t CALIB_PATTERN_COUNT = 13;
 
 struct CalibPatternInfo {
     const char* name;

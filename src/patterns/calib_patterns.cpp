@@ -361,7 +361,7 @@ static size_t saturation_wheel(LaserPoint* o, size_t mx,
 }
 
 // ══════════════════════════════════════════════════════════════
-// DISPATCH + METADATEN
+// DISPATCH + METADATA
 // ══════════════════════════════════════════════════════════════
 
 
@@ -600,6 +600,159 @@ static size_t color_temp(LaserPoint* o, size_t mx,
     return n;
 }
 
+// ══════════════════════════════════════════════════════════════
+// PATTERN 12: ILDA TEST PATTERN (ITP-9000, Rev.002, Oct 1995)
+//
+// Implements the official ILDA Standard Test Pattern for galvo
+// scanner alignment and calibration per the ILDA Technical
+// Committee specification.
+//
+// Elements (per Figure 2 of spec):
+//   A1: Outer square  — full scan boundary (max amplitude reference)
+//   A2: Inner square  — 50% scale (tuning size — use THIS for damping)
+//   A2: Inscribed circle — tangent to inner square at 4 points
+//       Circle must be ROUND and touch square at top/bottom/left/right
+//   A3: Center cross  — X/Y axis lines (X right, Y top)
+//   A4: X / Y labels  — confirm polarity (X right, Y up; invert if wrong)
+//   A5: Scale ref     — outer box is max; inner box is tuning size
+//   B1: Blanking line — two horizontal segments with center gap
+//   B2: Damping ref   — spacing of gap must be symmetric
+//   B3: Speed dots    — row of 6 dots (5th barely lit, 6th blanked)
+//
+// Scan speed note:
+//   - 12K mode: inner square ≈ 15° optical max
+//   - 30K mode: inner square ≈  8° optical max
+//   Scale pattern DOWN until circle just starts to distort, then back 10%.
+//
+// Tuning sequence (ILDA spec §3-§8):
+//   1. Adjust Y damping (observe lower-right corner of inner square)
+//   2. Adjust Y servo gain (circle top/bottom must touch square)
+//   3. Adjust X damping (upper-right corner of inner square)
+//   4. Adjust X servo gain (circle left/right must touch square)
+//   5. Circle should be perfectly round and touch square at 4 points
+//   6. Adjust DC offset — cross must be centered on screen
+// ══════════════════════════════════════════════════════════════
+static size_t ilda_test(LaserPoint* o, size_t mx,
+                         uint32_t phase, uint8_t bright, uint8_t) {
+    size_t n = 0;
+
+    // Scale: outer square = ±SC, inner square = ±SC*0.5
+    // bright slider maps to scan amplitude (A5):
+    //   bright=255 → inner square at full SC*0.5 (≈15° @12K, too large @30K)
+    //   bright=128 → inner square at SC*0.25   (≈8°  @30K, ILDA rated)
+    //   Use slider to reduce size until circle just stops distorting, then +10%
+    const float OUTER = SC * 0.88f;            // A1: outer boundary square
+    const float INNER = OUTER * 0.5f * (0.3f + (bright / 255.0f) * 0.7f); // A2: tuning square
+
+    // Colors: white for geometry, dim green for axis lines
+    const uint8_t WR = 220, WG = 220, WB = 220;  // main geometry
+    const uint8_t AR = 0,   AG = 160, AB = 0;     // axis / cross
+    const uint8_t DR = 60,  DG = 60,  DB = 60;    // dim reference
+
+    // ── A1: Outer square (full scan boundary) ────────────────────────
+    // Scanned once as reference — do NOT use for damping adjustment
+    ap(o, n, mx, -OUTER, -OUTER, DR, DR, DR, 1);
+    ap(o, n, mx,  OUTER, -OUTER, DR, DR, DR, 0);
+    ap(o, n, mx,  OUTER,  OUTER, DR, DR, DR, 0);
+    ap(o, n, mx, -OUTER,  OUTER, DR, DR, DR, 0);
+    ap(o, n, mx, -OUTER, -OUTER, DR, DR, DR, 0);
+
+    // ── A2: Inner square (tuning square — observe corners here) ──────
+    ap(o, n, mx, -INNER, -INNER, WR, WG, WB, 1);
+    ap(o, n, mx,  INNER, -INNER, WR, WG, WB, 0);
+    ap(o, n, mx,  INNER,  INNER, WR, WG, WB, 0);
+    ap(o, n, mx, -INNER,  INNER, WR, WG, WB, 0);
+    ap(o, n, mx, -INNER, -INNER, WR, WG, WB, 0);
+
+    // ── A2: Inscribed circle (radius = INNER, tangent to inner square) ──
+    // At correct Y gain: top and bottom of circle touch inner square edges
+    // At correct X gain: left and right of circle touch inner square edges
+    // Circle must be perfectly round (not elliptical)
+    {
+        const int CPTS = 80;
+        for (int i = 0; i <= CPTS; i++) {
+            float a = PI2 * i / CPTS;
+            ap(o, n, mx, cosf(a)*INNER, sinf(a)*INNER, WR, WG, WB, i==0?1:0);
+        }
+    }
+
+    // ── A3/A4: Center cross + axis labels ────────────────────────────
+    // X axis (horizontal line, full width to outer square)
+    ap(o, n, mx, -OUTER, 0, AR, AG, AB, 1);
+    ap(o, n, mx,  OUTER, 0, AR, AG, AB, 0);
+    // Y axis (vertical line)
+    ap(o, n, mx, 0, -OUTER, AR, AG, AB, 1);
+    ap(o, n, mx, 0,  OUTER, AR, AG, AB, 0);
+
+    // "X" label: right side of horizontal axis (A4 — confirms polarity)
+    // Simple dot-marker (firmware has no text renderer here)
+    {
+        float lx = OUTER * 1.02f, ly = 0;
+        float s = OUTER * 0.03f;
+        ap(o, n, mx, lx-s, ly+s, WR, WG, WB, 1);
+        ap(o, n, mx, lx+s, ly-s, WR, WG, WB, 0);
+        ap(o, n, mx, lx+s, ly+s, WR, WG, WB, 1);
+        ap(o, n, mx, lx-s, ly-s, WR, WG, WB, 0);
+    }
+    // "Y" label: top of vertical axis
+    {
+        float lx = 0, ly = OUTER * 1.02f;
+        float s = OUTER * 0.03f;
+        // Y shape: two diagonals meeting at midpoint, then straight down
+        ap(o, n, mx, lx-s, ly+s, WR, WG, WB, 1);
+        ap(o, n, mx, lx,   ly,   WR, WG, WB, 0);
+        ap(o, n, mx, lx+s, ly+s, WR, WG, WB, 1);
+        ap(o, n, mx, lx,   ly,   WR, WG, WB, 0);
+        ap(o, n, mx, lx,   ly-s, WR, WG, WB, 0);
+    }
+
+    // ── B1/B2: Blanking test — two horizontal lines with center gap ──
+    // Correct: gap is centered and symmetric around the vertical tick
+    // Purpose: check blanking damping and servo gain
+    {
+        float by1 = -OUTER * 0.68f;  // B1: upper blanking line
+        float by2 = -OUTER * 0.78f;  // B2: lower blanking line
+        float bx  =  INNER * 0.3f;   // center gap half-width
+
+        // Vertical tick (reference mark for gap centering)
+        ap(o, n, mx, 0, by2 - OUTER*0.04f, WR, WG, WB, 1);
+        ap(o, n, mx, 0, by1 + OUTER*0.04f, WR, WG, WB, 0);
+
+        // B1: upper line — left segment, gap, right segment
+        ap(o, n, mx, -OUTER*0.55f, by1, WR, WG, WB, 1);
+        ap(o, n, mx, -bx,          by1, WR, WG, WB, 0);
+        ap(o, n, mx,  bx,          by1, WR, WG, WB, 1);  // blank over gap
+        ap(o, n, mx,  OUTER*0.55f, by1, WR, WG, WB, 0);
+
+        // B2: lower line — shorter, same gap structure
+        ap(o, n, mx, -OUTER*0.40f, by2, WR, WG, WB, 1);
+        ap(o, n, mx, -bx*0.7f,     by2, WR, WG, WB, 0);
+        ap(o, n, mx,  bx*0.7f,     by2, WR, WG, WB, 1);
+        ap(o, n, mx,  OUTER*0.40f, by2, WR, WG, WB, 0);
+    }
+
+    // ── B3/B4: Speed dots (6 dots, decreasing brightness) ──────────
+    // Dot 5 (idx 4) should be barely visible; dot 6 (idx 5) fully blanked.
+    // If dot 6 is visible: blanking DC offset too high → reduce it.
+    // If dot 5 is invisible: blanking threshold too tight → raise it slightly.
+    {
+        const int NDOTS = 6;
+        float dy = -OUTER * 0.88f;
+        float dx_start = -OUTER * 0.30f;
+        float dx_step  =  OUTER * 0.12f;
+        // Brightness decreases linearly: dot 0 = full, dot 5 = 0
+        for (int i = 0; i < NDOTS; i++) {
+            float bv = (float)(NDOTS - 1 - i) / (NDOTS - 1);
+            uint8_t dv = (uint8_t)(bv * WR);
+            float px = dx_start + i * dx_step;
+            ap(o, n, mx, px, dy,          dv, dv, dv, 1);
+            ap(o, n, mx, px + OUTER*0.01f, dy, dv, dv, dv, 0);
+        }
+    }
+
+    return n;
+}
+
 const CalibPatternInfo CALIB_INFO[CALIB_PATTERN_COUNT] = {
     {"Gamma Ramp",
      "Brightness from black to white — check linearity",
@@ -648,6 +801,12 @@ const CalibPatternInfo CALIB_INFO[CALIB_PATTERN_COUNT] = {
     {"Color Temperature",
      "White bar vs. stacked R/G/B bars — perceptual color balance",
      "Left white must visually match combined R+G+B on the right"},
+
+    {"ILDA Test Pattern",
+     "Official ILDA standard test pattern — galvo alignment & scanner tuning",
+     "Circle must be perfectly round and touch inner square at 4 points. "
+     "Adjust size slider until circle just stops distorting, then add 10%. "
+     "Sequence: Y damping → Y gain → X damping → X gain → DC offset."},
 };
 
 using PFn = size_t(*)(LaserPoint*, size_t, uint32_t, uint8_t, uint8_t);
@@ -656,6 +815,7 @@ static const PFn DISPATCH[CALIB_PATTERN_COUNT] = {
     step_ramp,  channel_sep,  saturation_wheel,
     focus_test, scan_linearity, blanking_test,
     aspect_ratio, corner_test, color_temp,
+    ilda_test,
 };
 
 size_t generate(uint8_t idx, LaserPoint* out, size_t max_pts,
