@@ -5000,19 +5000,6 @@ function openPreviewWindow() {
   };
 
   document.addEventListener('DOMContentLoaded', function() {
-    buildGradientGrid();
-    // Rebuild grid when presets tab becomes visible
-    var obs = new MutationObserver(function() {
-      var tab = document.getElementById('tab-presets');
-      if (tab && tab.classList.contains('active')) buildGradientGrid();
-    });
-    var presets = document.getElementById('tab-presets');
-    if (presets) obs.observe(presets, { attributes: true });
-  });
-})();
-
-
-  document.addEventListener('DOMContentLoaded', function() {
     showPanel('gradient');
     highlightTypeBtn();
     buildGradientGrid();
