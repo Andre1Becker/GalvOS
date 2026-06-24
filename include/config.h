@@ -63,7 +63,12 @@ enum DmxChannel : uint8_t {
     DMX_ILDA_BRIGHT,    // CH 21: brightness override 0-255 (255=use dimmer)
     DMX_ILDA_REPEAT,    // CH 22: Frame repeat 0=normal, 1-255=slower
 
-    DMX_CHANNELS_USED = 22  // total: 22 DMX channels
+// ── Color animation (CH 23-25) ──────────────────────────────────
+    DMX_COL_ANIM_TYPE,  // CH 23: 0=off, 1=gradient, 2=chase, 3=strobe, 4=pulse, 5=twinkle, 6=flip
+    DMX_COL_ANIM_SEQ,   // CH 24: sequence index 0-9
+    DMX_COL_ANIM_SPEED, // CH 25: animation speed 0-255
+
+    DMX_CHANNELS_USED = 25  // total: 25 DMX channels
 };
 
 // DMX channel names (for WebUI and documentation)
@@ -82,14 +87,17 @@ static const char* DMX_CHANNEL_NAMES[22] = {
     "V-Flip",               // 12
     "H-Position",           // 13
     "V-Position",           // 14
-    "Wave Amplitude",     // 15
-    "Wave Frequency",      // 16
-    "ILDA File (0-40)",    // 17  ← ILDA
+    "Wave Amplitude",       // 15
+    "Wave Frequency",       // 16
+    "ILDA File (0-40)",     // 17
     "ILDA Speed",           // 18
-    "ILDA Size",         // 19
+    "ILDA Size",            // 19
     "ILDA Loop",            // 20
     "ILDA Brightness",      // 21
     "ILDA Frame Repeat",    // 22
+    "Color Anim Type",      // 23
+    "Color Anim Sequence",  // 24
+    "Color Anim Speed",     // 25
 };
 
 enum ControlSource : uint8_t {
@@ -237,13 +245,27 @@ extern PreviewSnapshot gPreview;
  * Live-Preset-Controls
  * Changed via WebUI in real time -- no restart required.
  * ============================================================ */
+// Color animation types (firmware-side, also DMX-controllable)
+enum ColAnimType : uint8_t {
+    COL_ANIM_OFF      = 0,
+    COL_ANIM_GRADIENT = 1,
+    COL_ANIM_CHASE    = 2,
+    COL_ANIM_STROBE   = 3,
+    COL_ANIM_PULSE    = 4,
+    COL_ANIM_TWINKLE  = 5,
+    COL_ANIM_FLIP     = 6,
+};
+
 struct LivePresetControls {
-    volatile uint8_t  speed      = 80;
-    volatile uint8_t  size_val   = 128;
-    volatile uint8_t  col_r      = 255;
-    volatile uint8_t  col_g      = 255;
-    volatile uint8_t  col_b      = 255;
-    volatile bool     col_override = false;
+    volatile uint8_t  speed        = 80;
+    volatile uint8_t  size_val     = 128;
+    volatile uint8_t  col_r        = 255;
+    volatile uint8_t  col_g        = 0;
+    volatile uint8_t  col_b        = 0;
+    volatile bool     col_override  = false;
+    volatile ColAnimType col_anim_type  = COL_ANIM_OFF;
+    volatile uint8_t     col_anim_seq   = 0;    // 0-9 sequence index
+    volatile uint8_t     col_anim_speed = 128;  // 0-255
     volatile int16_t  rotation   = 0;   // Z-axis (degrees)
     volatile bool     rot_x      = false;  // X-axis active
     volatile bool     rot_y      = false;  // Y-axis active

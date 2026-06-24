@@ -4674,213 +4674,66 @@ function openPreviewWindow() {
 })();
 
 
-// ── Color Animation Engine ────────────────────────────────────────────────────
+// ── Color Animation UI (firmware-side engine, browser only sends config) ────────
 (function() {
-  // ── Gradient sequences ───────────────────────────────────────────────────
-  var GRADIENTS = [
-    { name:'Rainbow', stops:[[255,0,0],[255,128,0],[255,255,0],[0,255,0],[0,200,255],[128,0,255]] },
-    { name:'Fire',    stops:[[255,0,0],[255,80,0],[255,200,0],[255,255,80]] },
-    { name:'Ocean',   stops:[[0,0,80],[0,80,200],[0,200,255],[80,255,255]] },
-    { name:'Neon',    stops:[[255,0,128],[128,0,255],[0,255,200],[255,255,0]] },
-    { name:'Sunset',  stops:[[80,0,40],[200,0,80],[255,80,0],[255,200,0]] },
-    { name:'Forest',  stops:[[0,40,0],[0,128,40],[80,255,80],[200,255,100]] },
-    { name:'Ice',     stops:[[200,230,255],[100,180,255],[40,100,200],[200,230,255]] },
-    { name:'Lava',    stops:[[80,0,0],[255,0,0],[255,80,0],[255,255,0],[255,0,0]] },
-    { name:'Candy',   stops:[[255,100,200],[200,100,255],[100,200,255],[255,255,100]] },
-    { name:'Mono',    stops:[[0,0,0],[255,255,255],[0,0,0]] },
-  ];
+  // Map type name → firmware ColAnimType enum value
+  var TYPE_MAP = {gradient:1, chase:2, strobe:3, pulse:4, twinkle:5, colorflip:6};
 
-  // Chase sequences: hard-step color cycles
+  var s_activeType = '';
+  var s_activeSeq  = -1;
+
+  // Gradient/chase sequence names (for grid labels + CSS preview)
+  var GRAD_SEQS = [
+    {name:'Rainbow', stops:['#f00','#f80','#ff0','#0f0','#0cf','#80f']},
+    {name:'Fire',    stops:['#f00','#f50','#fc0','#ff8']},
+    {name:'Ocean',   stops:['#005','#08c','#0cf','#8ff']},
+    {name:'Neon',    stops:['#f08','#80f','#0fc','#ff0']},
+    {name:'Sunset',  stops:['#500','#c05','#f50','#fc0']},
+    {name:'Forest',  stops:['#020','#083','#5f5','#cfa']},
+    {name:'Ice',     stops:['#cef','#6bf','#29c','#cef']},
+    {name:'Lava',    stops:['#500','#f00','#f50','#ff0']},
+    {name:'Candy',   stops:['#f6c','#c6f','#6cf','#ffc']},
+    {name:'Mono',    stops:['#000','#fff','#000']},
+  ];
   var CHASE_SEQS = [
-    { name:'RGB',    colors:[[255,0,0],[0,255,0],[0,0,255]] },
-    { name:'RGBW',   colors:[[255,0,0],[0,255,0],[0,0,255],[255,255,255]] },
-    { name:'CMY',    colors:[[0,255,255],[255,0,255],[255,255,0]] },
-    { name:'Pastel', colors:[[255,150,150],[150,255,150],[150,150,255],[255,255,150]] },
-    { name:'Hot',    colors:[[255,0,0],[255,80,0],[255,200,0],[255,255,255]] },
-    { name:'Cold',   colors:[[0,0,255],[0,100,255],[0,200,255],[200,230,255]] },
-    { name:'Party',  colors:[[255,0,0],[255,128,0],[255,255,0],[0,255,0],[0,0,255],[128,0,255]] },
-    { name:'BW',     colors:[[255,255,255],[0,0,0]] },
-    { name:'RB',     colors:[[255,0,0],[0,0,255]] },
-    { name:'RGW',    colors:[[255,0,0],[0,255,0],[255,255,255]] },
+    {name:'RGB'},   {name:'RGBW'},  {name:'CMY'},   {name:'Pastel'},
+    {name:'Hot'},   {name:'Cold'},  {name:'Party'},  {name:'BW'},
+    {name:'RB'},    {name:'RGW'},
   ];
 
-  // ── State ─────────────────────────────────────────────────────────────────
-  var s_gradActive   = -1;
-  var s_chaseActive  = -1;
-  var s_chaseStep    = 0;
-  var s_animType     = 'gradient';
-  var s_gradPhase    = 0;
-  var s_gradTimer    = null;
-  var s_strobeOn     = false;
-  var s_strobeColor  = [255,255,255];
-  var s_pulsePhase   = 0;
-  var s_pulseColor   = [255,0,255];
-  var s_twinkleVal   = 200;
-  var s_twinkleTgt   = 200;
-  var s_flipStep     = 0;
-  var FLIP_COLORS    = [[255,0,0],[0,255,0],[0,0,255],[255,255,255]];
-
-  // ── Helpers ───────────────────────────────────────────────────────────────
-  function getSpeed() {
-    var el = document.getElementById('grad-speed');
-    return el ? (+el.value / 100) : 0.5;
-  }
-  function getDir() {
-    var el = document.querySelector('input[name="grad-dir"]:checked');
-    return el ? +el.value : 1;
-  }
-
-  function sendRGB(r, g, b) {
-    var er = document.getElementById('lv-r');
-    var eg = document.getElementById('lv-g');
-    var eb = document.getElementById('lv-b');
-    if (er) er.value = r;
-    if (eg) eg.value = g;
-    if (eb) eb.value = b;
-    var preview = document.getElementById('lv-col-preview');
-    var hexEl   = document.getElementById('lv-col-hex');
-    if (preview) preview.style.background = 'rgb('+r+','+g+','+b+')';
-    if (hexEl) hexEl.textContent = '#' +
-      ('0'+r.toString(16)).slice(-2) +
-      ('0'+g.toString(16)).slice(-2) +
-      ('0'+b.toString(16)).slice(-2);
-    var colOn = document.getElementById('lv-col-on');
-    if (colOn && !colOn.checked) colOn.checked = true;
-    if (typeof liveSlider === 'function') liveSlider();
-  }
-
-  function lerpColor(stops, t) {
-    t = ((t % 1) + 1) % 1;
-    var n = stops.length - 1;
-    var seg = t * n;
-    var i = Math.floor(seg);
-    var f = seg - i;
-    if (i >= n) { i = n-1; f = 1; }
-    var a = stops[i], b = stops[i+1];
-    return [
-      Math.round(a[0] + (b[0]-a[0])*f),
-      Math.round(a[1] + (b[1]-a[1])*f),
-      Math.round(a[2] + (b[2]-a[2])*f)
-    ];
-  }
-
-  // ── Tick functions ────────────────────────────────────────────────────────
-  function tickGradient() {
-    var g = GRADIENTS[s_gradActive];
-    if (!g) return;
-    s_gradPhase = ((s_gradPhase + getDir() * getSpeed() * 0.002) + 10) % 1;
-    var rgb = lerpColor(g.stops, s_gradPhase);
-    sendRGB(rgb[0], rgb[1], rgb[2]);
-  }
-
-  function tickChase() {
-    var seq = CHASE_SEQS[s_chaseActive];
-    if (!seq) return;
-    var c = seq.colors[s_chaseStep % seq.colors.length];
-    sendRGB(c[0], c[1], c[2]);
-    var dir = getDir() > 0 ? 1 : -1;
-    s_chaseStep = ((s_chaseStep + dir) + seq.colors.length * 100) % seq.colors.length;
-  }
-
-  function tickStrobe() {
-    s_strobeOn = !s_strobeOn;
-    if (s_strobeOn) sendRGB(s_strobeColor[0], s_strobeColor[1], s_strobeColor[2]);
-    else            sendRGB(0, 0, 0);
-  }
-
-  function tickPulse() {
-    s_pulsePhase = (s_pulsePhase + getSpeed() * 0.05) % (Math.PI * 2);
-    var v = Math.sin(s_pulsePhase) * 0.5 + 0.5;
-    sendRGB(Math.round(s_pulseColor[0]*v), Math.round(s_pulseColor[1]*v), Math.round(s_pulseColor[2]*v));
-  }
-
-  function tickTwinkle() {
-    if (Math.abs(s_twinkleVal - s_twinkleTgt) < 8) {
-      s_twinkleTgt = Math.random() > 0.7
-        ? Math.round(Math.random() * 255)
-        : Math.round(100 + Math.random() * 155);
+  function sendAnimConfig() {
+    var type  = TYPE_MAP[s_activeType] || 0;
+    var seq   = (s_activeSeq >= 0) ? s_activeSeq : 0;
+    var speed = +(document.getElementById('grad-speed') || {value:128}).value;
+    // Also send current static color for strobe/pulse/twinkle base
+    var r = +(document.getElementById('lv-r') || {value:255}).value;
+    var g = +(document.getElementById('lv-g') || {value:0}).value;
+    var b = +(document.getElementById('lv-b') || {value:0}).value;
+    if (typeof sendLiveControls === 'function') {
+      // Piggyback on existing sendLiveControls — inject anim fields
+      // We use a direct apiCall to avoid triggering the debounce chain
+      var payload = {
+        col_anim_type:  type,
+        col_anim_seq:   seq,
+        col_anim_speed: speed,
+        col_r: r, col_g: g, col_b: b,
+        col_override: type === 0 ? !!(document.getElementById('lv-col-on') || {}).checked : false,
+      };
+      if (typeof apiCall === 'function') apiCall('POST', '/api/preset-live', payload);
     }
-    s_twinkleVal += (s_twinkleTgt - s_twinkleVal) * 0.3;
-    var v = Math.round(s_twinkleVal) / 255;
-    var br = +(document.getElementById('lv-r') || {value:255}).value;
-    var bg = +(document.getElementById('lv-g') || {value:255}).value;
-    var bb = +(document.getElementById('lv-b') || {value:255}).value;
-    sendRGB(Math.round(br*v), Math.round(bg*v), Math.round(bb*v));
   }
 
-  function tickColorFlip() {
-    var c = FLIP_COLORS[s_flipStep % FLIP_COLORS.length];
-    sendRGB(c[0], c[1], c[2]);
-    s_flipStep++;
-  }
-
-  // ── Timer management ──────────────────────────────────────────────────────
-  function getInterval() {
-    var spd = getSpeed();
-    if (s_animType === 'strobe')    return Math.max(20,  Math.round(500 - spd * 480));
-    if (s_animType === 'chase')     return Math.max(50,  Math.round(2000 - spd * 1950));
-    if (s_animType === 'colorflip') return Math.max(50,  Math.round(2000 - spd * 1950));
-    return 40; // gradient, pulse, twinkle
-  }
-
-  function getTickFn() {
-    if (s_animType === 'gradient')  return tickGradient;
-    if (s_animType === 'chase')     return tickChase;
-    if (s_animType === 'strobe')    return tickStrobe;
-    if (s_animType === 'pulse')     return tickPulse;
-    if (s_animType === 'twinkle')   return tickTwinkle;
-    if (s_animType === 'colorflip') return tickColorFlip;
-    return tickGradient;
-  }
-
-  function startTimer() {
-    if (s_gradTimer) clearInterval(s_gradTimer);
-    s_gradTimer = setInterval(getTickFn(), getInterval());
-  }
-
-  // ── Grid builders ─────────────────────────────────────────────────────────
-  function buildGradientGrid() {
-    var grid = document.getElementById('grad-seq-grid');
-    if (!grid) return;
-    grid.innerHTML = GRADIENTS.map(function(g, i) {
-      var cs = g.stops.map(function(c){ return 'rgb('+c[0]+','+c[1]+','+c[2]+')'; }).join(',');
-      var active = (i === s_gradActive && s_animType === 'gradient');
-      return '<div onclick="window.selectGradient('+i+')" title="'+g.name+'" style="'+
-        'height:26px;border-radius:4px;cursor:pointer;'+
-        'background:linear-gradient(90deg,'+cs+');'+
-        'border:2px solid '+(active?'var(--accent)':'transparent')+';'+
-        'box-shadow:'+(active?'0 0 6px var(--accent)':'none')+'">' +
-        '<div style="font-size:8px;color:rgba(255,255,255,0.85);text-align:center;line-height:24px;text-shadow:0 0 3px #000">'+g.name+'</div></div>';
-    }).join('');
-  }
-
-  function buildChaseGrid() {
-    var grid = document.getElementById('chase-seq-grid');
-    if (!grid) return;
-    grid.innerHTML = CHASE_SEQS.map(function(s, i) {
-      var cs = s.colors.map(function(c){ return 'rgb('+c[0]+','+c[1]+','+c[2]+')'; }).join(',');
-      var active = (i === s_chaseActive && s_animType === 'chase');
-      return '<div onclick="window.selectChase('+i+')" title="'+s.name+'" style="'+
-        'height:26px;border-radius:4px;cursor:pointer;'+
-        'background:linear-gradient(90deg,'+cs+');'+
-        'border:2px solid '+(active?'var(--accent)':'transparent')+'">' +
-        '<div style="font-size:8px;color:rgba(255,255,255,0.85);text-align:center;line-height:24px;text-shadow:0 0 3px #000">'+s.name+'</div></div>';
-    }).join('');
-  }
-
-  // ── UI helpers ────────────────────────────────────────────────────────────
-  function highlightTypeBtn() {
+  function highlightTypeBtn(active) {
     ['gradient','chase','strobe','pulse','twinkle','colorflip'].forEach(function(t) {
       var btn = document.getElementById('anim-btn-'+t);
       if (!btn) return;
-      var isActive = (t === s_animType) && s_gradTimer;
-      btn.style.background  = isActive ? 'var(--accent)' : '';
-      btn.style.color       = isActive ? '#fff' : '';
-      btn.style.borderColor = isActive ? 'var(--accent)' : '';
+      var on = (t === active) && (s_activeSeq >= 0 || ['strobe','pulse','twinkle','colorflip'].indexOf(t)>=0);
+      btn.style.background  = on ? 'var(--accent)' : '';
+      btn.style.color       = on ? '#fff'          : '';
+      btn.style.borderColor = on ? 'var(--accent)' : '';
     });
     var dirRow = document.getElementById('anim-dir-row');
-    if (dirRow) dirRow.style.display =
-      (s_animType==='strobe'||s_animType==='colorflip'||s_animType==='pulse'||s_animType==='twinkle') ? 'none' : 'flex';
+    if (dirRow) dirRow.style.display = 'none'; // direction handled firmware-side
   }
 
   function showPanel(type) {
@@ -4890,124 +4743,114 @@ function openPreviewWindow() {
     });
   }
 
+  function buildGrid(containerId, seqs, activeIdx, onClickFn) {
+    var grid = document.getElementById(containerId);
+    if (!grid) return;
+    grid.innerHTML = seqs.map(function(s, i) {
+      var stops = s.stops || ['#888'];
+      var cs = stops.join(',');
+      var active = (i === activeIdx);
+      return '<div onclick="'+onClickFn+'('+i+')" title="'+s.name+'" style="'+
+        'height:26px;border-radius:4px;cursor:pointer;'+
+        'background:linear-gradient(90deg,'+cs+');'+
+        'border:2px solid '+(active?'var(--accent)':'transparent')+'">' +
+        '<div style="font-size:8px;color:rgba(255,255,255,.85);text-align:center;'+
+        'line-height:24px;text-shadow:0 0 3px #000">'+s.name+'</div></div>';
+    }).join('');
+  }
+
   // ── Public API ────────────────────────────────────────────────────────────
   window.setAnimType = function(type) {
-    s_animType = type;
-    if (type !== 'gradient') s_gradActive = -1;
-    if (type !== 'chase')    s_chaseActive = -1;
-    // Stateless types start immediately
-    if (type === 'strobe' || type === 'pulse' || type === 'twinkle' || type === 'colorflip') {
-      s_pulsePhase=0; s_flipStep=0; s_strobeOn=false; s_twinkleVal=200; s_twinkleTgt=200;
-      startTimer();
+    s_activeType = type;
+    if (['strobe','pulse','twinkle','colorflip'].indexOf(type) >= 0) {
+      s_activeSeq = 0; // stateless — seq unused but must be valid
     } else {
-      if (s_gradTimer) { clearInterval(s_gradTimer); s_gradTimer=null; }
+      s_activeSeq = -1; // wait for sequence selection
     }
-    highlightTypeBtn(); showPanel(type); buildGradientGrid(); buildChaseGrid();
+    showPanel(type);
+    highlightTypeBtn(type);
+    buildGrid('grad-seq-grid',  GRAD_SEQS,  -1, 'window.selectGradient');
+    buildGrid('chase-seq-grid', CHASE_SEQS, -1, 'window.selectChase');
+    sendAnimConfig();
   };
 
   window.selectGradient = function(idx) {
-    if (s_gradActive===idx && s_animType==='gradient' && s_gradTimer) { window.stopGradient(); return; }
-    s_animType='gradient'; s_gradActive=idx; s_gradPhase=0;
-    highlightTypeBtn(); showPanel('gradient'); buildGradientGrid(); startTimer();
+    if (s_activeType === 'gradient' && s_activeSeq === idx) { window.stopGradient(); return; }
+    s_activeType = 'gradient'; s_activeSeq = idx;
+    buildGrid('grad-seq-grid', GRAD_SEQS, idx, 'window.selectGradient');
+    highlightTypeBtn('gradient');
+    sendAnimConfig();
   };
 
   window.selectChase = function(idx) {
-    if (s_chaseActive===idx && s_animType==='chase' && s_gradTimer) { window.stopGradient(); return; }
-    s_animType='chase'; s_chaseActive=idx; s_chaseStep=0;
-    highlightTypeBtn(); showPanel('chase'); buildChaseGrid(); startTimer();
+    if (s_activeType === 'chase' && s_activeSeq === idx) { window.stopGradient(); return; }
+    s_activeType = 'chase'; s_activeSeq = idx;
+    buildGrid('chase-seq-grid', CHASE_SEQS, idx, 'window.selectChase');
+    highlightTypeBtn('chase');
+    sendAnimConfig();
   };
 
   window.setStrobeColor = function(r,g,b) {
-    s_strobeColor=[r,g,b];
+    var er=document.getElementById('lv-r'); if(er) er.value=r;
+    var eg=document.getElementById('lv-g'); if(eg) eg.value=g;
+    var eb=document.getElementById('lv-b'); if(eb) eb.value=b;
     var map={'sc-w':[255,255,255],'sc-r':[255,0,0],'sc-g':[0,255,0],'sc-b':[0,0,255],'sc-m':[255,0,255],'sc-c':[0,255,255],'sc-y':[255,255,0]};
-    Object.keys(map).forEach(function(id){
-      var el=document.getElementById(id);
-      if(el) el.style.borderColor=(map[id][0]===r&&map[id][1]===g&&map[id][2]===b)?'var(--accent)':'transparent';
-    });
+    Object.keys(map).forEach(function(id){var el=document.getElementById(id);if(el)el.style.borderColor=(map[id][0]===r&&map[id][1]===g&&map[id][2]===b)?'var(--accent)':'transparent';});
+    sendAnimConfig();
   };
 
   window.setPulseColor = function(r,g,b) {
-    s_pulseColor=[r,g,b];
+    var er=document.getElementById('lv-r'); if(er) er.value=r;
+    var eg=document.getElementById('lv-g'); if(eg) eg.value=g;
+    var eb=document.getElementById('lv-b'); if(eb) eb.value=b;
     var map={'pc-w':[255,255,255],'pc-r':[255,0,0],'pc-g':[0,255,0],'pc-b':[0,0,255],'pc-m':[255,0,255],'pc-c':[0,255,255],'pc-y':[255,200,0]};
-    Object.keys(map).forEach(function(id){
-      var el=document.getElementById(id);
-      if(el) el.style.borderColor=(map[id][0]===r&&map[id][1]===g&&map[id][2]===b)?'var(--accent)':'transparent';
-    });
+    Object.keys(map).forEach(function(id){var el=document.getElementById(id);if(el)el.style.borderColor=(map[id][0]===r&&map[id][1]===g&&map[id][2]===b)?'var(--accent)':'transparent';});
+    sendAnimConfig();
   };
 
   window.stopGradient = function() {
-    s_gradActive=-1; s_chaseActive=-1;
-    if (s_gradTimer) { clearInterval(s_gradTimer); s_gradTimer=null; }
-    buildGradientGrid(); buildChaseGrid(); highlightTypeBtn();
+    s_activeType = ''; s_activeSeq = -1;
+    buildGrid('grad-seq-grid',  GRAD_SEQS,  -1, 'window.selectGradient');
+    buildGrid('chase-seq-grid', CHASE_SEQS, -1, 'window.selectChase');
+    highlightTypeBtn('');
+    sendAnimConfig();
   };
 
-  window.applyGradient = function() {
-    if (s_gradTimer && (s_animType==='strobe'||s_animType==='chase'||s_animType==='colorflip')) startTimer();
-  };
+  window.applyGradient = function() { sendAnimConfig(); };
 
-  // Quick-color helper: set wheel + hidden inputs + send
+  // Quick-color: stop animation, set static color
   window.setQuickColor = function(r, g, b) {
-    window.stopGradient();
-
-    // Write hidden inputs
-    // Stop any running gradient
-    if (s_gradActive >= 0) window.stopGradient();
-
-    // Write hidden inputs
-    var er = document.getElementById('lv-r');
-    var eg = document.getElementById('lv-g');
-    var eb = document.getElementById('lv-b');
-    if (er) er.value = r;
-    if (eg) eg.value = g;
-    if (eb) eb.value = b;
-
-    // Sync value spans
-    var sr = document.getElementById('lv-r-val');
-    var sg = document.getElementById('lv-g-val');
-    var sb = document.getElementById('lv-b-val');
-    if (sr) sr.textContent = r;
-    if (sg) sg.textContent = g;
-    if (sb) sb.textContent = b;
-
-    // Update preview + hex
-    var preview = document.getElementById('lv-col-preview');
-    var hexEl   = document.getElementById('lv-col-hex');
-    var css = 'rgb('+r+','+g+','+b+')';
-    if (preview) preview.style.background = css;
-    if (hexEl) hexEl.textContent = '#' +
-      ('0'+r.toString(16)).slice(-2) +
-      ('0'+g.toString(16)).slice(-2) +
-      ('0'+b.toString(16)).slice(-2);
-
-    // Apply current brightness scaling to wheel state
-    // Convert RGB back to HSV for wheel cursor position
-    var rn = r/255, gn = g/255, bn = b/255;
-    var max = Math.max(rn,gn,bn), min = Math.min(rn,gn,bn), d = max-min;
-    var h = 0, s = max === 0 ? 0 : d/max * 100, v = max * 255;
-    if (d > 0) {
-      if      (max === rn) h = 60 * (((gn-bn)/d) % 6);
-      else if (max === gn) h = 60 * (((bn-rn)/d) + 2);
-      else                 h = 60 * (((rn-gn)/d) + 4);
-      if (h < 0) h += 360;
-    }
-    // Update internal wheel state via exposed globals
-    if (typeof window._cwSetState === 'function') window._cwSetState(h, s, v);
-
-    // Enable color override and send
-    var colOn = document.getElementById('lv-col-on');
-    if (colOn && !colOn.checked) colOn.checked = true;
-    if (typeof liveSlider === 'function') liveSlider();
+    s_activeType = ''; s_activeSeq = -1;
+    var er=document.getElementById('lv-r'); if(er) er.value=r;
+    var eg=document.getElementById('lv-g'); if(eg) eg.value=g;
+    var eb=document.getElementById('lv-b'); if(eb) eb.value=b;
+    var preview=document.getElementById('lv-col-preview');
+    var hexEl=document.getElementById('lv-col-hex');
+    if(preview) preview.style.background='rgb('+r+','+g+','+b+')';
+    if(hexEl) hexEl.textContent='#'+('0'+r.toString(16)).slice(-2)+('0'+g.toString(16)).slice(-2)+('0'+b.toString(16)).slice(-2);
+    var rn=r/255,gn=g/255,bn=b/255;
+    var max=Math.max(rn,gn,bn),d=max-Math.min(rn,gn,bn);
+    var h=0,s=max===0?0:d/max*100,v=max*255;
+    if(d>0){if(max===rn)h=60*(((gn-bn)/d)%6);else if(max===gn)h=60*(((bn-rn)/d)+2);else h=60*(((rn-gn)/d)+4);if(h<0)h+=360;}
+    if(typeof window._cwSetState==='function') window._cwSetState(h,s,v);
+    var colOn=document.getElementById('lv-col-on'); if(colOn) colOn.checked=true;
+    buildGrid('grad-seq-grid',  GRAD_SEQS,  -1, 'window.selectGradient');
+    buildGrid('chase-seq-grid', CHASE_SEQS, -1, 'window.selectChase');
+    highlightTypeBtn('');
+    if(typeof liveSlider==='function') liveSlider();
   };
 
   document.addEventListener('DOMContentLoaded', function() {
     showPanel('gradient');
-    highlightTypeBtn();
-    buildGradientGrid();
-    buildChaseGrid();
+    highlightTypeBtn('');
+    buildGrid('grad-seq-grid',  GRAD_SEQS,  -1, 'window.selectGradient');
+    buildGrid('chase-seq-grid', CHASE_SEQS, -1, 'window.selectChase');
     var obs = new MutationObserver(function() {
       var tab = document.getElementById('tab-presets');
       if (tab && tab.classList.contains('active')) {
-        buildGradientGrid(); buildChaseGrid(); highlightTypeBtn();
+        buildGrid('grad-seq-grid',  GRAD_SEQS,  s_activeType==='gradient'?s_activeSeq:-1, 'window.selectGradient');
+        buildGrid('chase-seq-grid', CHASE_SEQS, s_activeType==='chase'?s_activeSeq:-1,    'window.selectChase');
+        highlightTypeBtn(s_activeType);
       }
     });
     var presets = document.getElementById('tab-presets');
@@ -5552,7 +5395,7 @@ let calibActiveIdx=-1,calibPatterns=[];
 async function calibPlay(idx){calibActiveIdx=idx;calibPatterns=calibPatterns||[];await calibSend();document.getElementById('calib-status').textContent='▶ Pattern '+idx;loadCalibPatterns();}
 async function calibSend(){await apiCall('POST','/api/calib-pattern',{active:calibActiveIdx>=0,idx:Math.max(0,calibActiveIdx),bright:+document.getElementById('cp-bright').value,channel:+document.getElementById('cp-ch').value});}
 async function calibStop(){calibActiveIdx=-1;await apiCall('POST','/api/calib-pattern/stop');document.getElementById('calib-status').textContent='No calibration pattern active';loadCalibPatterns();}
-async function ildaTestPlay(){const size=+document.getElementById('ilda-size').value;await apiCall('POST','/api/calib-pattern',{active:true,idx:12,bright:200,channel:size});}
+async function ildaTestPlay(){const size=+document.getElementById('ilda-size').value;await apiCall('POST','/api/calib-pattern',{active:true,idx:12,bright:200,channel:size});
 async function ildaTestStop(){await apiCall('POST','/api/calib-pattern/stop');document.getElementById('ilda-status').textContent='Pattern inactive';if(document.getElementById('btn-ilda-play'))document.getElementById('btn-ilda-play').style.opacity='1';}
 async function ildaTestSend(){if(document.getElementById('ilda-status').textContent.startsWith('▶')){await ildaTestPlay();}}
 document.querySelectorAll('[data-tab]').forEach(btn=>{btn.addEventListener('click',()=>{

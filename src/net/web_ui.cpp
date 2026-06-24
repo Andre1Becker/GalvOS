@@ -578,10 +578,13 @@ void init() {
             if (deserializeJson(doc, data, len)) { req->send(400, "text/plain", "bad json"); return; }
             if (doc["speed"].is<int>())     gLivePreset.speed     = doc["speed"];
             if (doc["size"].is<int>())      gLivePreset.size_val  = doc["size"];
-            if (doc["col_r"].is<int>())     gLivePreset.col_r     = doc["col_r"];
-            if (doc["col_g"].is<int>())     gLivePreset.col_g     = doc["col_g"];
-            if (doc["col_b"].is<int>())     gLivePreset.col_b     = doc["col_b"];
-            if (doc["col_override"].is<bool>()) gLivePreset.col_override = doc["col_override"];
+            if (doc["col_r"].is<int>())          gLivePreset.col_r          = doc["col_r"];
+            if (doc["col_g"].is<int>())          gLivePreset.col_g          = doc["col_g"];
+            if (doc["col_b"].is<int>())          gLivePreset.col_b          = doc["col_b"];
+            if (doc["col_override"].is<bool>())  gLivePreset.col_override   = doc["col_override"];
+            if (doc["col_anim_type"].is<int>())  gLivePreset.col_anim_type  = (ColAnimType)(uint8_t)(int)doc["col_anim_type"];
+            if (doc["col_anim_seq"].is<int>())   gLivePreset.col_anim_seq   = (uint8_t)(int)doc["col_anim_seq"];
+            if (doc["col_anim_speed"].is<int>()) gLivePreset.col_anim_speed = (uint8_t)(int)doc["col_anim_speed"];
             if (doc["rotation"].is<int>())     gLivePreset.rotation    = (int16_t)(int)doc["rotation"];
             if (doc["mirror_x"].is<bool>())    gLivePreset.mirror_x    = doc["mirror_x"];
             if (doc["mirror_y"].is<bool>())    gLivePreset.mirror_y    = doc["mirror_y"];

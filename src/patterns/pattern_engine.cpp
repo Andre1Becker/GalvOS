@@ -480,11 +480,158 @@ void task(void*) {
                                          PATTERN_POINTS_MAX, phase, speed, sz);
 
             // Color override from Live-Controls
-            if (gLivePreset.col_override) {
+            // ── Firmware color animation engine ──────────────────────────
+            // Runs per-frame on Core 0; no HTTP overhead.
+            // Also DMX-controllable via CH 23-25.
+            {
+                static uint32_t s_anim_phase = 0;   // shared tick counter
+                static bool     s_strobe_on  = false;
+
+                // Gradient stop tables (10 sequences, up to 6 stops each)
+                // Format: {R,G,B}, terminated by {0xFF,0xFF,0xFF}
+                static const uint8_t GRAD[10][6][3] = {
+                    {{255,0,0},{255,128,0},{255,255,0},{0,255,0},{0,200,255},{128,0,255}}, // Rainbow
+                    {{255,0,0},{255,80,0},{255,200,0},{255,255,80},{0xFF,0xFF,0xFF}},       // Fire
+                    {{0,0,80},{0,80,200},{0,200,255},{80,255,255},{0xFF,0xFF,0xFF}},        // Ocean
+                    {{255,0,128},{128,0,255},{0,255,200},{255,255,0},{0xFF,0xFF,0xFF}},     // Neon
+                    {{80,0,40},{200,0,80},{255,80,0},{255,200,0},{0xFF,0xFF,0xFF}},         // Sunset
+                    {{0,40,0},{0,128,40},{80,255,80},{200,255,100},{0xFF,0xFF,0xFF}},       // Forest
+                    {{200,230,255},{100,180,255},{40,100,200},{200,230,255},{0xFF,0xFF,0xFF}}, // Ice
+                    {{80,0,0},{255,0,0},{255,80,0},{255,255,0},{255,0,0},{0xFF,0xFF,0xFF}}, // Lava
+                    {{255,100,200},{200,100,255},{100,200,255},{255,255,100},{0xFF,0xFF,0xFF}}, // Candy
+                    {{0,0,0},{255,255,255},{0,0,0},{0xFF,0xFF,0xFF}},                       // Mono
+                };
+                // Chase sequences (10, up to 6 colors each)
+                static const uint8_t CHASE[10][6][3] = {
+                    {{255,0,0},{0,255,0},{0,0,255},{0xFF,0xFF,0xFF}},              // RGB
+                    {{255,0,0},{0,255,0},{0,0,255},{255,255,255},{0xFF,0xFF,0xFF}},// RGBW
+                    {{0,255,255},{255,0,255},{255,255,0},{0xFF,0xFF,0xFF}},         // CMY
+                    {{255,150,150},{150,255,150},{150,150,255},{255,255,150},{0xFF,0xFF,0xFF}}, // Pastel
+                    {{255,0,0},{255,80,0},{255,200,0},{255,255,255},{0xFF,0xFF,0xFF}},// Hot
+                    {{0,0,255},{0,100,255},{0,200,255},{200,230,255},{0xFF,0xFF,0xFF}},// Cold
+                    {{255,0,0},{255,128,0},{255,255,0},{0,255,0},{0,0,255},{128,0,255}},// Party
+                    {{255,255,255},{0,0,0},{0xFF,0xFF,0xFF}},                      // BW
+                    {{255,0,0},{0,0,255},{0xFF,0xFF,0xFF}},                         // RB
+                    {{255,0,0},{0,255,0},{255,255,255},{0xFF,0xFF,0xFF}},           // RGW
+                };
+                static const uint8_t FLIP[4][3] = {
+                    {255,0,0},{0,255,0},{0,0,255},{255,255,255}
+                };
+
+                ColAnimType atype = gLivePreset.col_anim_type;
+                uint8_t     aseq  = gLivePreset.col_anim_seq % 10;
+                uint8_t     aspd  = gLivePreset.col_anim_speed;
+
+                // Compute current animation color
+                uint8_t ar = 255, ag = 0, ab = 0;  // default: red
+
+                if (atype == COL_ANIM_OFF) {
+                    // Static: use col_override or default red
+                    if (gLivePreset.col_override) {
+                        ar = gLivePreset.col_r;
+                        ag = gLivePreset.col_g;
+                        ab = gLivePreset.col_b;
+                    }
+                    // else: default red (ar=255,ag=0,ab=0 already set)
+
+                } else if (atype == COL_ANIM_GRADIENT) {
+                    // Smooth lerp through stop table
+                    // phase 0..65535 cycles through all stops
+                    s_anim_phase += aspd / 4 + 1;
+                    const uint8_t (*stops)[3] = GRAD[aseq];
+                    // Count stops
+                    int nstops = 0;
+                    while (nstops < 6 && !(stops[nstops][0]==0xFF && stops[nstops][1]==0xFF)) nstops++;
+                    if (nstops < 2) nstops = 2;
+                    uint32_t range = 65536UL / (nstops - 1);
+                    uint32_t ph    = s_anim_phase & 0xFFFF;
+                    int seg        = ph / range;
+                    if (seg >= nstops - 1) seg = nstops - 2;
+                    uint32_t f     = (ph - seg * range) * 255 / range;
+                    ar = (uint8_t)(stops[seg][0] + (int)(stops[seg+1][0] - stops[seg][0]) * (int)f / 255);
+                    ag = (uint8_t)(stops[seg][1] + (int)(stops[seg+1][1] - stops[seg][1]) * (int)f / 255);
+                    ab = (uint8_t)(stops[seg][2] + (int)(stops[seg+1][2] - stops[seg][2]) * (int)f / 255);
+
+                } else if (atype == COL_ANIM_CHASE) {
+                    // Hard step; advance every N frames based on speed
+                    static uint32_t s_chase_acc = 0;
+                    static uint8_t  s_chase_step = 0;
+                    s_chase_acc += aspd + 1;
+                    if (s_chase_acc >= 4096) {
+                        s_chase_acc -= 4096;
+                        // Count colors in sequence
+                        int nc = 0;
+                        while (nc < 6 && !(CHASE[aseq][nc][0]==0xFF && CHASE[aseq][nc][1]==0xFF)) nc++;
+                        if (nc < 1) nc = 1;
+                        s_chase_step = (s_chase_step + 1) % nc;
+                    }
+                    {
+                        int nc = 0;
+                        while (nc < 6 && !(CHASE[aseq][nc][0]==0xFF && CHASE[aseq][nc][1]==0xFF)) nc++;
+                        if (nc < 1) nc = 1;
+                        uint8_t step = s_chase_step % nc;
+                        ar = CHASE[aseq][step][0];
+                        ag = CHASE[aseq][step][1];
+                        ab = CHASE[aseq][step][2];
+                    }
+
+                } else if (atype == COL_ANIM_STROBE) {
+                    static uint32_t s_strobe_acc = 0;
+                    s_strobe_acc += aspd + 1;
+                    if (s_strobe_acc >= 8192) {
+                        s_strobe_acc -= 8192;
+                        s_strobe_on = !s_strobe_on;
+                    }
+                    if (s_strobe_on) {
+                        ar = gLivePreset.col_r; ag = gLivePreset.col_g; ab = gLivePreset.col_b;
+                    } else {
+                        ar = 0; ag = 0; ab = 0;
+                    }
+
+                } else if (atype == COL_ANIM_PULSE) {
+                    // Sine fade on current static color
+                    s_anim_phase += aspd / 2 + 1;
+                    float v = (sinf((float)(s_anim_phase & 0xFFFF) * 6.2832f / 65536.f) * 0.5f + 0.5f);
+                    ar = (uint8_t)(gLivePreset.col_r * v);
+                    ag = (uint8_t)(gLivePreset.col_g * v);
+                    ab = (uint8_t)(gLivePreset.col_b * v);
+
+                } else if (atype == COL_ANIM_TWINKLE) {
+                    static uint8_t  s_twink_val = 200;
+                    static uint8_t  s_twink_tgt = 200;
+                    if (abs((int)s_twink_val - (int)s_twink_tgt) < 8) {
+                        // Use esp_random for randomness (no stdlib rand needed)
+                        uint32_t rnd = esp_random();
+                        s_twink_tgt = (rnd & 0xFF) > 200
+                            ? (uint8_t)(rnd & 0xFF)
+                            : (uint8_t)(100 + (rnd & 0x63));
+                    }
+                    int delta = (int)s_twink_tgt - (int)s_twink_val;
+                    s_twink_val = (uint8_t)(s_twink_val + delta / 4);
+                    float v = s_twink_val / 255.f;
+                    ar = (uint8_t)(gLivePreset.col_r * v);
+                    ag = (uint8_t)(gLivePreset.col_g * v);
+                    ab = (uint8_t)(gLivePreset.col_b * v);
+
+                } else if (atype == COL_ANIM_FLIP) {
+                    static uint32_t s_flip_acc  = 0;
+                    static uint8_t  s_flip_step = 0;
+                    s_flip_acc += aspd + 1;
+                    if (s_flip_acc >= 8192) {
+                        s_flip_acc -= 8192;
+                        s_flip_step = (s_flip_step + 1) % 4;
+                    }
+                    ar = FLIP[s_flip_step][0];
+                    ag = FLIP[s_flip_step][1];
+                    ab = FLIP[s_flip_step][2];
+                }
+
+                // Apply computed color to all lit points
                 for (size_t i = 0; i < n; i++) {
-                    s_frame[i].r = (s_frame[i].r * gLivePreset.col_r) >> 8;
-                    s_frame[i].g = (s_frame[i].g * gLivePreset.col_g) >> 8;
-                    s_frame[i].b = (s_frame[i].b * gLivePreset.col_b) >> 8;
+                    if (s_frame[i].blank) continue;
+                    s_frame[i].r = ar;
+                    s_frame[i].g = ag;
+                    s_frame[i].b = ab;
                 }
             }
 
