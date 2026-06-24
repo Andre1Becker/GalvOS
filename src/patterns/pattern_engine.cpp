@@ -327,11 +327,12 @@ void setCurve(int8_t idx) {
 int8_t getCurve() { return gCurves.active_curve; }
 
 void triggerTestPattern(const char* name) {
-    if (strcmp(name, "ilda") == 0) {
+if (strcmp(name, "ilda") == 0) {
         s_test_pattern = -1;
-        gState.calib_active = true;
-        gState.calib_idx    = 12;
-        gState.calib_bright = 128;
+        gState.calib_active  = true;
+        gState.calib_idx     = 12;
+        gState.calib_bright  = 200;   // laser brightness
+        gState.calib_channel = 128;   // scan size (maps to ~8° @ 30kpps)
         gState.ui_master_dimmer.store(200);
         return;
     }

@@ -5078,7 +5078,7 @@ let calibActiveIdx=-1,calibPatterns=[];
 async function calibPlay(idx){calibActiveIdx=idx;calibPatterns=calibPatterns||[];await calibSend();document.getElementById('calib-status').textContent='▶ Pattern '+idx;loadCalibPatterns();}
 async function calibSend(){await apiCall('POST','/api/calib-pattern',{active:calibActiveIdx>=0,idx:Math.max(0,calibActiveIdx),bright:+document.getElementById('cp-bright').value,channel:+document.getElementById('cp-ch').value});}
 async function calibStop(){calibActiveIdx=-1;await apiCall('POST','/api/calib-pattern/stop');document.getElementById('calib-status').textContent='No calibration pattern active';loadCalibPatterns();}
-async function ildaTestPlay(){const size=+document.getElementById('ilda-size').value;await apiCall('POST','/api/calib-pattern',{active:true,idx:12,bright:size,channel:0});document.getElementById('ilda-status').textContent='▶ ILDA Test Pattern active';if(document.getElementById('btn-ilda-play'))document.getElementById('btn-ilda-play').style.opacity='0.5';}
+async function ildaTestPlay(){const size=+document.getElementById('ilda-size').value;await apiCall('POST','/api/calib-pattern',{active:true,idx:12,bright:200,channel:size});
 async function ildaTestStop(){await apiCall('POST','/api/calib-pattern/stop');document.getElementById('ilda-status').textContent='Pattern inactive';if(document.getElementById('btn-ilda-play'))document.getElementById('btn-ilda-play').style.opacity='1';}
 async function ildaTestSend(){if(document.getElementById('ilda-status').textContent.startsWith('▶')){await ildaTestPlay();}}
 document.querySelectorAll('[data-tab]').forEach(btn=>{btn.addEventListener('click',()=>{

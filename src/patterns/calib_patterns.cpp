@@ -633,21 +633,20 @@ static size_t color_temp(LaserPoint* o, size_t mx,
 //   6. Adjust DC offset — cross must be centered on screen
 // ══════════════════════════════════════════════════════════════
 static size_t ilda_test(LaserPoint* o, size_t mx,
-                         uint32_t phase, uint8_t bright, uint8_t) {
+                         uint32_t phase, uint8_t bright, uint8_t size_ch) {
     size_t n = 0;
 
-    // Scale: outer square = ±SC, inner square = ±SC*0.5
-    // bright slider maps to scan amplitude (A5):
-    //   bright=255 → inner square at full SC*0.5 (≈15° @12K, too large @30K)
-    //   bright=128 → inner square at SC*0.25   (≈8°  @30K, ILDA rated)
-    //   Use slider to reduce size until circle just stops distorting, then +10%
-    const float OUTER = SC * 0.88f;            // A1: outer boundary square
-    const float INNER = OUTER * 0.5f * (0.3f + (bright / 255.0f) * 0.7f); // A2: tuning square
+    // size_ch (0–255) controls inner square / circle scan size
+    // bright controls laser brightness via colorOut()
+    // size_ch=128 → ~8° optical (@30kpps, ILDA rated)
+    // size_ch=255 → ~15° optical (12K mode)
+    const float OUTER = SC * 0.88f;
+    const float INNER = OUTER * 0.5f * (0.3f + (size_ch / 255.0f) * 0.7f);
 
-    // Colors: white for geometry, dim green for axis lines
-    const uint8_t WR = 220, WG = 220, WB = 220;  // main geometry
-    const uint8_t AR = 0,   AG = 160, AB = 0;     // axis / cross
-    const uint8_t DR = 60,  DG = 60,  DB = 60;    // dim reference
+    // Pre-computed colors via colorOut() so gamma + white balance apply
+    uint8_t WR, WG, WB;  colorOut(220, 220, 220, bright, WR, WG, WB);  // main geometry
+    uint8_t AR, AG, AB;  colorOut(0,   200,   0, bright, AR, AG, AB);  // axis / cross
+    uint8_t DR, DG, DB;  colorOut(180, 180, 180, bright, DR, DG, DB);  // outer square (dim)
 
     // ── A1: Outer square (full scan boundary) ────────────────────────
     // Scanned once as reference — do NOT use for damping adjustment
