@@ -471,8 +471,7 @@ static void IRAM_ATTR galvoTask(void*) {
                         s_last_dac_y = (uint16_t)y;
                     }
                 } else {
-                    writeDAC8562(0, (uint16_t)x);
-                    writeDAC8562(1, (uint16_t)y);
+                    writeDAC8562XY((uint16_t)x, (uint16_t)y);
                     // PWM duty: 8-bit. Apply dimmer + gain.
                     uint8_t dim = gState.master_dimmer.load();  // atomic load
                     // FIX: s_snap instead of gConfig — Race-Condition-frei
@@ -480,7 +479,6 @@ static void IRAM_ATTR galvoTask(void*) {
                     uint8_t g = (uint8_t)(((uint32_t)p.g * dim * s_snap.gain_g) / (255UL * 255));
                     uint8_t b = (uint8_t)(((uint32_t)p.b * dim * s_snap.gain_b) / (255UL * 255));
                     rgbWrite(r, g, b);
-                    writeDAC8562XY((uint16_t)x, (uint16_t)y);
                     s_laser_off_hold = LASER_OFF_HOLD_TICKS;
                 }
             }
