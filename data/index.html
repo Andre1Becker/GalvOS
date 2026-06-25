@@ -1120,64 +1120,6 @@
   <!-- ── ILDA Standard Test Pattern ─────────────────────────────── -->
   <div class="card" style="margin-top:16px">
     <h2>📐 ILDA Standard Test Pattern</h2>
-    <!-- ===== CALIBRATION TAB ===== -->
-<section id="tab-calib" class="tab">
-  <div class="grid cols-2">
-    <div class="card">
-      <h2>⊹ Color &amp; Gamma Calibration</h2>
-      <div id="calib-status" style="font-family:monospace;font-size:12px;color:var(--dim);margin-bottom:12px">
-        No calibration pattern active
-      </div>
-
-      <h3 style="font-size:13px;margin-bottom:10px">Select pattern</h3>
-      <div id="calib-pattern-list" style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px">
-        <!-- filled by JS -->
-      </div>
-
-      <div class="btns">
-        <button class="btn danger" onclick="calibStop()">⏹ Stop</button>
-      </div>
-    </div>
-
-    <div class="card">
-      <h2>Parameter</h2>
-
-      <label>Brightness <span id="cp-bright-v" style="color:var(--accent);font-family:monospace">200</span></label>
-      <input type="range" id="cp-bright" min="10" max="255" value="200"
-        oninput="document.getElementById('cp-bright-v').textContent=this.value;calibSend()">
-
-      <label style="margin-top:12px">channel</label>
-      <select id="cp-ch" onchange="calibSend()"
-        style="width:100%;background:var(--card);border:1px solid var(--border);
-               color:var(--text);padding:6px;font-family:monospace;font-size:12px">
-        <option value="0">R + G + B (White)</option>
-        <option value="1">Red only (638 nm)</option>
-        <option value="2">Green only (520 nm)</option>
-        <option value="3">Blue only (445 nm)</option>
-      </select>
-
-      <hr style="border-color:var(--border);margin:14px 0">
-      <h3 style="font-size:13px;margin-bottom:8px">What to check</h3>
-      <div id="calib-check" style="font-family:monospace;font-size:11px;
-           color:var(--dim);line-height:1.9;padding:10px;background:rgba(0,0,0,.2);
-           border-radius:4px;min-height:60px">
-        Select pattern for hints
-      </div>
-
-      <hr style="border-color:var(--border);margin:14px 0">
-      <h3 style="font-size:13px;margin-bottom:8px">Gamma &amp; White balance</h3>
-      <div style="font-family:monospace;font-size:11px;color:var(--dim);line-height:2">
-        <div>Gamma: <span id="cp-gamma-v" style="color:var(--accent)">–</span></div>
-        <div>gain R: <span id="cp-gr" style="color:#ff8080">–</span>
-             &nbsp; G: <span id="cp-gg" style="color:#80ff80">–</span>
-             &nbsp; B: <span id="cp-gb" style="color:#8080ff">–</span></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ── ILDA Standard Test Pattern ─────────────────────────────── -->
-  <div class="card" style="margin-top:16px">
-    <h2>📐 ILDA Standard Test Pattern</h2>
     <p style="font-size:11px;color:var(--dim);margin:0 0 12px 0">
       Official ILDA Technical Committee test pattern (Rev.002, 1995) for galvo scanner
       alignment. Use this pattern to calibrate damping, servo gain, DC offset and
@@ -5515,6 +5457,10 @@ async function saveNtpConfig() {
 
   </div>
 </section>
+
+
+<!-- ===== CALIBRATION TAB ===== -->
+
 
 <script>
 async function loadCalibPatterns(){const res=await apiCall('GET','/api/calib-pattern/list');if(!res||!res.patterns)return;const list=document.getElementById('calib-pattern-list');list.innerHTML=res.patterns.map(p=>'<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;border:1px solid var(--border);border-radius:4px;cursor:pointer" id="calib-btn-'+p.idx+'" onclick="calibPlay('+p.idx+')"><span style="font-family:monospace;font-size:11px;color:var(--accent);min-width:20px">'+(res.active&&res.idx===p.idx?'▶':'○')+'</span><span style="flex:1"><div style="font-size:12px;color:var(--text)">'+p.name+'</div><div style="font-size:10px;color:var(--dim)">'+p.desc+'</div></span></div>').join('');const cfg=await apiCall('GET','/api/config');if(cfg){document.getElementById('cp-gamma-v').textContent=(cfg.gamma_enable?'γ='+cfg.gamma_val.toFixed(2):'AUS');document.getElementById('cp-gr').textContent=cfg.gain_r;document.getElementById('cp-gg').textContent=cfg.gain_g;document.getElementById('cp-gb').textContent=cfg.gain_b;}}
