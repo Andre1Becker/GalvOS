@@ -135,13 +135,11 @@ static inline void IRAM_ATTR writeDAC8562(uint8_t channel, uint16_t value) {
 static inline void IRAM_ATTR writeDAC8562XY(uint16_t x, uint16_t y) {
     // Precompute byte-swapped W0 words for DAC-A (X) and DAC-B (Y).
     // Original: 0x18_HI_LO (MSB first) -> W0: LO_HI_0x18 (LSB first in register)
-    auto makeWord = [](uint8_t cmd, uint16_t val) -> uint32_t {
-        return ((uint32_t)(val & 0xFF) << 16) |
-               ((uint32_t)((val >> 8) & 0xFF) << 8) |
-               (uint32_t)cmd;
-    };
-    uint32_t word_a = makeWord(0x18, x);
-    uint32_t word_b = makeWord(0x19, y);
+    // SPI2 W0: bits [23:0] sent MSB-first (bit23 goes out first on MOSI).
+    // DAC8562 expects [cmd(8)][data_hi(8)][data_lo(8)] MSB-first.
+    // -> pack as: cmd in bits[23:16], data_hi in bits[15:8], data_lo in bits[7:0]
+    uint32_t word_a = ((uint32_t)0x18 << 16) | x;
+    uint32_t word_b = ((uint32_t)0x19 << 16) | y;
 
     GALVO_SPI2_MOSI_DLEN = 23;  // 24 bits - 1 (set once, same for both transfers)
 
