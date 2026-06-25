@@ -869,8 +869,18 @@ void init() {
     });
 
     // ── calibration-Pattern API ──────────────────────────────────
+    // NOTE: specific routes (/stop, /list) must be registered BEFORE
+    // the bare /api/calib-pattern route — ESPAsyncWebServer matches
+    // the first registered handler whose prefix matches the URL.
 
-    // GET /api/calib-pattern/list -> all pattern info
+    // POST /api/calib-pattern/stop  (registered first — avoids prefix match)
+    s_server.on("/api/calib-pattern/stop", HTTP_POST,
+        [](AsyncWebServerRequest* req) {
+            gState.calib_active = false;
+            req->send(200, "text/plain", "OK");
+        });
+
+    // GET /api/calib-pattern/list
     s_server.on("/api/calib-pattern/list", HTTP_GET,
         [](AsyncWebServerRequest* req) {
             JsonDocument doc;
