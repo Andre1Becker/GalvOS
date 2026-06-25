@@ -235,7 +235,7 @@
   flex-wrap:wrap;
 ">
   <span title="Firmware version">🔧 <span id="sb-fw">--</span></span>
-  <span title="Core 1 (Galvo) CPU load">⚙ C1: <span id="sb-cpu1" style="color:var(--text)">--</span>%</span>
+  <span title="Core 0 (Net/DMX/UI) CPU load">⚙ C0: <span id="sb-cpu1" style="color:var(--text)">--</span>%</span>
   <span title="Galvo output rate">⚡ <span id="sb-kpps" style="color:var(--text)">--</span> kpps</span>
   <span title="Frame buffer fill level">▦ Buf: <span id="sb-buf" style="color:var(--text)">--</span>%</span>
   <span title="Primary temperature sensor">🌡 <span id="sb-temp" style="color:var(--text)">--</span> °C</span>
@@ -1824,9 +1824,9 @@ function handleStateUpdate(s) {
     if (sbFw) sbFw.textContent = 'v' + s.fw_version;
   }
   var sbCpu1 = document.getElementById('sb-cpu1');
-  if (sbCpu1 && s.cpu1 !== undefined) {
-    sbCpu1.textContent = Math.round(s.cpu1);
-    sbCpu1.style.color = s.cpu1 >= 90 ? 'var(--danger)' : s.cpu1 >= 70 ? 'var(--warn)' : 'var(--ok)';
+  if (sbCpu1 && s.cpu0 !== undefined) {
+    sbCpu1.textContent = Math.round(s.cpu0);
+    sbCpu1.style.color = s.cpu0 >= 90 ? 'var(--danger)' : s.cpu0 >= 70 ? 'var(--warn)' : 'var(--ok)';
   }
   var sbKpps = document.getElementById('sb-kpps');
   if (sbKpps && s.points_per_sec !== undefined) {
