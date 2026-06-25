@@ -14,9 +14,12 @@
 // ESP32-S3 SPI2 base address and register offsets from TRM chapter 26.
 #define GALVO_SPI2_BASE       0x60024000UL
 #define GALVO_SPI2_CMD        (*(volatile uint32_t*)(GALVO_SPI2_BASE + 0x000))  // SPI_CMD_REG
-#define GALVO_SPI2_W0         (*(volatile uint32_t*)(GALVO_SPI2_BASE + 0x098))  // SPI_W0_REG (data buffer)
-#define GALVO_SPI2_MOSI_DLEN  (*(volatile uint32_t*)(GALVO_SPI2_BASE + 0x01C))  // SPI_MOSI_DLEN_REG
-#define GALVO_SPI2_CMD_USR    (1u << 18)                                         // SPI_USR bit
+#define GALVO_SPI2_W0         (*(volatile uint32_t*)(GALVO_SPI2_BASE + 0x098))  // SPI_W0_REG
+#define GALVO_SPI2_MOSI_DLEN  (*(volatile uint32_t*)(GALVO_SPI2_BASE + 0x01C))  // SPI_MS_DLEN_REG
+#define GALVO_SPI2_DMA_INT_RAW (*(volatile uint32_t*)(GALVO_SPI2_BASE + 0x03C)) // SPI_DMA_INT_RAW_REG
+#define GALVO_SPI2_CMD_UPDATE (1u << 23)  // SPI_UPDATE: must set+wait before cmd.usr (ESP32-S3)
+#define GALVO_SPI2_CMD_USR    (1u << 24)  // SPI_USR: start transfer
+#define GALVO_SPI2_TRANS_DONE (1u << 12)  // SPI_TRANS_DONE_INT_RAW: poll for completion
 
 // GPIO W1TS/W1TC for single-cycle CS toggle (GPIO10 = PIN_GALVO_CS)
 #define GALVO_GPIO_W1TS  (*(volatile uint32_t*)0x60004008UL)  // GPIO_OUT_W1TS_REG
@@ -133,29 +136,42 @@ static inline void IRAM_ATTR writeDAC8562(uint8_t channel, uint16_t value) {
 // SPI2 W0 register sends bits 0..N first, so the 24-bit word must be
 // byte-swapped before loading: W0 = [data_lo][data_hi][cmd]
 static inline void IRAM_ATTR writeDAC8562XY(uint16_t x, uint16_t y) {
-    // Precompute byte-swapped W0 words for DAC-A (X) and DAC-B (Y).
-    // Original: 0x18_HI_LO (MSB first) -> W0: LO_HI_0x18 (LSB first in register)
-    // SPI2 W0: bits [23:0] sent MSB-first (bit23 goes out first on MOSI).
-    // DAC8562 expects [cmd(8)][data_hi(8)][data_lo(8)] MSB-first.
-    // -> pack as: cmd in bits[23:16], data_hi in bits[15:8], data_lo in bits[7:0]
+    // ESP32-S3: new register values (W0, MOSI_DLEN) are only latched into the
+    // SPI controller after cmd.update=1 + wait. Without this, the controller
+    // transfers stale data regardless of what was written to W0.
+    // Sequence per IDF spi_ll_master_user_start():
+    //   1. write W0 + MOSI_DLEN
+    //   2. cmd.update = 1, poll until cleared
+    //   3. cmd.usr = 1 (starts transfer)
+    //   4. poll DMA_INT_RAW.trans_done for completion
+    //   5. clear trans_done before next transfer
+    //
+    // DAC8562 word: [cmd(8)][data_hi(8)][data_lo(8)] MSB-first.
+    // SPI2 W0 sends bit23 first → pack cmd in [23:16], no byte-swap needed.
     uint32_t word_a = ((uint32_t)0x18 << 16) | x;
     uint32_t word_b = ((uint32_t)0x19 << 16) | y;
 
-    GALVO_SPI2_MOSI_DLEN = 23;  // 24 bits - 1 (set once, same for both transfers)
+    GALVO_SPI2_MOSI_DLEN = 23;  // 24 bits - 1
 
     // --- DAC-A (X) ---
-    GALVO_GPIO_W1TC  = GALVO_CS_MASK;   // CS LOW
-    GALVO_SPI2_W0    = word_a;
-    GALVO_SPI2_CMD   = GALVO_SPI2_CMD_USR;
-    while (GALVO_SPI2_CMD & GALVO_SPI2_CMD_USR) {}
-    GALVO_GPIO_W1TS  = GALVO_CS_MASK;   // CS HIGH — DAC-A latches
+    GALVO_SPI2_DMA_INT_RAW = GALVO_SPI2_TRANS_DONE;    // clear trans_done
+    GALVO_SPI2_W0  = word_a;
+    GALVO_SPI2_CMD = GALVO_SPI2_CMD_UPDATE;             // latch new register values
+    while (GALVO_SPI2_CMD & GALVO_SPI2_CMD_UPDATE) {}
+    GALVO_GPIO_W1TC = GALVO_CS_MASK;                    // CS LOW
+    GALVO_SPI2_CMD  = GALVO_SPI2_CMD_USR;               // start transfer
+    while (!(GALVO_SPI2_DMA_INT_RAW & GALVO_SPI2_TRANS_DONE)) {}
+    GALVO_GPIO_W1TS = GALVO_CS_MASK;                    // CS HIGH — DAC-A latches
 
     // --- DAC-B (Y) ---
-    GALVO_GPIO_W1TC  = GALVO_CS_MASK;
-    GALVO_SPI2_W0    = word_b;
-    GALVO_SPI2_CMD   = GALVO_SPI2_CMD_USR;
-    while (GALVO_SPI2_CMD & GALVO_SPI2_CMD_USR) {}
-    GALVO_GPIO_W1TS  = GALVO_CS_MASK;
+    GALVO_SPI2_DMA_INT_RAW = GALVO_SPI2_TRANS_DONE;    // clear trans_done
+    GALVO_SPI2_W0  = word_b;
+    GALVO_SPI2_CMD = GALVO_SPI2_CMD_UPDATE;
+    while (GALVO_SPI2_CMD & GALVO_SPI2_CMD_UPDATE) {}
+    GALVO_GPIO_W1TC = GALVO_CS_MASK;
+    GALVO_SPI2_CMD  = GALVO_SPI2_CMD_USR;
+    while (!(GALVO_SPI2_DMA_INT_RAW & GALVO_SPI2_TRANS_DONE)) {}
+    GALVO_GPIO_W1TS = GALVO_CS_MASK;                    // CS HIGH — DAC-B latches
 
     if (gConfig.dac_debug_log) {
         s_dac_dbg_x = x; s_dac_dbg_y = y;
