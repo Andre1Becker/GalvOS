@@ -66,97 +66,33 @@ struct PathSegment {
 // passed explicitly here rather than read as a global so the function
 // stays testable / has no hidden state).
 struct OptimizerConfig {
-    float    corner_angle_deg   = 25.0f;  // exterior angle below which a
-                                           // vertex is NOT a "sharp corner"
-    uint8_t  min_corner_pts     = 1;      // points placed at the softest corners
-    uint8_t  max_corner_pts     = 6;      // points placed at the sharpest (180°) corners
-    float    pts_per_1000_units = 4.0f;   // interior straight-segment density
-    uint8_t  min_segment_pts    = 2;      // floor per edge (>=2 = start+end)
-    uint8_t  blank_samples      = 40;     // fixed blank-jump length (Pillar 2 will
-                                           // make this a max instead of a constant)
-    uint16_t max_pts_per_frame  = 310;    // FLICKER BUDGET, separate from max_out
-                                           // (buffer capacity). At 15kpps, n points
-                                           // per frame -> 15000/n Hz frame rate.
-                                           // Measured on hardware: >=310 pts/frame
-                                           // visibly strobes (square=460pts flickers,
-                                           // star4=176pts does not). 280 gives ~10%
-                                           // margin below the observed 310pt threshold
-                                           // (15000/280 ~= 53Hz). Tune via WebUI slider
-                                           // if a given setup needs more/less margin.
-uint8_t  min_blank_samples  = 8;           // floor for blank_samples when the budget
-                                           // clamp needs to shrink blanking itself,
-                                           // not just interior density (relevant for
-                                           // many-short-edges shapes like wireframes,
-                                           // where blank overhead -- not interior
-                                           // density -- dominates the point count;
-                                           // e.g. 30-edge dodecahedron: 31 blank runs
-                                           // x 40 samples = 1240 pts before a single
-                                           // visible point is drawn). The original
-                                           // v4.5.29 fix found 1 sample insufficient
-                                           // for large jumps -- 8 is a conservative
-                                           // floor, not yet hardware-validated at the
-                                           // low end. This is an interim measure;
-                                           // proper distance-proportional + eased
-                                           // blanking is Pillar 2 (see design doc).
- uint8_t  stage1_blank_target = 20;        // Stage 1 (budget clamp) reduces
-                                           // cfg.blank_samples to THIS value, not
-                                           // all the way to min_blank_samples.
-                                           // cfg.blank_samples is the CEILING
-                                           // emitBlankJump() can scale up to for
-                                           // long jumps -- if Stage 1 collapses it
-                                           // to min_blank_samples, every jump gets
-                                           // clamped to that single value and
-                                           // blank_pts_per_1000_units (distance
-                                           // scaling) has no room to do anything
-                                           // (this was a real bug: WebUI slider
-                                           // for blank jump density had zero
-                                           // visible effect on Cube/Octahedron,
-                                           // because Stage 1 had already collapsed
-                                           // blank_samples to 8 == min_blank_samples
-                                           // before emitBlankJump() ever ran).
-                                           // Must be >= min_blank_samples; if
-                                           // budget is too tight even for this
-                                           // target, Stage 1 still falls back to
-                                           // min_blank_samples as a last resort.
-float    blank_pts_per_1000_units = 10.0f;
-                                           // PILLAR 2: distance-proportional blank
-                                           // jump density, same "per 1000 units"
-                                           // convention as pts_per_1000_units.
-                                           // emitBlankJump() picks
-                                           // round(dist/1000 * this), clamped to
-                                           // [min_blank_samples, blank_samples].
-                                           // Short jumps (adjacent wireframe
-                                           // vertices) get few samples; long
-                                           // diagonal jumps get up to
-                                           // blank_samples. Budget planning
-                                           // (Stage 1/2 above) still reserves
-                                           // blank_samples as a conservative
-                                           // worst case per jump -- actual usage
-                                           // is typically less, so output stays
-                                           // within the planned budget.
-                                           // Also applies smoothstep ease-in/out
-                                           // instead of linear interpolation
-                                           // during the jump, to reduce
-                                           // overshoot/undershoot at the landing
-                                           // point (previously: edges meeting at
-                                           // a shared vertex didn't quite close,
-                                           // and straight segments looked
-                                           // slightly curved while the servo was
-                                           // still settling).
-    uint8_t  min_interior_pts_per_segment = 6;
-                                           // Minimum interior points to RESERVE per
-                                           // segment before computing the blank
-                                           // budget. Without this, blank_samples
-                                           // only shrinks once the OVERALL cap is
-                                           // exceeded -- a 6-edge tetrahedron at the
-                                           // default 40 blank samples uses only
-                                           // 292/310 of the cap, so the cap-based
-                                           // trigger never fires, yet the 18 points
-                                           // left over for interior density (3/edge)
-                                           // is still too sparse to read as a line,
-                                           // not a dotted/broken edge. This forces
-                                           // blank_samples to give up budget earlier
-                                           // so each edge gets a usable minimum.
+// Defaults sourced from OPT_DEFAULT_* macros in config.h -- single source
+    // of truth. Both OptimizerConfig (here) and OptimizerLiveConfig (config.h)
+    // reference the same macros so they stay in sync automatically.
+    float    corner_angle_deg   = OPT_DEFAULT_CORNER_ANGLE_DEG;   // exterior angle below which a
+                                                                    // vertex is NOT a "sharp corner"
+    uint8_t  min_corner_pts     = OPT_DEFAULT_MIN_CORNER_PTS;     // points placed at the softest corners
+    uint8_t  max_corner_pts     = OPT_DEFAULT_MAX_CORNER_PTS;     // points placed at the sharpest (180°) corners
+    float    pts_per_1000_units = OPT_DEFAULT_PTS_PER_1000_UNITS; // interior straight-segment density
+    uint8_t  min_segment_pts    = OPT_DEFAULT_MIN_SEGMENT_PTS;    // floor per edge (>=2 = start+end)
+    uint8_t  blank_samples      = OPT_DEFAULT_BLANK_SAMPLES;      // blank-jump length ceiling (Pillar 2
+                                                                    // makes this a max, not a constant)
+    uint16_t max_pts_per_frame  = OPT_DEFAULT_MAX_PTS_PER_FRAME;  // FLICKER BUDGET: 45000/750 = 60 Hz.
+                                                                    // Tune via WebUI slider.
+    uint8_t  min_blank_samples  = OPT_DEFAULT_MIN_BLANK_SAMPLES;  // floor for blank_samples when budget
+                                                                    // clamp shrinks blanking (not just
+                                                                    // interior density). Pillar 2 interim.
+    uint8_t  stage1_blank_target = OPT_DEFAULT_STAGE1_BLANK_TARGET; // Stage 1 reduces blank_samples to
+                                                                    // this value before falling back to
+                                                                    // min_blank_samples as last resort.
+    float    blank_pts_per_1000_units = OPT_DEFAULT_BLANK_PTS_PER_1000_UNITS;
+                                                                    // PILLAR 2: distance-proportional blank
+                                                                    // density. emitBlankJump() clamps to
+                                                                    // [min_blank_samples, blank_samples].
+                                                                    // Smoothstep ease-in/out applied.
+    uint8_t  min_interior_pts_per_segment = OPT_DEFAULT_MIN_INTERIOR_PTS_PER_SEG;
+                                                                    // Interior pts reserved per segment
+                                                                    // before blank budget is computed.
 };
 
 // Runs Pillar-1 density optimization across all given segments and writes

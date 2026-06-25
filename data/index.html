@@ -1621,28 +1621,31 @@
 // DMX Channel Layout
 // ============================================================
 const DMX_CHANNELS = [
-  { ch: 1,  name: 'Master / Dimmer',  fn: 'DMX_MASTER',        help: 'Global brightness control 0-255. 0 = off, 255 = full brightness.' },
-  { ch: 2,  name: 'Color Preset',       fn: 'DMX_COLOR',         help: 'Selects a color/palette. Values spread across the spectrum (Red->Green->Blue->Weiss).' },
-  { ch: 3,  name: 'Color Animation',    fn: 'DMX_COLOR_SPEED',   help: 'Speed of color change. 0 = static, higher = faster cycling.' },
-  { ch: 4,  name: 'Pattern Group',    fn: 'DMX_PATTERN_GROUP', help: 'Pattern category: 0=Geometry, 1=Waves, 2=Text, etc. (see 🎭 tab).' },
-  { ch: 5,  name: 'Pattern Select',   fn: 'DMX_PATTERN_SELECT',help: 'Selects the specific pattern within the group (CH4).' },
+  { ch: 1,  name: 'Master / Dimmer',   fn: 'DMX_MASTER',        help: 'Global brightness control 0-255. 0 = off, 255 = full brightness.' },
+  { ch: 2,  name: 'Color Preset',      fn: 'DMX_COLOR',         help: 'Selects a color/palette. Values spread across the spectrum (Red->Green->Blue->Weiss).' },
+  { ch: 3,  name: 'Color Animation',   fn: 'DMX_COLOR_SPEED',   help: 'Speed of color change. 0 = static, higher = faster cycling.' },
+  { ch: 4,  name: 'Pattern Group',     fn: 'DMX_PATTERN_GROUP', help: 'Pattern category: 0=Geometry, 1=Waves, 2=Text, etc. (see 🎭 tab).' },
+  { ch: 5,  name: 'Pattern Select',    fn: 'DMX_PATTERN_SELECT',help: 'Selects the specific pattern within the group (CH4).' },
   { ch: 6,  name: 'Dynamic Effect',    fn: 'DMX_DYN_EFFECT',    help: 'Motion effect: rotation, pulsing, zoom, etc. 0 = no effect.' },
   { ch: 7,  name: 'Effect Speed',      fn: 'DMX_EFFECT_SPEED',  help: 'Speed of the Dynamic Effect from CH6.' },
-  { ch: 8,  name: 'Size / Scaling',fn: 'DMX_SIZE',          help: 'Scales the pattern. 128 = original size, <128 smaller, >128 larger.' },
-  { ch: 9,  name: 'Auto Scaling',   fn: 'DMX_AUTO_SCALE',    help: 'Automatic size pulsing. 0 = off, >0 enables with speed.' },
+  { ch: 8,  name: 'Size / Scaling',    fn: 'DMX_SIZE',          help: 'Scales the pattern. 128 = original size, <128 smaller, >128 larger.' },
+  { ch: 9,  name: 'Auto Scaling',      fn: 'DMX_AUTO_SCALE',    help: 'Automatic size pulsing. 0 = off, >0 enables with speed.' },
   { ch: 10, name: 'Rotation',          fn: 'DMX_ROTATION',      help: 'Static rotation of the whole image. 0-255 maps to 0deg-360deg.' },
-  { ch: 11, name: 'Horizontal Flip',fn:'DMX_HFLIP',         help: 'Mirrors the image horizontally. 0-127 = normal, 128-255 = mirrored.' },
-  { ch: 12, name: 'Vertical Flip', fn: 'DMX_VFLIP',         help: 'Mirrors the image vertically. 0-127 = normal, 128-255 = mirrored.' },
-  { ch: 13, name: 'Horizontal Move', fn:'DMX_HMOVE',     help: 'Shifts the image left/right. 128 = center.' },
-  { ch: 14, name: 'Vertical Move',fn:'DMX_VMOVE',        help: 'Shifts the image up/down. 128 = center.' },
-  { ch: 15, name: 'Wave Amplitude',  fn: 'DMX_WAVE_AMP',      help: 'Strength of wave distortion (only for wave patterns from group 1).' },
-  { ch: 16, name: 'Wave Frequency',   fn: 'DMX_WAVE_FREQ',     help: 'Frequency/density of the waves (only for wave patterns).' },
-  { ch: 17, name: 'ILDA File',        fn: 'DMX_ILDA_SELECT',   help: 'SD card player: 0 = off, 1-40 = file no., 255 = last file.' },
+  { ch: 11, name: 'Horizontal Flip',   fn:'DMX_HFLIP',          help: 'Mirrors the image horizontally. 0-127 = normal, 128-255 = mirrored.' },
+  { ch: 12, name: 'Vertical Flip',     fn: 'DMX_VFLIP',         help: 'Mirrors the image vertically. 0-127 = normal, 128-255 = mirrored.' },
+  { ch: 13, name: 'Horizontal Move',   fn:'DMX_HMOVE',          help: 'Shifts the image left/right. 128 = center.' },
+  { ch: 14, name: 'Vertical Move',     fn:'DMX_VMOVE',          help: 'Shifts the image up/down. 128 = center.' },
+  { ch: 15, name: 'Wave Amplitude',    fn: 'DMX_WAVE_AMP',      help: 'Strength of wave distortion (only for wave patterns from group 1).' },
+  { ch: 16, name: 'Wave Frequency',    fn: 'DMX_WAVE_FREQ',     help: 'Frequency/density of the waves (only for wave patterns).' },
+  { ch: 17, name: 'ILDA File',         fn: 'DMX_ILDA_SELECT',   help: 'SD card player: 0 = off, 1-40 = file no., 255 = last file.' },
   { ch: 18, name: 'ILDA Speed',        fn: 'DMX_ILDA_SPEED',    help: 'Playback speed of the ILDA animation.' },
-  { ch: 19, name: 'ILDA Size',        fn: 'DMX_ILDA_SIZE',     help: 'Scaling of the ILDA file. 128 = Originalgroesse.' },
+  { ch: 19, name: 'ILDA Size',         fn: 'DMX_ILDA_SIZE',     help: 'Scaling of the ILDA file. 128 = Originalgroesse.' },
   { ch: 20, name: 'ILDA Loop',         fn: 'DMX_ILDA_LOOP',     help: '0 = play once, 1-255 = infinite loop.' },
   { ch: 21, name: 'ILDA Brightness',   fn: 'DMX_ILDA_BRIGHT',   help: 'Brightness override for ILDA. 255 = uses master dimmer (CH1).' },
-  { ch: 22, name: 'ILDA Frame Repeat', fn: 'DMX_ILDA_REPEAT',   help: '0 = normal frame rate, 1-255 = hold each frame longer (slower).' }
+  { ch: 22, name: 'ILDA Frame Repeat', fn: 'DMX_ILDA_REPEAT',   help: '0 = normal frame rate, 1-255 = hold each frame longer (slower).' },
+  { ch: 23, name: 'Color Anim Type',   fn: 'DMX_COL_ANIM_TYPE', help: '0=off, 1=Gradient, 2=Chase, 3=Strobe, 4=Pulse, 5=Twinkle, 6=Flip.' },
+  { ch: 24, name: 'Color Anim Seq',    fn: 'DMX_COL_ANIM_SEQ',  help: 'Color sequence index 0-9.' },
+  { ch: 25, name: 'Color Anim Speed',  fn: 'DMX_COL_ANIM_SPEED',help: 'Animation speed 0-255.' }
 ];
 
 // ============================================================

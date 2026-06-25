@@ -19,18 +19,40 @@ constexpr size_t   PATTERN_POINTS_MAX = 2048;
 // struct here (rather than including point_optimizer.h) to avoid pulling
 // the optimizer's geometry types into every translation unit that already
 // includes config.h.
+// GalvOS v5 Point Optimizer (Pillar 1) -- runtime-tunable via WebUI slider.
+// Mirrors optimizer::OptimizerConfig field-for-field; kept as a separate
+// struct here (rather than including point_optimizer.h) to avoid pulling
+// the optimizer's geometry types into every translation unit that already
+// includes config.h.
+//
+// DEFAULT VALUES: tuned for 45kpps output rate (GALVO_SAMPLE_RATE_HZ=45000).
+// max_pts_per_frame=750 -> 45000/750 = 60 Hz flicker-free floor.
+// All OPT_DEFAULT_* macros are the single source of truth; point_optimizer.h
+// references them so both structs stay in sync automatically.
+#define OPT_DEFAULT_CORNER_ANGLE_DEG            25.0f
+#define OPT_DEFAULT_MIN_CORNER_PTS              2
+#define OPT_DEFAULT_MAX_CORNER_PTS              8
+#define OPT_DEFAULT_PTS_PER_1000_UNITS          6.0f
+#define OPT_DEFAULT_MIN_SEGMENT_PTS             2
+#define OPT_DEFAULT_BLANK_SAMPLES               16
+#define OPT_DEFAULT_MAX_PTS_PER_FRAME           750
+#define OPT_DEFAULT_MIN_BLANK_SAMPLES           6
+#define OPT_DEFAULT_BLANK_PTS_PER_1000_UNITS    8.0f
+#define OPT_DEFAULT_MIN_INTERIOR_PTS_PER_SEG    8
+#define OPT_DEFAULT_STAGE1_BLANK_TARGET         16
+
 struct OptimizerLiveConfig {
-    float    corner_angle_deg   = 25.0f;
-    uint8_t  min_corner_pts     = 1;
-    uint8_t  max_corner_pts     = 6;
-    float    pts_per_1000_units = 4.0f;
-    uint8_t  min_segment_pts    = 2;
-    uint8_t  blank_samples      = 40;
-    uint16_t max_pts_per_frame  = 340;
-    uint8_t  min_blank_samples  = 8;
-    float    blank_pts_per_1000_units = 10.0f;
-    uint8_t  min_interior_pts_per_segment = 6;
-    uint8_t  stage1_blank_target = 20;
+    float    corner_angle_deg             = OPT_DEFAULT_CORNER_ANGLE_DEG;
+    uint8_t  min_corner_pts               = OPT_DEFAULT_MIN_CORNER_PTS;
+    uint8_t  max_corner_pts               = OPT_DEFAULT_MAX_CORNER_PTS;
+    float    pts_per_1000_units           = OPT_DEFAULT_PTS_PER_1000_UNITS;
+    uint8_t  min_segment_pts              = OPT_DEFAULT_MIN_SEGMENT_PTS;
+    uint8_t  blank_samples                = OPT_DEFAULT_BLANK_SAMPLES;
+    uint16_t max_pts_per_frame            = OPT_DEFAULT_MAX_PTS_PER_FRAME;
+    uint8_t  min_blank_samples            = OPT_DEFAULT_MIN_BLANK_SAMPLES;
+    float    blank_pts_per_1000_units     = OPT_DEFAULT_BLANK_PTS_PER_1000_UNITS;
+    uint8_t  min_interior_pts_per_segment = OPT_DEFAULT_MIN_INTERIOR_PTS_PER_SEG;
+    uint8_t  stage1_blank_target          = OPT_DEFAULT_STAGE1_BLANK_TARGET;
 };
 
 extern OptimizerLiveConfig gOptimizerConfig;
