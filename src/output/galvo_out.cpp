@@ -582,9 +582,13 @@ void init() {
     spi_device_interface_config_t devcfg = {};
     devcfg.clock_speed_hz = 20 * 1000 * 1000;
     devcfg.mode           = 1;         // SPI Mode 1: CPOL=0, CPHA=1
-    devcfg.spics_io_num   = PIN_GALVO_CS;
+    devcfg.spics_io_num   = -1;        // CS managed manually in writeDAC8562XY (GPIO W1TS/W1TC)
     devcfg.queue_size     = 4;
     spi_bus_add_device(SPI2_HOST, &devcfg, &s_galvo_spi);
+
+    // Manual CS: configure GPIO10 as output, start HIGH (DAC inactive)
+    gpio_set_direction((gpio_num_t)PIN_GALVO_CS, GPIO_MODE_OUTPUT);
+    gpio_set_level((gpio_num_t)PIN_GALVO_CS, 1);
 
     // ── Safety: pull-downs on laser TTL pins (hardware interlock) ──
     // If the ESP32 crashes and GPIOs float -> laser stays OFF.
