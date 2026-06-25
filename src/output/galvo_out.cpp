@@ -158,9 +158,16 @@ static inline void IRAM_ATTR writeDAC8562XY(uint16_t x, uint16_t y) {
     // state is not guaranteed -- if usr_mosi=0, no MOSI data goes out and
     // the DAC holds its last value regardless of W0 content.
     if (!s_spi_user_configured) {
-        GALVO_SPI2_USER  = GALVO_SPI2_USR_MOSI;  // MOSI only, no cmd/addr/dummy/miso
-        GALVO_SPI2_USER1 = 0;
-        GALVO_SPI2_USER2 = 0;
+        // Read-modify-write: set usr_mosi, clear cmd/addr/dummy/miso phases.
+        // Do NOT overwrite the full register — IDF init sets clock-phase bits
+        // (e.g. SPI_CK_OUT_EDGE for mode 1) that must be preserved.
+        uint32_t u = GALVO_SPI2_USER;
+        u |=  GALVO_SPI2_USR_MOSI;      // enable MOSI phase
+        u &= ~(1u << 28);               // usr_miso  = 0
+        u &= ~(1u << 30);               // usr_addr  = 0
+        u &= ~(1u << 31);               // usr_command = 0
+        u &= ~(1u << 29);               // usr_dummy = 0
+        GALVO_SPI2_USER = u;
         s_spi_user_configured = true;
     }
 
