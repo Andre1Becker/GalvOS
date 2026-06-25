@@ -11,17 +11,22 @@
 
 // Direct SPI2 hardware register access for low-overhead DAC writes.
 // Avoids including hal/spi_ll.h (conflicts with Arduino C++ operator overloads).
-// ESP32-S3 SPI2 base address and register offsets from TRM chapter 26.
-#define GALVO_SPI2_BASE       0x60024000UL
-#define GALVO_SPI2_CMD        (*(volatile uint32_t*)(GALVO_SPI2_BASE + 0x000))  // SPI_CMD_REG
-#define GALVO_SPI2_W0         (*(volatile uint32_t*)(GALVO_SPI2_BASE + 0x098))  // SPI_W0_REG
-#define GALVO_SPI2_MOSI_DLEN  (*(volatile uint32_t*)(GALVO_SPI2_BASE + 0x01C))  // SPI_MS_DLEN_REG
-#define GALVO_SPI2_DMA_INT_RAW (*(volatile uint32_t*)(GALVO_SPI2_BASE + 0x03C)) // SPI_DMA_INT_RAW_REG
-#define GALVO_SPI2_CMD_UPDATE (1u << 23)  // SPI_UPDATE: must set+wait before cmd.usr (ESP32-S3)
-#define GALVO_SPI2_CMD_USR    (1u << 24)  // SPI_USR: start transfer
-#define GALVO_SPI2_TRANS_DONE (1u << 12)  // SPI_TRANS_DONE_INT_RAW: poll for completion
+// ESP32-S3 TRM ch.26 register offsets (SPI2 base = 0x60024000).
+#define GALVO_SPI2_BASE        0x60024000UL
+#define GALVO_SPI2_CMD         (*(volatile uint32_t*)(GALVO_SPI2_BASE + 0x000))  // SPI_CMD_REG
+#define GALVO_SPI2_USER        (*(volatile uint32_t*)(GALVO_SPI2_BASE + 0x010))  // SPI_USER_REG
+#define GALVO_SPI2_USER1       (*(volatile uint32_t*)(GALVO_SPI2_BASE + 0x014))  // SPI_USER1_REG
+#define GALVO_SPI2_USER2       (*(volatile uint32_t*)(GALVO_SPI2_BASE + 0x018))  // SPI_USER2_REG
+#define GALVO_SPI2_MS_DLEN     (*(volatile uint32_t*)(GALVO_SPI2_BASE + 0x01C))  // SPI_MS_DLEN_REG
+#define GALVO_SPI2_DMA_INT_RAW (*(volatile uint32_t*)(GALVO_SPI2_BASE + 0x03C))  // SPI_DMA_INT_RAW_REG
+#define GALVO_SPI2_W0          (*(volatile uint32_t*)(GALVO_SPI2_BASE + 0x098))  // SPI_W0_REG
 
-// GPIO W1TS/W1TC for single-cycle CS toggle (GPIO10 = PIN_GALVO_CS)
+#define GALVO_SPI2_UPDATE     (1u << 23)  // SPI_CMD_REG:     SPI_UPDATE (latch config into core)
+#define GALVO_SPI2_USR        (1u << 24)  // SPI_CMD_REG:     SPI_USR   (start transfer)
+#define GALVO_SPI2_USR_MOSI   (1u << 27)  // SPI_USER_REG:    enable MOSI output phase
+#define GALVO_SPI2_TRANS_DONE (1u << 12)  // SPI_DMA_INT_RAW: SPI_TRANS_DONE_INT_RAW
+
+// GPIO single-cycle set/clear for manual CS (GPIO10 = PIN_GALVO_CS)
 #define GALVO_GPIO_W1TS  (*(volatile uint32_t*)0x60004008UL)  // GPIO_OUT_W1TS_REG
 #define GALVO_GPIO_W1TC  (*(volatile uint32_t*)0x6000400CUL)  // GPIO_OUT_W1TC_REG
 #define GALVO_CS_MASK    (1u << PIN_GALVO_CS)                  // GPIO10 = bit 10
@@ -105,7 +110,12 @@ static inline void IRAM_ATTR writeDAC8562(uint8_t channel, uint16_t value) {
     spi_transaction_t t = {};
     t.length    = 24;
     t.tx_buffer = tx;
-    if(s_galvo_spi) spi_device_polling_transmit(s_galvo_spi, &t);
+    // CS is manual (spics_io_num=-1): toggle GPIO10 around the transfer.
+    if (s_galvo_spi) {
+        GALVO_GPIO_W1TC = GALVO_CS_MASK;   // CS LOW
+        spi_device_polling_transmit(s_galvo_spi, &t);
+        GALVO_GPIO_W1TS = GALVO_CS_MASK;   // CS HIGH
+    }
 
     // Cheap snapshot for optional debug logging (no logging here — this is
     // IRAM_ATTR and runs at 30kpps; ESP_LOGI/LOG_I are not safe to call when
@@ -122,54 +132,61 @@ static inline void IRAM_ATTR writeDAC8562(uint8_t channel, uint16_t value) {
 // spi_device_polling_transmit() carries ~5-8us of IDF overhead per call
 // (CS hooks, FIFO setup, bus mutex). At 45kpps that exceeds the 22.2us
 // per-point budget. This bypasses the IDF entirely:
-//   - CS (GPIO10) toggled via GPIO W1TS/W1TC registers (single-cycle)
-//   - Data loaded directly into SPI2 W0 register (offset 0x098)
-//   - MOSI length set via SPI_MOSI_DLEN_REG (offset 0x01C)
-//   - Transfer started via SPI_CMD_USR bit (bit 18 of CMD reg)
-//   - No FreeRTOS, no DMA, no hooks — ~1-2us per 24-bit transfer
+//   - CS (GPIO10) toggled via GPIO W1TS/W1TC (single-cycle, no IDF)
+//   - Data loaded directly into SPI2 W0 register
+//   - Transfer triggered via SPI_UPDATE + SPI_USR sequence (ESP32-S3 TRM)
+//   - Completion polled via DMA_INT_RAW.TRANS_DONE
+//   - No FreeRTOS, no DMA, no hooks — ~2-3us per 24-bit transfer
 //
 // SAFETY: called only from galvoTask (Core 1, pinned). No other task
 // touches SPI2 during streaming (SD access blocked when armed).
 // writeDAC8562() (IDF path) remains for init and raw-command paths.
 //
-// DAC8562 24-bit word format (MSB first): [cmd(8)] [data_hi(8)] [data_lo(8)]
-// SPI2 W0 register sends bits 0..N first, so the 24-bit word must be
-// byte-swapped before loading: W0 = [data_lo][data_hi][cmd]
+// ESP32-S3 transfer sequence (mirrors IDF spi_ll_master_user_start):
+//   1. Set USER reg: usr_mosi=1, all other phases off  (once at startup)
+//   2. Write MS_DLEN (bitlen-1) and W0
+//   3. cmd.UPDATE=1, poll until cleared                (latches config)
+//   4. CS LOW, cmd.USR=1                               (start transfer)
+//   5. Poll DMA_INT_RAW.TRANS_DONE, then CS HIGH
+//
+// DAC8562 word: [cmd(8)][data_hi(8)][data_lo(8)] MSB-first.
+// SPI2 W0 sends bit23 first -> pack cmd in W0[23:16], no byte-swap needed.
+static bool s_spi_user_configured = false;
 static inline void IRAM_ATTR writeDAC8562XY(uint16_t x, uint16_t y) {
-    // ESP32-S3: new register values (W0, MOSI_DLEN) are only latched into the
-    // SPI controller after cmd.update=1 + wait. Without this, the controller
-    // transfers stale data regardless of what was written to W0.
-    // Sequence per IDF spi_ll_master_user_start():
-    //   1. write W0 + MOSI_DLEN
-    //   2. cmd.update = 1, poll until cleared
-    //   3. cmd.usr = 1 (starts transfer)
-    //   4. poll DMA_INT_RAW.trans_done for completion
-    //   5. clear trans_done before next transfer
-    //
-    // DAC8562 word: [cmd(8)][data_hi(8)][data_lo(8)] MSB-first.
-    // SPI2 W0 sends bit23 first → pack cmd in [23:16], no byte-swap needed.
-    uint32_t word_a = ((uint32_t)0x18 << 16) | x;
-    uint32_t word_b = ((uint32_t)0x19 << 16) | y;
+    // Configure USER register once after init: MOSI phase only.
+    // After spi_device_polling_transmit() (used at init), the USER register
+    // state is not guaranteed -- if usr_mosi=0, no MOSI data goes out and
+    // the DAC holds its last value regardless of W0 content.
+    if (!s_spi_user_configured) {
+        GALVO_SPI2_USER  = GALVO_SPI2_USR_MOSI;  // MOSI only, no cmd/addr/dummy/miso
+        GALVO_SPI2_USER1 = 0;
+        GALVO_SPI2_USER2 = 0;
+        s_spi_user_configured = true;
+    }
 
-    GALVO_SPI2_MOSI_DLEN = 23;  // 24 bits - 1
+    // DAC8562: cmd in W0[23:16], data_hi in W0[15:8], data_lo in W0[7:0]
+    uint32_t word_a = ((uint32_t)0x18 << 16) | x;  // DAC-A (X)
+    uint32_t word_b = ((uint32_t)0x19 << 16) | y;  // DAC-B (Y)
+
+    GALVO_SPI2_MS_DLEN = 23;  // 24 bits - 1
 
     // --- DAC-A (X) ---
-    GALVO_SPI2_DMA_INT_RAW = GALVO_SPI2_TRANS_DONE;    // clear trans_done
+    GALVO_SPI2_DMA_INT_RAW = GALVO_SPI2_TRANS_DONE;     // clear done flag
     GALVO_SPI2_W0  = word_a;
-    GALVO_SPI2_CMD = GALVO_SPI2_CMD_UPDATE;             // latch new register values
-    while (GALVO_SPI2_CMD & GALVO_SPI2_CMD_UPDATE) {}
+    GALVO_SPI2_CMD = GALVO_SPI2_UPDATE;                 // latch W0+DLEN into core
+    while (GALVO_SPI2_CMD & GALVO_SPI2_UPDATE) {}
     GALVO_GPIO_W1TC = GALVO_CS_MASK;                    // CS LOW
-    GALVO_SPI2_CMD  = GALVO_SPI2_CMD_USR;               // start transfer
+    GALVO_SPI2_CMD  = GALVO_SPI2_USR;                   // start transfer
     while (!(GALVO_SPI2_DMA_INT_RAW & GALVO_SPI2_TRANS_DONE)) {}
     GALVO_GPIO_W1TS = GALVO_CS_MASK;                    // CS HIGH — DAC-A latches
 
     // --- DAC-B (Y) ---
-    GALVO_SPI2_DMA_INT_RAW = GALVO_SPI2_TRANS_DONE;    // clear trans_done
+    GALVO_SPI2_DMA_INT_RAW = GALVO_SPI2_TRANS_DONE;
     GALVO_SPI2_W0  = word_b;
-    GALVO_SPI2_CMD = GALVO_SPI2_CMD_UPDATE;
-    while (GALVO_SPI2_CMD & GALVO_SPI2_CMD_UPDATE) {}
+    GALVO_SPI2_CMD = GALVO_SPI2_UPDATE;
+    while (GALVO_SPI2_CMD & GALVO_SPI2_UPDATE) {}
     GALVO_GPIO_W1TC = GALVO_CS_MASK;
-    GALVO_SPI2_CMD  = GALVO_SPI2_CMD_USR;
+    GALVO_SPI2_CMD  = GALVO_SPI2_USR;
     while (!(GALVO_SPI2_DMA_INT_RAW & GALVO_SPI2_TRANS_DONE)) {}
     GALVO_GPIO_W1TS = GALVO_CS_MASK;                    // CS HIGH — DAC-B latches
 
@@ -207,7 +224,11 @@ static void dac8562Init() {
     // Step 1: internal reference ON
     uint8_t ref_on[3] = { 0x38, 0x00, 0x01 };  // CMD=111 = 0x38>>1, both channels
     t.tx_buffer = ref_on;
-    if(s_galvo_spi) spi_device_polling_transmit(s_galvo_spi, &t);
+    if (s_galvo_spi) {
+        GALVO_GPIO_W1TC = GALVO_CS_MASK;
+        spi_device_polling_transmit(s_galvo_spi, &t);
+        GALVO_GPIO_W1TS = GALVO_CS_MASK;
+    }
     vTaskDelay(pdMS_TO_TICKS(2));
 
     // Step 2 (removed): a separate "gain x2" write was here, but per the
@@ -582,11 +603,13 @@ void init() {
     spi_device_interface_config_t devcfg = {};
     devcfg.clock_speed_hz = 20 * 1000 * 1000;
     devcfg.mode           = 1;         // SPI Mode 1: CPOL=0, CPHA=1
-    devcfg.spics_io_num   = -1;        // CS managed manually in writeDAC8562XY (GPIO W1TS/W1TC)
+    devcfg.spics_io_num   = -1;        // CS managed manually (GPIO W1TS/W1TC);
+                                       // IDF must not drive GPIO10 or it fights raw toggle.
     devcfg.queue_size     = 4;
     spi_bus_add_device(SPI2_HOST, &devcfg, &s_galvo_spi);
 
-    // Manual CS: configure GPIO10 as output, start HIGH (DAC inactive)
+    // Manual CS: GPIO10 output, idle HIGH (DAC inactive).
+    // Must be configured before dac8562Init() and self-test.
     gpio_set_direction((gpio_num_t)PIN_GALVO_CS, GPIO_MODE_OUTPUT);
     gpio_set_level((gpio_num_t)PIN_GALVO_CS, 1);
 
@@ -644,7 +667,9 @@ void init() {
             tx[1] = (codes[ci] >> 8) & 0xFF;
             tx[2] =  codes[ci]       & 0xFF;
             t.tx_buffer = tx;
+            GALVO_GPIO_W1TC = GALVO_CS_MASK;
             esp_err_t err = spi_device_polling_transmit(s_galvo_spi, &t);
+            GALVO_GPIO_W1TS = GALVO_CS_MASK;
             if (err != ESP_OK) {
                 ESP_LOGE(TAG, "[DAC] Self-test FAIL @ code %s: %s", labels[ci], esp_err_to_name(err));
                 LOG_E(logbuf::CAT_SYSTEM, "[DAC] Self-test FAIL @ %s: %s", labels[ci], esp_err_to_name(err));
@@ -809,7 +834,9 @@ static bool sendRawCommandImpl(uint8_t cmd3, uint8_t addr3, uint16_t data) {
     spi_transaction_t t = {};
     t.length    = 24;
     t.tx_buffer = tx;
+    GALVO_GPIO_W1TC = GALVO_CS_MASK;
     esp_err_t err = spi_device_polling_transmit(s_galvo_spi, &t);
+    GALVO_GPIO_W1TS = GALVO_CS_MASK;
     ESP_LOGI(TAG, "[DAC] raw cmd: bytes=%02X %02X %02X (cmd=%u addr=%u data=0x%04X) -> %s",
              tx[0], tx[1], tx[2], cmd3, addr3, data, esp_err_to_name(err));
     LOG_I(logbuf::CAT_GALVO, "[DAC] raw cmd: %02X %02X %02X -> %s",
