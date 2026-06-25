@@ -8,9 +8,20 @@
 #include <esp_timer.h>
 #include <driver/spi_master.h>
 #include <driver/gpio.h>
-#include <hal/spi_ll.h>
-#include <soc/spi_struct.h>
-#include <soc/gpio_struct.h>
+
+// Direct SPI2 hardware register access for low-overhead DAC writes.
+// Avoids including hal/spi_ll.h (conflicts with Arduino C++ operator overloads).
+// ESP32-S3 SPI2 base address and register offsets from TRM chapter 26.
+#define GALVO_SPI2_BASE       0x60024000UL
+#define GALVO_SPI2_CMD        (*(volatile uint32_t*)(GALVO_SPI2_BASE + 0x000))  // SPI_CMD_REG
+#define GALVO_SPI2_W0         (*(volatile uint32_t*)(GALVO_SPI2_BASE + 0x098))  // SPI_W0_REG (data buffer)
+#define GALVO_SPI2_MOSI_DLEN  (*(volatile uint32_t*)(GALVO_SPI2_BASE + 0x01C))  // SPI_MOSI_DLEN_REG
+#define GALVO_SPI2_CMD_USR    (1u << 18)                                         // SPI_USR bit
+
+// GPIO W1TS/W1TC for single-cycle CS toggle (GPIO10 = PIN_GALVO_CS)
+#define GALVO_GPIO_W1TS  (*(volatile uint32_t*)0x60004008UL)  // GPIO_OUT_W1TS_REG
+#define GALVO_GPIO_W1TC  (*(volatile uint32_t*)0x6000400CUL)  // GPIO_OUT_W1TC_REG
+#define GALVO_CS_MASK    (1u << PIN_GALVO_CS)                  // GPIO10 = bit 10
 
 namespace galvo {
 
@@ -108,43 +119,45 @@ static inline void IRAM_ATTR writeDAC8562(uint8_t channel, uint16_t value) {
 // spi_device_polling_transmit() carries ~5-8us of IDF overhead per call
 // (CS hooks, FIFO setup, bus mutex). At 45kpps that exceeds the 22.2us
 // per-point budget. This bypasses the IDF entirely:
-//   - CS (GPIO10) toggled via GPIO matrix W1TS/W1TC (single-cycle)
-//   - Data loaded directly into SPI2 W0 register
-//   - Transfer started via SPI_CMD_USR, polled on SPI_USR flag
+//   - CS (GPIO10) toggled via GPIO W1TS/W1TC registers (single-cycle)
+//   - Data loaded directly into SPI2 W0 register (offset 0x098)
+//   - MOSI length set via SPI_MOSI_DLEN_REG (offset 0x01C)
+//   - Transfer started via SPI_CMD_USR bit (bit 18 of CMD reg)
 //   - No FreeRTOS, no DMA, no hooks — ~1-2us per 24-bit transfer
 //
 // SAFETY: called only from galvoTask (Core 1, pinned). No other task
 // touches SPI2 during streaming (SD access blocked when armed).
 // writeDAC8562() (IDF path) remains for init and raw-command paths.
 //
-// DAC8562 SPI mode 1 (CPOL=0, CPHA=1): SPI2 configured at init with
-// mode=1. We reuse that config; only data and CS are managed here.
+// DAC8562 24-bit word format (MSB first): [cmd(8)] [data_hi(8)] [data_lo(8)]
+// SPI2 W0 register sends bits 0..N first, so the 24-bit word must be
+// byte-swapped before loading: W0 = [data_lo][data_hi][cmd]
 static inline void IRAM_ATTR writeDAC8562XY(uint16_t x, uint16_t y) {
-    // CS pin = GPIO10 -> word index 0, bit 10
-    const uint32_t cs_mask = (1u << PIN_GALVO_CS);  // GPIO10
+    // Precompute byte-swapped W0 words for DAC-A (X) and DAC-B (Y).
+    // Original: 0x18_HI_LO (MSB first) -> W0: LO_HI_0x18 (LSB first in register)
+    auto makeWord = [](uint8_t cmd, uint16_t val) -> uint32_t {
+        return ((uint32_t)(val & 0xFF) << 16) |
+               ((uint32_t)((val >> 8) & 0xFF) << 8) |
+               (uint32_t)cmd;
+    };
+    uint32_t word_a = makeWord(0x18, x);
+    uint32_t word_b = makeWord(0x19, y);
 
-    // --- Transfer DAC-A (X channel, cmd byte 0x18) ---
-    uint32_t word_a = ((uint32_t)0x18 << 16) | x;  // 24 bits: [cmd][data_hi][data_lo]
-    // swap to SPI bit order (MSB first, sent as 24-bit big-endian)
-    // SPI2 W0 register: bits sent MSB first, so pack as [b23..b0] in W0[23:0]
-    word_a = ((word_a & 0xFF0000) >> 16) | (word_a & 0x00FF00) | ((word_a & 0x0000FF) << 16);
+    GALVO_SPI2_MOSI_DLEN = 23;  // 24 bits - 1 (set once, same for both transfers)
 
-    GPIO.out_w1tc = cs_mask;                         // CS LOW
-    SPI2.data_buf[0] = word_a;
-    SPI2.ms_dlen.ms_data_bitlen = 23;                // 24 bits - 1
-    SPI2.cmd.usr = 1;                                // start transfer
-    while (SPI2.cmd.usr) {}                          // wait done
-    GPIO.out_w1ts = cs_mask;                         // CS HIGH (DAC-A latches)
+    // --- DAC-A (X) ---
+    GALVO_GPIO_W1TC  = GALVO_CS_MASK;   // CS LOW
+    GALVO_SPI2_W0    = word_a;
+    GALVO_SPI2_CMD   = GALVO_SPI2_CMD_USR;
+    while (GALVO_SPI2_CMD & GALVO_SPI2_CMD_USR) {}
+    GALVO_GPIO_W1TS  = GALVO_CS_MASK;   // CS HIGH — DAC-A latches
 
-    // --- Transfer DAC-B (Y channel, cmd byte 0x19) ---
-    uint32_t word_b = ((uint32_t)0x19 << 16) | y;
-    word_b = ((word_b & 0xFF0000) >> 16) | (word_b & 0x00FF00) | ((word_b & 0x0000FF) << 16);
-
-    GPIO.out_w1tc = cs_mask;                         // CS LOW
-    SPI2.data_buf[0] = word_b;
-    SPI2.cmd.usr = 1;
-    while (SPI2.cmd.usr) {}
-    GPIO.out_w1ts = cs_mask;                         // CS HIGH (DAC-B latches)
+    // --- DAC-B (Y) ---
+    GALVO_GPIO_W1TC  = GALVO_CS_MASK;
+    GALVO_SPI2_W0    = word_b;
+    GALVO_SPI2_CMD   = GALVO_SPI2_CMD_USR;
+    while (GALVO_SPI2_CMD & GALVO_SPI2_CMD_USR) {}
+    GALVO_GPIO_W1TS  = GALVO_CS_MASK;
 
     if (gConfig.dac_debug_log) {
         s_dac_dbg_x = x; s_dac_dbg_y = y;
