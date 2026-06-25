@@ -829,139 +829,153 @@
 
 <!-- ============= CALIBRATION ============= -->
 <section id="tab-calib" class="tab">
-  <div class="grid cols-2">
 
+  <!-- ── Row 1: 3-column geometry + color ───────────────────────────────── -->
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:16px">
+
+    <!-- Col 1: Offset & Gain -->
     <div class="card">
       <h2>Galvo Geometry</h2>
-      <label>X-Offset (-2000...+2000) <br><span style="color:var(--dim);font-size:11px;font-style:italic">Note: Shifts the image horizontally. Corrects if the galvo is not centered. 0 = no shift.</span></label>
-      <input type="range" min="-2000" max="2000" id="cal-xoff" class="cal-input">
-      <span id="v-xoff" class="val">0</span>
+      <p style="color:var(--dim);font-size:11px;margin-bottom:12px">
+        Position and scale of the projected image.
+      </p>
 
-      <label>Y-Offset (-2000...+2000) <br><span style="color:var(--dim);font-size:11px;font-style:italic">Note: Shifts the image vertically. Corrects if the galvo is not centered. 0 = no shift.</span></label>
-      <input type="range" min="-2000" max="2000" id="cal-yoff" class="cal-input">
-      <span id="v-yoff" class="val">0</span>
-
-      <label>X-Gain (0...32767) <br><span style="color:var(--dim);font-size:11px;font-style:italic">Note: Scales the horizontal deflection. 32767 = full size. Reduce if the image extends too wide beyond the scan angle.</span></label>
-      <input type="range" min="0" max="32767" id="cal-xgain" class="cal-input">
-      <span id="v-xgain" class="val">32767</span>
-
-      <label>Y-Gain (0...32767) <br><span style="color:var(--dim);font-size:11px;font-style:italic">Note: Scales the vertical deflection. 32767 = full size. Match with X-Gain for correct aspect ratio.</span></label>
-      <input type="range" min="0" max="32767" id="cal-ygain" class="cal-input">
-      <span id="v-ygain" class="val">32767</span>
-
-      <div style="margin-top:16px;padding:10px;background:#050510;border:1px solid var(--border);border-radius:6px">
-        <div style="font-family:monospace;font-size:10px;color:var(--accent);margin-bottom:8px">
-          AXIS CORRECTION
-        </div>
-        <p style="font-size:11px;color:var(--dim);margin-bottom:10px">
-          Hardware topology: VOUT = 2x(2.5V - VDAC) -- polarity may be inverted.<br>
-          If the galvo turns the wrong way: enable Invert X / Invert Y.
-        </p>
-        <div style="display:flex;gap:12px;flex-wrap:wrap">
-          <label class="toggle">
-            <input type="checkbox" id="cal-swap" onchange="saveCalibration()">
-            <span class="slider"></span>Swap X<->Y
-          </label>
-          <label class="toggle">
-            <input type="checkbox" id="cal-invx" onchange="saveCalibration()">
-            <span class="slider"></span>Invert X
-          </label>
-          <label class="toggle">
-            <input type="checkbox" id="cal-invy" onchange="saveCalibration()">
-            <span class="slider"></span>Invert Y
-          </label>
-        </div>
+      <label class="lbl">X-Offset <span style="color:var(--dim)">(−2000…+2000)</span></label>
+      <div style="display:flex;gap:6px;align-items:center">
+        <input type="range" min="-2000" max="2000" id="cal-xoff" class="cal-input" style="flex:1">
+        <span id="v-xoff" class="val" style="min-width:46px;text-align:right">0</span>
       </div>
 
-      <div style="margin-top:16px;padding:10px;background:#050510;border:1px solid var(--border);border-radius:6px">
-        <div style="font-family:monospace;font-size:10px;color:var(--accent);margin-bottom:8px">
-          DAC OUTPUT LIMITING
-        </div>
-        <p style="font-size:11px;color:var(--dim);margin-bottom:10px">
-          Clamps the final DAC codes for X/Y before output, to keep the
-          OPA4134 differential output within the galvo's rated input range
-          (galvo: +/-5V, hardware gain 2.2x -- full DAC range would exceed
-          this). Default ~95% (0x0666..0xF999). 0x8000 = center.
-        </p>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-          <div>
-            <label class="lbl">Min code (0x0000..0xFFFF)</label>
-            <div style="display:flex;gap:6px;align-items:center">
-              <input type="range" id="cal-dac-lim-min" min="0" max="65535" value="1638"
-                     oninput="document.getElementById('v-dac-lim-min').textContent='0x'+(+this.value).toString(16).padStart(4,'0').toUpperCase()"
-                     onchange="saveCalibration()" style="flex:1">
-              <span id="v-dac-lim-min" class="val" style="min-width:60px">0x0666</span>
-            </div>
-          </div>
-          <div>
-            <label class="lbl">Max code (0x0000..0xFFFF)</label>
-            <div style="display:flex;gap:6px;align-items:center">
-              <input type="range" id="cal-dac-lim-max" min="0" max="65535" value="63897"
-                     oninput="document.getElementById('v-dac-lim-max').textContent='0x'+(+this.value).toString(16).padStart(4,'0').toUpperCase()"
-                     onchange="saveCalibration()" style="flex:1">
-              <span id="v-dac-lim-max" class="val" style="min-width:60px">0xF999</span>
-            </div>
-          </div>
-        </div>
-        <div id="dac-lim-status" style="font-size:11px;color:var(--dim);margin-top:8px"></div>
+      <label class="lbl" style="margin-top:10px">Y-Offset <span style="color:var(--dim)">(−2000…+2000)</span></label>
+      <div style="display:flex;gap:6px;align-items:center">
+        <input type="range" min="-2000" max="2000" id="cal-yoff" class="cal-input" style="flex:1">
+        <span id="v-yoff" class="val" style="min-width:46px;text-align:right">0</span>
       </div>
+
+      <label class="lbl" style="margin-top:10px">X-Gain <span style="color:var(--dim)">(0…32767)</span></label>
+      <div style="display:flex;gap:6px;align-items:center">
+        <input type="range" min="0" max="32767" id="cal-xgain" class="cal-input" style="flex:1">
+        <span id="v-xgain" class="val" style="min-width:46px;text-align:right">32767</span>
+      </div>
+
+      <label class="lbl" style="margin-top:10px">Y-Gain <span style="color:var(--dim)">(0…32767)</span></label>
+      <div style="display:flex;gap:6px;align-items:center">
+        <input type="range" min="0" max="32767" id="cal-ygain" class="cal-input" style="flex:1">
+        <span id="v-ygain" class="val" style="min-width:46px;text-align:right">32767</span>
       </div>
     </div>
 
+    <!-- Col 2: Color Balance -->
     <div class="card">
       <h2>Color Balance</h2>
-      <p style="color: var(--dim); font-size: 12px;">
-        White point adjustment. Reduce the stronger diode colors until white looks white.
+      <p style="color:var(--dim);font-size:11px;margin-bottom:12px">
+        White point / laser gain per channel. Reduce brighter diodes until white looks neutral.
       </p>
-      <label>Red Gain <br><span style="color:var(--dim);font-size:11px;font-style:italic">Note: Brightness of the red diode. On the 5W laser red is usually the brightest color -- reduce until white looks neutral.</span></label>
-      <input type="range" min="0" max="255" id="cal-r" class="cal-input">
-      <span id="v-r" class="val">255</span>
 
-      <label>Green Gain <br><span style="color:var(--dim);font-size:11px;font-style:italic">Note: Brightness of the green diode. Green is perceived brightest by the eye -- often reduce strongly.</span></label>
-      <input type="range" min="0" max="255" id="cal-g" class="cal-input">
-      <span id="v-g" class="val">200</span>
+      <label class="lbl">Red Gain</label>
+      <div style="display:flex;gap:6px;align-items:center">
+        <input type="range" min="0" max="255" id="cal-r" class="cal-input" style="flex:1">
+        <span id="v-r" class="val" style="min-width:30px;text-align:right;color:#f88">255</span>
+      </div>
 
-      <label>Blue Gain <br><span style="color:var(--dim);font-size:11px;font-style:italic">Note: Brightness of the blue diode. On the 5W model blue is the weakest visible color -- usually leave at maximum.</span></label>
-      <input type="range" min="0" max="255" id="cal-b" class="cal-input">
-      <span id="v-b" class="val">180</span>
+      <label class="lbl" style="margin-top:10px">Green Gain</label>
+      <div style="display:flex;gap:6px;align-items:center">
+        <input type="range" min="0" max="255" id="cal-g" class="cal-input" style="flex:1">
+        <span id="v-g" class="val" style="min-width:30px;text-align:right;color:#8f8">200</span>
+      </div>
 
-      <div style="margin-top: 16px;">
-        <button class="btn" onclick="saveCalibration()">💾 Save calibration</button>
-        <button class="btn secondary" onclick="applyAutoWB()">🎯 Auto White Balance</button>
+      <label class="lbl" style="margin-top:10px">Blue Gain</label>
+      <div style="display:flex;gap:6px;align-items:center">
+        <input type="range" min="0" max="255" id="cal-b" class="cal-input" style="flex:1">
+        <span id="v-b" class="val" style="min-width:30px;text-align:right;color:#88f">180</span>
+      </div>
+
+      <hr style="border-color:var(--border);margin:14px 0">
+      <div class="btns">
+        <button class="btn" onclick="saveCalibration()">💾 Save</button>
+        <button class="btn secondary" onclick="applyAutoWB()">🎯 Auto WB</button>
         <button class="btn secondary" onclick="loadCalibration()">↺ Reset</button>
       </div>
     </div>
 
+    <!-- Col 3: Axis Flags + DAC Limiter -->
+    <div class="card">
+      <h2>Axis &amp; DAC Limits</h2>
+
+      <div style="font-family:monospace;font-size:10px;color:var(--accent);margin-bottom:6px">AXIS CORRECTION</div>
+      <p style="font-size:11px;color:var(--dim);margin-bottom:10px">
+        VOUT = 2×(2.5 V − VDAC) — polarity may be inverted.<br>
+        Enable toggles if galvo moves in wrong direction.
+      </p>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px">
+        <label class="toggle">
+          <input type="checkbox" id="cal-swap" onchange="saveCalibration()">
+          <span class="slider"></span>Swap X↔Y
+        </label>
+        <label class="toggle">
+          <input type="checkbox" id="cal-invx" onchange="saveCalibration()">
+          <span class="slider"></span>Invert X
+        </label>
+        <label class="toggle">
+          <input type="checkbox" id="cal-invy" onchange="saveCalibration()">
+          <span class="slider"></span>Invert Y
+        </label>
+      </div>
+
+      <div style="font-family:monospace;font-size:10px;color:var(--accent);margin-bottom:6px">DAC OUTPUT LIMITING</div>
+      <p style="font-size:11px;color:var(--dim);margin-bottom:10px">
+        Clamps DAC codes before output. Hardware gain 2.2× → ±5 V galvo input.<br>
+        Default ~95%: 0x0666…0xF999. Center = 0x8000.
+      </p>
+      <label class="lbl">Min code</label>
+      <div style="display:flex;gap:6px;align-items:center">
+        <input type="range" id="cal-dac-lim-min" min="0" max="65535" value="1638"
+               oninput="document.getElementById('v-dac-lim-min').textContent='0x'+(+this.value).toString(16).padStart(4,'0').toUpperCase()"
+               onchange="saveCalibration()" style="flex:1">
+        <span id="v-dac-lim-min" class="val" style="min-width:60px;text-align:right">0x0666</span>
+      </div>
+      <label class="lbl" style="margin-top:8px">Max code</label>
+      <div style="display:flex;gap:6px;align-items:center">
+        <input type="range" id="cal-dac-lim-max" min="0" max="65535" value="63897"
+               oninput="document.getElementById('v-dac-lim-max').textContent='0x'+(+this.value).toString(16).padStart(4,'0').toUpperCase()"
+               onchange="saveCalibration()" style="flex:1">
+        <span id="v-dac-lim-max" class="val" style="min-width:60px;text-align:right">0xF999</span>
+      </div>
+      <div id="dac-lim-status" style="font-size:11px;color:var(--dim);margin-top:8px"></div>
+    </div>
+
   </div>
 
-  <div class="card">
-    <h2>Test Patterns</h2>
-    <p style="color: var(--dim);">
-      Sends a defined test pattern to the galvos. Enables WebUI override automatically.
-    </p>
-    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
-      <span style="font-size:11px;color:var(--dim);width:100%;padding-top:2px">Geometry &amp; Alignment</span>
-      <button class="btn secondary" onclick="testPattern('center')">⊕ Center Point</button>
-      <button class="btn secondary" onclick="testPattern('cross')">✛ Cross</button>
-      <button class="btn secondary" onclick="testPattern('square')">□ Square</button>
-      <button class="btn secondary" onclick="testPattern('circle')">○ Circle</button>
-      <button class="btn secondary" onclick="testPattern('ilda')">◈ ILDA Pattern</button>
+  <!-- ── Row 2: Test Patterns + Color Override (merged) ─────────────────── -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+
+    <div class="card">
+      <h2>Test Patterns</h2>
+      <p style="color:var(--dim);font-size:11px;margin-bottom:12px">
+        Sends a pattern to the galvos. WebUI override enabled automatically.
+      </p>
+      <div style="font-size:11px;color:var(--dim);margin-bottom:6px">Geometry &amp; Alignment</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
+        <button class="btn secondary" onclick="testPattern('center')">⊕ Center</button>
+        <button class="btn secondary" onclick="testPattern('cross')">✛ Cross</button>
+        <button class="btn secondary" onclick="testPattern('square')">□ Square</button>
+        <button class="btn secondary" onclick="testPattern('circle')">○ Circle</button>
+        <button class="btn secondary" onclick="testPattern('ilda')">◈ ILDA</button>
+      </div>
+      <div style="font-size:11px;color:var(--dim);margin-bottom:6px">Color &amp; Safety</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="btn secondary" onclick="testPattern('red')">🔴 Red</button>
+        <button class="btn secondary" onclick="testPattern('green')">🟢 Green</button>
+        <button class="btn secondary" onclick="testPattern('blue')">🔵 Blue</button>
+        <button class="btn secondary" onclick="testPattern('white')">⬜ White</button>
+        <button class="btn danger"    onclick="testPattern('off')">⬛ Laser off</button>
+      </div>
     </div>
-    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
-      <span style="font-size:11px;color:var(--dim);width:100%;padding-top:4px">Scan Quality</span>
-    </div>
-    <div style="display:flex;gap:6px;flex-wrap:wrap">
-      <span style="font-size:11px;color:var(--dim);width:100%;padding-top:4px">Color &amp; Safety</span>
-      <button class="btn secondary" onclick="testPattern('red')">🔴 Red only</button>
-      <button class="btn secondary" onclick="testPattern('green')">🟢 Green only</button>
-      <button class="btn secondary" onclick="testPattern('blue')">🔵 Blue only</button>
-      <button class="btn secondary" onclick="testPattern('white')">⬜ White</button>
-      <button class="btn danger"    onclick="testPattern('off')">⬛ Laser off</button>
+
     <div class="card">
       <h2>🎨 Color Override</h2>
-      <p style="color:var(--dim);font-size:12px;margin-bottom:12px">
-        Directly override the RGB output color, bypassing DMX color channels.
-        Useful for calibrating color balance at a fixed output level.
+      <p style="color:var(--dim);font-size:11px;margin-bottom:12px">
+        Bypasses DMX color channels. Use to verify white balance at a fixed level.
       </p>
       <label class="lbl">Red <span id="ov-r-v" style="color:#f66;font-family:monospace">0</span></label>
       <input type="range" id="ov-r" min="0" max="255" value="0" oninput="document.getElementById('ov-r-v').textContent=this.value;sendColorOverride()">
@@ -978,9 +992,8 @@
       </div>
     </div>
 
-
-
-    <div class="card">
+  <!-- ── Row 3: Hardware Test ───────────────────────────────────────────── -->
+  <div class="card">
       <h2>🔧 Hardware Test — Galvo &amp; Laser</h2>
       <p style="color:var(--dim);font-size:12px;margin-bottom:12px">
         Direct galvo and laser control for setup and alignment.
@@ -1060,9 +1073,8 @@
         </button>
       </div>
       <div id="hw-debug-status" style="font-family:monospace;font-size:11px;color:var(--dim);min-height:16px"></div>
-    </div>
   </div>
-  </div>
+
   <!-- ── Color & Gamma Calibration Patterns ──────────────────────────── -->
   <div class="grid cols-2">
     <div class="card">
