@@ -409,12 +409,15 @@ void task(void*) {
                 web_ui::publishPreviewFrame(s_frame, n);
                 if (gState.master_dimmer.load() > 0) {
                     { uint32_t _t0=millis(); while (!galvo::pushFrame(s_frame, n)) { if (millis()-_t0 > 500) { safety::emergencyStop(); LOG_E(logbuf::CAT_SAFETY,"Pattern engine: pushFrame timeout, emergency stop"); break; } vTaskDelay(pdMS_TO_TICKS(2)); } }
+                    { uint32_t drain_ms = n / (uint32_t)gProjection.galvo_kpps;
+                      if (drain_ms < 10) drain_ms = 10;
+                      vTaskDelay(pdMS_TO_TICKS(drain_ms + drain_ms / 4)); }
                 } else {
                     static LaserPoint blank = {0,0,0,0,0,1};
                     galvo::pushFrame(&blank, 1);
+                    vTaskDelay(pdMS_TO_TICKS(40));
                 }
                 phase++;
-                vTaskDelay(pdMS_TO_TICKS(8));
                 continue;
             }
         }

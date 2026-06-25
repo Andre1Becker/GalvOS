@@ -72,6 +72,29 @@ static inline void ap(LaserPoint* o, size_t& n, size_t mx,
     n++;
 }
 
+// blank move: interpolate NSTEPS blanked points from last point to (x1,y1)
+// prevents beam-on during galvo travel between segments
+static void blankMove(LaserPoint* o, size_t& n, size_t mx,
+                       float x1, float y1) {
+    if (n == 0) {
+        // no previous point -- just add a single blank anchor
+        ap(o, n, mx, x1, y1, 0, 0, 0, 1);
+        return;
+    }
+    float x0 = o[n-1].x;
+    float y0 = o[n-1].y;
+    float dx = x1 - x0, dy = y1 - y0;
+    float dist = sqrtf(dx*dx + dy*dy);
+    // scale steps with distance: ~1 step per 1000 units, min 4, max 20
+    int steps = (int)(dist / 1000.f + 0.5f);
+    if (steps < 4)  steps = 4;
+    if (steps > 20) steps = 20;
+    for (int i = 1; i <= steps; i++) {
+        float t = (float)i / steps;
+        ap(o, n, mx, x0 + dx*t, y0 + dy*t, 0, 0, 0, 1);
+    }
+}
+
 // draw line (N interpolated points)
 static void line(LaserPoint* o, size_t& n, size_t mx,
                   float x0, float y0, float x1, float y1,
@@ -134,26 +157,31 @@ static size_t gamma_ramp(LaserPoint* o, size_t mx,
         // Top: with gamma + white balance
         uint8_t ro, go, bo;
         colorOut(ri, gi, bi, bright, ro, go, bo);
-        ap(o, n, mx, x, Y_TOP, ro, go, bo, i==0?1:0);
+        if (i == 0) blankMove(o, n, mx, x, Y_TOP);
+        ap(o, n, mx, x, Y_TOP, ro, go, bo, 0);
 
         // Bottom: without gamma, only white balance
         uint8_t ro2 = (uint8_t)(((uint32_t)ri * bright * gConfig.gain_r) / (255UL*255));
         uint8_t go2 = (uint8_t)(((uint32_t)gi * bright * gConfig.gain_g) / (255UL*255));
         uint8_t bo2 = (uint8_t)(((uint32_t)bi * bright * gConfig.gain_b) / (255UL*255));
-        ap(o, n, mx, x, Y_BOT, ro2, go2, bo2, i==0?1:0);
+        blankMove(o, n, mx, x, Y_BOT);
+        ap(o, n, mx, x, Y_BOT, ro2, go2, bo2, 0);
     }
 
     // label ticks at 0%, 25%, 50%, 75%, 100%
     for (int k = 0; k <= 4; k++) {
         float x = -SC * 0.88f + k * SC * 1.76f / 4;
-        ap(o, n, mx, x,  SC*0.65f, 40, 40, 40, 1);
+        blankMove(o, n, mx, x,  SC*0.65f);
+        ap(o, n, mx, x,  SC*0.65f, 40, 40, 40, 0);
         ap(o, n, mx, x,  SC*0.55f, 40, 40, 40, 0);
-        ap(o, n, mx, x, -SC*0.55f, 40, 40, 40, 1);
+        blankMove(o, n, mx, x, -SC*0.55f);
+        ap(o, n, mx, x, -SC*0.55f, 40, 40, 40, 0);
         ap(o, n, mx, x, -SC*0.65f, 40, 40, 40, 0);
     }
 
     // separator line center
-    ap(o, n, mx, -SC*0.88f, 0, 20, 20, 20, 1);
+    blankMove(o, n, mx, -SC*0.88f, 0);
+    ap(o, n, mx, -SC*0.88f, 0, 20, 20, 20, 0);
     ap(o, n, mx,  SC*0.88f, 0, 20, 20, 20, 0);
 
     return n;
@@ -253,22 +281,26 @@ static size_t step_ramp(LaserPoint* o, size_t mx,
         float bar_h    = (SC * 0.8f) * t + anim * SC;
 
         // horizontal top edge
-        ap(o, n, mx, x_center - bar_w/2, bar_h, ro, go, bo, 1);
+        blankMove(o, n, mx, x_center - bar_w/2, bar_h);
+        ap(o, n, mx, x_center - bar_w/2, bar_h, ro, go, bo, 0);
         ap(o, n, mx, x_center + bar_w/2, bar_h, ro, go, bo, 0);
 
         // vertical edge downward
+        blankMove(o, n, mx, x_center + bar_w/2, bar_h);
         for (int i = 0; i <= STEPS_V; i++) {
             float yy = bar_h - bar_h * 1.8f * i / STEPS_V;
-            ap(o, n, mx, x_center + bar_w/2, yy, ro, go, bo, i==0?1:0);
+            ap(o, n, mx, x_center + bar_w/2, yy, ro, go, bo, 0);
         }
 
         // connection line to base
-        ap(o, n, mx, x_center - bar_w/2, -SC*0.85f, ro, go, bo, 1);
+        blankMove(o, n, mx, x_center - bar_w/2, -SC*0.85f);
+        ap(o, n, mx, x_center - bar_w/2, -SC*0.85f, ro, go, bo, 0);
         ap(o, n, mx, x_center - bar_w/2,  bar_h,    ro, go, bo, 0);
     }
 
     // base line
-    ap(o, n, mx, -SC*0.88f, -SC*0.85f, 30, 30, 30, 1);
+    blankMove(o, n, mx, -SC*0.88f, -SC*0.85f);
+    ap(o, n, mx, -SC*0.88f, -SC*0.85f, 30, 30, 30, 0);
     ap(o, n, mx,  SC*0.88f, -SC*0.85f, 30, 30, 30, 0);
 
     return n;
@@ -382,22 +414,26 @@ static size_t focus_test(LaserPoint* o, size_t mx,
     const float radii[] = { SC*0.1f, SC*0.25f, SC*0.45f, SC*0.65f, SC*0.88f };
     for (float r : radii) {
         int steps = (int)(r / SC * 80) + 20;
+        blankMove(o, n, mx, cosf(0)*r, sinf(0)*r);
         for (int i = 0; i <= steps; i++) {
             float a = 6.2831853f * i / steps;
-            ap(o, n, mx, cosf(a)*r, sinf(a)*r, ro, go, bo, i==0?1:0);
+            ap(o, n, mx, cosf(a)*r, sinf(a)*r, ro, go, bo, 0);
         }
     }
     // Center crosshair
     uint8_t wr = bright, wg = bright, wb = bright;
     if (ch==1){ wg=0; wb=0; } else if(ch==2){ wr=0; wb=0; } else if(ch==3){ wr=0; wg=0; }
-    ap(o, n, mx, -SC*0.15f, 0, wr, wg, wb, 1);
+    blankMove(o, n, mx, -SC*0.15f, 0);
+    ap(o, n, mx, -SC*0.15f, 0, wr, wg, wb, 0);
     ap(o, n, mx,  SC*0.15f, 0, wr, wg, wb, 0);
-    ap(o, n, mx, 0, -SC*0.15f, wr, wg, wb, 1);
+    blankMove(o, n, mx, 0, -SC*0.15f);
+    ap(o, n, mx, 0, -SC*0.15f, wr, wg, wb, 0);
     ap(o, n, mx, 0,  SC*0.15f, wr, wg, wb, 0);
     // Center dot
+    blankMove(o, n, mx, cosf(0)*SC*0.025f, sinf(0)*SC*0.025f);
     for (int i = 0; i <= 16; i++) {
         float a = 6.2831853f*i/16;
-        ap(o, n, mx, cosf(a)*SC*0.025f, sinf(a)*SC*0.025f, wr, wg, wb, i==0?1:0);
+        ap(o, n, mx, cosf(a)*SC*0.025f, sinf(a)*SC*0.025f, wr, wg, wb, 0);
     }
     return n;
 }
@@ -419,13 +455,15 @@ static size_t scan_linearity(LaserPoint* o, size_t mx,
     for (int l = 0; l < LINES; l++) {
         float pos = -SC*0.86f + l * SC*1.72f / (LINES-1);
         // Horizontal
-        ap(o, n, mx, -SC*0.86f, pos, ro, go, bo, 1);
+        blankMove(o, n, mx, -SC*0.86f, pos);
+        ap(o, n, mx, -SC*0.86f, pos, ro, go, bo, 0);
         ap(o, n, mx,  SC*0.86f, pos, ro, go, bo, 0);
         // Vertical (cyan for contrast)
         uint8_t vr, vg, vb;
         colorOut(0, ch==3?0:bright, ch==2?0:bright, bright, vr, vg, vb);
         if (ch==0){ vr=0; vg=0; vb=bright; }
-        ap(o, n, mx, pos, -SC*0.86f, vr, vg, vb, 1);
+        blankMove(o, n, mx, pos, -SC*0.86f);
+        ap(o, n, mx, pos, -SC*0.86f, vr, vg, vb, 0);
         ap(o, n, mx, pos,  SC*0.86f, vr, vg, vb, 0);
     }
     return n;
@@ -451,7 +489,7 @@ static size_t blanking_test(LaserPoint* o, size_t mx,
         float a0 = 6.2831853f * s / SEG;
         float a1 = 6.2831853f * (s+1) / SEG;
         // Move to start (blank)
-        ap(o, n, mx, cosf(a0)*R, sinf(a0)*R, 0, 0, 0, 1);
+        blankMove(o, n, mx, cosf(a0)*R, sinf(a0)*R);
         if (s % 2 == 0) {
             // Lit segment: draw arc
             for (int i = 1; i <= 8; i++) {
@@ -467,7 +505,7 @@ static size_t blanking_test(LaserPoint* o, size_t mx,
     const int SPOKES = 8;
     for (int s = 0; s < SPOKES; s++) {
         float a = 6.2831853f * s / SPOKES;
-        ap(o, n, mx, 0, 0, 0, 0, 0, 1);
+        blankMove(o, n, mx, 0, 0);
         if (s % 2 == 0) {
             ap(o, n, mx, cosf(a)*R*0.55f, sinf(a)*R*0.55f, ro, go, bo, 0);
         } else {
@@ -493,26 +531,32 @@ static size_t aspect_ratio(LaserPoint* o, size_t mx,
 
     const float S = SC * 0.75f;
     // Square (should be perfect square)
-    ap(o, n, mx, -S, -S, ro, go, bo, 1);
+    blankMove(o, n, mx, -S, -S);
+    ap(o, n, mx, -S, -S, ro, go, bo, 0);
     ap(o, n, mx,  S, -S, ro, go, bo, 0);
     ap(o, n, mx,  S,  S, ro, go, bo, 0);
     ap(o, n, mx, -S,  S, ro, go, bo, 0);
     ap(o, n, mx, -S, -S, ro, go, bo, 0);
     // Circle with same radius as square side (should fit square exactly)
+    blankMove(o, n, mx, cosf(0)*S, sinf(0)*S);
     for (int i = 0; i <= 60; i++) {
         float a = 6.2831853f * i / 60;
-        ap(o, n, mx, cosf(a)*S, sinf(a)*S, wr, wg, wb, i==0?1:0);
+        ap(o, n, mx, cosf(a)*S, sinf(a)*S, wr, wg, wb, 0);
     }
     // Crosshair at center
-    ap(o, n, mx, -S*1.05f, 0, 50, 50, 50, 1);
+    blankMove(o, n, mx, -S*1.05f, 0);
+    ap(o, n, mx, -S*1.05f, 0, 50, 50, 50, 0);
     ap(o, n, mx,  S*1.05f, 0, 50, 50, 50, 0);
-    ap(o, n, mx, 0, -S*1.05f, 50, 50, 50, 1);
+    blankMove(o, n, mx, 0, -S*1.05f);
+    ap(o, n, mx, 0, -S*1.05f, 50, 50, 50, 0);
     ap(o, n, mx, 0,  S*1.05f, 50, 50, 50, 0);
     // Corner ticks
     for (float cx : {-S, S}) for (float cy : {-S, S}) {
-        ap(o, n, mx, cx, cy-S*0.07f, 200, 200, 0, 1);
+        blankMove(o, n, mx, cx, cy-S*0.07f);
+        ap(o, n, mx, cx, cy-S*0.07f, 200, 200, 0, 0);
         ap(o, n, mx, cx, cy+S*0.07f, 200, 200, 0, 0);
-        ap(o, n, mx, cx-S*0.07f, cy, 200, 200, 0, 1);
+        blankMove(o, n, mx, cx-S*0.07f, cy);
+        ap(o, n, mx, cx-S*0.07f, cy, 200, 200, 0, 0);
         ap(o, n, mx, cx+S*0.07f, cy, 200, 200, 0, 0);
     }
     return n;
@@ -534,7 +578,8 @@ static size_t corner_test(LaserPoint* o, size_t mx,
     const float S = SC * 0.85f;
     // Outer square (sharp corners = good)
     auto draw_sq = [&](float s, uint8_t r, uint8_t g, uint8_t b) {
-        ap(o, n, mx, -s, -s, r,g,b, 1);
+        blankMove(o, n, mx, -s, -s);
+        ap(o, n, mx, -s, -s, r,g,b, 0);
         ap(o, n, mx,  s, -s, r,g,b, 0);
         ap(o, n, mx,  s,  s, r,g,b, 0);
         ap(o, n, mx, -s,  s, r,g,b, 0);
@@ -551,7 +596,8 @@ static size_t corner_test(LaserPoint* o, size_t mx,
     float dirs[][2] = {{1,0},{-1,0},{0,1},{0,-1},{0.707f,0.707f},{-0.707f,0.707f},{0.707f,-0.707f},{-0.707f,-0.707f}};
     for (auto& d : dirs) {
         float ex = d[0]*S, ey = d[1]*S;
-        ap(o, n, mx, 0, 0, 60, 60, 60, 1);
+        blankMove(o, n, mx, 0, 0);
+        ap(o, n, mx, 0, 0, 60, 60, 60, 0);
         ap(o, n, mx, ex, ey, 60, 60, 60, 0);
     }
     return n;
@@ -572,9 +618,10 @@ static size_t color_temp(LaserPoint* o, size_t mx,
     colorOut(bright, bright, bright, 200, wr, wg, wb);
     for (int i = 0; i <= 50; i++) {
         float y = -SC*0.75f + i * SC*1.5f/50;
-        ap(o, n, mx, -SC*0.65f, y, wr, wg, wb, i==0?1:0);
+        if (i == 0) blankMove(o, n, mx, -SC*0.65f, y);
+        ap(o, n, mx, -SC*0.65f, y, wr, wg, wb, 0);
         ap(o, n, mx, -SC*0.08f, y, wr, wg, wb, 0);
-        ap(o, n, mx, -SC*0.08f, y, wr, wg, wb, 1);
+        blankMove(o, n, mx, -SC*0.08f, y);
     }
     // Right half: R, G, B stacked bars
     struct { uint8_t r,g,b; float y0,y1; } bars[3] = {
@@ -587,15 +634,18 @@ static size_t color_temp(LaserPoint* o, size_t mx,
         colorOut(b.r,b.g,b.b,200,ro,go,bo);
         for (int i = 0; i <= 30; i++) {
             float y = b.y0 + i*(b.y1-b.y0)/30;
-            ap(o, n, mx, SC*0.08f, y, ro,go,bo, i==0?1:0);
+            if (i == 0) blankMove(o, n, mx, SC*0.08f, y);
+            ap(o, n, mx, SC*0.08f, y, ro,go,bo, 0);
             ap(o, n, mx, SC*0.65f, y, ro,go,bo, 0);
-            ap(o, n, mx, SC*0.65f, y, ro,go,bo, 1);
+            blankMove(o, n, mx, SC*0.65f, y);
         }
     }
     // Divider
-    ap(o, n, mx, -SC*0.08f, -SC*0.82f, 30, 30, 30, 1);
+    blankMove(o, n, mx, -SC*0.08f, -SC*0.82f);
+    ap(o, n, mx, -SC*0.08f, -SC*0.82f, 30, 30, 30, 0);
     ap(o, n, mx, -SC*0.08f,  SC*0.82f, 30, 30, 30, 0);
-    ap(o, n, mx,  SC*0.08f, -SC*0.82f, 30, 30, 30, 1);
+    blankMove(o, n, mx,  SC*0.08f, -SC*0.82f);
+    ap(o, n, mx,  SC*0.08f, -SC*0.82f, 30, 30, 30, 0);
     ap(o, n, mx,  SC*0.08f,  SC*0.82f, 30, 30, 30, 0);
     return n;
 }
@@ -650,14 +700,16 @@ static size_t ilda_test(LaserPoint* o, size_t mx,
 
     // ── A1: Outer square (full scan boundary) ────────────────────────
     // Scanned once as reference — do NOT use for damping adjustment
-    ap(o, n, mx, -OUTER, -OUTER, DR, DR, DR, 1);
+    blankMove(o, n, mx, -OUTER, -OUTER);
+    ap(o, n, mx, -OUTER, -OUTER, DR, DR, DR, 0);
     ap(o, n, mx,  OUTER, -OUTER, DR, DR, DR, 0);
     ap(o, n, mx,  OUTER,  OUTER, DR, DR, DR, 0);
     ap(o, n, mx, -OUTER,  OUTER, DR, DR, DR, 0);
     ap(o, n, mx, -OUTER, -OUTER, DR, DR, DR, 0);
 
     // ── A2: Inner square (tuning square — observe corners here) ──────
-    ap(o, n, mx, -INNER, -INNER, WR, WG, WB, 1);
+    blankMove(o, n, mx, -INNER, -INNER);
+    ap(o, n, mx, -INNER, -INNER, WR, WG, WB, 0);
     ap(o, n, mx,  INNER, -INNER, WR, WG, WB, 0);
     ap(o, n, mx,  INNER,  INNER, WR, WG, WB, 0);
     ap(o, n, mx, -INNER,  INNER, WR, WG, WB, 0);
@@ -669,38 +721,43 @@ static size_t ilda_test(LaserPoint* o, size_t mx,
     // Circle must be perfectly round (not elliptical)
     {
         const int CPTS = 80;
+        blankMove(o, n, mx, cosf(0)*INNER, sinf(0)*INNER);
         for (int i = 0; i <= CPTS; i++) {
             float a = PI2 * i / CPTS;
-            ap(o, n, mx, cosf(a)*INNER, sinf(a)*INNER, WR, WG, WB, i==0?1:0);
+            ap(o, n, mx, cosf(a)*INNER, sinf(a)*INNER, WR, WG, WB, 0);
         }
     }
 
     // ── A3/A4: Center cross + axis labels ────────────────────────────
     // X axis (horizontal line, full width to outer square)
-    ap(o, n, mx, -OUTER, 0, AR, AG, AB, 1);
+    blankMove(o, n, mx, -OUTER, 0);
+    ap(o, n, mx, -OUTER, 0, AR, AG, AB, 0);
     ap(o, n, mx,  OUTER, 0, AR, AG, AB, 0);
     // Y axis (vertical line)
-    ap(o, n, mx, 0, -OUTER, AR, AG, AB, 1);
+    blankMove(o, n, mx, 0, -OUTER);
+    ap(o, n, mx, 0, -OUTER, AR, AG, AB, 0);
     ap(o, n, mx, 0,  OUTER, AR, AG, AB, 0);
 
     // "X" label: right side of horizontal axis (A4 — confirms polarity)
-    // Simple dot-marker (firmware has no text renderer here)
     {
         float lx = OUTER * 1.02f, ly = 0;
         float s = OUTER * 0.03f;
-        ap(o, n, mx, lx-s, ly+s, WR, WG, WB, 1);
+        blankMove(o, n, mx, lx-s, ly+s);
+        ap(o, n, mx, lx-s, ly+s, WR, WG, WB, 0);
         ap(o, n, mx, lx+s, ly-s, WR, WG, WB, 0);
-        ap(o, n, mx, lx+s, ly+s, WR, WG, WB, 1);
+        blankMove(o, n, mx, lx+s, ly+s);
+        ap(o, n, mx, lx+s, ly+s, WR, WG, WB, 0);
         ap(o, n, mx, lx-s, ly-s, WR, WG, WB, 0);
     }
     // "Y" label: top of vertical axis
     {
         float lx = 0, ly = OUTER * 1.02f;
         float s = OUTER * 0.03f;
-        // Y shape: two diagonals meeting at midpoint, then straight down
-        ap(o, n, mx, lx-s, ly+s, WR, WG, WB, 1);
+        blankMove(o, n, mx, lx-s, ly+s);
+        ap(o, n, mx, lx-s, ly+s, WR, WG, WB, 0);
         ap(o, n, mx, lx,   ly,   WR, WG, WB, 0);
-        ap(o, n, mx, lx+s, ly+s, WR, WG, WB, 1);
+        blankMove(o, n, mx, lx+s, ly+s);
+        ap(o, n, mx, lx+s, ly+s, WR, WG, WB, 0);
         ap(o, n, mx, lx,   ly,   WR, WG, WB, 0);
         ap(o, n, mx, lx,   ly-s, WR, WG, WB, 0);
     }
@@ -714,19 +771,24 @@ static size_t ilda_test(LaserPoint* o, size_t mx,
         float bx  =  INNER * 0.3f;   // center gap half-width
 
         // Vertical tick (reference mark for gap centering)
-        ap(o, n, mx, 0, by2 - OUTER*0.04f, WR, WG, WB, 1);
+        blankMove(o, n, mx, 0, by2 - OUTER*0.04f);
+        ap(o, n, mx, 0, by2 - OUTER*0.04f, WR, WG, WB, 0);
         ap(o, n, mx, 0, by1 + OUTER*0.04f, WR, WG, WB, 0);
 
         // B1: upper line — left segment, gap, right segment
-        ap(o, n, mx, -OUTER*0.55f, by1, WR, WG, WB, 1);
+        blankMove(o, n, mx, -OUTER*0.55f, by1);
+        ap(o, n, mx, -OUTER*0.55f, by1, WR, WG, WB, 0);
         ap(o, n, mx, -bx,          by1, WR, WG, WB, 0);
-        ap(o, n, mx,  bx,          by1, WR, WG, WB, 1);  // blank over gap
+        blankMove(o, n, mx,  bx,   by1);  // blank over gap
+        ap(o, n, mx,  bx,          by1, WR, WG, WB, 0);
         ap(o, n, mx,  OUTER*0.55f, by1, WR, WG, WB, 0);
 
         // B2: lower line — shorter, same gap structure
-        ap(o, n, mx, -OUTER*0.40f, by2, WR, WG, WB, 1);
+        blankMove(o, n, mx, -OUTER*0.40f, by2);
+        ap(o, n, mx, -OUTER*0.40f, by2, WR, WG, WB, 0);
         ap(o, n, mx, -bx*0.7f,     by2, WR, WG, WB, 0);
-        ap(o, n, mx,  bx*0.7f,     by2, WR, WG, WB, 1);
+        blankMove(o, n, mx,  bx*0.7f, by2);
+        ap(o, n, mx,  bx*0.7f,     by2, WR, WG, WB, 0);
         ap(o, n, mx,  OUTER*0.40f, by2, WR, WG, WB, 0);
     }
 
@@ -744,7 +806,8 @@ static size_t ilda_test(LaserPoint* o, size_t mx,
             float bv = (float)(NDOTS - 1 - i) / (NDOTS - 1);
             uint8_t dv = (uint8_t)(bv * WR);
             float px = dx_start + i * dx_step;
-            ap(o, n, mx, px, dy,          dv, dv, dv, 1);
+            blankMove(o, n, mx, px, dy);
+            ap(o, n, mx, px,               dy, dv, dv, dv, 0);
             ap(o, n, mx, px + OUTER*0.01f, dy, dv, dv, dv, 0);
         }
     }
