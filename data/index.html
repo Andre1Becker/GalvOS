@@ -1063,6 +1063,198 @@
     </div>
   </div>
   </div>
+
+  <!-- ── Color & Gamma Calibration Patterns ──────────────────────────── -->
+  <div class="grid cols-2">
+    <div class="card">
+      <h2>⊹ Color &amp; Gamma Calibration</h2>
+      <div id="calib-status" style="font-family:monospace;font-size:12px;color:var(--dim);margin-bottom:12px">
+        No calibration pattern active
+      </div>
+
+      <h3 style="font-size:13px;margin-bottom:10px">Select pattern</h3>
+      <div id="calib-pattern-list" style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px">
+        <!-- filled by JS -->
+      </div>
+
+      <div class="btns">
+        <button class="btn danger" onclick="calibStop()">⏹ Stop</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Parameter</h2>
+
+      <label>Brightness <span id="cp-bright-v" style="color:var(--accent);font-family:monospace">200</span></label>
+      <input type="range" id="cp-bright" min="10" max="255" value="200"
+        oninput="document.getElementById('cp-bright-v').textContent=this.value;calibSend()">
+
+      <label style="margin-top:12px">channel</label>
+      <select id="cp-ch" onchange="calibSend()"
+        style="width:100%;background:var(--card);border:1px solid var(--border);
+               color:var(--text);padding:6px;font-family:monospace;font-size:12px">
+        <option value="0">R + G + B (White)</option>
+        <option value="1">Red only (638 nm)</option>
+        <option value="2">Green only (520 nm)</option>
+        <option value="3">Blue only (445 nm)</option>
+      </select>
+
+      <hr style="border-color:var(--border);margin:14px 0">
+      <h3 style="font-size:13px;margin-bottom:8px">What to check</h3>
+      <div id="calib-check" style="font-family:monospace;font-size:11px;
+           color:var(--dim);line-height:1.9;padding:10px;background:rgba(0,0,0,.2);
+           border-radius:4px;min-height:60px">
+        Select pattern for hints
+      </div>
+
+      <hr style="border-color:var(--border);margin:14px 0">
+      <h3 style="font-size:13px;margin-bottom:8px">Gamma &amp; White balance</h3>
+      <div style="font-family:monospace;font-size:11px;color:var(--dim);line-height:2">
+        <div>Gamma: <span id="cp-gamma-v" style="color:var(--accent)">–</span></div>
+        <div>gain R: <span id="cp-gr" style="color:#ff8080">–</span>
+             &nbsp; G: <span id="cp-gg" style="color:#80ff80">–</span>
+             &nbsp; B: <span id="cp-gb" style="color:#8080ff">–</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── ILDA Standard Test Pattern ─────────────────────────────── -->
+  <div class="card" style="margin-top:16px">
+    <h2>📐 ILDA Standard Test Pattern</h2>
+    <p style="font-size:11px;color:var(--dim);margin:0 0 12px 0">
+      Official ILDA Technical Committee test pattern (Rev.002, 1995) for galvo scanner
+      alignment. Use this pattern to calibrate damping, servo gain, DC offset and
+      blanking of the Jolooyo JY-15K-BL galvo system.
+    </p>
+
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
+      <button class="btn" onclick="ildaTestPlay()" id="btn-ilda-play">▶ Start</button>
+      <button class="btn danger" onclick="ildaTestStop()">⏹ Stop</button>
+      <span id="ilda-status" style="font-family:monospace;font-size:11px;color:var(--dim)">
+        Pattern inactive
+      </span>
+    </div>
+
+    <label>
+      Scan Size (A5)
+      <span id="ilda-size-v" style="color:var(--accent);font-family:monospace">128</span>
+      <span style="font-size:10px;color:var(--dim);margin-left:6px">
+        — reduce until circle distorts, then +10%
+      </span>
+    </label>
+    <input type="range" id="ilda-size" min="10" max="255" value="128"
+      oninput="document.getElementById('ilda-size-v').textContent=this.value;ildaTestSend()">
+
+    <hr style="border-color:var(--border);margin:14px 0">
+
+    <h3 style="font-size:12px;margin-bottom:10px;color:var(--accent)">📋 Tuning Procedure</h3>
+    <div style="font-family:monospace;font-size:10px;color:var(--dim);line-height:1.8;
+                background:rgba(0,0,0,.25);padding:10px;border-radius:4px">
+
+      <div style="color:var(--text);font-size:11px;margin-bottom:6px">
+        ① Set scan size — reduce until circle begins to distort, then back 10%
+      </div>
+      <div style="margin-left:12px;margin-bottom:8px">
+        <b style="color:#aaa">12K mode:</b> up to ~15° optical &nbsp;|&nbsp;
+        <b style="color:#aaa">30K mode:</b> max ~8° optical (ILDA rated)
+      </div>
+
+      <div style="color:var(--text);font-size:11px;margin-bottom:4px">
+        ② Check axis polarity (A4)
+      </div>
+      <div style="margin-left:12px;margin-bottom:8px">
+        "Y" label must appear at top, "X" label at right.
+        If reversed → invert the signal at the galvo driver card.
+        In GalvOS: Config → Calibration → Invert X / Invert Y.
+      </div>
+
+      <div style="color:var(--text);font-size:11px;margin-bottom:4px">
+        ③ Adjust Y damping (A2 — lower-right corner of inner square)
+      </div>
+      <div style="margin-left:12px;margin-bottom:8px">
+        Increase low-freq damping until a small overshoot appears at the corner.
+        Overshoot length ≈ 2/3 height of reference marker.
+        Then adjust high-freq damping to <i>minimize</i> that overshoot length.
+        Finally reduce low-freq damping to tuck overshoot back to a dot.
+        ⚠ Undershoot (corner gap) is harder to detect — avoid going too far.
+      </div>
+
+      <div style="color:var(--text);font-size:11px;margin-bottom:4px">
+        ④ Adjust Y servo gain (A1 — circle vs. inner square top/bottom)
+      </div>
+      <div style="margin-left:12px;margin-bottom:8px">
+        Circle top/bottom must touch the inner square edges.
+        Too small → increase gain, repeat ③.
+        Too large → decrease gain, repeat ③.
+      </div>
+
+      <div style="color:var(--text);font-size:11px;margin-bottom:4px">
+        ⑤ Adjust X damping (A2 — upper-right corner of inner square)
+      </div>
+      <div style="margin-left:12px;margin-bottom:8px">
+        Same procedure as step ③ but for the X axis.
+        Do NOT re-adjust Y axis after this step.
+      </div>
+
+      <div style="color:var(--text);font-size:11px;margin-bottom:4px">
+        ⑥ Adjust X servo gain (circle vs. inner square left/right)
+      </div>
+      <div style="margin-left:12px;margin-bottom:8px">
+        Circle left/right must touch inner square edges.
+        Result: circle touches square at exactly 4 points and is perfectly round.
+        If not round → iterate ⑤/⑥ carefully, then re-verify ③/④.
+      </div>
+
+      <div style="color:var(--text);font-size:11px;margin-bottom:4px">
+        ⑦ Adjust image size (A5)
+      </div>
+      <div style="margin-left:12px;margin-bottom:8px">
+        Reset size to normal. Adjust X/Y amplitude so outer square fills the
+        usable projection area.
+        In GalvOS: Config → Calibration → X Gain / Y Gain sliders.
+      </div>
+
+      <div style="color:var(--text);font-size:11px;margin-bottom:4px">
+        ⑧ Adjust DC offset (A6 — center cross must be at screen center)
+      </div>
+      <div style="margin-left:12px;margin-bottom:8px">
+        Move X/Y offset until cross is centered. Prefer physical galvo rotation
+        for large offsets.
+        In GalvOS: Config → Calibration → X Offset / Y Offset.
+      </div>
+
+      <div style="color:var(--text);font-size:11px;margin-bottom:4px">
+        ⑨ Blanking test (B1/B2 — two horizontal lines with center gap)
+      </div>
+      <div style="margin-left:12px;margin-bottom:4px">
+        Gap must be symmetric around the vertical tick mark.
+        Adjust blanking damping until gap is centered.
+        Adjust blanking servo gain until the two line segments appear to converge
+        at the tick when extrapolated.
+      </div>
+
+      <div style="color:var(--text);font-size:11px;margin-bottom:4px">
+        ⑩ Speed dots (B3/B4 — row of 6 dots, decreasing brightness)
+      </div>
+      <div style="margin-left:12px">
+        Dot 5 (5th from left) must be barely visible.
+        Dot 6 (rightmost) must be fully blanked.
+        Adjust blanking DC offset until this threshold is met.
+        In GalvOS: blanking is digital via 6N137 — dot behavior reflects
+        the optical blanking transition of the laser modules.
+      </div>
+    </div>
+
+    <hr style="border-color:var(--border);margin:14px 0">
+    <div style="font-size:10px;color:var(--dim);line-height:1.7">
+      <b style="color:#aaa">Expected result:</b>
+      Circle perfectly round, touching inner square at top, bottom, left, right.
+      Corners of inner square sharp (no overshoot or undershoot).
+      Cross centered. Outer square fills screen area.
+      Gap in blanking lines centered and symmetric.
+    </div>
+  </div>
+
 </section>
 
 <!-- ============= CONFIG ============= -->
@@ -5270,197 +5462,6 @@ async function saveNtpConfig() {
 
 
 <!-- ===== CALIBRATION TAB ===== -->
-<section id="tab-calib" class="tab">
-  <div class="grid cols-2">
-    <div class="card">
-      <h2>⊹ Color &amp; Gamma Calibration</h2>
-      <div id="calib-status" style="font-family:monospace;font-size:12px;color:var(--dim);margin-bottom:12px">
-        No calibration pattern active
-      </div>
-
-      <h3 style="font-size:13px;margin-bottom:10px">Select pattern</h3>
-      <div id="calib-pattern-list" style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px">
-        <!-- filled by JS -->
-      </div>
-
-      <div class="btns">
-        <button class="btn danger" onclick="calibStop()">⏹ Stop</button>
-      </div>
-    </div>
-
-    <div class="card">
-      <h2>Parameter</h2>
-
-      <label>Brightness <span id="cp-bright-v" style="color:var(--accent);font-family:monospace">200</span></label>
-      <input type="range" id="cp-bright" min="10" max="255" value="200"
-        oninput="document.getElementById('cp-bright-v').textContent=this.value;calibSend()">
-
-      <label style="margin-top:12px">channel</label>
-      <select id="cp-ch" onchange="calibSend()"
-        style="width:100%;background:var(--card);border:1px solid var(--border);
-               color:var(--text);padding:6px;font-family:monospace;font-size:12px">
-        <option value="0">R + G + B (White)</option>
-        <option value="1">Red only (638 nm)</option>
-        <option value="2">Green only (520 nm)</option>
-        <option value="3">Blue only (445 nm)</option>
-      </select>
-
-      <hr style="border-color:var(--border);margin:14px 0">
-      <h3 style="font-size:13px;margin-bottom:8px">What to check</h3>
-      <div id="calib-check" style="font-family:monospace;font-size:11px;
-           color:var(--dim);line-height:1.9;padding:10px;background:rgba(0,0,0,.2);
-           border-radius:4px;min-height:60px">
-        Select pattern for hints
-      </div>
-
-      <hr style="border-color:var(--border);margin:14px 0">
-      <h3 style="font-size:13px;margin-bottom:8px">Gamma &amp; White balance</h3>
-      <div style="font-family:monospace;font-size:11px;color:var(--dim);line-height:2">
-        <div>Gamma: <span id="cp-gamma-v" style="color:var(--accent)">–</span></div>
-        <div>gain R: <span id="cp-gr" style="color:#ff8080">–</span>
-             &nbsp; G: <span id="cp-gg" style="color:#80ff80">–</span>
-             &nbsp; B: <span id="cp-gb" style="color:#8080ff">–</span></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ── ILDA Standard Test Pattern ─────────────────────────────── -->
-  <div class="card" style="margin-top:16px">
-    <h2>📐 ILDA Standard Test Pattern</h2>
-    <p style="font-size:11px;color:var(--dim);margin:0 0 12px 0">
-      Official ILDA Technical Committee test pattern (Rev.002, 1995) for galvo scanner
-      alignment. Use this pattern to calibrate damping, servo gain, DC offset and
-      blanking of the Jolooyo JY-15K-BL galvo system.
-    </p>
-
-    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
-      <button class="btn" onclick="ildaTestPlay()" id="btn-ilda-play">▶ Start</button>
-      <button class="btn danger" onclick="ildaTestStop()">⏹ Stop</button>
-      <span id="ilda-status" style="font-family:monospace;font-size:11px;color:var(--dim)">
-        Pattern inactive
-      </span>
-    </div>
-
-    <label>
-      Scan Size (A5)
-      <span id="ilda-size-v" style="color:var(--accent);font-family:monospace">128</span>
-      <span style="font-size:10px;color:var(--dim);margin-left:6px">
-        — reduce until circle distorts, then +10%
-      </span>
-    </label>
-    <input type="range" id="ilda-size" min="10" max="255" value="128"
-      oninput="document.getElementById('ilda-size-v').textContent=this.value;ildaTestSend()">
-
-    <hr style="border-color:var(--border);margin:14px 0">
-
-    <h3 style="font-size:12px;margin-bottom:10px;color:var(--accent)">📋 Tuning Procedure</h3>
-    <div style="font-family:monospace;font-size:10px;color:var(--dim);line-height:1.8;
-                background:rgba(0,0,0,.25);padding:10px;border-radius:4px">
-
-      <div style="color:var(--text);font-size:11px;margin-bottom:6px">
-        ① Set scan size — reduce until circle begins to distort, then back 10%
-      </div>
-      <div style="margin-left:12px;margin-bottom:8px">
-        <b style="color:#aaa">12K mode:</b> up to ~15° optical &nbsp;|&nbsp;
-        <b style="color:#aaa">30K mode:</b> max ~8° optical (ILDA rated)
-      </div>
-
-      <div style="color:var(--text);font-size:11px;margin-bottom:4px">
-        ② Check axis polarity (A4)
-      </div>
-      <div style="margin-left:12px;margin-bottom:8px">
-        "Y" label must appear at top, "X" label at right.
-        If reversed → invert the signal at the galvo driver card.
-        In GalvOS: Config → Calibration → Invert X / Invert Y.
-      </div>
-
-      <div style="color:var(--text);font-size:11px;margin-bottom:4px">
-        ③ Adjust Y damping (A2 — lower-right corner of inner square)
-      </div>
-      <div style="margin-left:12px;margin-bottom:8px">
-        Increase low-freq damping until a small overshoot appears at the corner.
-        Overshoot length ≈ 2/3 height of reference marker.
-        Then adjust high-freq damping to <i>minimize</i> that overshoot length.
-        Finally reduce low-freq damping to tuck overshoot back to a dot.
-        ⚠ Undershoot (corner gap) is harder to detect — avoid going too far.
-      </div>
-
-      <div style="color:var(--text);font-size:11px;margin-bottom:4px">
-        ④ Adjust Y servo gain (A1 — circle vs. inner square top/bottom)
-      </div>
-      <div style="margin-left:12px;margin-bottom:8px">
-        Circle top/bottom must touch the inner square edges.
-        Too small → increase gain, repeat ③.
-        Too large → decrease gain, repeat ③.
-      </div>
-
-      <div style="color:var(--text);font-size:11px;margin-bottom:4px">
-        ⑤ Adjust X damping (A2 — upper-right corner of inner square)
-      </div>
-      <div style="margin-left:12px;margin-bottom:8px">
-        Same procedure as step ③ but for the X axis.
-        Do NOT re-adjust Y axis after this step.
-      </div>
-
-      <div style="color:var(--text);font-size:11px;margin-bottom:4px">
-        ⑥ Adjust X servo gain (circle vs. inner square left/right)
-      </div>
-      <div style="margin-left:12px;margin-bottom:8px">
-        Circle left/right must touch inner square edges.
-        Result: circle touches square at exactly 4 points and is perfectly round.
-        If not round → iterate ⑤/⑥ carefully, then re-verify ③/④.
-      </div>
-
-      <div style="color:var(--text);font-size:11px;margin-bottom:4px">
-        ⑦ Adjust image size (A5)
-      </div>
-      <div style="margin-left:12px;margin-bottom:8px">
-        Reset size to normal. Adjust X/Y amplitude so outer square fills the
-        usable projection area.
-        In GalvOS: Config → Calibration → X Gain / Y Gain sliders.
-      </div>
-
-      <div style="color:var(--text);font-size:11px;margin-bottom:4px">
-        ⑧ Adjust DC offset (A6 — center cross must be at screen center)
-      </div>
-      <div style="margin-left:12px;margin-bottom:8px">
-        Move X/Y offset until cross is centered. Prefer physical galvo rotation
-        for large offsets.
-        In GalvOS: Config → Calibration → X Offset / Y Offset.
-      </div>
-
-      <div style="color:var(--text);font-size:11px;margin-bottom:4px">
-        ⑨ Blanking test (B1/B2 — two horizontal lines with center gap)
-      </div>
-      <div style="margin-left:12px;margin-bottom:4px">
-        Gap must be symmetric around the vertical tick mark.
-        Adjust blanking damping until gap is centered.
-        Adjust blanking servo gain until the two line segments appear to converge
-        at the tick when extrapolated.
-      </div>
-
-      <div style="color:var(--text);font-size:11px;margin-bottom:4px">
-        ⑩ Speed dots (B3/B4 — row of 6 dots, decreasing brightness)
-      </div>
-      <div style="margin-left:12px">
-        Dot 5 (5th from left) must be barely visible.
-        Dot 6 (rightmost) must be fully blanked.
-        Adjust blanking DC offset until this threshold is met.
-        In GalvOS: blanking is digital via 6N137 — dot behavior reflects
-        the optical blanking transition of the laser modules.
-      </div>
-    </div>
-
-    <hr style="border-color:var(--border);margin:14px 0">
-    <div style="font-size:10px;color:var(--dim);line-height:1.7">
-      <b style="color:#aaa">Expected result:</b>
-      Circle perfectly round, touching inner square at top, bottom, left, right.
-      Corners of inner square sharp (no overshoot or undershoot).
-      Cross centered. Outer square fills screen area.
-      Gap in blanking lines centered and symmetric.
-    </div>
-  </div>
-</section>
 
 
 <script>
