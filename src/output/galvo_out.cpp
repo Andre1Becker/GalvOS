@@ -313,15 +313,6 @@ static inline void updateSnapshot() {
 static bool sendRawCommandImpl(uint8_t cmd3, uint8_t addr3, uint16_t data);
 
 static void IRAM_ATTR galvoTask(void*) {
-    // Acquire the SPI bus once for the lifetime of galvoTask.
-    // spi_device_polling_transmit() re-acquires/releases the bus mutex on
-    // every call (~5-8us overhead each). At 45kpps that's 90k mutex ops/s,
-    // capping real throughput at ~22kpps. Holding the bus eliminates that
-    // overhead entirely — polling_transmit detects the pre-acquired state
-    // and skips the lock. SD card cannot use SPI2 while this is held, but
-    // SD access is already blocked when laser is armed.
-    if (s_galvo_spi) spi_device_acquire_bus(s_galvo_spi, portMAX_DELAY);
-
     // Dynamic rate from ProjectionConfig (12..60 kpps). period_us is now
     // computed in updateSnapshot() once per frame (not per tick) to keep
     // the 50kHz loop free of a division + 2 branches on every point.
@@ -493,7 +484,6 @@ static void IRAM_ATTR galvoTask(void*) {
     writeDAC8562(0, 0x8000);
     writeDAC8562(1, 0x8000);
     rgbOff();
-    if (s_galvo_spi) spi_device_release_bus(s_galvo_spi);
     vTaskDelete(nullptr);
 }
 
