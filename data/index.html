@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>GalvOS - Laser Controller</title>
+<title id="page-title">GalvOS — Laser Controller</title>
 <link rel="icon" type="image/svg+xml" href="galvos_logo.svg">
 <link rel="icon" type="image/png" href="favicon.png" sizes="32x32">
 <style>
@@ -220,6 +220,28 @@
     <span id="ui-master-dimmer-val" style="font-family:monospace;font-size:12px;min-width:28px;color:var(--text)">0</span>
   </div>
 </header>
+
+<!-- ── Telemetry Status Bar ── -->
+<div id="telemetry-bar" style="
+  background:#0a0a14;
+  border-bottom:1px solid var(--border);
+  padding:4px 16px;
+  display:flex;
+  align-items:center;
+  gap:20px;
+  font-size:11px;
+  font-family:monospace;
+  color:var(--dim);
+  flex-wrap:wrap;
+">
+  <span title="Firmware version">🔧 <span id="sb-fw">--</span></span>
+  <span title="Core 1 (Galvo) CPU load">⚙ C1: <span id="sb-cpu1" style="color:var(--text)">--</span>%</span>
+  <span title="Galvo output rate">⚡ <span id="sb-kpps" style="color:var(--text)">--</span> kpps</span>
+  <span title="Frame buffer fill level">▦ Buf: <span id="sb-buf" style="color:var(--text)">--</span>%</span>
+  <span title="Primary temperature sensor">🌡 <span id="sb-temp" style="color:var(--text)">--</span> °C</span>
+  <span title="Free heap memory">🧠 <span id="sb-heap" style="color:var(--text)">--</span> KB</span>
+  <span title="Master dimmer value">💡 Dim: <span id="sb-dim" style="color:var(--text)">--</span></span>
+</div>
 <div id="safety-override-banner" style="display:none;background:var(--bad);color:#000;font-weight:700;text-align:center;padding:6px;font-size:13px">
   ⚠ SAFETY OVERRIDE ACTIVE — Scan-Fail and E-Stop checks bypassed
 </div>
@@ -1793,6 +1815,45 @@ function handleStateUpdate(s) {
   // FW-Version + OTA-Info
   const fwEl = document.getElementById('dash-fw-ver');
   if (fwEl && s.fw_version) fwEl.textContent = s.fw_version;
+
+  // Page title + status bar
+  if (s.fw_version) {
+    document.getElementById('page-title').textContent =
+      'GalvOS v' + s.fw_version + ' — Laser Controller';
+    var sbFw = document.getElementById('sb-fw');
+    if (sbFw) sbFw.textContent = 'v' + s.fw_version;
+  }
+  var sbCpu1 = document.getElementById('sb-cpu1');
+  if (sbCpu1 && s.cpu1 !== undefined) {
+    sbCpu1.textContent = Math.round(s.cpu1);
+    sbCpu1.style.color = s.cpu1 >= 90 ? 'var(--danger)' : s.cpu1 >= 70 ? 'var(--warn)' : 'var(--ok)';
+  }
+  var sbKpps = document.getElementById('sb-kpps');
+  if (sbKpps && s.points_per_sec !== undefined) {
+    sbKpps.textContent = (s.points_per_sec / 1000).toFixed(1);
+  }
+  var sbBuf = document.getElementById('sb-buf');
+  if (sbBuf && s.buffer_fill !== undefined) {
+    sbBuf.textContent = s.buffer_fill;
+    sbBuf.style.color = s.buffer_fill > 80 ? 'var(--danger)' : s.buffer_fill > 50 ? 'var(--warn)' : 'var(--text)';
+  }
+  var sbTemp = document.getElementById('sb-temp');
+  if (sbTemp && s.temps && s.temps.length > 0 && s.temps[0] !== null) {
+    var t = s.temps[0];
+    sbTemp.textContent = t.toFixed(1);
+    sbTemp.style.color = t >= 70 ? 'var(--danger)' : t >= 55 ? 'var(--warn)' : 'var(--text)';
+  }
+  var sbHeap = document.getElementById('sb-heap');
+  if (sbHeap && s.free_heap !== undefined) {
+    var hKB = Math.round(s.free_heap / 1024);
+    sbHeap.textContent = hKB;
+    sbHeap.style.color = hKB < 30 ? 'var(--danger)' : 'var(--text)';
+  }
+  var sbDim = document.getElementById('sb-dim');
+  if (sbDim && s.master_dimmer !== undefined) {
+    sbDim.textContent = s.master_dimmer;
+    sbDim.style.color = s.master_dimmer > 0 ? 'var(--ok)' : 'var(--dim)';
+  }
   const otaEl = document.getElementById('dash-ota-pass');
   if (otaEl && s.ota_pass) otaEl.textContent = s.ota_pass;
   const tokenEl = document.getElementById('dash-auth-token');
