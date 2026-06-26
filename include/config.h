@@ -276,6 +276,7 @@ enum ColAnimType : uint8_t {
     COL_ANIM_PULSE    = 4,
     COL_ANIM_TWINKLE  = 5,
     COL_ANIM_FLIP     = 6,
+    COL_ANIM_SEGMENT  = 7,  // per-point segment coloring with phase travel
 };
 
 struct LivePresetControls {
@@ -288,6 +289,8 @@ struct LivePresetControls {
     volatile ColAnimType col_anim_type  = COL_ANIM_OFF;
     volatile uint8_t     col_anim_seq   = 0;    // 0-9 sequence index
     volatile uint8_t     col_anim_speed = 128;  // 0-255
+    volatile uint8_t     col_seg_count  = 4;    // 1-10 color segments
+    volatile int8_t      col_seg_dir    = 1;    // +1 forward, -1 reverse
     volatile int16_t  rotation   = 0;   // Z-axis (degrees)
     volatile bool     rot_x      = false;  // X-axis active
     volatile bool     rot_y      = false;  // Y-axis active
