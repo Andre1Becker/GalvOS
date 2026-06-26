@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title id="page-title">GalvOS — Laser Controller</title>
+<title>GalvOS - Laser Controller</title>
 <link rel="icon" type="image/svg+xml" href="galvos_logo.svg">
 <link rel="icon" type="image/png" href="favicon.png" sizes="32x32">
 <style>
@@ -220,28 +220,6 @@
     <span id="ui-master-dimmer-val" style="font-family:monospace;font-size:12px;min-width:28px;color:var(--text)">0</span>
   </div>
 </header>
-
-<!-- ── Telemetry Status Bar ── -->
-<div id="telemetry-bar" style="
-  background:#0a0a14;
-  border-bottom:1px solid var(--border);
-  padding:4px 16px;
-  display:flex;
-  align-items:center;
-  gap:20px;
-  font-size:11px;
-  font-family:monospace;
-  color:var(--dim);
-  flex-wrap:wrap;
-">
-  <span title="Firmware version">🔧 <span id="sb-fw">--</span></span>
-  <span title="Core 0 (Net/DMX/UI) CPU load">⚙ C0: <span id="sb-cpu1" style="color:var(--text)">--</span>%</span>
-  <span title="Galvo output rate">⚡ <span id="sb-kpps" style="color:var(--text)">--</span> kpps</span>
-  <span title="Frame buffer fill level">▦ Buf: <span id="sb-buf" style="color:var(--text)">--</span>%</span>
-  <span title="Primary temperature sensor">🌡 <span id="sb-temp" style="color:var(--text)">--</span> °C</span>
-  <span title="Free heap memory">🧠 <span id="sb-heap" style="color:var(--text)">--</span> KB</span>
-  <span title="Master dimmer value">💡 Dim: <span id="sb-dim" style="color:var(--text)">--</span></span>
-</div>
 <div id="safety-override-banner" style="display:none;background:var(--bad);color:#000;font-weight:700;text-align:center;padding:6px;font-size:13px">
   ⚠ SAFETY OVERRIDE ACTIVE — Scan-Fail and E-Stop checks bypassed
 </div>
@@ -642,6 +620,7 @@
             <button onclick="setAnimType('pulse')"    id="anim-btn-pulse"    class="btn secondary" style="flex:1;font-size:10px;padding:4px 2px;min-width:0">Pulse</button>
             <button onclick="setAnimType('twinkle')"  id="anim-btn-twinkle"  class="btn secondary" style="flex:1;font-size:10px;padding:4px 2px;min-width:0">Twinkle</button>
             <button onclick="setAnimType('colorflip')"id="anim-btn-colorflip"class="btn secondary" style="flex:1;font-size:10px;padding:4px 2px;min-width:0">Flip</button>
+            <button onclick="setAnimType('segment')"  id="anim-btn-segment"  class="btn secondary" style="flex:1;font-size:10px;padding:4px 2px;min-width:0">Seg</button>
           </div>
 
           <!-- Gradient sequence grid (shown for gradient type) -->
@@ -690,13 +669,23 @@
           <div id="anim-panel-colorflip" style="display:none">
             <div style="font-size:10px;color:var(--dim);margin-bottom:8px">Hard cuts between R, G, B, W at the set speed.</div>
           </div>
+          <div id="anim-panel-segment" style="display:none">
+            <div style="font-size:10px;color:var(--dim);margin-bottom:5px">Color palette for segments</div>
+            <div id="seg-seq-grid" style="display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-bottom:8px"></div>
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+              <span style="font-size:11px;color:var(--dim);white-space:nowrap">Segments</span>
+              <input type="range" id="seg-count" min="1" max="10" value="4" style="flex:1"
+                oninput="document.getElementById('seg-count-val').textContent=this.value;applyGradient()">
+              <span id="seg-count-val" style="color:var(--accent);font-family:monospace;min-width:16px">4</span>
+            </div>
+          </div>
 
           <!-- Speed + Direction (shared) -->
           <div style="margin-bottom:6px">
             <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:3px">
               <span>Speed</span><span id="grad-speed-val" style="color:var(--accent);font-family:monospace">50</span>
             </div>
-            <input type="range" id="grad-speed" min="1" max="255" value="128"
+            <input type="range" id="grad-speed" min="0" max="100" value="50"
               oninput="document.getElementById('grad-speed-val').textContent=this.value;applyGradient()">
           </div>
           <div style="display:flex;gap:10px;margin-bottom:8px" id="anim-dir-row">
@@ -829,155 +818,142 @@
 
 <!-- ============= CALIBRATION ============= -->
 <section id="tab-calib" class="tab">
+  <div class="grid cols-2">
 
-  <!-- ── Row 1: 3-column geometry + color ───────────────────────────────── -->
-  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:16px">
-
-    <!-- Col 1: Offset & Gain -->
     <div class="card">
       <h2>Galvo Geometry</h2>
-      <p style="color:var(--dim);font-size:11px;margin-bottom:12px">
-        Position and scale of the projected image.
-      </p>
+      <label>X-Offset (-2000...+2000) <br><span style="color:var(--dim);font-size:11px;font-style:italic">Note: Shifts the image horizontally. Corrects if the galvo is not centered. 0 = no shift.</span></label>
+      <input type="range" min="-2000" max="2000" id="cal-xoff" class="cal-input">
+      <span id="v-xoff" class="val">0</span>
 
-      <label class="lbl">X-Offset <span style="color:var(--dim)">(−2000…+2000)</span></label>
-      <div style="display:flex;gap:6px;align-items:center">
-        <input type="range" min="-2000" max="2000" id="cal-xoff" class="cal-input" style="flex:1">
-        <span id="v-xoff" class="val" style="min-width:46px;text-align:right">0</span>
+      <label>Y-Offset (-2000...+2000) <br><span style="color:var(--dim);font-size:11px;font-style:italic">Note: Shifts the image vertically. Corrects if the galvo is not centered. 0 = no shift.</span></label>
+      <input type="range" min="-2000" max="2000" id="cal-yoff" class="cal-input">
+      <span id="v-yoff" class="val">0</span>
+
+      <label>X-Gain (0...32767) <br><span style="color:var(--dim);font-size:11px;font-style:italic">Note: Scales the horizontal deflection. 32767 = full size. Reduce if the image extends too wide beyond the scan angle.</span></label>
+      <input type="range" min="0" max="32767" id="cal-xgain" class="cal-input">
+      <span id="v-xgain" class="val">32767</span>
+
+      <label>Y-Gain (0...32767) <br><span style="color:var(--dim);font-size:11px;font-style:italic">Note: Scales the vertical deflection. 32767 = full size. Match with X-Gain for correct aspect ratio.</span></label>
+      <input type="range" min="0" max="32767" id="cal-ygain" class="cal-input">
+      <span id="v-ygain" class="val">32767</span>
+
+      <div style="margin-top:16px;padding:10px;background:#050510;border:1px solid var(--border);border-radius:6px">
+        <div style="font-family:monospace;font-size:10px;color:var(--accent);margin-bottom:8px">
+          AXIS CORRECTION
+        </div>
+        <p style="font-size:11px;color:var(--dim);margin-bottom:10px">
+          Hardware topology: VOUT = 2x(2.5V - VDAC) -- polarity may be inverted.<br>
+          If the galvo turns the wrong way: enable Invert X / Invert Y.
+        </p>
+        <div style="display:flex;gap:12px;flex-wrap:wrap">
+          <label class="toggle">
+            <input type="checkbox" id="cal-swap" onchange="saveCalibration()">
+            <span class="slider"></span>Swap X<->Y
+          </label>
+          <label class="toggle">
+            <input type="checkbox" id="cal-invx" onchange="saveCalibration()">
+            <span class="slider"></span>Invert X
+          </label>
+          <label class="toggle">
+            <input type="checkbox" id="cal-invy" onchange="saveCalibration()">
+            <span class="slider"></span>Invert Y
+          </label>
+        </div>
       </div>
 
-      <label class="lbl" style="margin-top:10px">Y-Offset <span style="color:var(--dim)">(−2000…+2000)</span></label>
-      <div style="display:flex;gap:6px;align-items:center">
-        <input type="range" min="-2000" max="2000" id="cal-yoff" class="cal-input" style="flex:1">
-        <span id="v-yoff" class="val" style="min-width:46px;text-align:right">0</span>
+      <div style="margin-top:16px;padding:10px;background:#050510;border:1px solid var(--border);border-radius:6px">
+        <div style="font-family:monospace;font-size:10px;color:var(--accent);margin-bottom:8px">
+          DAC OUTPUT LIMITING
+        </div>
+        <p style="font-size:11px;color:var(--dim);margin-bottom:10px">
+          Clamps the final DAC codes for X/Y before output, to keep the
+          OPA4134 differential output within the galvo's rated input range
+          (galvo: +/-5V, hardware gain 2.2x -- full DAC range would exceed
+          this). Default ~95% (0x0666..0xF999). 0x8000 = center.
+        </p>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div>
+            <label class="lbl">Min code (0x0000..0xFFFF)</label>
+            <div style="display:flex;gap:6px;align-items:center">
+              <input type="range" id="cal-dac-lim-min" min="0" max="65535" value="1638"
+                     oninput="document.getElementById('v-dac-lim-min').textContent='0x'+(+this.value).toString(16).padStart(4,'0').toUpperCase()"
+                     onchange="saveCalibration()" style="flex:1">
+              <span id="v-dac-lim-min" class="val" style="min-width:60px">0x0666</span>
+            </div>
+          </div>
+          <div>
+            <label class="lbl">Max code (0x0000..0xFFFF)</label>
+            <div style="display:flex;gap:6px;align-items:center">
+              <input type="range" id="cal-dac-lim-max" min="0" max="65535" value="63897"
+                     oninput="document.getElementById('v-dac-lim-max').textContent='0x'+(+this.value).toString(16).padStart(4,'0').toUpperCase()"
+                     onchange="saveCalibration()" style="flex:1">
+              <span id="v-dac-lim-max" class="val" style="min-width:60px">0xF999</span>
+            </div>
+          </div>
+        </div>
+        <div id="dac-lim-status" style="font-size:11px;color:var(--dim);margin-top:8px"></div>
       </div>
-
-      <label class="lbl" style="margin-top:10px">X/Y-Gain <span style="color:var(--dim)">(0…32767)</span>
-        <button id="gain-link-btn" onclick="gainLinkToggle()" style="margin-left:8px;padding:1px 7px;font-size:11px;background:#1a1a2e;border:1px solid var(--accent);border-radius:4px;color:var(--accent);cursor:pointer">Linked</button>
-      </label>
-      <div style="display:flex;gap:6px;align-items:center">
-        <input type="range" min="0" max="32767" id="cal-xgain" class="cal-input" style="flex:1">
-        <span id="v-xgain" class="val" style="min-width:46px;text-align:right">32767</span>
-      </div>
-
-      <label class="lbl" style="margin-top:10px">Y-Gain <span style="color:var(--dim)">(0…32767)</span></label>
-      <div style="display:flex;gap:6px;align-items:center">
-        <input type="range" min="0" max="32767" id="cal-ygain" class="cal-input" style="flex:1">
-        <span id="v-ygain" class="val" style="min-width:46px;text-align:right">32767</span>
       </div>
     </div>
 
-    <!-- Col 2: Color Balance -->
     <div class="card">
       <h2>Color Balance</h2>
-      <p style="color:var(--dim);font-size:11px;margin-bottom:12px">
-        White point / laser gain per channel. Reduce brighter diodes until white looks neutral.
+      <p style="color: var(--dim); font-size: 12px;">
+        White point adjustment. Reduce the stronger diode colors until white looks white.
       </p>
+      <label>Red Gain <br><span style="color:var(--dim);font-size:11px;font-style:italic">Note: Brightness of the red diode. On the 5W laser red is usually the brightest color -- reduce until white looks neutral.</span></label>
+      <input type="range" min="0" max="255" id="cal-r" class="cal-input">
+      <span id="v-r" class="val">255</span>
 
-      <label class="lbl">Red Gain</label>
-      <div style="display:flex;gap:6px;align-items:center">
-        <input type="range" min="0" max="255" id="cal-r" class="cal-input" style="flex:1">
-        <span id="v-r" class="val" style="min-width:30px;text-align:right;color:#f88">255</span>
-      </div>
+      <label>Green Gain <br><span style="color:var(--dim);font-size:11px;font-style:italic">Note: Brightness of the green diode. Green is perceived brightest by the eye -- often reduce strongly.</span></label>
+      <input type="range" min="0" max="255" id="cal-g" class="cal-input">
+      <span id="v-g" class="val">200</span>
 
-      <label class="lbl" style="margin-top:10px">Green Gain</label>
-      <div style="display:flex;gap:6px;align-items:center">
-        <input type="range" min="0" max="255" id="cal-g" class="cal-input" style="flex:1">
-        <span id="v-g" class="val" style="min-width:30px;text-align:right;color:#8f8">200</span>
-      </div>
+      <label>Blue Gain <br><span style="color:var(--dim);font-size:11px;font-style:italic">Note: Brightness of the blue diode. On the 5W model blue is the weakest visible color -- usually leave at maximum.</span></label>
+      <input type="range" min="0" max="255" id="cal-b" class="cal-input">
+      <span id="v-b" class="val">180</span>
 
-      <label class="lbl" style="margin-top:10px">Blue Gain</label>
-      <div style="display:flex;gap:6px;align-items:center">
-        <input type="range" min="0" max="255" id="cal-b" class="cal-input" style="flex:1">
-        <span id="v-b" class="val" style="min-width:30px;text-align:right;color:#88f">180</span>
-      </div>
-
-      <hr style="border-color:var(--border);margin:14px 0">
-      <div class="btns">
-        <button class="btn" onclick="saveCalibration()">💾 Save</button>
-        <button class="btn secondary" onclick="applyAutoWB()">🎯 Auto WB</button>
+      <div style="margin-top: 16px;">
+        <button class="btn" onclick="saveCalibration()">💾 Save calibration</button>
+        <button class="btn secondary" onclick="applyAutoWB()">🎯 Auto White Balance</button>
         <button class="btn secondary" onclick="loadCalibration()">↺ Reset</button>
       </div>
     </div>
 
-    <!-- Col 3: Axis Flags + DAC Limiter -->
-    <div class="card">
-      <h2>Axis &amp; DAC Limits</h2>
-
-      <div style="font-family:monospace;font-size:10px;color:var(--accent);margin-bottom:6px">AXIS CORRECTION</div>
-      <p style="font-size:11px;color:var(--dim);margin-bottom:10px">
-        VOUT = 2×(2.5 V − VDAC) — polarity may be inverted.<br>
-        Enable toggles if galvo moves in wrong direction.
-      </p>
-      <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px">
-        <label class="toggle">
-          <input type="checkbox" id="cal-swap" onchange="saveCalibration()">
-          <span class="slider"></span>Swap X↔Y
-        </label>
-        <label class="toggle">
-          <input type="checkbox" id="cal-invx" onchange="saveCalibration()">
-          <span class="slider"></span>Invert X
-        </label>
-        <label class="toggle">
-          <input type="checkbox" id="cal-invy" onchange="saveCalibration()">
-          <span class="slider"></span>Invert Y
-        </label>
-      </div>
-
-      <div style="font-family:monospace;font-size:10px;color:var(--accent);margin-bottom:6px">DAC OUTPUT LIMITING</div>
-      <p style="font-size:11px;color:var(--dim);margin-bottom:10px">
-        Clamps DAC codes before output. Hardware gain 2.2× → ±5 V galvo input.<br>
-        Default ~95%: 0x0666…0xF999. Center = 0x8000.
-      </p>
-      <label class="lbl">Min code</label>
-      <div style="display:flex;gap:6px;align-items:center">
-        <input type="range" id="cal-dac-lim-min" min="0" max="65535" value="1638"
-               oninput="document.getElementById('v-dac-lim-min').textContent='0x'+(+this.value).toString(16).padStart(4,'0').toUpperCase()"
-               onchange="saveCalibration()" style="flex:1">
-        <span id="v-dac-lim-min" class="val" style="min-width:60px;text-align:right">0x0666</span>
-      </div>
-      <label class="lbl" style="margin-top:8px">Max code</label>
-      <div style="display:flex;gap:6px;align-items:center">
-        <input type="range" id="cal-dac-lim-max" min="0" max="65535" value="63897"
-               oninput="document.getElementById('v-dac-lim-max').textContent='0x'+(+this.value).toString(16).padStart(4,'0').toUpperCase()"
-               onchange="saveCalibration()" style="flex:1">
-        <span id="v-dac-lim-max" class="val" style="min-width:60px;text-align:right">0xF999</span>
-      </div>
-      <div id="dac-lim-status" style="font-size:11px;color:var(--dim);margin-top:8px"></div>
-    </div>
-
   </div>
 
-  <!-- ── Row 2: Test Patterns + Color Override (merged) ─────────────────── -->
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
-
-    <div class="card">
-      <h2>Test Patterns</h2>
-      <p style="color:var(--dim);font-size:11px;margin-bottom:12px">
-        Sends a pattern to the galvos. WebUI override enabled automatically.
-      </p>
-      <div style="font-size:11px;color:var(--dim);margin-bottom:6px">Geometry &amp; Alignment</div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
-        <button class="btn secondary" onclick="testPattern('center')">⊕ Center</button>
-        <button class="btn secondary" onclick="testPattern('cross')">✛ Cross</button>
-        <button class="btn secondary" onclick="testPattern('square')">□ Square</button>
-        <button class="btn secondary" onclick="testPattern('circle')">○ Circle</button>
-        <button class="btn secondary" onclick="testPattern('ilda')">◈ ILDA</button>
-      </div>
-      <div style="font-size:11px;color:var(--dim);margin-bottom:6px">Color &amp; Safety</div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap">
-        <button class="btn secondary" onclick="testPattern('red')">🔴 Red</button>
-        <button class="btn secondary" onclick="testPattern('green')">🟢 Green</button>
-        <button class="btn secondary" onclick="testPattern('blue')">🔵 Blue</button>
-        <button class="btn secondary" onclick="testPattern('white')">⬜ White</button>
-        <button class="btn danger"    onclick="testPattern('off')">⬛ Laser off</button>
-      </div>
+  <div class="card">
+    <h2>Test Patterns</h2>
+    <p style="color: var(--dim);">
+      Sends a defined test pattern to the galvos. Enables WebUI override automatically.
+    </p>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
+      <span style="font-size:11px;color:var(--dim);width:100%;padding-top:2px">Geometry &amp; Alignment</span>
+      <button class="btn secondary" onclick="testPattern('center')">⊕ Center Point</button>
+      <button class="btn secondary" onclick="testPattern('cross')">✛ Cross</button>
+      <button class="btn secondary" onclick="testPattern('square')">□ Square</button>
+      <button class="btn secondary" onclick="testPattern('circle')">○ Circle</button>
+      <button class="btn secondary" onclick="testPattern('ilda')">◈ ILDA Pattern</button>
     </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
+      <span style="font-size:11px;color:var(--dim);width:100%;padding-top:4px">Scan Quality</span>
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      <span style="font-size:11px;color:var(--dim);width:100%;padding-top:4px">Color &amp; Safety</span>
+      <button class="btn secondary" onclick="testPattern('red')">🔴 Red only</button>
+      <button class="btn secondary" onclick="testPattern('green')">🟢 Green only</button>
+      <button class="btn secondary" onclick="testPattern('blue')">🔵 Blue only</button>
+      <button class="btn secondary" onclick="testPattern('white')">⬜ White</button>
+      <button class="btn danger"    onclick="testPattern('off')">⬛ Laser off</button>
+    </div>
+
 
     <div class="card">
       <h2>🎨 Color Override</h2>
-      <p style="color:var(--dim);font-size:11px;margin-bottom:12px">
-        Bypasses DMX color channels. Use to verify white balance at a fixed level.
+      <p style="color:var(--dim);font-size:12px;margin-bottom:12px">
+        Directly override the RGB output color, bypassing DMX color channels.
+        Useful for calibrating color balance at a fixed output level.
       </p>
       <label class="lbl">Red <span id="ov-r-v" style="color:#f66;font-family:monospace">0</span></label>
       <input type="range" id="ov-r" min="0" max="255" value="0" oninput="document.getElementById('ov-r-v').textContent=this.value;sendColorOverride()">
@@ -994,8 +970,9 @@
       </div>
     </div>
 
-  <!-- ── Row 3: Hardware Test ───────────────────────────────────────────── -->
-  <div class="card">
+
+
+    <div class="card">
       <h2>🔧 Hardware Test — Galvo &amp; Laser</h2>
       <p style="color:var(--dim);font-size:12px;margin-bottom:12px">
         Direct galvo and laser control for setup and alignment.
@@ -1075,197 +1052,8 @@
         </button>
       </div>
       <div id="hw-debug-status" style="font-family:monospace;font-size:11px;color:var(--dim);min-height:16px"></div>
-  </div>
-
-  <!-- ── Color & Gamma Calibration Patterns ──────────────────────────── -->
-  <div class="grid cols-2">
-    <div class="card">
-      <h2>⊹ Color &amp; Gamma Calibration</h2>
-      <div id="calib-status" style="font-family:monospace;font-size:12px;color:var(--dim);margin-bottom:12px">
-        No calibration pattern active
-      </div>
-
-      <h3 style="font-size:13px;margin-bottom:10px">Select pattern</h3>
-      <div id="calib-pattern-list" style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px">
-        <!-- filled by JS -->
-      </div>
-
-      <div class="btns">
-        <button class="btn danger" onclick="calibStop()">⏹ Stop</button>
-      </div>
     </div>
 
-    <div class="card">
-      <h2>Parameter</h2>
-
-      <label>Brightness <span id="cp-bright-v" style="color:var(--accent);font-family:monospace">200</span></label>
-      <input type="range" id="cp-bright" min="10" max="255" value="200"
-        oninput="document.getElementById('cp-bright-v').textContent=this.value;calibSend()">
-
-      <label style="margin-top:12px">channel</label>
-      <select id="cp-ch" onchange="calibSend()"
-        style="width:100%;background:var(--card);border:1px solid var(--border);
-               color:var(--text);padding:6px;font-family:monospace;font-size:12px">
-        <option value="0">R + G + B (White)</option>
-        <option value="1">Red only (638 nm)</option>
-        <option value="2">Green only (520 nm)</option>
-        <option value="3">Blue only (445 nm)</option>
-      </select>
-
-      <hr style="border-color:var(--border);margin:14px 0">
-      <h3 style="font-size:13px;margin-bottom:8px">What to check</h3>
-      <div id="calib-check" style="font-family:monospace;font-size:11px;
-           color:var(--dim);line-height:1.9;padding:10px;background:rgba(0,0,0,.2);
-           border-radius:4px;min-height:60px">
-        Select pattern for hints
-      </div>
-
-      <hr style="border-color:var(--border);margin:14px 0">
-      <h3 style="font-size:13px;margin-bottom:8px">Gamma &amp; White balance</h3>
-      <div style="font-family:monospace;font-size:11px;color:var(--dim);line-height:2">
-        <div>Gamma: <span id="cp-gamma-v" style="color:var(--accent)">–</span></div>
-        <div>gain R: <span id="cp-gr" style="color:#ff8080">–</span>
-             &nbsp; G: <span id="cp-gg" style="color:#80ff80">–</span>
-             &nbsp; B: <span id="cp-gb" style="color:#8080ff">–</span></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ── ILDA Standard Test Pattern ─────────────────────────────── -->
-  <div class="card" style="margin-top:16px">
-    <h2>📐 ILDA Standard Test Pattern</h2>
-    <p style="font-size:11px;color:var(--dim);margin:0 0 12px 0">
-      Official ILDA Technical Committee test pattern (Rev.002, 1995) for galvo scanner
-      alignment. Use this pattern to calibrate damping, servo gain, DC offset and
-      blanking of the Jolooyo JY-15K-BL galvo system.
-    </p>
-
-    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
-      <button class="btn" onclick="ildaTestPlay()" id="btn-ilda-play">▶ Start</button>
-      <button class="btn danger" onclick="ildaTestStop()">⏹ Stop</button>
-      <span id="ilda-status" style="font-family:monospace;font-size:11px;color:var(--dim)">
-        Pattern inactive
-      </span>
-    </div>
-
-    <label>
-      Scan Size (A5)
-      <span id="ilda-size-v" style="color:var(--accent);font-family:monospace">128</span>
-      <span style="font-size:10px;color:var(--dim);margin-left:6px">
-        — reduce until circle distorts, then +10%
-      </span>
-    </label>
-    <input type="range" id="ilda-size" min="10" max="255" value="128"
-      oninput="document.getElementById('ilda-size-v').textContent=this.value;ildaTestSend()">
-
-    <hr style="border-color:var(--border);margin:14px 0">
-
-    <h3 style="font-size:12px;margin-bottom:10px;color:var(--accent)">📋 Tuning Procedure</h3>
-    <div style="font-family:monospace;font-size:10px;color:var(--dim);line-height:1.8;
-                background:rgba(0,0,0,.25);padding:10px;border-radius:4px">
-
-      <div style="color:var(--text);font-size:11px;margin-bottom:6px">
-        ① Set scan size — reduce until circle begins to distort, then back 10%
-      </div>
-      <div style="margin-left:12px;margin-bottom:8px">
-        <b style="color:#aaa">12K mode:</b> up to ~15° optical &nbsp;|&nbsp;
-        <b style="color:#aaa">30K mode:</b> max ~8° optical (ILDA rated)
-      </div>
-
-      <div style="color:var(--text);font-size:11px;margin-bottom:4px">
-        ② Check axis polarity (A4)
-      </div>
-      <div style="margin-left:12px;margin-bottom:8px">
-        "Y" label must appear at top, "X" label at right.
-        If reversed → invert the signal at the galvo driver card.
-        In GalvOS: Config → Calibration → Invert X / Invert Y.
-      </div>
-
-      <div style="color:var(--text);font-size:11px;margin-bottom:4px">
-        ③ Adjust Y damping (A2 — lower-right corner of inner square)
-      </div>
-      <div style="margin-left:12px;margin-bottom:8px">
-        Increase low-freq damping until a small overshoot appears at the corner.
-        Overshoot length ≈ 2/3 height of reference marker.
-        Then adjust high-freq damping to <i>minimize</i> that overshoot length.
-        Finally reduce low-freq damping to tuck overshoot back to a dot.
-        ⚠ Undershoot (corner gap) is harder to detect — avoid going too far.
-      </div>
-
-      <div style="color:var(--text);font-size:11px;margin-bottom:4px">
-        ④ Adjust Y servo gain (A1 — circle vs. inner square top/bottom)
-      </div>
-      <div style="margin-left:12px;margin-bottom:8px">
-        Circle top/bottom must touch the inner square edges.
-        Too small → increase gain, repeat ③.
-        Too large → decrease gain, repeat ③.
-      </div>
-
-      <div style="color:var(--text);font-size:11px;margin-bottom:4px">
-        ⑤ Adjust X damping (A2 — upper-right corner of inner square)
-      </div>
-      <div style="margin-left:12px;margin-bottom:8px">
-        Same procedure as step ③ but for the X axis.
-        Do NOT re-adjust Y axis after this step.
-      </div>
-
-      <div style="color:var(--text);font-size:11px;margin-bottom:4px">
-        ⑥ Adjust X servo gain (circle vs. inner square left/right)
-      </div>
-      <div style="margin-left:12px;margin-bottom:8px">
-        Circle left/right must touch inner square edges.
-        Result: circle touches square at exactly 4 points and is perfectly round.
-        If not round → iterate ⑤/⑥ carefully, then re-verify ③/④.
-      </div>
-
-      <div style="color:var(--text);font-size:11px;margin-bottom:4px">
-        ⑦ Adjust image size (A5)
-      </div>
-      <div style="margin-left:12px;margin-bottom:8px">
-        Reset size to normal. Adjust X/Y amplitude so outer square fills the
-        usable projection area.
-        In GalvOS: Config → Calibration → X Gain / Y Gain sliders.
-      </div>
-
-      <div style="color:var(--text);font-size:11px;margin-bottom:4px">
-        ⑧ Adjust DC offset (A6 — center cross must be at screen center)
-      </div>
-      <div style="margin-left:12px;margin-bottom:8px">
-        Move X/Y offset until cross is centered. Prefer physical galvo rotation
-        for large offsets.
-        In GalvOS: Config → Calibration → X Offset / Y Offset.
-      </div>
-
-      <div style="color:var(--text);font-size:11px;margin-bottom:4px">
-        ⑨ Blanking test (B1/B2 — two horizontal lines with center gap)
-      </div>
-      <div style="margin-left:12px;margin-bottom:4px">
-        Gap must be symmetric around the vertical tick mark.
-        Adjust blanking damping until gap is centered.
-        Adjust blanking servo gain until the two line segments appear to converge
-        at the tick when extrapolated.
-      </div>
-
-      <div style="color:var(--text);font-size:11px;margin-bottom:4px">
-        ⑩ Speed dots (B3/B4 — row of 6 dots, decreasing brightness)
-      </div>
-      <div style="margin-left:12px">
-        Dot 5 (5th from left) must be barely visible.
-        Dot 6 (rightmost) must be fully blanked.
-        Adjust blanking DC offset until this threshold is met.
-        In GalvOS: blanking is digital via 6N137 — dot behavior reflects
-        the optical blanking transition of the laser modules.
-      </div>
-    </div>
-
-    <hr style="border-color:var(--border);margin:14px 0">
-    <div style="font-size:10px;color:var(--dim);line-height:1.7">
-      <b style="color:#aaa">Expected result:</b>
-      Circle perfectly round, touching inner square at top, bottom, left, right.
-      Corners of inner square sharp (no overshoot or undershoot).
-      Cross centered. Outer square fills screen area.
-      Gap in blanking lines centered and symmetric.
-    </div>
   </div>
 </section>
 
@@ -1847,31 +1635,28 @@
 // DMX Channel Layout
 // ============================================================
 const DMX_CHANNELS = [
-  { ch: 1,  name: 'Master / Dimmer',   fn: 'DMX_MASTER',        help: 'Global brightness control 0-255. 0 = off, 255 = full brightness.' },
-  { ch: 2,  name: 'Color Preset',      fn: 'DMX_COLOR',         help: 'Selects a color/palette. Values spread across the spectrum (Red->Green->Blue->Weiss).' },
-  { ch: 3,  name: 'Color Animation',   fn: 'DMX_COLOR_SPEED',   help: 'Speed of color change. 0 = static, higher = faster cycling.' },
-  { ch: 4,  name: 'Pattern Group',     fn: 'DMX_PATTERN_GROUP', help: 'Pattern category: 0=Geometry, 1=Waves, 2=Text, etc. (see 🎭 tab).' },
-  { ch: 5,  name: 'Pattern Select',    fn: 'DMX_PATTERN_SELECT',help: 'Selects the specific pattern within the group (CH4).' },
+  { ch: 1,  name: 'Master / Dimmer',  fn: 'DMX_MASTER',        help: 'Global brightness control 0-255. 0 = off, 255 = full brightness.' },
+  { ch: 2,  name: 'Color Preset',       fn: 'DMX_COLOR',         help: 'Selects a color/palette. Values spread across the spectrum (Red->Green->Blue->Weiss).' },
+  { ch: 3,  name: 'Color Animation',    fn: 'DMX_COLOR_SPEED',   help: 'Speed of color change. 0 = static, higher = faster cycling.' },
+  { ch: 4,  name: 'Pattern Group',    fn: 'DMX_PATTERN_GROUP', help: 'Pattern category: 0=Geometry, 1=Waves, 2=Text, etc. (see 🎭 tab).' },
+  { ch: 5,  name: 'Pattern Select',   fn: 'DMX_PATTERN_SELECT',help: 'Selects the specific pattern within the group (CH4).' },
   { ch: 6,  name: 'Dynamic Effect',    fn: 'DMX_DYN_EFFECT',    help: 'Motion effect: rotation, pulsing, zoom, etc. 0 = no effect.' },
   { ch: 7,  name: 'Effect Speed',      fn: 'DMX_EFFECT_SPEED',  help: 'Speed of the Dynamic Effect from CH6.' },
-  { ch: 8,  name: 'Size / Scaling',    fn: 'DMX_SIZE',          help: 'Scales the pattern. 128 = original size, <128 smaller, >128 larger.' },
-  { ch: 9,  name: 'Auto Scaling',      fn: 'DMX_AUTO_SCALE',    help: 'Automatic size pulsing. 0 = off, >0 enables with speed.' },
+  { ch: 8,  name: 'Size / Scaling',fn: 'DMX_SIZE',          help: 'Scales the pattern. 128 = original size, <128 smaller, >128 larger.' },
+  { ch: 9,  name: 'Auto Scaling',   fn: 'DMX_AUTO_SCALE',    help: 'Automatic size pulsing. 0 = off, >0 enables with speed.' },
   { ch: 10, name: 'Rotation',          fn: 'DMX_ROTATION',      help: 'Static rotation of the whole image. 0-255 maps to 0deg-360deg.' },
-  { ch: 11, name: 'Horizontal Flip',   fn:'DMX_HFLIP',          help: 'Mirrors the image horizontally. 0-127 = normal, 128-255 = mirrored.' },
-  { ch: 12, name: 'Vertical Flip',     fn: 'DMX_VFLIP',         help: 'Mirrors the image vertically. 0-127 = normal, 128-255 = mirrored.' },
-  { ch: 13, name: 'Horizontal Move',   fn:'DMX_HMOVE',          help: 'Shifts the image left/right. 128 = center.' },
-  { ch: 14, name: 'Vertical Move',     fn:'DMX_VMOVE',          help: 'Shifts the image up/down. 128 = center.' },
-  { ch: 15, name: 'Wave Amplitude',    fn: 'DMX_WAVE_AMP',      help: 'Strength of wave distortion (only for wave patterns from group 1).' },
-  { ch: 16, name: 'Wave Frequency',    fn: 'DMX_WAVE_FREQ',     help: 'Frequency/density of the waves (only for wave patterns).' },
-  { ch: 17, name: 'ILDA File',         fn: 'DMX_ILDA_SELECT',   help: 'SD card player: 0 = off, 1-40 = file no., 255 = last file.' },
+  { ch: 11, name: 'Horizontal Flip',fn:'DMX_HFLIP',         help: 'Mirrors the image horizontally. 0-127 = normal, 128-255 = mirrored.' },
+  { ch: 12, name: 'Vertical Flip', fn: 'DMX_VFLIP',         help: 'Mirrors the image vertically. 0-127 = normal, 128-255 = mirrored.' },
+  { ch: 13, name: 'Horizontal Move', fn:'DMX_HMOVE',     help: 'Shifts the image left/right. 128 = center.' },
+  { ch: 14, name: 'Vertical Move',fn:'DMX_VMOVE',        help: 'Shifts the image up/down. 128 = center.' },
+  { ch: 15, name: 'Wave Amplitude',  fn: 'DMX_WAVE_AMP',      help: 'Strength of wave distortion (only for wave patterns from group 1).' },
+  { ch: 16, name: 'Wave Frequency',   fn: 'DMX_WAVE_FREQ',     help: 'Frequency/density of the waves (only for wave patterns).' },
+  { ch: 17, name: 'ILDA File',        fn: 'DMX_ILDA_SELECT',   help: 'SD card player: 0 = off, 1-40 = file no., 255 = last file.' },
   { ch: 18, name: 'ILDA Speed',        fn: 'DMX_ILDA_SPEED',    help: 'Playback speed of the ILDA animation.' },
-  { ch: 19, name: 'ILDA Size',         fn: 'DMX_ILDA_SIZE',     help: 'Scaling of the ILDA file. 128 = Originalgroesse.' },
+  { ch: 19, name: 'ILDA Size',        fn: 'DMX_ILDA_SIZE',     help: 'Scaling of the ILDA file. 128 = Originalgroesse.' },
   { ch: 20, name: 'ILDA Loop',         fn: 'DMX_ILDA_LOOP',     help: '0 = play once, 1-255 = infinite loop.' },
   { ch: 21, name: 'ILDA Brightness',   fn: 'DMX_ILDA_BRIGHT',   help: 'Brightness override for ILDA. 255 = uses master dimmer (CH1).' },
-  { ch: 22, name: 'ILDA Frame Repeat', fn: 'DMX_ILDA_REPEAT',   help: '0 = normal frame rate, 1-255 = hold each frame longer (slower).' },
-  { ch: 23, name: 'Color Anim Type',   fn: 'DMX_COL_ANIM_TYPE', help: '0=off, 1=Gradient, 2=Chase, 3=Strobe, 4=Pulse, 5=Twinkle, 6=Flip.' },
-  { ch: 24, name: 'Color Anim Seq',    fn: 'DMX_COL_ANIM_SEQ',  help: 'Color sequence index 0-9.' },
-  { ch: 25, name: 'Color Anim Speed',  fn: 'DMX_COL_ANIM_SPEED',help: 'Animation speed 0-255.' }
+  { ch: 22, name: 'ILDA Frame Repeat', fn: 'DMX_ILDA_REPEAT',   help: '0 = normal frame rate, 1-255 = hold each frame longer (slower).' }
 ];
 
 // ============================================================
@@ -2019,45 +1804,6 @@ function handleStateUpdate(s) {
   // FW-Version + OTA-Info
   const fwEl = document.getElementById('dash-fw-ver');
   if (fwEl && s.fw_version) fwEl.textContent = s.fw_version;
-
-  // Page title + status bar
-  if (s.fw_version) {
-    document.getElementById('page-title').textContent =
-      'GalvOS v' + s.fw_version + ' — Laser Controller';
-    var sbFw = document.getElementById('sb-fw');
-    if (sbFw) sbFw.textContent = 'v' + s.fw_version;
-  }
-  var sbCpu1 = document.getElementById('sb-cpu1');
-  if (sbCpu1 && s.cpu0 !== undefined) {
-    sbCpu1.textContent = Math.round(s.cpu0);
-    sbCpu1.style.color = s.cpu0 >= 90 ? 'var(--danger)' : s.cpu0 >= 70 ? 'var(--warn)' : 'var(--ok)';
-  }
-  var sbKpps = document.getElementById('sb-kpps');
-  if (sbKpps && s.points_per_sec !== undefined) {
-    sbKpps.textContent = (s.points_per_sec / 1000).toFixed(1);
-  }
-  var sbBuf = document.getElementById('sb-buf');
-  if (sbBuf && s.buffer_fill !== undefined) {
-    sbBuf.textContent = s.buffer_fill;
-    sbBuf.style.color = s.buffer_fill > 80 ? 'var(--danger)' : s.buffer_fill > 50 ? 'var(--warn)' : 'var(--text)';
-  }
-  var sbTemp = document.getElementById('sb-temp');
-  if (sbTemp && s.temps && s.temps.length > 0 && s.temps[0] !== null) {
-    var t = s.temps[0];
-    sbTemp.textContent = t.toFixed(1);
-    sbTemp.style.color = t >= 70 ? 'var(--danger)' : t >= 55 ? 'var(--warn)' : 'var(--text)';
-  }
-  var sbHeap = document.getElementById('sb-heap');
-  if (sbHeap && s.free_heap !== undefined) {
-    var hKB = Math.round(s.free_heap / 1024);
-    sbHeap.textContent = hKB;
-    sbHeap.style.color = hKB < 30 ? 'var(--danger)' : 'var(--text)';
-  }
-  var sbDim = document.getElementById('sb-dim');
-  if (sbDim && s.master_dimmer !== undefined) {
-    sbDim.textContent = s.master_dimmer;
-    sbDim.style.color = s.master_dimmer > 0 ? 'var(--ok)' : 'var(--dim)';
-  }
   const otaEl = document.getElementById('dash-ota-pass');
   if (otaEl && s.ota_pass) otaEl.textContent = s.ota_pass;
   const tokenEl = document.getElementById('dash-auth-token');
@@ -2068,8 +1814,8 @@ function handleStateUpdate(s) {
   const psramKB = Math.round((s.free_psram || 0) / 1024);
   const heapEl  = document.getElementById('v-heap');
   const psEl    = document.getElementById('v-psram');
-  if (heapEl)  { heapEl.textContent  = heapKB  + ' KB'; heapEl.style.color  = heapKB  < 30  ? 'var(--danger)' : 'var(--dim)'; }
-  if (psEl)    { psEl.textContent    = psramKB + ' KB'; psEl.style.color    = psramKB < 200 ? 'var(--warn)'   : 'var(--dim)'; }
+  if (heapEl)  { heapEl.textContent = heapKB  + ' KB'; heapEl.style.color = heapKB  < 30  ? 'var(--danger)' : 'var(--dim)'; }
+  if (psEl)    { psEl.textContent   = psramKB + ' KB'; psEl.style.color   = psramKB < 200 ? 'var(--warn)'   : 'var(--dim)'; }
 
   // Fault hint
   const faults = [];
@@ -2119,15 +1865,13 @@ function handleStateUpdate(s) {
   // Telemetry
   const srcNames = ['--', 'DMX', 'Art-Net', 'Ether Dream', 'Helios USB', 'Internal', 'WebUI'];
   setText('v-source', srcNames[s.source] || '?');
-  setText('v-dim', s.master_dimmer != null ? s.master_dimmer + ' / 255' : '--');
-  setText('v-dmxcount', s.dmx_frame_count != null ? s.dmx_frame_count : '--');
-  const pps = s.points_per_sec || 0;
-  setText('v-pps', pps.toLocaleString() + ' pps');
-  const ppsPct = Math.min(100, (pps / 50000) * 100);
-  const ppsBar = document.getElementById('pps-bar-fill');
-  if (ppsBar) ppsBar.style.width = ppsPct + '%';
-  setText('v-buf', s.buffer_fill != null ? s.buffer_fill + ' %' : '--');
-  setText('v-lastdmx', s.last_dmx_age_ms == null ? 'never' : s.last_dmx_age_ms + ' ms');
+  setText('v-dim', s.master_dimmer + ' / 255');
+  setText('v-dmxcount', s.dmx_frame_count);
+  setText('v-pps', s.points_per_sec.toLocaleString() + ' pps');
+  const ppsPct = Math.min(100, (s.points_per_sec / 50000) * 100);
+  document.getElementById('pps-bar-fill').style.width = ppsPct + '%';
+  setText('v-buf', s.buffer_fill + ' %');
+  setText('v-lastdmx', s.last_dmx_age_ms === null ? 'never' : s.last_dmx_age_ms + ' ms');
 
   // System
   setText('v-host',   s.hostname || '--');
@@ -2731,14 +2475,6 @@ function setSliders(vals) {
 // ============================================================
 // Calibration
 // ============================================================
-var gainLinked = true;
-function gainLinkToggle() {
-  gainLinked = !gainLinked;
-  var btn = document.getElementById('gain-link-btn');
-  btn.textContent = gainLinked ? 'Linked' : 'Free';
-  btn.style.borderColor = gainLinked ? 'var(--accent)' : 'var(--dim)';
-  btn.style.color       = gainLinked ? 'var(--accent)' : 'var(--dim)';
-}
 function setupCalibSliders() {
   const map = {
     'cal-xoff': 'v-xoff', 'cal-yoff': 'v-yoff',
@@ -2749,10 +2485,6 @@ function setupCalibSliders() {
     const s = document.getElementById(sid);
     s.addEventListener('input', () => {
       document.getElementById(vid).textContent = s.value;
-      if (gainLinked) {
-        if (sid === 'cal-xgain') { var yg=document.getElementById('cal-ygain'); yg.value=s.value; document.getElementById('v-ygain').textContent=s.value; }
-        if (sid === 'cal-ygain') { var xg=document.getElementById('cal-xgain'); xg.value=s.value; document.getElementById('v-xgain').textContent=s.value; }
-      }
       sendCalibLive();
     });
   });
@@ -3700,10 +3432,6 @@ async function sendLiveControls() {
     const sy     = +(document.getElementById('lv-rot-y').value || 0);
     const sx     = +(document.getElementById('lv-rot-x').value || 0);
     const mspd   = +(document.getElementById('lv-rspd').value  || 20) / 1000;
-    // Anim state is owned by the animation IIFE; read via globals set there
-    var animType  = (typeof window._animActiveType  !== 'undefined') ? window._animActiveType  : 0;
-    var animSeq   = (typeof window._animActiveSeq   !== 'undefined') ? window._animActiveSeq   : 0;
-    var animSpeed = (typeof window._animActiveSpeed !== 'undefined') ? window._animActiveSpeed : 128;
     await apiCall('POST', '/api/preset-live', {
         speed:        +document.getElementById('lv-sp').value,
         size:         +document.getElementById('lv-sz').value,
@@ -3721,9 +3449,6 @@ async function sendLiveControls() {
         col_r:        +document.getElementById('lv-r').value,
         col_g:        +document.getElementById('lv-g').value,
         col_b:        +document.getElementById('lv-b').value,
-        col_anim_type:  animType,
-        col_anim_seq:   animSeq,
-        col_anim_speed: animSpeed,
         wave_amp:     document.getElementById('lv-amp').value/100,
         wave_freq:    document.getElementById('lv-freq').value/100,
     });
@@ -4959,17 +4684,10 @@ function openPreviewWindow() {
 // ── Color Animation UI (firmware-side engine, browser only sends config) ────────
 (function() {
   // Map type name → firmware ColAnimType enum value
-  var TYPE_MAP = {gradient:1, chase:2, strobe:3, pulse:4, twinkle:5, colorflip:6};
+  var TYPE_MAP = {gradient:1, chase:2, strobe:3, pulse:4, twinkle:5, colorflip:6, segment:7};
 
   var s_activeType = '';
   var s_activeSeq  = -1;
-  // Expose for sendLiveControls
-  var TYPE_NUM = {gradient:1, chase:2, strobe:3, pulse:4, twinkle:5, colorflip:6};
-  function syncGlobals() {
-    window._animActiveType  = TYPE_NUM[s_activeType] || 0;
-    window._animActiveSeq   = s_activeSeq >= 0 ? s_activeSeq : 0;
-    window._animActiveSpeed = +(document.getElementById('grad-speed') || {value:128}).value;
-  }
 
   // Gradient/chase sequence names (for grid labels + CSS preview)
   var GRAD_SEQS = [
@@ -4991,43 +4709,45 @@ function openPreviewWindow() {
   ];
 
   function sendAnimConfig() {
-    syncGlobals();
     var type  = TYPE_MAP[s_activeType] || 0;
     var seq   = (s_activeSeq >= 0) ? s_activeSeq : 0;
     var speed = +(document.getElementById('grad-speed') || {value:128}).value;
-    // Also send current static color for strobe/pulse/twinkle base
     var r = +(document.getElementById('lv-r') || {value:255}).value;
     var g = +(document.getElementById('lv-g') || {value:0}).value;
     var b = +(document.getElementById('lv-b') || {value:0}).value;
-    if (typeof sendLiveControls === 'function') {
-      // Piggyback on existing sendLiveControls — inject anim fields
-      // We use a direct apiCall to avoid triggering the debounce chain
-      var payload = {
-        col_anim_type:  type,
-        col_anim_seq:   seq,
-        col_anim_speed: speed,
-        col_r: r, col_g: g, col_b: b,
-        col_override: type === 0 ? !!(document.getElementById('lv-col-on') || {}).checked : false,
-      };
-      if (typeof apiCall === 'function') apiCall('POST', '/api/preset-live', payload);
-    }
+    var segCount = +(document.getElementById('seg-count') || {value:4}).value;
+    var dirEl = document.querySelector('input[name="grad-dir"]:checked');
+    var segDir = dirEl ? +dirEl.value : 1;
+    // Update sendLiveControls globals
+    window._animActiveType  = type;
+    window._animActiveSeq   = seq;
+    window._animActiveSpeed = speed;
+    if (typeof apiCall === 'function') apiCall('POST', '/api/preset-live', {
+      col_anim_type:  type,
+      col_anim_seq:   seq,
+      col_anim_speed: speed,
+      col_seg_count:  segCount,
+      col_seg_dir:    segDir,
+      col_r: r, col_g: g, col_b: b,
+      col_override: type === 0 ? !!(document.getElementById('lv-col-on') || {}).checked : false,
+    });
   }
 
   function highlightTypeBtn(active) {
-    ['gradient','chase','strobe','pulse','twinkle','colorflip'].forEach(function(t) {
+    ['gradient','chase','strobe','pulse','twinkle','colorflip','segment'].forEach(function(t) {
       var btn = document.getElementById('anim-btn-'+t);
       if (!btn) return;
-      var on = (t === active) && (s_activeSeq >= 0 || ['strobe','pulse','twinkle','colorflip'].indexOf(t)>=0);
+      var on = (t === active) && (s_activeSeq >= 0 || ['strobe','pulse','twinkle','colorflip','segment'].indexOf(t)>=0);
       btn.style.background  = on ? 'var(--accent)' : '';
       btn.style.color       = on ? '#fff'          : '';
       btn.style.borderColor = on ? 'var(--accent)' : '';
     });
     var dirRow = document.getElementById('anim-dir-row');
-    if (dirRow) dirRow.style.display = 'none'; // direction handled firmware-side
+    if (dirRow) dirRow.style.display = (active === 'segment' || active === 'gradient' || active === 'chase') ? 'flex' : 'none';
   }
 
   function showPanel(type) {
-    ['gradient','chase','strobe','pulse','twinkle','colorflip'].forEach(function(t) {
+    ['gradient','chase','strobe','pulse','twinkle','colorflip','segment'].forEach(function(t) {
       var p = document.getElementById('anim-panel-'+t);
       if (p) p.style.display = (t === type) ? '' : 'none';
     });
@@ -5052,7 +4772,7 @@ function openPreviewWindow() {
   // ── Public API ────────────────────────────────────────────────────────────
   window.setAnimType = function(type) {
     s_activeType = type;
-    if (['strobe','pulse','twinkle','colorflip'].indexOf(type) >= 0) {
+    if (['strobe','pulse','twinkle','colorflip','segment'].indexOf(type) >= 0) {
       s_activeSeq = 0; // stateless — seq unused but must be valid
     } else {
       s_activeSeq = -1; // wait for sequence selection
@@ -5061,6 +4781,13 @@ function openPreviewWindow() {
     highlightTypeBtn(type);
     buildGrid('grad-seq-grid',  GRAD_SEQS,  -1, 'window.selectGradient');
     buildGrid('chase-seq-grid', CHASE_SEQS, -1, 'window.selectChase');
+    buildGrid('seg-seq-grid',   GRAD_SEQS,  s_activeType==='segment'?s_activeSeq:-1, 'window.selectSegSeq');
+    sendAnimConfig();
+  };
+
+  window.selectSegSeq = function(idx) {
+    s_activeSeq = idx;
+    buildGrid('seg-seq-grid', GRAD_SEQS, idx, 'window.selectSegSeq');
     sendAnimConfig();
   };
 
@@ -5102,6 +4829,7 @@ function openPreviewWindow() {
     s_activeType = ''; s_activeSeq = -1;
     buildGrid('grad-seq-grid',  GRAD_SEQS,  -1, 'window.selectGradient');
     buildGrid('chase-seq-grid', CHASE_SEQS, -1, 'window.selectChase');
+    buildGrid('seg-seq-grid',   GRAD_SEQS,  -1, 'window.selectSegSeq');
     highlightTypeBtn('');
     sendAnimConfig();
   };
@@ -5135,11 +4863,13 @@ function openPreviewWindow() {
     highlightTypeBtn('');
     buildGrid('grad-seq-grid',  GRAD_SEQS,  -1, 'window.selectGradient');
     buildGrid('chase-seq-grid', CHASE_SEQS, -1, 'window.selectChase');
+    buildGrid('seg-seq-grid',   GRAD_SEQS,  -1, 'window.selectSegSeq');
     var obs = new MutationObserver(function() {
       var tab = document.getElementById('tab-presets');
       if (tab && tab.classList.contains('active')) {
         buildGrid('grad-seq-grid',  GRAD_SEQS,  s_activeType==='gradient'?s_activeSeq:-1, 'window.selectGradient');
         buildGrid('chase-seq-grid', CHASE_SEQS, s_activeType==='chase'?s_activeSeq:-1,    'window.selectChase');
+        buildGrid('seg-seq-grid',   GRAD_SEQS,  s_activeType==='segment'?s_activeSeq:-1,  'window.selectSegSeq');
         highlightTypeBtn(s_activeType);
       }
     });
@@ -5486,6 +5216,197 @@ async function saveNtpConfig() {
 
 
 <!-- ===== CALIBRATION TAB ===== -->
+<section id="tab-calib" class="tab">
+  <div class="grid cols-2">
+    <div class="card">
+      <h2>⊹ Color &amp; Gamma Calibration</h2>
+      <div id="calib-status" style="font-family:monospace;font-size:12px;color:var(--dim);margin-bottom:12px">
+        No calibration pattern active
+      </div>
+
+      <h3 style="font-size:13px;margin-bottom:10px">Select pattern</h3>
+      <div id="calib-pattern-list" style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px">
+        <!-- filled by JS -->
+      </div>
+
+      <div class="btns">
+        <button class="btn danger" onclick="calibStop()">⏹ Stop</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Parameter</h2>
+
+      <label>Brightness <span id="cp-bright-v" style="color:var(--accent);font-family:monospace">200</span></label>
+      <input type="range" id="cp-bright" min="10" max="255" value="200"
+        oninput="document.getElementById('cp-bright-v').textContent=this.value;calibSend()">
+
+      <label style="margin-top:12px">channel</label>
+      <select id="cp-ch" onchange="calibSend()"
+        style="width:100%;background:var(--card);border:1px solid var(--border);
+               color:var(--text);padding:6px;font-family:monospace;font-size:12px">
+        <option value="0">R + G + B (White)</option>
+        <option value="1">Red only (638 nm)</option>
+        <option value="2">Green only (520 nm)</option>
+        <option value="3">Blue only (445 nm)</option>
+      </select>
+
+      <hr style="border-color:var(--border);margin:14px 0">
+      <h3 style="font-size:13px;margin-bottom:8px">What to check</h3>
+      <div id="calib-check" style="font-family:monospace;font-size:11px;
+           color:var(--dim);line-height:1.9;padding:10px;background:rgba(0,0,0,.2);
+           border-radius:4px;min-height:60px">
+        Select pattern for hints
+      </div>
+
+      <hr style="border-color:var(--border);margin:14px 0">
+      <h3 style="font-size:13px;margin-bottom:8px">Gamma &amp; White balance</h3>
+      <div style="font-family:monospace;font-size:11px;color:var(--dim);line-height:2">
+        <div>Gamma: <span id="cp-gamma-v" style="color:var(--accent)">–</span></div>
+        <div>gain R: <span id="cp-gr" style="color:#ff8080">–</span>
+             &nbsp; G: <span id="cp-gg" style="color:#80ff80">–</span>
+             &nbsp; B: <span id="cp-gb" style="color:#8080ff">–</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── ILDA Standard Test Pattern ─────────────────────────────── -->
+  <div class="card" style="margin-top:16px">
+    <h2>📐 ILDA Standard Test Pattern</h2>
+    <p style="font-size:11px;color:var(--dim);margin:0 0 12px 0">
+      Official ILDA Technical Committee test pattern (Rev.002, 1995) for galvo scanner
+      alignment. Use this pattern to calibrate damping, servo gain, DC offset and
+      blanking of the Jolooyo JY-15K-BL galvo system.
+    </p>
+
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
+      <button class="btn" onclick="ildaTestPlay()" id="btn-ilda-play">▶ Start</button>
+      <button class="btn danger" onclick="ildaTestStop()">⏹ Stop</button>
+      <span id="ilda-status" style="font-family:monospace;font-size:11px;color:var(--dim)">
+        Pattern inactive
+      </span>
+    </div>
+
+    <label>
+      Scan Size (A5)
+      <span id="ilda-size-v" style="color:var(--accent);font-family:monospace">128</span>
+      <span style="font-size:10px;color:var(--dim);margin-left:6px">
+        — reduce until circle distorts, then +10%
+      </span>
+    </label>
+    <input type="range" id="ilda-size" min="10" max="255" value="128"
+      oninput="document.getElementById('ilda-size-v').textContent=this.value;ildaTestSend()">
+
+    <hr style="border-color:var(--border);margin:14px 0">
+
+    <h3 style="font-size:12px;margin-bottom:10px;color:var(--accent)">📋 Tuning Procedure</h3>
+    <div style="font-family:monospace;font-size:10px;color:var(--dim);line-height:1.8;
+                background:rgba(0,0,0,.25);padding:10px;border-radius:4px">
+
+      <div style="color:var(--text);font-size:11px;margin-bottom:6px">
+        ① Set scan size — reduce until circle begins to distort, then back 10%
+      </div>
+      <div style="margin-left:12px;margin-bottom:8px">
+        <b style="color:#aaa">12K mode:</b> up to ~15° optical &nbsp;|&nbsp;
+        <b style="color:#aaa">30K mode:</b> max ~8° optical (ILDA rated)
+      </div>
+
+      <div style="color:var(--text);font-size:11px;margin-bottom:4px">
+        ② Check axis polarity (A4)
+      </div>
+      <div style="margin-left:12px;margin-bottom:8px">
+        "Y" label must appear at top, "X" label at right.
+        If reversed → invert the signal at the galvo driver card.
+        In GalvOS: Config → Calibration → Invert X / Invert Y.
+      </div>
+
+      <div style="color:var(--text);font-size:11px;margin-bottom:4px">
+        ③ Adjust Y damping (A2 — lower-right corner of inner square)
+      </div>
+      <div style="margin-left:12px;margin-bottom:8px">
+        Increase low-freq damping until a small overshoot appears at the corner.
+        Overshoot length ≈ 2/3 height of reference marker.
+        Then adjust high-freq damping to <i>minimize</i> that overshoot length.
+        Finally reduce low-freq damping to tuck overshoot back to a dot.
+        ⚠ Undershoot (corner gap) is harder to detect — avoid going too far.
+      </div>
+
+      <div style="color:var(--text);font-size:11px;margin-bottom:4px">
+        ④ Adjust Y servo gain (A1 — circle vs. inner square top/bottom)
+      </div>
+      <div style="margin-left:12px;margin-bottom:8px">
+        Circle top/bottom must touch the inner square edges.
+        Too small → increase gain, repeat ③.
+        Too large → decrease gain, repeat ③.
+      </div>
+
+      <div style="color:var(--text);font-size:11px;margin-bottom:4px">
+        ⑤ Adjust X damping (A2 — upper-right corner of inner square)
+      </div>
+      <div style="margin-left:12px;margin-bottom:8px">
+        Same procedure as step ③ but for the X axis.
+        Do NOT re-adjust Y axis after this step.
+      </div>
+
+      <div style="color:var(--text);font-size:11px;margin-bottom:4px">
+        ⑥ Adjust X servo gain (circle vs. inner square left/right)
+      </div>
+      <div style="margin-left:12px;margin-bottom:8px">
+        Circle left/right must touch inner square edges.
+        Result: circle touches square at exactly 4 points and is perfectly round.
+        If not round → iterate ⑤/⑥ carefully, then re-verify ③/④.
+      </div>
+
+      <div style="color:var(--text);font-size:11px;margin-bottom:4px">
+        ⑦ Adjust image size (A5)
+      </div>
+      <div style="margin-left:12px;margin-bottom:8px">
+        Reset size to normal. Adjust X/Y amplitude so outer square fills the
+        usable projection area.
+        In GalvOS: Config → Calibration → X Gain / Y Gain sliders.
+      </div>
+
+      <div style="color:var(--text);font-size:11px;margin-bottom:4px">
+        ⑧ Adjust DC offset (A6 — center cross must be at screen center)
+      </div>
+      <div style="margin-left:12px;margin-bottom:8px">
+        Move X/Y offset until cross is centered. Prefer physical galvo rotation
+        for large offsets.
+        In GalvOS: Config → Calibration → X Offset / Y Offset.
+      </div>
+
+      <div style="color:var(--text);font-size:11px;margin-bottom:4px">
+        ⑨ Blanking test (B1/B2 — two horizontal lines with center gap)
+      </div>
+      <div style="margin-left:12px;margin-bottom:4px">
+        Gap must be symmetric around the vertical tick mark.
+        Adjust blanking damping until gap is centered.
+        Adjust blanking servo gain until the two line segments appear to converge
+        at the tick when extrapolated.
+      </div>
+
+      <div style="color:var(--text);font-size:11px;margin-bottom:4px">
+        ⑩ Speed dots (B3/B4 — row of 6 dots, decreasing brightness)
+      </div>
+      <div style="margin-left:12px">
+        Dot 5 (5th from left) must be barely visible.
+        Dot 6 (rightmost) must be fully blanked.
+        Adjust blanking DC offset until this threshold is met.
+        In GalvOS: blanking is digital via 6N137 — dot behavior reflects
+        the optical blanking transition of the laser modules.
+      </div>
+    </div>
+
+    <hr style="border-color:var(--border);margin:14px 0">
+    <div style="font-size:10px;color:var(--dim);line-height:1.7">
+      <b style="color:#aaa">Expected result:</b>
+      Circle perfectly round, touching inner square at top, bottom, left, right.
+      Corners of inner square sharp (no overshoot or undershoot).
+      Cross centered. Outer square fills screen area.
+      Gap in blanking lines centered and symmetric.
+    </div>
+  </div>
+</section>
 
 
 <script>
@@ -5494,7 +5415,7 @@ let calibActiveIdx=-1,calibPatterns=[];
 async function calibPlay(idx){calibActiveIdx=idx;calibPatterns=calibPatterns||[];await calibSend();document.getElementById('calib-status').textContent='▶ Pattern '+idx;loadCalibPatterns();}
 async function calibSend(){await apiCall('POST','/api/calib-pattern',{active:calibActiveIdx>=0,idx:Math.max(0,calibActiveIdx),bright:+document.getElementById('cp-bright').value,channel:+document.getElementById('cp-ch').value});}
 async function calibStop(){calibActiveIdx=-1;await apiCall('POST','/api/calib-pattern/stop');document.getElementById('calib-status').textContent='No calibration pattern active';loadCalibPatterns();}
-async function ildaTestPlay(){const size=+document.getElementById('ilda-size').value;await apiCall('POST','/api/calib-pattern',{active:true,idx:12,bright:200,channel:size});}
+async function ildaTestPlay(){const size=+document.getElementById('ilda-size').value;await apiCall('POST','/api/calib-pattern',{active:true,idx:12,bright:200,channel:size});
 async function ildaTestStop(){await apiCall('POST','/api/calib-pattern/stop');document.getElementById('ilda-status').textContent='Pattern inactive';if(document.getElementById('btn-ilda-play'))document.getElementById('btn-ilda-play').style.opacity='1';}
 async function ildaTestSend(){if(document.getElementById('ilda-status').textContent.startsWith('▶')){await ildaTestPlay();}}
 document.querySelectorAll('[data-tab]').forEach(btn=>{btn.addEventListener('click',()=>{
