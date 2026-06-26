@@ -538,9 +538,8 @@ void task(void*) {
                     // else: default red (ar=255,ag=0,ab=0 already set)
 
                 } else if (atype == COL_ANIM_GRADIENT) {
-                    // Smooth lerp through stop table
-                    // phase 0..65535 cycles through all stops
-                    s_anim_phase += aspd / 4 + 1;
+                    // phase 0..65535; at 25fps, aspd=128 → ~2s full cycle
+                    s_anim_phase += (uint32_t)aspd * 10 + 10;
                     const uint8_t (*stops)[3] = GRAD[aseq];
                     // Count stops
                     int nstops = 0;
@@ -580,9 +579,9 @@ void task(void*) {
 
                 } else if (atype == COL_ANIM_STROBE) {
                     static uint32_t s_strobe_acc = 0;
-                    s_strobe_acc += aspd + 1;
-                    if (s_strobe_acc >= 8192) {
-                        s_strobe_acc -= 8192;
+                    s_strobe_acc += (uint32_t)aspd * 4 + 4;
+                    if (s_strobe_acc >= 1024) {
+                        s_strobe_acc -= 1024;
                         s_strobe_on = !s_strobe_on;
                     }
                     if (s_strobe_on) {
@@ -593,7 +592,7 @@ void task(void*) {
 
                 } else if (atype == COL_ANIM_PULSE) {
                     // Sine fade on current static color
-                    s_anim_phase += aspd / 2 + 1;
+                    s_anim_phase += (uint32_t)aspd * 5 + 5;
                     float v = (sinf((float)(s_anim_phase & 0xFFFF) * 6.2832f / 65536.f) * 0.5f + 0.5f);
                     ar = (uint8_t)(gLivePreset.col_r * v);
                     ag = (uint8_t)(gLivePreset.col_g * v);
@@ -619,9 +618,9 @@ void task(void*) {
                 } else if (atype == COL_ANIM_FLIP) {
                     static uint32_t s_flip_acc  = 0;
                     static uint8_t  s_flip_step = 0;
-                    s_flip_acc += aspd + 1;
-                    if (s_flip_acc >= 8192) {
-                        s_flip_acc -= 8192;
+                    s_flip_acc += (uint32_t)aspd * 4 + 4;
+                    if (s_flip_acc >= 1024) {
+                        s_flip_acc -= 1024;
                         s_flip_step = (s_flip_step + 1) % 4;
                     }
                     ar = FLIP[s_flip_step][0];
