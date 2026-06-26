@@ -1901,10 +1901,10 @@ function handleStateUpdate(s) {
   setText('v-source', srcNames[s.source] || '?');
   setText('v-dim', s.master_dimmer + ' / 255');
   setText('v-dmxcount', s.dmx_frame_count);
-  setText('v-pps', s.points_per_sec.toLocaleString() + ' pps');
-  const ppsPct = Math.min(100, (s.points_per_sec / 50000) * 100);
+  setText('v-pps', s.points_per_sec != null ? s.points_per_sec.toLocaleString() + ' pps' : '--');
+  const ppsPct = Math.min(100, ((s.points_per_sec || 0) / 50000) * 100);
   document.getElementById('pps-bar-fill').style.width = ppsPct + '%';
-  setText('v-buf', s.buffer_fill + ' %');
+  setText('v-buf', s.buffer_fill != null ? s.buffer_fill + ' %' : '--');
   setText('v-lastdmx', s.last_dmx_age_ms === null ? 'never' : s.last_dmx_age_ms + ' ms');
 
   // System
@@ -2027,6 +2027,39 @@ function handleStateUpdate(s) {
   setText('v-psram',  s.free_psram != null ? Math.round(s.free_psram / 1024) + ' KB' : '--');
   const _age = s.last_dmx_age_ms;
   setText('v-lastdmx', _age == null ? '--' : _age > 9e6 ? 'never' : _age > 60000 ? Math.round(_age/1000)+' s ago' : _age+' ms ago');
+
+  // ── Status bar (telemetry strip below header) ───────────────
+  if (s.fw_version) {
+    setText('sb-fw', s.fw_version);
+    var pt = document.getElementById('page-title');
+    if (pt) pt.textContent = 'GalvOS ' + s.fw_version + ' — Laser Controller';
+  }
+  if (s.cpu0 !== undefined) {
+    var sbCpu = document.getElementById('sb-cpu1');
+    if (sbCpu) { sbCpu.textContent = s.cpu0; sbCpu.style.color = s.cpu0 >= 90 ? 'var(--danger)' : s.cpu0 >= 70 ? 'var(--warn)' : 'var(--text)'; }
+  }
+  if (s.points_per_sec !== undefined) {
+    var kppsVal = (s.points_per_sec / 1000).toFixed(1);
+    var sbKpps = document.getElementById('sb-kpps');
+    if (sbKpps) sbKpps.textContent = kppsVal;
+  }
+  if (s.buffer_fill !== undefined) {
+    var sbBuf = document.getElementById('sb-buf');
+    if (sbBuf) { sbBuf.textContent = s.buffer_fill; sbBuf.style.color = s.buffer_fill > 90 ? 'var(--danger)' : s.buffer_fill > 75 ? 'var(--warn)' : 'var(--text)'; }
+  }
+  if (s.temps && s.temps.length > 0 && s.temps[0] != null) {
+    var sbTemp = document.getElementById('sb-temp');
+    if (sbTemp) { sbTemp.textContent = s.temps[0].toFixed(1); sbTemp.style.color = s.temps[0] >= 70 ? 'var(--danger)' : s.temps[0] >= 55 ? 'var(--warn)' : 'var(--text)'; }
+  }
+  if (s.free_heap !== undefined) {
+    var heapKbSb = Math.round(s.free_heap / 1024);
+    var sbHeap = document.getElementById('sb-heap');
+    if (sbHeap) { sbHeap.textContent = heapKbSb; sbHeap.style.color = heapKbSb < 30 ? 'var(--danger)' : 'var(--text)'; }
+  }
+  if (s.master_dimmer !== undefined) {
+    var sbDim = document.getElementById('sb-dim');
+    if (sbDim) sbDim.textContent = s.master_dimmer;
+  }
 }
 
 function setLed(id, ok) {
