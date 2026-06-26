@@ -585,6 +585,8 @@ void init() {
             if (doc["col_anim_type"].is<int>())  gLivePreset.col_anim_type  = (ColAnimType)(uint8_t)(int)doc["col_anim_type"];
             if (doc["col_anim_seq"].is<int>())   gLivePreset.col_anim_seq   = (uint8_t)(int)doc["col_anim_seq"];
             if (doc["col_anim_speed"].is<int>()) gLivePreset.col_anim_speed = (uint8_t)(int)doc["col_anim_speed"];
+            if (doc["col_seg_count"].is<int>())  gLivePreset.col_seg_count  = (uint8_t)(int)doc["col_seg_count"];
+            if (doc["col_seg_dir"].is<int>())    gLivePreset.col_seg_dir    = (int8_t)(int)doc["col_seg_dir"];
             if (doc["rotation"].is<int>())     gLivePreset.rotation    = (int16_t)(int)doc["rotation"];
             if (doc["mirror_x"].is<bool>())    gLivePreset.mirror_x    = doc["mirror_x"];
             if (doc["mirror_y"].is<bool>())    gLivePreset.mirror_y    = doc["mirror_y"];
