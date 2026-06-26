@@ -10,7 +10,7 @@ namespace presets {
 static constexpr float PI2  = 2.0f * M_PI;
 static constexpr float SC   = 18000.0f;
 
-static inline float ssc(uint8_t s) { return 0.25f + (s / 255.0f) * 1.5f; }
+static inline float ssc(uint8_t s) { return 0.25f + (s / 255.0f) * 1.1765f; }
 static inline float aang(uint32_t ph, uint8_t sp, float m=1.0f) {
     if (!sp) return 0.f;
     return fmodf(ph * (sp / 5000.0f) * m, PI2);
