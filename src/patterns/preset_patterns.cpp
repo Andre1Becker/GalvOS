@@ -261,7 +261,14 @@ static float scrollX(uint32_t ph,uint8_t sp){
 typedef size_t(*PFn)(LaserPoint*,size_t,uint32_t,uint8_t,uint8_t);
 
 // ─── GEOMETRIE 0-9 ──────────────────────────────────────────
-static size_t p00(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){return ngon(o,m,adaptN(sz,80,12,200),SC*ssc(sz)*.9f,aang(ph,sp),255,255,255);}
+static size_t p00(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
+    // Circle: direct point generation, no optimizer (circle has no true corners).
+    size_t n=0;
+    float sc=SC*ssc(sz)*.9f, off=aang(ph,sp);
+    int N=adaptN(sz,120,20,400);
+    for(int i=0;i<=N;i++){float a=PI2*i/N+off;ap(o,n,m,cosf(a)*sc,sinf(a)*sc,255,255,255,i==0?1:0);}
+    return n;
+}
 static size_t p01(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){return ngon(o,m,4,SC*ssc(sz)*.9f,aang(ph,sp),255,240,0);}
 static size_t p02(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){return ngon(o,m,3,SC*ssc(sz)*.9f,aang(ph,sp),0,255,240);}
 static size_t p03(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){return ngon(o,m,5,SC*ssc(sz)*.9f,aang(ph,sp),255,128,0);}
