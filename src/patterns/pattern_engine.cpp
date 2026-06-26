@@ -629,11 +629,57 @@ void task(void*) {
                 }
 
                 // Apply computed color to all lit points
-                for (size_t i = 0; i < n; i++) {
-                    if (s_frame[i].blank) continue;
-                    s_frame[i].r = ar;
-                    s_frame[i].g = ag;
-                    s_frame[i].b = ab;
+                if (atype == COL_ANIM_SEGMENT) {
+                    // Per-point color: divide point list into seg_count equal
+                    // color segments using a palette from GRAD[aseq].
+                    // A phase offset travels along the point list each frame.
+                    static uint32_t s_seg_phase = 0;
+                    uint8_t  nseg  = gLivePreset.col_seg_count;
+                    if (nseg < 1) nseg = 1;
+                    if (nseg > 10) nseg = 10;
+                    int8_t   dir   = gLivePreset.col_seg_dir;
+                    s_seg_phase = (uint32_t)((int32_t)s_seg_phase +
+                        dir * (int32_t)(((uint32_t)aspd * aspd) / 6 + 64));
+
+                    size_t lit = 0;
+                    for (size_t i = 0; i < n; i++) if (!s_frame[i].blank) lit++;
+                    if (lit == 0) lit = 1;
+
+                    const uint8_t (*stops)[3] = GRAD[aseq];
+                    int nstops = 0;
+                    while (nstops < 6 && !(stops[nstops][0]==0xFF && stops[nstops][1]==0xFF && stops[nstops][2]==0xFF)) nstops++;
+                    if (nstops < 2) nstops = 2;
+
+                    uint8_t seg_r[10], seg_g[10], seg_b[10];
+                    for (uint8_t s = 0; s < nseg; s++) {
+                        uint32_t t  = (uint32_t)s * 65536UL / nseg;
+                        uint32_t rg = 65536UL / (nstops - 1);
+                        int sg      = (int)(t / rg);
+                        if (sg >= nstops - 1) sg = nstops - 2;
+                        uint32_t f  = (t - sg * rg) * 255 / rg;
+                        seg_r[s] = (uint8_t)(stops[sg][0] + (int)(stops[sg+1][0]-stops[sg][0])*(int)f/255);
+                        seg_g[s] = (uint8_t)(stops[sg][1] + (int)(stops[sg+1][1]-stops[sg][1])*(int)f/255);
+                        seg_b[s] = (uint8_t)(stops[sg][2] + (int)(stops[sg+1][2]-stops[sg][2])*(int)f/255);
+                    }
+
+                    size_t lit_idx = 0;
+                    uint32_t phase_off = (s_seg_phase >> 6) % lit;
+                    for (size_t i = 0; i < n; i++) {
+                        if (s_frame[i].blank) continue;
+                        uint32_t shifted = (lit_idx + phase_off) % lit;
+                        uint8_t  seg     = (uint8_t)(shifted * nseg / lit);
+                        s_frame[i].r = seg_r[seg];
+                        s_frame[i].g = seg_g[seg];
+                        s_frame[i].b = seg_b[seg];
+                        lit_idx++;
+                    }
+                } else {
+                    for (size_t i = 0; i < n; i++) {
+                        if (s_frame[i].blank) continue;
+                        s_frame[i].r = ar;
+                        s_frame[i].g = ag;
+                        s_frame[i].b = ab;
+                    }
                 }
             }
 
