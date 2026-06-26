@@ -5,14 +5,11 @@
 ## To be done / needs fix: 
 
 - SD-Card: Currently, if an SD-Card is populated, Galvos go crazy
-- And: (Drum Roll please) Documentation :-)
 - Remove fixed dns suffix (.local) and replace it with a variable
 - try different approach to get sd card working
 - paint by finger mode
 - make features toggable via UI (fe. disable art net if not needed)
-- display temps, cpu load, buffer in status bar
-- fix calibration tab redundancy and non working stuff
-- Version Number in Page Title
+- And: (Drum Roll please) Documentation :-)
 
 **Open-source ESP32-S3 laser show controller — built to replace proprietary OEM controllers in RGB galvo laser projectors.**
 
