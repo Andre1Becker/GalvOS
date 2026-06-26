@@ -852,7 +852,9 @@
         <span id="v-yoff" class="val" style="min-width:46px;text-align:right">0</span>
       </div>
 
-      <label class="lbl" style="margin-top:10px">X-Gain <span style="color:var(--dim)">(0…32767)</span></label>
+      <label class="lbl" style="margin-top:10px">X/Y-Gain <span style="color:var(--dim)">(0…32767)</span>
+        <button id="gain-link-btn" onclick="gainLinkToggle()" style="margin-left:8px;padding:1px 7px;font-size:11px;background:#1a1a2e;border:1px solid var(--accent);border-radius:4px;color:var(--accent);cursor:pointer">Linked</button>
+      </label>
       <div style="display:flex;gap:6px;align-items:center">
         <input type="range" min="0" max="32767" id="cal-xgain" class="cal-input" style="flex:1">
         <span id="v-xgain" class="val" style="min-width:46px;text-align:right">32767</span>
@@ -2729,6 +2731,14 @@ function setSliders(vals) {
 // ============================================================
 // Calibration
 // ============================================================
+var gainLinked = true;
+function gainLinkToggle() {
+  gainLinked = !gainLinked;
+  var btn = document.getElementById('gain-link-btn');
+  btn.textContent = gainLinked ? 'Linked' : 'Free';
+  btn.style.borderColor = gainLinked ? 'var(--accent)' : 'var(--dim)';
+  btn.style.color       = gainLinked ? 'var(--accent)' : 'var(--dim)';
+}
 function setupCalibSliders() {
   const map = {
     'cal-xoff': 'v-xoff', 'cal-yoff': 'v-yoff',
@@ -2739,6 +2749,10 @@ function setupCalibSliders() {
     const s = document.getElementById(sid);
     s.addEventListener('input', () => {
       document.getElementById(vid).textContent = s.value;
+      if (gainLinked) {
+        if (sid === 'cal-xgain') { var yg=document.getElementById('cal-ygain'); yg.value=s.value; document.getElementById('v-ygain').textContent=s.value; }
+        if (sid === 'cal-ygain') { var xg=document.getElementById('cal-xgain'); xg.value=s.value; document.getElementById('v-xgain').textContent=s.value; }
+      }
       sendCalibLive();
     });
   });
