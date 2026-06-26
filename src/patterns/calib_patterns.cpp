@@ -664,68 +664,68 @@ static size_t dac_range_box(LaserPoint* o, size_t mx,
     if (sym < 1000.f) sym = 1000.f;  // safety floor
 
     // Colors
-    uint8_t BR, BG, BB;  // box color (yellow)
-    uint8_t DR, DG, DB;  // diagonal color (dim cyan)
-    uint8_t CR, CG, CB;  // circle color (green)
-    uint8_t LR, LG, LB;  // limit lines (dim)
+    uint8_t bxR, bxG, bxB;  // box color (yellow)
+    uint8_t dgR, dgG, dgB;  // diagonal color (dim cyan)
+    uint8_t ciR, ciG, ciB;  // circle color (green)
+    uint8_t lnR, lnG, lnB;  // limit lines (dim)
 
     if (ch == 1) {
-        colorOut(bright, 0, 0, bright, BR, BG, BB);
-        colorOut(bright/2, 0, 0, bright, DR, DG, DB);
-        colorOut(bright, 0, 0, bright, CR, CG, CB);
-        LR=40; LG=0; LB=0;
+        colorOut(bright, 0, 0, bright, bxR, bxG, bxB);
+        colorOut(bright/2, 0, 0, bright, dgR, dgG, dgB);
+        colorOut(bright, 0, 0, bright, ciR, ciG, ciB);
+        lnR=40; lnG=0; lnB=0;
     } else if (ch == 2) {
-        colorOut(0, bright, 0, bright, BR, BG, BB);
-        colorOut(0, bright/2, 0, bright, DR, DG, DB);
-        colorOut(0, bright, 0, bright, CR, CG, CB);
-        LR=0; LG=40; LB=0;
+        colorOut(0, bright, 0, bright, bxR, bxG, bxB);
+        colorOut(0, bright/2, 0, bright, dgR, dgG, dgB);
+        colorOut(0, bright, 0, bright, ciR, ciG, ciB);
+        lnR=0; lnG=40; lnB=0;
     } else if (ch == 3) {
-        colorOut(0, 0, bright, bright, BR, BG, BB);
-        colorOut(0, 0, bright/2, bright, DR, DG, DB);
-        colorOut(0, 0, bright, bright, CR, CG, CB);
-        LR=0; LG=0; LB=40;
+        colorOut(0, 0, bright, bright, bxR, bxG, bxB);
+        colorOut(0, 0, bright/2, bright, dgR, dgG, dgB);
+        colorOut(0, 0, bright, bright, ciR, ciG, ciB);
+        lnR=0; lnG=0; lnB=40;
     } else {
-        colorOut(bright, bright, 0, bright, BR, BG, BB);      // yellow box
-        colorOut(0, bright/3, bright/3, bright, DR, DG, DB);  // dim cyan diags
-        colorOut(0, bright, 0, bright, CR, CG, CB);            // green circle
-        LR=40; LG=40; LB=0;
+        colorOut(bright, bright, 0, bright, bxR, bxG, bxB);      // yellow box
+        colorOut(0, bright/3, bright/3, bright, dgR, dgG, dgB);  // dim cyan diags
+        colorOut(0, bright, 0, bright, ciR, ciG, ciB);            // green circle
+        lnR=40; lnG=40; lnB=0;
     }
 
     // ── Outer box at exact DAC limit ──────────────────────────────
     blankMove(o, n, mx, -sym, -sym);
-    ap(o, n, mx, -sym, -sym, BR, BG, BB, 0);
-    ap(o, n, mx,  sym, -sym, BR, BG, BB, 0);
-    ap(o, n, mx,  sym,  sym, BR, BG, BB, 0);
-    ap(o, n, mx, -sym,  sym, BR, BG, BB, 0);
-    ap(o, n, mx, -sym, -sym, BR, BG, BB, 0);
+    ap(o, n, mx, -sym, -sym, bxR, bxG, bxB, 0);
+    ap(o, n, mx,  sym, -sym, bxR, bxG, bxB, 0);
+    ap(o, n, mx,  sym,  sym, bxR, bxG, bxB, 0);
+    ap(o, n, mx, -sym,  sym, bxR, bxG, bxB, 0);
+    ap(o, n, mx, -sym, -sym, bxR, bxG, bxB, 0);
 
     // ── Diagonals ─────────────────────────────────────────────────
-    line(o, n, mx, -sym, -sym,  sym,  sym, DR, DG, DB, 20);
-    line(o, n, mx,  sym, -sym, -sym,  sym, DR, DG, DB, 20);
+    line(o, n, mx, -sym, -sym,  sym,  sym, dgR, dgG, dgB, 20);
+    line(o, n, mx,  sym, -sym, -sym,  sym, dgR, dgG, dgB, 20);
 
     // ── Inscribed circle at same radius ───────────────────────────
     blankMove(o, n, mx, sym, 0);
     for (int i = 0; i <= 80; i++) {
         float a = PI2 * i / 80;
-        ap(o, n, mx, cosf(a)*sym, sinf(a)*sym, CR, CG, CB, 0);
+        ap(o, n, mx, cosf(a)*sym, sinf(a)*sym, ciR, ciG, ciB, 0);
     }
 
     // ── Center crosshair ──────────────────────────────────────────
     blankMove(o, n, mx, -sym * 0.1f, 0);
-    ap(o, n, mx, -sym * 0.1f, 0, LR, LG, LB, 0);
-    ap(o, n, mx,  sym * 0.1f, 0, LR, LG, LB, 0);
+    ap(o, n, mx, -sym * 0.1f, 0, lnR, lnG, lnB, 0);
+    ap(o, n, mx,  sym * 0.1f, 0, lnR, lnG, lnB, 0);
     blankMove(o, n, mx, 0, -sym * 0.1f);
-    ap(o, n, mx, 0, -sym * 0.1f, LR, LG, LB, 0);
-    ap(o, n, mx, 0,  sym * 0.1f, LR, LG, LB, 0);
+    ap(o, n, mx, 0, -sym * 0.1f, lnR, lnG, lnB, 0);
+    ap(o, n, mx, 0,  sym * 0.1f, lnR, lnG, lnB, 0);
 
     // ── 50% reference box (dim) ───────────────────────────────────
     float half = sym * 0.5f;
     blankMove(o, n, mx, -half, -half);
-    ap(o, n, mx, -half, -half, LR, LG, LB, 0);
-    ap(o, n, mx,  half, -half, LR, LG, LB, 0);
-    ap(o, n, mx,  half,  half, LR, LG, LB, 0);
-    ap(o, n, mx, -half,  half, LR, LG, LB, 0);
-    ap(o, n, mx, -half, -half, LR, LG, LB, 0);
+    ap(o, n, mx, -half, -half, lnR, lnG, lnB, 0);
+    ap(o, n, mx,  half, -half, lnR, lnG, lnB, 0);
+    ap(o, n, mx,  half,  half, lnR, lnG, lnB, 0);
+    ap(o, n, mx, -half,  half, lnR, lnG, lnB, 0);
+    ap(o, n, mx, -half, -half, lnR, lnG, lnB, 0);
 
     return n;
 }
