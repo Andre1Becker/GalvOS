@@ -450,7 +450,13 @@ static void IRAM_ATTR galvoTask(void*) {
                 // (hardware gain is 2.2x, full DAC range would exceed +/-5V).
                 x = constrain(x, (int32_t)s_snap.dac_limit_min, (int32_t)s_snap.dac_limit_max);
                 y = constrain(y, (int32_t)s_snap.dac_limit_min, (int32_t)s_snap.dac_limit_max);
-            if (p.blank) {
+            // Projection zone clip: a lit point outside the user-defined
+            // polygon is forced blank (laser OFF, mirror keeps moving). Test
+            // uses pre-limit signed coords (p.x/p.y) = polygon coordinate
+            // space. Already-blanked points are unaffected.
+            bool zone_blank = p.blank ||
+                (gZone.enabled && !gZone.contains(p.x, p.y));
+            if (zone_blank) {
                     rgbOff();
                     if (s_laser_off_hold > 0) {
                         // Still within hold window: keep DAC parked at the

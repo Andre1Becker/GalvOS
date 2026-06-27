@@ -435,3 +435,35 @@ struct ProjectionConfig {
     }
 };
 extern ProjectionConfig gProjection;
+// ── Projection Zone (touch-defined safe scan area) ──────────────────────────
+// User-defined polygon. Lit points outside the polygon are blanked in the
+// galvo output path (laser OFF, mirror position retained). Coordinates are
+// signed galvo units (-32767..+32767), same space as LaserPoint.x/y.
+#define ZONE_POINTS_MAX 16
+
+struct ZoneConfig {
+    volatile bool    enabled = false;            // master clip on/off
+    volatile uint8_t count   = 4;                // active vertex count (3..ZONE_POINTS_MAX)
+    int16_t          x[ZONE_POINTS_MAX] = { -24000,  24000,  24000, -24000 };
+    int16_t          y[ZONE_POINTS_MAX] = { -24000, -24000,  24000,  24000 };
+
+    // Ray-casting point-in-polygon test (integer, IRAM-safe, no float).
+    // Returns true if (px,py) lies inside the active polygon.
+    bool IRAM_ATTR contains(int16_t px, int16_t py) const {
+        uint8_t c = count; if (c < 3) return true;   // <3 pts = no clipping
+        bool inside = false;
+        for (uint8_t i = 0, j = c - 1; i < c; j = i++) {
+            int32_t yi = y[i], yj = y[j];
+            if ((yi > py) != (yj > py)) {
+                // x-coordinate of the edge at scanline py
+                int64_t xint = (int64_t)(x[j] - x[i]) * (py - yi);
+                int64_t yd   = (yj - yi);
+                // px < xi + (xj-xi)*(py-yi)/(yj-yi)  -> cross multiply, keep sign
+                if (yd > 0) { if ((int64_t)(px - x[i]) * yd < xint) inside = !inside; }
+                else        { if ((int64_t)(px - x[i]) * yd > xint) inside = !inside; }
+            }
+        }
+        return inside;
+    }
+};
+extern ZoneConfig gZone;

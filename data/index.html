@@ -5350,6 +5350,43 @@ async function saveNtpConfig() {
              &nbsp; B: <span id="cp-gb" style="color:#8080ff">–</span></div>
       </div>
     </div>
+    <div class="card">
+  <h2>Projection Zone</h2>
+  <p style="color:var(--dim);font-size:13px;margin:0 0 12px">
+    Define the area the laser is allowed to scan. Drag points to shape the zone.
+    Tap an edge to add a point, double-tap a point to remove it (min. 3 points).
+    Enable clipping to blank the laser outside this area.
+  </p>
+
+  <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start">
+    <div style="flex:0 0 auto">
+      <canvas id="zone-canvas" width="420" height="420"
+              style="background:#0d0d0d;border:1px solid var(--border);border-radius:6px;touch-action:none;cursor:crosshair"></canvas>
+    </div>
+
+    <div style="flex:1 1 240px;min-width:220px">
+      <div class="stat-row"><span class="label">Points</span>
+        <span class="val" id="zone-pt-count">4</span></div>
+      <div class="stat-row"><span class="label">Clipping</span>
+        <span class="val" id="zone-clip-state">OFF</span></div>
+
+      <label style="margin-top:14px">Actions</label>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <button class="btn secondary" id="zone-preview-btn">Project Outline</button>
+        <label class="toggle" style="justify-content:space-between">
+          <span>Enable Zone Clipping</span>
+          <input type="checkbox" id="zone-enable" style="width:auto">
+        </label>
+        <button class="btn ok" id="zone-save-btn">Save Zone</button>
+        <button class="btn secondary" id="zone-reset-btn">Reset to Rectangle</button>
+      </div>
+      <p style="color:var(--warn);font-size:12px;margin-top:12px">
+        ⚠ Class 4 device. Verify the projected outline covers only safe surfaces
+        before enabling clipping.
+      </p>
+    </div>
+  </div>
+</div>
   </div>
 
   <!-- ── ILDA Standard Test Pattern ─────────────────────────────── -->
@@ -5497,7 +5534,7 @@ let calibActiveIdx=-1,calibPatterns=[];
 async function calibPlay(idx){calibActiveIdx=idx;calibPatterns=calibPatterns||[];await calibSend();document.getElementById('calib-status').textContent='▶ Pattern '+idx;loadCalibPatterns();}
 async function calibSend(){await apiCall('POST','/api/calib-pattern',{active:calibActiveIdx>=0,idx:Math.max(0,calibActiveIdx),bright:+document.getElementById('cp-bright').value,channel:+document.getElementById('cp-ch').value});}
 async function calibStop(){calibActiveIdx=-1;await apiCall('POST','/api/calib-pattern/stop');document.getElementById('calib-status').textContent='No calibration pattern active';loadCalibPatterns();}
-async function ildaTestPlay(){const size=+document.getElementById('ilda-size').value;await apiCall('POST','/api/calib-pattern',{active:true,idx:12,bright:200,channel:size});
+async function ildaTestPlay(){const size=+document.getElementById('ilda-size').value;await apiCall('POST','/api/calib-pattern',{active:true,idx:12,bright:200,channel:size});}c
 async function ildaTestStop(){await apiCall('POST','/api/calib-pattern/stop');document.getElementById('ilda-status').textContent='Pattern inactive';if(document.getElementById('btn-ilda-play'))document.getElementById('btn-ilda-play').style.opacity='1';}
 async function ildaTestSend(){if(document.getElementById('ilda-status').textContent.startsWith('▶')){await ildaTestPlay();}}
 document.querySelectorAll('[data-tab]').forEach(btn=>{btn.addEventListener('click',()=>{
@@ -5777,9 +5814,191 @@ function enhanceSliders(root) {
 }
 
 document.addEventListener('DOMContentLoaded', () => enhanceSliders());
+/* ============================================================
+ * Projection Zone Editor
+ * Canvas 420x420 px maps to galvo +-32767. Screen Y is inverted.
+ * ============================================================ */
+(function () {
+  const cv = document.getElementById('zone-canvas');
+  if (!cv) return;
+  const ctx = cv.getContext('2d');
+  const SZ = cv.width;                 // 420
+  const R_HIT = 14;                    // px hit radius for a vertex
+  const GMAX = 32767;
+
+  let pts = [];                        // [{x,y}] in galvo coords
+  let drag = -1;                       // index being dragged, -1 = none
+  let lastTap = 0, lastTapIdx = -1;
+  let previewOn = false;
+
+  const g2px = g => (g + GMAX) / (2 * GMAX) * SZ;
+  const g2py = g => (GMAX - g) / (2 * GMAX) * SZ;   // invert Y
+  const px2g = p => Math.round(p / SZ * 2 * GMAX - GMAX);
+  const py2g = p => Math.round(GMAX - p / SZ * 2 * GMAX);
+
+  function defaultRect() {
+    pts = [
+      { x: -24000, y: -24000 }, { x: 24000, y: -24000 },
+      { x:  24000, y:  24000 }, { x: -24000, y: 24000 },
+    ];
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, SZ, SZ);
+    ctx.strokeStyle = '#1c1c1c'; ctx.lineWidth = 1;
+    for (let i = 1; i < 4; i++) {
+      const p = i / 4 * SZ;
+      ctx.beginPath(); ctx.moveTo(p, 0); ctx.lineTo(p, SZ); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, p); ctx.lineTo(SZ, p); ctx.stroke();
+    }
+    ctx.strokeStyle = '#2e2e2e';
+    ctx.beginPath(); ctx.moveTo(SZ/2, 0); ctx.lineTo(SZ/2, SZ); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, SZ/2); ctx.lineTo(SZ, SZ/2); ctx.stroke();
+
+    if (pts.length >= 2) {
+      ctx.beginPath();
+      ctx.moveTo(g2px(pts[0].x), g2py(pts[0].y));
+      for (let i = 1; i < pts.length; i++) ctx.lineTo(g2px(pts[i].x), g2py(pts[i].y));
+      ctx.closePath();
+      ctx.fillStyle = 'rgba(255,48,96,0.12)';
+      ctx.fill();
+      ctx.strokeStyle = '#ff3060'; ctx.lineWidth = 2; ctx.stroke();
+    }
+    for (let i = 0; i < pts.length; i++) {
+      const x = g2px(pts[i].x), y = g2py(pts[i].y);
+      ctx.beginPath(); ctx.arc(x, y, 7, 0, Math.PI * 2);
+      ctx.fillStyle = (i === drag) ? '#fff' : '#ffd23c';
+      ctx.fill();
+      ctx.strokeStyle = '#000'; ctx.lineWidth = 1.5; ctx.stroke();
+    }
+    const c = document.getElementById('zone-pt-count');
+    if (c) c.textContent = pts.length;
+  }
+
+  function evPos(e) {
+    const r = cv.getBoundingClientRect();
+    const t = e.touches ? e.touches[0] : e;
+    return { x: t.clientX - r.left, y: t.clientY - r.top };
+  }
+
+  function hitVertex(px, py) {
+    for (let i = 0; i < pts.length; i++) {
+      const dx = g2px(pts[i].x) - px, dy = g2py(pts[i].y) - py;
+      if (dx * dx + dy * dy <= R_HIT * R_HIT) return i;
+    }
+    return -1;
+  }
+
+  function distToEdge(px, py, ax, ay, bx, by) {
+    const vx = bx - ax, vy = by - ay;
+    const len2 = vx * vx + vy * vy || 1;
+    let t = ((px - ax) * vx + (py - ay) * vy) / len2;
+    t = Math.max(0, Math.min(1, t));
+    return Math.hypot(px - (ax + t * vx), py - (ay + t * vy));
+  }
+
+  function tryInsertOnEdge(px, py) {
+    if (pts.length >= 16) return false;
+    let best = -1, bestD = 12;
+    for (let i = 0; i < pts.length; i++) {
+      const a = pts[i], b = pts[(i + 1) % pts.length];
+      const d = distToEdge(px, py, g2px(a.x), g2py(a.y), g2px(b.x), g2py(b.y));
+      if (d < bestD) { bestD = d; best = i; }
+    }
+    if (best >= 0) { pts.splice(best + 1, 0, { x: px2g(px), y: py2g(py) }); return true; }
+    return false;
+  }
+
+  function onDown(e) {
+    e.preventDefault();
+    const p = evPos(e);
+    const hit = hitVertex(p.x, p.y);
+    const now = Date.now();
+    if (hit >= 0 && hit === lastTapIdx && now - lastTap < 350 && pts.length > 3) {
+      pts.splice(hit, 1); drag = -1; lastTapIdx = -1; draw(); return;
+    }
+    lastTap = now; lastTapIdx = hit;
+    if (hit >= 0) { drag = hit; draw(); return; }
+    if (tryInsertOnEdge(p.x, p.y)) draw();
+  }
+
+  function onMove(e) {
+    if (drag < 0) return;
+    e.preventDefault();
+    const p = evPos(e);
+    pts[drag] = {
+      x: Math.max(-GMAX, Math.min(GMAX, px2g(p.x))),
+      y: Math.max(-GMAX, Math.min(GMAX, py2g(p.y))),
+    };
+    draw();
+  }
+
+  function onUp() { drag = -1; draw(); }
+
+  cv.addEventListener('mousedown', onDown);
+  cv.addEventListener('mousemove', onMove);
+  window.addEventListener('mouseup', onUp);
+  cv.addEventListener('touchstart', onDown, { passive: false });
+  cv.addEventListener('touchmove', onMove, { passive: false });
+  cv.addEventListener('touchend', onUp);
+
+  async function loadZone() {
+    try {
+      const r = await fetch('/api/zone');
+      const j = await r.json();
+      pts = [];
+      for (let i = 0; i < j.count; i++) pts.push({ x: j.x[i], y: j.y[i] });
+      if (pts.length < 3) defaultRect();
+      const en = document.getElementById('zone-enable');
+      if (en) en.checked = !!j.enabled;
+      const st = document.getElementById('zone-clip-state');
+      if (st) st.textContent = j.enabled ? 'ON' : 'OFF';
+    } catch (e) { defaultRect(); }
+    draw();
+  }
+
+  async function saveZone() {
+    const en = document.getElementById('zone-enable');
+    const body = {
+      x: pts.map(p => p.x),
+      y: pts.map(p => p.y),
+      enabled: en ? en.checked : false,
+    };
+    await fetch('/api/zone', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const st = document.getElementById('zone-clip-state');
+    if (st) st.textContent = body.enabled ? 'ON' : 'OFF';
+  }
+
+  document.getElementById('zone-preview-btn').addEventListener('click', async (e) => {
+    await saveZone();                       // push latest polygon first
+    previewOn = !previewOn;
+    await fetch('/api/zone/preview', { method: 'POST', body: previewOn ? '1' : '0' });
+    e.target.textContent = previewOn ? 'Stop Outline' : 'Project Outline';
+    e.target.classList.toggle('ok', previewOn);
+  });
+
+  document.getElementById('zone-enable').addEventListener('change', async (e) => {
+    await fetch('/api/zone/enable', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled: e.target.checked }),
+    });
+    const st = document.getElementById('zone-clip-state');
+    if (st) st.textContent = e.target.checked ? 'ON' : 'OFF';
+  });
+
+  document.getElementById('zone-save-btn').addEventListener('click', () => saveZone());
+  document.getElementById('zone-reset-btn').addEventListener('click', () => { defaultRect(); draw(); });
+
+  defaultRect();
+  draw();
+  loadZone();
+})();
 </script>
-
-
 
 <section id="tab-playlist" class="tab">
   <div class="grid cols-2">

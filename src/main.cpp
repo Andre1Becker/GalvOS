@@ -45,6 +45,7 @@ TextConfig       gTextConfig;
 CurveConfig      gCurves;
 ProjectionConfig gProjection;
 OptimizerLiveConfig gOptimizerConfig;   // GalvOS v5 Point Optimizer (Pillar 1)
+ZoneConfig       gZone;                 // touch-defined projection zone
 volatile bool    gDebugNoHW = false;
 
 static const char* TAG = "main";

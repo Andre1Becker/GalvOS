@@ -118,6 +118,20 @@ static void persistConfig() {
     s_prefs.putFloat ("opt_blppu",  gOptimizerConfig.blank_pts_per_1000_units);
     s_prefs.putUChar ("opt_minip",  gOptimizerConfig.min_interior_pts_per_segment);
     s_prefs.putUChar ("opt_s1tgt",  gOptimizerConfig.stage1_blank_target);
+    s_prefs.putBool ("zone_en",   gZone.enabled);
+    s_prefs.putUChar("zone_cnt",  gZone.count);
+    s_prefs.putBytes("zone_x",    (const void*)gZone.x, sizeof(gZone.x));
+    s_prefs.putBytes("zone_y",    (const void*)gZone.y, sizeof(gZone.y));
+    s_prefs.end();
+}
+static void loadZone() {
+    s_prefs.begin("laser", true);
+    gZone.enabled = s_prefs.getBool ("zone_en",  gZone.enabled);
+    gZone.count   = s_prefs.getUChar("zone_cnt", gZone.count);
+    if (gZone.count < 3)               gZone.count = 3;
+    if (gZone.count > ZONE_POINTS_MAX) gZone.count = ZONE_POINTS_MAX;
+    s_prefs.getBytes("zone_x", (void*)gZone.x, sizeof(gZone.x));
+    s_prefs.getBytes("zone_y", (void*)gZone.y, sizeof(gZone.y));
     s_prefs.end();
 }
 
@@ -326,6 +340,7 @@ void init() {
     generateAuthToken();
     gPreview.mux   = xSemaphoreCreateMutex();
     gPreview.count = 0;
+    loadZone();
 
     if (!LittleFS.begin(true))
         ESP_LOGE(TAG, "LittleFS mount failed");
@@ -493,7 +508,73 @@ void init() {
             persistConfig();
             req->send(200, "text/plain", "saved");
         });
+        // ---- GET /api/zone ----
+    s_server.on("/api/zone", HTTP_GET, [](AsyncWebServerRequest* req) {
+        JsonDocument doc;
+        doc["enabled"] = gZone.enabled;
+        doc["count"]   = gZone.count;
+        JsonArray zx = doc["x"].to<JsonArray>();
+        JsonArray zy = doc["y"].to<JsonArray>();
+        for (uint8_t i = 0; i < gZone.count; i++) { zx.add(gZone.x[i]); zy.add(gZone.y[i]); }
+        String out; serializeJson(doc, out);
+        req->send(200, "application/json", out);
+    });
 
+    // ---- POST /api/zone/enable ---- (toggle clipping without re-sending polygon)
+    s_server.on("/api/zone/enable", HTTP_POST,
+        [](AsyncWebServerRequest* req) {},
+        nullptr,
+        [](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t, size_t) {
+            JsonDocument doc;
+            if (deserializeJson(doc, data, len)) { req->send(400, "text/plain", "bad json"); return; }
+            gZone.enabled = doc["enabled"] | false;
+            persistConfig();
+            req->send(200, "text/plain", gZone.enabled ? "ENABLED" : "DISABLED");
+        });
+
+    // ---- POST /api/zone/preview ---- (project zone outline = last calib pattern)
+    s_server.on("/api/zone/preview", HTTP_POST,
+        [](AsyncWebServerRequest* req) {},
+        nullptr,
+        [](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t, size_t) {
+            bool on = !(len > 0 && data[0] == '0');
+            if (on) {
+                gState.calib_idx     = CALIB_PATTERN_COUNT - 1;  // zone_outline
+                gState.calib_bright  = 200;
+                gState.calib_channel = 0;
+                gState.calib_active  = true;
+            } else {
+                gState.calib_active = false;
+            }
+            req->send(200, "text/plain", on ? "PREVIEW" : "STOP");
+        });
+
+    // ---- POST /api/zone ---- (apply + persist polygon). Registered LAST so
+    // the more-specific /api/zone/enable and /api/zone/preview match first.
+    s_server.on("/api/zone", HTTP_POST,
+        [](AsyncWebServerRequest* req) {},
+        nullptr,
+        [](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t, size_t) {
+            JsonDocument doc;
+            if (deserializeJson(doc, data, len)) { req->send(400, "text/plain", "bad json"); return; }
+            JsonArrayConst ax = doc["x"];
+            JsonArrayConst ay = doc["y"];
+            if (ax.isNull() || ay.isNull() || ax.size() != ay.size() ||
+                ax.size() < 3 || ax.size() > ZONE_POINTS_MAX) {
+                req->send(400, "application/json",
+                    "{\"error\":\"need x[] and y[] of equal length, 3..16 points\"}");
+                return;
+            }
+            uint8_t cnt = ax.size();
+            for (uint8_t i = 0; i < cnt; i++) {
+                gZone.x[i] = (int16_t)constrain((int)ax[i].as<int>(), -32767, 32767);
+                gZone.y[i] = (int16_t)constrain((int)ay[i].as<int>(), -32767, 32767);
+            }
+            gZone.count = cnt;
+            if (doc["enabled"].is<bool>()) gZone.enabled = doc["enabled"];
+            persistConfig();
+            req->send(200, "text/plain", "OK");
+        });
     // ---- POST /api/calib-save ----
     s_server.on("/api/calib-save", HTTP_POST,
         [](AsyncWebServerRequest* req) {},
