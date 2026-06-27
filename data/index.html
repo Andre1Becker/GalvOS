@@ -1465,9 +1465,6 @@
 
 </main>
 
-  </div>
-</div>
-
 <div id="toast"></div>
 
 <script>
@@ -5024,8 +5021,8 @@ async function loadSdStatus() {
 
 
 async function saveDmxAddr() {
-  const addr = parseInt(document.getElementById('dmx-addr-i')?.value || 1);
-  const uni  = parseInt(document.getElementById('artnet-uni-i')?.value || 0);
+  const addr = parseInt(document.getElementById('cfg-addr')?.value || 1);
+  const uni  = parseInt(document.getElementById('cfg-uni')?.value || 0);
   const r = await apiCall('POST', '/api/config', { dmx_address: addr, artnet_universe: uni });
   if (r !== null) toast('DMX address saved');
 }
@@ -5499,11 +5496,8 @@ async function setDebugMode(enabled) {
   const sts = document.getElementById('debug-status');
   const r = await apiCall('POST', '/api/debug-mode', {enabled});
   if (r !== null) {
-    lbl.textContent = enabled ? 'Safety-Bypass ON ⚠' : 'Safety-Bypass OFF';
-    lbl.style.color = enabled ? 'var(--danger)' : 'var(--warn)';
-    sts.textContent = enabled
-      ? '⚠ Debug active: master_dimmer=255, laser_armed=true'
-      : 'Debug deactivated -- normal safety logic active';
+    if (lbl) { lbl.textContent = enabled ? 'Safety-Bypass ON ⚠' : 'Safety-Bypass OFF'; lbl.style.color = enabled ? 'var(--danger)' : 'var(--warn)'; }
+    if (sts) { sts.textContent = enabled ? '⚠ Debug active: master_dimmer=255, laser_armed=true' : 'Debug deactivated -- normal safety logic active'; }
     toast(enabled ? '⚠ Debug mode ON -- preview now active' : 'Debug mode OFF');
   }
 }
