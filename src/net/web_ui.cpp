@@ -539,7 +539,7 @@ void init() {
         [](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t, size_t) {
             bool on = !(len > 0 && data[0] == '0');
             if (on) {
-                gState.calib_idx     = CALIB_PATTERN_COUNT - 1;  // zone_outline
+                gState.calib_idx     = calib_patterns::CALIB_PATTERN_COUNT - 1;  // zone_outline
                 gState.calib_bright  = 200;
                 gState.calib_channel = 0;
                 gState.calib_active  = true;
