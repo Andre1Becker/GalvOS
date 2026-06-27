@@ -1053,7 +1053,67 @@
       </div>
 <div id="dac-cmd-status" style="font-size:12px;color:var(--dim);padding:8px 12px;background:#0a0a14;border-radius:4px;border:1px solid var(--border);min-height:18px"></div>
     </div>
+<div class="card">
+      <h2>🛠 Hardware Test (direct galvo / laser)</h2>
+      <p style="color:var(--dim);font-size:12px;margin:0 0 12px">
+        Direct XY position and per-color drive, bypassing the pattern engine.
+        Requires laser ARMED (or No-HW Mode). Use for galvo travel checks and
+        per-color TTL verification. Range ±2048 (DAC code around mid-scale).
+      </p>
 
+      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px">
+        <div>
+          <label>X <span id="dbg-x-val" style="color:var(--accent);font-family:monospace">0</span></label>
+          <input type="range" id="dbg-x" min="-2048" max="2048" step="1" value="0"
+            oninput="document.getElementById('dbg-x-val').textContent=this.value;hwDebugSend()">
+        </div>
+        <div>
+          <label>Y <span id="dbg-y-val" style="color:var(--accent);font-family:monospace">0</span></label>
+          <input type="range" id="dbg-y" min="-2048" max="2048" step="1" value="0"
+            oninput="document.getElementById('dbg-y-val').textContent=this.value;hwDebugSend()">
+        </div>
+      </div>
+
+      <div class="btns" style="flex-wrap:wrap;margin:10px 0">
+        <button class="btn secondary" onclick="hwDebugCorner(-2048,2048)">↖ TL</button>
+        <button class="btn secondary" onclick="hwDebugCorner(2048,2048)">↗ TR</button>
+        <button class="btn secondary" onclick="hwDebugCorner(-2048,-2048)">↙ BL</button>
+        <button class="btn secondary" onclick="hwDebugCorner(2048,-2048)">↘ BR</button>
+        <button class="btn secondary" onclick="hwDebugCmd('center')">⊕ Center</button>
+      </div>
+
+      <hr style="border-color:var(--border);margin:14px 0">
+      <h3 style="font-size:13px;margin-bottom:8px">Laser drive (TTL)</h3>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+        <div>
+          <label>R <span id="dbg-r-val" style="color:#ff8080;font-family:monospace">0</span></label>
+          <input type="range" id="dbg-r" min="0" max="255" step="1" value="0"
+            oninput="document.getElementById('dbg-r-val').textContent=this.value;hwDebugSend()">
+        </div>
+        <div>
+          <label>G <span id="dbg-g-val" style="color:#80ff80;font-family:monospace">0</span></label>
+          <input type="range" id="dbg-g" min="0" max="255" step="1" value="0"
+            oninput="document.getElementById('dbg-g-val').textContent=this.value;hwDebugSend()">
+        </div>
+        <div>
+          <label>B <span id="dbg-b-val" style="color:#8080ff;font-family:monospace">0</span></label>
+          <input type="range" id="dbg-b" min="0" max="255" step="1" value="0"
+            oninput="document.getElementById('dbg-b-val').textContent=this.value;hwDebugSend()">
+        </div>
+      </div>
+
+      <div class="btns" style="flex-wrap:wrap;margin:10px 0">
+        <button class="btn secondary" onclick="hwDebugLaser(255,0,0)">R</button>
+        <button class="btn secondary" onclick="hwDebugLaser(0,255,0)">G</button>
+        <button class="btn secondary" onclick="hwDebugLaser(0,0,255)">B</button>
+        <button class="btn secondary" onclick="hwDebugLaser(255,255,255)">White</button>
+        <button class="btn secondary" onclick="hwDebugReset()">↺ Reset</button>
+        <button class="btn danger" onclick="hwDebugCmd('off')">⏹ All off</button>
+        <button class="btn danger" onclick="hwDebugCmd('exit')">⏏ Exit debug</button>
+      </div>
+
+      <div id="hw-debug-status" style="font-size:12px;color:var(--dim);padding:8px 12px;background:#0a0a14;border-radius:4px;border:1px solid var(--border);min-height:18px;font-family:monospace"></div>
+    </div>
     <div class="card">
       <h2>📐 Point Optimizer (GalvOS v5)</h2>
       <p style="color:var(--dim);font-size:12px;margin-bottom:12px">
@@ -5061,7 +5121,81 @@ async function saveNtpConfig() {
         <button class="btn danger" onclick="calibStop()">⏹ Stop</button>
       </div>
     </div>
+<div class="card">
+      <h2>⚙ Galvo Calibration (live)</h2>
+      <p style="color:var(--dim);font-size:12px;margin:0 0 12px">
+        Offset / gain / invert / swap and per-color gain applied live to the galvo
+        output. Use the DAC Range Box pattern (Calibration list, idx 13) when setting
+        the DAC scan limits. Changes are sent live; press Save to persist to flash.
+      </p>
 
+      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px">
+        <div>
+          <label>X Offset <span id="v-xoff" style="color:var(--accent);font-family:monospace">0</span></label>
+          <input type="range" id="cal-xoff" min="-2048" max="2048" step="1" value="0">
+        </div>
+        <div>
+          <label>Y Offset <span id="v-yoff" style="color:var(--accent);font-family:monospace">0</span></label>
+          <input type="range" id="cal-yoff" min="-2048" max="2048" step="1" value="0">
+        </div>
+        <div>
+          <label>X Gain <span id="v-xgain" style="color:var(--accent);font-family:monospace">1.00</span></label>
+          <input type="range" id="cal-xgain" min="0.1" max="2.0" step="0.01" value="1.0">
+        </div>
+        <div>
+          <label>Y Gain <span id="v-ygain" style="color:var(--accent);font-family:monospace">1.00</span></label>
+          <input type="range" id="cal-ygain" min="0.1" max="2.0" step="0.01" value="1.0">
+        </div>
+      </div>
+
+      <div style="display:flex;gap:8px;align-items:center;margin:10px 0">
+        <button class="btn secondary" id="gain-link-btn" onclick="gainLinkToggle()"
+          style="border:1px solid var(--accent);color:var(--accent)">Linked</button>
+        <span style="font-size:11px;color:var(--dim)">X/Y gain link — keep inscribed circle round</span>
+      </div>
+
+      <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:10px">
+        <label class="toggle"><input type="checkbox" id="cal-swap" style="width:auto"> Swap X/Y</label>
+        <label class="toggle"><input type="checkbox" id="cal-invx" style="width:auto"> Invert X</label>
+        <label class="toggle"><input type="checkbox" id="cal-invy" style="width:auto"> Invert Y</label>
+      </div>
+
+      <hr style="border-color:var(--border);margin:14px 0">
+      <h3 style="font-size:13px;margin-bottom:8px">Color gain (white balance)</h3>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+        <div>
+          <label>Gain R <span id="v-r" style="color:#ff8080;font-family:monospace">1.00</span></label>
+          <input type="range" id="cal-r" min="0" max="2.0" step="0.01" value="1.0">
+        </div>
+        <div>
+          <label>Gain G <span id="v-g" style="color:#80ff80;font-family:monospace">1.00</span></label>
+          <input type="range" id="cal-g" min="0" max="2.0" step="0.01" value="1.0">
+        </div>
+        <div>
+          <label>Gain B <span id="v-b" style="color:#8080ff;font-family:monospace">1.00</span></label>
+          <input type="range" id="cal-b" min="0" max="2.0" step="0.01" value="1.0">
+        </div>
+      </div>
+      <div id="awb-hint" style="font-size:11px;color:var(--dim);margin-top:8px"></div>
+
+      <hr style="border-color:var(--border);margin:14px 0">
+      <h3 style="font-size:13px;margin-bottom:8px">DAC scan limits</h3>
+      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px">
+        <div>
+          <label>DAC limit min <span id="v-dac-lim-min" style="color:var(--accent);font-family:monospace">0x0000</span></label>
+          <input type="range" id="cal-dac-lim-min" min="0" max="65535" step="1" value="0">
+        </div>
+        <div>
+          <label>DAC limit max <span id="v-dac-lim-max" style="color:var(--accent);font-family:monospace">0xFFFF</span></label>
+          <input type="range" id="cal-dac-lim-max" min="0" max="65535" step="1" value="65535">
+        </div>
+      </div>
+      <div id="dac-lim-status" style="font-size:11px;color:var(--danger);margin-top:6px;min-height:14px"></div>
+
+      <div class="btns" style="margin-top:14px">
+        <button class="btn ok" onclick="saveCalibration()">💾 Save calibration</button>
+      </div>
+    </div>
     <div class="card">
       <h2>Parameter</h2>
 
@@ -5782,8 +5916,6 @@ document.addEventListener('DOMContentLoaded', () => enhanceSliders());
       <div style="margin-bottom:12px;font-family:monospace;font-size:11px;color:var(--dim)">
         Upload .ild file directly to SD card (max. 40 files)
       </div>
-      <input type="file" id="ilda-file-input" accept=".ild" multiple
-        style="font-family:monospace;font-size:11px;color:var(--text);margin-bottom:10px;display:block">
       <button class="btn ok" onclick="uploadILDA()">⬆ Upload</button>
       <div id="upload-progress" style="margin-top:10px;font-family:monospace;font-size:11px;color:var(--dim)"></div>
     </div>
