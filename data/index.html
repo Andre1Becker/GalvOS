@@ -5250,10 +5250,7 @@ async function saveNtpConfig() {
       <label style="margin-top:14px">Actions</label>
       <div style="display:flex;flex-direction:column;gap:8px">
         <button class="btn secondary" id="zone-preview-btn">Project Outline</button>
-        <label class="toggle" style="justify-content:space-between">
-          <span>Enable Zone Clipping</span>
-          <input type="checkbox" id="zone-enable" style="width:auto">
-        </label>
+        <button class="btn danger" id="zone-enable-btn" onclick="zoneClipToggle()">⬛ Enable Clipping</button>
         <button class="btn ok" id="zone-save-btn">Save Zone</button>
         <button class="btn secondary" id="zone-reset-btn">Reset to Rectangle</button>
       </div>
@@ -5836,7 +5833,11 @@ document.addEventListener('DOMContentLoaded', () => enhanceSliders());
       for (let i = 0; i < j.count; i++) pts.push({ x: j.x[i], y: j.y[i] });
       if (pts.length < 3) defaultRect();
       const en = document.getElementById('zone-enable');
-      if (en) en.checked = !!j.enabled;
+      const btn2 = document.getElementById('zone-enable-btn');
+    if (btn2) {
+      btn2.textContent = j.enabled ? '✅ Disable Clipping' : '⬛ Enable Clipping';
+      btn2.className   = j.enabled ? 'btn ok' : 'btn danger';
+    }
       const st = document.getElementById('zone-clip-state');
       if (st) st.textContent = j.enabled ? 'ON' : 'OFF';
     } catch (e) { defaultRect(); }
@@ -5867,15 +5868,22 @@ document.addEventListener('DOMContentLoaded', () => enhanceSliders());
     e.target.classList.toggle('ok', previewOn);
   });
 
-  document.getElementById('zone-enable').addEventListener('change', async (e) => {
+  window.zoneClipToggle = async function() {
+    const btn = document.getElementById('zone-enable-btn');
+    const st  = document.getElementById('zone-clip-state');
+    const on  = st && st.textContent === 'ON';
+    const next = !on;
     await fetch('/api/zone/enable', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ enabled: e.target.checked }),
+      body: JSON.stringify({ enabled: next }),
     });
-    const st = document.getElementById('zone-clip-state');
-    if (st) st.textContent = e.target.checked ? 'ON' : 'OFF';
-  });
+    if (st) st.textContent = next ? 'ON' : 'OFF';
+    if (btn) {
+      btn.textContent = next ? '✅ Disable Clipping' : '⬛ Enable Clipping';
+      btn.className   = next ? 'btn ok' : 'btn danger';
+    }
+  };
 
   document.getElementById('zone-save-btn').addEventListener('click', () => saveZone());
   document.getElementById('zone-reset-btn').addEventListener('click', () => { defaultRect(); draw(); });
