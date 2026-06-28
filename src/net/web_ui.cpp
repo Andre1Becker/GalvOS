@@ -461,10 +461,6 @@ void init() {
                 }
             }
             } // LOCK_CONFIG
-            if (doc["gain_g"].is<int>()) gConfig.gain_g = doc["gain_g"];
-            if (doc["gain_b"].is<int>()) gConfig.gain_b = doc["gain_b"];
-            if (doc["gamma_enable"].is<bool>()) gConfig.gamma_enable = doc["gamma_enable"];
-            if (doc["gamma_val"].is<float>()) gConfig.gamma_val = constrain((float)doc["gamma_val"], 1.0f, 3.0f);
             req->send(200, "text/plain", "OK");
         });
 

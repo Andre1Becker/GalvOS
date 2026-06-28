@@ -2373,7 +2373,13 @@ function setupCalibSliders() {
     const e = document.getElementById(id); if (e) e.addEventListener('change', sendCalibLive);
   });
   ['cal-dac-lim-min', 'cal-dac-lim-max'].forEach(id => {
-    const e = document.getElementById(id); if (e) e.addEventListener('change', sendCalibLive);
+    const el = document.getElementById(id);
+    const vid = id === 'cal-dac-lim-min' ? 'v-dac-lim-min' : 'v-dac-lim-max';
+    el.addEventListener('input', () => {
+      const v = +el.value;
+      document.getElementById(vid).textContent = '0x' + v.toString(16).padStart(4,'0').toUpperCase();
+      sendCalibLive();
+    });
   });
 }
 
