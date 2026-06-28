@@ -19,6 +19,8 @@
 #define GALVO_SPI2_USER2       (*(volatile uint32_t*)(GALVO_SPI2_BASE + 0x018))  // SPI_USER2_REG
 #define GALVO_SPI2_MS_DLEN     (*(volatile uint32_t*)(GALVO_SPI2_BASE + 0x01C))  // SPI_MS_DLEN_REG
 #define GALVO_SPI2_DMA_INT_RAW (*(volatile uint32_t*)(GALVO_SPI2_BASE + 0x03C))  // SPI_DMA_INT_RAW_REG
+#define GALVO_SPI2_DMA_CONF    (*(volatile uint32_t*)(GALVO_SPI2_BASE + 0x030))  // SPI_DMA_CONF_REG
+#define GALVO_SPI2_DMA_TX_ENA  (1u << 28)  // SPI_DMA_TX_ENA: must be 0 for W0 CPU-mode transfers
 #define GALVO_SPI2_W0          (*(volatile uint32_t*)(GALVO_SPI2_BASE + 0x098))  // SPI_W0_REG
 
 #define GALVO_SPI2_UPDATE     (1u << 23)  // SPI_CMD_REG:     SPI_UPDATE (latch config into core)
@@ -163,6 +165,10 @@ static inline void IRAM_ATTR writeDAC8562XY(uint16_t x, uint16_t y) {
         GALVO_SPI2_USER  = u;
         GALVO_SPI2_USER1 = 0;
         GALVO_SPI2_USER2 = 0;
+        // Disable DMA-TX: SPI bus initialized with SPI_DMA_CH_AUTO for SD card,
+        // but W0 CPU-mode transfers require DMA_TX_ENA=0. SD access is blocked
+        // while galvoTask runs, so safe to hold this cleared permanently.
+        GALVO_SPI2_DMA_CONF &= ~GALVO_SPI2_DMA_TX_ENA;
         s_spi_user_configured = true;
     }
 
