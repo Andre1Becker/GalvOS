@@ -1707,7 +1707,7 @@ function handleStateUpdate(s) {
   setText('v-dmxcount', s.dmx_frame_count);
   setText('v-pps', s.points_per_sec != null ? s.points_per_sec.toLocaleString() + ' pps' : '--');
   const ppsPct = Math.min(100, ((s.points_per_sec || 0) / 50000) * 100);
-  document.getElementById('pps-bar-fill').style.width = ppsPct + '%';
+  const ppsBar = document.getElementById('pps-bar-fill'); if (ppsBar) ppsBar.style.width = ppsPct + '%';
   setText('v-buf', s.buffer_fill != null ? s.buffer_fill + ' %' : '--');
   setText('v-lastdmx', s.last_dmx_age_ms === null ? 'never' : s.last_dmx_age_ms + ' ms');
 
@@ -1864,7 +1864,7 @@ function handleStateUpdate(s) {
     var sbDim = document.getElementById('sb-dim');
     if (sbDim) sbDim.textContent = s.master_dimmer;
   }
-  } catch(e) { console.error('handleStateUpdate crash:', e.message, e.stack?.split('\n')[1]); }
+  } catch(e) { console.error('handleStateUpdate CRASH line ~' + (e.stack||'').match(/:(\d+):/)?.[1] + ':', e.message); }
 }
 
 function setLed(id, ok) {
