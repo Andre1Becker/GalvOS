@@ -853,6 +853,9 @@ static size_t p90(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     int nStars = 20 + (int)(sz / 255.f * 80.f);   // 20..100 stars
     const float baseSpd = 0.3f + (sp / 255.f) * 4.7f;
 
+    // cfg first -- needed by both dwell calc and star-count cap.
+    const optimizer::OptimizerConfig cfg = liveOptimizerConfig();
+
     // Dwell: lit ticks at destination so eye integrates a clean dot.
     // ~150us integration window, derived from actual kpps.
     uint16_t kpps = gProjection.galvo_kpps; if (kpps < 12) kpps = 12; if (kpps > 60) kpps = 60;
@@ -863,7 +866,6 @@ static size_t p90(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     // Star-count cap: use blank_samples (worst-case jump) + dwell as
     // per-star budget estimate. Actual blank ticks will be less for
     // short jumps (optimizer scales by distance), so this is conservative.
-    const OptimizerConfig& cfg = liveOptimizerConfig();
     int per_star_est = (int)cfg.blank_samples + dwell;
     const size_t budget = (m < (size_t)cfg.max_pts_per_frame)
                               ? m : (size_t)cfg.max_pts_per_frame;
