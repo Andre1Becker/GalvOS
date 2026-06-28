@@ -106,4 +106,13 @@ size_t optimize(const PathSegment* segments, size_t segment_count,
                  LaserPoint* out, size_t max_out,
                  const OptimizerConfig& cfg);
 
+// Emits a distance-proportional, smoothstep-eased blank jump from the
+// current galvo position (last point in out[0..n-1]) to (x1, y1).
+// Writes only blank points (laser OFF). Used by patterns that manage
+// their own point emission (e.g. Starfield single-dot dwell).
+// If n==0 (no previous position known), emits cfg.blank_samples ticks
+// at (x1,y1) as a conservative settle.
+void emitBlankTo(LaserPoint* out, size_t& n, size_t max,
+                 float x1, float y1, const OptimizerConfig& cfg);
+
 }  // namespace optimizer

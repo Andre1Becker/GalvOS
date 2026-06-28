@@ -388,4 +388,9 @@ size_t optimize(const PathSegment* segments, size_t segment_count,
     return n;
 }
 
+void emitBlankTo(LaserPoint* out, size_t& n, size_t max,
+                 float x1, float y1, const OptimizerConfig& cfg) {
+    emitBlankJump(out, n, max, x1, y1, cfg);
+}
+
 }  // namespace optimizer

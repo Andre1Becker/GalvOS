@@ -841,59 +841,44 @@ static size_t p89(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){ // P
 
 // ─── SZENEN 90 ─────────────────────────────────────────────
 // p90 Starfield: falling star field, top→bottom with wrap.
-// Not migrated to optimizer -- single-point dots have no edges/corners.
+// v5.6: blank travel via optimizer::emitBlankTo() -- distance-proportional,
+// smoothstep-eased. Star emission order uses greedy nearest-neighbor
+// (starting from last galvo position) to minimize total jump distance.
+// Each star: optimizer blank jump + manual dwell ticks (lit, same position).
 //
 // sp  = fall speed (0=slow, 255=fast)
 // sz  = star count (0=~20 stars, 255=~100 stars)
-//
-// DWELL FIX (v5.3): original version emitted 1 blank-move + 1 lit-point
-// per star (2 ticks = ~66µs @ 30kpps). Galvo inertia means it never
-// reaches the target in one tick -- the "dot" appears as a short smeared
-// streak or is invisible. Fix: emit STAR_DWELL lit-points at the same
-// position so the galvo has time to settle and the phosphor integrates
-// enough light. STAR_DWELL is scaled by sz so sparse fields get more
-// dwell (fewer stars = more ticks available per star) while dense fields
-// trade dwell for count. Minimum 3 ticks always guaranteed.
 static size_t p90(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     size_t n=0;
-    int nStars   = 20 + (int)(sz / 255.f * 80.f);   // 20..100 stars
+    int nStars = 20 + (int)(sz / 255.f * 80.f);   // 20..100 stars
     const float baseSpd = 0.3f + (sp / 255.f) * 4.7f;
-   // DWELL FIX (v5.4): dwell is a SETTLE TIME, not a fixed tick count.
-    // One tick lasts 1/kpps seconds (33us @ 30kpps, 83us @ 12kpps, 17us @ 60kpps),
-    // but galvo mechanical settle (~120us) is time-constant. A fixed dwell of 3
-    // ticks therefore over-dwells at low kpps (wastes budget) and under-dwells at
-    // high kpps (dot smears / invisible). Derive dwell from real kpps to hold a
-    // constant ~120us settle window.
+
+    // Dwell: lit ticks at destination so eye integrates a clean dot.
+    // ~150us integration window, derived from actual kpps.
     uint16_t kpps = gProjection.galvo_kpps; if (kpps < 12) kpps = 12; if (kpps > 60) kpps = 60;
     const float tick_us = 1000000.f / ((float)kpps * 1000.f);
-    int dwell = (int)ceilf(120.f / tick_us);          // ~120us settle
+    int dwell = (int)ceilf(150.f / tick_us);
     if (dwell < 3) dwell = 3;
-    // BLANK-SETTLE FIX (v5.5b): galvo needs time to traverse the jump between
-    // two stars before the lit dwell starts. With random X positions, jumps can
-    // span the full field (~34k units). Jolooyo 15K: ~1ms for full-range
-    // travel => worst-case ~30 ticks @ 30kpps. Use 400us (≈ 40% of worst-case)
-    // as a practical settle budget -- covers the avg jump (~12k units ≈ 12 ticks)
-    // with headroom, keeping dots visually tight.
-    int blank_settle = (int)ceilf(400.f / tick_us);
-    if (blank_settle < 4) blank_settle = 4;
-    // Frame budget: nStars*(blank_settle + dwell) must stay within both the
-    // buffer and the flicker cap (~max_pts_per_frame). Reduce star count if
-    // needed so the frame still refreshes above flicker-fusion at current kpps.
-    const size_t budget = (m < (size_t)gOptimizerConfig.max_pts_per_frame)
-                              ? m : (size_t)gOptimizerConfig.max_pts_per_frame;
-    int per_star = blank_settle + dwell;
-    if ((size_t)(nStars * per_star) > budget) {
-        nStars = (int)(budget / per_star);
+
+    // Star-count cap: use blank_samples (worst-case jump) + dwell as
+    // per-star budget estimate. Actual blank ticks will be less for
+    // short jumps (optimizer scales by distance), so this is conservative.
+    const OptimizerConfig& cfg = liveOptimizerConfig();
+    int per_star_est = (int)cfg.blank_samples + dwell;
+    const size_t budget = (m < (size_t)cfg.max_pts_per_frame)
+                              ? m : (size_t)cfg.max_pts_per_frame;
+    if ((size_t)(nStars * per_star_est) > budget) {
+        nStars = (int)(budget / per_star_est);
         if (nStars < 1) nStars = 1;
     }
+
     auto fr = [](int seed) -> float {
         float x = sinf((float)seed * 127.1f + 1.f) * 43758.5453f;
         return x - floorf(x);
     };
-    // Collect currently-visible stars, then sort top->bottom to minimize galvo
-    // jump distance. Random X stays (field looks random) but emission order is
-    // monotonic in Y, so the mirror sweeps downward instead of darting around.
-    struct Star { float x, y; uint8_t r, g, b; };
+
+    // Collect currently-visible stars.
+    struct Star { float x, y; uint8_t r, g, b; bool used; };
     static Star stars[128];
     int ns = 0;
     for (int i = 0; i < nStars && ns < 128; i++) {
@@ -908,36 +893,34 @@ static size_t p90(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
         stars[ns].x = xPos;
         stars[ns].y = yNorm * SC * 0.95f;
         stars[ns].r = bright; stars[ns].g = bright; stars[ns].b = blue;
+        stars[ns].used = false;
         ns++;
     }
-    // Sort along the fall axis to minimize galvo jump distance.
-    // Stars fall top->bottom visually; account for invert_y/invert_x so
-    // emission order matches the physical mirror sweep direction.
-    // invert_y: visual top = DAC low-Y  => sort ascending Y
-    // invert_x active on the fall axis (swap_xy case): sort ascending X
-    // default (no invert): visual top = DAC high-Y => sort descending Y
-    bool sort_asc;
-    if (gConfig.swap_xy) sort_asc = gConfig.invert_x;
-    else                 sort_asc = gConfig.invert_y;
-    for (int a = 1; a < ns; a++) {
-        Star key = stars[a];
-        int b = a - 1;
-        float key_v = gConfig.swap_xy ? key.x : key.y;
-        if (sort_asc) {
-            while (b >= 0 && (gConfig.swap_xy ? stars[b].x : stars[b].y) > key_v)
-                { stars[b + 1] = stars[b]; b--; }
-        } else {
-            while (b >= 0 && (gConfig.swap_xy ? stars[b].x : stars[b].y) < key_v)
-                { stars[b + 1] = stars[b]; b--; }
+
+    // Greedy nearest-neighbor: start from last known galvo position,
+    // always pick the closest unvisited star next. O(n^2) -- fine for n<=100.
+    static Star sorted[128];
+    float cur_x = (n > 0) ? o[n-1].x : 0.f;
+    float cur_y = (n > 0) ? o[n-1].y : 0.f;
+    for (int s = 0; s < ns; s++) {
+        int best = -1; float best_d2 = 1e18f;
+        for (int k = 0; k < ns; k++) {
+            if (stars[k].used) continue;
+            float dx = stars[k].x - cur_x, dy = stars[k].y - cur_y;
+            float d2 = dx*dx + dy*dy;
+            if (d2 < best_d2) { best_d2 = d2; best = k; }
         }
-        stars[b + 1] = key;
+        if (best < 0) break;
+        stars[best].used = true;
+        sorted[s] = stars[best];
+        cur_x = sorted[s].x;
+        cur_y = sorted[s].y;
     }
-    for (int i = 0; i < ns; i++) {
-        const Star& s = stars[i];
-        // blank-settle: laser OFF, galvo travels to and arrives at the star
-        for (int d = 0; d < blank_settle && n < m; d++)
-            ap(o, n, m, s.x, s.y, 0, 0, 0, 1);
-        // dwell: lit ticks at same position -- eye integrates the dot
+
+    // Emit: distanced-scaled blank jump (optimizer) + dwell (lit copies).
+    for (int i = 0; i < ns && n < m; i++) {
+        const Star& s = sorted[i];
+        optimizer::emitBlankTo(o, n, m, s.x, s.y, cfg);
         for (int d = 0; d < dwell && n < m; d++)
             ap(o, n, m, s.x, s.y, s.r, s.g, s.b, 0);
     }
@@ -1269,7 +1252,8 @@ size_t generate(uint8_t idx, LaserPoint* out, size_t max_pts,
     if (n > 0 && n < max_pts) {
         const LaserPoint& last = out[n - 1];
         const LaserPoint& first = out[0];
-        bool already_closed = last.blank && last.x == first.x && last.y == first.y;
+        float _cdx = last.x - first.x, _cdy = last.y - first.y;
+        bool already_closed = last.blank && (_cdx*_cdx + _cdy*_cdy) < 100.f;
         if (!already_closed) {
             LaserPoint cl = first;
             cl.blank = 1;
