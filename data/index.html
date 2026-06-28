@@ -3432,6 +3432,7 @@ function pushCpu(c0, c1) {
 }
 
 function renderCpuGraph() {
+  if (!sCpuData) return;
   const canvas = document.getElementById('cpu-canvas');
   if (!canvas) return;
   const W = (canvas.offsetWidth > 0 ? canvas.offsetWidth : canvas.parentElement?.offsetWidth) || 600;
@@ -4565,7 +4566,14 @@ function openPreviewWindow() {
   });
 })();
 
-
+// Global shims so onclick="fn()" attrs resolve without window. prefix
+// The IIFE below overwrites window.setAnimType etc. with real implementations.
+function setAnimType(t)        { window.setAnimType && window.setAnimType(t); }
+function setStrobeColor(r,g,b) { window.setStrobeColor && window.setStrobeColor(r,g,b); }
+function setPulseColor(r,g,b)  { window.setPulseColor && window.setPulseColor(r,g,b); }
+function setQuickColor(r,g,b)  { window.setQuickColor && window.setQuickColor(r,g,b); }
+function stopGradient()        { window.stopGradient && window.stopGradient(); }
+function applyGradient()       { window.applyGradient && window.applyGradient(); }
 // ── Color Animation UI (firmware-side engine, browser only sends config) ────────
 (function() {
   // Map type name → firmware ColAnimType enum value
@@ -4655,7 +4663,7 @@ function openPreviewWindow() {
   }
 
   // ── Public API ────────────────────────────────────────────────────────────
-  window.setAnimType = function(type) {
+  window._setAnimType = function(type) {
     s_activeType = type;
     if (['strobe','pulse','twinkle','colorflip','segment'].indexOf(type) >= 0) {
       s_activeSeq = 0; // stateless — seq unused but must be valid
@@ -4670,13 +4678,13 @@ function openPreviewWindow() {
     sendAnimConfig();
   };
 
-  window.selectSegSeq = function(idx) {
+  window._selectSegSeq = function(idx) {
     s_activeSeq = idx;
     buildGrid('seg-seq-grid', GRAD_SEQS, idx, 'window.selectSegSeq');
     sendAnimConfig();
   };
 
-  window.selectGradient = function(idx) {
+  window._selectGradient = function(idx) {
     if (s_activeType === 'gradient' && s_activeSeq === idx) { window.stopGradient(); return; }
     s_activeType = 'gradient'; s_activeSeq = idx;
     buildGrid('grad-seq-grid', GRAD_SEQS, idx, 'window.selectGradient');
@@ -4684,7 +4692,7 @@ function openPreviewWindow() {
     sendAnimConfig();
   };
 
-  window.selectChase = function(idx) {
+  window._selectChase = function(idx) {
     if (s_activeType === 'chase' && s_activeSeq === idx) { window.stopGradient(); return; }
     s_activeType = 'chase'; s_activeSeq = idx;
     buildGrid('chase-seq-grid', CHASE_SEQS, idx, 'window.selectChase');
@@ -4692,7 +4700,7 @@ function openPreviewWindow() {
     sendAnimConfig();
   };
 
-  window.setStrobeColor = function(r,g,b) {
+  window._setStrobeColor = function(r,g,b) {
     var er=document.getElementById('lv-r'); if(er) er.value=r;
     var eg=document.getElementById('lv-g'); if(eg) eg.value=g;
     var eb=document.getElementById('lv-b'); if(eb) eb.value=b;
@@ -4701,7 +4709,7 @@ function openPreviewWindow() {
     sendAnimConfig();
   };
 
-  window.setPulseColor = function(r,g,b) {
+  window._setPulseColor = function(r,g,b) {
     var er=document.getElementById('lv-r'); if(er) er.value=r;
     var eg=document.getElementById('lv-g'); if(eg) eg.value=g;
     var eb=document.getElementById('lv-b'); if(eb) eb.value=b;
@@ -4710,7 +4718,7 @@ function openPreviewWindow() {
     sendAnimConfig();
   };
 
-  window.stopGradient = function() {
+  window._stopGradient = function() {
     s_activeType = ''; s_activeSeq = -1;
     buildGrid('grad-seq-grid',  GRAD_SEQS,  -1, 'window.selectGradient');
     buildGrid('chase-seq-grid', CHASE_SEQS, -1, 'window.selectChase');
@@ -4719,10 +4727,10 @@ function openPreviewWindow() {
     sendAnimConfig();
   };
 
-  window.applyGradient = function() { sendAnimConfig(); };
+  window._applyGradient = function() { sendAnimConfig(); };
 
   // Quick-color: stop animation, set static color
-  window.setQuickColor = function(r, g, b) {
+  window._setQuickColor = function(r, g, b) {
     s_activeType = ''; s_activeSeq = -1;
     var er=document.getElementById('lv-r'); if(er) er.value=r;
     var eg=document.getElementById('lv-g'); if(eg) eg.value=g;
@@ -5832,7 +5840,6 @@ document.addEventListener('DOMContentLoaded', () => enhanceSliders());
       pts = [];
       for (let i = 0; i < j.count; i++) pts.push({ x: j.x[i], y: j.y[i] });
       if (pts.length < 3) defaultRect();
-      const en = document.getElementById('zone-enable');
       const btn2 = document.getElementById('zone-enable-btn');
     if (btn2) {
       btn2.textContent = j.enabled ? '✅ Disable Clipping' : '⬛ Enable Clipping';
@@ -5845,11 +5852,11 @@ document.addEventListener('DOMContentLoaded', () => enhanceSliders());
   }
 
   async function saveZone() {
-    const en = document.getElementById('zone-enable');
+    const st2 = document.getElementById('zone-clip-state');
     const body = {
       x: pts.map(p => p.x),
       y: pts.map(p => p.y),
-      enabled: en ? en.checked : false,
+      enabled: st2 ? st2.textContent === 'ON' : false,
     };
     await fetch('/api/zone', {
       method: 'POST',
