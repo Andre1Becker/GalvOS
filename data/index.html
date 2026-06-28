@@ -2373,7 +2373,10 @@ function setupCalibSliders() {
     const s = document.getElementById(sid);
     if (!s) return;
     s.addEventListener('input', () => {
-      const v = document.getElementById(vid); if (v) v.textContent = s.value;
+     const v = document.getElementById(vid);
+      if (v) v.textContent = (sid === 'cal-xgain' || sid === 'cal-ygain')
+        ? (s.value / 32767).toFixed(2)
+        : s.value;
       sendCalibLive();
     });
   });
@@ -2429,8 +2432,8 @@ async function loadCalibration() {
   if (!c) return;
   document.getElementById('cal-xoff').value = c.galvo_x_offset; document.getElementById('v-xoff').textContent = c.galvo_x_offset;
   document.getElementById('cal-yoff').value = c.galvo_y_offset; document.getElementById('v-yoff').textContent = c.galvo_y_offset;
-  document.getElementById('cal-xgain').value = c.galvo_x_gain; document.getElementById('v-xgain').textContent = c.galvo_x_gain;
-  document.getElementById('cal-ygain').value = c.galvo_y_gain; document.getElementById('v-ygain').textContent = c.galvo_y_gain;
+  document.getElementById('cal-xgain').value = c.galvo_x_gain; document.getElementById('v-xgain').textContent = (c.galvo_x_gain / 32767).toFixed(2);
+  document.getElementById('cal-ygain').value = c.galvo_y_gain; document.getElementById('v-ygain').textContent = (c.galvo_y_gain / 32767).toFixed(2);
   document.getElementById('cal-swap').checked = c.swap_xy;
   document.getElementById('cal-invx').checked = c.invert_x;
   document.getElementById('cal-invy').checked = c.invert_y;
@@ -5162,11 +5165,11 @@ async function saveNtpConfig() {
         </div>
         <div>
           <label>X Gain <span id="v-xgain" style="color:var(--accent);font-family:monospace">1.00</span></label>
-          <input type="range" id="cal-xgain" min="0.1" max="2.0" step="0.01" value="1.0">
+          <input type="range" id="cal-xgain" min="0" max="32767" step="1" value="32767">
         </div>
         <div>
           <label>Y Gain <span id="v-ygain" style="color:var(--accent);font-family:monospace">1.00</span></label>
-          <input type="range" id="cal-ygain" min="0.1" max="2.0" step="0.01" value="1.0">
+          <input type="range" id="cal-ygain" min="0" max="32767" step="1" value="32767">
         </div>
       </div>
 
