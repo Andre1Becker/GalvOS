@@ -4571,12 +4571,12 @@ function openPreviewWindow() {
 
 // Global shims so onclick="fn()" attrs resolve without window. prefix
 // The IIFE below overwrites window.setAnimType etc. with real implementations.
-function setAnimType(t)        { window.setAnimType && window.setAnimType(t); }
-function setStrobeColor(r,g,b) { window.setStrobeColor && window.setStrobeColor(r,g,b); }
-function setPulseColor(r,g,b)  { window.setPulseColor && window.setPulseColor(r,g,b); }
-function setQuickColor(r,g,b)  { window.setQuickColor && window.setQuickColor(r,g,b); }
-function stopGradient()        { window.stopGradient && window.stopGradient(); }
-function applyGradient()       { window.applyGradient && window.applyGradient(); }
+function setAnimType(t)        { window._setAnimType       && window._setAnimType(t); }
+function setStrobeColor(r,g,b) { window._setStrobeColor    && window._setStrobeColor(r,g,b); }
+function setPulseColor(r,g,b)  { window._setPulseColor     && window._setPulseColor(r,g,b); }
+function setQuickColor(r,g,b)  { window._setQuickColor     && window._setQuickColor(r,g,b); }
+function stopGradient()        { window._stopGradient      && window._stopGradient(); }
+function applyGradient()       { window._applyGradient     && window._applyGradient(); }
 // ── Color Animation UI (firmware-side engine, browser only sends config) ────────
 (function() {
   // Map type name → firmware ColAnimType enum value
