@@ -2350,10 +2350,18 @@ function setSliders(vals) {
 var gainLinked = true;
 function gainLinkToggle() {
   gainLinked = !gainLinked;
-  var btn = document.getElementById('gain-link-btn');
-  btn.textContent = gainLinked ? 'Linked' : 'Free';
-  btn.style.borderColor = gainLinked ? 'var(--accent)' : 'var(--dim)';
-  btn.style.color       = gainLinked ? 'var(--accent)' : 'var(--dim)';
+  const btn = document.getElementById('gain-link-btn');
+  if (btn) {
+    btn.textContent   = gainLinked ? 'Linked' : 'Free';
+    btn.style.borderColor = gainLinked ? 'var(--accent)' : 'var(--dim)';
+    btn.style.color       = gainLinked ? 'var(--accent)' : 'var(--dim)';
+  }
+  if (gainLinked) {
+    const xg = document.getElementById('cal-xgain');
+    const yg = document.getElementById('cal-ygain');
+    const vy = document.getElementById('v-ygain');
+    if (xg && yg) { yg.value = xg.value; if (vy) vy.textContent = xg.value; }
+  }
 }
 function setupCalibSliders() {
   const map = {
@@ -3403,7 +3411,7 @@ loadCurveDefs();
 loadProjection();
 
 buildDmxSliders();
-setupCalibSliders();
+document.addEventListener('DOMContentLoaded', setupCalibSliders);
 loadConfig();
 connectWs();
 refreshWifiStatus();
@@ -4631,7 +4639,7 @@ function applyGradient()       { window._applyGradient     && window._applyGradi
       col_seg_count:  segCount,
       col_seg_dir:    segDir,
       col_r: r, col_g: g, col_b: b,
-      col_override: type === 0 ? !!(document.getElementById('lv-col-on') || {}).checked : false,
+      col_override: true,
     });
   }
 
