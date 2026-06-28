@@ -1634,6 +1634,7 @@ function connectWs() {
 }
 
 function handleStateUpdate(s) {
+  try {
   // Safety LEDs
   setLed('estop', s.estop_ok);
   setLed('scanfail', s.scanfail_ok);
@@ -1863,6 +1864,7 @@ function handleStateUpdate(s) {
     var sbDim = document.getElementById('sb-dim');
     if (sbDim) sbDim.textContent = s.master_dimmer;
   }
+  } catch(e) { console.error('handleStateUpdate crash:', e.message, e.stack?.split('\n')[1]); }
 }
 
 function setLed(id, ok) {
