@@ -2363,16 +2363,17 @@ function setupCalibSliders() {
   };
   Object.entries(map).forEach(([sid, vid]) => {
     const s = document.getElementById(sid);
+    if (!s) return;
     s.addEventListener('input', () => {
-      document.getElementById(vid).textContent = s.value;
+      const v = document.getElementById(vid); if (v) v.textContent = s.value;
       sendCalibLive();
     });
   });
   ['cal-swap', 'cal-invx', 'cal-invy'].forEach(id => {
-    document.getElementById(id).addEventListener('change', sendCalibLive);
+    const e = document.getElementById(id); if (e) e.addEventListener('change', sendCalibLive);
   });
   ['cal-dac-lim-min', 'cal-dac-lim-max'].forEach(id => {
-    document.getElementById(id).addEventListener('change', sendCalibLive);
+    const e = document.getElementById(id); if (e) e.addEventListener('change', sendCalibLive);
   });
 }
 
