@@ -179,23 +179,21 @@ static inline void IRAM_ATTR writeDAC8562XY(uint16_t x, uint16_t y) {
     GALVO_SPI2_MS_DLEN = 23;  // 24 bits - 1
 
     // --- DAC-A (X) ---
-    GALVO_SPI2_DMA_INT_RAW = GALVO_SPI2_TRANS_DONE;  // clear done flag
     GALVO_SPI2_W0  = word_a;
     GALVO_SPI2_CMD = GALVO_SPI2_UPDATE;               // latch W0+DLEN into core
     while (GALVO_SPI2_CMD & GALVO_SPI2_UPDATE) {}
     GALVO_GPIO_W1TC = GALVO_CS_MASK;                  // CS LOW
     GALVO_SPI2_CMD  = GALVO_SPI2_USR;                 // start transfer
-    while (!(GALVO_SPI2_DMA_INT_RAW & GALVO_SPI2_TRANS_DONE)) {}
+    while (GALVO_SPI2_CMD & GALVO_SPI2_USR) {}        // poll USR bit — cleared when done
     GALVO_GPIO_W1TS = GALVO_CS_MASK;                  // CS HIGH — DAC-A latches
 
     // --- DAC-B (Y) ---
-    GALVO_SPI2_DMA_INT_RAW = GALVO_SPI2_TRANS_DONE;
     GALVO_SPI2_W0  = word_b;
     GALVO_SPI2_CMD = GALVO_SPI2_UPDATE;
     while (GALVO_SPI2_CMD & GALVO_SPI2_UPDATE) {}
     GALVO_GPIO_W1TC = GALVO_CS_MASK;
     GALVO_SPI2_CMD  = GALVO_SPI2_USR;
-    while (!(GALVO_SPI2_DMA_INT_RAW & GALVO_SPI2_TRANS_DONE)) {}
+    while (GALVO_SPI2_CMD & GALVO_SPI2_USR) {}
     GALVO_GPIO_W1TS = GALVO_CS_MASK;                  // CS HIGH — DAC-B latches
 
     if (gConfig.dac_debug_log) {
