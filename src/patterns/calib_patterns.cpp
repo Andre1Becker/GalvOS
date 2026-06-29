@@ -260,7 +260,7 @@ static size_t step_ramp(LaserPoint* o, size_t mx,
 // PATTERN 4: CHANNEL SEPARATION
 // ══════════════════════════════════════════════════════════════
 static size_t channel_sep(LaserPoint* o, size_t mx,
-                            uint32_t phase, uint8_t bright, uint8_t) {
+                            uint32_t phase, uint8_t bright, uint8_t ch) {
     size_t n = 0;
     const float t = phase * 0.010f;
     struct { uint8_t r,g,b; float y; const char* name; } combos[7] = {
@@ -275,7 +275,10 @@ static size_t channel_sep(LaserPoint* o, size_t mx,
     for (int i = 0; i < 7; i++) {
         auto& c = combos[i];
         uint8_t ro, go, bo;
-        colorOut(c.r, c.g, c.b, bright, ro, go, bo);
+        uint8_t ri = (ch==0) ? c.r : (ch==1 ? (c.r ? bright : 0) : 0);
+        uint8_t gi = (ch==0) ? c.g : (ch==2 ? (c.g ? bright : 0) : 0);
+        uint8_t bi = (ch==0) ? c.b : (ch==3 ? (c.b ? bright : 0) : 0);
+        colorOut(ri, gi, bi, bright, ro, go, bo);
         const int STEPS = 60;
         for (int k = 0; k <= STEPS; k++) {
             float tt = (float)k / STEPS;

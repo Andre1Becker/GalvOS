@@ -956,6 +956,9 @@ void init() {
     s_server.on("/api/calib-pattern/stop", HTTP_POST,
         [](AsyncWebServerRequest* req) {
             gState.calib_active = false;
+            // Release calib-forced dimmer only if no real DMX source active
+            if (gState.master_dimmer.load() == 0)
+                gState.ui_master_dimmer.store(0);
             req->send(200, "text/plain", "OK");
         });
 
