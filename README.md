@@ -7,7 +7,7 @@
 - SD-Card: Currently, if an SD-Card is populated, Galvos go crazy
 - try different approach to get sd card working
 - paint by finger mode
-- make features toggable via UI (fe. disable art net if not needed)
+- make features toggable via UI (fe. disable ArtNet if not needed)
 
 **COLOR ANIMATIONS**
 
