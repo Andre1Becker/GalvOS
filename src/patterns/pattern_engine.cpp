@@ -452,6 +452,19 @@ void task(void*) {
 
             size_t n = curves::generate(ct, params, phase, s_frame, PATTERN_POINTS_MAX);
             if (n > 0) {
+                // Apply color override / animation to curve points
+                if (gLivePreset.col_override) {
+                    uint8_t cr = gLivePreset.col_r;
+                    uint8_t cg = gLivePreset.col_g;
+                    uint8_t cb = gLivePreset.col_b;
+                    for (size_t i = 0; i < n; i++) {
+                        if (!s_frame[i].blank) {
+                            s_frame[i].r = cr;
+                            s_frame[i].g = cg;
+                            s_frame[i].b = cb;
+                        }
+                    }
+                }
                 // Apply master dimmer
                 uint8_t dim = gState.master_dimmer.load();
                 for (size_t i = 0; i < n; i++) {
@@ -572,9 +585,16 @@ void task(void*) {
                         while (nc < 6 && !(CHASE[aseq][nc][0]==0xFF && CHASE[aseq][nc][1]==0xFF)) nc++;
                         if (nc < 1) nc = 1;
                         uint8_t step = s_chase_step % nc;
-                        ar = CHASE[aseq][step][0];
-                        ag = CHASE[aseq][step][1];
-                        ab = CHASE[aseq][step][2];
+                        // col_override: use user color instead of table entry
+                        if (gLivePreset.col_override) {
+                            ar = gLivePreset.col_r;
+                            ag = gLivePreset.col_g;
+                            ab = gLivePreset.col_b;
+                        } else {
+                            ar = CHASE[aseq][step][0];
+                            ag = CHASE[aseq][step][1];
+                            ab = CHASE[aseq][step][2];
+                        }
                     }
 
                 } else if (atype == COL_ANIM_STROBE) {

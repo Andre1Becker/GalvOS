@@ -712,7 +712,7 @@
             <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:3px">
               <span>Speed</span><span id="grad-speed-val" style="color:var(--accent);font-family:monospace">50</span>
             </div>
-            <input type="range" id="grad-speed" min="0" max="100" value="50"
+            <input type="range" id="grad-speed" min="0" max="255" value="60"
               oninput="document.getElementById('grad-speed-val').textContent=this.value;applyGradient()">
           </div>
           <div style="display:flex;gap:10px;margin-bottom:8px" id="anim-dir-row">
