@@ -4048,10 +4048,11 @@ var PRESET_RENDER_FNS = {};
       var off=fr(i*5)*2.2;
       var yNorm=1.1-((ph*iSpd*0.0004+off)%2.2);
       if(yNorm<-1.1||yNorm>1.1) continue;
-      var bright=Math.floor(80+fr(i*2+Math.floor(ph*iSpd*0.0004))*175);
-      var blue=Math.min(255,bright+60);
+      var bright=Math.floor(20+fr(i*2+Math.floor(ph*iSpd*0.0004))*235);
+      var gv=Math.floor(bright*(0.85+fr(i*11)*0.15));
+      var bv=bright>160?Math.min(255,bright+40):Math.floor(bright*0.6);
       pts.push(pt(xPos,yNorm,0,0,0,1));
-      for(var d=0;d<dwell;d++) pts.push(pt(xPos,yNorm,bright,bright,blue,0));
+      for(var d=0;d<dwell;d++) pts.push(pt(xPos,yNorm,bright,gv,bv,0));
     }
     return pts;};
 

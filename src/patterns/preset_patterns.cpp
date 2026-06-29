@@ -890,11 +890,19 @@ static size_t p90(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
         const float yNorm = 1.1f - fmodf(ph * iSpd * 0.0004f + off, 2.2f);
         if (yNorm < -1.1f || yNorm > 1.1f) continue;
         const int period  = (int)(ph * iSpd * 0.0004f);
-        const uint8_t bright = (uint8_t)(80 + (int)(fr(i * 2 + period) * 175.f));
-        const uint8_t blue   = (uint8_t)fminf(255.f, bright + 60.f);
+        // Brightness: 20..255 (wider spread than before so dim stars look
+        // clearly fainter than bright ones at any master_dimmer level).
+        // Star color: bright=blue-white, dim=warm white/orange -- classic
+        // stellar color index effect.
+        const uint8_t bright = (uint8_t)(20 + (int)(fr(i * 2 + period) * 235.f));
+        const uint8_t r_val  = bright;
+        const uint8_t g_val  = (uint8_t)(bright * (0.85f + fr(i * 11) * 0.15f));
+        const uint8_t b_val  = (bright > 160)
+                                   ? (uint8_t)fminf(255.f, bright + 40.f)   // bright: blue tint
+                                   : (uint8_t)(bright * 0.6f);              // dim: warm/orange
         stars[ns].x = xPos;
         stars[ns].y = yNorm * SC * 0.95f;
-        stars[ns].r = bright; stars[ns].g = bright; stars[ns].b = blue;
+        stars[ns].r = r_val; stars[ns].g = g_val; stars[ns].b = b_val;
         stars[ns].used = false;
         ns++;
     }
