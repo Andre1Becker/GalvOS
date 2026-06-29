@@ -516,6 +516,12 @@ size_t generate(LaserPoint* out, size_t max_pts, const TextConfig& cfg, uint32_t
                 float startXP = -twP * 0.5f;
 
                 // Render a single line of text at this y position and scale
+                // Cap pts per glyph to keep total frame size stable across scale changes.
+                // Budget: split remaining space evenly across letters, max 80 pts/glyph.
+                size_t letters = (size_t)full_len > 0 ? (size_t)full_len : 1;
+                size_t glyph_cap_base = (max_pts > total) ? (max_pts - total) / letters : 0;
+                size_t glyph_cap = glyph_cap_base < 80 ? glyph_cap_base : 80;
+
                 float cx2 = startXP;
                 for (int ci = 0; ci < full_len && cfg.text[ci]; ci++) {
                     char ch = toupper((unsigned char)cfg.text[ci]);
@@ -525,9 +531,9 @@ size_t generate(LaserPoint* out, size_t max_pts, const TextConfig& cfg, uint32_t
                     }
                     if (!g2) { cx2 += 10.f * scaleP; continue; }
 
-                    // Blank jump to glyph start
-                    addPt(out, total, max_pts, cx2, yBase, 0, 0, 0, 1);
-                    renderGlyph(out, total, max_pts, g2->strokes,
+                    size_t cap = total + glyph_cap < max_pts ? total + glyph_cap : max_pts;
+                    addPt(out, total, cap, cx2, yBase, 0, 0, 0, 1);
+                    renderGlyph(out, total, cap, g2->strokes,
                                 cx2, yBase, scaleP,
                                 cfg.col_r, cfg.col_g, cfg.col_b);
                     cx2 += g2->advance * scaleP;
