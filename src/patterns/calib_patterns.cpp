@@ -203,7 +203,7 @@ static size_t rainbow(LaserPoint* o, size_t mx,
         uint8_t ri, gi, bi;
         hsv2rgb(t * 360.0f, 255, bright, ri, gi, bi);
         uint8_t ro, go, bo;
-        colorOut(ri, gi, bi, 255, ro, go, bo);
+        colorOut(ri, gi, bi, bright, ro, go, bo);
         ap(o, n, mx, x, y, ro, go, bo, i==0?1:0);
     }
     for (int i = 0; i <= 90; i++) {
@@ -213,7 +213,7 @@ static size_t rainbow(LaserPoint* o, size_t mx,
         uint8_t ri, gi, bi;
         hsv2rgb(t * 360.0f, 120, bright, ri, gi, bi);
         uint8_t ro, go, bo;
-        colorOut(ri, gi, bi, 255, ro, go, bo);
+        colorOut(ri, gi, bi, bright, ro, go, bo);
         ap(o, n, mx, cosf(angle)*r_dist, sinf(angle)*r_dist, ro, go, bo, i==0?1:0);
     }
     return n;
@@ -306,14 +306,14 @@ static size_t saturation_wheel(LaserPoint* o, size_t mx,
             uint8_t ri, gi, bi;
             hsv2rgb(hue, sat, bright, ri, gi, bi);
             uint8_t ro, go, bo;
-            colorOut(ri, gi, bi, 255, ro, go, bo);
+            colorOut(ri, gi, bi, bright, ro, go, bo);
             float x = cosf(angle) * r_dist;
             float y = sinf(angle) * r_dist;
             ap(o, n, mx, x, y, ro, go, bo, i==0?1:0);
         }
     }
     uint8_t wro, wgo, wbo;
-    colorOut(bright, bright, bright, 200, wro, wgo, wbo);
+        colorOut(bright, bright, bright, bright, wro, wgo, wbo);
     for (int i = 0; i <= 20; i++) {
         float angle = (float)i / 20 * PI2;
         ap(o, n, mx,

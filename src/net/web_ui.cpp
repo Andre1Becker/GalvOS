@@ -991,9 +991,12 @@ void init() {
             if (doc["bright"].is<int>())    gState.calib_bright  = doc["bright"];
             if (doc["channel"].is<int>())   gState.calib_channel = constrain((int)doc["channel"], 0, 3);
             // Calib mode enabled -> disable ILDA and text
-            if (gState.calib_active) {
+           if (gState.calib_active) {
                 ilda::stop();
                 gTextConfig.active = false;
+                // Ensure beam is active during calibration even without DMX
+                if (gState.ui_master_dimmer.load() == 0)
+                    gState.ui_master_dimmer.store(200);
             }
             req->send(200, "text/plain", "OK");
         });

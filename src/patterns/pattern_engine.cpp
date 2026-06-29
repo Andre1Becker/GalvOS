@@ -554,7 +554,7 @@ void task(void*) {
             if (n > 0) {
                 applyCalibration(s_frame, n);
                 web_ui::publishPreviewFrame(s_frame, n);
-                if (gState.master_dimmer.load() > 0) {
+                if (gState.master_dimmer.load() > 0 || gState.ui_master_dimmer.load() > 0) {
                     { uint32_t _t0=millis(); while (!galvo::pushFrame(s_frame, n)) { if (millis()-_t0 > 500) { safety::emergencyStop(); LOG_E(logbuf::CAT_SAFETY,"Pattern engine: pushFrame timeout, emergency stop"); break; } vTaskDelay(pdMS_TO_TICKS(2)); } }
                     { uint32_t drain_ms = n / (uint32_t)gProjection.galvo_kpps;
                       if (drain_ms < 10) drain_ms = 10;
