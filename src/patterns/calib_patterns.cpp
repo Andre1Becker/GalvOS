@@ -154,15 +154,15 @@ static size_t gamma_ramp(LaserPoint* o, size_t mx,
     for (int k = 0; k <= 4; k++) {
         float x = -SC * 0.88f + k * SC * 1.76f / 4;
         blankMove(o, n, mx, x,  SC*0.65f);
-        ap(o, n, mx, x,  SC*0.65f, 40, 40, 40, 0);
-        ap(o, n, mx, x,  SC*0.55f, 40, 40, 40, 0);
+        ap(o, n, mx, x,  SC*0.65f, 0, 0, 40, 0);
+        ap(o, n, mx, x,  SC*0.55f, 0, 0, 40, 0);
         blankMove(o, n, mx, x, -SC*0.55f);
-        ap(o, n, mx, x, -SC*0.55f, 40, 40, 40, 0);
-        ap(o, n, mx, x, -SC*0.65f, 40, 40, 40, 0);
+        ap(o, n, mx, x, -SC*0.55f, 0, 0, 40, 0);
+        ap(o, n, mx, x, -SC*0.65f, 0, 0, 40, 0);
     }
     blankMove(o, n, mx, -SC*0.88f, 0);
-    ap(o, n, mx, -SC*0.88f, 0, 20, 20, 20, 0);
-    ap(o, n, mx,  SC*0.88f, 0, 20, 20, 20, 0);
+    ap(o, n, mx, -SC*0.88f, 0, 0, 0, 20, 0);
+    ap(o, n, mx,  SC*0.88f, 0, 0, 0, 20, 0);
     return n;
 }
 
@@ -251,8 +251,8 @@ static size_t step_ramp(LaserPoint* o, size_t mx,
         ap(o, n, mx, x_center - bar_w/2,  bar_h,    ro, go, bo, 0);
     }
     blankMove(o, n, mx, -SC*0.88f, -SC*0.85f);
-    ap(o, n, mx, -SC*0.88f, -SC*0.85f, 30, 30, 30, 0);
-    ap(o, n, mx,  SC*0.88f, -SC*0.85f, 30, 30, 30, 0);
+    ap(o, n, mx, -SC*0.88f, -SC*0.85f, 0, 0, 30, 0);
+    ap(o, n, mx,  SC*0.88f, -SC*0.85f, 0, 0, 30, 0);
     return n;
 }
 
@@ -444,18 +444,18 @@ static size_t aspect_ratio(LaserPoint* o, size_t mx,
         ap(o, n, mx, cosf(a)*S, sinf(a)*S, wr, wg, wb, 0);
     }
     blankMove(o, n, mx, -S*1.05f, 0);
-    ap(o, n, mx, -S*1.05f, 0, 50, 50, 50, 0);
-    ap(o, n, mx,  S*1.05f, 0, 50, 50, 50, 0);
+    ap(o, n, mx, -S*1.05f, 0, 0, 0, 50, 0);
+    ap(o, n, mx,  S*1.05f, 0, 0, 0, 50, 0);
     blankMove(o, n, mx, 0, -S*1.05f);
-    ap(o, n, mx, 0, -S*1.05f, 50, 50, 50, 0);
-    ap(o, n, mx, 0,  S*1.05f, 50, 50, 50, 0);
+    ap(o, n, mx, 0, -S*1.05f, 0, 0, 50, 0);
+    ap(o, n, mx, 0,  S*1.05f, 0, 0, 50, 0);
     for (float cx : {-S, S}) for (float cy : {-S, S}) {
         blankMove(o, n, mx, cx, cy-S*0.07f);
-        ap(o, n, mx, cx, cy-S*0.07f, 200, 200, 0, 0);
-        ap(o, n, mx, cx, cy+S*0.07f, 200, 200, 0, 0);
+        ap(o, n, mx, cx, cy-S*0.07f, 200, 0, 0, 0);
+        ap(o, n, mx, cx, cy+S*0.07f, 200, 0, 0, 0);
         blankMove(o, n, mx, cx-S*0.07f, cy);
-        ap(o, n, mx, cx-S*0.07f, cy, 200, 200, 0, 0);
-        ap(o, n, mx, cx+S*0.07f, cy, 200, 200, 0, 0);
+        ap(o, n, mx, cx-S*0.07f, cy, 200, 0, 0, 0);
+        ap(o, n, mx, cx+S*0.07f, cy, 200, 0, 0, 0);
     }
     return n;
 }
@@ -486,8 +486,8 @@ static size_t corner_test(LaserPoint* o, size_t mx,
     for (auto& d : dirs) {
         float ex = d[0]*S, ey = d[1]*S;
         blankMove(o, n, mx, 0, 0);
-        ap(o, n, mx, 0, 0, 60, 60, 60, 0);
-        ap(o, n, mx, ex, ey, 60, 60, 60, 0);
+        ap(o, n, mx, 0, 0, 0, 0, 60, 0);
+        ap(o, n, mx, ex, ey, 0, 0, 60, 0);
     }
     return n;
 }
@@ -524,11 +524,11 @@ static size_t color_temp(LaserPoint* o, size_t mx,
         }
     }
     blankMove(o, n, mx, -SC*0.08f, -SC*0.82f);
-    ap(o, n, mx, -SC*0.08f, -SC*0.82f, 30, 30, 30, 0);
-    ap(o, n, mx, -SC*0.08f,  SC*0.82f, 30, 30, 30, 0);
+    ap(o, n, mx, -SC*0.08f, -SC*0.82f, 0, 0, 30, 0);
+    ap(o, n, mx, -SC*0.08f,  SC*0.82f, 0, 0, 30, 0);
     blankMove(o, n, mx,  SC*0.08f, -SC*0.82f);
-    ap(o, n, mx,  SC*0.08f, -SC*0.82f, 30, 30, 30, 0);
-    ap(o, n, mx,  SC*0.08f,  SC*0.82f, 30, 30, 30, 0);
+    ap(o, n, mx,  SC*0.08f, -SC*0.82f, 0, 0, 30, 0);
+    ap(o, n, mx,  SC*0.08f,  SC*0.82f, 0, 0, 30, 0);
     return n;
 }
 
@@ -540,9 +540,9 @@ static size_t ilda_test(LaserPoint* o, size_t mx,
     size_t n = 0;
     const float OUTER = SC * 0.88f;
     const float INNER = OUTER * 0.5f * (0.3f + (size_ch / 255.0f) * 0.7f);
-    uint8_t WR, WG, WB;  colorOut(220, 220, 220, bright, WR, WG, WB);
-    uint8_t AR, AG, AB;  colorOut(0,   200,   0, bright, AR, AG, AB);
-    uint8_t DR, DG, DB;  colorOut(180, 180, 180, bright, DR, DG, DB);
+    uint8_t WR, WG, WB;  colorOut(0,     0,   bright, bright, WR, WG, WB);  // blue: inner box + circle
+    uint8_t AR, AG, AB;  colorOut(0,   bright,   0, bright, AR, AG, AB);  // green: crosshair
+    uint8_t DR, DG, DB;  colorOut(bright, 0,     0, bright, DR, DG, DB);  // red: outer box
     blankMove(o, n, mx, -OUTER, -OUTER);
     ap(o, n, mx, -OUTER, -OUTER, DR, DR, DR, 0);
     ap(o, n, mx,  OUTER, -OUTER, DR, DR, DR, 0);
@@ -686,10 +686,10 @@ static size_t dac_range_box(LaserPoint* o, size_t mx,
         colorOut(0, 0, bright, bright, ciR, ciG, ciB);
         lnR=0; lnG=0; lnB=40;
     } else {
-        colorOut(bright, bright, 0, bright, bxR, bxG, bxB);      // yellow box
-        colorOut(0, bright/3, bright/3, bright, dgR, dgG, dgB);  // dim cyan diags
+        colorOut(bright, 0, 0, bright, bxR, bxG, bxB);           // red box
+        colorOut(0, 0, bright/2, bright, dgR, dgG, dgB);          // dim blue diags
         colorOut(0, bright, 0, bright, ciR, ciG, ciB);            // green circle
-        lnR=40; lnG=40; lnB=0;
+        lnR=0; lnG=40; lnB=0;
     }
 
     // ── Outer box at exact DAC limit ──────────────────────────────
@@ -788,11 +788,11 @@ static size_t zone_outline(LaserPoint* o, size_t mx,
 
     // ── Center crosshair (dim) ────────────────────────────────────
     blankMove(o, n, mx, -2000, 0);
-    ap(o, n, mx, -2000, 0, 30, 30, 30, 0);
-    ap(o, n, mx,  2000, 0, 30, 30, 30, 0);
+    ap(o, n, mx, -2000, 0, 0, 0, 30, 0);
+    ap(o, n, mx,  2000, 0, 0, 0, 30, 0);
     blankMove(o, n, mx, 0, -2000);
-    ap(o, n, mx, 0, -2000, 30, 30, 30, 0);
-    ap(o, n, mx, 0,  2000, 30, 30, 30, 0);
+    ap(o, n, mx, 0, -2000, 0, 0, 30, 0);
+    ap(o, n, mx, 0,  2000, 0, 0, 30, 0);
 
     return n;
 }
