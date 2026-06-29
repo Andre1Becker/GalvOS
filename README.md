@@ -5,7 +5,6 @@
 ## To be done / needs fix: 
 
 - SD-Card: Currently, if an SD-Card is populated, Galvos go crazy
-- Remove fixed dns suffix (.local) and replace it with a variable
 - try different approach to get sd card working
 - paint by finger mode
 - make features toggable via UI (fe. disable art net if not needed)
