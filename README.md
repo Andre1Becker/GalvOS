@@ -2,7 +2,7 @@
 
 ## Warning: This is still Work in Progress
 
-**To be done / needs fix**
+## To be done / needs fix
 
 - SD-Card: Currently, if an SD-Card is populated, Galvos go crazy
 - try different approach to get sd card working
