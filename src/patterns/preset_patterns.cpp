@@ -850,8 +850,8 @@ static size_t p89(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){ // P
 // sz  = star count (0=~20 stars, 255=~100 stars)
 static size_t p90(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     size_t n=0;
-    int nStars = 20 + (int)(sz / 255.f * 80.f);   // 20..100 stars
-    const float baseSpd = 0.3f + (sp / 255.f) * 4.7f;
+    int nStars = 1 + (int)(sz / 255.f * 99.f);    // 1..100 stars
+    const float baseSpd = 1.0f + (sp / 255.f) * 19.0f;
 
     // cfg first -- needed by both dwell calc and star-count cap.
     const optimizer::OptimizerConfig cfg = liveOptimizerConfig();

@@ -476,6 +476,12 @@
           </div>
           <input type="range" id="lv-sp" min="0" max="255" value="80" oninput="liveSlider()">
         </div>
+        <div id="lv-spmul-row" style="display:none;margin-bottom:10px">
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:3px">
+            <span>Speed Multiplier</span><span id="lv-spmul-val" style="color:var(--accent);font-family:monospace">1×</span>
+          </div>
+          <input type="range" id="lv-spmul" min="1" max="10" value="1" oninput="liveSlider()">
+        </div>
         <div style="margin-bottom:10px">
           <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:3px">
             <span id="lv-sz-label">Size</span><span id="lv-sz-val" style="color:var(--accent);font-family:monospace">128</span>
@@ -3181,6 +3187,7 @@ function updatePresetHint(idx) {
     const hintEl   = document.getElementById('lv-preset-hint');
     const spLabel  = document.getElementById('lv-sp-label');
     const szLabel  = document.getElementById('lv-sz-label');
+    var spMulRow = document.getElementById('lv-spmul-row');
     if (hint) {
         if (spLabel) spLabel.textContent = hint.sp;
         if (szLabel) szLabel.textContent = hint.sz;
@@ -3190,6 +3197,7 @@ function updatePresetHint(idx) {
         if (szLabel) szLabel.textContent = 'Size';
         if (hintEl) hintEl.style.display = 'none';
     }
+    if (spMulRow) spMulRow.style.display = (idx === 91) ? 'block' : 'none';
 }
 
 async function deactivatePreset() {
@@ -3214,6 +3222,8 @@ let liveDebounce = null;
 function liveSlider() {
     // Update display values immediately
     document.getElementById('lv-sp-val').textContent  = document.getElementById('lv-sp').value;
+    var _spMulEl = document.getElementById('lv-spmul-val');
+    if (_spMulEl) _spMulEl.textContent = (document.getElementById('lv-spmul').value || 1) + '×';
     document.getElementById('lv-sz-val').textContent  = document.getElementById('lv-sz').value;
     document.getElementById('lv-rot-val').textContent = document.getElementById('lv-rot').value + '°';
     document.getElementById('lv-r-val').textContent   = document.getElementById('lv-r').value;
@@ -3335,7 +3345,7 @@ async function sendLiveControls() {
     var animSeq   = (typeof window._animActiveSeq   !== 'undefined') ? window._animActiveSeq   : 0;
     var animSpeed = (typeof window._animActiveSpeed !== 'undefined') ? window._animActiveSpeed : 128;
     await apiCall('POST', '/api/preset-live', {
-        speed:        +document.getElementById('lv-sp').value,
+        speed:        Math.min(255, +document.getElementById('lv-sp').value * +(document.getElementById('lv-spmul')?.value || 1)),
         size:         +document.getElementById('lv-sz').value,
         rotation:     +document.getElementById('lv-rot').value,
         rot_x:        autoOn && sx > 0,
@@ -4039,12 +4049,14 @@ var PRESET_RENDER_FNS = {};
   PRESET_RENDER_FNS[91]=function(ph,sp,sz){
     function fr(seed){var x=Math.sin(seed*127.1+1)*43758.5453;return x-Math.floor(x);}
     var pts=[],sc=.92;
-    var nStars=Math.round(20+sz/255*80);  // 20..100, matches firmware
-    var baseSpd=0.3+sp/255*4.7;
+    var nStars=Math.max(1,Math.round(1+sz/255*99));  // 1..100, matches firmware
+    var mul=+(document.getElementById('lv-spmul')?.value||1);
+    var spEff=Math.min(255,sp*mul);
+    var baseSpd=1.0+spEff/255*19.0;
     var dwell=Math.max(3,Math.round(6-(nStars-20)*(3/80)));
     for(var i=0;i<nStars;i++){
       var xPos=(fr(i*7)*2-1)*sc;
-      var iSpd=baseSpd*(0.3+fr(i*3)*1.4);
+      var iSpd=baseSpd*(0.2+fr(i*3)*2.8);
       var off=fr(i*5)*2.2;
       var yNorm=1.1-((ph*iSpd*0.0004+off)%2.2);
       if(yNorm<-1.1||yNorm>1.1) continue;

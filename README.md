@@ -1,14 +1,48 @@
 # GalvOS
 
-## Warning: This is still Work in Progress!!! 
+## Warning: This is still Work in Progress
 
-## To be done / needs fix: 
+**To be done / needs fix**
 
 - SD-Card: Currently, if an SD-Card is populated, Galvos go crazy
 - try different approach to get sd card working
 - paint by finger mode
 - make features toggable via UI (fe. disable art net if not needed)
-- And: (Drum Roll please) Documentation :-)
+
+**COLOR ANIMATIONS**
+
+- Gradient: not working at all
+- Chase: Color Selection is ignored
+- Segments: Color palette for segments is not respected; Segments only using 4 Colors
+
+ **Presets**
+
+- Curves ignores colors completly
+
+**Text**
+
+- Text is flipped
+- Text not rendered fully (missing serifs)
+- Start Size should be a lot bigger
+- Font Type not working
+- Speed to slow > lot faster
+- 3D Extrusion not working
+- Orbit should be 3D - not cycling
+- Star Wars Scroll style is wrong
+
+**Calibration**
+
+- Some patterns need to be fixed
+- Brightness Parameter not working
+- Channel not working
+- Projection Zone no Beam
+- DAC Range Box no Beam
+
+**Preview**
+
+- seems unessecary now - to be removed.
+
+And: (Drum Roll please) Documentation :-)
 
 **Open-source ESP32-S3 laser show controller — built to replace proprietary OEM controllers in RGB galvo laser projectors.**
 
@@ -17,7 +51,7 @@
 **But WHY?!?**
 
 Initially, I thought there was a bug in the proprietary firmware because it was not possible to dim the laser beam, only ON or OFF. After some thinking with my favorite AI, I decided to take this journey.
-This turned out to be a huge undertaking – but in the end, it is now much more feature-rich than anything else out there – and the best part: it's open source! 
+This turned out to be a huge undertaking – but in the end, it is now much more feature-rich than anything else out there – and the best part: it's open source!
 
 > Community contributions welcome :-)
 
@@ -61,11 +95,11 @@ Lasers are capable of causing immediate and permanent eye injury and skin burns,
 - **ILDA file playback** from SD card (FAT32, Class 10 UHS-I required)
 - **Browser-based WebUI** (PWA, single-file LittleFS) — no app install needed
 - **Hardware safety interlocks:**
-  - NE555-based scan-fail detection
-  - NE555-based hardware watchdog with SSR
-  - Emergency stop (E-Stop) input
-  - Optocoupler-isolated laser TTL (6N137)
-  - Fail-safe pull-ups on laser GPIO pins
+- NE555-based scan-fail detection
+- NE555-based hardware watchdog with SSR
+- Emergency stop (E-Stop) input
+- Optocoupler-isolated laser TTL (6N137)
+- Fail-safe pull-ups on laser GPIO pins
 - **1-Wire temperature monitoring** (DS18B20) Default 5 Sensors for Diode Module, PowerSupply, Galvo-Board, Chassis and TTL Module
 - **Fan PWM control** Fans only active if needed.
   
@@ -107,11 +141,13 @@ GalvOS/
 ## Getting Started
 
 ### Prerequisites
+
 - [PlatformIO](https://platformio.org/) (VS Code extension recommended)
 - ESP32-S3-DevKitC-1 board
 - SD card: FAT32 formatted, **Class 10 UHS-I minimum** (Class 4 incompatible)
 
 ### Build & Flash
+
 ```bash
 git clone https://github.com/YOUR_USERNAME/GalvOS.git
 cd GalvOS/Firmware
@@ -120,6 +156,7 @@ pio run --target uploadfs   # upload WebUI to LittleFS
 ```
 
 ### WebUI
+
 After flashing, connect to the ESP32 Wi-Fi AP or your local network and open the device IP in any browser. The WebUI is a PWA and can be installed on mobile home screens.
 
 ---
