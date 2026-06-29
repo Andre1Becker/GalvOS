@@ -585,16 +585,9 @@ void task(void*) {
                         while (nc < 6 && !(CHASE[aseq][nc][0]==0xFF && CHASE[aseq][nc][1]==0xFF)) nc++;
                         if (nc < 1) nc = 1;
                         uint8_t step = s_chase_step % nc;
-                        // col_override: use user color instead of table entry
-                        if (gLivePreset.col_override) {
-                            ar = gLivePreset.col_r;
-                            ag = gLivePreset.col_g;
-                            ab = gLivePreset.col_b;
-                        } else {
-                            ar = CHASE[aseq][step][0];
-                            ag = CHASE[aseq][step][1];
-                            ab = CHASE[aseq][step][2];
-                        }
+                        ar = CHASE[aseq][step][0];
+                        ag = CHASE[aseq][step][1];
+                        ab = CHASE[aseq][step][2];
                     }
 
                 } else if (atype == COL_ANIM_STROBE) {
