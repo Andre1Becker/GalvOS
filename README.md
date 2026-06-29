@@ -9,26 +9,11 @@
 - paint by finger mode
 - make features toggable via UI (fe. disable ArtNet if not needed)
 
-**COLOR ANIMATIONS**
-
-- Gradient: not working at all
-- Chase: Color Selection is ignored
-- Segments: Color palette for segments is not respected; Segments only using 4 Colors
-
- **Presets**
-
-- Curves ignores colors completly
-
 **Text**
 
-- Text is flipped
 - Text not rendered fully (missing serifs)
-- Start Size should be a lot bigger
-- Font Type not working
-- Speed to slow > lot faster
 - 3D Extrusion not working
 - Orbit should be 3D - not cycling
-- Star Wars Scroll style is wrong
 
 **Calibration**
 
