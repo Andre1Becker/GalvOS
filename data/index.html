@@ -4607,6 +4607,9 @@ function setPulseColor(r,g,b)  { window._setPulseColor     && window._setPulseCo
 function setQuickColor(r,g,b)  { window._setQuickColor     && window._setQuickColor(r,g,b); }
 function stopGradient()        { window._stopGradient      && window._stopGradient(); }
 function applyGradient()       { window._applyGradient     && window._applyGradient(); }
+function selectGradient(i)     { window._selectGradient    && window._selectGradient(i); }
+function selectChase(i)        { window._selectChase       && window._selectChase(i); }
+function selectSegSeq(i)       { window._selectSegSeq      && window._selectSegSeq(i); }
 // ── Color Animation UI (firmware-side engine, browser only sends config) ────────
 (function() {
   // Map type name → firmware ColAnimType enum value
