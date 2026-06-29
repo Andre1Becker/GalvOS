@@ -210,12 +210,17 @@ static GlyphResult renderGlyphOutline(LaserPoint* out, size_t& n, size_t max,
                                        const int8_t* strokes,
                                        float ox, float oy, float sc,
                                        uint8_t r, uint8_t g, uint8_t b) {
-    float off = sc * 0.4f;
-    renderGlyph(out, n, max, strokes, ox, oy, sc, r/3, g/3, b/3,  off,  0.f);
-    renderGlyph(out, n, max, strokes, ox, oy, sc, r/3, g/3, b/3, -off,  0.f);
-    renderGlyph(out, n, max, strokes, ox, oy, sc, r/3, g/3, b/3,  0.f,  off);
-    renderGlyph(out, n, max, strokes, ox, oy, sc, r/3, g/3, b/3,  0.f, -off);
-    GlyphResult res = renderGlyph(out, n, max, strokes, ox, oy, sc, r, g, b);
+    // Small offset — large values waste points and push outline off-glyph.
+    // Cap each pass so one character cannot consume the whole buffer (5 passes).
+    float off = sc * 0.055f;
+    uint8_t dr = (uint8_t)(r / 3), dg = (uint8_t)(g / 3), db = (uint8_t)(b / 3);
+    size_t cap = n + (max - n) / 5;  // each pass gets at most 1/5 of remaining space
+    if (cap > max) cap = max;
+    renderGlyph(out, n, cap, strokes, ox, oy, sc, dr, dg, db,  off,  0.f);
+    renderGlyph(out, n, cap, strokes, ox, oy, sc, dr, dg, db, -off,  0.f);
+    renderGlyph(out, n, cap, strokes, ox, oy, sc, dr, dg, db,  0.f,  off);
+    renderGlyph(out, n, cap, strokes, ox, oy, sc, dr, dg, db,  0.f, -off);
+    GlyphResult res = renderGlyph(out, n, cap, strokes, ox, oy, sc, r, g, b);
     return res;
 }
 
@@ -489,26 +494,24 @@ size_t generate(LaserPoint* out, size_t max_pts, const TextConfig& cfg, uint32_t
             // We render in DAC space where +y = up (font space already handles flip)
             // Scroll: yPos goes from -32767..+32767 over time
             float scroll_speed = 8000.f;
-            float yPos = fmodf(t * scroll_speed, 80000.f) - 40000.f;  // scrolls -40k..+40k
+            // Scroll from +40k down to -40k (renderer +y = up, invert_y flips to screen).
+            // After invert_y: renderer +y becomes screen bottom → text enters from bottom.
+            float yPos = 40000.f - fmodf(t * scroll_speed, 80000.f);  // scrolls +40k..-40k
 
             size_t total = 0;
 
-            // Render one screen-worth of text (repeat for seamless wrap)
             for (int copy = 0; copy < 2; copy++) {
-                // Base y position for this copy
-                float yBase = yPos - copy * 75000.f;
+                float yBase = yPos + copy * 75000.f;
 
-                // Only render if this copy is visible in the ±32000 range
-                if (yBase > 36000.f || yBase < -70000.f) continue;
+                if (yBase > 70000.f || yBase < -36000.f) continue;
 
-                // Perspective: map y position to scale and x-shear
-                // At yBase=-32767 (bottom) scale=1.0 (full width)
-                // At yBase=+32767 (top)    scale=0.2 (narrow)
-                // Linear interpolation: persp in [0.0, 1.0]
-                float persp = (yBase + 32767.f) / 65534.f;  // 0=bottom, 1=top
+                // Perspective: after invert_y, renderer +y = screen bottom (large),
+                // renderer -y = screen top (small).
+                // So: large scale at high yBase (bottom on screen), small at low yBase.
+                float persp = (yBase + 32767.f) / 65534.f;  // 0=renderer-bottom, 1=renderer-top
                 persp = fmaxf(0.05f, fminf(1.0f, persp));
-                // Reverse: bottom (persp=0) → large, top (persp=1) → small
-                float scaleP = display_sc * (1.0f - persp * 0.8f);
+                // High persp (renderer top = screen bottom after invert) → large
+                float scaleP = display_sc * (0.2f + persp * 0.8f);
                 float twP    = textWidth(cfg.text, full_len) * scaleP;
                 float startXP = -twP * 0.5f;
 
