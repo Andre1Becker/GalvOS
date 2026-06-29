@@ -434,12 +434,10 @@ static size_t aspect_ratio(LaserPoint* o, size_t mx,
     colorOut(0, ch==2?0:bright, ch==3?0:bright, bright, wr, wg, wb);
     if (ch == 0) { wr = 0; wg = bright; wb = 0; }
     const float S = SC * 0.75f;
-    blankMove(o, n, mx, -S, -S);
-    ap(o, n, mx, -S, -S, ro, go, bo, 0);
-    ap(o, n, mx,  S, -S, ro, go, bo, 0);
-    ap(o, n, mx,  S,  S, ro, go, bo, 0);
-    ap(o, n, mx, -S,  S, ro, go, bo, 0);
-    ap(o, n, mx, -S, -S, ro, go, bo, 0);
+    line(o, n, mx, -S, -S,  S, -S, ro, go, bo, 40);
+    line(o, n, mx,  S, -S,  S,  S, ro, go, bo, 40);
+    line(o, n, mx,  S,  S, -S,  S, ro, go, bo, 40);
+    line(o, n, mx, -S,  S, -S, -S, ro, go, bo, 40);
     blankMove(o, n, mx, cosf(0)*S, sinf(0)*S);
     for (int i = 0; i <= 60; i++) {
         float a = 6.2831853f * i / 60;
@@ -695,12 +693,10 @@ static size_t dac_range_box(LaserPoint* o, size_t mx,
     }
 
     // ── Outer box at exact DAC limit ──────────────────────────────
-    blankMove(o, n, mx, -sym, -sym);
-    ap(o, n, mx, -sym, -sym, bxR, bxG, bxB, 0);
-    ap(o, n, mx,  sym, -sym, bxR, bxG, bxB, 0);
-    ap(o, n, mx,  sym,  sym, bxR, bxG, bxB, 0);
-    ap(o, n, mx, -sym,  sym, bxR, bxG, bxB, 0);
-    ap(o, n, mx, -sym, -sym, bxR, bxG, bxB, 0);
+    line(o, n, mx, -sym, -sym,  sym, -sym, bxR, bxG, bxB, 40);
+    line(o, n, mx,  sym, -sym,  sym,  sym, bxR, bxG, bxB, 40);
+    line(o, n, mx,  sym,  sym, -sym,  sym, bxR, bxG, bxB, 40);
+    line(o, n, mx, -sym,  sym, -sym, -sym, bxR, bxG, bxB, 40);
 
     // ── Diagonals ─────────────────────────────────────────────────
     line(o, n, mx, -sym, -sym,  sym,  sym, dgR, dgG, dgB, 20);
@@ -723,12 +719,10 @@ static size_t dac_range_box(LaserPoint* o, size_t mx,
 
     // ── 50% reference box (dim) ───────────────────────────────────
     float half = sym * 0.5f;
-    blankMove(o, n, mx, -half, -half);
-    ap(o, n, mx, -half, -half, lnR, lnG, lnB, 0);
-    ap(o, n, mx,  half, -half, lnR, lnG, lnB, 0);
-    ap(o, n, mx,  half,  half, lnR, lnG, lnB, 0);
-    ap(o, n, mx, -half,  half, lnR, lnG, lnB, 0);
-    ap(o, n, mx, -half, -half, lnR, lnG, lnB, 0);
+    line(o, n, mx, -half, -half,  half, -half, lnR, lnG, lnB, 20);
+    line(o, n, mx,  half, -half,  half,  half, lnR, lnG, lnB, 20);
+    line(o, n, mx,  half,  half, -half,  half, lnR, lnG, lnB, 20);
+    line(o, n, mx, -half,  half, -half, -half, lnR, lnG, lnB, 20);
 
     return n;
 }
