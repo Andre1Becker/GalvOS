@@ -730,7 +730,7 @@ static size_t dac_range_box(LaserPoint* o, size_t mx,
 // PATTERN 14: PROJECTION ZONE OUTLINE
 //
 // Projects the user-defined projection zone polygon (gZone) as a closed
-// magenta outline with a yellow diamond marker at each vertex and a dim
+// red outline with a green diamond marker at each vertex and a dim
 // center crosshair. Used during setup to verify the touch-defined safe scan
 // area on the real projection surface before enabling zone clipping.
 //
@@ -741,27 +741,30 @@ static size_t zone_outline(LaserPoint* o, size_t mx,
                             uint32_t phase, uint8_t bright, uint8_t ch) {
     size_t n = 0;
 
-    uint8_t pR, pG, pB;   // polygon edge color
-    uint8_t vR, vG, vB;   // vertex marker color
+    uint8_t pR, pG, pB;   // polygon edge color (pure R/G/B only)
+    uint8_t vR, vG, vB;   // vertex marker color (pure R/G/B only)
     if (ch == 1)      { colorOut(bright, 0, 0, bright, pR, pG, pB); vR=pR; vG=pG; vB=pB; }
     else if (ch == 2) { colorOut(0, bright, 0, bright, pR, pG, pB); vR=pR; vG=pG; vB=pB; }
     else if (ch == 3) { colorOut(0, 0, bright, bright, pR, pG, pB); vR=pR; vG=pG; vB=pB; }
     else {
-        colorOut(bright, 0, bright, bright, pR, pG, pB);   // magenta edges
-        colorOut(bright, bright, 0, bright, vR, vG, vB);   // yellow vertices
+        colorOut(bright, 0, 0, bright, pR, pG, pB);   // red edges
+        colorOut(0, bright, 0, bright, vR, vG, vB);   // green vertices
     }
 
     uint8_t cnt = gZone.count;
     if (cnt < 3)               cnt = 3;
     if (cnt > ZONE_POINTS_MAX) cnt = ZONE_POINTS_MAX;
 
-    // ── Closed polygon outline (interpolated edges) ───────────────
+    const int CORNER_DWELL = 8;   // repeated points per vertex for clean settling
+
+    // ── Closed polygon outline (interpolated edges + corner dwell) ─
     for (uint8_t i = 0; i <= cnt; i++) {
         float x = (float)gZone.x[i % cnt];
         float y = (float)gZone.y[i % cnt];
         if (i == 0) {
             blankMove(o, n, mx, x, y);
-            ap(o, n, mx, x, y, pR, pG, pB, 0);
+            for (int d = 0; d < CORNER_DWELL; d++)
+                ap(o, n, mx, x, y, pR, pG, pB, 0);
         } else {
             float x0 = (float)gZone.x[(i - 1) % cnt];
             float y0 = (float)gZone.y[(i - 1) % cnt];
@@ -770,20 +773,24 @@ static size_t zone_outline(LaserPoint* o, size_t mx,
                 float t = (float)s / steps;
                 ap(o, n, mx, x0 + (x - x0)*t, y0 + (y - y0)*t, pR, pG, pB, 0);
             }
+            for (int d = 0; d < CORNER_DWELL; d++)
+                ap(o, n, mx, x, y, pR, pG, pB, 0);
         }
     }
 
-    // ── Vertex markers (small diamonds) ───────────────────────────
+    // ── Vertex markers (diamonds, pure color, dwell at each corner) ─
     const float M = 900.0f;
+    const int MARKER_DWELL = 6;
     for (uint8_t i = 0; i < cnt; i++) {
         float vx = (float)gZone.x[i];
         float vy = (float)gZone.y[i];
-        blankMove(o, n, mx, vx,     vy - M);
-        ap(o, n, mx, vx,     vy - M, vR, vG, vB, 0);
-        ap(o, n, mx, vx + M, vy,     vR, vG, vB, 0);
-        ap(o, n, mx, vx,     vy + M, vR, vG, vB, 0);
-        ap(o, n, mx, vx - M, vy,     vR, vG, vB, 0);
-        ap(o, n, mx, vx,     vy - M, vR, vG, vB, 0);
+        float px[5] = { vx,     vx + M, vx,     vx - M, vx     };
+        float py[5] = { vy - M, vy,     vy + M, vy,     vy - M };
+        blankMove(o, n, mx, px[0], py[0]);
+        for (int p = 0; p < 5; p++) {
+            for (int d = 0; d < MARKER_DWELL; d++)
+                ap(o, n, mx, px[p], py[p], vR, vG, vB, 0);
+        }
     }
 
     // ── Center crosshair (dim) ────────────────────────────────────
@@ -862,7 +869,7 @@ const CalibPatternInfo CALIB_INFO[CALIB_PATTERN_COUNT] = {
 
     {"Projection Zone",
      "Outline of the touch-defined projection zone polygon — verify safe area",
-     "Magenta = zone boundary, yellow diamonds = vertices. Edit the polygon "
+     "Red = zone boundary, green diamonds = vertices. Edit the polygon "
      "in the Calibration tab, then enable zone clipping to blank the laser "
      "outside this area."},
 };
