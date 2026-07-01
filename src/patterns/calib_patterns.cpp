@@ -801,6 +801,16 @@ static size_t zone_outline(LaserPoint* o, size_t mx,
     ap(o, n, mx, 0, -2000, 0, 0, 30, 0);
     ap(o, n, mx, 0,  2000, 0, 0, 30, 0);
 
+    // ── Park blanked at loop start (prevents visible bleed line on
+    //    buffer wraparound: crosshair end -> vertex 0) ──────────────
+    if (cnt > 0) {
+        float x0 = (float)gZone.x[0];
+        float y0 = (float)gZone.y[0];
+        blankMove(o, n, mx, x0, y0);
+        for (int d = 0; d < CORNER_DWELL; d++)
+            ap(o, n, mx, x0, y0, 0, 0, 0, 1);
+    }
+
     return n;
 }
 // ══════════════════════════════════════════════════════════════
