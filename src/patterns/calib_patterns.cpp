@@ -779,7 +779,7 @@ static size_t zone_outline(LaserPoint* o, size_t mx,
                     ap(o, n, mx, x, y, pR, pG, pB, 0);
             }
         }
-    }
+
 
     // ── Vertex markers (single dwell point, pure color) ────────────
     const int MARKER_DWELL = 10;
