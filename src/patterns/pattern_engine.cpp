@@ -268,8 +268,10 @@ static void applyCalibration(LaserPoint* pts, size_t n) {
         y = (y * gConfig.galvo_y_gain) / 32767;
         x += gConfig.galvo_x_offset;
         y += gConfig.galvo_y_offset;
-        pts[i].x = (int16_t)constrain(x, -32760, 32760);
-        pts[i].y = (int16_t)constrain(y, -32760, 32760);
+        int32_t lim_lo = (int32_t)gConfig.dac_limit_min - 0x8000;
+        int32_t lim_hi = (int32_t)gConfig.dac_limit_max - 0x8000;
+        pts[i].x = (int16_t)constrain(x, lim_lo, lim_hi);
+        pts[i].y = (int16_t)constrain(y, lim_lo, lim_hi);
         //if (i < 3) ESP_LOGI("CAL","x=%.0f y=%.0f -> %d %d", (float)pts[i].x, (float)pts[i].y, pts[i].x, pts[i].y);
     }
 }
