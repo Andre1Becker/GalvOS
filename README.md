@@ -9,6 +9,10 @@
 - paint by finger mode
 - make features toggable via UI (fe. disable ArtNet if not needed)
 
+**Patterns**
+- Curves do not respect rotation
+- Speed to slow
+
 **Text**
 
 - Text not rendered fully (missing serifs)
@@ -20,8 +24,6 @@
 - Some patterns need to be fixed
 - Brightness Parameter not working
 - Channel not working
-- Projection Zone no Beam
-- DAC Range Box no Beam
 
 **Preview**
 
