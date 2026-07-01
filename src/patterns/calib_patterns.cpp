@@ -730,7 +730,7 @@ static size_t dac_range_box(LaserPoint* o, size_t mx,
 // PATTERN 14: PROJECTION ZONE OUTLINE
 //
 // Projects the user-defined projection zone polygon (gZone) as a closed
-// red outline with a green diamond marker at each vertex and a dim
+// red outline with a green dot marker at each vertex and a dim
 // center crosshair. Used during setup to verify the touch-defined safe scan
 // area on the real projection surface before enabling zone clipping.
 //
@@ -757,28 +757,32 @@ static size_t zone_outline(LaserPoint* o, size_t mx,
 
     const int PARK_DWELL = 8;   // blanked settle points at frame-wrap park
 
-    // ── Closed polygon outline (interpolated edges only, no dwell) ─
+    // ── Closed polygon outline (interpolated edges + corner dwell) ─
     // X/Y inversion handled globally via gConfig.invert_x/invert_y in
     // pattern_engine::applyCalibration(), same as every other pattern.
-    for (uint8_t i = 0; i <= cnt; i++) {
-        float x = (float)gZone.x[i % cnt];
-        float y = (float)gZone.y[i % cnt];
-        if (i == 0) {
-            blankMove(o, n, mx, x, y);
-            ap(o, n, mx, x, y, pR, pG, pB, 0);
-        } else {
-            float x0 = (float)gZone.x[(i - 1) % cnt];
-            float y0 = (float)gZone.y[(i - 1) % cnt];
-            const int steps = 24;
-            for (int s = 1; s <= steps; s++) {
-                float t = (float)s / steps;
-                ap(o, n, mx, x0 + (x - x0)*t, y0 + (y - y0)*t, pR, pG, pB, 0);
+        for (uint8_t i = 0; i <= cnt; i++) {
+          float x = (float)gZone.x[i % cnt];
+            float y = (float)gZone.y[i % cnt];
+            if (i == 0) {
+                blankMove(o, n, mx, x, y);
+                for (int d = 0; d < CORNER_DWELL; d++)
+                    ap(o, n, mx, x, y, pR, pG, pB, 0);
+            } else {
+                float x0 = (float)gZone.x[(i - 1) % cnt];
+                float y0 = (float)gZone.y[(i - 1) % cnt];
+                const int steps = 24;
+                for (int s = 1; s <= steps; s++) {
+                    float t = (float)s / steps;
+                    ap(o, n, mx, x0 + (x - x0)*t, y0 + (y - y0)*t, pR, pG, pB, 0);
+                }
+                for (int d = 0; d < CORNER_DWELL; d++)
+                    ap(o, n, mx, x, y, pR, pG, pB, 0);
             }
         }
     }
 
-    // ── Vertex markers (single dwell point, pure color, uniform) ───
-    const int MARKER_DWELL = 24;
+    // ── Vertex markers (single dwell point, pure color) ────────────
+    const int MARKER_DWELL = 10;
     for (uint8_t i = 0; i < cnt; i++) {
         float vx = (float)gZone.x[i];
         float vy = (float)gZone.y[i];
@@ -801,11 +805,11 @@ static size_t zone_outline(LaserPoint* o, size_t mx,
         float x0 = (float)gZone.x[0];
         float y0 = (float)gZone.y[0];
         blankMove(o, n, mx, x0, y0);
-        for (int d = 0; d < PARK_DWELL; d++)
+        for (int d = 0; d < CORNER_DWELL; d++)
             ap(o, n, mx, x0, y0, 0, 0, 0, 1);
     }
 
-    return n;
+    return n;;
 }
 // ══════════════════════════════════════════════════════════════
 // DISPATCH + METADATA
@@ -873,7 +877,7 @@ const CalibPatternInfo CALIB_INFO[CALIB_PATTERN_COUNT] = {
 
     {"Projection Zone",
      "Outline of the touch-defined projection zone polygon — verify safe area",
-     "Red = zone boundary, green diamonds = vertices. Edit the polygon "
+     "Red = zone boundary, green dots = vertices. Edit the polygon "
      "in the Calibration tab, then enable zone clipping to blank the laser "
      "outside this area."},
 };
