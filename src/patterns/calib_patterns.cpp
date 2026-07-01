@@ -664,6 +664,17 @@ static size_t dac_range_box(LaserPoint* o, size_t mx,
     float sym = (lim_max < -lim_min) ? lim_max : -lim_min;
     if (sym < 1000.f) sym = 1000.f;  // safety floor
 
+    // Back-project through applyCalibration (gain scale) so the box
+    // lands exactly at the DAC limit after output processing.
+    // applyCalibration: dac_out = p * gain_x / 32767 + offset
+    // We want dac_out = sym → p = sym * 32767 / gain_x
+    float gx = (gConfig.galvo_x_gain > 0) ? (float)gConfig.galvo_x_gain : 32767.f;
+    float gy = (gConfig.galvo_y_gain > 0) ? (float)gConfig.galvo_y_gain : 32767.f;
+    float sym_x = sym * 32767.f / gx;
+    float sym_y = sym * 32767.f / gy;
+    if (sym_x > 32767.f) sym_x = 32767.f;
+    if (sym_y > 32767.f) sym_y = 32767.f;
+
     // Colors
     uint8_t bxR, bxG, bxB;  // box color (yellow)
     uint8_t dgR, dgG, dgB;  // diagonal color (dim cyan)
@@ -693,36 +704,45 @@ static size_t dac_range_box(LaserPoint* o, size_t mx,
     }
 
     // ── Outer box at exact DAC limit ──────────────────────────────
-    line(o, n, mx, -sym, -sym,  sym, -sym, bxR, bxG, bxB, 40);
-    line(o, n, mx,  sym, -sym,  sym,  sym, bxR, bxG, bxB, 40);
-    line(o, n, mx,  sym,  sym, -sym,  sym, bxR, bxG, bxB, 40);
-    line(o, n, mx, -sym,  sym, -sym, -sym, bxR, bxG, bxB, 40);
+   line(o, n, mx, -sym_x, -sym_y,  sym_x, -sym_y, bxR, bxG, bxB, 40);
+    line(o, n, mx,  sym_x, -sym_y,  sym_x,  sym_y, bxR, bxG, bxB, 40);
+    line(o, n, mx,  sym_x,  sym_y, -sym_x,  sym_y, bxR, bxG, bxB, 40);
+    line(o, n, mx, -sym_x,  sym_y, -sym_x, -sym_y, bxR, bxG, bxB, 40);
 
     // ── Diagonals ─────────────────────────────────────────────────
-    line(o, n, mx, -sym, -sym,  sym,  sym, dgR, dgG, dgB, 20);
-    line(o, n, mx,  sym, -sym, -sym,  sym, dgR, dgG, dgB, 20);
+    float diag_len = sqrtf(sym_x*sym_x*4.f + sym_y*sym_y*4.f);
+    int dpts = (int)(diag_len / 800.f);
+    if (dpts < 40)  dpts = 40;
+    if (dpts > 120) dpts = 120;
+    line(o, n, mx, -sym_x, -sym_y,  sym_x,  sym_y, dgR, dgG, dgB, dpts);
+    line(o, n, mx,  sym_x, -sym_y, -sym_x,  sym_y, dgR, dgG, dgB, dpts);
 
-    // ── Inscribed circle at same radius ───────────────────────────
-    blankMove(o, n, mx, sym, 0);
-    for (int i = 0; i <= 80; i++) {
-        float a = PI2 * i / 80;
-        ap(o, n, mx, cosf(a)*sym, sinf(a)*sym, ciR, ciG, ciB, 0);
+    // ── Inscribed circle (radius = smaller of sym_x, sym_y) ───────
+    float ciR_len = (sym_x < sym_y) ? sym_x : sym_y;
+    int cpts = (int)(ciR_len / 400.f);
+    if (cpts < 80)  cpts = 80;
+    if (cpts > 200) cpts = 200;
+    blankMove(o, n, mx, ciR_len, 0);
+    for (int i = 0; i <= cpts; i++) {
+        float a = PI2 * i / cpts;
+        ap(o, n, mx, cosf(a)*ciR_len, sinf(a)*ciR_len, ciR, ciG, ciB, 0);
     }
 
     // ── Center crosshair ──────────────────────────────────────────
-    blankMove(o, n, mx, -sym * 0.1f, 0);
-    ap(o, n, mx, -sym * 0.1f, 0, lnR, lnG, lnB, 0);
-    ap(o, n, mx,  sym * 0.1f, 0, lnR, lnG, lnB, 0);
-    blankMove(o, n, mx, 0, -sym * 0.1f);
-    ap(o, n, mx, 0, -sym * 0.1f, lnR, lnG, lnB, 0);
-    ap(o, n, mx, 0,  sym * 0.1f, lnR, lnG, lnB, 0);
+    float ch_x = sym_x * 0.1f, ch_y = sym_y * 0.1f;
+    blankMove(o, n, mx, -ch_x, 0);
+    ap(o, n, mx, -ch_x, 0, lnR, lnG, lnB, 0);
+    ap(o, n, mx,  ch_x, 0, lnR, lnG, lnB, 0);
+    blankMove(o, n, mx, 0, -ch_y);
+    ap(o, n, mx, 0, -ch_y, lnR, lnG, lnB, 0);
+    ap(o, n, mx, 0,  ch_y, lnR, lnG, lnB, 0);
 
     // ── 50% reference box (dim) ───────────────────────────────────
-    float half = sym * 0.5f;
-    line(o, n, mx, -half, -half,  half, -half, lnR, lnG, lnB, 20);
-    line(o, n, mx,  half, -half,  half,  half, lnR, lnG, lnB, 20);
-    line(o, n, mx,  half,  half, -half,  half, lnR, lnG, lnB, 20);
-    line(o, n, mx, -half,  half, -half, -half, lnR, lnG, lnB, 20);
+    float hx = sym_x * 0.5f, hy = sym_y * 0.5f;
+    line(o, n, mx, -hx, -hy,  hx, -hy, lnR, lnG, lnB, 20);
+    line(o, n, mx,  hx, -hy,  hx,  hy, lnR, lnG, lnB, 20);
+    line(o, n, mx,  hx,  hy, -hx,  hy, lnR, lnG, lnB, 20);
+    line(o, n, mx, -hx,  hy, -hx, -hy, lnR, lnG, lnB, 20);
 
     return n;
 }
