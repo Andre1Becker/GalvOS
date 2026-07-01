@@ -755,16 +755,17 @@ static size_t zone_outline(LaserPoint* o, size_t mx,
     if (cnt < 3)               cnt = 3;
     if (cnt > ZONE_POINTS_MAX) cnt = ZONE_POINTS_MAX;
 
-    const int CORNER_DWELL = 8;   // repeated points per vertex for clean settling
+    const int PARK_DWELL = 8;   // blanked settle points at frame-wrap park
 
-    // ── Closed polygon outline (interpolated edges + corner dwell) ─
+    // ── Closed polygon outline (interpolated edges only, no dwell) ─
+    // X/Y inversion handled globally via gConfig.invert_x/invert_y in
+    // pattern_engine::applyCalibration(), same as every other pattern.
     for (uint8_t i = 0; i <= cnt; i++) {
         float x = (float)gZone.x[i % cnt];
         float y = (float)gZone.y[i % cnt];
         if (i == 0) {
             blankMove(o, n, mx, x, y);
-            for (int d = 0; d < CORNER_DWELL; d++)
-                ap(o, n, mx, x, y, pR, pG, pB, 0);
+            ap(o, n, mx, x, y, pR, pG, pB, 0);
         } else {
             float x0 = (float)gZone.x[(i - 1) % cnt];
             float y0 = (float)gZone.y[(i - 1) % cnt];
@@ -773,24 +774,17 @@ static size_t zone_outline(LaserPoint* o, size_t mx,
                 float t = (float)s / steps;
                 ap(o, n, mx, x0 + (x - x0)*t, y0 + (y - y0)*t, pR, pG, pB, 0);
             }
-            for (int d = 0; d < CORNER_DWELL; d++)
-                ap(o, n, mx, x, y, pR, pG, pB, 0);
         }
     }
 
-    // ── Vertex markers (diamonds, pure color, dwell at each corner) ─
-    const float M = 900.0f;
-    const int MARKER_DWELL = 6;
+    // ── Vertex markers (single dwell point, pure color, uniform) ───
+    const int MARKER_DWELL = 24;
     for (uint8_t i = 0; i < cnt; i++) {
         float vx = (float)gZone.x[i];
         float vy = (float)gZone.y[i];
-        float px[5] = { vx,     vx + M, vx,     vx - M, vx     };
-        float py[5] = { vy - M, vy,     vy + M, vy,     vy - M };
-        blankMove(o, n, mx, px[0], py[0]);
-        for (int p = 0; p < 5; p++) {
-            for (int d = 0; d < MARKER_DWELL; d++)
-                ap(o, n, mx, px[p], py[p], vR, vG, vB, 0);
-        }
+        blankMove(o, n, mx, vx, vy);
+        for (int d = 0; d < MARKER_DWELL; d++)
+            ap(o, n, mx, vx, vy, vR, vG, vB, 0);
     }
 
     // ── Center crosshair (dim) ────────────────────────────────────
@@ -807,7 +801,7 @@ static size_t zone_outline(LaserPoint* o, size_t mx,
         float x0 = (float)gZone.x[0];
         float y0 = (float)gZone.y[0];
         blankMove(o, n, mx, x0, y0);
-        for (int d = 0; d < CORNER_DWELL; d++)
+        for (int d = 0; d < PARK_DWELL; d++)
             ap(o, n, mx, x0, y0, 0, 0, 0, 1);
     }
 
