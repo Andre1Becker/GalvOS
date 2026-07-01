@@ -650,30 +650,10 @@ static size_t dac_range_box(LaserPoint* o, size_t mx,
                               uint32_t phase, uint8_t bright, uint8_t ch) {
     size_t n = 0;
 
-    // Convert dac_limit to signed coordinate space:
-    // DAC 0x0000 = -32768, 0x8000 = 0, 0xFFFF = +32767
-    // signed = (uint16_t - 0x8000)
-    float lim_max = (float)((int32_t)gConfig.dac_limit_max - 0x8000);
-    float lim_min = (float)((int32_t)gConfig.dac_limit_min - 0x8000);
-
-    // Clamp to valid range
-    if (lim_max >  32767.f) lim_max =  32767.f;
-    if (lim_min < -32767.f) lim_min = -32767.f;
-
-    // Use symmetric limit for the box (min of |lim_max|, |lim_min|)
-    float sym = (lim_max < -lim_min) ? lim_max : -lim_min;
-    if (sym < 1000.f) sym = 1000.f;  // safety floor
-
-    // Back-project through applyCalibration (gain scale) so the box
-    // lands exactly at the DAC limit after output processing.
-    // applyCalibration: dac_out = p * gain_x / 32767 + offset
-    // We want dac_out = sym → p = sym * 32767 / gain_x
-    float gx = (gConfig.galvo_x_gain > 0) ? (float)gConfig.galvo_x_gain : 32767.f;
-    float gy = (gConfig.galvo_y_gain > 0) ? (float)gConfig.galvo_y_gain : 32767.f;
-    float sym_x = sym * 32767.f / gx;
-    float sym_y = sym * 32767.f / gy;
-    if (sym_x > 32767.f) sym_x = 32767.f;
-    if (sym_y > 32767.f) sym_y = 32767.f;
+    // Draw at full pattern range; galvo_out clamps to dac_limit_min/max,
+    // making the mechanical scan limit visible as clipped corners/edges.
+    static constexpr float S = 29000.f;  // slightly under ±32767 for blanking headroom
+    float sym_x = S, sym_y = S;
 
     // Colors
     uint8_t bxR, bxG, bxB;  // box color (yellow)
@@ -703,8 +683,8 @@ static size_t dac_range_box(LaserPoint* o, size_t mx,
         lnR=0; lnG=40; lnB=0;
     }
 
-    // ── Outer box at exact DAC limit ──────────────────────────────
-   line(o, n, mx, -sym_x, -sym_y,  sym_x, -sym_y, bxR, bxG, bxB, 40);
+    // ── Outer box (clipped by dac_limit in galvo_out) ────────────
+    line(o, n, mx, -sym_x, -sym_y,  sym_x, -sym_y, bxR, bxG, bxB, 40);
     line(o, n, mx,  sym_x, -sym_y,  sym_x,  sym_y, bxR, bxG, bxB, 40);
     line(o, n, mx,  sym_x,  sym_y, -sym_x,  sym_y, bxR, bxG, bxB, 40);
     line(o, n, mx, -sym_x,  sym_y, -sym_x, -sym_y, bxR, bxG, bxB, 40);
@@ -729,7 +709,7 @@ static size_t dac_range_box(LaserPoint* o, size_t mx,
     }
 
     // ── Center crosshair ──────────────────────────────────────────
-    float ch_x = sym_x * 0.1f, ch_y = sym_y * 0.1f;
+    float ch_x = S * 0.1f, ch_y = S * 0.1f;
     blankMove(o, n, mx, -ch_x, 0);
     ap(o, n, mx, -ch_x, 0, lnR, lnG, lnB, 0);
     ap(o, n, mx,  ch_x, 0, lnR, lnG, lnB, 0);
@@ -738,7 +718,7 @@ static size_t dac_range_box(LaserPoint* o, size_t mx,
     ap(o, n, mx, 0,  ch_y, lnR, lnG, lnB, 0);
 
     // ── 50% reference box (dim) ───────────────────────────────────
-    float hx = sym_x * 0.5f, hy = sym_y * 0.5f;
+    float hx = S * 0.5f, hy = S * 0.5f;
     line(o, n, mx, -hx, -hy,  hx, -hy, lnR, lnG, lnB, 20);
     line(o, n, mx,  hx, -hy,  hx,  hy, lnR, lnG, lnB, 20);
     line(o, n, mx,  hx,  hy, -hx,  hy, lnR, lnG, lnB, 20);
