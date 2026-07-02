@@ -384,217 +384,105 @@
 <!-- ============= PRESETS ============= -->
 <section id="tab-presets" class="tab">
 
-  <!-- ── 3-Column Layout ───────────────────────────────────────────────────── -->
-  <div style="display:grid;grid-template-columns:minmax(260px,1.2fr) minmax(220px,1fr) minmax(260px,1.1fr);gap:14px;align-items:start">
-
-    <!-- ══ COLUMN 1: Preset Selector ═══════════════════════════════════════ -->
-    <div style="display:flex;flex-direction:column;gap:12px">
-
-      <div class="card" style="padding:14px">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
-          <h2 style="margin:0">🎭 Presets</h2>
-          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-            <span style="font-size:12px;color:var(--dim)">Active:</span>
-            <span id="preset-active-name" style="color:var(--blue);font-weight:600;font-size:12px">-- none --</span>
-            <button class="btn secondary" onclick="deactivatePreset()" style="padding:4px 10px;font-size:11px">⏹ Off</button>
-          </div>
-        </div>
-        <!-- Category filter -->
-        <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px" id="cat-filters"></div>
-        <!-- Preset grid -->
-        <div id="preset-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:7px;max-height:420px;overflow-y:auto;padding-right:2px"></div>
+  <!-- ══ GLOBAL CONTROLS — apply to every preset ═══════════════════════════ -->
+  <div class="card" style="padding:14px;margin-bottom:14px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+      <h2 style="margin:0">🎛 Global Controls</h2>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <span style="font-size:12px;color:var(--dim)">Active:</span>
+        <span id="preset-active-name" style="color:var(--blue);font-weight:600;font-size:12px">-- none --</span>
+        <button class="btn secondary" onclick="deactivatePreset()" style="padding:4px 10px;font-size:11px">⏹ Off</button>
+        <button class="btn secondary" onclick="resetLiveControls()" style="padding:4px 10px;font-size:11px">↺ Reset all</button>
       </div>
+    </div>
 
-      <!-- Mathematical Curves -->
-      <div class="card" style="padding:14px">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px">
-          <h2 style="margin:0">∿ Curves</h2>
-          <div style="display:flex;gap:8px;align-items:center">
-            <span id="curve-active-name" style="color:var(--accent);font-weight:600;font-size:12px">-- none --</span>
-            <button class="btn secondary" onclick="selectCurve(-1)" style="padding:4px 10px;font-size:11px">⏹ Off</button>
-          </div>
-        </div>
-        <div id="curve-btn-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:6px;margin-bottom:10px;max-height:200px;overflow-y:auto"></div>
-        <div id="curve-param-panel" style="display:none">
-          <hr style="border:0;border-top:1px solid var(--border);margin:0 0 10px">
-          <p id="curve-desc" style="color:var(--dim);font-size:12px;margin:0 0 10px;font-style:italic"></p>
-          <div id="curve-sliders" style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px"></div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
-            <span style="font-size:11px;color:var(--dim)">Color:</span>
-            <label style="font-size:11px">R <input type="range" min="0" max="255" id="curve-col-r" style="width:60px;vertical-align:middle" oninput="updateCurveColor()"></label>
-            <label style="font-size:11px">G <input type="range" min="0" max="255" id="curve-col-g" style="width:60px;vertical-align:middle" oninput="updateCurveColor()"></label>
-            <label style="font-size:11px">B <input type="range" min="0" max="255" id="curve-col-b" style="width:60px;vertical-align:middle" oninput="updateCurveColor()"></label>
-            <div id="curve-col-swatch" style="width:26px;height:18px;border-radius:3px;border:1px solid var(--border)"></div>
-          </div>
-          <button class="btn ok" onclick="resetCurveParams()" style="padding:4px 10px;font-size:11px">↺ Reset</button>
-        </div>
-      </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:16px">
 
-      <!-- Countdown Timer (compact) -->
-      <div class="card" style="padding:14px">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-          <h2 style="margin:0">⏱ Timer</h2>
-          <span id="timer-display" style="font-family:monospace;font-size:22px;color:var(--accent);letter-spacing:3px">00:00</span>
-        </div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
-          <div style="flex:1;min-width:60px">
-            <div style="font-size:10px;color:var(--dim);margin-bottom:3px">Hours</div>
-            <input type="number" id="timer-h" min="0" max="99" value="0" style="width:100%" oninput="updateTimerPreview()">
-          </div>
-          <div style="flex:1;min-width:60px">
-            <div style="font-size:10px;color:var(--dim);margin-bottom:3px">Minutes</div>
-            <input type="number" id="timer-m" min="0" max="59" value="5" style="width:100%" oninput="updateTimerPreview()">
-          </div>
-          <div style="flex:1;min-width:60px">
-            <div style="font-size:10px;color:var(--dim);margin-bottom:3px">Seconds</div>
-            <input type="number" id="timer-s" min="0" max="59" value="0" style="width:100%" oninput="updateTimerPreview()">
-          </div>
-        </div>
-        <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px">
-          <button class="btn ok"        onclick="timerSet()"   style="flex:1;font-size:11px;padding:5px 4px">⏲ Set</button>
-          <button class="btn ok"        onclick="timerStart()" style="flex:1;font-size:11px;padding:5px 4px">▶ Start</button>
-          <button class="btn secondary" onclick="timerPause()" style="flex:1;font-size:11px;padding:5px 4px">⏸ Pause</button>
-          <button class="btn danger"    onclick="timerStop()"  style="flex:1;font-size:11px;padding:5px 4px">■ Stop</button>
-          <button class="btn secondary" onclick="timerReset()" style="flex:1;font-size:11px;padding:5px 4px">↺</button>
-        </div>
-        <div style="padding:8px;background:#050510;border:1px solid var(--border);border-radius:5px">
-          <div style="font-family:monospace;font-size:10px;color:var(--accent);margin-bottom:6px">ON EXPIRE</div>
-          <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:5px">
-            <label style="font-size:11px;cursor:pointer"><input type="radio" name="timer-expire" value="none" checked> Nothing</label>
-            <label style="font-size:11px;cursor:pointer"><input type="radio" name="timer-expire" value="text"> Text</label>
-            <label style="font-size:11px;cursor:pointer"><input type="radio" name="timer-expire" value="ilda"> ILDA</label>
-          </div>
-          <div id="timer-expire-text" style="display:none;margin-top:4px">
-            <input type="text" id="timer-text-msg" placeholder="Time's up!" style="width:100%">
-          </div>
-          <div id="timer-expire-ilda" style="display:none;margin-top:4px">
-            <select id="timer-ilda-file" style="width:100%"><option value="">-- select ILDA file --</option></select>
-          </div>
-        </div>
-      </div>
-
-    </div><!-- /col1 -->
-
-    <!-- ══ COLUMN 2: Motion / Transform ═════════════════════════════════════ -->
-    <div style="display:flex;flex-direction:column;gap:12px">
-
-      <div class="card" style="padding:14px">
-        <h2>🎛 Controls</h2>
-
-        <!-- Speed + Size -->
-        <div style="margin-bottom:10px">
+      <!-- Speed / Size / Rotation / Mirror -->
+      <div>
+        <div style="margin-bottom:8px">
           <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:3px">
             <span id="lv-sp-label">Speed</span><span id="lv-sp-val" style="color:var(--accent);font-family:monospace">80</span>
           </div>
           <input type="range" id="lv-sp" min="0" max="255" value="80" oninput="liveSlider()">
         </div>
-        <div id="lv-spmul-row" style="display:none;margin-bottom:10px">
+        <div id="lv-spmul-row" style="display:none;margin-bottom:8px">
           <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:3px">
             <span>Speed Multiplier</span><span id="lv-spmul-val" style="color:var(--accent);font-family:monospace">1×</span>
           </div>
           <input type="range" id="lv-spmul" min="1" max="10" value="1" oninput="liveSlider()">
         </div>
-        <div style="margin-bottom:10px">
+        <div style="margin-bottom:8px">
           <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:3px">
             <span id="lv-sz-label">Size</span><span id="lv-sz-val" style="color:var(--accent);font-family:monospace">128</span>
           </div>
           <input type="range" id="lv-sz" min="10" max="255" value="128" oninput="liveSlider()">
         </div>
         <div id="lv-preset-hint" style="display:none;margin:0 0 8px;padding:8px;background:#050514;border:1px solid var(--border);border-radius:5px;font-size:11px;color:var(--dim);line-height:1.5"></div>
-
-        <!-- Rotation -->
-        <div style="margin-bottom:10px">
+        <div style="margin-bottom:8px">
           <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:3px">
             <span>Rotation (Z)</span><span id="lv-rot-val" style="color:var(--accent);font-family:monospace">0°</span>
           </div>
           <input type="range" id="lv-rot" min="-180" max="180" value="0" oninput="liveSlider()">
         </div>
-
-        <!-- Auto-Rotation block -->
-        <div style="padding:10px;background:#050510;border:1px solid var(--border);border-radius:6px;margin-bottom:10px">
-          <div style="font-family:monospace;font-size:10px;color:var(--accent);margin-bottom:8px">AUTO-ROTATION</div>
-          <label class="toggle" style="margin-bottom:8px">
-            <input type="checkbox" id="lv-autorot" onchange="toggleAutoRed(this.checked)">
-            <span class="slider"></span><span style="font-size:12px">Continuous rotation</span>
-          </label>
-          <div style="display:flex;flex-direction:column;gap:6px">
-            <div>
-              <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:2px">
-                <span>Z axis</span><span id="lv-rspd-z-val" style="color:var(--accent);font-family:monospace">20</span>
-              </div>
-              <input type="range" id="lv-rot-z" min="0" max="100" value="20"
-                oninput="document.getElementById('lv-rspd-z-val').textContent=this.value;sendLiveControls()">
-            </div>
-            <div>
-              <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:2px">
-                <span>Y axis (tilt)</span><span id="lv-rspd-y-val" style="color:var(--accent);font-family:monospace">0</span>
-              </div>
-              <input type="range" id="lv-rot-y" min="0" max="100" value="0"
-                oninput="document.getElementById('lv-rspd-y-val').textContent=this.value;sendLiveControls()">
-            </div>
-            <div>
-              <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:2px">
-                <span>X axis (pitch)</span><span id="lv-rspd-x-val" style="color:var(--accent);font-family:monospace">0</span>
-              </div>
-              <input type="range" id="lv-rot-x" min="0" max="100" value="0"
-                oninput="document.getElementById('lv-rspd-x-val').textContent=this.value;sendLiveControls()">
-            </div>
-            <div>
-              <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:2px">
-                <span>Master speed</span><span id="lv-rspd-val" style="color:var(--accent);font-family:monospace">20</span>
-              </div>
-              <input type="range" id="lv-rspd" min="1" max="100" value="20"
-                oninput="document.getElementById('lv-rspd-val').textContent=this.value;sendLiveControls()">
-            </div>
-          </div>
-        </div>
-
-        <!-- Mirror + Wave -->
-        <div style="display:flex;gap:14px;margin-bottom:10px">
+        <div style="display:flex;gap:14px">
           <label class="toggle"><input type="checkbox" id="lv-mx" onchange="liveSlider()"><span class="slider"></span>Mirror X</label>
           <label class="toggle"><input type="checkbox" id="lv-my" onchange="liveSlider()"><span class="slider"></span>Mirror Y</label>
         </div>
+      </div>
 
-        <!-- Wave Parameters (inline, compact) -->
-        <div style="padding:10px;background:#050510;border:1px solid var(--border);border-radius:6px">
-          <div style="font-family:monospace;font-size:10px;color:var(--accent);margin-bottom:8px">WAVE PARAMETERS <span style="color:var(--dim);font-family:sans-serif;font-style:italic">(#35–52)</span></div>
+      <!-- Auto-Rotation (applies to all presets) -->
+      <div style="padding:10px;background:#050510;border:1px solid var(--border);border-radius:6px">
+        <div style="font-family:monospace;font-size:10px;color:var(--accent);margin-bottom:8px">AUTO-ROTATION</div>
+        <label class="toggle" style="margin-bottom:8px">
+          <input type="checkbox" id="lv-autorot" onchange="toggleAutoRed(this.checked)">
+          <span class="slider"></span><span style="font-size:12px">Continuous rotation</span>
+        </label>
+        <div style="display:flex;flex-direction:column;gap:6px">
           <div>
             <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:2px">
-              <span>Amplitude</span><span id="lv-amp-val" style="color:var(--accent);font-family:monospace">1.00</span>
+              <span>Z axis</span><span id="lv-rspd-z-val" style="color:var(--accent);font-family:monospace">20</span>
             </div>
-            <input type="range" id="lv-amp" min="10" max="200" value="100" oninput="liveSlider()">
+            <input type="range" id="lv-rot-z" min="0" max="100" value="20"
+              oninput="document.getElementById('lv-rspd-z-val').textContent=this.value;sendLiveControls()">
           </div>
-          <div style="margin-top:6px">
+          <div>
             <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:2px">
-              <span>Frequency ×</span><span id="lv-freq-val" style="color:var(--accent);font-family:monospace">1.00</span>
+              <span>Y axis (tilt)</span><span id="lv-rspd-y-val" style="color:var(--accent);font-family:monospace">0</span>
             </div>
-            <input type="range" id="lv-freq" min="25" max="400" value="100" oninput="liveSlider()">
+            <input type="range" id="lv-rot-y" min="0" max="100" value="0"
+              oninput="document.getElementById('lv-rspd-y-val').textContent=this.value;sendLiveControls()">
+          </div>
+          <div>
+            <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:2px">
+              <span>X axis (pitch)</span><span id="lv-rspd-x-val" style="color:var(--accent);font-family:monospace">0</span>
+            </div>
+            <input type="range" id="lv-rot-x" min="0" max="100" value="0"
+              oninput="document.getElementById('lv-rspd-x-val').textContent=this.value;sendLiveControls()">
+          </div>
+          <div>
+            <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:2px">
+              <span>Master speed</span><span id="lv-rspd-val" style="color:var(--accent);font-family:monospace">20</span>
+            </div>
+            <input type="range" id="lv-rspd" min="1" max="100" value="20"
+              oninput="document.getElementById('lv-rspd-val').textContent=this.value;sendLiveControls()">
           </div>
         </div>
+      </div>
 
-        <button class="btn secondary" onclick="resetLiveControls()" style="width:100%;margin-top:10px;font-size:11px;padding:6px">↺ Reset all parameters</button>
-
-      </div><!-- /Controls card -->
-
-    </div><!-- /col2 -->
-
-    <!-- ══ COLUMN 3: Color ══════════════════════════════════════════════════ -->
-    <div style="display:flex;flex-direction:column;gap:12px">
-
-      <div class="card" style="padding:14px">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-          <h2 style="margin:0">🎨 Color</h2>
+      <!-- Color -->
+      <div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <span style="font-size:10px;color:var(--dim);font-family:monospace">COLOR</span>
           <label class="toggle" style="margin:0">
             <input type="checkbox" id="lv-col-on" onchange="liveSlider()">
             <span class="slider"></span>
             <span style="font-size:12px">Override</span>
           </label>
         </div>
-
-        <!-- Color Wheel -->
         <div style="display:flex;gap:14px;align-items:flex-start;margin-bottom:10px">
           <div style="position:relative;flex-shrink:0">
-            <canvas id="lv-color-wheel" width="160" height="160"
+            <canvas id="lv-color-wheel" width="120" height="120"
               style="border-radius:50%;cursor:crosshair;display:block"
               onclick="colorWheelClick(event)"
               onmousemove="colorWheelDrag(event)"
@@ -602,40 +490,28 @@
             <div id="lv-wheel-cursor" style="position:absolute;width:12px;height:12px;
               border-radius:50%;border:2px solid #fff;box-shadow:0 0 4px #000;
               pointer-events:none;transform:translate(-50%,-50%);
-              left:80px;top:80px"></div>
+              left:60px;top:60px"></div>
           </div>
           <div style="display:flex;flex-direction:column;gap:8px;justify-content:center">
             <div style="font-size:11px;color:var(--dim)">Brightness</div>
             <input type="range" id="lv-brightness" min="0" max="255" value="255"
-              style="writing-mode:vertical-lr;direction:rtl;height:100px;width:32px"
+              style="writing-mode:vertical-lr;direction:rtl;height:80px;width:28px"
               oninput="colorWheelBrightness(this.value)">
-            <div id="lv-col-preview" style="width:44px;height:26px;border-radius:5px;border:1px solid var(--border);background:rgb(255,255,255)"></div>
-            <div style="font-family:monospace;font-size:11px;color:var(--dim)" id="lv-col-hex">#ffffff</div>
+            <div id="lv-col-preview" style="width:40px;height:24px;border-radius:5px;border:1px solid var(--border);background:rgb(255,255,255)"></div>
+            <div style="font-family:monospace;font-size:10px;color:var(--dim)" id="lv-col-hex">#ffffff</div>
           </div>
         </div>
 
         <!-- Quick Color Buttons: primaries + mixes -->
-        <div style="margin-bottom:12px">
-          <div style="font-size:10px;color:var(--dim);font-family:monospace;margin-bottom:5px">QUICK COLORS</div>
+        <div style="margin-bottom:8px">
           <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px">
-            <!-- Row 1: pure colors -->
-            <div onclick="setQuickColor(255,0,0)"   title="Red"     style="height:26px;border-radius:4px;background:#f00;cursor:pointer;border:1px solid #333;transition:transform 0.1s" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform=''"></div>
-            <div onclick="setQuickColor(0,255,0)"   title="Green"   style="height:26px;border-radius:4px;background:#0f0;cursor:pointer;border:1px solid #333;transition:transform 0.1s" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform=''"></div>
-            <div onclick="setQuickColor(0,0,255)"   title="Blue"    style="height:26px;border-radius:4px;background:#00f;cursor:pointer;border:1px solid #333;transition:transform 0.1s" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform=''"></div>
-            <div onclick="setQuickColor(255,0,255)" title="R+B Magenta" style="height:26px;border-radius:4px;background:#f0f;cursor:pointer;border:1px solid #333;transition:transform 0.1s" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform=''"></div>
-            <div onclick="setQuickColor(255,255,0)" title="R+G Yellow"  style="height:26px;border-radius:4px;background:#ff0;cursor:pointer;border:1px solid #333;transition:transform 0.1s" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform=''"></div>
-            <div onclick="setQuickColor(0,255,255)" title="G+B Cyan"    style="height:26px;border-radius:4px;background:#0ff;cursor:pointer;border:1px solid #333;transition:transform 0.1s" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform=''"></div>
-            <div onclick="setQuickColor(255,255,255)" title="White"    style="height:26px;border-radius:4px;background:#fff;cursor:pointer;border:1px solid #555;transition:transform 0.1s" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform=''"></div>
-          </div>
-          <!-- Labels -->
-          <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-top:2px">
-            <div style="font-size:8px;color:var(--dim);text-align:center">R</div>
-            <div style="font-size:8px;color:var(--dim);text-align:center">G</div>
-            <div style="font-size:8px;color:var(--dim);text-align:center">B</div>
-            <div style="font-size:8px;color:var(--dim);text-align:center">R+B</div>
-            <div style="font-size:8px;color:var(--dim);text-align:center">R+G</div>
-            <div style="font-size:8px;color:var(--dim);text-align:center">G+B</div>
-            <div style="font-size:8px;color:var(--dim);text-align:center">W</div>
+            <div onclick="setQuickColor(255,0,0)"   title="Red"     style="height:22px;border-radius:4px;background:#f00;cursor:pointer;border:1px solid #333;transition:transform 0.1s" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform=''"></div>
+            <div onclick="setQuickColor(0,255,0)"   title="Green"   style="height:22px;border-radius:4px;background:#0f0;cursor:pointer;border:1px solid #333;transition:transform 0.1s" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform=''"></div>
+            <div onclick="setQuickColor(0,0,255)"   title="Blue"    style="height:22px;border-radius:4px;background:#00f;cursor:pointer;border:1px solid #333;transition:transform 0.1s" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform=''"></div>
+            <div onclick="setQuickColor(255,0,255)" title="R+B Magenta" style="height:22px;border-radius:4px;background:#f0f;cursor:pointer;border:1px solid #333;transition:transform 0.1s" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform=''"></div>
+            <div onclick="setQuickColor(255,255,0)" title="R+G Yellow"  style="height:22px;border-radius:4px;background:#ff0;cursor:pointer;border:1px solid #333;transition:transform 0.1s" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform=''"></div>
+            <div onclick="setQuickColor(0,255,255)" title="G+B Cyan"    style="height:22px;border-radius:4px;background:#0ff;cursor:pointer;border:1px solid #333;transition:transform 0.1s" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform=''"></div>
+            <div onclick="setQuickColor(255,255,255)" title="White"    style="height:22px;border-radius:4px;background:#fff;cursor:pointer;border:1px solid #555;transition:transform 0.1s" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform=''"></div>
           </div>
         </div>
 
@@ -646,99 +522,199 @@
         <span id="lv-r-val" style="display:none">255</span>
         <span id="lv-g-val" style="display:none">255</span>
         <span id="lv-b-val" style="display:none">255</span>
+      </div>
 
-        <!-- Color Animations -->
-        <div style="padding:10px;background:#050510;border:1px solid var(--border);border-radius:6px">
-          <div style="font-family:monospace;font-size:10px;color:var(--accent);margin-bottom:8px">COLOR ANIMATIONS</div>
+    </div>
+  </div><!-- /Global Controls card -->
 
-          <!-- Animation type tabs -->
-          <div style="display:flex;gap:3px;flex-wrap:wrap;margin-bottom:8px" id="anim-type-btns">
-            <button onclick="setAnimType('gradient')" id="anim-btn-gradient" class="btn secondary" style="flex:1;font-size:10px;padding:4px 2px;min-width:0">Gradient</button>
-            <button onclick="setAnimType('chase')"    id="anim-btn-chase"    class="btn secondary" style="flex:1;font-size:10px;padding:4px 2px;min-width:0">Chase</button>
-            <button onclick="setAnimType('strobe')"   id="anim-btn-strobe"   class="btn secondary" style="flex:1;font-size:10px;padding:4px 2px;min-width:0">Strobe</button>
-            <button onclick="setAnimType('pulse')"    id="anim-btn-pulse"    class="btn secondary" style="flex:1;font-size:10px;padding:4px 2px;min-width:0">Pulse</button>
-            <button onclick="setAnimType('twinkle')"  id="anim-btn-twinkle"  class="btn secondary" style="flex:1;font-size:10px;padding:4px 2px;min-width:0">Twinkle</button>
-            <button onclick="setAnimType('colorflip')"id="anim-btn-colorflip"class="btn secondary" style="flex:1;font-size:10px;padding:4px 2px;min-width:0">Flip</button>
-            <button onclick="setAnimType('segment')"  id="anim-btn-segment"  class="btn secondary" style="flex:1;font-size:10px;padding:4px 2px;min-width:0">Seg</button>
-          </div>
+  <!-- ══ PRESET UNITS ═══════════════════════════════════════════════════════ -->
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;align-items:start">
 
-          <!-- Gradient sequence grid (shown for gradient type) -->
-          <div id="anim-panel-gradient">
-            <div id="grad-seq-grid" style="display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-bottom:8px"></div>
-          </div>
+    <!-- General shapes: spans full width -->
+    <div class="card" style="padding:14px;grid-column:1 / -1">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+        <h2 style="margin:0">🎭 Presets</h2>
+      </div>
+      <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px" id="cat-filters"></div>
+      <div id="preset-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:7px;max-height:420px;overflow-y:auto;padding-right:2px"></div>
+    </div>
 
-          <!-- Chase: color sequence selector -->
-          <div id="anim-panel-chase" style="display:none">
-            <div style="font-size:10px;color:var(--dim);margin-bottom:5px">Color sequence for Chase</div>
-            <div id="chase-seq-grid" style="display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-bottom:8px"></div>
+    <!-- Waves: selector + own parameters -->
+    <div class="card" style="padding:14px">
+      <h2 style="margin:0 0 10px">〰 Waves</h2>
+      <div id="waves-preset-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:6px;max-height:260px;overflow-y:auto;margin-bottom:10px"></div>
+      <div style="padding:10px;background:#050510;border:1px solid var(--border);border-radius:6px">
+        <div style="font-family:monospace;font-size:10px;color:var(--accent);margin-bottom:8px">WAVE PARAMETERS</div>
+        <div>
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:2px">
+            <span>Amplitude</span><span id="lv-amp-val" style="color:var(--accent);font-family:monospace">1.00</span>
           </div>
-
-          <!-- Strobe: color picker -->
-          <div id="anim-panel-strobe" style="display:none">
-            <div style="font-size:10px;color:var(--dim);margin-bottom:5px">Strobe color</div>
-            <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px">
-              <div onclick="setStrobeColor(255,255,255)" style="width:28px;height:22px;background:#fff;border-radius:3px;cursor:pointer;border:2px solid transparent" id="sc-w"></div>
-              <div onclick="setStrobeColor(255,0,0)"     style="width:28px;height:22px;background:#f00;border-radius:3px;cursor:pointer;border:2px solid transparent" id="sc-r"></div>
-              <div onclick="setStrobeColor(0,255,0)"     style="width:28px;height:22px;background:#0f0;border-radius:3px;cursor:pointer;border:2px solid transparent" id="sc-g"></div>
-              <div onclick="setStrobeColor(0,0,255)"     style="width:28px;height:22px;background:#00f;border-radius:3px;cursor:pointer;border:2px solid transparent" id="sc-b"></div>
-              <div onclick="setStrobeColor(255,0,255)"   style="width:28px;height:22px;background:#f0f;border-radius:3px;cursor:pointer;border:2px solid transparent" id="sc-m"></div>
-              <div onclick="setStrobeColor(0,255,255)"   style="width:28px;height:22px;background:#0ff;border-radius:3px;cursor:pointer;border:2px solid transparent" id="sc-c"></div>
-              <div onclick="setStrobeColor(255,255,0)"   style="width:28px;height:22px;background:#ff0;border-radius:3px;cursor:pointer;border:2px solid transparent" id="sc-y"></div>
-            </div>
-          </div>
-
-          <!-- Pulse: color -->
-          <div id="anim-panel-pulse" style="display:none">
-            <div style="font-size:10px;color:var(--dim);margin-bottom:5px">Pulse color</div>
-            <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px">
-              <div onclick="setPulseColor(255,255,255)" style="width:28px;height:22px;background:#fff;border-radius:3px;cursor:pointer;border:2px solid transparent" id="pc-w"></div>
-              <div onclick="setPulseColor(255,0,0)"     style="width:28px;height:22px;background:#f00;border-radius:3px;cursor:pointer;border:2px solid transparent" id="pc-r"></div>
-              <div onclick="setPulseColor(0,255,0)"     style="width:28px;height:22px;background:#0f0;border-radius:3px;cursor:pointer;border:2px solid transparent" id="pc-g"></div>
-              <div onclick="setPulseColor(0,0,255)"     style="width:28px;height:22px;background:#00f;border-radius:3px;cursor:pointer;border:2px solid transparent" id="pc-b"></div>
-              <div onclick="setPulseColor(255,0,255)"   style="width:28px;height:22px;background:#f0f;border-radius:3px;cursor:pointer;border:2px solid transparent" id="pc-m"></div>
-              <div onclick="setPulseColor(0,255,255)"   style="width:28px;height:22px;background:#0ff;border-radius:3px;cursor:pointer;border:2px solid transparent" id="pc-c"></div>
-              <div onclick="setPulseColor(255,200,0)"   style="width:28px;height:22px;background:#fc0;border-radius:3px;cursor:pointer;border:2px solid transparent" id="pc-y"></div>
-            </div>
-          </div>
-
-          <!-- Twinkle / ColorFlip: no extra config needed -->
-          <div id="anim-panel-twinkle"   style="display:none">
-            <div style="font-size:10px;color:var(--dim);margin-bottom:8px">Random brightness spikes on current color — simulates spark/glitter effect.</div>
-          </div>
-          <div id="anim-panel-colorflip" style="display:none">
-            <div style="font-size:10px;color:var(--dim);margin-bottom:8px">Hard cuts between R, G, B, W at the set speed.</div>
-          </div>
-          <div id="anim-panel-segment" style="display:none">
-            <div style="font-size:10px;color:var(--dim);margin-bottom:5px">Color palette for segments</div>
-            <div id="seg-seq-grid" style="display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-bottom:8px"></div>
-            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-              <span style="font-size:11px;color:var(--dim);white-space:nowrap">Segments</span>
-              <input type="range" id="seg-count-slider" min="1" max="10" value="4"
-                oninput="document.getElementById('seg-count-val').textContent=this.value;applyGradient()">
-              <span id="seg-count-val" style="color:var(--accent);font-family:monospace;min-width:16px">4</span>
-            </div>
-          </div>
-
-          <!-- Speed + Direction (shared) -->
-          <div style="margin-bottom:6px">
-            <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:3px">
-              <span>Speed</span><span id="grad-speed-val" style="color:var(--accent);font-family:monospace">50</span>
-            </div>
-            <input type="range" id="grad-speed" min="0" max="255" value="60"
-              oninput="document.getElementById('grad-speed-val').textContent=this.value;applyGradient()">
-          </div>
-          <div style="display:flex;gap:10px;margin-bottom:8px" id="anim-dir-row">
-            <label style="font-size:11px;cursor:pointer"><input type="radio" name="grad-dir" value="1"  checked onchange="applyGradient()"> → Fwd</label>
-            <label style="font-size:11px;cursor:pointer"><input type="radio" name="grad-dir" value="-1"        onchange="applyGradient()"> ← Rev</label>
-          </div>
-          <button class="btn secondary" onclick="stopGradient()" style="width:100%;font-size:11px;padding:5px">⏹ Stop Animation</button>
+          <input type="range" id="lv-amp" min="10" max="200" value="100" oninput="liveSlider()">
         </div>
+        <div style="margin-top:6px">
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:2px">
+            <span>Frequency ×</span><span id="lv-freq-val" style="color:var(--accent);font-family:monospace">1.00</span>
+          </div>
+          <input type="range" id="lv-freq" min="25" max="400" value="100" oninput="liveSlider()">
+        </div>
+      </div>
+    </div>
 
-      </div><!-- /Color card -->
+    <!-- 3D Presets: selector, rotation via global Auto-Rotation -->
+    <div class="card" style="padding:14px">
+      <h2 style="margin:0 0 10px">◆ 3D Presets</h2>
+      <div id="td-preset-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:6px;max-height:260px;overflow-y:auto"></div>
+      <div style="margin-top:8px;font-size:11px;color:var(--dim)">Rotation is controlled by Auto-Rotation above.</div>
+    </div>
 
-    </div><!-- /col3 -->
+    <!-- Mathematical Curves -->
+    <div class="card" style="padding:14px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px">
+        <h2 style="margin:0">∿ Curves</h2>
+        <div style="display:flex;gap:8px;align-items:center">
+          <span id="curve-active-name" style="color:var(--accent);font-weight:600;font-size:12px">-- none --</span>
+          <button class="btn secondary" onclick="selectCurve(-1)" style="padding:4px 10px;font-size:11px">⏹ Off</button>
+        </div>
+      </div>
+      <div id="curve-btn-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:6px;margin-bottom:10px;max-height:200px;overflow-y:auto"></div>
+      <div id="curve-param-panel" style="display:none">
+        <hr style="border:0;border-top:1px solid var(--border);margin:0 0 10px">
+        <p id="curve-desc" style="color:var(--dim);font-size:12px;margin:0 0 10px;font-style:italic"></p>
+        <div id="curve-sliders" style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px"></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
+          <span style="font-size:11px;color:var(--dim)">Color:</span>
+          <label style="font-size:11px">R <input type="range" min="0" max="255" id="curve-col-r" style="width:60px;vertical-align:middle" oninput="updateCurveColor()"></label>
+          <label style="font-size:11px">G <input type="range" min="0" max="255" id="curve-col-g" style="width:60px;vertical-align:middle" oninput="updateCurveColor()"></label>
+          <label style="font-size:11px">B <input type="range" min="0" max="255" id="curve-col-b" style="width:60px;vertical-align:middle" oninput="updateCurveColor()"></label>
+          <div id="curve-col-swatch" style="width:26px;height:18px;border-radius:3px;border:1px solid var(--border)"></div>
+        </div>
+        <button class="btn ok" onclick="resetCurveParams()" style="padding:4px 10px;font-size:11px">↺ Reset</button>
+      </div>
+    </div>
 
-  </div><!-- /3-col grid -->
+    <!-- Color Animations -->
+    <div class="card" style="padding:14px">
+      <h2 style="margin:0 0 10px">🎬 Color Animations</h2>
+      <div style="display:flex;gap:3px;flex-wrap:wrap;margin-bottom:8px" id="anim-type-btns">
+        <button onclick="setAnimType('gradient')" id="anim-btn-gradient" class="btn secondary" style="flex:1;font-size:10px;padding:4px 2px;min-width:0">Gradient</button>
+        <button onclick="setAnimType('chase')"    id="anim-btn-chase"    class="btn secondary" style="flex:1;font-size:10px;padding:4px 2px;min-width:0">Chase</button>
+        <button onclick="setAnimType('strobe')"   id="anim-btn-strobe"   class="btn secondary" style="flex:1;font-size:10px;padding:4px 2px;min-width:0">Strobe</button>
+        <button onclick="setAnimType('pulse')"    id="anim-btn-pulse"    class="btn secondary" style="flex:1;font-size:10px;padding:4px 2px;min-width:0">Pulse</button>
+        <button onclick="setAnimType('twinkle')"  id="anim-btn-twinkle"  class="btn secondary" style="flex:1;font-size:10px;padding:4px 2px;min-width:0">Twinkle</button>
+        <button onclick="setAnimType('colorflip')"id="anim-btn-colorflip"class="btn secondary" style="flex:1;font-size:10px;padding:4px 2px;min-width:0">Flip</button>
+        <button onclick="setAnimType('segment')"  id="anim-btn-segment"  class="btn secondary" style="flex:1;font-size:10px;padding:4px 2px;min-width:0">Seg</button>
+      </div>
+
+      <div id="anim-panel-gradient">
+        <div id="grad-seq-grid" style="display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-bottom:8px"></div>
+      </div>
+
+      <div id="anim-panel-chase" style="display:none">
+        <div style="font-size:10px;color:var(--dim);margin-bottom:5px">Color sequence for Chase</div>
+        <div id="chase-seq-grid" style="display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-bottom:8px"></div>
+      </div>
+
+      <div id="anim-panel-strobe" style="display:none">
+        <div style="font-size:10px;color:var(--dim);margin-bottom:5px">Strobe color</div>
+        <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px">
+          <div onclick="setStrobeColor(255,255,255)" style="width:28px;height:22px;background:#fff;border-radius:3px;cursor:pointer;border:2px solid transparent" id="sc-w"></div>
+          <div onclick="setStrobeColor(255,0,0)"     style="width:28px;height:22px;background:#f00;border-radius:3px;cursor:pointer;border:2px solid transparent" id="sc-r"></div>
+          <div onclick="setStrobeColor(0,255,0)"     style="width:28px;height:22px;background:#0f0;border-radius:3px;cursor:pointer;border:2px solid transparent" id="sc-g"></div>
+          <div onclick="setStrobeColor(0,0,255)"     style="width:28px;height:22px;background:#00f;border-radius:3px;cursor:pointer;border:2px solid transparent" id="sc-b"></div>
+          <div onclick="setStrobeColor(255,0,255)"   style="width:28px;height:22px;background:#f0f;border-radius:3px;cursor:pointer;border:2px solid transparent" id="sc-m"></div>
+          <div onclick="setStrobeColor(0,255,255)"   style="width:28px;height:22px;background:#0ff;border-radius:3px;cursor:pointer;border:2px solid transparent" id="sc-c"></div>
+          <div onclick="setStrobeColor(255,255,0)"   style="width:28px;height:22px;background:#ff0;border-radius:3px;cursor:pointer;border:2px solid transparent" id="sc-y"></div>
+        </div>
+      </div>
+
+      <div id="anim-panel-pulse" style="display:none">
+        <div style="font-size:10px;color:var(--dim);margin-bottom:5px">Pulse color</div>
+        <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px">
+          <div onclick="setPulseColor(255,255,255)" style="width:28px;height:22px;background:#fff;border-radius:3px;cursor:pointer;border:2px solid transparent" id="pc-w"></div>
+          <div onclick="setPulseColor(255,0,0)"     style="width:28px;height:22px;background:#f00;border-radius:3px;cursor:pointer;border:2px solid transparent" id="pc-r"></div>
+          <div onclick="setPulseColor(0,255,0)"     style="width:28px;height:22px;background:#0f0;border-radius:3px;cursor:pointer;border:2px solid transparent" id="pc-g"></div>
+          <div onclick="setPulseColor(0,0,255)"     style="width:28px;height:22px;background:#00f;border-radius:3px;cursor:pointer;border:2px solid transparent" id="pc-b"></div>
+          <div onclick="setPulseColor(255,0,255)"   style="width:28px;height:22px;background:#f0f;border-radius:3px;cursor:pointer;border:2px solid transparent" id="pc-m"></div>
+          <div onclick="setPulseColor(0,255,255)"   style="width:28px;height:22px;background:#0ff;border-radius:3px;cursor:pointer;border:2px solid transparent" id="pc-c"></div>
+          <div onclick="setPulseColor(255,200,0)"   style="width:28px;height:22px;background:#fc0;border-radius:3px;cursor:pointer;border:2px solid transparent" id="pc-y"></div>
+        </div>
+      </div>
+
+      <div id="anim-panel-twinkle"   style="display:none">
+        <div style="font-size:10px;color:var(--dim);margin-bottom:8px">Random brightness spikes on current color — simulates spark/glitter effect.</div>
+      </div>
+      <div id="anim-panel-colorflip" style="display:none">
+        <div style="font-size:10px;color:var(--dim);margin-bottom:8px">Hard cuts between R, G, B, W at the set speed.</div>
+      </div>
+      <div id="anim-panel-segment" style="display:none">
+        <div style="font-size:10px;color:var(--dim);margin-bottom:5px">Color palette for segments</div>
+        <div id="seg-seq-grid" style="display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-bottom:8px"></div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+          <span style="font-size:11px;color:var(--dim);white-space:nowrap">Segments</span>
+          <input type="range" id="seg-count-slider" min="1" max="10" value="4"
+            oninput="document.getElementById('seg-count-val').textContent=this.value;applyGradient()">
+          <span id="seg-count-val" style="color:var(--accent);font-family:monospace;min-width:16px">4</span>
+        </div>
+      </div>
+
+      <div style="margin-bottom:6px">
+        <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:3px">
+          <span>Speed</span><span id="grad-speed-val" style="color:var(--accent);font-family:monospace">50</span>
+        </div>
+        <input type="range" id="grad-speed" min="0" max="255" value="60"
+          oninput="document.getElementById('grad-speed-val').textContent=this.value;applyGradient()">
+      </div>
+      <div style="display:flex;gap:10px;margin-bottom:8px" id="anim-dir-row">
+        <label style="font-size:11px;cursor:pointer"><input type="radio" name="grad-dir" value="1"  checked onchange="applyGradient()"> → Fwd</label>
+        <label style="font-size:11px;cursor:pointer"><input type="radio" name="grad-dir" value="-1"        onchange="applyGradient()"> ← Rev</label>
+      </div>
+      <button class="btn secondary" onclick="stopGradient()" style="width:100%;font-size:11px;padding:5px">⏹ Stop Animation</button>
+    </div>
+
+    <!-- Countdown Timer (standalone utility) -->
+    <div class="card" style="padding:14px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <h2 style="margin:0">⏱ Timer</h2>
+        <span id="timer-display" style="font-family:monospace;font-size:22px;color:var(--accent);letter-spacing:3px">00:00</span>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
+        <div style="flex:1;min-width:60px">
+          <div style="font-size:10px;color:var(--dim);margin-bottom:3px">Hours</div>
+          <input type="number" id="timer-h" min="0" max="99" value="0" style="width:100%" oninput="updateTimerPreview()">
+        </div>
+        <div style="flex:1;min-width:60px">
+          <div style="font-size:10px;color:var(--dim);margin-bottom:3px">Minutes</div>
+          <input type="number" id="timer-m" min="0" max="59" value="5" style="width:100%" oninput="updateTimerPreview()">
+        </div>
+        <div style="flex:1;min-width:60px">
+          <div style="font-size:10px;color:var(--dim);margin-bottom:3px">Seconds</div>
+          <input type="number" id="timer-s" min="0" max="59" value="0" style="width:100%" oninput="updateTimerPreview()">
+        </div>
+      </div>
+      <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px">
+        <button class="btn ok"        onclick="timerSet()"   style="flex:1;font-size:11px;padding:5px 4px">⏲ Set</button>
+        <button class="btn ok"        onclick="timerStart()" style="flex:1;font-size:11px;padding:5px 4px">▶ Start</button>
+        <button class="btn secondary" onclick="timerPause()" style="flex:1;font-size:11px;padding:5px 4px">⏸ Pause</button>
+        <button class="btn danger"    onclick="timerStop()"  style="flex:1;font-size:11px;padding:5px 4px">■ Stop</button>
+        <button class="btn secondary" onclick="timerReset()" style="flex:1;font-size:11px;padding:5px 4px">↺</button>
+      </div>
+      <div style="padding:8px;background:#050510;border:1px solid var(--border);border-radius:5px">
+        <div style="font-family:monospace;font-size:10px;color:var(--accent);margin-bottom:6px">ON EXPIRE</div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:5px">
+          <label style="font-size:11px;cursor:pointer"><input type="radio" name="timer-expire" value="none" checked> Nothing</label>
+          <label style="font-size:11px;cursor:pointer"><input type="radio" name="timer-expire" value="text"> Text</label>
+          <label style="font-size:11px;cursor:pointer"><input type="radio" name="timer-expire" value="ilda"> ILDA</label>
+        </div>
+        <div id="timer-expire-text" style="display:none;margin-top:4px">
+          <input type="text" id="timer-text-msg" placeholder="Time's up!" style="width:100%">
+        </div>
+        <div id="timer-expire-ilda" style="display:none;margin-top:4px">
+          <select id="timer-ilda-file" style="width:100%"><option value="">-- select ILDA file --</option></select>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /Preset Units grid -->
 
 </section>
 
@@ -3213,11 +3189,12 @@ let s_activePresetIdx = -1;
 
 async function loadPresets() {
     buildCatFilters();
-    renderPresets();
+    renderAllPresetGrids();
 }
 
 function buildCatFilters() {
-    const cats = [...new Set(PRESET_DEFS.map(p => p.cat))];
+    const cats = [...new Set(PRESET_DEFS.map(p => p.cat))]
+        .filter(cat => cat !== 'Waves' && cat !== '3D');
     const root = document.getElementById('cat-filters');
     root.innerHTML = `<button class="btn ${s_activeCat===''?'':'secondary'}"
       style="padding:6px 12px;font-size:12px" onclick="filterCat('')">All</button>`;
@@ -3239,30 +3216,50 @@ function filterCat(cat) {
 
 function renderPresets() {
     const grid = document.getElementById('preset-grid');
+    const generalPresets = PRESET_DEFS.filter(p => p.cat !== 'Waves' && p.cat !== '3D');
     const filtered = s_activeCat
-        ? PRESET_DEFS.filter(p => p.cat === s_activeCat)
-        : PRESET_DEFS;
+        ? generalPresets.filter(p => p.cat === s_activeCat)
+        : generalPresets;
     grid.innerHTML = filtered.map(p => {
-        const bg   = CAT_COLORS_PRESET[p.cat] || '#1f1f1f';
-        const active = p.idx === s_activePresetIdx;
-        const border = active ? 'var(--accent)' : 'transparent';
-        return `<div onclick="activatePreset(${p.idx})"
-          style="background:${active?'rgba(255,48,96,.18)':bg};
-                 border:2px solid ${border};border-radius:8px;
-                 cursor:pointer;transition:all 0.15s;text-align:center;
-                 overflow:hidden;position:relative"
-          onmouseover="this.style.opacity='0.85'"
-          onmouseout="this.style.opacity='1'">
-          <div style="pointer-events:none;line-height:0">${p.svg}</div>
-          <div style="padding:5px 4px 6px;position:relative">
-            <div style="font-size:9px;color:rgba(255,255,255,0.45);margin-bottom:2px">
-              #${String(p.idx).padStart(2,'0')}</div>
-            <div style="font-weight:600;font-size:11px;color:${active?'var(--accent)':'#e8e8e8'};
-                        white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-                        padding:0 4px">${p.name}</div>
-          </div>
-        </div>`;
+        const bg = CAT_COLORS_PRESET[p.cat] || '#1f1f1f';
+        return presetTileHtml(p, bg);
     }).join('');
+}
+
+// Dedicated grid for a single category, used by units that bundle their
+// own controls (Waves, 3D) instead of sharing the general filterable grid.
+function renderPresetCategoryGrid(containerId, cat) {
+    const grid = document.getElementById(containerId);
+    if (!grid) return;
+    const filtered = PRESET_DEFS.filter(p => p.cat === cat);
+    grid.innerHTML = filtered.map(p => presetTileHtml(p, '#1f1f1f')).join('');
+}
+
+function presetTileHtml(p, bg) {
+    const active = p.idx === s_activePresetIdx;
+    const border = active ? 'var(--accent)' : 'transparent';
+    return `<div onclick="activatePreset(${p.idx})"
+      style="background:${active?'rgba(255,48,96,.18)':bg};
+             border:2px solid ${border};border-radius:8px;
+             cursor:pointer;transition:all 0.15s;text-align:center;
+             overflow:hidden;position:relative"
+      onmouseover="this.style.opacity='0.85'"
+      onmouseout="this.style.opacity='1'">
+      <div style="pointer-events:none;line-height:0">${p.svg}</div>
+      <div style="padding:5px 4px 6px;position:relative">
+        <div style="font-size:9px;color:rgba(255,255,255,0.45);margin-bottom:2px">
+          #${String(p.idx).padStart(2,'0')}</div>
+        <div style="font-weight:600;font-size:11px;color:${active?'var(--accent)':'#e8e8e8'};
+                    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+                    padding:0 4px">${p.name}</div>
+      </div>
+    </div>`;
+}
+
+function renderAllPresetGrids() {
+    renderPresets();
+    renderPresetCategoryGrid('waves-preset-grid', 'Waves');
+    renderPresetCategoryGrid('td-preset-grid', '3D');
 }
 
 async function activatePreset(idx) {
@@ -3272,7 +3269,7 @@ async function activatePreset(idx) {
         const p = PRESET_DEFS.find(x => x.idx === idx);
         document.getElementById('preset-active-name').textContent =
             p ? `${p.name} (${p.cat})` : `#${idx}`;
-        renderPresets();
+        renderAllPresetGrids();
         updatePresetHint(idx);
         toast(`Preset: ${p ? p.name : idx}`);
     }
@@ -3315,7 +3312,7 @@ async function deactivatePreset() {
     if (r !== null) {
         s_activePresetIdx = -1;
         document.getElementById('preset-active-name').textContent = '-- none --';
-        renderPresets();
+        renderAllPresetGrids();
         toast('Preset off');
     }
 }
