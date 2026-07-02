@@ -13,10 +13,12 @@
  *   3 = PSU HY-60W             (transformer)
  *   4 = Ambient (enclosure center)     (reference / fan-fail detect)
  *
- * Protection cascade:
- *   >= WARN_C  → fans to 100%, WebUI-Warning
- *   >= ALERT_C → Laser-ARM disarmed (safety::requestArm(false))
- *   >= CRIT_C  → immediate shutdown: safety::emergencyStop()
+ * Protection cascade (per-sensor thresholds[] layered with the
+ * global, user-configurable gSafety thresholds):
+ *   >= WARN_C   → fans to 100%, WebUI warning
+ *   >= REDUCE_C → laser power scaled to 50% (gSafety.temp_reduce_c)
+ *   >= ALERT_C  → Laser-ARM disarmed (safety::requestArm(false))
+ *   >= CRIT_C   → immediate shutdown: safety::emergencyStop()
  */
 
 #include "config.h"
@@ -66,12 +68,13 @@ struct TempState {
     float    temp_raw[NUM_SENSORS];      // Raw reading before offset
     bool     sensor_ok[NUM_SENSORS];     // sensor present and readable
     bool     warn_active[NUM_SENSORS];   // warning threshold exceeded
-    bool     alert_active[NUM_SENSORS];  // Alert-threshold exceeded
-    bool     crit_active[NUM_SENSORS];   // Kritisch-threshold exceeded
-    uint8_t  fan1_duty;                  // Fan 1 Duty-Cycle 0..255
-    uint8_t  fan2_duty;                  // Fan 2 Duty-Cycle 0..255
-    bool     any_alert;                  // Irgendein Alert active
-    bool     any_crit;                   // Irgendein Crit active
+    bool     alert_active[NUM_SENSORS];  // alert threshold exceeded
+    bool     crit_active[NUM_SENSORS];   // critical threshold exceeded
+    uint8_t  fan1_duty;                  // Fan 1 duty cycle 0..255
+    uint8_t  fan2_duty;                  // Fan 2 duty cycle 0..255
+    bool     any_alert;                  // any sensor in alert
+    bool     any_crit;                   // any sensor in critical
+    bool     any_reduce;                 // any sensor >= gSafety.temp_reduce_c
     uint32_t last_read_ms;
 };
 

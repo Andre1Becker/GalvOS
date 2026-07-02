@@ -555,12 +555,14 @@ static void IRAM_ATTR galvoTask(void*) {
                     }
                 } else {
                     writeDAC8562XY((uint16_t)x, (uint16_t)y);
-                    // PWM duty: 8-bit. Apply dimmer + gain.
+                    // PWM duty: 8-bit. Apply dimmer + thermal scale + gain.
                     uint8_t dim = gState.master_dimmer.load();  // atomic load
-                    // FIX: s_snap instead of gConfig — Race-Condition-frei
-                    uint8_t r = (uint8_t)(((uint32_t)p.r * dim * s_snap.gain_r) / (255UL * 255));
-                    uint8_t g = (uint8_t)(((uint32_t)p.g * dim * s_snap.gain_g) / (255UL * 255));
-                    uint8_t b = (uint8_t)(((uint32_t)p.b * dim * s_snap.gain_b) / (255UL * 255));
+                    uint8_t thermalScale = gState.thermal_power_scale.load();  // atomic load
+                    uint8_t dimEff = (uint8_t)(((uint16_t)dim * thermalScale) / 255);
+                    // FIX: s_snap instead of gConfig — race-condition-free
+                    uint8_t r = (uint8_t)(((uint32_t)p.r * dimEff * s_snap.gain_r) / (255UL * 255));
+                    uint8_t g = (uint8_t)(((uint32_t)p.g * dimEff * s_snap.gain_g) / (255UL * 255));
+                    uint8_t b = (uint8_t)(((uint32_t)p.b * dimEff * s_snap.gain_b) / (255UL * 255));
                     rgbWrite(r, g, b);
                     s_laser_off_hold = LASER_OFF_HOLD_TICKS;
                 }

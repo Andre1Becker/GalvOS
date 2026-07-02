@@ -203,6 +203,7 @@ struct RuntimeState {
     std::atomic<bool>     scanfail_ok       {false};
     std::atomic<uint8_t>  source            {0};      // ControlSource
     std::atomic<uint8_t>  master_dimmer     {0};
+    std::atomic<uint8_t>  thermal_power_scale {255};  // 255=100%; set by temp::task() via gSafety.temp_reduce_c
     std::atomic<uint32_t> points_per_sec    {0};
     std::atomic<uint32_t> dmx_frame_count   {0};
     std::atomic<uint32_t> last_dmx_ms       {0};

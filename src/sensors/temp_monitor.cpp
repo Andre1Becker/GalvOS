@@ -207,8 +207,11 @@ void scanAndLogSensors() {
 // Fan regulation (proportional to highest temperature)
 // ============================================================
 static uint8_t calcFanDuty() {
+    uint8_t minDuty = (uint8_t)((uint16_t)gSafety.fan_min_pct * 255 / 100);
+    if (!gSafety.fan_auto) return minDuty;
+
     // Use the most critical sensor as control variable
-    float worst_ratio = 0.0f;
+    float worstRatio = 0.0f;
     for (uint8_t i = 0; i < NUM_SENSORS; i++) {
         if (!gTempState.sensor_ok[i]) continue;
         float t = gTempState.temp_c[i];
@@ -216,15 +219,14 @@ static uint8_t calcFanDuty() {
         float a = thresholds[i].alert;
         // Ratio: 0.0 at t <= warn, 1.0 at t >= alert
         float ratio = (t - w) / (a - w);
-        if (ratio > worst_ratio) worst_ratio = ratio;
+        if (ratio > worstRatio) worstRatio = ratio;
     }
-    worst_ratio = constrain(worst_ratio, 0.0f, 1.0f);
+    worstRatio = constrain(worstRatio, 0.0f, 1.0f);
 
-    // Unter Warn-threshold: 35% minimum speed (quiet but safely running)
-    // At warning threshold: 70%
+    // At/below warn threshold: gSafety.fan_min_pct (quiet but safely running)
     // At alert threshold: 100%
-    uint8_t duty = (uint8_t)(38.0f + worst_ratio * 217.0f);  // 38..255
-    return duty;
+    uint16_t range = 255 - minDuty;
+    return (uint8_t)(minDuty + worstRatio * range);
 }
 
 // ============================================================
@@ -261,8 +263,9 @@ void task(void*) {
         // ---- fetch result (375ms after request) ----
         if (conversion_pending && now - last_request >= 400) {
             conversion_pending = false;
-            gTempState.any_alert = false;
-            gTempState.any_crit  = false;
+            gTempState.any_alert  = false;
+            gTempState.any_crit   = false;
+            gTempState.any_reduce = false;
 
             for (uint8_t i = 0; i < NUM_SENSORS; i++) {
                 float t = DEVICE_DISCONNECTED_C;
@@ -276,9 +279,12 @@ void task(void*) {
                 gTempState.temp_c[i]    = t_cal;
 
                 if (ok) {
-                    gTempState.warn_active[i]  = (t_cal >= thresholds[i].warn);
+                    // Per-sensor defaults (thresholds[]) layered with the
+                    // user-configurable global net (gSafety, /api/safety/config)
+                    gTempState.warn_active[i]  = (t_cal >= thresholds[i].warn)  || (t_cal >= gSafety.temp_warn_c);
                     gTempState.alert_active[i] = (t_cal >= thresholds[i].alert);
-                    gTempState.crit_active[i]  = (t_cal >= thresholds[i].crit);
+                    gTempState.crit_active[i]  = (t_cal >= thresholds[i].crit)  || (t_cal >= gSafety.temp_shutdown_c);
+                    if (t_cal >= gSafety.temp_reduce_c) gTempState.any_reduce = true;
 
                     if (gTempState.alert_active[i]) {
                         gTempState.any_alert = true;
@@ -310,10 +316,16 @@ void task(void*) {
                 ESP_LOGW(TAG, "Laser disarmed due to temperature alert");
             }
 
+            // ---- Thermal power reduction (gSafety.temp_reduce_c) ----
+            gState.thermal_power_scale.store(gTempState.any_reduce ? 128 : 255);
+            if (gTempState.any_reduce) {
+                ESP_LOGW(TAG, "Laser power reduced to 50%% (thermal reduce threshold)");
+            }
+
             // ---- Fan regulation ----
             uint8_t auto_duty = calcFanDuty();
-            // on alert/crit: always 100%
-            if (gTempState.any_alert || gTempState.any_crit) auto_duty = 255;
+            // on alert/crit/reduce: always 100%
+            if (gTempState.any_alert || gTempState.any_crit || gTempState.any_reduce) auto_duty = 255;
 
             for (uint8_t f = 0; f < 2; f++) {
                 if (s_fan_override[f] == 255) {
