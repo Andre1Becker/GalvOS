@@ -776,26 +776,30 @@ void applyCalibration(LaserPoint* pts, size_t n) {
     // 7 fields directly in the loop could mix old/new values mid-frame.
     int16_t x_gain, y_gain, x_off, y_off;
     bool swap, inv_x, inv_y;
+    uint16_t dacLimitMin, dacLimitMax;
     if (xSemaphoreTake(mtx::config, pdMS_TO_TICKS(2)) == pdTRUE) {
         x_gain = gConfig.galvo_x_gain; y_gain = gConfig.galvo_y_gain;
         x_off  = gConfig.galvo_x_offset; y_off = gConfig.galvo_y_offset;
         swap   = gConfig.swap_xy; inv_x = gConfig.invert_x; inv_y = gConfig.invert_y;
+        dacLimitMin = gConfig.dac_limit_min; dacLimitMax = gConfig.dac_limit_max;
         xSemaphoreGive(mtx::config);
     } else {
         // Mutex busy: skip calibration this frame rather than risk a torn read.
         return;
     }
+    int32_t limLo = (int32_t)dacLimitMin - 0x8000;
+    int32_t limHi = (int32_t)dacLimitMax - 0x8000;
     for (size_t i = 0; i < n; i++) {
         int32_t x = pts[i].x, y = pts[i].y;
+        if (swap) { int32_t tmp = x; x = y; y = tmp; }
+        if (inv_x) x = -x;
+        if (inv_y) y = -y;
         x = (int32_t)x * x_gain / 32767;
         y = (int32_t)y * y_gain / 32767;
         x += x_off;
         y += y_off;
-        if (swap) { int32_t tmp = x; x = y; y = tmp; }
-        if (inv_x) x = -x;
-        if (inv_y) y = -y;
-        pts[i].x = (int16_t)constrain(x, -32767, 32767);
-        pts[i].y = (int16_t)constrain(y, -32767, 32767);
+        pts[i].x = (int16_t)constrain(x, limLo, limHi);
+        pts[i].y = (int16_t)constrain(y, limLo, limHi);
     }
 }
 
