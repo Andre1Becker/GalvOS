@@ -6,6 +6,7 @@
 #include "curve_patterns.h"
 #include "ilda/ilda_player.h"
 #include "control/dmx_in.h"
+#include "net/artnet_in.h"
 #include "output/galvo_out.h"
 #include "safety/safety.h"
 #include "util/log_buffer.h"
@@ -169,11 +170,14 @@ static void readDmx(DmxView& v) {
     if (gOverride.active || gState.ui_override.load()) {
         for (int i = 0; i < DMX_CHANNELS_USED; i++) raw[i] = gOverride.values[i];
         gState.source = SRC_WEBUI;
+    } else if (artnet_in::isReceiving()) {
+        artnet_in::getChannels(raw);
+        gState.source = SRC_ARTNET;
     } else if (dmx_in::isReceiving()) {
         dmx_in::getChannels(raw);
         gState.source = SRC_DMX;
     } else {
-        // No DMX and no UI override — use gOverride.values as safe defaults
+        // No Art-Net, no DMX and no UI override — use gOverride.values as safe defaults
         // (hmove=128=center, vmove=128=center, rotation=0, etc.)
         for (int i = 0; i < DMX_CHANNELS_USED; i++) raw[i] = gOverride.values[i];
         gState.source = SRC_WEBUI;
