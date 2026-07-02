@@ -403,7 +403,7 @@ static void applyColorAnim(size_t n) {
         s_anim_phase += (uint32_t)aspd * 10 + 10;
         const uint8_t (*stops)[3] = GRAD[aseq];
         int nstops = 0;
-        while (nstops < 6 && !(stops[nstops][0]==0xFF && stops[nstops][1]==0xFF)) nstops++;
+        while (nstops < 6 && !(stops[nstops][0]==0xFF && stops[nstops][1]==0xFF && stops[nstops][2]==0xFF)) nstops++;
         if (nstops < 2) nstops = 2;
         uint32_t range = 65536UL / (nstops - 1);
         uint32_t ph    = s_anim_phase & 0xFFFF;
@@ -420,13 +420,13 @@ static void applyColorAnim(size_t n) {
         if (s_chase_acc >= 4096) {
             s_chase_acc -= 4096;
             int nc = 0;
-            while (nc < 6 && !(CHASE[aseq][nc][0]==0xFF && CHASE[aseq][nc][1]==0xFF)) nc++;
+            while (nc < 6 && !(CHASE[aseq][nc][0]==0xFF && CHASE[aseq][nc][1]==0xFF && CHASE[aseq][nc][2]==0xFF)) nc++;
             if (nc < 1) nc = 1;
             s_chase_step = (s_chase_step + 1) % nc;
         }
         {
             int nc = 0;
-            while (nc < 6 && !(CHASE[aseq][nc][0]==0xFF && CHASE[aseq][nc][1]==0xFF)) nc++;
+            while (nc < 6 && !(CHASE[aseq][nc][0]==0xFF && CHASE[aseq][nc][1]==0xFF && CHASE[aseq][nc][2]==0xFF)) nc++;
             if (nc < 1) nc = 1;
             uint8_t step = s_chase_step % nc;
             ar = CHASE[aseq][step][0]; ag = CHASE[aseq][step][1]; ab = CHASE[aseq][step][2];
