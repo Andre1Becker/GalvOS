@@ -6,7 +6,6 @@ namespace mtx {
 SemaphoreHandle_t config  = nullptr;
 SemaphoreHandle_t state   = nullptr;
 SemaphoreHandle_t sd      = nullptr;
-SemaphoreHandle_t preview = nullptr;
 SemaphoreHandle_t zone    = nullptr;
 
 void init() {

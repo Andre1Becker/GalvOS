@@ -249,7 +249,6 @@ struct WebOverride {
 };
 
 extern WebOverride gOverride;
-extern PreviewSnapshot gPreview;
 
 /* ============================================================
  * Live-Preset-Controls
