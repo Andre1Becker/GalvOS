@@ -65,11 +65,6 @@ static void denyUnauth(AsyncWebServerRequest* req) {
 }
 
 static AsyncWebSocket s_ws("/ws");
-static volatile bool s_preview_active = false;
-
-// Preview-Snapshot
-struct PreviewSnapshot gPreview;
-
 // WiFi-Scan Status
 static volatile bool   s_scan_running = false;
 static volatile int    s_scan_results = 0;
@@ -249,77 +244,6 @@ static void buildConfigJson(JsonDocument& doc) {
 }
 
 /* ============================================================
- * Preview Frame
- * ============================================================ */
-void publishPreviewFrame(const LaserPoint* pts, size_t count) {
-    if (!gPreview.mux) return;
-    if (xSemaphoreTake(gPreview.mux, 0) != pdTRUE) return;
-    static const size_t MAX_PV = 200;
-    size_t out = 0;
-    if (count <= MAX_PV) {
-        for (size_t i = 0; i < count; i++) gPreview.points[out++] = pts[i];
-    } else {
-        size_t step = count / MAX_PV;
-        for (size_t i = 0; i < count && out < MAX_PV; i++) {
-            if (pts[i].blank || (i % step == 0))
-                gPreview.points[out++] = pts[i];
-        }
-    }
-    gPreview.count = out;
-    xSemaphoreGive(gPreview.mux);
-}
-
-static void streamPreviewToWs() {
-    if (!gPreview.mux || s_ws.count() == 0 || !s_preview_active) return;
-
-    // Rate-Limit: max. 10 fps (100ms) — verhindert WS-Queue-Overflow
-    static uint32_t s_last_ws_ms = 0;
-    uint32_t now = millis();
-    if (now - s_last_ws_ms < 200) return; // 5fps Preview
-
-    s_ws.cleanupClients(2);
-    if (s_ws.count() == 0) return;
-
-    // Only send if no client still has messages in the queue
-    // Per-client queue check: send only if all clients ready
-    if (!s_ws.availableForWriteAll()) return;
-
-    if (xSemaphoreTake(gPreview.mux, pdMS_TO_TICKS(2)) != pdTRUE) return;
-    size_t n = gPreview.count;
-    static uint8_t buf[2 + 200 * 8];
-    buf[0] = n & 0xFF;
-    buf[1] = (n >> 8) & 0xFF;
-    for (size_t i = 0; i < n; i++) {
-        uint8_t* p = &buf[2 + i * 8];
-        p[0] = gPreview.points[i].x & 0xFF;
-        p[1] = (gPreview.points[i].x >> 8) & 0xFF;
-        p[2] = gPreview.points[i].y & 0xFF;
-        p[3] = (gPreview.points[i].y >> 8) & 0xFF;
-        p[4] = gPreview.points[i].r;
-        p[5] = gPreview.points[i].g;
-        p[6] = gPreview.points[i].b;
-        p[7] = gPreview.points[i].blank;
-    }
-    xSemaphoreGive(gPreview.mux);
-
-    // binaryAll() returns true if queued to all clients.
-    // Track consecutive failures; if the queue stays full too long,
-    // clean up stale clients rather than hammering the lwIP pool.
-    static uint8_t s_ws_fail_count = 0;
-    if (s_ws.count() > 0 && !s_ws.availableForWriteAll()) {
-        if (++s_ws_fail_count > 10) {
-            s_ws.cleanupClients(0);   // force-close clients with full queues
-            s_ws_fail_count = 0;
-            ESP_LOGW("ws", "Preview: forced WS client cleanup after queue full");
-        }
-        return;  // don't send into a full queue
-    }
-    s_ws_fail_count = 0;
-    s_ws.binaryAll(buf, 2 + n * 8);
-    s_last_ws_ms = now;
-}
-
-/* ============================================================
  * WiFi scan task (background, blocking ~3s)
  * ============================================================ */
 static void wifiScanTask(void*) {
@@ -338,8 +262,6 @@ static void wifiScanTask(void*) {
  * ============================================================ */
 void init() {
     generateAuthToken();
-    gPreview.mux   = xSemaphoreCreateMutex();
-    gPreview.count = 0;
     loadZone();
 
     if (!LittleFS.begin(true))
@@ -1371,28 +1293,9 @@ void init() {
             ESP_LOGI(TAG, "WS #%u connected", c->id());
         } else if (type == WS_EVT_DISCONNECT) {
             ESP_LOGI(TAG, "WS #%u disconnected", c->id());
-            if (s->count() == 0) s_preview_active = false;
-            // New client connected — enable preview stream automatically
-            if (type == WS_EVT_CONNECT) s_preview_active = true;
-        } else if (type == WS_EVT_DATA && len > 0) {
-            if (len >= 10 && memcmp(data, "preview:on",  10) == 0) s_preview_active = false; // client-side rendering
-            if (len >= 11 && memcmp(data, "preview:off", 11) == 0) s_preview_active = false;
         }
     });
     s_server.addHandler(&s_ws);
-
-
-    // ---- GET /preview-standalone + /preview.html ---- Standalone-Preview ----
-    auto servePreview = [](AsyncWebServerRequest* req) {
-        if (!LittleFS.exists("/preview.html")) {
-            req->send(404, "text/plain", "preview.html not in LittleFS - run uploadfs");
-            return;
-        }
-        req->send(LittleFS, "/preview.html", "text/html", false);
-    };
-    s_server.on("/preview-standalone", HTTP_GET, servePreview);
-    s_server.on("/preview.html",        HTTP_GET, servePreview);
-
 
     // ═══ POST /api/debug/hw — Hardware debug: Galvo + Laser direkt setzen ════
     // Allowed: laser_armed=true OR gDebugNoHW=true
@@ -1850,18 +1753,15 @@ void init() {
 }
 
 /* ============================================================
- * Task: State 10 Hz, Preview 30 Hz
+ * Task: WS client housekeeping + CPU monitor
  * ============================================================ */
 void task(void*) {
-    // WS task: send ONLY binary preview frames.
     // State updates run via HTTP /api/status (browser polls every 1s).
     // This greatly reduces core 0 load: no JSON serialization in the task loop.
     for (;;) {
         s_ws.cleanupClients(2);
-        streamPreviewToWs();           // only if s_preview_active && 200ms elapsed
         cpu_mon::update();             // has internal 500ms rate-limit
-        vTaskDelay(pdMS_TO_TICKS(20)); // short delay; streamPreviewToWs has its own rate-limit
+        vTaskDelay(pdMS_TO_TICKS(20));
     }
 }
-
 }  // namespace web_ui

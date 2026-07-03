@@ -39,7 +39,6 @@ RuntimeState     gState;
 SafetyConfig     gSafety;
 PlaylistConfig   gPlaylist;
 WebOverride      gOverride;
-PreviewSnapshot  gPreview;
 LivePresetControls gLivePreset;
 TextConfig       gTextConfig;
 CurveConfig      gCurves;
@@ -369,7 +368,7 @@ void setup() {
     // Core 1 = exclusive for galvoTask (busy-wait, highest priority)
     // -> patterns::task on core 1 would starve (task starvation)
     // → Core 0 shares CPU fairly (FreeRTOS round-robin at equal priority)
-    startTask(patterns::task, "pattern", 8192,  2, 0); // p=2: preview calculation
+    startTask(patterns::task, "pattern", 8192,  2, 0); // p=2: pattern calculation
     galvo::start();   // starts galvoTask on core 1 at highest priority
 
     // SD card init runs in a separate one-shot task on Core 0.

@@ -13,10 +13,9 @@ void init() {
     config  = xSemaphoreCreateMutex();
     state   = xSemaphoreCreateMutex();
     sd      = xSemaphoreCreateMutex();
-    preview = xSemaphoreCreateMutex();
     zone    = xSemaphoreCreateMutex();
-    ESP_LOGI("mtx", "5 Mutexes created");
-    configASSERT(config && state && sd && preview && zone);
+    ESP_LOGI("mtx", "4 Mutexes created");
+    configASSERT(config && state && sd && zone);
 }
 
 } // namespace mtx

@@ -10,8 +10,7 @@
  *   4  CALIB_CHANNEL_SEP      channel separation test (7 colors)
  *   5  CALIB_SATURATION       saturation spoke wheel
  *
- * All patterns apply gamma + white balance from gConfig,
- * so the projected image exactly matches the preview simulation.
+ * All patterns apply gamma + white balance from gConfig.
  *
  * API: POST /api/calib-pattern {"idx": 0-5, "brightness": 200}
  *      GET  /api/calib-pattern/list

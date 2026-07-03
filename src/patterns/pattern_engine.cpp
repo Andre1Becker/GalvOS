@@ -531,7 +531,6 @@ void task(void*) {
             gState.master_dimmer.store(255);
             if (n == 0) { static LaserPoint blank_pt={0,0,0,0,0,1}; galvo::pushFrame(&blank_pt,1); vTaskDelay(pdMS_TO_TICKS(50)); continue; }  // max 20fps — headroom for galvoTask drain
             applyCalibration(s_frame, n);
-            web_ui::publishPreviewFrame(s_frame, n);   // immer
             { uint32_t _t0=millis(); while (!galvo::pushFrame(s_frame, n)) { if (millis()-_t0 > 500) { safety::emergencyStop(); LOG_E(logbuf::CAT_SAFETY,"Pattern engine: pushFrame timeout, emergency stop"); break; } vTaskDelay(pdMS_TO_TICKS(2)); } }
             vTaskDelay(pdMS_TO_TICKS(50));
             if (millis() - s_test_started > 10000) s_test_pattern = -1;
@@ -547,7 +546,6 @@ void task(void*) {
             size_t n = ilda::getFrame(s_frame, PATTERN_POINTS_MAX);
             if (n > 0) {
                 applyCalibration(s_frame, n);
-                web_ui::publishPreviewFrame(s_frame, n);
                 if (gState.master_dimmer.load() > 0) {
                     { uint32_t _t0=millis(); while (!galvo::pushFrame(s_frame, n)) { if (millis()-_t0 > 500) { safety::emergencyStop(); LOG_E(logbuf::CAT_SAFETY,"Pattern engine: pushFrame timeout, emergency stop"); break; } vTaskDelay(pdMS_TO_TICKS(2)); } }
                 } else {
@@ -568,7 +566,6 @@ void task(void*) {
                 safe_ph, gState.calib_bright, gState.calib_channel);
             if (n > 0) {
                 applyCalibration(s_frame, n);
-                web_ui::publishPreviewFrame(s_frame, n);
                 if (gState.master_dimmer.load() > 0 || gState.ui_master_dimmer.load() > 0) {
                     { uint32_t _t0=millis(); while (!galvo::pushFrame(s_frame, n)) { if (millis()-_t0 > 500) { safety::emergencyStop(); LOG_E(logbuf::CAT_SAFETY,"Pattern engine: pushFrame timeout, emergency stop"); break; } vTaskDelay(pdMS_TO_TICKS(2)); } }
                     { uint32_t drain_ms = n / (uint32_t)gProjection.galvo_kpps;
@@ -592,7 +589,6 @@ void task(void*) {
             if (n == 0) { static LaserPoint blank_pt={0,0,0,0,0,1}; galvo::pushFrame(&blank_pt,1); vTaskDelay(pdMS_TO_TICKS(40)); continue; }  // guard
             // ESP_LOGI("TXT","frame n=%d", (int)n);
             applyCalibration(s_frame, n);
-            web_ui::publishPreviewFrame(s_frame, n);
             if (gState.master_dimmer.load() > 0) {
                 { uint32_t _t0=millis(); while (!galvo::pushFrame(s_frame, n)) { if (millis()-_t0 > 500) { safety::emergencyStop(); LOG_E(logbuf::CAT_SAFETY,"Pattern engine: pushFrame timeout, emergency stop"); break; } vTaskDelay(pdMS_TO_TICKS(2)); } }
             } else {
@@ -640,7 +636,6 @@ void task(void*) {
                     }
                 }
                 applyCalibration(s_frame, n);
-                web_ui::publishPreviewFrame(s_frame, n);
                 if (dim > 0) {
                     { uint32_t _t0=millis(); while (!galvo::pushFrame(s_frame, n)) { if (millis()-_t0 > 500) { safety::emergencyStop(); LOG_E(logbuf::CAT_SAFETY,"Pattern engine: pushFrame timeout, emergency stop"); break; } vTaskDelay(pdMS_TO_TICKS(2)); } }
                 } else {
@@ -757,7 +752,6 @@ void task(void*) {
             }
             applyTransform(s_frame, n, v, phase);
             applyCalibration(s_frame, n);
-            web_ui::publishPreviewFrame(s_frame, n);
             if (gState.master_dimmer.load() > 0) {
                 { uint32_t _t0=millis(); while (!galvo::pushFrame(s_frame, n)) { if (millis()-_t0 > 500) { safety::emergencyStop(); LOG_E(logbuf::CAT_SAFETY,"Pattern engine: pushFrame timeout, emergency stop"); break; } vTaskDelay(pdMS_TO_TICKS(2)); } }
             } else {
@@ -775,7 +769,7 @@ void task(void*) {
             continue;
         }
 
-        // always fully calculate Pattern (for Preview)
+        // always fully calculate pattern (also needed for non-preset galvo output)
         size_t n = genPattern(v, s_frame);
         uint8_t r, g, b;
         resolveColor(v.color, r, g, b);
@@ -783,8 +777,7 @@ void task(void*) {
         if (v.color >= 90 && v.color <= 92) applyRainbow(s_frame, n, v.color_speed, phase);
         applyTransform(s_frame, n, v, phase);
         applyCalibration(s_frame, n);
-        web_ui::publishPreviewFrame(s_frame, n);
-
+       
         // Galvo-Output: only if Dimmer > 0 (honor Laser-Closure )
         if (gState.master_dimmer.load() == 0) {
             // Send a blanked point so galvos do not stand still

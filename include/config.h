@@ -249,14 +249,6 @@ struct WebOverride {
 };
 
 extern WebOverride gOverride;
-
-// Pattern buffer snapshot for preview (atomically filled by pattern task)
-struct PreviewSnapshot {
-    SemaphoreHandle_t mux;
-    LaserPoint        points[512];   // sampled subset
-    size_t            count;
-};
-
 extern PreviewSnapshot gPreview;
 
 /* ============================================================

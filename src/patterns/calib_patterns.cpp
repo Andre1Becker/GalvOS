@@ -1,8 +1,7 @@
 /**
  * calib_patterns.cpp -- calibration and color-gradient test patterns
  *
- * IMPORTANT: all patterns apply gamma LUT + white balance,
- * so that real laser projection matches the preview simulation.
+ * IMPORTANT: all patterns apply gamma LUT + white balance.
  *
  * Coordinates: +-32767 (ILDA default, 16-bit signed)
  * SC = 32767 * 0.88 = 28834 (laesst 6% Rand)
