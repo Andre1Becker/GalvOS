@@ -114,6 +114,24 @@ static uint8_t cornerPointCount(float exterior_angle_rad,
     return (uint8_t)lroundf(pts);
 }
 
+// Corner dwell point count at vertex i of a segment. Depends on the
+// exterior angle formed with its neighbors; falls back to
+// cfg.min_corner_pts if vertex i has no neighbor on one side (open-path
+// endpoint). Shared by planSegment(), emitSegment(), and the closed-path
+// second dwell at vertex 0 so all three agree on the same count.
+static uint8_t cornerPtsAtVertex(const PathSegment& seg,
+                                  const OptimizerConfig& cfg, size_t i) {
+    bool hasIncoming = seg.closed || i > 0;
+    bool hasOutgoing = seg.closed || i + 1 < seg.count;
+    if (!hasIncoming || !hasOutgoing) return cfg.min_corner_pts;
+    size_t prev = (i == 0) ? seg.count - 1 : i - 1;
+    size_t next = (i + 1) % seg.count;
+    float angle = exteriorAngle(seg.vertices[prev].x, seg.vertices[prev].y,
+                                 seg.vertices[i].x, seg.vertices[i].y,
+                                 seg.vertices[next].x, seg.vertices[next].y);
+    return cornerPointCount(angle, cfg);
+}
+
 // Interior (non-endpoint) sample count for one straight edge of the
 // given length, before the corner points at either end.
 static uint16_t edgeInteriorCount(float length, const OptimizerConfig& cfg) {
@@ -147,28 +165,15 @@ static uint16_t planSegment(const PathSegment& seg, const OptimizerConfig& cfg,
     uint32_t corner_total = 0, interior_total = 0;
 
     for (size_t i = 0; i < seg.count; i++) {
-        // Corner point count at vertex i (only meaningful if this vertex
-        // has both an incoming and outgoing edge -- true for all vertices
-        // on a closed path, and for interior vertices on an open path).
-        bool has_incoming = seg.closed || i > 0;
-        bool has_outgoing = seg.closed || i + 1 < seg.count;
-        uint8_t cpts = cfg.min_corner_pts;
-        if (has_incoming && has_outgoing) {
-            size_t pi = (i == 0) ? seg.count - 1 : i - 1;
-            size_t ni = (i + 1) % seg.count;
-            float ang = exteriorAngle(seg.vertices[pi].x, seg.vertices[pi].y,
-                                       seg.vertices[i].x, seg.vertices[i].y,
-                                       seg.vertices[ni].x, seg.vertices[ni].y);
-            cpts = cornerPointCount(ang, cfg);
-        }
-        corner_total += cpts;
+        corner_total += cornerPtsAtVertex(seg, cfg, i);
     }
 
     if (seg.closed) {
-        // Reserve budget for the closing point emitted in emitSegment()
-        // for closed paths -- fixed overhead, not scaled with interior
+        // Reserve budget for vertex 0's second corner dwell, emitted at
+        // the end of emitSegment() for closed paths -- same size as its
+        // frame-start dwell, fixed overhead, not scaled with interior
         // density.
-        corner_total += 1;
+        corner_total += cornerPtsAtVertex(seg, cfg, 0);
     }
 
     for (size_t e = 0; e < edge_count; e++) {
@@ -209,15 +214,7 @@ static void emitSegment(const PathSegment& seg, const OptimizerConfig& cfg,
         // Only emitted once per vertex -- i.e. on the edge where it is
         // the *start* -- so each corner appears exactly once in the
         // output, not once per adjacent edge.
-        bool has_incoming = seg.closed || a > 0;
-        bool has_outgoing = seg.closed || a + 1 < seg.count;
-        uint8_t cpts = cfg.min_corner_pts;
-        if (has_incoming && has_outgoing) {
-            size_t pi = (a == 0) ? seg.count - 1 : a - 1;
-            float ang = exteriorAngle(seg.vertices[pi].x, seg.vertices[pi].y,
-                                       va.x, va.y, vb.x, vb.y);
-            cpts = cornerPointCount(ang, cfg);
-        }
+        uint8_t cpts = cornerPtsAtVertex(seg, cfg, a);
         bool first_point_overall = (e == 0);
         for (uint8_t k = 0; k < cpts; k++) {
             emit(out, n, max, va.x, va.y, va.r, va.g, va.b,
@@ -244,15 +241,18 @@ static void emitSegment(const PathSegment& seg, const OptimizerConfig& cfg,
         emit(out, n, max, vlast.x, vlast.y, vlast.r, vlast.g, vlast.b, 0);
     } else {
         // Closed path: the wrap-around edge's interior points approach
-        // vertex 0 (t < 1) but never land on it -- vertex 0's own corner
-        // point was emitted once, at frame start (e == 0). Without this
-        // point the segment ends short of vertex 0 and the trailing
-        // closing blank (laser off) covers the gap, leaving a visible
-        // seam on every closed preset. Close it with one more lit point.
+        // vertex 0 but never land on it. A single closing point wasn't
+        // enough for the galvo to actually settle there on short/fast
+        // edges (residual gap, worse at small Size). Give vertex 0 a
+        // second full corner dwell here -- same point count as its
+        // frame-start dwell -- so the beam has time to arrive before
+        // the trailing closing blank turns the laser off.
         const PathVertex& v0 = seg.vertices[0];
-        emit(out, n, max, v0.x, v0.y, v0.r, v0.g, v0.b, 0);
+        uint8_t cpts = cornerPtsAtVertex(seg, cfg, 0);
+        for (uint8_t k = 0; k < cpts; k++) {
+            emit(out, n, max, v0.x, v0.y, v0.r, v0.g, v0.b, 0);
+        }
     }
-}
 
 // ── public entry point ───────────────────────────────────────────────────
 
