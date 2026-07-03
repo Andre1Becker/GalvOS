@@ -253,6 +253,7 @@ static void emitSegment(const PathSegment& seg, const OptimizerConfig& cfg,
             emit(out, n, max, v0.x, v0.y, v0.r, v0.g, v0.b, 0);
         }
     }
+}
 
 // ── public entry point ───────────────────────────────────────────────────
 
