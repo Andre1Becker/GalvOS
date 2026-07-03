@@ -795,8 +795,8 @@ void applyCalibration(LaserPoint* pts, size_t n) {
         y = (int32_t)y * y_gain / 32767;
         x += x_off;
         y += y_off;
-        pts[i].x = (int16_t)constrain(x, -32767, 32767);
-        pts[i].y = (int16_t)constrain(y, -32767, 32767);
+        pts[i].x = (int16_t)constrain(x, limLo, limHi);
+        pts[i].y = (int16_t)constrain(y, limLo, limHi);
     }
 }
 
