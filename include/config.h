@@ -373,6 +373,30 @@ struct CurveConfig {
 };
 extern CurveConfig gCurves;
 
+// ── Paint-by-Finger Canvas ───────────────────────────────────────────────────
+// Freeform/shape drawing composed in the WebUI, projected as an optimized
+// point cloud (see paint_patterns.cpp). Vertices are pre-simplified
+// client-side; count/stroke_count guard iteration so a partially-filled
+// canvas never reads stale geometry. Written via /api/paint/set, guarded by
+// mtx::paint (dedicated mutex -- same write-tear fix pattern as gZone).
+#define PAINT_STROKES_MAX      12   // max strokes/shapes per canvas
+#define PAINT_VERTS_PER_STROKE 96   // max vertices per stroke (client-simplified)
+
+struct PaintStroke {
+    uint16_t count  = 0;             // vertices used in x[]/y[]
+    bool     closed = false;         // true = polygon (rect/triangle/circle), false = open path
+    uint8_t  r = 255, g = 255, b = 255;
+    float    x[PAINT_VERTS_PER_STROKE];
+    float    y[PAINT_VERTS_PER_STROKE];
+};
+
+struct PaintConfig {
+    volatile bool    active       = false;  // Paint mode active (overrides curve+preset+DMX)
+    volatile uint8_t stroke_count = 0;      // strokes used in strokes[]
+    PaintStroke      strokes[PAINT_STROKES_MAX];
+};
+extern PaintConfig gPaint;
+
 // ── Projection & Galvo Rate Configuration ───────────────────────────────────
 struct ProjectionConfig {
     // Galvo sample rate — user-adjustable at runtime
