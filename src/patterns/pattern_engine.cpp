@@ -197,6 +197,15 @@ static void readDmx(DmxView& v) {
         ilda::gILDA.size_val = raw[DMX_ILDA_SIZE]    ? raw[DMX_ILDA_SIZE]    : 128;
         ilda::gILDA.loop     = (raw[DMX_ILDA_LOOP]  > 0);
     }
+    // Color-Animation DMX channels (CH23-25). Only applied on real DMX/Art-Net
+    // input -- WebUI sets gLivePreset.col_anim_* directly (/api/preset) and
+    // must not be overwritten by gOverride.values fallback data.
+    if (gState.source == SRC_DMX || gState.source == SRC_ARTNET) {
+        uint8_t animType = raw[DMX_COL_ANIM_TYPE];
+        gLivePreset.col_anim_type  = (animType <= COL_ANIM_FLIP) ? (ColAnimType)animType : COL_ANIM_OFF;
+        gLivePreset.col_anim_seq   = raw[DMX_COL_ANIM_SEQ];
+        gLivePreset.col_anim_speed = raw[DMX_COL_ANIM_SPEED];
+    }
 }
 
 static uint8_t resolveMasterDimmer(uint8_t v) {

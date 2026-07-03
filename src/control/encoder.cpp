@@ -3,6 +3,7 @@
 #include "config.h"
 #include "patterns/calib_patterns.h"
 #include "patterns/preset_patterns.h"
+#include "patterns/pattern_engine.h"
 #include "storage/sd_card.h"
 #include "ilda/ilda_player.h"
 #include <Arduino.h>
@@ -59,10 +60,11 @@ static void applyDelta(int32_t delta) {
     if (delta == 0) return;
     switch (s_mode) {
         case MODE_PRESET: {
-            // cycle preset index, save in gLivePreset
+            // cycle preset index, activate via pattern engine
             static uint8_t enc_preset = 0;
             enc_preset = (uint8_t)constrain((int)enc_preset + delta, 0, presets::PRESET_COUNT - 1);
             gLivePreset.pattern_idx = enc_preset;
+            patterns::setPreset((int8_t)enc_preset);
             break;
         }
         case MODE_DIMMER: {

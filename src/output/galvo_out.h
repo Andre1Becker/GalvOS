@@ -28,6 +28,10 @@ void init();
 void start();
 void stop();
 
+// Recomputes the RGB gamma-correction lookup table for the given exponent
+// (gConfig.gamma_val, 1.0-3.0). Called at boot and after /api/config changes.
+void rebuildGammaLut(float gamma);
+
 // Feed pattern: copies points into the next free ring buffer slot
 // Non-blocking, returns false if buffer full.
 bool pushFrame(const LaserPoint* points, size_t count);

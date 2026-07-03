@@ -451,7 +451,10 @@ void init() {
             if (doc["gain_g"].is<int>()) gConfig.gain_g = doc["gain_g"];
             if (doc["gain_b"].is<int>()) gConfig.gain_b = doc["gain_b"];
             if (doc["gamma_enable"].is<bool>()) gConfig.gamma_enable = doc["gamma_enable"];
-            if (doc["gamma_val"].is<float>()) gConfig.gamma_val = constrain((float)doc["gamma_val"], 1.0f, 3.0f);
+            if (doc["gamma_val"].is<float>()) {
+                gConfig.gamma_val = constrain((float)doc["gamma_val"], 1.0f, 3.0f);
+                galvo::rebuildGammaLut(gConfig.gamma_val);
+            }
             if (doc["dac_limit_min"].is<int>() && doc["dac_limit_max"].is<int>()) {
                 int lo = constrain((int)doc["dac_limit_min"], 0, 65535);
                 int hi = constrain((int)doc["dac_limit_max"], 0, 65535);
