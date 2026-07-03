@@ -164,6 +164,13 @@ static uint16_t planSegment(const PathSegment& seg, const OptimizerConfig& cfg,
         corner_total += cpts;
     }
 
+    if (seg.closed) {
+        // Reserve budget for the closing point emitted in emitSegment()
+        // for closed paths -- fixed overhead, not scaled with interior
+        // density.
+        corner_total += 1;
+    }
+
     for (size_t e = 0; e < edge_count; e++) {
         size_t a = e, b = (e + 1) % seg.count;
         float dx = seg.vertices[b].x - seg.vertices[a].x;
@@ -235,6 +242,15 @@ static void emitSegment(const PathSegment& seg, const OptimizerConfig& cfg,
     if (!seg.closed) {
         const PathVertex& vlast = seg.vertices[seg.count - 1];
         emit(out, n, max, vlast.x, vlast.y, vlast.r, vlast.g, vlast.b, 0);
+    } else {
+        // Closed path: the wrap-around edge's interior points approach
+        // vertex 0 (t < 1) but never land on it -- vertex 0's own corner
+        // point was emitted once, at frame start (e == 0). Without this
+        // point the segment ends short of vertex 0 and the trailing
+        // closing blank (laser off) covers the gap, leaving a visible
+        // seam on every closed preset. Close it with one more lit point.
+        const PathVertex& v0 = seg.vertices[0];
+        emit(out, n, max, v0.x, v0.y, v0.r, v0.g, v0.b, 0);
     }
 }
 
