@@ -21,6 +21,7 @@ extern SemaphoreHandle_t config;   // gConfig, gSafety
 extern SemaphoreHandle_t state;    // gState, gLivePreset, gTextConfig
 extern SemaphoreHandle_t sd;       // SD card (all SD.open / scanFiles)
 extern SemaphoreHandle_t zone;     // gZone (projection zone polygon)
+extern SemaphoreHandle_t paint;    // gPaint (paint-by-finger canvas)
 
 void init();  // create all mutexes
 
@@ -41,3 +42,4 @@ struct Guard {
 #define LOCK_STATE()   mtx::Guard _st_guard(mtx::state)
 #define LOCK_SD()      mtx::Guard _sd_guard(mtx::sd)
 #define LOCK_ZONE()    mtx::Guard _zn_guard(mtx::zone)
+#define LOCK_PAINT()   mtx::Guard _pt_guard(mtx::paint)

@@ -4,6 +4,7 @@
 #include "calib_patterns.h"
 #include "text_renderer.h"
 #include "curve_patterns.h"
+#include "paint_patterns.h"
 #include "ilda/ilda_player.h"
 #include "control/dmx_in.h"
 #include "net/artnet_in.h"
@@ -27,6 +28,7 @@ void setPreset(int8_t idx) {
     s_preset_idx = (idx >= 0 && idx < (int8_t)presets::PRESET_COUNT) ? idx : -1;
     s_test_pattern = -1;
     gState.calib_active = false;
+    if (idx >= 0) gPaint.active = false;
 }
 int8_t getPreset() { return s_preset_idx; }
 
@@ -337,9 +339,27 @@ void setCurve(int8_t idx) {
         s_preset_idx   = -1;
         gTextConfig.active = false;
         gState.calib_active = false;
+        gPaint.active = false;
     }
 }
 int8_t getCurve() { return gCurves.active_curve; }
+
+// setPaintActive() -- Paint mode sits above Curve/Preset but below
+// Calib/Text/ILDA in task() priority. Activating it must therefore clear
+// every flag checked earlier in the loop (or it would never be reached);
+// clearing Curve/Preset too is not required for rendering but keeps their
+// WebUI "active" labels honest (mirrors setCurve() clearing s_preset_idx).
+void setPaintActive(bool active) {
+    gPaint.active = active;
+    if (active) {
+        s_test_pattern = -1;
+        gState.calib_active = false;
+        gTextConfig.active = false;
+        s_preset_idx = -1;
+        gCurves.active_curve = -1;
+    }
+}
+bool getPaintActive() { return gPaint.active; }
 
 void triggerTestPattern(const char* name) {
 if (strcmp(name, "ilda") == 0) {
@@ -597,6 +617,92 @@ void task(void*) {
             }
             phase++;
             vTaskDelay(pdMS_TO_TICKS(40));
+            continue;
+        }
+
+        // ---- Paint-by-Finger Mode ----
+        if (gPaint.active) {
+            size_t n = paint::generate(s_frame, PATTERN_POINTS_MAX);
+            if (n == 0) { static LaserPoint blank_pt={0,0,0,0,0,1}; galvo::pushFrame(&blank_pt,1); vTaskDelay(pdMS_TO_TICKS(40)); continue; }  // guard: empty canvas
+
+            // Color animation (same engine as Preset/Curve Live-Controls).
+            // col_anim_type==OFF && !col_override leaves each stroke's own
+            // picked color untouched (multi-color canvas); Segment mode
+            // overrides all points with the cycling gradient.
+            applyColorAnim(n);
+
+            // 3-axis rotation -- identical engine to Preset Live-Controls
+            // (shared gLivePreset.rot_* state/angle accumulation, same
+            // WebUI-reset race guard: snapshot + advance under mtx::state,
+            // trig from local copies only).
+            bool  rotZActive, rotYActive, rotXActive;
+            float rotZAngle, rotYAngle, rotXAngle;
+            { LOCK_STATE();
+                rotZActive = gLivePreset.rot_z;
+                if (rotZActive) gLivePreset.rot_angle_z += gLivePreset.rot_speed_z;
+                rotZAngle = gLivePreset.rot_angle_z;
+
+                rotYActive = gLivePreset.rot_y;
+                if (rotYActive) gLivePreset.rot_angle_y += gLivePreset.rot_speed_y;
+                rotYAngle = gLivePreset.rot_angle_y;
+
+                rotXActive = gLivePreset.rot_x;
+                if (rotXActive) gLivePreset.rot_angle_x += gLivePreset.rot_speed_x;
+                rotXAngle = gLivePreset.rot_angle_x;
+            }
+            if (rotZActive) {
+                float cz = cosf(rotZAngle);
+                float sz2 = sinf(rotZAngle);
+                for (size_t i=0;i<n;i++){
+                    int16_t nx=(int16_t)(s_frame[i].x*cz - s_frame[i].y*sz2);
+                    int16_t ny=(int16_t)(s_frame[i].x*sz2+ s_frame[i].y*cz);
+                    s_frame[i].x=nx; s_frame[i].y=ny;
+                }
+            }
+            if (rotYActive) {
+                float cy = cosf(rotYAngle);
+                float sy2 = sinf(rotYAngle);
+                for (size_t i=0;i<n;i++){
+                    float z3 = s_frame[i].x * sy2;
+                    float nx = s_frame[i].x * cy;
+                    float d  = 1.f + z3 * 0.35f / 32767.f;
+                    if(d<0.1f)d=0.1f;
+                    s_frame[i].x = (int16_t)(nx/d);
+                    s_frame[i].y = (int16_t)(s_frame[i].y/d);
+                }
+            }
+            if (rotXActive) {
+                float cx2 = cosf(rotXAngle);
+                float sx3 = sinf(rotXAngle);
+                for (size_t i=0;i<n;i++){
+                    float z3 = s_frame[i].y * sx3;
+                    float ny = s_frame[i].y * cx2;
+                    float d  = 1.f + z3 * 0.35f / 32767.f;
+                    if(d<0.1f)d=0.1f;
+                    s_frame[i].y = (int16_t)(ny/d);
+                    s_frame[i].x = (int16_t)(s_frame[i].x/d);
+                }
+            }
+
+            uint8_t dim = gState.master_dimmer.load();
+            for (size_t i = 0; i < n; i++) {
+                if (!s_frame[i].blank) {
+                    s_frame[i].r = (s_frame[i].r * dim) >> 8;
+                    s_frame[i].g = (s_frame[i].g * dim) >> 8;
+                    s_frame[i].b = (s_frame[i].b * dim) >> 8;
+                }
+            }
+            applyCalibration(s_frame, n);
+            if (dim > 0) {
+                { uint32_t _t0=millis(); while (!galvo::pushFrame(s_frame, n)) { if (millis()-_t0 > 500) { safety::emergencyStop(); LOG_E(logbuf::CAT_SAFETY,"Pattern engine: pushFrame timeout, emergency stop"); break; } vTaskDelay(pdMS_TO_TICKS(2)); } }
+            } else {
+                static LaserPoint blank_pt = {0,0,0,0,0,1};
+                galvo::pushFrame(&blank_pt, 1);
+            }
+            phase++;
+            { uint32_t drain_ms = n / (uint32_t)gProjection.galvo_kpps;
+              if (drain_ms < 10) drain_ms = 10;
+              vTaskDelay(pdMS_TO_TICKS(drain_ms + drain_ms / 4)); }
             continue;
         }
 

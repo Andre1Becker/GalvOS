@@ -746,6 +746,76 @@ void init() {
     s_server.on("/api/text/off", HTTP_POST,
         [](AsyncWebServerRequest* req) { gTextConfig.active = false; req->send(200,"text/plain","OK"); });
 
+    // ---- GET /api/paint ---- current canvas (reload / multi-client sync)
+    s_server.on("/api/paint", HTTP_GET, [](AsyncWebServerRequest* req) {
+        JsonDocument doc;
+        doc["active"] = gPaint.active;
+        JsonArray arr = doc["strokes"].to<JsonArray>();
+        { LOCK_PAINT();
+            for (uint8_t s = 0; s < gPaint.stroke_count; s++) {
+                const PaintStroke& st = gPaint.strokes[s];
+                JsonObject o = arr.add<JsonObject>();
+                o["closed"] = st.closed;
+                o["r"] = st.r; o["g"] = st.g; o["b"] = st.b;
+                JsonArray xa = o["x"].to<JsonArray>();
+                JsonArray ya = o["y"].to<JsonArray>();
+                for (uint16_t i = 0; i < st.count; i++) { xa.add(st.x[i]); ya.add(st.y[i]); }
+            }
+        }
+        String out; serializeJson(doc, out);
+        req->send(200, "application/json", out);
+    });
+
+    // ---- POST /api/paint/set ---- replace canvas (full strokes[] upload)
+    // Body: {active?:bool, strokes:[{x:[...],y:[...],closed:bool,r,g,b}, ...]}
+    s_server.on("/api/paint/set", HTTP_POST,
+        [](AsyncWebServerRequest* req) {},
+        nullptr,
+        [](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t, size_t) {
+            JsonDocument doc;
+            if (deserializeJson(doc, data, len)) { req->send(400, "text/plain", "bad json"); return; }
+            JsonArrayConst strokesArr = doc["strokes"];
+            if (strokesArr.isNull() || strokesArr.size() > PAINT_STROKES_MAX) {
+                req->send(400, "application/json",
+                    "{\"error\":\"need strokes[], max 12\"}");
+                return;
+            }
+            { LOCK_PAINT();
+                uint8_t sc = 0;
+                for (JsonObjectConst so : strokesArr) {
+                    JsonArrayConst ax = so["x"];
+                    JsonArrayConst ay = so["y"];
+                    if (ax.isNull() || ay.isNull() || ax.size() != ay.size() || ax.size() < 2) continue;
+                    uint16_t cnt = (uint16_t)min((size_t)PAINT_VERTS_PER_STROKE, ax.size());
+                    PaintStroke& st = gPaint.strokes[sc];
+                    for (uint16_t i = 0; i < cnt; i++) {
+                        st.x[i] = ax[i].as<float>();
+                        st.y[i] = ay[i].as<float>();
+                    }
+                    st.count  = cnt;
+                    st.closed = so["closed"] | false;
+                    st.r = (uint8_t)(so["r"] | 255);
+                    st.g = (uint8_t)(so["g"] | 255);
+                    st.b = (uint8_t)(so["b"] | 255);
+                    sc++;
+                }
+                gPaint.stroke_count = sc;
+            }
+            if (doc["active"].is<bool>()) patterns::setPaintActive(doc["active"]);
+            req->send(200, "text/plain", "OK");
+        });
+
+    // ---- POST /api/paint/clear ---- empty canvas, keeps active state ----
+    s_server.on("/api/paint/clear", HTTP_POST,
+        [](AsyncWebServerRequest* req) {
+            { LOCK_PAINT(); gPaint.stroke_count = 0; }
+            req->send(200, "text/plain", "OK");
+        });
+
+    // ---- POST /api/paint/off ---- deactivate Paint mode, keep strokes ----
+    s_server.on("/api/paint/off", HTTP_POST,
+        [](AsyncWebServerRequest* req) { patterns::setPaintActive(false); req->send(200,"text/plain","OK"); });
+
     // ---- GET /api/sd ---- SD cardn-Status and file list
     s_server.on("/api/sd", HTTP_GET, [](AsyncWebServerRequest* req) {
         JsonDocument doc;

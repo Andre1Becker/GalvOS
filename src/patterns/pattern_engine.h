@@ -12,5 +12,7 @@ void setPreset(int8_t idx);   // -1 = preset off, 0-39 = preset active
 int8_t getPreset();
 void   setCurve(int8_t idx);  // -1 = off, 0-8 = curve
 int8_t getCurve();
+void   setPaintActive(bool active);  // Paint-by-Finger mode on/off
+bool   getPaintActive();
 
 }  // namespace patterns

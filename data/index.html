@@ -255,6 +255,7 @@
   <button data-tab="dmx">DMX Live</button>
   <button data-tab="presets">🎭 Presets</button>
   <button data-tab="text">✏️ Text</button>
+  <button data-tab="paint">🖌 Paint</button>
   <button data-tab="ilda">💿 ILDA / SD</button>
   <button data-tab="calib">⊹ Calibration</button>
   <button data-tab="projection">📐 Projection</button>
@@ -796,9 +797,150 @@
   </div>
 </section>
 
+<!-- ============= PAINT BY FINGER ============= -->
+<section id="tab-paint" class="tab">
+
+  <div class="card" style="padding:14px;margin-bottom:14px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+      <h2 style="margin:0">🖌 Paint by Finger</h2>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <label class="toggle" style="margin:0">
+          <input type="checkbox" id="pt-live" checked>
+          <span class="slider"></span><span style="font-size:12px">Live</span>
+        </label>
+        <button class="btn ok"       onclick="paintProject()" style="padding:4px 10px;font-size:11px">🖨 Project</button>
+        <button class="btn secondary" onclick="paintOff()"     style="padding:4px 10px;font-size:11px">⏹ Off</button>
+      </div>
+    </div>
+
+    <!-- Color -->
+    <div style="margin-bottom:12px">
+      <div style="font-size:10px;color:var(--dim);font-family:monospace;margin-bottom:6px">DRAW COLOR</div>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;flex:1;min-width:180px">
+          <div onclick="paintSetColor(255,0,0)"     title="Red"     style="height:24px;border-radius:4px;background:#f00;cursor:pointer;border:1px solid #333"></div>
+          <div onclick="paintSetColor(0,255,0)"     title="Green"   style="height:24px;border-radius:4px;background:#0f0;cursor:pointer;border:1px solid #333"></div>
+          <div onclick="paintSetColor(0,0,255)"     title="Blue"    style="height:24px;border-radius:4px;background:#00f;cursor:pointer;border:1px solid #333"></div>
+          <div onclick="paintSetColor(255,0,255)"   title="Magenta" style="height:24px;border-radius:4px;background:#f0f;cursor:pointer;border:1px solid #333"></div>
+          <div onclick="paintSetColor(255,255,0)"   title="Yellow"  style="height:24px;border-radius:4px;background:#ff0;cursor:pointer;border:1px solid #333"></div>
+          <div onclick="paintSetColor(0,255,255)"   title="Cyan"    style="height:24px;border-radius:4px;background:#0ff;cursor:pointer;border:1px solid #333"></div>
+          <div onclick="paintSetColor(255,255,255)" title="White"   style="height:24px;border-radius:4px;background:#fff;cursor:pointer;border:1px solid #555"></div>
+        </div>
+        <input type="color" id="pt-custom-color" value="#ff0000"
+          onchange="const c=paintHexToRgb(this.value);paintSetColor(c[0],c[1],c[2])"
+          style="width:36px;height:28px;padding:0;border:1px solid var(--border);border-radius:4px;background:none;cursor:pointer">
+        <div id="pt-col-preview" style="width:34px;height:28px;border-radius:5px;border:1px solid var(--border);background:rgb(255,0,0)"></div>
+      </div>
+    </div>
+
+    <!-- Color Animation: Segment -->
+    <div style="padding:10px;background:#050510;border:1px solid var(--border);border-radius:6px">
+      <label class="toggle" style="margin-bottom:8px">
+        <input type="checkbox" id="pt-seg-on" onchange="paintToggleSegment(this.checked)">
+        <span class="slider"></span><span style="font-size:12px">🎬 Segment Color Animation</span>
+      </label>
+      <div id="pt-seg-panel" style="display:none">
+        <div id="pt-seg-grid" style="display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-bottom:8px"></div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+          <span style="font-size:11px;color:var(--dim);white-space:nowrap">Segments</span>
+          <input type="range" id="pt-seg-count" min="1" max="10" value="4"
+            oninput="document.getElementById('pt-seg-count-val').textContent=this.value;paintSendSegment()">
+          <span id="pt-seg-count-val" style="color:var(--accent);font-family:monospace;min-width:16px">4</span>
+        </div>
+        <div style="margin-bottom:6px">
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:2px">
+            <span>Speed</span><span id="pt-seg-speed-val" style="color:var(--accent);font-family:monospace">60</span>
+          </div>
+          <input type="range" id="pt-seg-speed" min="0" max="255" value="60"
+            oninput="document.getElementById('pt-seg-speed-val').textContent=this.value;paintSendSegment()">
+        </div>
+        <div style="display:flex;gap:10px">
+          <label style="font-size:11px;cursor:pointer"><input type="radio" name="pt-seg-dir" value="1"  checked onchange="paintSendSegment()"> → Fwd</label>
+          <label style="font-size:11px;cursor:pointer"><input type="radio" name="pt-seg-dir" value="-1"         onchange="paintSendSegment()"> ← Rev</label>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:minmax(280px,1fr) 260px;gap:14px;align-items:start">
+
+    <!-- Canvas -->
+    <div class="card" style="padding:14px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px">
+        <div style="display:flex;gap:4px;flex-wrap:wrap" id="pt-tool-btns">
+          <button class="btn secondary" id="pt-tool-pen"      onclick="paintSetTool('pen')"      style="font-size:11px;padding:5px 8px">✏️ Pen</button>
+          <button class="btn secondary" id="pt-tool-rect"     onclick="paintSetTool('rect')"     style="font-size:11px;padding:5px 8px">▭ Rect</button>
+          <button class="btn secondary" id="pt-tool-triangle" onclick="paintSetTool('triangle')" style="font-size:11px;padding:5px 8px">△ Triangle</button>
+          <button class="btn secondary" id="pt-tool-circle"   onclick="paintSetTool('circle')"   style="font-size:11px;padding:5px 8px">○ Circle</button>
+          <button class="btn secondary" id="pt-tool-line"     onclick="paintSetTool('line')"     style="font-size:11px;padding:5px 8px">／ Line</button>
+        </div>
+        <div style="display:flex;gap:4px">
+          <button class="btn secondary" onclick="paintDeleteSelected()" style="font-size:11px;padding:5px 8px">🗑 Delete</button>
+          <button class="btn secondary" onclick="paintUndo()"           style="font-size:11px;padding:5px 8px">↺ Undo</button>
+          <button class="btn danger"    onclick="paintClear()"          style="font-size:11px;padding:5px 8px">🧹 Clear</button>
+        </div>
+      </div>
+      <canvas id="pt-canvas" width="600" height="600"
+        style="width:100%;aspect-ratio:1/1;background:#000;border-radius:6px;border:1px solid var(--border);touch-action:none;cursor:crosshair;display:block"></canvas>
+      <div style="margin-top:8px;font-size:11px;color:var(--dim);display:flex;justify-content:space-between;flex-wrap:wrap;gap:4px">
+        <span id="pt-status">0 shapes · 0 points</span>
+        <span>drag body = move · drag handles = resize</span>
+      </div>
+    </div>
+
+    <!-- Auto-Rotation -->
+    <div class="card" style="padding:14px">
+      <div style="font-family:monospace;font-size:10px;color:var(--accent);margin-bottom:8px">AUTO-ROTATION</div>
+      <label class="toggle" style="margin-bottom:8px">
+        <input type="checkbox" id="pt-autorot" onchange="paintSendRotation()">
+        <span class="slider"></span><span style="font-size:12px">Continuous rotation</span>
+      </label>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <div>
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:2px">
+            <span>Z axis</span><span id="pt-rot-z-val" style="color:var(--accent);font-family:monospace">20</span>
+          </div>
+          <input type="range" id="pt-rot-z" min="0" max="100" value="20"
+            oninput="document.getElementById('pt-rot-z-val').textContent=this.value;paintSendRotation()">
+        </div>
+        <div>
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:2px">
+            <span>Y axis (tilt)</span><span id="pt-rot-y-val" style="color:var(--accent);font-family:monospace">0</span>
+          </div>
+          <input type="range" id="pt-rot-y" min="0" max="100" value="0"
+            oninput="document.getElementById('pt-rot-y-val').textContent=this.value;paintSendRotation()">
+        </div>
+        <div>
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:2px">
+            <span>X axis (pitch)</span><span id="pt-rot-x-val" style="color:var(--accent);font-family:monospace">0</span>
+          </div>
+          <input type="range" id="pt-rot-x" min="0" max="100" value="0"
+            oninput="document.getElementById('pt-rot-x-val').textContent=this.value;paintSendRotation()">
+        </div>
+        <div>
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:2px">
+            <span>Master speed</span><span id="pt-rspd-val" style="color:var(--accent);font-family:monospace">20</span>
+          </div>
+          <input type="range" id="pt-rspd" min="1" max="100" value="20"
+            oninput="document.getElementById('pt-rspd-val').textContent=this.value;paintSendRotation()">
+        </div>
+      </div>
+      <div style="margin-top:16px;padding:10px;background:#050510;border:1px solid var(--border);border-radius:6px;font-size:11px;color:var(--dim);line-height:1.6">
+        <b style="color:var(--accent)">Tips</b><br>
+        Pen = freehand draw.<br>
+        Shape tools = drag on canvas to size &amp; place.<br>
+        Tap a placed shape to re-select and adjust handles.<br>
+        Live = projects while drawing; untick to paint first, then hit Project.
+      </div>
+    </div>
+
+  </div>
+</section>
+
 <!-- ============= CONFIG ============= -->
 <!-- ============= LOG ============= -->
 <section id="tab-log" class="tab">
+
   <div class="card">
     <h2>System Log</h2>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
@@ -1612,6 +1754,7 @@ document.querySelectorAll('nav button').forEach(btn => {
     if (t === 'projection') loadProjection();
     if (t === 'presets' && g_curve_defs.length === 0) loadCurveDefs();
     if (t === 'thermal')  { buildTempSensors(); buildSensorNameEditor(); }
+    if (t === 'paint') initPaintTab();
   });
 });
 
@@ -3464,6 +3607,432 @@ async function stopText() {
     const r = await apiCall('POST', '/api/text/off');
     if (r === null) await apiCall('POST', '/api/text', { active: false });
     toast('Text stopped');
+}
+
+// ============================================================
+// Paint by Finger
+// ============================================================
+const PAINT_RANGE       = 20000;  // galvo units mapped to canvas edges (±)
+const PAINT_MAX_VERTS   = 96;     // must match PAINT_VERTS_PER_STROKE (config.h)
+const PAINT_HANDLE_PX   = 9;      // handle hit-radius, canvas px
+const PAINT_SEG_SEQS = [
+    {name:'Rainbow', stops:['#f00','#f80','#ff0','#0f0','#0cf','#80f']},
+    {name:'Fire',    stops:['#f00','#f50','#fc0','#ff8']},
+    {name:'Ocean',   stops:['#005','#08c','#0cf','#8ff']},
+    {name:'Neon',    stops:['#f08','#80f','#0fc','#ff0']},
+    {name:'Sunset',  stops:['#500','#c05','#f50','#fc0']},
+    {name:'Forest',  stops:['#020','#083','#5f5','#cfa']},
+    {name:'Ice',     stops:['#cef','#6bf','#29c','#cef']},
+    {name:'Lava',    stops:['#500','#f00','#f50','#ff0']},
+    {name:'Candy',   stops:['#f6c','#c6f','#6cf','#ffc']},
+    {name:'Mono',    stops:['#000','#fff','#000']},
+];
+
+let paintStrokes  = [];   // {type, points:[[gx,gy],...]|undefined, cx,cy,radius, closed, r,g,b}
+let paintTool     = 'pen';
+let paintColor    = {r:255, g:0, b:0};
+let paintSelected = -1;
+let paintDrag     = null;
+let paintSegSeq   = 0;
+let paintSyncTimer= null;
+let paintInited   = false;
+
+function paintHexToRgb(hex) {
+    const n = parseInt(hex.slice(1), 16);
+    return [(n>>16)&255, (n>>8)&255, n&255];
+}
+
+function initPaintTab() {
+    const cv = document.getElementById('pt-canvas');
+    if (!cv) return;
+    const size = Math.round(cv.getBoundingClientRect().width) || 600;
+    if (cv.width !== size) { cv.width = size; cv.height = size; }
+    if (!paintInited) {
+        paintInited = true;
+        buildPaintSegGrid();
+        paintBindCanvasEvents(cv);
+        paintSetTool('pen');
+        paintLoadFromServer();
+        window.addEventListener('resize', () => {
+            const s = Math.round(cv.getBoundingClientRect().width);
+            if (s > 0 && cv.width !== s) { cv.width = s; cv.height = s; paintRender(); }
+        });
+    }
+    paintRender();
+}
+
+async function paintLoadFromServer() {
+    const r = await apiCall('GET', '/api/paint');
+    if (!r || !r.strokes) return;
+    // Server only stores raw vertices (shape semantics are client-side) --
+    // reconstruct as generic polygons/polylines, still fully editable.
+    paintStrokes = r.strokes.map(st => ({
+        type: st.closed ? 'rect' : 'line',
+        points: st.x.map((x, i) => [x, st.y[i]]),
+        closed: !!st.closed,
+        r: st.r, g: st.g, b: st.b,
+    }));
+    paintRender();
+}
+
+// ---- coordinate mapping: galvo units (±PAINT_RANGE) <-> canvas px ----
+function paintG2C(gx, gy) {
+    const cv = document.getElementById('pt-canvas');
+    const half = cv.width / 2;
+    return [half + (gx / PAINT_RANGE) * half, half + (gy / PAINT_RANGE) * half];
+}
+function paintC2G(px, py) {
+    const cv = document.getElementById('pt-canvas');
+    const half = cv.width / 2;
+    return [((px - half) / half) * PAINT_RANGE, ((py - half) / half) * PAINT_RANGE];
+}
+function paintEventPos(e) {
+    const cv = document.getElementById('pt-canvas');
+    const rect = cv.getBoundingClientRect();
+    const scale = cv.width / rect.width;
+    return [(e.clientX - rect.left) * scale, (e.clientY - rect.top) * scale];
+}
+
+// ---- shape geometry ----
+function paintShapePoints(s) {
+    if (s.type === 'circle') {
+        const pts = [], N = 40;
+        for (let i = 0; i <= N; i++) {
+            const a = i * 2 * Math.PI / N;
+            pts.push([s.cx + Math.cos(a) * s.radius, s.cy + Math.sin(a) * s.radius]);
+        }
+        return pts;
+    }
+    return s.points || [];
+}
+
+function paintStartCreate(type, gx, gy) {
+    const col = paintColor;
+    let shape;
+    if (type === 'rect')          shape = {type, points:[[gx,gy],[gx,gy],[gx,gy],[gx,gy]], closed:true,  r:col.r, g:col.g, b:col.b};
+    else if (type === 'triangle') shape = {type, points:[[gx,gy],[gx,gy],[gx,gy]],          closed:true,  r:col.r, g:col.g, b:col.b};
+    else if (type === 'circle')   shape = {type, cx:gx, cy:gy, radius:10,                    closed:true,  r:col.r, g:col.g, b:col.b};
+    else if (type === 'line')     shape = {type, points:[[gx,gy],[gx,gy]],                   closed:false, r:col.r, g:col.g, b:col.b};
+    else return;
+    paintStrokes.push(shape);
+    paintSelected = paintStrokes.length - 1;
+    paintDrag = { mode:'create', type, anchorX:gx, anchorY:gy };
+}
+
+function paintUpdateCreate(gx, gy) {
+    const s = paintStrokes[paintSelected], a = paintDrag;
+    if (a.type === 'rect') {
+        s.points = [[a.anchorX,a.anchorY],[gx,a.anchorY],[gx,gy],[a.anchorX,gy]];
+    } else if (a.type === 'circle') {
+        s.radius = Math.max(200, Math.hypot(gx - a.anchorX, gy - a.anchorY));
+    } else if (a.type === 'line') {
+        s.points[1] = [gx, gy];
+    } else if (a.type === 'triangle') {
+        const rad = Math.max(200, Math.hypot(gx - a.anchorX, gy - a.anchorY));
+        const ang = Math.atan2(gy - a.anchorY, gx - a.anchorX);
+        s.points = [0, 1, 2].map(i => {
+            const a2 = ang + i * 2 * Math.PI / 3;
+            return [a.anchorX + Math.cos(a2) * rad, a.anchorY + Math.sin(a2) * rad];
+        });
+    }
+}
+
+function paintTranslateShape(s, dx, dy) {
+    if (s.points) s.points = s.points.map(p => [p[0]+dx, p[1]+dy]);
+    if (s.type === 'circle') { s.cx += dx; s.cy += dy; }
+}
+
+// ---- hit testing (canvas px in, shape index/part out) ----
+function paintHitHandles(idx, px, py) {
+    const s = paintStrokes[idx];
+    if (s.type === 'circle') {
+        const [hx,hy] = paintG2C(s.cx + s.radius, s.cy);
+        if (Math.hypot(px-hx, py-hy) <= PAINT_HANDLE_PX) return {idx, part:'radius'};
+        return null;
+    }
+    if (!s.points) return null;
+    for (let vi = 0; vi < s.points.length; vi++) {
+        const [hx,hy] = paintG2C(s.points[vi][0], s.points[vi][1]);
+        if (Math.hypot(px-hx, py-hy) <= PAINT_HANDLE_PX) return {idx, part:'vertex', vi};
+    }
+    return null;
+}
+function paintPointInPoly(x, y, pts) {
+    let inside = false;
+    for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+        const xi=pts[i][0], yi=pts[i][1], xj=pts[j][0], yj=pts[j][1];
+        if (((yi>y)!==(yj>y)) && (x < (xj-xi)*(y-yi)/(yj-yi)+xi)) inside = !inside;
+    }
+    return inside;
+}
+function paintDistToSeg(x, y, p1, p2) {
+    const dx=p2[0]-p1[0], dy=p2[1]-p1[1], len2=dx*dx+dy*dy || 1;
+    let t = ((x-p1[0])*dx + (y-p1[1])*dy) / len2;
+    t = Math.max(0, Math.min(1, t));
+    return Math.hypot(x-(p1[0]+t*dx), y-(p1[1]+t*dy));
+}
+function paintHitBody(idx, px, py) {
+    const [gx, gy] = paintC2G(px, py);
+    const s = paintStrokes[idx];
+    if (s.type === 'circle') return Math.hypot(gx-s.cx, gy-s.cy) <= s.radius;
+    if (!s.points) return false;
+    if (s.closed) return paintPointInPoly(gx, gy, s.points);
+    for (let i = 0; i < s.points.length - 1; i++) {
+        if (paintDistToSeg(gx, gy, s.points[i], s.points[i+1]) < 700) return true;
+    }
+    return false;
+}
+function paintHitTest(px, py) {
+    if (paintSelected >= 0 && paintStrokes[paintSelected]) {
+        const h = paintHitHandles(paintSelected, px, py);
+        if (h) return h;
+    }
+    for (let i = paintStrokes.length - 1; i >= 0; i--) {
+        if (paintHitBody(i, px, py)) return {idx:i, part:'body'};
+    }
+    return null;
+}
+
+// ---- pointer interaction ----
+function paintBindCanvasEvents(cv) {
+    cv.addEventListener('pointerdown',   paintPointerDown);
+    cv.addEventListener('pointermove',   paintPointerMove);
+    cv.addEventListener('pointerup',     paintPointerUp);
+    cv.addEventListener('pointercancel', paintPointerUp);
+    cv.addEventListener('pointerleave',  e => { if (paintDrag) paintPointerUp(e); });
+}
+
+function paintPointerDown(e) {
+    e.preventDefault();
+    const cv = document.getElementById('pt-canvas');
+    cv.setPointerCapture(e.pointerId);
+    const [px, py] = paintEventPos(e);
+    const [gx, gy] = paintC2G(px, py);
+
+    const hit = paintHitTest(px, py);
+    if (hit && hit.part !== 'body') {
+        paintSelected = hit.idx;
+        paintDrag = { mode: hit.part, idx: hit.idx, vi: hit.vi };
+        paintRender();
+        return;
+    }
+    if (hit && hit.part === 'body') {
+        paintSelected = hit.idx;
+        paintDrag = { mode:'move', idx: hit.idx, startGx: gx, startGy: gy };
+        paintRender();
+        return;
+    }
+
+    paintSelected = -1;
+    if (paintTool === 'pen') {
+        paintStrokes.push({ type:'freehand', points:[[gx,gy]], closed:false, r:paintColor.r, g:paintColor.g, b:paintColor.b, _lastPx:px, _lastPy:py });
+        paintDrag = { mode:'draw', idx: paintStrokes.length - 1 };
+    } else {
+        paintStartCreate(paintTool, gx, gy);
+    }
+    paintRender();
+}
+
+function paintPointerMove(e) {
+    if (!paintDrag) return;
+    e.preventDefault();
+    const [px, py] = paintEventPos(e);
+    const [gx, gy] = paintC2G(px, py);
+    const s = paintStrokes[paintDrag.idx];
+    if (!s) return;
+
+    if (paintDrag.mode === 'draw') {
+        const dx = px - s._lastPx, dy = py - s._lastPy;
+        if (Math.hypot(dx, dy) >= 4 && s.points.length < PAINT_MAX_VERTS) {
+            s.points.push([gx, gy]);
+            s._lastPx = px; s._lastPy = py;
+        }
+    } else if (paintDrag.mode === 'create') {
+        paintUpdateCreate(gx, gy);
+    } else if (paintDrag.mode === 'vertex') {
+        s.points[paintDrag.vi] = [gx, gy];
+    } else if (paintDrag.mode === 'radius') {
+        s.radius = Math.max(200, Math.hypot(gx - s.cx, gy - s.cy));
+    } else if (paintDrag.mode === 'move') {
+        paintTranslateShape(s, gx - paintDrag.startGx, gy - paintDrag.startGy);
+        paintDrag.startGx = gx; paintDrag.startGy = gy;
+    }
+    paintRender();
+    paintScheduleSync();
+}
+
+function paintPointerUp() {
+    if (!paintDrag) return;
+    const wasDraw = paintDrag.mode === 'draw';
+    const idx = paintDrag.idx;
+    paintDrag = null;
+    if (wasDraw) {
+        if (paintStrokes[idx].points.length < 2) paintStrokes.splice(idx, 1);
+        paintSelected = -1;
+    }
+    paintRender();
+    if (document.getElementById('pt-live').checked) { clearTimeout(paintSyncTimer); paintSyncNow(true); }
+}
+
+// ---- rendering ----
+function paintRender() {
+    const cv = document.getElementById('pt-canvas');
+    if (!cv) return;
+    const ctx = cv.getContext('2d');
+    ctx.clearRect(0, 0, cv.width, cv.height);
+    ctx.strokeStyle = '#151530'; ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(cv.width/2, 0); ctx.lineTo(cv.width/2, cv.height);
+    ctx.moveTo(0, cv.height/2); ctx.lineTo(cv.width, cv.height/2);
+    ctx.stroke();
+
+    let totalPts = 0;
+    paintStrokes.forEach((s, i) => {
+        const pts = paintShapePoints(s);
+        totalPts += pts.length;
+        if (pts.length < 2) return;
+        ctx.strokeStyle = `rgb(${s.r},${s.g},${s.b})`;
+        ctx.lineWidth = (i === paintSelected) ? 2.5 : 1.6;
+        ctx.beginPath();
+        pts.forEach(([gx,gy], vi) => {
+            const [px,py] = paintG2C(gx, gy);
+            vi === 0 ? ctx.moveTo(px,py) : ctx.lineTo(px,py);
+        });
+        if (s.closed) ctx.closePath();
+        ctx.stroke();
+    });
+
+    if (paintSelected >= 0 && paintStrokes[paintSelected]) paintDrawHandles(ctx, paintStrokes[paintSelected]);
+    document.getElementById('pt-status').textContent = paintStrokes.length + ' shapes · ' + totalPts + ' points';
+}
+
+function paintDrawHandles(ctx, s) {
+    const drawHandle = (gx, gy) => {
+        const [px, py] = paintG2C(gx, gy);
+        ctx.beginPath();
+        ctx.arc(px, py, PAINT_HANDLE_PX, 0, 2*Math.PI);
+        ctx.fillStyle = '#0b0b16'; ctx.fill();
+        ctx.lineWidth = 2; ctx.strokeStyle = '#ff3060'; ctx.stroke();
+    };
+    if (s.type === 'circle') drawHandle(s.cx + s.radius, s.cy);
+    else if (s.points) s.points.forEach(p => drawHandle(p[0], p[1]));
+}
+
+// ---- toolbar ----
+function paintSetTool(t) {
+    paintTool = t;
+    paintSelected = -1;
+    ['pen','rect','triangle','circle','line'].forEach(x => {
+        const btn = document.getElementById('pt-tool-' + x);
+        if (!btn) return;
+        btn.style.background = (x === t) ? 'var(--accent)' : '';
+        btn.style.color      = (x === t) ? '#fff' : '';
+    });
+    paintRender();
+}
+
+function paintDeleteSelected() {
+    if (paintSelected < 0) return;
+    paintStrokes.splice(paintSelected, 1);
+    paintSelected = -1;
+    paintRender();
+    paintScheduleSync();
+}
+function paintUndo() {
+    paintStrokes.pop();
+    paintSelected = -1;
+    paintRender();
+    paintScheduleSync();
+}
+async function paintClear() {
+    paintStrokes = [];
+    paintSelected = -1;
+    paintRender();
+    await apiCall('POST', '/api/paint/clear', {});
+}
+
+// ---- color ----
+function paintSetColor(r, g, b) {
+    paintColor = {r, g, b};
+    const prev = document.getElementById('pt-col-preview');
+    if (prev) prev.style.background = `rgb(${r},${g},${b})`;
+    if (paintSelected >= 0) {
+        Object.assign(paintStrokes[paintSelected], {r, g, b});
+        paintRender();
+        paintScheduleSync();
+    }
+}
+
+// ---- segment color animation (shares the firmware color-anim engine with
+// Presets Live-Controls -- see gLivePreset/applyColorAnim()) ----
+function buildPaintSegGrid() {
+    const grid = document.getElementById('pt-seg-grid');
+    if (!grid) return;
+    grid.innerHTML = PAINT_SEG_SEQS.map((s, i) => {
+        const active = (i === paintSegSeq);
+        return `<div onclick="paintSelectSegSeq(${i})" title="${s.name}" style="height:24px;border-radius:4px;cursor:pointer;` +
+            `background:linear-gradient(90deg,${s.stops.join(',')});border:2px solid ${active ? '#ff3060' : 'transparent'}"></div>`;
+    }).join('');
+}
+function paintSelectSegSeq(idx) {
+    paintSegSeq = idx;
+    buildPaintSegGrid();
+    paintSendSegment();
+}
+function paintToggleSegment(on) {
+    document.getElementById('pt-seg-panel').style.display = on ? '' : 'none';
+    paintSendSegment();
+}
+async function paintSendSegment() {
+    const on = document.getElementById('pt-seg-on').checked;
+    const dirEl = document.querySelector('input[name="pt-seg-dir"]:checked');
+    await apiCall('POST', '/api/preset-live', {
+        col_anim_type:  on ? 7 : 0,   // 7 = COL_ANIM_SEGMENT (config.h)
+        col_anim_seq:   paintSegSeq,
+        col_anim_speed: +document.getElementById('pt-seg-speed').value,
+        col_seg_count:  +document.getElementById('pt-seg-count').value,
+        col_seg_dir:    dirEl ? +dirEl.value : 1,
+    });
+}
+
+// ---- 3-axis auto-rotation (shares gLivePreset.rot_* with Presets Live-
+// Controls -- see the Paint Mode block in pattern_engine.cpp::task()) ----
+async function paintSendRotation() {
+    const on   = document.getElementById('pt-autorot').checked;
+    const sz   = +document.getElementById('pt-rot-z').value;
+    const sy   = +document.getElementById('pt-rot-y').value;
+    const sx   = +document.getElementById('pt-rot-x').value;
+    const mspd = +document.getElementById('pt-rspd').value / 1000;
+    await apiCall('POST', '/api/preset-live', {
+        rot_x: on && sx > 0, rot_y: on && sy > 0, rot_z: on && sz > 0,
+        rot_speed: mspd, rot_speed_x: sx/1000, rot_speed_y: sy/1000, rot_speed_z: sz/1000,
+    });
+}
+
+// ---- sync to device ----
+function paintStrokesPayload() {
+    return paintStrokes.map(s => {
+        const pts = paintShapePoints(s);
+        if (pts.length < 2) return null;
+        return { x: pts.map(p => Math.round(p[0])), y: pts.map(p => Math.round(p[1])), closed: !!s.closed, r: s.r, g: s.g, b: s.b };
+    }).filter(Boolean);
+}
+function paintScheduleSync() {
+    if (!document.getElementById('pt-live').checked) return;
+    clearTimeout(paintSyncTimer);
+    paintSyncTimer = setTimeout(() => paintSyncNow(true), 120);
+}
+async function paintSyncNow(activate) {
+    const body = { strokes: paintStrokesPayload() };
+    if (activate !== undefined) body.active = activate;
+    await apiCall('POST', '/api/paint/set', body);
+}
+async function paintProject() {
+    await paintSyncNow(true);
+    toast('Projected: ' + paintStrokes.length + ' shapes');
+}
+async function paintOff() {
+    await apiCall('POST', '/api/paint/off', {});
 }
 
 buildTempSensors();
