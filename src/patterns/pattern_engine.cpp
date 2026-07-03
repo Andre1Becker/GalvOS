@@ -669,18 +669,38 @@ void task(void*) {
             applyColorAnim(n);
 
             // Additional Rotation from Live-Controls
+            // rot_angle_x/y/z: read-modify-write here (Core 1) races WebUI
+            // resets (Core 0, /api/preset-live) -> snapshot + advance under
+            // mtx::state, then compute trig from local copies only.
+            bool  rotZActive, rotYActive, rotXActive;
+            float rotZAngle, rotYAngle, rotXAngle, rotationDeg;
+            { LOCK_STATE();
+                rotZActive = gLivePreset.rot_z;
+                if (rotZActive) gLivePreset.rot_angle_z += gLivePreset.rot_speed_z;
+                rotZAngle = gLivePreset.rot_angle_z;
+
+                rotYActive = gLivePreset.rot_y;
+                if (rotYActive) gLivePreset.rot_angle_y += gLivePreset.rot_speed_y;
+                rotYAngle = gLivePreset.rot_angle_y;
+
+                rotXActive = gLivePreset.rot_x;
+                if (rotXActive) gLivePreset.rot_angle_x += gLivePreset.rot_speed_x;
+                rotXAngle = gLivePreset.rot_angle_x;
+
+                rotationDeg = gLivePreset.rotation;
+            }
+
             // Z-rotation (classic in-plane)
-            if (gLivePreset.rot_z) {
-                gLivePreset.rot_angle_z += gLivePreset.rot_speed_z;
-                float cz = cosf(gLivePreset.rot_angle_z);
-                float sz2 = sinf(gLivePreset.rot_angle_z);
+            if (rotZActive) {
+                float cz = cosf(rotZAngle);
+                float sz2 = sinf(rotZAngle);
                 for (size_t i=0;i<n;i++){
                     int16_t nx=(int16_t)(s_frame[i].x*cz - s_frame[i].y*sz2);
                     int16_t ny=(int16_t)(s_frame[i].x*sz2+ s_frame[i].y*cz);
                     s_frame[i].x=nx; s_frame[i].y=ny;
                 }
-            } else if (fabsf((float)gLivePreset.rotation) > 0.5f) {
-                float er = gLivePreset.rotation * (float)(M_PI/180.);
+            } else if (fabsf(rotationDeg) > 0.5f) {
+                float er = rotationDeg * (float)(M_PI/180.);
                 float cr=cosf(er), sr=sinf(er);
                 for (size_t i=0;i<n;i++){
                     int16_t nx=(int16_t)(s_frame[i].x*cr-s_frame[i].y*sr);
@@ -689,10 +709,9 @@ void task(void*) {
                 }
             }
             // Y-rotation (tilt left/right -- perspective X compression)
-            if (gLivePreset.rot_y) {
-                gLivePreset.rot_angle_y += gLivePreset.rot_speed_y;
-                float cy = cosf(gLivePreset.rot_angle_y);
-                float sy2 = sinf(gLivePreset.rot_angle_y);
+            if (rotYActive) {
+                float cy = cosf(rotYAngle);
+                float sy2 = sinf(rotYAngle);
                 for (size_t i=0;i<n;i++){
                     float z3 = s_frame[i].x * sy2;
                     float nx = s_frame[i].x * cy;
@@ -703,10 +722,9 @@ void task(void*) {
                 }
             }
             // X-rotation (tilt up/down -- perspective Y compression)
-            if (gLivePreset.rot_x) {
-                gLivePreset.rot_angle_x += gLivePreset.rot_speed_x;
-                float cx2 = cosf(gLivePreset.rot_angle_x);
-                float sx3 = sinf(gLivePreset.rot_angle_x);
+            if (rotXActive) {
+                float cx2 = cosf(rotXAngle);
+                float sx3 = sinf(rotXAngle);
                 for (size_t i=0;i<n;i++){
                     float z3 = s_frame[i].y * sx3;
                     float ny = s_frame[i].y * cx2;

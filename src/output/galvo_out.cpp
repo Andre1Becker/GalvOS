@@ -362,6 +362,7 @@ struct GalvoSnapshot {
     uint16_t dac_limit_max = 0xF999;
     uint32_t period_us     = 33;   // derived from gProjection.galvo_kpps (12..60)
     // Galvo geometry (from applyCalibration -- already applied before frame)
+    ZoneConfig zone;        // projection-zone clip polygon, see updateSnapshot()
 };
 static GalvoSnapshot s_snap;
 
@@ -376,6 +377,10 @@ static inline void updateSnapshot() {
         s_snap.dac_limit_min = gConfig.dac_limit_min;
         s_snap.dac_limit_max = gConfig.dac_limit_max;
         xSemaphoreGive(mtx::config);
+    }
+    if (xSemaphoreTake(mtx::zone, 0) == pdTRUE) {
+        s_snap.zone = gZone;   // polygon + count + enabled, copied atomically
+        xSemaphoreGive(mtx::zone);
     }
     // kpps changes rarely; recompute period once per frame, not per tick.
     uint16_t kpps = gProjection.galvo_kpps;
@@ -531,7 +536,7 @@ static void IRAM_ATTR galvoTask(void*) {
             // uses pre-limit signed coords (p.x/p.y) = polygon coordinate
             // space. Already-blanked points are unaffected.
             bool zone_blank = p.blank ||
-                (gZone.enabled && !gZone.contains(p.x, p.y));
+                (s_snap.zone.enabled && !s_snap.zone.contains(p.x, p.y));
             if (zone_blank) {
                     rgbOff();
                     if (s_laser_off_hold > 0) {
@@ -790,8 +795,8 @@ void applyCalibration(LaserPoint* pts, size_t n) {
         y = (int32_t)y * y_gain / 32767;
         x += x_off;
         y += y_off;
-        pts[i].x = (int16_t)constrain(x, limLo, limHi);
-        pts[i].y = (int16_t)constrain(y, limLo, limHi);
+        pts[i].x = (int16_t)constrain(x, -32767, 32767);
+        pts[i].y = (int16_t)constrain(y, -32767, 32767);
     }
 }
 

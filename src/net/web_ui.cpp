@@ -526,7 +526,7 @@ void init() {
         [](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t, size_t) {
             JsonDocument doc;
             if (deserializeJson(doc, data, len)) { req->send(400, "text/plain", "bad json"); return; }
-            gZone.enabled = doc["enabled"] | false;
+            { LOCK_ZONE(); gZone.enabled = doc["enabled"] | false; }
             persistConfig();
             req->send(200, "text/plain", gZone.enabled ? "ENABLED" : "DISABLED");
         });
@@ -565,12 +565,14 @@ void init() {
                 return;
             }
             uint8_t cnt = ax.size();
-            for (uint8_t i = 0; i < cnt; i++) {
-                gZone.x[i] = (int16_t)constrain((int)ax[i].as<int>(), -32767, 32767);
-                gZone.y[i] = (int16_t)constrain((int)ay[i].as<int>(), -32767, 32767);
+            { LOCK_ZONE();
+                for (uint8_t i = 0; i < cnt; i++) {
+                    gZone.x[i] = (int16_t)constrain((int)ax[i].as<int>(), -32767, 32767);
+                    gZone.y[i] = (int16_t)constrain((int)ay[i].as<int>(), -32767, 32767);
+                }
+                gZone.count = cnt;
+                if (doc["enabled"].is<bool>()) gZone.enabled = doc["enabled"];
             }
-            gZone.count = cnt;
-            if (doc["enabled"].is<bool>()) gZone.enabled = doc["enabled"];
             persistConfig();
             req->send(200, "text/plain", "OK");
         });
@@ -670,9 +672,11 @@ void init() {
             if (doc["rotation"].is<int>())     gLivePreset.rotation    = (int16_t)(int)doc["rotation"];
             if (doc["mirror_x"].is<bool>())    gLivePreset.mirror_x    = doc["mirror_x"];
             if (doc["mirror_y"].is<bool>())    gLivePreset.mirror_y    = doc["mirror_y"];
-            if (doc["rot_x"].is<bool>())       { gLivePreset.rot_x = doc["rot_x"]; gLivePreset.rot_angle_x=0; }
-            if (doc["rot_y"].is<bool>())       { gLivePreset.rot_y = doc["rot_y"]; gLivePreset.rot_angle_y=0; }
-            if (doc["rot_z"].is<bool>())       { gLivePreset.rot_z = doc["rot_z"]; gLivePreset.rot_angle_z=0; }
+            { LOCK_STATE();
+                if (doc["rot_x"].is<bool>()) { gLivePreset.rot_x = doc["rot_x"]; gLivePreset.rot_angle_x = 0; }
+                if (doc["rot_y"].is<bool>()) { gLivePreset.rot_y = doc["rot_y"]; gLivePreset.rot_angle_y = 0; }
+                if (doc["rot_z"].is<bool>()) { gLivePreset.rot_z = doc["rot_z"]; gLivePreset.rot_angle_z = 0; }
+            }
             if (doc["rot_speed"].is<float>())  {
                 float rs = doc["rot_speed"];
                 gLivePreset.rot_speed_z = rs;
