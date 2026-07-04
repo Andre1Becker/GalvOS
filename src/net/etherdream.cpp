@@ -89,6 +89,7 @@ static bool     s_running     = false;
 static bool     s_prepared    = false;
 static uint32_t s_total_pts   = 0;
 static uint32_t s_last_beacon = 0;
+static uint32_t s_beacon_fail_count = 0;
 
 // response buffer
 static uint8_t  s_resp[64];
@@ -114,7 +115,7 @@ static void sendBeacon() {
     // Only send when WiFi is actually up — avoids filling lwIP socket
     // buffers with failed broadcasts (ENOMEM / error 118), which would
     // exhaust the shared lwIP pool and starve AsyncTCP / WebSocket.
-    if (WiFi.status() != WL_CONNECTED) return;
+    if (WiFi.status() != WL_CONNECTED) { s_beacon_fail_count = 0; return; }
 
     DACBroadcast bc{};
     uint64_t mac = ESP.getEfuseMac();
@@ -128,11 +129,20 @@ static void sendBeacon() {
     }
     s_udp.write((uint8_t*)&bc, sizeof(bc));
     if (s_udp.endPacket() == 0) {
-        // Send failed: close and reopen socket to flush any stuck state
-        ESP_LOGD(TAG, "Beacon: endPacket failed, resetting UDP socket");
-        s_udp.stop();
-        vTaskDelay(pdMS_TO_TICKS(10));
-        s_udp.begin(PORT_DISC);
+        // Single miss is usually transient lwIP pressure (e.g. a WS client
+        // mid-handshake) that clears on its own. Resetting the socket on
+        // every miss is itself an lwIP allocation -- exactly the wrong
+        // move while the pool is tight. Only rebuild after repeated misses.
+        s_beacon_fail_count++;
+        ESP_LOGD(TAG, "Beacon: endPacket failed (%u consecutive)", s_beacon_fail_count);
+        if (s_beacon_fail_count >= 3) {
+            s_udp.stop();
+            vTaskDelay(pdMS_TO_TICKS(10));
+            s_udp.begin(PORT_DISC);
+            s_beacon_fail_count = 0;
+        }
+    } else {
+        s_beacon_fail_count = 0;
     }
 }
 
@@ -268,7 +278,8 @@ void init() {
 void task(void*) {
     for (;;) {
         // Beacon every 1000ms (back off to 5s if WiFi is not connected)
-        uint32_t beacon_interval = (WiFi.status() == WL_CONNECTED) ? 1000 : 5000;
+        uint32_t beacon_interval = (WiFi.status() != WL_CONNECTED) ? 5000
+                                  : (s_beacon_fail_count > 0)       ? 3000 : 1000;
         if (millis() - s_last_beacon > beacon_interval) {
             sendBeacon();
             s_last_beacon = millis();
