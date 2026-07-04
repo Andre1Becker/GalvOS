@@ -880,6 +880,19 @@
           <button class="btn danger"    onclick="paintClear()"          style="font-size:11px;padding:5px 8px">🧹 Clear</button>
         </div>
       </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;flex-wrap:wrap;gap:8px">
+        <div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap" id="pt-mirror-btns">
+          <span style="font-size:10px;color:var(--dim);font-family:monospace">MIRROR</span>
+          <button class="btn secondary" id="pt-mirror-off"     onclick="paintSetMirror('off')"     style="font-size:11px;padding:5px 8px">Off</button>
+          <button class="btn secondary" id="pt-mirror-x"       onclick="paintSetMirror('x')"       style="font-size:11px;padding:5px 8px">↔ X</button>
+          <button class="btn secondary" id="pt-mirror-y"       onclick="paintSetMirror('y')"       style="font-size:11px;padding:5px 8px">↕ Y</button>
+          <button class="btn secondary" id="pt-mirror-radial4" onclick="paintSetMirror('radial4')" style="font-size:11px;padding:5px 8px">✳ Radial4</button>
+        </div>
+        <label class="toggle" style="margin:0">
+          <input type="checkbox" id="pt-snap" onchange="paintToggleSnap(this.checked)">
+          <span class="slider"></span><span style="font-size:12px">🧲 Snap</span>
+        </label>
+      </div>
       <canvas id="pt-canvas" width="600" height="600"
         style="width:100%;aspect-ratio:1/1;background:#000;border-radius:6px;border:1px solid var(--border);touch-action:none;cursor:crosshair;display:block"></canvas>
       <div style="margin-top:8px;font-size:11px;color:var(--dim);display:flex;justify-content:space-between;flex-wrap:wrap;gap:4px">
@@ -3616,6 +3629,8 @@ const PAINT_RANGE       = 20000;  // galvo units mapped to canvas edges (±)
 const PAINT_MAX_VERTS   = 96;     // must match PAINT_VERTS_PER_STROKE (config.h)
 const PAINT_STROKES_MAX = 12;     // must match PAINT_STROKES_MAX (config.h)
 const PAINT_HANDLE_PX   = 9;      // handle hit-radius, canvas px
+const PAINT_SNAP_GRID   = 500;    // grid size, galvo units
+const PAINT_SNAP_TOL    = 400;    // snap-to-center/vertex radius, galvo units
 const PAINT_SEG_SEQS = [
     {name:'Rainbow', stops:['#f00','#f80','#ff0','#0f0','#0cf','#80f']},
     {name:'Fire',    stops:['#f00','#f50','#fc0','#ff8']},
@@ -3637,6 +3652,8 @@ let paintDrag     = null;
 let paintSegSeq   = 0;
 let paintSyncTimer= null;
 let paintInited   = false;
+let paintMirrorMode = 'off';   // 'off'|'x'|'y'|'radial4'
+let paintSnap       = false;   // snap-to-grid / snap-to-center toggle
 
 function paintHexToRgb(hex) {
     const n = parseInt(hex.slice(1), 16);
@@ -3653,7 +3670,8 @@ function initPaintTab() {
         buildPaintSegGrid();
         paintBindCanvasEvents(cv);
         paintSetTool('pen');
-        paintLoadFromServer();
+        paintSetMirror('off');
+        paintLoadFromServer();;
         window.addEventListener('resize', () => {
             const s = Math.round(cv.getBoundingClientRect().width);
             if (s > 0 && cv.width !== s) { cv.width = s; cv.height = s; paintRender(); }
@@ -3829,11 +3847,22 @@ function paintPointerDown(e) {
         return;
     }
     paintSelected = -1;
+    const [sgx, sgy] = paintMaybeSnap(gx, gy);
     if (paintTool === 'pen') {
-        paintStrokes.push({ type:'freehand', points:[[gx,gy]], closed:false, r:paintColor.r, g:paintColor.g, b:paintColor.b, _lastPx:px, _lastPy:py });
-        paintDrag = { mode:'draw', idx: paintStrokes.length - 1 };
+        const mirrors = paintMirrorPoints(sgx, sgy, paintMirrorMode);
+        if (paintStrokes.length + 1 + mirrors.length > PAINT_STROKES_MAX) {
+            toast('Not enough room for mirrored strokes (mode: ' + paintMirrorMode + ')');
+            return;
+        }
+        paintStrokes.push({ type:'freehand', points:[[sgx,sgy]], closed:false, r:paintColor.r, g:paintColor.g, b:paintColor.b, _lastPx:px, _lastPy:py });
+        const idx = paintStrokes.length - 1;
+        const mirrorIdxs = mirrors.map(([mgx, mgy]) => {
+            paintStrokes.push({ type:'freehand', points:[[mgx,mgy]], closed:false, r:paintColor.r, g:paintColor.g, b:paintColor.b });
+            return paintStrokes.length - 1;
+        });
+        paintDrag = { mode:'draw', idx, mirrorIdxs };
     } else {
-        paintStartCreate(paintTool, gx, gy);
+        paintStartCreate(paintTool, sgx, sgy);
     }
     paintRender();
 }
@@ -3849,13 +3878,25 @@ function paintPointerMove(e) {
     if (paintDrag.mode === 'draw') {
         const dx = px - s._lastPx, dy = py - s._lastPy;
         if (Math.hypot(dx, dy) >= 4 && s.points.length < PAINT_MAX_VERTS) {
-            s.points.push([gx, gy]);
+            const [sgx, sgy] = paintMaybeSnap(gx, gy);
+            const last = s.points[s.points.length - 1];
+            if (!last || last[0] !== sgx || last[1] !== sgy) {
+                s.points.push([sgx, sgy]);
+                if (paintDrag.mirrorIdxs && paintDrag.mirrorIdxs.length) {
+                    const mirrors = paintMirrorPoints(sgx, sgy, paintMirrorMode);
+                    paintDrag.mirrorIdxs.forEach((mi, k) => {
+                        const ms = paintStrokes[mi];
+                        if (ms && mirrors[k] && ms.points.length < PAINT_MAX_VERTS) ms.points.push(mirrors[k]);
+                    });
+                }
+            }
             s._lastPx = px; s._lastPy = py;
         }
     } else if (paintDrag.mode === 'create') {
-        paintUpdateCreate(gx, gy);
+        const [sgx, sgy] = paintMaybeSnap(gx, gy);
+        paintUpdateCreate(sgx, sgy);
     } else if (paintDrag.mode === 'vertex') {
-        s.points[paintDrag.vi] = [gx, gy];
+        s.points[paintDrag.vi] = paintMaybeSnap(gx, gy);
     } else if (paintDrag.mode === 'radius') {
         s.radius = Math.max(200, Math.hypot(gx - s.cx, gy - s.cy));
     } else if (paintDrag.mode === 'move') {
@@ -3870,9 +3911,12 @@ function paintPointerUp() {
     if (!paintDrag) return;
     const wasDraw = paintDrag.mode === 'draw';
     const idx = paintDrag.idx;
+    const mirrorIdxs = paintDrag.mirrorIdxs || [];
     paintDrag = null;
     if (wasDraw) {
-        if (paintStrokes[idx].points.length < 2) paintStrokes.splice(idx, 1);
+        if (paintStrokes[idx].points.length < 2) {
+            [idx, ...mirrorIdxs].sort((a, b) => b - a).forEach(i => paintStrokes.splice(i, 1));
+        }
         paintSelected = -1;
     }
     paintRender();
@@ -3934,6 +3978,50 @@ function paintSetTool(t) {
         btn.style.color      = (x === t) ? '#fff' : '';
     });
     paintRender();
+}
+
+function paintSetMirror(mode) {
+    paintMirrorMode = mode;
+    ['off','x','y','radial4'].forEach(m => {
+        const btn = document.getElementById('pt-mirror-' + m);
+        if (!btn) return;
+        btn.style.background = (m === mode) ? 'var(--accent)' : '';
+        btn.style.color      = (m === mode) ? '#fff' : '';
+    });
+}
+
+function paintToggleSnap(on) {
+    paintSnap = on;
+}
+
+// mirror point(s) for a given galvo-unit point, excludes the original point
+function paintMirrorPoints(gx, gy, mode) {
+    if (mode === 'x') return [[-gx, gy]];
+    if (mode === 'y') return [[gx, -gy]];
+    if (mode === 'radial4') {
+        const pts = [];
+        for (let k = 1; k < 4; k++) {
+            const ang = k * Math.PI / 2;
+            const cos = Math.cos(ang), sin = Math.sin(ang);
+            pts.push([gx * cos - gy * sin, gx * sin + gy * cos]);
+        }
+        return pts;
+    }
+    return [];
+}
+
+// snap-to-center / snap-to-vertex (tolerance) first, else snap-to-grid
+function paintMaybeSnap(gx, gy) {
+    if (!paintSnap) return [gx, gy];
+    const candidates = [[0, 0]];
+    paintStrokes.forEach(s => {
+        if (s.points) s.points.forEach(p => candidates.push(p));
+        else if (s.type === 'circle') candidates.push([s.cx, s.cy]);
+    });
+    for (const [cx, cy] of candidates) {
+        if (Math.hypot(gx - cx, gy - cy) <= PAINT_SNAP_TOL) return [cx, cy];
+    }
+    return [Math.round(gx / PAINT_SNAP_GRID) * PAINT_SNAP_GRID, Math.round(gy / PAINT_SNAP_GRID) * PAINT_SNAP_GRID];
 }
 
 function paintDeleteSelected() {

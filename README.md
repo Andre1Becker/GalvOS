@@ -6,12 +6,16 @@
 
 - SD-Card: Currently, if an SD-Card is populated, Galvos go crazy
 - try different approach to get sd card working
-- paint by finger mode
 - make features toggable via UI (fe. disable ArtNet if not needed)
+
+**Paint by Finger**
+- Only 2 Circles can be drawn - then error 400
+
 
 **Patterns**
 - Curves do not respect rotation
 - Speed to slow
+- Not closed geometry: Circle, aöö Lissajous, Epitrochoid, Infinity, Pulsing Circle 
 
 **Text**
 
@@ -25,10 +29,6 @@
 - Brightness Parameter not working
 - Channel not working
 - x /y gain link not working as expected
-
-**Preview**
-
-- seems unessecary now - to be removed.
 
 And: (Drum Roll please) Documentation :-)
 
