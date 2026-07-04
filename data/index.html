@@ -3614,6 +3614,7 @@ async function stopText() {
 // ============================================================
 const PAINT_RANGE       = 20000;  // galvo units mapped to canvas edges (±)
 const PAINT_MAX_VERTS   = 96;     // must match PAINT_VERTS_PER_STROKE (config.h)
+const PAINT_STROKES_MAX = 12;     // must match PAINT_STROKES_MAX (config.h)
 const PAINT_HANDLE_PX   = 9;      // handle hit-radius, canvas px
 const PAINT_SEG_SEQS = [
     {name:'Rainbow', stops:['#f00','#f80','#ff0','#0f0','#0cf','#80f']},
@@ -3716,7 +3717,7 @@ function paintStartCreate(type, gx, gy) {
     else return;
     paintStrokes.push(shape);
     paintSelected = paintStrokes.length - 1;
-    paintDrag = { mode:'create', type, anchorX:gx, anchorY:gy };
+    paintDrag = { mode:'create', idx: paintStrokes.length - 1, type, anchorX:gx, anchorY:gy };
 }
 
 function paintUpdateCreate(gx, gy) {
@@ -3823,6 +3824,10 @@ function paintPointerDown(e) {
         return;
     }
 
+    if (paintStrokes.length >= PAINT_STROKES_MAX) {
+        toast('Max ' + PAINT_STROKES_MAX + ' shapes reached — delete one first');
+        return;
+    }
     paintSelected = -1;
     if (paintTool === 'pen') {
         paintStrokes.push({ type:'freehand', points:[[gx,gy]], closed:false, r:paintColor.r, g:paintColor.g, b:paintColor.b, _lastPx:px, _lastPy:py });
