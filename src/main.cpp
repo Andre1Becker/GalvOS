@@ -32,6 +32,7 @@
 #include "sensors/temp_monitor.h"
 #include "util/log_buffer.h"
 #include "util/cpu_monitor.h"
+#include "util/stack_mon.h"
 
 // Global data -- must be defined exactly once here
 RuntimeConfig    gConfig;
@@ -152,6 +153,7 @@ static bool startTask(TaskFunction_t fn, const char* name,
         return false;
     }
     ESP_LOGI("main", "Task OK: %-10s p=%u c=%d s=%u", name, prio, core, stack);
+    stackMon::watch(h, name);
     return true;
 }
 
@@ -369,7 +371,7 @@ void setup() {
     // Core 1 = exclusive for galvoTask (busy-wait, highest priority)
     // -> patterns::task on core 1 would starve (task starvation)
     // → Core 0 shares CPU fairly (FreeRTOS round-robin at equal priority)
-    startTask(patterns::task, "pattern", 8192,  2, 0); // p=2: pattern calculation
+    startTask(patterns::task, "pattern", 12288, 2, 0); // p=2: pattern calculation -- v5.20.0: bumped 8192->12288 after stack-canary crash, exact allocation unconfirmed, see stack_mon
     galvo::start();   // starts galvoTask on core 1 at highest priority
 
     // SD card init runs in a separate one-shot task on Core 0.

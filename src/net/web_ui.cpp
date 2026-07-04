@@ -17,6 +17,7 @@
 #include "sensors/temp_monitor.h"
 #include "util/log_buffer.h"
 #include "util/cpu_monitor.h"
+#include "util/stack_mon.h"
 #include "net/ntp_client.h"
 #include "patterns/preset_patterns.h"
 #include "patterns/countdown_timer.h"
