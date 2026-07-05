@@ -738,30 +738,12 @@ void init() {
             req->send(200, "text/plain", "OK");
         });
 
-    // ---- GET /api/text ----
-    s_server.on("/api/text", HTTP_GET, [](AsyncWebServerRequest* req) {
-        JsonDocument doc;
-        doc["text"]    = gTextConfig.text;
-        doc["font"]    = (int)gTextConfig.font;
-        doc["anim"]    = (int)gTextConfig.animation;
-        doc["speed"]   = gTextConfig.speed;
-        doc["size"]    = gTextConfig.size_val;
-        doc["col_r"]   = gTextConfig.col_r;
-        doc["col_g"]   = gTextConfig.col_g;
-        doc["col_b"]   = gTextConfig.col_b;
-        doc["rainbow"] = gTextConfig.rainbow;
-        doc["active"]  = gTextConfig.active;
-        String out; serializeJson(doc, out);
-        req->send(200, "application/json", out);
-    });
-
-    // ---- POST /api/text/off ----
-    s_server.on("/api/text/off", HTTP_POST,
-        [](AsyncWebServerRequest* req) { gTextConfig.active = false; req->send(200,"text/plain","OK"); });
-
     // ---- GET /api/text/vertices ---- raw glyph outline paths for the
     // Paint by Finger "Text" tool (see textrender::glyphOutlinePaths).
     // Query: text=<string, max 24 chars>, size=<0-255, default 128>
+    // NOTE: must be registered BEFORE GET /api/text -- ESPAsyncWebServer
+    // matched this URI to the shorter, earlier-registered /api/text
+    // handler (returned TextConfig JSON instead of glyph paths).
     s_server.on("/api/text/vertices", HTTP_GET, [](AsyncWebServerRequest* req) {
         if (!req->hasParam("text")) {
             req->send(400, "application/json", "{\"error\":\"missing text param\"}");
@@ -791,6 +773,27 @@ void init() {
         String out; serializeJson(doc, out);
         req->send(200, "application/json", out);
     });
+
+    // ---- GET /api/text ----
+    s_server.on("/api/text", HTTP_GET, [](AsyncWebServerRequest* req) {
+        JsonDocument doc;
+        doc["text"]    = gTextConfig.text;
+        doc["font"]    = (int)gTextConfig.font;
+        doc["anim"]    = (int)gTextConfig.animation;
+        doc["speed"]   = gTextConfig.speed;
+        doc["size"]    = gTextConfig.size_val;
+        doc["col_r"]   = gTextConfig.col_r;
+        doc["col_g"]   = gTextConfig.col_g;
+        doc["col_b"]   = gTextConfig.col_b;
+        doc["rainbow"] = gTextConfig.rainbow;
+        doc["active"]  = gTextConfig.active;
+        String out; serializeJson(doc, out);
+        req->send(200, "application/json", out);
+    });
+
+    // ---- POST /api/text/off ----
+    s_server.on("/api/text/off", HTTP_POST,
+        [](AsyncWebServerRequest* req) { gTextConfig.active = false; req->send(200,"text/plain","OK"); });
 
     // ---- GET /api/paint ---- current canvas (reload / multi-client sync)
     s_server.on("/api/paint", HTTP_GET, [](AsyncWebServerRequest* req) {

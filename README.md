@@ -8,6 +8,7 @@
 - try different approach to get sd card working
 - make features toggable via UI (fe. disable ArtNet if not needed)
 - Move Point Optimizer to Calib Tab
+- Add FPS Counter / Point Limit to Statusbar
 
 ### Paint by Finger
 
@@ -15,7 +16,7 @@
 
 ### Patterns
 
-- Speed to slow
+- Kaleidoscope / Mirror effect
 
 ### Text
 
