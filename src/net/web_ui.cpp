@@ -123,6 +123,9 @@ static void persistConfig() {
     s_prefs.putFloat ("opt_blppu",  gOptimizerConfig.blank_pts_per_1000_units);
     s_prefs.putUChar ("opt_minip",  gOptimizerConfig.min_interior_pts_per_segment);
     s_prefs.putUChar ("opt_s1tgt",  gOptimizerConfig.stage1_blank_target);
+    s_prefs.putBool  ("opt_rngen",  gOptimizerConfig.ringing_comp_enabled);
+    s_prefs.putFloat ("opt_rngfq",  gOptimizerConfig.ring_freq_hz);
+    s_prefs.putFloat ("opt_rngdr",  gOptimizerConfig.ring_damping_ratio);
     s_prefs.putBool ("zone_en",   gZone.enabled);
     s_prefs.putUChar("zone_cnt",  gZone.count);
     s_prefs.putBytes("zone_x",    (const void*)gZone.x, sizeof(gZone.x));
@@ -251,6 +254,9 @@ static void buildConfigJson(JsonDocument& doc) {
     doc["opt_blank_pts_per_1000_units"] = gOptimizerConfig.blank_pts_per_1000_units;
     doc["opt_min_interior_pts_per_segment"] = gOptimizerConfig.min_interior_pts_per_segment;
     doc["opt_stage1_blank_target"] = gOptimizerConfig.stage1_blank_target;
+    doc["opt_ringing_comp_enabled"] = gOptimizerConfig.ringing_comp_enabled;
+    doc["opt_ring_freq_hz"]         = gOptimizerConfig.ring_freq_hz;
+    doc["opt_ring_damping_ratio"]   = gOptimizerConfig.ring_damping_ratio;
 }
 
 /* ============================================================
@@ -431,6 +437,12 @@ void init() {
                 gOptimizerConfig.min_interior_pts_per_segment = constrain((int)doc["min_interior_pts_per_segment"], 0, 50);
             if (doc["stage1_blank_target"].is<int>())
                 gOptimizerConfig.stage1_blank_target = constrain((int)doc["stage1_blank_target"], 1, 100);
+            if (doc["ringing_comp_enabled"].is<bool>())
+                gOptimizerConfig.ringing_comp_enabled = (bool)doc["ringing_comp_enabled"];
+            if (doc["ring_freq_hz"].is<float>())
+                gOptimizerConfig.ring_freq_hz = constrain((float)doc["ring_freq_hz"], 1.0f, 2000.0f);
+            if (doc["ring_damping_ratio"].is<float>())
+                gOptimizerConfig.ring_damping_ratio = constrain((float)doc["ring_damping_ratio"], 0.0f, 0.9f);
             req->send(200, "text/plain", "OK");
         });
 

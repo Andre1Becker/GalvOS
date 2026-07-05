@@ -39,15 +39,54 @@ static inline float smoothstep(float t) {
     return t * t * (3.0f - 2.0f * t);
 }
 
-// Pillar 2 (interim): distance-proportional + eased blank jump from
-// (x0,y0) to (x1,y1). Sample count scales with jump distance using the
-// same "points per 1000 units" convention as interior density
-// (cfg.blank_pts_per_1000_units), clamped to [min_blank_samples,
-// blank_samples] -- short jumps (e.g. between adjacent wireframe
-// vertices) get fewer samples, long diagonal jumps get more, instead of
-// every jump paying the same fixed cost regardless of distance.
+// PILLAR 3: Zero-Vibration (ZV) two-impulse input shaper. Cancels galvo
+// ringing by convolving the commanded trajectory with two impulses -- A1
+// at t=0, A2 at t=Td/2 -- sized so the plant's response to the first
+// impulse is destructively cancelled by its response to the second. See
+// design doc Section 5.3 for the derivation. With cfg.ringing_comp_enabled
+// == false (the default) this reduces to A1=1, A2=0: shaped output is
+// then byte-identical to the pre-Pillar-3 trajectory.
+struct ZvShaper {
+    float A1 = 1.0f, A2 = 0.0f;
+    int   shift_pts = 0;   // point-count delay of the second impulse
+};
+
+static ZvShaper computeZvShaper(const OptimizerConfig& cfg) {
+    ZvShaper s;
+    if (!cfg.ringing_comp_enabled || cfg.ring_freq_hz <= 1.0f || cfg.galvo_kpps == 0)
+        return s;
+
+    float zeta  = std::max(0.0f, std::min(0.9f, cfg.ring_damping_ratio));
+    float wn    = TAU_F * cfg.ring_freq_hz;                // undamped natural freq, rad/s
+    float wd_f  = sqrtf(std::max(1.0f - zeta * zeta, 1e-6f));
+    float K     = expf(-zeta * PI_F / wd_f);               // amplitude ratio between the two impulses
+
+    s.A1 = 1.0f / (1.0f + K);
+    s.A2 = K    / (1.0f + K);
+
+    float td_half_s       = PI_F / (wn * wd_f);            // half the damped oscillation period
+    float point_period_s  = 1.0f / ((float)cfg.galvo_kpps * 1000.0f);
+    s.shift_pts = (int)lroundf(td_half_s / point_period_s);
+    if (s.shift_pts < 1) s.shift_pts = 1;
+    return s;
+}
+
+// Pillar 2: distance-proportional + eased blank jump from (x0,y0) to
+// (x1,y1). Sample count scales with jump distance using the same "points
+// per 1000 units" convention as interior density (cfg.blank_pts_per_1000_units),
+// clamped to [min_blank_samples, blank_samples] -- short jumps (e.g.
+// between adjacent wireframe vertices) get fewer samples, long diagonal
+// jumps get more, instead of every jump paying the same fixed cost
+// regardless of distance.
 // Falls back to a simple stay-at-target run (old emitBlankRun behavior)
 // when there is no prior point to jump from (n==0).
+//
+// PILLAR 3: the resulting move+settle trajectory is buffered locally,
+// then re-shaped with the ZV impulse response above (shaped[i] =
+// A1*u[i] + A2*u[i-shift]) before being emitted -- actively cancelling
+// galvo ringing at the landing point instead of only waiting it out.
+// Falls back to the unshaped trajectory when disabled, or when the
+// jump's point budget is too small to fit the required shift.
 static void emitBlankJump(LaserPoint* out, size_t& n, size_t max,
                            float x1, float y1, const OptimizerConfig& cfg) {
     if (n == 0) {
@@ -71,12 +110,36 @@ static void emitBlankJump(LaserPoint* out, size_t& n, size_t max,
     if (settle < 1) settle = 1;
     int move = count - settle;
 
-    for (int k = 1; k <= move && n < max; k++) {
-        float t = smoothstep((float)k / (float)move);
-        emit(out, n, max, x0 + dx * t, y0 + dy * t, 0, 0, 0, 1);
+    // kMaxBlankPts headroom above the WebUI's blank_samples clamp (<=100,
+    // see web_ui.cpp POST /api/optimizer-live) -- count can never exceed
+    // cfg.blank_samples, so 128 always covers it with margin.
+    static constexpr int kMaxBlankPts = 128;
+    float ux[kMaxBlankPts], uy[kMaxBlankPts];
+    int total = std::min(count, kMaxBlankPts);
+    for (int i = 0; i < total; i++) {
+        if (i < move) {
+            float t = smoothstep((float)(i + 1) / (float)move);
+            ux[i] = x0 + dx * t;
+            uy[i] = y0 + dy * t;
+        } else {
+            ux[i] = x1;
+            uy[i] = y1;
+        }
     }
-    for (int k = 0; k < settle && n < max; k++) {
-        emit(out, n, max, x1, y1, 0, 0, 0, 1);
+
+    ZvShaper shaper = computeZvShaper(cfg);
+    bool shape_active = shaper.A2 > 0.0f && shaper.shift_pts < total;
+
+    for (int i = 0; i < total && n < max; i++) {
+        float sx = ux[i], sy = uy[i];
+        if (shape_active) {
+            int j = i - shaper.shift_pts;
+            float px = (j >= 0) ? ux[j] : x0;
+            float py = (j >= 0) ? uy[j] : y0;
+            sx = shaper.A1 * ux[i] + shaper.A2 * px;
+            sy = shaper.A1 * uy[i] + shaper.A2 * py;
+        }
+        emit(out, n, max, sx, sy, 0, 0, 0, 1);
     }
 }
 

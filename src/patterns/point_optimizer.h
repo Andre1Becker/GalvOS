@@ -2,16 +2,21 @@
 #include "config.h"
 
 /**
- * point_optimizer.h -- GalvOS v5 Point Optimizer (Pillar 1: adaptive density)
+* point_optimizer.h -- GalvOS v5 Point Optimizer
+ *   Pillar 1: adaptive corner/interior point density (done)
+ *   Pillar 2: distance-proportional, eased blank-jump sampling (done)
+ *   Pillar 3: active ringing compensation via ZV input shaping, applied
+ *             to blank-jump moves (this revision). Corner-dwell shaping
+ *             is deferred, see design doc Section 5.3.
  *
  * Sits between pattern generation and galvo::pushFrame(). Patterns describe
  * geometry as PathSegments (vertex lists with corner metadata); optimize()
  * performs corner-aware, length-proportional point sampling and writes the
  * final LaserPoint[] output.
  *
- * Blanking between sub-paths still uses a fixed sample count
- * (OptimizerConfig::blank_samples) -- distance-proportional / eased
- * blanking is Pillar 2 (not implemented yet, see design doc Section 5).
+ * Pillar 3 needs cfg.ring_freq_hz / cfg.ring_damping_ratio measured on real
+ * hardware (step-response capture on a scope). cfg.ringing_comp_enabled
+ * defaults to false so unmeasured defaults can't make ringing worse.
  *
  * Scope: works for discrete-vertex geometry (polygons, stars, wireframes,
  * text-glyph strokes). NOT used for curve_patterns.cpp -- continuous
@@ -93,6 +98,16 @@ struct OptimizerConfig {
     uint8_t  min_interior_pts_per_segment = OPT_DEFAULT_MIN_INTERIOR_PTS_PER_SEG;
                                                                     // Interior pts reserved per segment
                                                                     // before blank budget is computed.
+    bool     ringing_comp_enabled = OPT_DEFAULT_RINGING_COMP_ENABLED; // PILLAR 3: enables the ZV shaper
+                                                                    // in emitBlankJump(). false = shaper
+                                                                    // reduces to A1=1/A2=0, byte-identical
+                                                                    // to pre-Pillar-3 output.
+    float    ring_freq_hz         = OPT_DEFAULT_RING_FREQ_HZ;      // Measured galvo mechanical resonance (Hz).
+    float    ring_damping_ratio   = OPT_DEFAULT_RING_DAMPING_RATIO; // Measured damping ratio zeta (0..~0.9).
+    uint16_t galvo_kpps           = 30;    // Mirrors gProjection.galvo_kpps -- passed explicitly rather
+                                            // than read as a global (same rule as the rest of this
+                                            // struct, see file header) so the ZV shaper can convert a
+                                            // physical time (half the ring period) into a point count.
 };
 
 // Runs Pillar-1 density optimization across all given segments and writes

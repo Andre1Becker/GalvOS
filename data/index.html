@@ -1371,6 +1371,19 @@
       </label>
       <input type="range" id="opt-s1tgt" min="1" max="100" step="1" value="20" oninput="optimizerSlider()">
 
+      <div class="opt-group-label">Ringing compensation (Pillar 3)</div>
+      <label class="toggle"><input type="checkbox" id="opt-ring-en" onchange="optimizerSlider()"><span class="slider"></span>Enable ringing compensation</label>
+
+      <label>Ring frequency (Hz) <span id="opt-rngfq-val" style="color:var(--accent);font-family:monospace">200.0</span>
+        <span class="help-icon" title="Measured galvo mechanical resonance frequency (step-response capture on scope). Wrong value can make ringing worse -- measure before enabling.">?</span>
+      </label>
+      <input type="range" id="opt-rngfq" min="10" max="2000" step="1" value="200" oninput="optimizerSlider()">
+
+      <label>Ring damping ratio <span id="opt-rngdr-val" style="color:var(--accent);font-family:monospace">0.15</span>
+        <span class="help-icon" title="Measured damping ratio (zeta) of the galvo ringing decay. 0 = undamped, close to 1 = barely oscillates.">?</span>
+      </label>
+      <input type="range" id="opt-rngdr" min="0" max="90" step="1" value="15" oninput="optimizerSlider()">
+
       <div class="btns" style="margin-top:12px">
         <button class="btn secondary" onclick="saveOptimizerConfig()">💾 Save to flash</button>
         <button class="btn secondary" onclick="resetOptimizerDefaults()">↺ Reset defaults</button>
@@ -3466,6 +3479,8 @@ function optimizerSlider() {
     document.getElementById('opt-blppu-val').textContent  = (document.getElementById('opt-blppu').value/10).toFixed(1);
     document.getElementById('opt-minip-val').textContent  = document.getElementById('opt-minip').value;
     document.getElementById('opt-s1tgt-val').textContent  = document.getElementById('opt-s1tgt').value;
+    document.getElementById('opt-rngfq-val').textContent  = (+document.getElementById('opt-rngfq').value).toFixed(1);
+    document.getElementById('opt-rngdr-val').textContent  = (document.getElementById('opt-rngdr').value/100).toFixed(2);
     clearTimeout(optimizerDebounce);
     optimizerDebounce = setTimeout(sendOptimizerLive, 50);
 }
@@ -3483,6 +3498,9 @@ async function sendOptimizerLive() {
         blank_pts_per_1000_units: +document.getElementById('opt-blppu').value/10,
         min_interior_pts_per_segment: +document.getElementById('opt-minip').value,
         stage1_blank_target: +document.getElementById('opt-s1tgt').value,
+        ringing_comp_enabled: document.getElementById('opt-ring-en').checked,
+        ring_freq_hz:        +document.getElementById('opt-rngfq').value,
+        ring_damping_ratio:  +document.getElementById('opt-rngdr').value/100,
     });
 }
 
@@ -3505,6 +3523,9 @@ function resetOptimizerDefaults() {
     document.getElementById('opt-blppu').value = 100;
     document.getElementById('opt-minip').value = 6;
     document.getElementById('opt-s1tgt').value = 20;
+    document.getElementById('opt-ring-en').checked = false;
+    document.getElementById('opt-rngfq').value = 200;
+    document.getElementById('opt-rngdr').value = 15;
     optimizerSlider();
 }
 
@@ -3521,6 +3542,9 @@ function loadOptimizerConfig(cfg) {
     document.getElementById('opt-blppu').value = Math.round(cfg.opt_blank_pts_per_1000_units*10);
     document.getElementById('opt-minip').value = cfg.opt_min_interior_pts_per_segment;
     document.getElementById('opt-s1tgt').value = cfg.opt_stage1_blank_target;
+    document.getElementById('opt-ring-en').checked = !!cfg.opt_ringing_comp_enabled;
+    document.getElementById('opt-rngfq').value = cfg.opt_ring_freq_hz;
+    document.getElementById('opt-rngdr').value = Math.round(cfg.opt_ring_damping_ratio*100);
     // Update labels and force slider thumb repaint (hidden tab workaround).
     // optimizerSlider() is called without the debounced POST -- we only want
     // visual sync here, not an immediate /api/optimizer-live call on load.
@@ -3535,10 +3559,13 @@ function loadOptimizerConfig(cfg) {
     document.getElementById('opt-blppu-val').textContent  = (document.getElementById('opt-blppu').value/10).toFixed(1);
     document.getElementById('opt-minip-val').textContent  = document.getElementById('opt-minip').value;
     document.getElementById('opt-s1tgt-val').textContent  = document.getElementById('opt-s1tgt').value;
+    document.getElementById('opt-rngfq-val').textContent  = (+document.getElementById('opt-rngfq').value).toFixed(1);
+    document.getElementById('opt-rngdr-val').textContent  = (document.getElementById('opt-rngdr').value/100).toFixed(2);
     // Nudge each slider by +1/-1 to force the browser to repaint the thumb
     // at the correct position when the tab was hidden during initial load.
     var ids = ['opt-cad','opt-mincp','opt-maxcp','opt-ppu','opt-minsp',
-               'opt-blank','opt-maxppf','opt-minbl','opt-blppu','opt-minip','opt-s1tgt'];
+               'opt-blank','opt-maxppf','opt-minbl','opt-blppu','opt-minip','opt-s1tgt',
+               'opt-rngfq','opt-rngdr'];
     for (var i = 0; i < ids.length; i++) {
         var el = document.getElementById(ids[i]);
         if (!el) continue;

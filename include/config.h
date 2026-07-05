@@ -35,6 +35,13 @@ constexpr size_t   PATTERN_POINTS_MAX = 2048;
 #define OPT_DEFAULT_BLANK_PTS_PER_1000_UNITS    8.0f
 #define OPT_DEFAULT_MIN_INTERIOR_PTS_PER_SEG    8
 #define OPT_DEFAULT_STAGE1_BLANK_TARGET         16
+// PILLAR 3: ZV (Zero Vibration) input-shaping ringing compensation on
+// blank-jump moves. Disabled by default -- ring_freq_hz/ring_damping_ratio
+// must be measured on real hardware (step-response capture on a scope)
+// before enabling; unmeasured defaults can make ringing worse, not better.
+#define OPT_DEFAULT_RINGING_COMP_ENABLED         false
+#define OPT_DEFAULT_RING_FREQ_HZ                 200.0f
+#define OPT_DEFAULT_RING_DAMPING_RATIO           0.15f
 
 struct OptimizerLiveConfig {
     float    corner_angle_deg             = OPT_DEFAULT_CORNER_ANGLE_DEG;
@@ -48,6 +55,9 @@ struct OptimizerLiveConfig {
     float    blank_pts_per_1000_units     = OPT_DEFAULT_BLANK_PTS_PER_1000_UNITS;
     uint8_t  min_interior_pts_per_segment = OPT_DEFAULT_MIN_INTERIOR_PTS_PER_SEG;
     uint8_t  stage1_blank_target          = OPT_DEFAULT_STAGE1_BLANK_TARGET;
+    bool     ringing_comp_enabled         = OPT_DEFAULT_RINGING_COMP_ENABLED;
+    float    ring_freq_hz                 = OPT_DEFAULT_RING_FREQ_HZ;
+    float    ring_damping_ratio           = OPT_DEFAULT_RING_DAMPING_RATIO;
 };
 
 extern OptimizerLiveConfig gOptimizerConfig;
