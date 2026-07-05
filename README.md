@@ -7,6 +7,7 @@
 - SD-Card: Currently, if an SD-Card is populated, Galvos go crazy
 - try different approach to get sd card working
 - make features toggable via UI (fe. disable ArtNet if not needed)
+- Move Point Optimizer to Calib Tab
 
 ### Paint by Finger
 
@@ -32,7 +33,8 @@
 
 And: (Drum Roll please) Documentation :-)
 
-**Open-source ESP32-S3 laser show controller — built to replace proprietary OEM controllers in RGB galvo laser projectors.**
+
+# Open-source ESP32-S3 laser show controller — built to replace proprietary OEM controllers in RGB galvo laser projectors.
 
 **GalvOS** is a fully custom firmware and hardware project that replaces the original control board of a Mikoy 5W RGB laser projector with an ESP32-S3-based system featuring a 16-bit DAC, browser-based WebUI (PWA), DMX/Art-Net input, ILDA file playback, and hardware safety interlocks.
 
