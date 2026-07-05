@@ -8,27 +8,27 @@
 - try different approach to get sd card working
 - make features toggable via UI (fe. disable ArtNet if not needed)
 
-**Paint by Finger**
+### Paint by Finger
+
 - Display Max Points and Shapes under Canvans next Current shapes and points
 
+### Patterns
 
-**Patterns**
-- Curves do not respect rotation
 - Speed to slow
-- Not closed geometry: Circle, aöö Lissajous, Epitrochoid, Infinity, Pulsing Circle 
 
-**Text**
+### Text
 
 - Text not rendered fully (missing serifs)
 - 3D Extrusion not working
 - Orbit should be 3D - not cycling
 
-**Calibration**
+### Calibration
 
 - Some patterns need to be fixed
 - Brightness Parameter not working
 - Channel not working
 - x /y gain link not working as expected
+- ILDA Standard Testpattern kein output
 
 And: (Drum Roll please) Documentation :-)
 
