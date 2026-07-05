@@ -18,7 +18,8 @@
 
 - Kaleidoscope / Mirror effect
 - point to multi point spread out
-- 3 Kreis Preset
+- 3 cirle Preset
+- random points with fade out (modifiable)
 
 ### Text
 
