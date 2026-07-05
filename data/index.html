@@ -4352,19 +4352,25 @@ async function paintInsertText() {
 buildTempSensors();
 buildThresholdInputs();
 buildSensorNameEditor();
-loadCurveDefs();
-loadProjection();
-
 buildDmxSliders();
 document.addEventListener('DOMContentLoaded', setupCalibSliders);
-loadConfig();
-connectWs();
-refreshWifiStatus();
-setInterval(refreshWifiStatus, 10000);
-loadLog(true);
-startLogRefresh();
-loadPresets();
 initCpuGraph();
+
+// Sequential boot fetch -- staggered so a hard reload (Shift+F5) doesn't
+// fire ~7 concurrent HTTP/WS connections at once. That stampede starved
+// lwIP's shared memory pool enough to fail outgoing Art-Net/EtherDream
+// UDP sends (endPacket ENOMEM) during page load.
+(async function bootSequence() {
+    await loadCurveDefs();
+    await loadProjection();
+    await loadConfig();
+    connectWs();
+    await refreshWifiStatus();
+    setInterval(refreshWifiStatus, 10000);
+    await loadLog(true);
+    startLogRefresh();
+    await loadPresets();
+})();
 
 // ============================================================
 // CPU Load Graph
