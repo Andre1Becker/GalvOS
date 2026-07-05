@@ -20,6 +20,7 @@ namespace patterns {
 
 static const char* TAG = "pattern";
 static LaserPoint s_frame[PATTERN_POINTS_MAX];
+static LaserPoint* s_pm_lit = nullptr;  // PSRAM buffer, allocated in init()
 static volatile int      s_test_pattern  = -1;
 static volatile uint32_t s_test_started  = 0;
 static volatile int8_t   s_preset_idx    = -1;  // -1 = no Preset active
@@ -317,7 +318,10 @@ static void applyRainbow(LaserPoint* pts, size_t n, uint8_t speed, uint32_t phas
 /* ============================================================
  * Public API
  * ============================================================ */
-void init() {}
+void init() {
+    s_pm_lit = (LaserPoint*)ps_malloc(PATTERN_POINTS_MAX * sizeof(LaserPoint));
+    if (!s_pm_lit) ESP_LOGE(TAG, "PSRAM alloc failed for points-only buffer");
+}
 void setManualMode(bool, uint8_t) {}
 
 void setCurve(int8_t idx) {
@@ -544,6 +548,7 @@ static void applyColorAnim(size_t n) {
 // optimizer::optimize()'s density scale-down).
 static void applyPointsOnlyMode(size_t& n) {
     if (!gLivePreset.points_mode_enabled || n == 0) return;
+    if (!s_pm_lit) return;  // PSRAM alloc failed in init() -- skip, don't crash
 
     uint8_t count = gLivePreset.points_count;
     if (count < 2) count = 2;
@@ -555,15 +560,14 @@ static void applyPointsOnlyMode(size_t& n) {
     if (dwell < POINTS_MODE_MIN_DWELL) dwell = POINTS_MODE_MIN_DWELL;
     if (dwell > POINTS_MODE_MAX_DWELL) dwell = POINTS_MODE_MAX_DWELL;
 
-    // Collect lit (non-blank) source points only -- blank travel points
-    // already in s_frame carry no color to sample from.
-    static LaserPoint s_lit[PATTERN_POINTS_MAX];
+    // Snapshot lit points into PSRAM buffer -- lets the write-back loop
+    // below overwrite s_frame in place without clobbering not-yet-read
+    // source points.
     size_t nl = 0;
     for (size_t i = 0; i < n && nl < PATTERN_POINTS_MAX; i++)
-        if (!s_frame[i].blank) s_lit[nl++] = s_frame[i];
+        if (!s_frame[i].blank) s_pm_lit[nl++] = s_frame[i];
     if (nl == 0) { n = 0; return; }
 
-    // Fade phase: ms-based accumulator, wraps every points_fade_ms.
     static uint32_t s_pm_acc_ms  = 0;
     static uint32_t s_pm_last_ms = 0;
     uint32_t now_ms = millis();
@@ -571,32 +575,28 @@ static void applyPointsOnlyMode(size_t& n) {
     s_pm_last_ms = now_ms;
     uint16_t period = gLivePreset.points_fade_ms ? gLivePreset.points_fade_ms : 1;
     s_pm_acc_ms = (s_pm_acc_ms + dt_ms) % period;
-    float base_phase = (float)s_pm_acc_ms / (float)period;   // 0..1
+    float base_phase = (float)s_pm_acc_ms / (float)period;
 
-    static LaserPoint s_out[PATTERN_POINTS_MAX];
     size_t o = 0;
     for (uint8_t k = 0; k < count; k++) {
         if (o + (size_t)dwell + 2 > PATTERN_POINTS_MAX) break;
         size_t src_idx = (size_t)((uint32_t)k * nl / count);
-        const LaserPoint& src = s_lit[src_idx];
+        const LaserPoint& src = s_pm_lit[src_idx];
 
-        // Staggered: each dot gets its own phase offset (twinkle/chase).
-        // All-together: every dot shares the same phase (breathing).
         float ph = gLivePreset.points_stagger
                  ? fmodf(base_phase + (float)k / (float)count, 1.0f)
                  : base_phase;
-        float tri = (ph < 0.5f) ? (ph * 2.0f) : (2.0f - ph * 2.0f);   // 0->1->0
-        float v   = tri * tri * (3.0f - 2.0f * tri);                  // smoothstep ease
+        float tri = (ph < 0.5f) ? (ph * 2.0f) : (2.0f - ph * 2.0f);
+        float v   = tri * tri * (3.0f - 2.0f * tri);
 
         uint8_t r = (uint8_t)(src.r * v);
         uint8_t g = (uint8_t)(src.g * v);
         uint8_t b = (uint8_t)(src.b * v);
 
-        s_out[o++] = LaserPoint(src.x, src.y, 0, 0, 0, 1);      // blank travel to dot
+        s_frame[o++] = LaserPoint(src.x, src.y, 0, 0, 0, 1);
         for (int d = 0; d < dwell; d++)
-            s_out[o++] = LaserPoint(src.x, src.y, r, g, b, 0);  // dwell, lit
+            s_frame[o++] = LaserPoint(src.x, src.y, r, g, b, 0);
     }
-    for (size_t i = 0; i < o; i++) s_frame[i] = s_out[i];
     n = o;
 }
 
