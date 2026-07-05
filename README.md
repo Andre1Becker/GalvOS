@@ -9,10 +9,12 @@
 - make features toggable via UI (fe. disable ArtNet if not needed)
 - Move Point Optimizer to Calib Tab
 - Add FPS Counter / Point Limit to Statusbar
+- Add Auto Tuning via Global Shutter CAM input
 
 ### Paint by Finger
 
 - Display Max Points and Shapes under Canvans next Current shapes and points
+- Canvas smaller than the real projection space
 
 ### Patterns
 

@@ -868,6 +868,7 @@
     <div class="card" style="padding:14px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px">
         <div style="display:flex;gap:4px;flex-wrap:wrap" id="pt-tool-btns">
+          <button class="btn secondary" id="pt-tool-select"   onclick="paintSetTool('select')"   style="font-size:11px;padding:5px 8px">⬚ Select</button>
           <button class="btn secondary" id="pt-tool-pen"      onclick="paintSetTool('pen')"      style="font-size:11px;padding:5px 8px">✏️ Pen</button>
           <button class="btn secondary" id="pt-tool-rect"     onclick="paintSetTool('rect')"     style="font-size:11px;padding:5px 8px">▭ Rect</button>
           <button class="btn secondary" id="pt-tool-triangle" onclick="paintSetTool('triangle')" style="font-size:11px;padding:5px 8px">△ Triangle</button>
@@ -877,6 +878,7 @@
         <div style="display:flex;gap:4px">
           <button class="btn secondary" onclick="paintDeleteSelected()" style="font-size:11px;padding:5px 8px">🗑 Delete</button>
           <button class="btn secondary" onclick="paintUndo()"           style="font-size:11px;padding:5px 8px">↺ Undo</button>
+          <button class="btn secondary" onclick="paintRedo()"           style="font-size:11px;padding:5px 8px">↷ Redo</button>
           <button class="btn danger"    onclick="paintClear()"          style="font-size:11px;padding:5px 8px">🧹 Clear</button>
         </div>
       </div>
@@ -3654,13 +3656,16 @@ const PAINT_SEG_SEQS = [
 let paintStrokes  = [];   // {type, points:[[gx,gy],...]|undefined, cx,cy,radius, closed, r,g,b}
 let paintTool     = 'pen';
 let paintColor    = {r:255, g:0, b:0};
-let paintSelected = -1;
+let paintSelected = [];  // array of indices into paintStrokes (multi-select)
 let paintDrag     = null;
 let paintSegSeq   = 0;
 let paintSyncTimer= null;
 let paintInited   = false;
 let paintMirrorMode = 'off';   // 'off'|'x'|'y'|'radial4'
 let paintSnap       = false;   // snap-to-grid / snap-to-center toggle
+let paintHistory    = [];      // stack of pre-edit paintStrokes snapshots (deep clones)
+let paintRedoStack  = [];      // snapshots undone via paintUndo(), poppable via paintRedo()
+const PAINT_HISTORY_MAX = 30;  // depth cap -- memory
 
 function paintHexToRgb(hex) {
     const n = parseInt(hex.slice(1), 16);
@@ -3740,13 +3745,14 @@ function paintStartCreate(type, gx, gy) {
     else if (type === 'circle')   shape = {type, cx:gx, cy:gy, radius:10,                    closed:true,  r:col.r, g:col.g, b:col.b};
     else if (type === 'line')     shape = {type, points:[[gx,gy],[gx,gy]],                   closed:false, r:col.r, g:col.g, b:col.b};
     else return;
+    paintPushHistory();
     paintStrokes.push(shape);
-    paintSelected = paintStrokes.length - 1;
+    paintSelected = [paintStrokes.length - 1];
     paintDrag = { mode:'create', idx: paintStrokes.length - 1, type, anchorX:gx, anchorY:gy };
 }
 
 function paintUpdateCreate(gx, gy) {
-    const s = paintStrokes[paintSelected], a = paintDrag;
+    const s = paintStrokes[paintDrag.idx], a = paintDrag;
     if (a.type === 'rect') {
         s.points = [[a.anchorX,a.anchorY],[gx,a.anchorY],[gx,gy],[a.anchorX,gy]];
     } else if (a.type === 'circle') {
@@ -3809,14 +3815,21 @@ function paintHitBody(idx, px, py) {
     return false;
 }
 function paintHitTest(px, py) {
-    if (paintSelected >= 0 && paintStrokes[paintSelected]) {
-        const h = paintHitHandles(paintSelected, px, py);
+    if (paintSelected.length === 1 && paintStrokes[paintSelected[0]]) {
+        const h = paintHitHandles(paintSelected[0], px, py);
         if (h) return h;
     }
     for (let i = paintStrokes.length - 1; i >= 0; i--) {
         if (paintHitBody(i, px, py)) return {idx:i, part:'body'};
     }
     return null;
+}
+
+// ---- multi-select ----
+function paintToggleSelected(idx) {
+    const i = paintSelected.indexOf(idx);
+    if (i >= 0) paintSelected.splice(i, 1);
+    else paintSelected.push(idx);
 }
 
 // ---- pointer interaction ----
@@ -3834,17 +3847,32 @@ function paintPointerDown(e) {
     cv.setPointerCapture(e.pointerId);
     const [px, py] = paintEventPos(e);
     const [gx, gy] = paintC2G(px, py);
+    const shift = e.shiftKey;
 
     const hit = paintHitTest(px, py);
     if (hit && hit.part !== 'body') {
-        paintSelected = hit.idx;
+        paintPushHistory();
+        paintSelected = [hit.idx];
         paintDrag = { mode: hit.part, idx: hit.idx, vi: hit.vi };
         paintRender();
         return;
     }
     if (hit && hit.part === 'body') {
-        paintSelected = hit.idx;
-        paintDrag = { mode:'move', idx: hit.idx, startGx: gx, startGy: gy };
+        if (shift) {
+            paintToggleSelected(hit.idx);
+            paintRender();
+            return;
+        }
+        if (!paintSelected.includes(hit.idx)) paintSelected = [hit.idx];
+        paintPushHistory();
+        paintDrag = { mode:'move', startGx: gx, startGy: gy, idxs: [...paintSelected] };
+        paintRender();
+        return;
+    }
+
+    if (paintTool === 'select') {
+        if (!shift) paintSelected = [];
+        paintDrag = { mode:'rubberband', x0:px, y0:py, x1:px, y1:py };
         paintRender();
         return;
     }
@@ -3853,7 +3881,7 @@ function paintPointerDown(e) {
         toast('Max ' + PAINT_STROKES_MAX + ' shapes reached — delete one first');
         return;
     }
-    paintSelected = -1;
+    paintSelected = [];
     const [sgx, sgy] = paintMaybeSnap(gx, gy);
     if (paintTool === 'pen') {
         const mirrors = paintMirrorPoints(sgx, sgy, paintMirrorMode);
@@ -3861,6 +3889,7 @@ function paintPointerDown(e) {
             toast('Not enough room for mirrored strokes (mode: ' + paintMirrorMode + ')');
             return;
         }
+        paintPushHistory();
         paintStrokes.push({ type:'freehand', points:[[sgx,sgy]], closed:false, r:paintColor.r, g:paintColor.g, b:paintColor.b, _lastPx:px, _lastPy:py });
         const idx = paintStrokes.length - 1;
         const mirrorIdxs = mirrors.map(([mgx, mgy]) => {
@@ -3879,6 +3908,21 @@ function paintPointerMove(e) {
     e.preventDefault();
     const [px, py] = paintEventPos(e);
     const [gx, gy] = paintC2G(px, py);
+
+    if (paintDrag.mode === 'rubberband') {
+        paintDrag.x1 = px; paintDrag.y1 = py;
+        paintRender();
+        return;
+    }
+    if (paintDrag.mode === 'move') {
+        const dx = gx - paintDrag.startGx, dy = gy - paintDrag.startGy;
+        paintDrag.idxs.forEach(i => { if (paintStrokes[i]) paintTranslateShape(paintStrokes[i], dx, dy); });
+        paintDrag.startGx = gx; paintDrag.startGy = gy;
+        paintRender();
+        paintScheduleSync();
+        return;
+    }
+
     const s = paintStrokes[paintDrag.idx];
     if (!s) return;
 
@@ -3906,9 +3950,6 @@ function paintPointerMove(e) {
         s.points[paintDrag.vi] = paintMaybeSnap(gx, gy);
     } else if (paintDrag.mode === 'radius') {
         s.radius = Math.max(200, Math.hypot(gx - s.cx, gy - s.cy));
-    } else if (paintDrag.mode === 'move') {
-        paintTranslateShape(s, gx - paintDrag.startGx, gy - paintDrag.startGy);
-        paintDrag.startGx = gx; paintDrag.startGy = gy;
     }
     paintRender();
     paintScheduleSync();
@@ -3916,6 +3957,25 @@ function paintPointerMove(e) {
 
 function paintPointerUp() {
     if (!paintDrag) return;
+
+    if (paintDrag.mode === 'rubberband') {
+        const {x0, y0, x1, y1} = paintDrag;
+        const rx0 = Math.min(x0, x1), rx1 = Math.max(x0, x1);
+        const ry0 = Math.min(y0, y1), ry1 = Math.max(y0, y1);
+        paintStrokes.forEach((s, i) => {
+            const pts = paintShapePoints(s).map(p => paintG2C(p[0], p[1]));
+            if (!pts.length) return;
+            const bx0 = Math.min(...pts.map(p => p[0])), bx1 = Math.max(...pts.map(p => p[0]));
+            const by0 = Math.min(...pts.map(p => p[1])), by1 = Math.max(...pts.map(p => p[1]));
+            if (bx1 >= rx0 && bx0 <= rx1 && by1 >= ry0 && by0 <= ry1 && !paintSelected.includes(i)) {
+                paintSelected.push(i);
+            }
+        });
+        paintDrag = null;
+        paintRender();
+        return;
+    }
+
     const wasDraw = paintDrag.mode === 'draw';
     const idx = paintDrag.idx;
     const mirrorIdxs = paintDrag.mirrorIdxs || [];
@@ -3924,7 +3984,7 @@ function paintPointerUp() {
         if (paintStrokes[idx].points.length < 2) {
             [idx, ...mirrorIdxs].sort((a, b) => b - a).forEach(i => paintStrokes.splice(i, 1));
         }
-        paintSelected = -1;
+        paintSelected = [];
     }
     paintRender();
     if (document.getElementById('pt-live').checked) { clearTimeout(paintSyncTimer); paintSyncNow(true); }
@@ -3948,7 +4008,7 @@ function paintRender() {
         totalPts += pts.length;
         if (pts.length < 2) return;
         ctx.strokeStyle = `rgb(${s.r},${s.g},${s.b})`;
-        ctx.lineWidth = (i === paintSelected) ? 2.5 : 1.6;
+        ctx.lineWidth = paintSelected.includes(i) ? 2.5 : 1.6;
         ctx.beginPath();
         pts.forEach(([gx,gy], vi) => {
             const [px,py] = paintG2C(gx, gy);
@@ -3958,8 +4018,16 @@ function paintRender() {
         ctx.stroke();
     });
 
-    if (paintSelected >= 0 && paintStrokes[paintSelected]) paintDrawHandles(ctx, paintStrokes[paintSelected]);
-    document.getElementById('pt-status').textContent = paintStrokes.length + ' shapes · ' + totalPts + ' points';
+    if (paintSelected.length === 1 && paintStrokes[paintSelected[0]]) {
+        paintDrawHandles(ctx, paintStrokes[paintSelected[0]]);
+    } else if (paintSelected.length > 1) {
+        paintDrawGroupBBox(ctx);
+    }
+    if (paintDrag && paintDrag.mode === 'rubberband') paintDrawRubberBand(ctx);
+
+    document.getElementById('pt-status').textContent =
+        paintStrokes.length + ' shapes · ' + totalPts + ' points' +
+        (paintSelected.length > 1 ? ` · ${paintSelected.length} selected` : '');
 }
 
 function paintDrawHandles(ctx, s) {
@@ -3974,11 +4042,42 @@ function paintDrawHandles(ctx, s) {
     else if (s.points) s.points.forEach(p => drawHandle(p[0], p[1]));
 }
 
+// dashed bounding box around all selected shapes (multi-select has no
+// per-vertex handles -- drag anywhere inside a selected body to move the group)
+function paintDrawGroupBBox(ctx) {
+    let bx0 = Infinity, by0 = Infinity, bx1 = -Infinity, by1 = -Infinity;
+    paintSelected.forEach(i => {
+        const s = paintStrokes[i];
+        if (!s) return;
+        paintShapePoints(s).forEach(([gx, gy]) => {
+            const [px, py] = paintG2C(gx, gy);
+            bx0 = Math.min(bx0, px); bx1 = Math.max(bx1, px);
+            by0 = Math.min(by0, py); by1 = Math.max(by1, py);
+        });
+    });
+    if (!isFinite(bx0)) return;
+    ctx.save();
+    ctx.strokeStyle = '#ff3060'; ctx.lineWidth = 1.5; ctx.setLineDash([6, 4]);
+    ctx.strokeRect(bx0 - 6, by0 - 6, (bx1 - bx0) + 12, (by1 - by0) + 12);
+    ctx.restore();
+}
+
+// live rubber-band selection rectangle (Select tool, drag on empty canvas)
+function paintDrawRubberBand(ctx) {
+    const {x0, y0, x1, y1} = paintDrag;
+    ctx.save();
+    ctx.strokeStyle = '#3fa9ff'; ctx.fillStyle = 'rgba(63,169,255,0.12)';
+    ctx.lineWidth = 1; ctx.setLineDash([4, 3]);
+    ctx.fillRect(Math.min(x0, x1), Math.min(y0, y1), Math.abs(x1 - x0), Math.abs(y1 - y0));
+    ctx.strokeRect(Math.min(x0, x1), Math.min(y0, y1), Math.abs(x1 - x0), Math.abs(y1 - y0));
+    ctx.restore();
+}
+
 // ---- toolbar ----
 function paintSetTool(t) {
     paintTool = t;
-    paintSelected = -1;
-    ['pen','rect','triangle','circle','line'].forEach(x => {
+    paintSelected = [];
+    ['select','pen','rect','triangle','circle','line'].forEach(x => {
         const btn = document.getElementById('pt-tool-' + x);
         if (!btn) return;
         btn.style.background = (x === t) ? 'var(--accent)' : '';
@@ -4032,21 +4131,42 @@ function paintMaybeSnap(gx, gy) {
 }
 
 function paintDeleteSelected() {
-    if (paintSelected < 0) return;
-    paintStrokes.splice(paintSelected, 1);
-    paintSelected = -1;
+    if (!paintSelected.length) return;
+    paintPushHistory();
+    [...paintSelected].sort((a, b) => b - a).forEach(i => paintStrokes.splice(i, 1));
+    paintSelected = [];
     paintRender();
     paintScheduleSync();
 }
+
+// ---- undo / redo (paintHistory/paintRedoStack: see state vars above) ----
+function paintPushHistory() {
+    paintHistory.push(structuredClone(paintStrokes));
+    if (paintHistory.length > PAINT_HISTORY_MAX) paintHistory.shift();
+    paintRedoStack = [];   // new edit invalidates the old redo timeline
+}
 function paintUndo() {
-    paintStrokes.pop();
-    paintSelected = -1;
+    if (!paintHistory.length) return;
+    paintRedoStack.push(structuredClone(paintStrokes));
+    if (paintRedoStack.length > PAINT_HISTORY_MAX) paintRedoStack.shift();
+    paintStrokes = paintHistory.pop();
+    paintSelected = [];
+    paintRender();
+    paintScheduleSync();
+}
+function paintRedo() {
+    if (!paintRedoStack.length) return;
+    paintHistory.push(structuredClone(paintStrokes));
+    if (paintHistory.length > PAINT_HISTORY_MAX) paintHistory.shift();
+    paintStrokes = paintRedoStack.pop();
+    paintSelected = [];
     paintRender();
     paintScheduleSync();
 }
 async function paintClear() {
+    paintPushHistory();
     paintStrokes = [];
-    paintSelected = -1;
+    paintSelected = [];
     paintRender();
     await apiCall('POST', '/api/paint/clear', {});
 }
@@ -4056,8 +4176,9 @@ function paintSetColor(r, g, b) {
     paintColor = {r, g, b};
     const prev = document.getElementById('pt-col-preview');
     if (prev) prev.style.background = `rgb(${r},${g},${b})`;
-    if (paintSelected >= 0) {
-        Object.assign(paintStrokes[paintSelected], {r, g, b});
+    if (paintSelected.length) {
+        paintPushHistory();
+        paintSelected.forEach(i => { if (paintStrokes[i]) Object.assign(paintStrokes[i], {r, g, b}); });
         paintRender();
         paintScheduleSync();
     }
@@ -4150,6 +4271,7 @@ async function paintInsertText() {
         toast(`Text needs ${r.paths.length} strokes, only ${free} free`);
         return;
     }
+    paintPushHistory();
     r.paths.forEach(p => {
         paintStrokes.push({
             type: 'freehand',
@@ -4158,7 +4280,7 @@ async function paintInsertText() {
             r: paintColor.r, g: paintColor.g, b: paintColor.b,
         });
     });
-    paintSelected = -1;
+    paintSelected = [];
     input.value = '';
     paintRender();
     paintScheduleSync();
