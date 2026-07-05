@@ -23,6 +23,7 @@
 #include "patterns/countdown_timer.h"
 #include <Arduino.h>
 #include <math.h>
+#include <string.h>
 #include <ESPAsyncWebServer.h>
 #include <AsyncTCP.h>
 #include <ArduinoJson.h>
@@ -69,6 +70,14 @@ static AsyncWebSocket s_ws("/ws");
 // WiFi-Scan Status
 static volatile bool   s_scan_running = false;
 static volatile int    s_scan_results = 0;
+
+// ── /api/paint/set chunked-body buffer (fixed PSRAM, no per-request heap alloc) ──
+// Previous impl used `new String()` per request, freed only on the success
+// path. An aborted/dropped upload (never reaching index+len==total) leaked
+// it permanently -- root cause of the post-5.21.0 heap exhaustion.
+static const size_t PAINT_BODY_CAP  = 32768;
+static char*        s_paint_body    = nullptr;
+static size_t       s_paint_body_len = 0;
 
 /* ============================================================
  * Config Persistence
@@ -264,6 +273,9 @@ static void wifiScanTask(void*) {
 void init() {
     generateAuthToken();
     loadZone();
+
+    s_paint_body = (char*)ps_malloc(PAINT_BODY_CAP);
+    if (!s_paint_body) ESP_LOGE(TAG, "PSRAM alloc failed for paint body buffer");
 
     if (!LittleFS.begin(true))
         ESP_LOGE(TAG, "LittleFS mount failed");
@@ -808,14 +820,17 @@ void init() {
         [](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t index, size_t total) {
             // Body may arrive across multiple TCP chunks (e.g. several Circle
             // strokes, 41 vertices each) -- buffer until fully received.
-            if (index == 0) req->_tempObject = new String();
-            String* body = reinterpret_cast<String*>(req->_tempObject);
-            body->concat((const char*)data, len);
+            if (!s_paint_body) { req->send(500, "text/plain", "no body buffer"); return; }
+            if (index == 0) s_paint_body_len = 0;
+            if (total >= PAINT_BODY_CAP) { req->send(400, "text/plain", "body too large"); return; }
+            if (s_paint_body_len + len < PAINT_BODY_CAP) {
+                memcpy(s_paint_body + s_paint_body_len, data, len);
+                s_paint_body_len += len;
+            }
             if (index + len != total) return;
+            s_paint_body[s_paint_body_len] = 0;
             JsonDocument doc;
-            DeserializationError jerr = deserializeJson(doc, *body);
-            delete body;
-            req->_tempObject = nullptr;
+            DeserializationError jerr = deserializeJson(doc, s_paint_body, s_paint_body_len);
             if (jerr) { req->send(400, "text/plain", "bad json"); return; }
             JsonArrayConst strokesArr = doc["strokes"];
             if (strokesArr.isNull() || strokesArr.size() > PAINT_STROKES_MAX) {
