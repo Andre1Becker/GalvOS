@@ -9,7 +9,7 @@
 - make features toggable via UI (fe. disable ArtNet if not needed)
 
 **Paint by Finger**
-- Only 2 Circles can be drawn - then error 400
+- Display Max Points and Shapes under Canvans next Current shapes and points
 
 
 **Patterns**

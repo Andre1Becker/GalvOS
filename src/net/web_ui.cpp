@@ -772,9 +772,18 @@ void init() {
     s_server.on("/api/paint/set", HTTP_POST,
         [](AsyncWebServerRequest* req) {},
         nullptr,
-        [](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t, size_t) {
+        [](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t index, size_t total) {
+            // Body may arrive across multiple TCP chunks (e.g. several Circle
+            // strokes, 41 vertices each) -- buffer until fully received.
+            if (index == 0) req->_tempObject = new String();
+            String* body = reinterpret_cast<String*>(req->_tempObject);
+            body->concat((const char*)data, len);
+            if (index + len != total) return;
             JsonDocument doc;
-            if (deserializeJson(doc, data, len)) { req->send(400, "text/plain", "bad json"); return; }
+            DeserializationError jerr = deserializeJson(doc, *body);
+            delete body;
+            req->_tempObject = nullptr;
+            if (jerr) { req->send(400, "text/plain", "bad json"); return; }
             JsonArrayConst strokesArr = doc["strokes"];
             if (strokesArr.isNull() || strokesArr.size() > PAINT_STROKES_MAX) {
                 req->send(400, "application/json",

@@ -732,6 +732,58 @@ void task(void*) {
                 
                 // Apply color animation / override (same engine as preset mode)
                 applyColorAnim(n);
+
+                // 3-axis rotation -- identical engine to Preset/Paint Live-Controls.
+                // Previously missing entirely in Curve Mode.
+                bool  rotZActive, rotYActive, rotXActive;
+                float rotZAngle, rotYAngle, rotXAngle;
+                { LOCK_STATE();
+                    rotZActive = gLivePreset.rot_z;
+                    if (rotZActive) gLivePreset.rot_angle_z += gLivePreset.rot_speed_z;
+                    rotZAngle = gLivePreset.rot_angle_z;
+
+                    rotYActive = gLivePreset.rot_y;
+                    if (rotYActive) gLivePreset.rot_angle_y += gLivePreset.rot_speed_y;
+                    rotYAngle = gLivePreset.rot_angle_y;
+
+                    rotXActive = gLivePreset.rot_x;
+                    if (rotXActive) gLivePreset.rot_angle_x += gLivePreset.rot_speed_x;
+                    rotXAngle = gLivePreset.rot_angle_x;
+                }
+                if (rotZActive) {
+                    float cz = cosf(rotZAngle);
+                    float sz2 = sinf(rotZAngle);
+                    for (size_t i=0;i<n;i++){
+                        int16_t nx=(int16_t)(s_frame[i].x*cz - s_frame[i].y*sz2);
+                        int16_t ny=(int16_t)(s_frame[i].x*sz2+ s_frame[i].y*cz);
+                        s_frame[i].x=nx; s_frame[i].y=ny;
+                    }
+                }
+                if (rotYActive) {
+                    float cy = cosf(rotYAngle);
+                    float sy2 = sinf(rotYAngle);
+                    for (size_t i=0;i<n;i++){
+                        float z3 = s_frame[i].x * sy2;
+                        float nx = s_frame[i].x * cy;
+                        float d  = 1.f + z3 * 0.35f / 32767.f;
+                        if(d<0.1f)d=0.1f;
+                        s_frame[i].x = (int16_t)(nx/d);
+                        s_frame[i].y = (int16_t)(s_frame[i].y/d);
+                    }
+                }
+                if (rotXActive) {
+                    float cx2 = cosf(rotXAngle);
+                    float sx3 = sinf(rotXAngle);
+                    for (size_t i=0;i<n;i++){
+                        float z3 = s_frame[i].y * sx3;
+                        float ny = s_frame[i].y * cx2;
+                        float d  = 1.f + z3 * 0.35f / 32767.f;
+                        if(d<0.1f)d=0.1f;
+                        s_frame[i].y = (int16_t)(ny/d);
+                        s_frame[i].x = (int16_t)(s_frame[i].x/d);
+                    }
+                }
+
                 // Apply master dimmer
                 uint8_t dim = gState.master_dimmer.load();
                 for (size_t i = 0; i < n; i++) {
@@ -749,7 +801,12 @@ void task(void*) {
                     galvo::pushFrame(&blank_pt, 1);
                 }
                 phase++;
-                vTaskDelay(pdMS_TO_TICKS(35));  // ~28fps — longest curve (Butterfly 1024pts @ 30kpps = 34ms drain)
+                // Dynamic delay matching actual drain time (was fixed 35ms,
+                // artificially capping fps -- and thus animation speed -- for
+                // every curve shorter than the worst case/Butterfly).
+                { uint32_t drain_ms = n / (uint32_t)gProjection.galvo_kpps;
+                  if (drain_ms < 10) drain_ms = 10;
+                  vTaskDelay(pdMS_TO_TICKS(drain_ms + drain_ms / 4)); }
                 continue;
             }
         }
