@@ -1642,8 +1642,10 @@ void init() {
             req->send(200, "application/json", enabled ? "{\"debug\":true}" : "{\"debug\":false}");
         });
 
-    // Static files: register after all API routes
-    s_server.serveStatic("/", LittleFS, "/").setDefaultFile("index.html");
+    // Static files: registered right before begin() (see fix below) --
+    // routes defined after this point used to be shadowed by serveStatic's
+    // catch-all GET/HEAD match (e.g. GET /api/projection), same class of
+    // ESPAsyncWebServer ordering bug as /api/text vs /api/text/vertices.
     // 404 handler: do not forward API paths to LittleFS
     s_server.onNotFound([](AsyncWebServerRequest* req) {
         // API-Pfade: JSON-Error instead of HTML-404
@@ -1895,6 +1897,7 @@ void init() {
         req->send(200, "application/json", buf);
     });
 
+    s_server.serveStatic("/", LittleFS, "/").setDefaultFile("index.html");
     s_server.begin();
     ESP_LOGI(TAG, "WebUI at http://%s/", WiFi.localIP().toString().c_str());
 }
