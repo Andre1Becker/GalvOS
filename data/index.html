@@ -893,7 +893,14 @@
           <span class="slider"></span><span style="font-size:12px">🧲 Snap</span>
         </label>
       </div>
-      <canvas id="pt-canvas" width="600" height="600"
+      <div style="display:flex;align-items:center;gap:6px;margin-top:8px;flex-wrap:wrap">
+        <span style="font-size:10px;color:var(--dim);font-family:monospace">TEXT</span>
+        <input type="text" id="pt-text-input" placeholder="TEXT" maxlength="24"
+          style="flex:1;min-width:100px;padding:4px 8px;font-size:12px;background:#050510;border:1px solid var(--border);border-radius:4px;color:inherit">
+        <input type="range" id="pt-text-size" min="0" max="255" value="128" style="width:80px" title="Size">
+        <button class="btn secondary" onclick="paintInsertText()" style="font-size:11px;padding:5px 8px">➕ Insert</button>
+      </div>
+      <canvas id="pt-canvas" width="700" height="700"
         style="width:100%;aspect-ratio:1/1;background:#000;border-radius:6px;border:1px solid var(--border);touch-action:none;cursor:crosshair;display:block"></canvas>
       <div style="margin-top:8px;font-size:11px;color:var(--dim);display:flex;justify-content:space-between;flex-wrap:wrap;gap:4px">
         <span id="pt-status">0 shapes · 0 points</span>
@@ -4126,6 +4133,35 @@ async function paintProject() {
 }
 async function paintOff() {
     await apiCall('POST', '/api/paint/off', {});
+}
+
+// ---- text tool: fetch raw glyph outline paths, insert as normal strokes
+// (movable/vertex-editable exactly like pen/shape strokes -- no special
+// text state kept client- or server-side after insertion) ----
+async function paintInsertText() {
+    const input = document.getElementById('pt-text-input');
+    const text = input.value.trim();
+    if (!text) { toast('Enter text first'); return; }
+    const size = document.getElementById('pt-text-size').value;
+    const r = await apiCall('GET', `/api/text/vertices?text=${encodeURIComponent(text)}&size=${size}`);
+    if (!r || !r.paths || !r.paths.length) { toast('No glyph data for that text'); return; }
+    const free = PAINT_STROKES_MAX - paintStrokes.length;
+    if (r.paths.length > free) {
+        toast(`Text needs ${r.paths.length} strokes, only ${free} free`);
+        return;
+    }
+    r.paths.forEach(p => {
+        paintStrokes.push({
+            type: 'freehand',
+            points: p.x.map((x, i) => [x, p.y[i]]),
+            closed: false,
+            r: paintColor.r, g: paintColor.g, b: paintColor.b,
+        });
+    });
+    paintSelected = -1;
+    input.value = '';
+    paintRender();
+    paintScheduleSync();
 }
 
 buildTempSensors();

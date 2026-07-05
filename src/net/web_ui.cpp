@@ -747,6 +747,39 @@ void init() {
     s_server.on("/api/text/off", HTTP_POST,
         [](AsyncWebServerRequest* req) { gTextConfig.active = false; req->send(200,"text/plain","OK"); });
 
+    // ---- GET /api/text/vertices ---- raw glyph outline paths for the
+    // Paint by Finger "Text" tool (see textrender::glyphOutlinePaths).
+    // Query: text=<string, max 24 chars>, size=<0-255, default 128>
+    s_server.on("/api/text/vertices", HTTP_GET, [](AsyncWebServerRequest* req) {
+        if (!req->hasParam("text")) {
+            req->send(400, "application/json", "{\"error\":\"missing text param\"}");
+            return;
+        }
+        String text = req->getParam("text")->value();
+        if (text.length() > 24) text = text.substring(0, 24);
+
+        uint8_t size_val = 128;
+        if (req->hasParam("size")) {
+            size_val = (uint8_t)constrain(atoi(req->getParam("size")->value().c_str()), 0, 255);
+        }
+        const float scale = 40.f + (size_val / 255.f) * 800.f;
+
+        textrender::GlyphSubpath paths[textrender::TEXT_VERTICES_MAX_PATHS];
+        size_t n = textrender::glyphOutlinePaths(text.c_str(), scale, paths, textrender::TEXT_VERTICES_MAX_PATHS);
+
+        JsonDocument doc;
+        JsonArray arr = doc["paths"].to<JsonArray>();
+        for (size_t i = 0; i < n; i++) {
+            JsonObject o = arr.add<JsonObject>();
+            JsonArray xa = o["x"].to<JsonArray>();
+            JsonArray ya = o["y"].to<JsonArray>();
+            for (uint8_t v = 0; v < paths[i].count; v++) { xa.add(paths[i].x[v]); ya.add(paths[i].y[v]); }
+        }
+        doc["count"] = (int)n;
+        String out; serializeJson(doc, out);
+        req->send(200, "application/json", out);
+    });
+
     // ---- GET /api/paint ---- current canvas (reload / multi-client sync)
     s_server.on("/api/paint", HTTP_GET, [](AsyncWebServerRequest* req) {
         JsonDocument doc;

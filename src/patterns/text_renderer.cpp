@@ -549,4 +549,51 @@ size_t generate(LaserPoint* out, size_t max_pts, const TextConfig& cfg, uint32_t
     }
 }
 
+// ============================================================
+// glyphOutlinePaths -- raw glyph geometry for the Paint text tool
+// ============================================================
+size_t glyphOutlinePaths(const char* text, float scale,
+                         GlyphSubpath* out, size_t max_paths) {
+    if (!text || !text[0] || scale <= 0.f) return 0;
+
+    const int len = (int)strlen(text);
+    const float tw = textWidth(text, len) * scale;
+    float cx = -tw / 2.f;
+    const float cy = 0.f;
+    size_t n = 0;
+
+    for (int ci = 0; ci < len && n < max_paths; ci++) {
+        char c = toupper((unsigned char)text[ci]);
+        const FontGlyph* glyph = nullptr;
+        for (int i = 0; i < GLYPH_COUNT; i++) {
+            if (GLYPHS[i].ch == (uint8_t)c) { glyph = &GLYPHS[i]; break; }
+        }
+        if (!glyph) { cx += 10.f * scale; continue; }
+
+        const int8_t* s = glyph->strokes;
+        GlyphSubpath tmp;
+        tmp.count = 0;
+
+        for (int i = 0; ; i += 2) {
+            int8_t sx = s[i];
+            bool flush = (sx == PU || sx == EN);
+            if (!flush) {
+                int8_t sy = s[i + 1];
+                if (tmp.count < GlyphSubpath::MAX_PTS) {
+                    tmp.x[tmp.count] = cx + sx * scale;
+                    tmp.y[tmp.count] = cy - sy * scale;   // same y-flip as renderGlyph
+                    tmp.count++;
+                }
+            }
+            if (flush) {
+                if (tmp.count >= 2 && n < max_paths) out[n++] = tmp;
+                tmp.count = 0;
+                if (sx == EN) break;
+            }
+        }
+        cx += glyph->advance * scale;
+    }
+    return n;
+}
+
 } // namespace textrender
