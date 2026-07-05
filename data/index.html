@@ -424,6 +424,32 @@
         </div>
       </div>
 
+      <!-- Points-Only Mode (applies to all presets) -->
+      <div style="padding:10px;background:#050510;border:1px solid var(--border);border-radius:6px">
+        <label class="toggle" style="margin-bottom:8px">
+          <input type="checkbox" id="lv-pm-on" onchange="liveSlider()">
+          <span class="slider"></span><span style="font-size:12px">Points-Only Mode</span>
+        </label>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <div>
+            <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:2px">
+              <span>Point count</span><span id="lv-pm-count-val" style="color:var(--accent);font-family:monospace">24</span>
+            </div>
+            <input type="range" id="lv-pm-count" min="2" max="80" value="24" oninput="liveSlider()">
+          </div>
+          <div>
+            <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:2px">
+              <span>Fadeout (ms)</span><span id="lv-pm-fade-val" style="color:var(--accent);font-family:monospace">800</span>
+            </div>
+            <input type="range" id="lv-pm-fade" min="50" max="5000" value="800" oninput="liveSlider()">
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="lv-pm-stagger" checked onchange="liveSlider()">
+            <span class="slider"></span><span style="font-size:12px">Staggered (off = all together)</span>
+          </label>
+        </div>
+      </div>
+
       <!-- Auto-Rotation (applies to all presets) -->
       <div style="padding:10px;background:#050510;border:1px solid var(--border);border-radius:6px">
         <div style="font-family:monospace;font-size:10px;color:var(--accent);margin-bottom:8px">AUTO-ROTATION</div>
@@ -3458,6 +3484,8 @@ function liveSlider() {
     document.getElementById('lv-b-val').textContent   = document.getElementById('lv-b').value;
     document.getElementById('lv-amp-val').textContent = (document.getElementById('lv-amp').value/100).toFixed(2);
     document.getElementById('lv-freq-val').textContent= (document.getElementById('lv-freq').value/100).toFixed(2);
+    document.getElementById('lv-pm-count-val').textContent = document.getElementById('lv-pm-count').value;
+    document.getElementById('lv-pm-fade-val').textContent  = document.getElementById('lv-pm-fade').value;
     // Color Preview
     const r=document.getElementById('lv-r').value,g=document.getElementById('lv-g').value,b=document.getElementById('lv-b').value;
     document.getElementById('lv-col-preview').style.background = `rgb(${r},${g},${b})`;
@@ -3607,6 +3635,10 @@ async function sendLiveControls() {
         col_anim_speed: animSpeed,
         wave_amp:     document.getElementById('lv-amp').value/100,
         wave_freq:    document.getElementById('lv-freq').value/100,
+        points_mode_enabled: document.getElementById('lv-pm-on').checked,
+        points_count:        +document.getElementById('lv-pm-count').value,
+        points_fade_ms:      +document.getElementById('lv-pm-fade').value,
+        points_stagger:      document.getElementById('lv-pm-stagger').checked,
     });
 }
 
@@ -3616,6 +3648,10 @@ function resetLiveControls() {
     document.getElementById('lv-rot').value = 0;
     document.getElementById('lv-mx').checked = false;
     document.getElementById('lv-my').checked = false;
+    document.getElementById('lv-pm-on').checked = false;
+    document.getElementById('lv-pm-count').value = 24;
+    document.getElementById('lv-pm-fade').value  = 800;
+    document.getElementById('lv-pm-stagger').checked = true;
     document.getElementById('lv-col-on').checked = false;
     document.getElementById('lv-r').value = 255;
     document.getElementById('lv-g').value = 255;

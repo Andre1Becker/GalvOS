@@ -14,6 +14,11 @@ extern volatile bool gDebugNoHW;
 constexpr uint16_t GALVO_RATE_HZ      = GALVO_SAMPLE_RATE_HZ;
 constexpr size_t   PATTERN_POINTS_MAX = 2048;
 
+// Points-Only render mode (pattern_engine.cpp::applyPointsOnlyMode)
+constexpr uint8_t  POINTS_MODE_MAX_DOTS  = 80;  // UI slider ceiling
+constexpr uint8_t  POINTS_MODE_MIN_DWELL = 3;   // ticks; below this a dot is invisible
+constexpr uint8_t  POINTS_MODE_MAX_DWELL = 30;  // ticks; cap so few dots don't hog the whole frame
+
 // GalvOS v5 Point Optimizer (Pillar 1) -- runtime-tunable via WebUI slider.
 // Mirrors optimizer::OptimizerConfig field-for-field; kept as a separate
 // struct here (rather than including point_optimizer.h) to avoid pulling
@@ -305,6 +310,11 @@ struct LivePresetControls {
     // Wave parameters (apply to all wave patterns #35-52)
     volatile float    wave_amp   = 1.0f;  // 0.1 – 2.0  (amplitude factor)
     volatile float    wave_freq  = 1.0f;  // 0.25 – 4.0 (frequency multiplier)
+    // Points-Only render mode (global toggle, all presets)
+    volatile bool     points_mode_enabled = false;
+    volatile uint8_t  points_count        = 24;    // 2..POINTS_MODE_MAX_DOTS dots
+    volatile uint16_t points_fade_ms      = 800;   // fade cycle period, ms
+    volatile bool     points_stagger      = true;  // true=staggered twinkle, false=all-together breathing
 };
 
 extern LivePresetControls gLivePreset;

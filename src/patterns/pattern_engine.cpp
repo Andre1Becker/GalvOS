@@ -531,6 +531,75 @@ static void applyColorAnim(size_t n) {
     }
 }
 
+// ── Points-Only render mode (global toggle, Proposal B) ──────────────────
+// Subsamples the already-transformed preset frame (post color-anim, post
+// rotation, post mirror) down to a handful of dwelling dots with a fade
+// in/out cycle. Runs once per frame for every preset (ngon/star/wireframe/
+// wave/3D/text-glyph/curve-based, etc.) since it operates purely on the
+// final LaserPoint array, not on preset-specific geometry.
+//
+// Dwell length is derived from the flicker budget (gOptimizerConfig.
+// max_pts_per_frame) so raising the dot-count slider automatically shortens
+// dwell instead of silently exceeding the budget (same philosophy as
+// optimizer::optimize()'s density scale-down).
+static void applyPointsOnlyMode(size_t& n) {
+    if (!gLivePreset.points_mode_enabled || n == 0) return;
+
+    uint8_t count = gLivePreset.points_count;
+    if (count < 2) count = 2;
+    if (count > POINTS_MODE_MAX_DOTS) count = POINTS_MODE_MAX_DOTS;
+
+    uint16_t budget = gOptimizerConfig.max_pts_per_frame;
+    if (budget > PATTERN_POINTS_MAX) budget = PATTERN_POINTS_MAX;
+    int dwell = (int)(budget / count) / 2;
+    if (dwell < POINTS_MODE_MIN_DWELL) dwell = POINTS_MODE_MIN_DWELL;
+    if (dwell > POINTS_MODE_MAX_DWELL) dwell = POINTS_MODE_MAX_DWELL;
+
+    // Collect lit (non-blank) source points only -- blank travel points
+    // already in s_frame carry no color to sample from.
+    static LaserPoint s_lit[PATTERN_POINTS_MAX];
+    size_t nl = 0;
+    for (size_t i = 0; i < n && nl < PATTERN_POINTS_MAX; i++)
+        if (!s_frame[i].blank) s_lit[nl++] = s_frame[i];
+    if (nl == 0) { n = 0; return; }
+
+    // Fade phase: ms-based accumulator, wraps every points_fade_ms.
+    static uint32_t s_pm_acc_ms  = 0;
+    static uint32_t s_pm_last_ms = 0;
+    uint32_t now_ms = millis();
+    uint32_t dt_ms  = s_pm_last_ms ? (now_ms - s_pm_last_ms) : 0;
+    s_pm_last_ms = now_ms;
+    uint16_t period = gLivePreset.points_fade_ms ? gLivePreset.points_fade_ms : 1;
+    s_pm_acc_ms = (s_pm_acc_ms + dt_ms) % period;
+    float base_phase = (float)s_pm_acc_ms / (float)period;   // 0..1
+
+    static LaserPoint s_out[PATTERN_POINTS_MAX];
+    size_t o = 0;
+    for (uint8_t k = 0; k < count; k++) {
+        if (o + (size_t)dwell + 2 > PATTERN_POINTS_MAX) break;
+        size_t src_idx = (size_t)((uint32_t)k * nl / count);
+        const LaserPoint& src = s_lit[src_idx];
+
+        // Staggered: each dot gets its own phase offset (twinkle/chase).
+        // All-together: every dot shares the same phase (breathing).
+        float ph = gLivePreset.points_stagger
+                 ? fmodf(base_phase + (float)k / (float)count, 1.0f)
+                 : base_phase;
+        float tri = (ph < 0.5f) ? (ph * 2.0f) : (2.0f - ph * 2.0f);   // 0->1->0
+        float v   = tri * tri * (3.0f - 2.0f * tri);                  // smoothstep ease
+
+        uint8_t r = (uint8_t)(src.r * v);
+        uint8_t g = (uint8_t)(src.g * v);
+        uint8_t b = (uint8_t)(src.b * v);
+
+        s_out[o++] = LaserPoint(src.x, src.y, 0, 0, 0, 1);      // blank travel to dot
+        for (int d = 0; d < dwell; d++)
+            s_out[o++] = LaserPoint(src.x, src.y, r, g, b, 0);  // dwell, lit
+    }
+    for (size_t i = 0; i < o; i++) s_frame[i] = s_out[i];
+    n = o;
+}
+
 void task(void*) {
     uint32_t phase = 0;
 
@@ -897,6 +966,9 @@ void task(void*) {
             if (gLivePreset.mirror_x) for (size_t i=0;i<n;i++) s_frame[i].x = -s_frame[i].x;
             if (gLivePreset.mirror_y) for (size_t i=0;i<n;i++) s_frame[i].y = -s_frame[i].y;
             if (n == 0) { static LaserPoint blank_pt={0,0,0,0,0,1}; galvo::pushFrame(&blank_pt,1); vTaskDelay(pdMS_TO_TICKS(40)); continue; }  // guard: preset generated 0 points
+
+            applyPointsOnlyMode(n);
+            if (n == 0) { static LaserPoint blank_pt={0,0,0,0,0,1}; galvo::pushFrame(&blank_pt,1); vTaskDelay(pdMS_TO_TICKS(40)); continue; }  // guard: points mode emptied frame
             {
                 // TEMP DEBUG: log point count (total/lit/blank) per frame,
                 // rate-limited to ~1x/2s. Covers ALL presets (ngon/star/wf/

@@ -632,6 +632,10 @@ void init() {
             }
             if (doc["wave_amp"].is<float>())  gLivePreset.wave_amp  = constrain((float)doc["wave_amp"],  0.1f, 2.0f);
             if (doc["wave_freq"].is<float>()) gLivePreset.wave_freq = constrain((float)doc["wave_freq"], 0.25f, 4.0f);
+            if (doc["points_mode_enabled"].is<bool>()) gLivePreset.points_mode_enabled = doc["points_mode_enabled"];
+            if (doc["points_count"].is<int>())  gLivePreset.points_count  = (uint8_t)constrain((int)doc["points_count"], 2, POINTS_MODE_MAX_DOTS);
+            if (doc["points_fade_ms"].is<int>()) gLivePreset.points_fade_ms = (uint16_t)constrain((int)doc["points_fade_ms"], 50, 10000);
+            if (doc["points_stagger"].is<bool>()) gLivePreset.points_stagger = doc["points_stagger"];
             req->send(200, "text/plain", "OK");
         });
 
