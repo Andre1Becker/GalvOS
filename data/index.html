@@ -3671,7 +3671,7 @@ function initPaintTab() {
         paintBindCanvasEvents(cv);
         paintSetTool('pen');
         paintSetMirror('off');
-        paintLoadFromServer();;
+        paintLoadFromServer();
         window.addEventListener('resize', () => {
             const s = Math.round(cv.getBoundingClientRect().width);
             if (s > 0 && cv.width !== s) { cv.width = s; cv.height = s; paintRender(); }
