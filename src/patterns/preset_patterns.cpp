@@ -294,7 +294,7 @@ static size_t p14(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){size_
 // ─── SPIRALEN 15-22 ──────────────────────────────────────────
 // Parametric curves — not migrated (no discrete vertices).
 static size_t p15(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){size_t n=0;float sc=SC*ssc(sz)*.9f,off=aang(ph,sp);const int N=adaptN(sz,200,30,400);for(int i=0;i<N;i++){float t=(float)i/N,a=t*PI2*3.5f+off,r=t*sc;ap(o,n,m,cosf(a)*r,sinf(a)*r,(uint8_t)(t*255),(uint8_t)((1-t)*255),128,i==0?1:0);}return n;}
-static size_t p16(LaserPoint*o,size_t m,uint32_t // Point counts raised (2.5-3x, scaled to combined frequency = curve
+// Point counts raised (2.5-3x, scaled to combined frequency = curve
 // complexity) -- galvo (15kpps rated, driven at 30kpps) needs tighter
 // per-step spacing on high-curvature Lissajous paths to close cleanly.
 static size_t p16(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){size_t n=0;float sc=SC*ssc(sz)*.9f,off=aang(ph,sp);for(int i=0;i<=500;i++){float t=PI2*i/500.f;ap(o,n,m,cosf(t+off)*sc,sinf(2*t+M_PI/4.f)*sc,0,200,255,i==0?1:0);}return n;}
