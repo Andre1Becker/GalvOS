@@ -17,6 +17,8 @@
 ### Patterns
 
 - Kaleidoscope / Mirror effect
+- point to multi point spread out
+- 3 Kreis Preset
 
 ### Text
 
