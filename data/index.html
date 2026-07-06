@@ -411,6 +411,17 @@
           </div>
           <input type="range" id="lv-sz" min="10" max="255" value="128" oninput="liveSlider()">
         </div>
+        <div style="margin-bottom:8px">
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:3px">
+            <span>Auto-Scaling speed</span><span id="lv-ascale-val" style="color:var(--accent);font-family:monospace">0%</span>
+          </div>
+          <input type="range" id="lv-ascale" min="0" max="100" value="0" oninput="liveSlider()">
+          <select id="lv-ascale-mode" onchange="liveSlider()" style="width:100%;margin-top:4px;background:#0a0a18;color:var(--fg);border:1px solid var(--border);border-radius:4px;padding:4px">
+            <option value="0">Small → Big → Small</option>
+            <option value="1">Small → Big</option>
+            <option value="2">Big → Small</option>
+          </select>
+        </div>
         <div id="lv-preset-hint" style="display:none;margin:0 0 8px;padding:8px;background:#050514;border:1px solid var(--border);border-radius:5px;font-size:11px;color:var(--dim);line-height:1.5"></div>
         <div style="margin-bottom:8px">
           <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:3px">
@@ -3503,6 +3514,7 @@ function liveSlider() {
     var _spMulEl = document.getElementById('lv-spmul-val');
     if (_spMulEl) _spMulEl.textContent = (document.getElementById('lv-spmul').value || 1) + '×';
     document.getElementById('lv-sz-val').textContent  = document.getElementById('lv-sz').value;
+    document.getElementById('lv-ascale-val').textContent = document.getElementById('lv-ascale').value + '%';
     document.getElementById('lv-rot-val').textContent = document.getElementById('lv-rot').value + '°';
     document.getElementById('lv-r-val').textContent   = document.getElementById('lv-r').value;
     document.getElementById('lv-g-val').textContent   = document.getElementById('lv-g').value;
@@ -3642,6 +3654,8 @@ async function sendLiveControls() {
     await apiCall('POST', '/api/preset-live', {
         speed:        Math.min(255, +document.getElementById('lv-sp').value * +(document.getElementById('lv-spmul')?.value || 1)),
         size:         +document.getElementById('lv-sz').value,
+        autoscaleSpeed: +document.getElementById('lv-ascale').value,
+        autoscaleMode:  +document.getElementById('lv-ascale-mode').value,
         rotation:     +document.getElementById('lv-rot').value,
         rot_x:        autoOn && sx > 0,
         rot_y:        autoOn && sy > 0,
@@ -3675,6 +3689,8 @@ async function sendLiveControls() {
 function resetLiveControls() {
     document.getElementById('lv-sp').value  = 80;
     document.getElementById('lv-sz').value  = 128;
+    document.getElementById('lv-ascale').value = 0;
+    document.getElementById('lv-ascale-mode').value = 0;
     document.getElementById('lv-rot').value = 0;
     document.getElementById('lv-mx').checked = false;
     document.getElementById('lv-my').checked = false;

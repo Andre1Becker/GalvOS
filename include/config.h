@@ -290,6 +290,12 @@ enum FadeDirection : uint8_t {
     FADE_DIR_BOTTOM_TOP = 5,  // Bottom -> Top
 };
 
+enum AutoScaleMode : uint8_t {
+    AUTOSCALE_SMALL_BIG_SMALL = 0, // 0 -> size_val -> 0
+    AUTOSCALE_SMALL_BIG       = 1, // 0 -> size_val, then reset
+    AUTOSCALE_BIG_SMALL       = 2, // size_val -> 0, then reset
+};
+
 struct LivePresetControls {
     volatile uint8_t  speed        = 80;
     volatile uint8_t  size_val     = 128;
@@ -328,6 +334,10 @@ struct LivePresetControls {
     volatile uint16_t points_fade_out_ms   = 400;   // fade-out duration, ms
     volatile uint8_t  points_fade_dir      = FADE_DIR_IN_OUT;
     volatile bool     points_static_on     = false; // true = full brightness, no fade cycle
+    // Auto-Scaling: oscillates size between 0 and size_val, speed-driven
+    volatile uint8_t  autoscaleSpeed  = 0;   // 0..100%, 0 = off
+    volatile uint8_t  autoscaleMode   = AUTOSCALE_SMALL_BIG_SMALL;
+    volatile float    autoscalePhase  = 0.f; // internal running phase 0..1
 };
 
 extern LivePresetControls gLivePreset;

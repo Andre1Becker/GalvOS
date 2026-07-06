@@ -607,6 +607,8 @@ void init() {
             if (deserializeJson(doc, data, len)) { req->send(400, "text/plain", "bad json"); return; }
             if (doc["speed"].is<int>())     gLivePreset.speed     = doc["speed"];
             if (doc["size"].is<int>())      gLivePreset.size_val  = doc["size"];
+            if (doc["autoscaleSpeed"].is<int>()) gLivePreset.autoscaleSpeed = (uint8_t)constrain((int)doc["autoscaleSpeed"], 0, 100);
+            if (doc["autoscaleMode"].is<int>())  gLivePreset.autoscaleMode  = (uint8_t)constrain((int)doc["autoscaleMode"], 0, 2);
             if (doc["col_r"].is<int>())          gLivePreset.col_r          = doc["col_r"];
             if (doc["col_g"].is<int>())          gLivePreset.col_g          = doc["col_g"];
             if (doc["col_b"].is<int>())          gLivePreset.col_b          = doc["col_b"];

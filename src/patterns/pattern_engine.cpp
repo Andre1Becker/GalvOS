@@ -535,6 +535,37 @@ static void applyColorAnim(size_t n) {
     }
 }
 
+// Speed-driven size oscillation (0 <-> size_val). autoscaleSpeed 0 = off.
+// kAutoScaleRate tuned so speed=100% completes one full cycle in ~1-2s;
+// retune if a specific loop duration is needed.
+static constexpr float kAutoScaleRate = 0.01f;
+
+static uint8_t computeAutoScaleSize(uint8_t baseSize) {
+    if (gLivePreset.autoscaleSpeed == 0) return baseSize;
+
+    float phase;
+    { LOCK_STATE();
+        gLivePreset.autoscalePhase += (gLivePreset.autoscaleSpeed / 100.0f) * kAutoScaleRate;
+        if (gLivePreset.autoscalePhase >= 1.0f) gLivePreset.autoscalePhase -= 1.0f;
+        phase = gLivePreset.autoscalePhase;
+    }
+
+    float f;
+    switch (gLivePreset.autoscaleMode) {
+        case AUTOSCALE_SMALL_BIG:
+            f = phase;
+            break;
+        case AUTOSCALE_BIG_SMALL:
+            f = 1.0f - phase;
+            break;
+        case AUTOSCALE_SMALL_BIG_SMALL:
+        default:
+            f = (phase < 0.5f) ? phase * 2.0f : 2.0f - phase * 2.0f;
+            break;
+    }
+    return (uint8_t)(f * baseSize);
+}
+
 static float clamp01(float t) { return (t < 0.0f) ? 0.0f : (t > 1.0f ? 1.0f : t); }
 
 static float smoothstep01(float t) {
@@ -952,7 +983,7 @@ void task(void*) {
         // ---- Preset Mode (overrride DMX) ----
         if (s_preset_idx >= 0) {
             uint8_t speed   = gLivePreset.speed;
-            uint8_t sz      = gLivePreset.size_val;
+            uint8_t sz      = computeAutoScaleSize(gLivePreset.size_val);
             size_t n = presets::generate((uint8_t)s_preset_idx, s_frame,
                                          PATTERN_POINTS_MAX, phase, speed, sz);
 
