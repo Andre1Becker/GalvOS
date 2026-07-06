@@ -540,8 +540,8 @@ static void applyColorAnim(size_t n) {
 // retune if a specific loop duration is needed.
 static constexpr float kAutoScaleRate = 0.01f;
 
-static uint8_t computeAutoScaleSize(uint8_t baseSize) {
-    if (gLivePreset.autoscaleSpeed == 0) return baseSize;
+static uint8_t computeAutoScaleSize(uint8_t baseSize, float* outFrac) {
+    if (gLivePreset.autoscaleSpeed == 0) { *outFrac = 1.0f; return baseSize; }
 
     float phase;
     { LOCK_STATE();
@@ -563,6 +563,7 @@ static uint8_t computeAutoScaleSize(uint8_t baseSize) {
             f = (phase < 0.5f) ? phase * 2.0f : 2.0f - phase * 2.0f;
             break;
     }
+    *outFrac = f;
     return (uint8_t)(f * baseSize);
 }
 
@@ -983,9 +984,21 @@ void task(void*) {
         // ---- Preset Mode (overrride DMX) ----
         if (s_preset_idx >= 0) {
             uint8_t speed   = gLivePreset.speed;
-            uint8_t sz      = computeAutoScaleSize(gLivePreset.size_val);
+            float   scaleFrac;
+            uint8_t sz      = computeAutoScaleSize(gLivePreset.size_val, &scaleFrac);
             size_t n = presets::generate((uint8_t)s_preset_idx, s_frame,
                                          PATTERN_POINTS_MAX, phase, speed, sz);
+
+            // Continuous collapse toward a single point through Auto-Scaling's
+            // low end (both directions). ssc() floors at 0.25, so sz alone
+            // jumps from a rendered shape straight to size_val==0 -- this
+            // scales the whole frame by the true, unquantized progress instead.
+            if (scaleFrac < 1.0f) {
+                for (size_t i = 0; i < n; i++) {
+                    s_frame[i].x = (int16_t)(s_frame[i].x * scaleFrac);
+                    s_frame[i].y = (int16_t)(s_frame[i].y * scaleFrac);
+                }
+            }
 
             // Color override from Live-Controls
             // ── Firmware color animation engine ──────────────────────────
