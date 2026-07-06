@@ -460,14 +460,18 @@
           <div>
             <div style="font-size:11px;color:var(--dim);margin-bottom:2px">Fade direction</div>
             <select id="lv-pm-dir" onchange="liveSlider()" style="width:100%;background:#0a0a18;color:var(--fg);border:1px solid var(--border);border-radius:4px;padding:4px">
-              <option value="0">Innen → Aussen</option>
-              <option value="1">Aussen → Innen</option>
-              <option value="2">Links → Rechts</option>
-              <option value="3">Rechts → Links</option>
-              <option value="4">Oben → Unten</option>
-              <option value="5">Unten → Oben</option>
+              <option value="0">Inside → Outside</option>
+              <option value="1">Outside → Inside</option>
+              <option value="2">Left → Right</option>
+              <option value="3">Right → Left</option>
+              <option value="4">Top → Bottom</option>
+              <option value="5">Bottom → Top</option>
             </select>
           </div>
+          <label class="toggle">
+            <input type="checkbox" id="lv-pm-static-on" onchange="liveSlider()">
+            <span class="slider"></span><span style="font-size:12px">Static Mode (no fade, full brightness)</span>
+          </label>
         </div>
       </div>
 
@@ -3664,6 +3668,7 @@ async function sendLiveControls() {
         points_fade_in_ms:   +document.getElementById('lv-pm-fadein').value,
         points_fade_out_ms:  +document.getElementById('lv-pm-fadeout').value,
         points_fade_dir:     +document.getElementById('lv-pm-dir').value,
+        points_static_on:    document.getElementById('lv-pm-static-on').checked,
     });
 }
 
@@ -3675,8 +3680,12 @@ function resetLiveControls() {
     document.getElementById('lv-my').checked = false;
     document.getElementById('lv-pm-on').checked = false;
     document.getElementById('lv-pm-count').value = 24;
-    document.getElementById('lv-pm-fade').value  = 800;
-    document.getElementById('lv-pm-stagger').checked = true;
+    document.getElementById('lv-pm-fadein-on').checked = true;
+    document.getElementById('lv-pm-fadein').value  = 400;
+    document.getElementById('lv-pm-fadeout-on').checked = true;
+    document.getElementById('lv-pm-fadeout').value = 400;
+    document.getElementById('lv-pm-dir').value = 0;
+    document.getElementById('lv-pm-static-on').checked = false;
     document.getElementById('lv-col-on').checked = false;
     document.getElementById('lv-r').value = 255;
     document.getElementById('lv-g').value = 255;

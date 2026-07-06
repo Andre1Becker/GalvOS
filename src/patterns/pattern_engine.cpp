@@ -629,20 +629,22 @@ static void applyPointsOnlyMode(size_t& n) {
         size_t src_idx = (size_t)((uint32_t)k * nl / count);
         const LaserPoint& src = s_pm_lit[src_idx];
 
-        float wipeT = fadeWipePosition(gLivePreset.points_fade_dir, src.x, src.y,
-                                        cx, cy, minX, maxX, minY, maxY, halfDiag);
-        uint32_t dotPhaseMs = (s_pm_acc_ms + (uint32_t)(wipeT * cycleMs)) % cycleMs;
+        float v = 1.0f;
+        if (!gLivePreset.points_static_on) {
+            float wipeT = fadeWipePosition(gLivePreset.points_fade_dir, src.x, src.y,
+                                            cx, cy, minX, maxX, minY, maxY, halfDiag);
+            uint32_t dotPhaseMs = (s_pm_acc_ms + (uint32_t)(wipeT * cycleMs)) % cycleMs;
 
-        float v;
-        if (dotPhaseMs < gLivePreset.points_fade_in_ms) {
-            float t = gLivePreset.points_fade_in_ms
-                    ? (float)dotPhaseMs / (float)gLivePreset.points_fade_in_ms : 1.0f;
-            v = gLivePreset.points_fade_in_on ? smoothstep01(t) : 1.0f;
-        } else {
-            uint32_t fallMs = dotPhaseMs - gLivePreset.points_fade_in_ms;
-            float t = gLivePreset.points_fade_out_ms
-                    ? (float)fallMs / (float)gLivePreset.points_fade_out_ms : 1.0f;
-            v = gLivePreset.points_fade_out_on ? (1.0f - smoothstep01(t)) : 0.0f;
+            if (dotPhaseMs < gLivePreset.points_fade_in_ms) {
+                float t = gLivePreset.points_fade_in_ms
+                        ? (float)dotPhaseMs / (float)gLivePreset.points_fade_in_ms : 1.0f;
+                v = gLivePreset.points_fade_in_on ? smoothstep01(t) : 1.0f;
+            } else {
+                uint32_t fallMs = dotPhaseMs - gLivePreset.points_fade_in_ms;
+                float t = gLivePreset.points_fade_out_ms
+                        ? (float)fallMs / (float)gLivePreset.points_fade_out_ms : 1.0f;
+                v = gLivePreset.points_fade_out_on ? (1.0f - smoothstep01(t)) : 0.0f;
+            }
         }
 
         uint8_t r = (uint8_t)(src.r * v);

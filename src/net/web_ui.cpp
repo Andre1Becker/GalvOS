@@ -639,6 +639,7 @@ void init() {
             if (doc["points_fade_in_ms"].is<int>())   gLivePreset.points_fade_in_ms  = (uint16_t)constrain((int)doc["points_fade_in_ms"], 0, 10000);
             if (doc["points_fade_out_ms"].is<int>())  gLivePreset.points_fade_out_ms = (uint16_t)constrain((int)doc["points_fade_out_ms"], 0, 10000);
             if (doc["points_fade_dir"].is<int>())     gLivePreset.points_fade_dir    = (uint8_t)constrain((int)doc["points_fade_dir"], 0, 5);
+            if (doc["points_static_on"].is<bool>())   gLivePreset.points_static_on   = doc["points_static_on"];
             req->send(200, "text/plain", "OK");
         });
 

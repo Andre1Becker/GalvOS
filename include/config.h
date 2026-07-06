@@ -282,12 +282,12 @@ enum ColAnimType : uint8_t {
 };
 
 enum FadeDirection : uint8_t {
-    FADE_DIR_IN_OUT     = 0,  // Innen -> Aussen
-    FADE_DIR_OUT_IN     = 1,  // Aussen -> Innen
-    FADE_DIR_LEFT_RIGHT = 2,  // Links -> Rechts
-    FADE_DIR_RIGHT_LEFT = 3,  // Rechts -> Links
-    FADE_DIR_TOP_BOTTOM = 4,  // Oben -> Unten
-    FADE_DIR_BOTTOM_TOP = 5,  // Unten -> Oben
+    FADE_DIR_IN_OUT     = 0,  // Inside -> Outside
+    FADE_DIR_OUT_IN     = 1,  // Outside -> Inside
+    FADE_DIR_LEFT_RIGHT = 2,  // Left -> Right
+    FADE_DIR_RIGHT_LEFT = 3,  // Right -> Left
+    FADE_DIR_TOP_BOTTOM = 4,  // Top -> Bottom
+    FADE_DIR_BOTTOM_TOP = 5,  // Bottom -> Top
 };
 
 struct LivePresetControls {
@@ -327,6 +327,7 @@ struct LivePresetControls {
     volatile uint16_t points_fade_in_ms    = 400;   // fade-in duration, ms
     volatile uint16_t points_fade_out_ms   = 400;   // fade-out duration, ms
     volatile uint8_t  points_fade_dir      = FADE_DIR_IN_OUT;
+    volatile bool     points_static_on     = false; // true = full brightness, no fade cycle
 };
 
 extern LivePresetControls gLivePreset;
