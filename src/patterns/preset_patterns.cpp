@@ -1267,6 +1267,14 @@ size_t generate(uint8_t idx, LaserPoint* out, size_t max_pts,
     const uint32_t safe_phase = phase % 0xFFFFFF;
     size_t n = DISPATCH[idx](out, max_pts, safe_phase, speed, size_val);
 
+    // size_val==0 (Auto-Scaling minimum) must render as a single point.
+    // ssc() floors at 0.25, so DISPATCH output still spans ~25% scale --
+    // collapse every point to the origin instead of touching ssc() globally
+    // (which also drives the manual Size slider, min 10).
+    if (size_val == 0) {
+        for (size_t i = 0; i < n; i++) { out[i].x = 0; out[i].y = 0; }
+    }
+
     // Centralized closing blank: prevents lit retrace on frame loop.
     // optimizer-backed presets already close via emitBlankJump() back to
     // their first vertex; ap()-based presets close geometrically (last
