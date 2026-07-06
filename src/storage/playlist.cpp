@@ -7,6 +7,7 @@
 #include <SD.h>
 #include <ArduinoJson.h>
 #include <esp_log.h>
+#include "json_alloc.h"
 
 namespace playlist {
 
@@ -27,7 +28,7 @@ bool loadFromSD() {
         return false;
     }
 
-    JsonDocument doc;
+    JsonDocument doc(&jsonAllocator());
     DeserializationError err = deserializeJson(doc, f);
     f.close();
     if (err) {

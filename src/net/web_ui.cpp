@@ -27,6 +27,7 @@
 #include <ESPAsyncWebServer.h>
 #include <AsyncTCP.h>
 #include <ArduinoJson.h>
+#include "json_alloc.h"
 #include <LittleFS.h>
 #include <SD.h>
 #include <Preferences.h>
@@ -292,14 +293,14 @@ void init() {
 
     // ---- GET /api/state ----
     s_server.on("/api/state", HTTP_GET, [](AsyncWebServerRequest* req) {
-        JsonDocument doc; buildStateJson(doc);
+        JsonDocument doc(&jsonAllocator()); buildStateJson(doc);
         String out; serializeJson(doc, out);
         req->send(200, "application/json", out);
     });
 
     // ---- GET /api/config ----
     s_server.on("/api/config", HTTP_GET, [](AsyncWebServerRequest* req) {
-        JsonDocument doc; buildConfigJson(doc);
+        JsonDocument doc(&jsonAllocator()); buildConfigJson(doc);
         String out; serializeJson(doc, out);
         req->send(200, "application/json", out);
     });
@@ -309,7 +310,7 @@ void init() {
         [](AsyncWebServerRequest* req) {},
         nullptr,
         [](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t, size_t) {
-            JsonDocument doc;
+            JsonDocument doc(&jsonAllocator());
             if (deserializeJson(doc, data, len)) { req->send(400, "text/plain", "bad json"); return; }
             if (doc["dmx_address"].is<int>())      gConfig.dmx_address     = doc["dmx_address"];
             if (doc["artnet_universe"].is<int>())  gConfig.artnet_universe = doc["artnet_universe"];
@@ -353,7 +354,7 @@ void init() {
         [](AsyncWebServerRequest* req) {},
         nullptr,
         [](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t, size_t) {
-            JsonDocument doc;
+            JsonDocument doc(&jsonAllocator());
             if (deserializeJson(doc, data, len)) { req->send(400, "text/plain", "bad json"); return; }
             JsonArrayConst arr = doc["values"];
             if (arr.size() != DMX_CHANNELS_USED) { req->send(400, "text/plain", "need 16 values"); return; }
@@ -366,7 +367,7 @@ void init() {
         [](AsyncWebServerRequest* req) {},
         nullptr,
         [](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t, size_t) {
-            JsonDocument doc;
+            JsonDocument doc(&jsonAllocator());
             if (deserializeJson(doc, data, len)) { req->send(400, "text/plain", "bad json"); return; }
             gOverride.active = doc["active"] | false;
             if (gOverride.active) gState.source.store(SRC_WEBUI);
@@ -378,7 +379,7 @@ void init() {
         [](AsyncWebServerRequest* req) {},
         nullptr,
         [](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t, size_t) {
-            JsonDocument doc;
+            JsonDocument doc(&jsonAllocator());
             if (deserializeJson(doc, data, len)) { req->send(400, "text/plain", "bad json"); return; }
             if (doc["xoff"].is<int>())   gConfig.galvo_x_offset = doc["xoff"];
             if (doc["yoff"].is<int>())   gConfig.galvo_y_offset = doc["yoff"];
@@ -413,7 +414,7 @@ void init() {
         [](AsyncWebServerRequest* req) {},
         nullptr,
         [](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t, size_t) {
-            JsonDocument doc;
+            JsonDocument doc(&jsonAllocator());
             if (deserializeJson(doc, data, len)) { req->send(400, "text/plain", "bad json"); return; }
             if (doc["corner_angle_deg"].is<float>())
                 gOptimizerConfig.corner_angle_deg = constrain((float)doc["corner_angle_deg"], 0.0f, 180.0f);
@@ -456,7 +457,7 @@ void init() {
         });
         // ---- GET /api/zone ----
     s_server.on("/api/zone", HTTP_GET, [](AsyncWebServerRequest* req) {
-        JsonDocument doc;
+        JsonDocument doc(&jsonAllocator());
         doc["enabled"] = gZone.enabled;
         doc["count"]   = gZone.count;
         JsonArray zx = doc["x"].to<JsonArray>();
@@ -471,7 +472,7 @@ void init() {
         [](AsyncWebServerRequest* req) {},
         nullptr,
         [](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t, size_t) {
-            JsonDocument doc;
+            JsonDocument doc(&jsonAllocator());
             if (deserializeJson(doc, data, len)) { req->send(400, "text/plain", "bad json"); return; }
             { LOCK_ZONE(); gZone.enabled = doc["enabled"] | false; }
             persistConfig();
@@ -501,7 +502,7 @@ void init() {
         [](AsyncWebServerRequest* req) {},
         nullptr,
         [](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t, size_t) {
-            JsonDocument doc;
+            JsonDocument doc(&jsonAllocator());
             if (deserializeJson(doc, data, len)) { req->send(400, "text/plain", "bad json"); return; }
             JsonArrayConst ax = doc["x"];
             JsonArrayConst ay = doc["y"];
@@ -537,7 +538,7 @@ void init() {
         [](AsyncWebServerRequest* req) {},
         nullptr,
         [](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t, size_t) {
-            JsonDocument doc;
+            JsonDocument doc(&jsonAllocator());
             if (deserializeJson(doc, data, len)) { req->send(400, "text/plain", "bad json"); return; }
             const char* name = doc["pattern"] | "";
             patterns::triggerTestPattern(name);
@@ -546,7 +547,7 @@ void init() {
 
     // ---- GET /api/presets ---- all 40 preset names
     s_server.on("/api/presets", HTTP_GET, [](AsyncWebServerRequest* req) {
-        JsonDocument doc;
+        JsonDocument doc(&jsonAllocator());
         JsonArray arr = doc.to<JsonArray>();
         for (uint8_t i = 0; i < presets::PRESET_COUNT; i++) {
             JsonObject p = arr.add<JsonObject>();
@@ -563,7 +564,7 @@ void init() {
         [](AsyncWebServerRequest* req) {},
         nullptr,
         [](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t, size_t) {
-            JsonDocument doc;
+            JsonDocument doc(&jsonAllocator());
             if (deserializeJson(doc, data, len)) { req->send(400, "text/plain", "bad json"); return; }
             int8_t idx = doc["idx"] | -1;
             patterns::setPreset(idx);
@@ -575,7 +576,7 @@ void init() {
         [](AsyncWebServerRequest* req) {},
         nullptr,
         [](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t, size_t) {
-            JsonDocument doc;
+            JsonDocument doc(&jsonAllocator());
             if (deserializeJson(doc, data, len)) { req->send(400, "text/plain", "bad json"); return; }
             if (doc["fan0"].is<int>()) temp::setFanOverride(0, doc["fan0"]);
             if (doc["fan1"].is<int>()) temp::setFanOverride(1, doc["fan1"]);
@@ -587,7 +588,7 @@ void init() {
         [](AsyncWebServerRequest* req) {},
         nullptr,
         [](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t, size_t) {
-            JsonDocument doc;
+            JsonDocument doc(&jsonAllocator());
             if (deserializeJson(doc, data, len)) { req->send(400, "text/plain", "bad json"); return; }
             JsonArrayConst arr = doc["thresholds"];
             for (size_t i = 0; i < min((size_t)temp::NUM_SENSORS, arr.size()); i++) {
@@ -603,7 +604,7 @@ void init() {
         [](AsyncWebServerRequest* req) {},
         nullptr,
         [](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t, size_t) {
-            JsonDocument doc;
+            JsonDocument doc(&jsonAllocator());
             if (deserializeJson(doc, data, len)) { req->send(400, "text/plain", "bad json"); return; }
             if (doc["speed"].is<int>())     gLivePreset.speed     = doc["speed"];
             if (doc["size"].is<int>())      gLivePreset.size_val  = doc["size"];
@@ -711,7 +712,7 @@ void init() {
     s_server.on("/api/curves", HTTP_POST, [](AsyncWebServerRequest* req){},
     nullptr,
     [](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t, size_t) {
-        JsonDocument doc;
+        JsonDocument doc(&jsonAllocator());
         if (deserializeJson(doc, data, len) != DeserializationError::Ok) {
             req->send(400, "application/json", "{\"error\":\"bad json\"}");
             return;
@@ -743,7 +744,7 @@ void init() {
         [](AsyncWebServerRequest* req) {},
         nullptr,
         [](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t, size_t) {
-            JsonDocument doc;
+            JsonDocument doc(&jsonAllocator());
             if (deserializeJson(doc, data, len)) { req->send(400, "text/plain", "bad json"); return; }
             { LOCK_STATE();
                 if (doc["text"].is<const char*>())   strlcpy(gTextConfig.text, doc["text"], sizeof(gTextConfig.text));
@@ -783,7 +784,7 @@ void init() {
         textrender::GlyphSubpath paths[textrender::TEXT_VERTICES_MAX_PATHS];
         size_t n = textrender::glyphOutlinePaths(text.c_str(), scale, paths, textrender::TEXT_VERTICES_MAX_PATHS);
 
-        JsonDocument doc;
+        JsonDocument doc(&jsonAllocator());
         JsonArray arr = doc["paths"].to<JsonArray>();
         for (size_t i = 0; i < n; i++) {
             JsonObject o = arr.add<JsonObject>();
@@ -798,7 +799,7 @@ void init() {
 
     // ---- GET /api/text ----
     s_server.on("/api/text", HTTP_GET, [](AsyncWebServerRequest* req) {
-        JsonDocument doc;
+        JsonDocument doc(&jsonAllocator());
         doc["text"]    = gTextConfig.text;
         doc["font"]    = (int)gTextConfig.font;
         doc["anim"]    = (int)gTextConfig.animation;
@@ -819,7 +820,7 @@ void init() {
 
     // ---- GET /api/paint ---- current canvas (reload / multi-client sync)
     s_server.on("/api/paint", HTTP_GET, [](AsyncWebServerRequest* req) {
-        JsonDocument doc;
+        JsonDocument doc(&jsonAllocator());
         doc["active"] = gPaint.active;
         JsonArray arr = doc["strokes"].to<JsonArray>();
         { LOCK_PAINT();
@@ -854,7 +855,7 @@ void init() {
             }
             if (index + len != total) return;
             s_paint_body[s_paint_body_len] = 0;
-            JsonDocument doc;
+            JsonDocument doc(&jsonAllocator());
             DeserializationError jerr = deserializeJson(doc, s_paint_body, s_paint_body_len);
             if (jerr) { req->send(400, "text/plain", "bad json"); return; }
             JsonArrayConst strokesArr = doc["strokes"];
@@ -901,7 +902,7 @@ void init() {
 
     // ---- GET /api/sd ---- SD cardn-Status and file list
     s_server.on("/api/sd", HTTP_GET, [](AsyncWebServerRequest* req) {
-        JsonDocument doc;
+        JsonDocument doc(&jsonAllocator());
         doc["ready"]     = sd_card::isReady();
         doc["file_count"]= sd_card::fileCount();
         doc["free_kb"]   = sd_card::freeKB();
@@ -926,7 +927,7 @@ void init() {
 
     // ---- GET /api/sd/info ---- detailed SD card info ----
     s_server.on("/api/sd/info", HTTP_GET, [](AsyncWebServerRequest* req) {
-        JsonDocument doc;
+        JsonDocument doc(&jsonAllocator());
         doc["ready"]      = sd_card::isReady();
         doc["fs_type"]    = sd_card::fsType();
         doc["total_kb"]   = sd_card::totalKB();
@@ -974,7 +975,7 @@ void init() {
         [](AsyncWebServerRequest* req) {},
         nullptr,
         [](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t, size_t) {
-            JsonDocument doc;
+            JsonDocument doc(&jsonAllocator());
             if (deserializeJson(doc, data, len)) { req->send(400); return; }
             uint8_t idx = doc["idx"] | 255;
             if (idx == 255) { req->send(400, "text/plain", "idx required"); return; }
@@ -994,14 +995,14 @@ void init() {
         [](AsyncWebServerRequest* req) {},
         nullptr,
         [](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t, size_t) {
-            JsonDocument doc;
+            JsonDocument doc(&jsonAllocator());
             if (!deserializeJson(doc, data, len)) ilda::pause((bool)doc["paused"]);
             req->send(200,"text/plain","OK");
         });
 
     // ---- GET /api/ilda/status ----
     s_server.on("/api/ilda/status", HTTP_GET, [](AsyncWebServerRequest* req) {
-        JsonDocument doc;
+        JsonDocument doc(&jsonAllocator());
         doc["active"]  = ilda::gILDA.active;
         doc["file_idx"]= ilda::gILDA.file_idx;
         doc["frame"]   = ilda::gILDA.current_frame;
@@ -1017,7 +1018,7 @@ void init() {
 
     // ---- GET /api/dmx/channels ---- DMX-channel-Dokumentation
     s_server.on("/api/dmx/channels", HTTP_GET, [](AsyncWebServerRequest* req) {
-        JsonDocument doc;
+        JsonDocument doc(&jsonAllocator());
         JsonArray arr = doc["channels"].to<JsonArray>();
         for (int i = 0; i < DMX_CHANNELS_USED; i++) {
             JsonObject ch = arr.add<JsonObject>();
@@ -1047,7 +1048,7 @@ void init() {
     // GET /api/calib-pattern/list
     s_server.on("/api/calib-pattern/list", HTTP_GET,
         [](AsyncWebServerRequest* req) {
-            JsonDocument doc;
+            JsonDocument doc(&jsonAllocator());
             JsonArray arr = doc["patterns"].to<JsonArray>();
             for (uint8_t i = 0; i < calib_patterns::CALIB_PATTERN_COUNT; i++) {
                 JsonObject o = arr.add<JsonObject>();
@@ -1069,7 +1070,7 @@ void init() {
         [](AsyncWebServerRequest* req) {},
         nullptr,
         [](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t, size_t) {
-            JsonDocument doc;
+            JsonDocument doc(&jsonAllocator());
             if (deserializeJson(doc, data, len)) { req->send(400); return; }
             if (doc["active"].is<bool>())   gState.calib_active  = doc["active"];
             if (doc["idx"].is<int>())       gState.calib_idx     = constrain((int)doc["idx"], 0, calib_patterns::CALIB_PATTERN_COUNT-1);
@@ -1096,7 +1097,7 @@ void init() {
 
     // ── Feature 5: safety configuration ──────────────────────
     s_server.on("/api/safety/config", HTTP_GET, [](AsyncWebServerRequest* req) {
-        JsonDocument doc;
+        JsonDocument doc(&jsonAllocator());
         doc["temp_warn"]     = gSafety.temp_warn_c;
         doc["temp_reduce"]   = gSafety.temp_reduce_c;
         doc["temp_shutdown"] = gSafety.temp_shutdown_c;
@@ -1109,7 +1110,7 @@ void init() {
         [](AsyncWebServerRequest* req){},
         nullptr,
         [](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t, size_t) {
-            JsonDocument doc;
+            JsonDocument doc(&jsonAllocator());
             if (deserializeJson(doc, data, len)) { req->send(400); return; }
             if (doc["temp_warn"].is<int>())     gSafety.temp_warn_c     = doc["temp_warn"];
             if (doc["temp_reduce"].is<int>())   gSafety.temp_reduce_c   = doc["temp_reduce"];
@@ -1132,7 +1133,7 @@ void init() {
     // Beim SET is es sofort in NVS saved.
     // Endpoint for explicit read/write:
     s_server.on("/api/dmx/address", HTTP_GET, [](AsyncWebServerRequest* req) {
-        JsonDocument doc;
+        JsonDocument doc(&jsonAllocator());
         doc["dmx_address"]     = gConfig.dmx_address;
         doc["artnet_universe"] = gConfig.artnet_universe;
         String out; serializeJson(doc, out);
@@ -1142,7 +1143,7 @@ void init() {
         [](AsyncWebServerRequest* req){},
         nullptr,
         [](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t, size_t) {
-            JsonDocument doc;
+            JsonDocument doc(&jsonAllocator());
             if (deserializeJson(doc, data, len)) { req->send(400); return; }
             if (doc["dmx_address"].is<int>()) {
                 gConfig.dmx_address = constrain((int)doc["dmx_address"], 1, 512);
@@ -1165,7 +1166,7 @@ void init() {
     // ── Countdown Timer API ────────────────────────────────────────────
     s_server.on("/api/timer/set", HTTP_POST, [](AsyncWebServerRequest* req){},
         nullptr, [](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t, size_t) {
-            JsonDocument doc;
+            JsonDocument doc(&jsonAllocator());
             if (deserializeJson(doc, data, len) != DeserializationError::Ok)
                 return req->send(400);
             uint32_t secs = doc["seconds"] | 0u;
@@ -1180,7 +1181,7 @@ void init() {
         [](AsyncWebServerRequest* r){ countdown_timer::stop();  r->send(200,"application/json","{\"ok\":true}"); });
     s_server.on("/api/timer/reset", HTTP_POST, [](AsyncWebServerRequest* req){},
         nullptr, [](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t, size_t) {
-            JsonDocument doc;
+            JsonDocument doc(&jsonAllocator());
             if (deserializeJson(doc, data, len) == DeserializationError::Ok)
                 countdown_timer::reset(doc["seconds"] | countdown_timer::remaining());
             req->send(200,"application/json","{\"ok\":true}");
@@ -1198,7 +1199,7 @@ void init() {
     s_server.on("/api/safety-override", HTTP_POST, [](AsyncWebServerRequest* req){},
         nullptr,
         [](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t, size_t) {
-            JsonDocument doc;
+            JsonDocument doc(&jsonAllocator());
             if (deserializeJson(doc, data, len) == DeserializationError::Ok) {
                 bool en = doc["enabled"] | false;
                 gConfig.safety_override = en;
@@ -1212,7 +1213,7 @@ void init() {
         });
 
     s_server.on("/api/artnet/status", HTTP_GET, [](AsyncWebServerRequest* req) {
-        JsonDocument doc;
+        JsonDocument doc(&jsonAllocator());
         doc["enabled"]         = true;
         doc["universe"]        = gConfig.artnet_universe;
         doc["dmx_address"]     = gConfig.dmx_address;
@@ -1224,7 +1225,7 @@ void init() {
 
     // ── Feature 4: Playlist ───────────────────────────────────
     s_server.on("/api/playlist", HTTP_GET, [](AsyncWebServerRequest* req) {
-        JsonDocument doc;
+        JsonDocument doc(&jsonAllocator());
         doc["active"]   = gPlaylist.active;
         doc["count"]    = gPlaylist.count;
         doc["current"]  = gPlaylist.current;
@@ -1260,7 +1261,7 @@ void init() {
         [](AsyncWebServerRequest* req){},
         nullptr,
         [](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t, size_t) {
-            JsonDocument doc;
+            JsonDocument doc(&jsonAllocator());
             if (deserializeJson(doc, data, len)) { req->send(400); return; }
             gPlaylist.count = 0;
             JsonArray arr = doc["entries"].as<JsonArray>();
@@ -1310,7 +1311,7 @@ void init() {
     // ---- GET /api/wifi-scan ----
     // Gibt {status:"scanning"} or {status:"done", networks:[...]} zurueck
     s_server.on("/api/wifi-scan", HTTP_GET, [](AsyncWebServerRequest* req) {
-        JsonDocument doc;
+        JsonDocument doc(&jsonAllocator());
         if (s_scan_running) {
             doc["status"] = "scanning";
             String out; serializeJson(doc, out);
@@ -1358,7 +1359,7 @@ void init() {
 
     // ---- GET /api/wifi-status ----
     s_server.on("/api/wifi-status", HTTP_GET, [](AsyncWebServerRequest* req) {
-        JsonDocument doc;
+        JsonDocument doc(&jsonAllocator());
         doc["connected"] = (WiFi.status() == WL_CONNECTED);
         doc["ssid"]      = WiFi.SSID();
         doc["ip"]        = WiFi.localIP().toString();
@@ -1373,7 +1374,7 @@ void init() {
         [](AsyncWebServerRequest* req) {},
         nullptr,
         [](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t, size_t) {
-            JsonDocument doc;
+            JsonDocument doc(&jsonAllocator());
             if (deserializeJson(doc, data, len)) { req->send(400, "text/plain", "bad json"); return; }
             const char* ssid = doc["ssid"] | "";
             const char* pass = doc["pass"] | "";
@@ -1464,7 +1465,7 @@ void init() {
                     "{\"error\":\"Laser not armed and no debug mode\"}");
                 return;
             }
-            JsonDocument doc;
+            JsonDocument doc(&jsonAllocator());
             if (deserializeJson(doc, data, len)) {
                 req->send(400, "application/json", "{\"error\":\"JSON invalid\"}");
                 return;
@@ -1538,7 +1539,7 @@ void init() {
                     "{\"error\":\"laser not armed\"}");
                 return;
             }
-            JsonDocument doc;
+            JsonDocument doc(&jsonAllocator());
             if (deserializeJson(doc, data, len)) {
                 req->send(400, "application/json", "{\"error\":\"bad json\"}");
                 return;
@@ -1624,7 +1625,7 @@ void init() {
         [](AsyncWebServerRequest* req) {},
         nullptr,
         [](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t, size_t) {
-            JsonDocument doc;
+            JsonDocument doc(&jsonAllocator());
             if (deserializeJson(doc, data, len)) { req->send(400, "text/plain", "bad json"); return; }
             bool enabled = doc["enabled"] | false;
             gDebugNoHW = enabled;
@@ -1674,7 +1675,7 @@ void init() {
         nullptr,
         [](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t, size_t) {
             if (!isAuthorised(req)) { denyUnauth(req); return; }
-            JsonDocument doc;
+            JsonDocument doc(&jsonAllocator());
             if (deserializeJson(doc, data, len)) { req->send(400, "text/plain", "bad json"); return; }
             bool ui_override   = doc["ui_override"] | false;
             uint8_t master_dim = (uint8_t)(doc["master_dimmer"] | 0);
@@ -1686,7 +1687,7 @@ void init() {
                 galvo::clearDebugOutput();
                 patterns::stopTestPattern();
             }
-            JsonDocument resp;
+            JsonDocument resp(&jsonAllocator());
             resp["ui_override"]    = ui_override;
             resp["master_dimmer"]  = master_dim;
             String out;
@@ -1700,7 +1701,7 @@ void init() {
         nullptr,
         [](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t, size_t) {
             if (!isAuthorised(req)) { denyUnauth(req); return; }
-            JsonDocument doc;
+            JsonDocument doc(&jsonAllocator());
             if (deserializeJson(doc, data, len) != DeserializationError::Ok)
                 return req->send(400);
             for (uint8_t i = 0; i < temp::NUM_SENSORS; i++) {
@@ -1714,7 +1715,7 @@ void init() {
     s_server.on("/api/temp/name", HTTP_POST, [](AsyncWebServerRequest* req){},
     nullptr,
     [](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t, size_t) {
-        JsonDocument doc;
+        JsonDocument doc(&jsonAllocator());
         if (deserializeJson(doc, data, len) != DeserializationError::Ok) {
             req->send(400, "application/json", "{\"error\":\"bad json\"}");
             return;
@@ -1813,7 +1814,7 @@ void init() {
     s_server.on("/api/projection", HTTP_POST, [](AsyncWebServerRequest* req){},
     nullptr,
     [](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t, size_t) {
-        JsonDocument doc;
+        JsonDocument doc(&jsonAllocator());
         if (deserializeJson(doc, data, len) != DeserializationError::Ok) {
             req->send(400, "application/json", "{\"error\":\"bad json\"}");
             return;
