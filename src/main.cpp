@@ -260,6 +260,7 @@ void setup() {
     // SPIClass(FSPI).begin() must not run while SPI2 DAC self-test is active.
     dmx_in::init();
     patterns::init();
+    ESP_LOGI(TAG, "[heap] after patterns::init: %u B free", ESP.getFreeHeap());
     temp::init();   // DS18B20 + Fan-PWM
 
     // network
@@ -310,8 +311,10 @@ void setup() {
         WiFi.softAP(ap_ssid, ap_pwd);
         ESP_LOGI(TAG, "SoftAP IP: %s", WiFi.softAPIP().toString().c_str());
     }
+    ESP_LOGI(TAG, "[heap] after WiFi/network services: %u B free", ESP.getFreeHeap());
     // WebUI last -- needs LittleFS and knows safety::requestArm
     web_ui::init();
+    ESP_LOGI(TAG, "[heap] after web_ui::init: %u B free", ESP.getFreeHeap());
 
     // ── Feature 1: Encor ────────────────────────────────────
     encoder::init();
@@ -320,7 +323,7 @@ void setup() {
     // ── Feature 2: OTA ────────────────────────────────────────
     ota_update::init();
     ESP_LOGI("main", "OTA URL: http://%s.local/update", gConfig.hostname);
-
+    ESP_LOGI(TAG, "[heap] after OTA init: %u B free", ESP.getFreeHeap());
     // ── Feature 4: Playlist ──────────────────────────────────
     playlist::loadFromSD();
     startTask(playlist::task, "playlist", 4096, 2, 0);
@@ -336,7 +339,7 @@ void setup() {
         startTask(etherdream::task, "edream", 8192, 3, 0);
         startTask(ntp_client::task, "ntp",    4096, 2, 0);
     }
-
+    ESP_LOGI(TAG, "[heap] setup done: %u B free", ESP.getFreeHeap());
     // Galvo task on core 1 uses busy-wait (50 kHz, 20us loop).
     // IDLE1 (Core 1) gets almost no CPU time → WDT would fire.
     // Solution: remove IDLE1 from WDT monitoring.
