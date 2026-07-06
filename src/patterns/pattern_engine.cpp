@@ -621,10 +621,11 @@ static void applyPointsOnlyMode(size_t& n) {
     uint32_t cycleMs = (uint32_t)gLivePreset.points_fade_in_ms + gLivePreset.points_fade_out_ms;
     if (cycleMs == 0) cycleMs = 1;
     s_pm_acc_ms = (s_pm_acc_ms + dt_ms) % cycleMs;
+    const uint8_t blankSamples = gOptimizerConfig.min_blank_samples;  // snapshot once — avoid TOCTOU vs. live WebUI writes
 
     size_t o = 0;
     for (uint8_t k = 0; k < count; k++) {
-        if (o + (size_t)dwell + (size_t)(2 * gOptimizerConfig.min_blank_samples) + 1 > PATTERN_POINTS_MAX) break;
+        if (o + (size_t)dwell + (size_t)(2 * blankSamples) + 1 > PATTERN_POINTS_MAX) break;
         size_t src_idx = (size_t)((uint32_t)k * nl / count);
         const LaserPoint& src = s_pm_lit[src_idx];
 
@@ -650,8 +651,8 @@ static void applyPointsOnlyMode(size_t& n) {
 
         float px = (o > 0) ? s_frame[o - 1].x : src.x;
         float py = (o > 0) ? s_frame[o - 1].y : src.y;
-        int moveTicks   = gOptimizerConfig.min_blank_samples;
-        int settleTicks = gOptimizerConfig.min_blank_samples;
+        int moveTicks   = blankSamples;
+        int settleTicks = blankSamples;
         for (int d = 0; d < moveTicks; d++) {
             float t = (float)(d + 1) / (float)moveTicks;
             int16_t bx = (int16_t)(px + (src.x - px) * t);
