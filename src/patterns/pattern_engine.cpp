@@ -595,13 +595,16 @@ static void applyPointsOnlyMode(size_t& n) {
 
         float px = (o > 0) ? s_frame[o - 1].x : src.x;
         float py = (o > 0) ? s_frame[o - 1].y : src.y;
-        int blankTicks = gOptimizerConfig.min_blank_samples;
-        for (int d = 0; d < blankTicks; d++) {
-            float t = (float)(d + 1) / (float)blankTicks;
+        int moveTicks   = gOptimizerConfig.min_blank_samples;
+        int settleTicks = gOptimizerConfig.min_blank_samples;
+        for (int d = 0; d < moveTicks; d++) {
+            float t = (float)(d + 1) / (float)moveTicks;
             int16_t bx = (int16_t)(px + (src.x - px) * t);
             int16_t by = (int16_t)(py + (src.y - py) * t);
             s_frame[o++] = LaserPoint(bx, by, 0, 0, 0, 1);
         }
+        for (int d = 0; d < settleTicks; d++)
+            s_frame[o++] = LaserPoint(src.x, src.y, 0, 0, 0, 1);
         for (int d = 0; d < dwell; d++)
             s_frame[o++] = LaserPoint(src.x, src.y, r, g, b, 0);
     }
