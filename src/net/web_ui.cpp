@@ -634,8 +634,11 @@ void init() {
             if (doc["wave_freq"].is<float>()) gLivePreset.wave_freq = constrain((float)doc["wave_freq"], 0.25f, 4.0f);
             if (doc["points_mode_enabled"].is<bool>()) gLivePreset.points_mode_enabled = doc["points_mode_enabled"];
             if (doc["points_count"].is<int>())  gLivePreset.points_count  = (uint8_t)constrain((int)doc["points_count"], 2, POINTS_MODE_MAX_DOTS);
-            if (doc["points_fade_ms"].is<int>()) gLivePreset.points_fade_ms = (uint16_t)constrain((int)doc["points_fade_ms"], 50, 10000);
-            if (doc["points_stagger"].is<bool>()) gLivePreset.points_stagger = doc["points_stagger"];
+            if (doc["points_fade_in_on"].is<bool>())  gLivePreset.points_fade_in_on  = doc["points_fade_in_on"];
+            if (doc["points_fade_out_on"].is<bool>()) gLivePreset.points_fade_out_on = doc["points_fade_out_on"];
+            if (doc["points_fade_in_ms"].is<int>())   gLivePreset.points_fade_in_ms  = (uint16_t)constrain((int)doc["points_fade_in_ms"], 0, 10000);
+            if (doc["points_fade_out_ms"].is<int>())  gLivePreset.points_fade_out_ms = (uint16_t)constrain((int)doc["points_fade_out_ms"], 0, 10000);
+            if (doc["points_fade_dir"].is<int>())     gLivePreset.points_fade_dir    = (uint8_t)constrain((int)doc["points_fade_dir"], 0, 5);
             req->send(200, "text/plain", "OK");
         });
 

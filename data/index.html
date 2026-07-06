@@ -438,15 +438,36 @@
             <input type="range" id="lv-pm-count" min="2" max="80" value="24" oninput="liveSlider()">
           </div>
           <div>
-            <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:2px">
-              <span>Fadeout (ms)</span><span id="lv-pm-fade-val" style="color:var(--accent);font-family:monospace">800</span>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px">
+              <label class="toggle" style="margin:0">
+                <input type="checkbox" id="lv-pm-fadein-on" checked onchange="liveSlider()">
+                <span class="slider"></span><span style="font-size:11px;color:var(--dim)">Fade-in</span>
+              </label>
+              <span id="lv-pm-fadein-val" style="color:var(--accent);font-family:monospace">400</span>
             </div>
-            <input type="range" id="lv-pm-fade" min="50" max="5000" value="800" oninput="liveSlider()">
+            <input type="range" id="lv-pm-fadein" min="0" max="5000" value="400" oninput="liveSlider()">
           </div>
-          <label class="toggle">
-            <input type="checkbox" id="lv-pm-stagger" checked onchange="liveSlider()">
-            <span class="slider"></span><span style="font-size:12px">Staggered (off = all together)</span>
-          </label>
+          <div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px">
+              <label class="toggle" style="margin:0">
+                <input type="checkbox" id="lv-pm-fadeout-on" checked onchange="liveSlider()">
+                <span class="slider"></span><span style="font-size:11px;color:var(--dim)">Fade-out</span>
+              </label>
+              <span id="lv-pm-fadeout-val" style="color:var(--accent);font-family:monospace">400</span>
+            </div>
+            <input type="range" id="lv-pm-fadeout" min="0" max="5000" value="400" oninput="liveSlider()">
+          </div>
+          <div>
+            <div style="font-size:11px;color:var(--dim);margin-bottom:2px">Fade direction</div>
+            <select id="lv-pm-dir" onchange="liveSlider()" style="width:100%;background:#0a0a18;color:var(--fg);border:1px solid var(--border);border-radius:4px;padding:4px">
+              <option value="0">Innen → Aussen</option>
+              <option value="1">Aussen → Innen</option>
+              <option value="2">Links → Rechts</option>
+              <option value="3">Rechts → Links</option>
+              <option value="4">Oben → Unten</option>
+              <option value="5">Unten → Oben</option>
+            </select>
+          </div>
         </div>
       </div>
 
@@ -3485,7 +3506,8 @@ function liveSlider() {
     document.getElementById('lv-amp-val').textContent = (document.getElementById('lv-amp').value/100).toFixed(2);
     document.getElementById('lv-freq-val').textContent= (document.getElementById('lv-freq').value/100).toFixed(2);
     document.getElementById('lv-pm-count-val').textContent = document.getElementById('lv-pm-count').value;
-    document.getElementById('lv-pm-fade-val').textContent  = document.getElementById('lv-pm-fade').value;
+    document.getElementById('lv-pm-fadein-val').textContent  = document.getElementById('lv-pm-fadein').value;
+    document.getElementById('lv-pm-fadeout-val').textContent = document.getElementById('lv-pm-fadeout').value;
     // Color Preview
     const r=document.getElementById('lv-r').value,g=document.getElementById('lv-g').value,b=document.getElementById('lv-b').value;
     document.getElementById('lv-col-preview').style.background = `rgb(${r},${g},${b})`;
@@ -3637,8 +3659,11 @@ async function sendLiveControls() {
         wave_freq:    document.getElementById('lv-freq').value/100,
         points_mode_enabled: document.getElementById('lv-pm-on').checked,
         points_count:        +document.getElementById('lv-pm-count').value,
-        points_fade_ms:      +document.getElementById('lv-pm-fade').value,
-        points_stagger:      document.getElementById('lv-pm-stagger').checked,
+        points_fade_in_on:   document.getElementById('lv-pm-fadein-on').checked,
+        points_fade_out_on:  document.getElementById('lv-pm-fadeout-on').checked,
+        points_fade_in_ms:   +document.getElementById('lv-pm-fadein').value,
+        points_fade_out_ms:  +document.getElementById('lv-pm-fadeout').value,
+        points_fade_dir:     +document.getElementById('lv-pm-dir').value,
     });
 }
 

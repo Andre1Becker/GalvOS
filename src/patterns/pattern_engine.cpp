@@ -535,6 +535,40 @@ static void applyColorAnim(size_t n) {
     }
 }
 
+static float clamp01(float t) { return (t < 0.0f) ? 0.0f : (t > 1.0f ? 1.0f : t); }
+
+static float smoothstep01(float t) {
+    t = clamp01(t);
+    return t * t * (3.0f - 2.0f * t);
+}
+
+// Maps a dot's position to a normalized wipe coordinate in [0,1) for the
+// selected Points-Only fade direction, so dots turn on/off in a spatial
+// sweep across the shape instead of in perimeter/index order.
+static float fadeWipePosition(uint8_t dir, float x, float y, float cx, float cy,
+                               float minX, float maxX, float minY, float maxY,
+                               float halfDiag) {
+    switch (dir) {
+        case FADE_DIR_OUT_IN: {
+            float d = sqrtf((x - cx) * (x - cx) + (y - cy) * (y - cy));
+            return 1.0f - clamp01(d / halfDiag);
+        }
+        case FADE_DIR_LEFT_RIGHT:
+            return (maxX > minX) ? clamp01((x - minX) / (maxX - minX)) : 0.0f;
+        case FADE_DIR_RIGHT_LEFT:
+            return (maxX > minX) ? 1.0f - clamp01((x - minX) / (maxX - minX)) : 0.0f;
+        case FADE_DIR_TOP_BOTTOM:
+            return (maxY > minY) ? clamp01((y - minY) / (maxY - minY)) : 0.0f;
+        case FADE_DIR_BOTTOM_TOP:
+            return (maxY > minY) ? 1.0f - clamp01((y - minY) / (maxY - minY)) : 0.0f;
+        case FADE_DIR_IN_OUT:
+        default: {
+            float d = sqrtf((x - cx) * (x - cx) + (y - cy) * (y - cy));
+            return clamp01(d / halfDiag);
+        }
+    }
+}
+
 // ── Points-Only render mode (global toggle, Proposal B) ──────────────────
 // Subsamples the already-transformed preset frame (post color-anim, post
 // rotation, post mirror) down to a handful of dwelling dots with a fade
@@ -564,30 +598,51 @@ static void applyPointsOnlyMode(size_t& n) {
     // below overwrite s_frame in place without clobbering not-yet-read
     // source points.
     size_t nl = 0;
-    for (size_t i = 0; i < n && nl < PATTERN_POINTS_MAX; i++)
-        if (!s_frame[i].blank) s_pm_lit[nl++] = s_frame[i];
+    float minX = 32767, maxX = -32768, minY = 32767, maxY = -32768;
+    for (size_t i = 0; i < n && nl < PATTERN_POINTS_MAX; i++) {
+        if (s_frame[i].blank) continue;
+        s_pm_lit[nl++] = s_frame[i];
+        if (s_frame[i].x < minX) minX = s_frame[i].x;
+        if (s_frame[i].x > maxX) maxX = s_frame[i].x;
+        if (s_frame[i].y < minY) minY = s_frame[i].y;
+        if (s_frame[i].y > maxY) maxY = s_frame[i].y;
+    }
     if (nl == 0) { n = 0; return; }
+
+    float cx = (minX + maxX) * 0.5f, cy = (minY + maxY) * 0.5f;
+    float halfDiag = (maxX - minX > maxY - minY) ? (maxX - minX) * 0.5f : (maxY - minY) * 0.5f;
+    if (halfDiag < 1.0f) halfDiag = 1.0f;
 
     static uint32_t s_pm_acc_ms  = 0;
     static uint32_t s_pm_last_ms = 0;
     uint32_t now_ms = millis();
     uint32_t dt_ms  = s_pm_last_ms ? (now_ms - s_pm_last_ms) : 0;
     s_pm_last_ms = now_ms;
-    uint16_t period = gLivePreset.points_fade_ms ? gLivePreset.points_fade_ms : 1;
-    s_pm_acc_ms = (s_pm_acc_ms + dt_ms) % period;
-    float base_phase = (float)s_pm_acc_ms / (float)period;
+    uint32_t cycleMs = (uint32_t)gLivePreset.points_fade_in_ms + gLivePreset.points_fade_out_ms;
+    if (cycleMs == 0) cycleMs = 1;
+    s_pm_acc_ms = (s_pm_acc_ms + dt_ms) % cycleMs;
 
     size_t o = 0;
     for (uint8_t k = 0; k < count; k++) {
-        if (o + (size_t)dwell + 2 > PATTERN_POINTS_MAX) break;
+        if (o + (size_t)dwell + (size_t)(2 * gOptimizerConfig.min_blank_samples) + 1 > PATTERN_POINTS_MAX) break;
         size_t src_idx = (size_t)((uint32_t)k * nl / count);
         const LaserPoint& src = s_pm_lit[src_idx];
 
-        float ph = gLivePreset.points_stagger
-                 ? fmodf(base_phase + (float)k / (float)count, 1.0f)
-                 : base_phase;
-        float tri = (ph < 0.5f) ? (ph * 2.0f) : (2.0f - ph * 2.0f);
-        float v   = tri * tri * (3.0f - 2.0f * tri);
+        float wipeT = fadeWipePosition(gLivePreset.points_fade_dir, src.x, src.y,
+                                        cx, cy, minX, maxX, minY, maxY, halfDiag);
+        uint32_t dotPhaseMs = (s_pm_acc_ms + (uint32_t)(wipeT * cycleMs)) % cycleMs;
+
+        float v;
+        if (dotPhaseMs < gLivePreset.points_fade_in_ms) {
+            float t = gLivePreset.points_fade_in_ms
+                    ? (float)dotPhaseMs / (float)gLivePreset.points_fade_in_ms : 1.0f;
+            v = gLivePreset.points_fade_in_on ? smoothstep01(t) : 1.0f;
+        } else {
+            uint32_t fallMs = dotPhaseMs - gLivePreset.points_fade_in_ms;
+            float t = gLivePreset.points_fade_out_ms
+                    ? (float)fallMs / (float)gLivePreset.points_fade_out_ms : 1.0f;
+            v = gLivePreset.points_fade_out_on ? (1.0f - smoothstep01(t)) : 0.0f;
+        }
 
         uint8_t r = (uint8_t)(src.r * v);
         uint8_t g = (uint8_t)(src.g * v);

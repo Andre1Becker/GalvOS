@@ -281,6 +281,15 @@ enum ColAnimType : uint8_t {
     COL_ANIM_SEGMENT  = 7,  // per-point segment coloring with phase travel
 };
 
+enum FadeDirection : uint8_t {
+    FADE_DIR_IN_OUT     = 0,  // Innen -> Aussen
+    FADE_DIR_OUT_IN     = 1,  // Aussen -> Innen
+    FADE_DIR_LEFT_RIGHT = 2,  // Links -> Rechts
+    FADE_DIR_RIGHT_LEFT = 3,  // Rechts -> Links
+    FADE_DIR_TOP_BOTTOM = 4,  // Oben -> Unten
+    FADE_DIR_BOTTOM_TOP = 5,  // Unten -> Oben
+};
+
 struct LivePresetControls {
     volatile uint8_t  speed        = 80;
     volatile uint8_t  size_val     = 128;
@@ -311,10 +320,13 @@ struct LivePresetControls {
     volatile float    wave_amp   = 1.0f;  // 0.1 – 2.0  (amplitude factor)
     volatile float    wave_freq  = 1.0f;  // 0.25 – 4.0 (frequency multiplier)
     // Points-Only render mode (global toggle, all presets)
-    volatile bool     points_mode_enabled = false;
-    volatile uint8_t  points_count        = 24;    // 2..POINTS_MODE_MAX_DOTS dots
-    volatile uint16_t points_fade_ms      = 800;   // fade cycle period, ms
-    volatile bool     points_stagger      = true;  // true=staggered twinkle, false=all-together breathing
+    volatile bool     points_mode_enabled  = false;
+    volatile uint8_t  points_count         = 24;    // 2..POINTS_MODE_MAX_DOTS dots
+    volatile bool     points_fade_in_on    = true;  // false = hard on, no ramp
+    volatile bool     points_fade_out_on   = true;  // false = hard off, no ramp
+    volatile uint16_t points_fade_in_ms    = 400;   // fade-in duration, ms
+    volatile uint16_t points_fade_out_ms   = 400;   // fade-out duration, ms
+    volatile uint8_t  points_fade_dir      = FADE_DIR_IN_OUT;
 };
 
 extern LivePresetControls gLivePreset;
