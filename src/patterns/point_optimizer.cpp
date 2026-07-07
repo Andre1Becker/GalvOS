@@ -291,10 +291,12 @@ static void emitSegment(const PathSegment& seg, const OptimizerConfig& cfg,
         uint16_t ipts = edgeInteriorCount(len, cfg);
         for (uint16_t k = 1; k <= ipts; k++) {
             float t = (float)k / (ipts + 1);
+            float rf = va.r + (float)(vb.r - va.r) * t;
+            float gf = va.g + (float)(vb.g - va.g) * t;
+            float bf = va.b + (float)(vb.b - va.b) * t;
             emit(out, n, max, va.x + dx * t, va.y + dy * t,
-                 vb.r, vb.g, vb.b, 0);
+                 (uint8_t)lroundf(rf), (uint8_t)lroundf(gf), (uint8_t)lroundf(bf), 0);
         }
-    }
 
     // Final vertex of an open path needs its own corner point(s) --
     // closed paths already covered the last vertex as the "a" of the
