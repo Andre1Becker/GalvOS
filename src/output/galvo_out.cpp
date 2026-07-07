@@ -170,9 +170,11 @@ static inline void IRAM_ATTR writeDAC8562XY(uint16_t x, uint16_t y) {
         s_spi_user_configured = true;
     }
 
-    // DAC8562: cmd in W0[23:16], data_hi in W0[15:8], data_lo in W0[7:0]
-    uint32_t wordA = ((uint32_t)0x18 << 16) | ((uint32_t)((x >> 8) & 0xFF) << 8) | (uint32_t)(x & 0xFF);
-    uint32_t wordB = ((uint32_t)0x19 << 16) | ((uint32_t)((y >> 8) & 0xFF) << 8) | (uint32_t)(y & 0xFF);
+    // W0 is LSB-first at the hardware level: byte order must be inverted
+    // relative to transmission order (confirmed via scope).
+    uint32_t wordA = ((uint32_t)(x & 0xFF) << 16) | ((uint32_t)((x >> 8) & 0xFF) << 8) | 0x18;
+    uint32_t wordB = ((uint32_t)(y & 0xFF) << 16) | ((uint32_t)((y >> 8) & 0xFF) << 8) | 0x19;
+
 
     GALVO_SPI2_MS_DLEN = 23;  // 24 bits - 1
 
