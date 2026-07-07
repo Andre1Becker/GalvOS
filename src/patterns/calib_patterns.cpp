@@ -555,7 +555,7 @@ static size_t ilda_test(LaserPoint* o, size_t mx,
     ap(o, n, mx, -INNER,  INNER, WR, WG, WB, 0);
     ap(o, n, mx, -INNER, -INNER, WR, WG, WB, 0);
     {
-        const int CPTS = 80;
+        const int CPTS = 32;
         blankMove(o, n, mx, cosf(0)*INNER, sinf(0)*INNER);
         for (int i = 0; i <= CPTS; i++) {
             float a = PI2 * i / CPTS;
