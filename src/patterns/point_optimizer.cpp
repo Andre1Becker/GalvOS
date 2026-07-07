@@ -230,26 +230,22 @@ static uint8_t cornerPtsAtVertex(const PathSegment& seg,
     return cornerPointCount(cornerSeverity(seg, cfg, i), cfg);
 }
 
-// Reshapes a uniformly-spaced edge parameter (0..1) into
-// a velocity-eased one. Endpoints (t=0, 0.5, 1) are always fixed, so
-// point COUNT and total coverage are unchanged -- only the spacing
-// within the edge is redistributed, denser near whichever end has
-// higher corner severity. This removes the velocity step that used to
-// exist at the corner-dwell/interior-point boundary (the beam went
-// from stationary dwell to full cruise speed in a single tick): with
-// easeIn/easeOut > 0 the beam now accelerates away from / decelerates
-// into that corner over several points instead of one. severity 0 on
-// both ends leaves every point exactly where uniform sampling put it
-// before this fix, so straight/soft-cornered shapes are unchanged.
-static float shapeEdgeT(float tLin, float easeIn, float easeOut) {
-    if (tLin <= 0.5f) {
-        float u = tLin / 0.5f;
-        float shaped = u + easeIn * (smoothstep(u) - u);
-        return shaped * 0.5f;
-    }
-    float u = (tLin - 0.5f) / 0.5f;
-    float shaped = u + easeOut * (smoothstep(u) - u);
-    return 0.5f + shaped * 0.5f;
+// Reshapes a uniformly-spaced edge parameter (0..1) into a
+// velocity-eased one. Endpoints (t=0, t=1) stay fixed, so point COUNT
+// and coverage are unchanged -- only spacing within the edge shifts,
+// denser near whichever end has higher corner severity.
+//
+// blend(t) interpolates linearly from easeIn (at t=0) to easeOut (at
+// t=1); the result is one continuous formula across the whole edge,
+// not two pieces stitched at the midpoint. A stitched version
+// (smoothstep on [0,0.5] with easeIn, on [0.5,1] with easeOut) matches
+// VALUE at the stitch but not SLOPE whenever easeIn != easeOut (the
+// normal case) -- that derivative jump is a velocity kink at every
+// edge midpoint, exciting galvo ringing on every pattern. This form
+// has no seam, so no kink exists at any severity combination.
+static float shapeEdgeT(float t, float easeIn, float easeOut) {
+    float blend = easeIn + (easeOut - easeIn) * t;
+    return t + blend * (smoothstep(t) - t);
 }
 
 // Interior (non-endpoint) sample count for one straight edge of the
