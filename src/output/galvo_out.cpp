@@ -149,8 +149,6 @@ static inline void IRAM_ATTR writeDAC8562(uint8_t channel, uint16_t value) {
 // DAC8562 word: [cmd(8)][data_hi(8)][data_lo(8)] MSB-first.
 // SPI2 W0 sends bit23 first -> pack cmd in W0[23:16], no byte-swap needed.
 //
-// NOTE: This function is under active oscilloscope validation on branch
-// test/raw-spi-registers. Do not merge to main until signal integrity confirmed.
 static bool s_spi_user_configured = false;
 static inline void IRAM_ATTR writeDAC8562XY(uint16_t x, uint16_t y) {
     // Configure USER register once: set usr_mosi, preserve IDF clock-phase bits.
@@ -173,14 +171,13 @@ static inline void IRAM_ATTR writeDAC8562XY(uint16_t x, uint16_t y) {
     }
 
     // DAC8562: cmd in W0[23:16], data_hi in W0[15:8], data_lo in W0[7:0]
-    // Byte-swap test: send LSB-first to verify W0 bit order
-    uint32_t word_a = ((uint32_t)(x & 0xFF) << 16) | ((uint32_t)((x>>8) & 0xFF) << 8) | 0x18;
-    uint32_t word_b = ((uint32_t)(y & 0xFF) << 16) | ((uint32_t)((y>>8) & 0xFF) << 8) | 0x19;
+    uint32_t wordA = ((uint32_t)0x18 << 16) | ((uint32_t)((x >> 8) & 0xFF) << 8) | (uint32_t)(x & 0xFF);
+    uint32_t wordB = ((uint32_t)0x19 << 16) | ((uint32_t)((y >> 8) & 0xFF) << 8) | (uint32_t)(y & 0xFF);
 
     GALVO_SPI2_MS_DLEN = 23;  // 24 bits - 1
 
     // --- DAC-A (X) ---
-    GALVO_SPI2_W0  = word_a;
+    GALVO_SPI2_W0  = wordA;
     GALVO_SPI2_CMD = GALVO_SPI2_UPDATE;               // latch W0+DLEN into core
     while (GALVO_SPI2_CMD & GALVO_SPI2_UPDATE) {}
     GALVO_GPIO_W1TC = GALVO_CS_MASK;                  // CS LOW
@@ -189,7 +186,7 @@ static inline void IRAM_ATTR writeDAC8562XY(uint16_t x, uint16_t y) {
     GALVO_GPIO_W1TS = GALVO_CS_MASK;                  // CS HIGH — DAC-A latches
 
     // --- DAC-B (Y) ---
-    GALVO_SPI2_W0  = word_b;
+    GALVO_SPI2_W0  = wordB;
     GALVO_SPI2_CMD = GALVO_SPI2_UPDATE;
     while (GALVO_SPI2_CMD & GALVO_SPI2_UPDATE) {}
     GALVO_GPIO_W1TC = GALVO_CS_MASK;
