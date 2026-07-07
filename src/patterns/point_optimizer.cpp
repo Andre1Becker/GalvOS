@@ -160,39 +160,96 @@ static float exteriorAngle(float pxx, float pxy, float cxx, float cxy,
     return acosf(dot);   // collinear (same direction) -> 0; full reversal -> PI
 }
 
-// Number of points to place at a corner, scaled by severity between
-// cfg.min_corner_pts (at/under threshold) and cfg.max_corner_pts (180°).
-static uint8_t cornerPointCount(float exterior_angle_rad,
-                                 const OptimizerConfig& cfg) {
-    float angle_deg = exterior_angle_rad * (180.0f / PI_F);
-    if (angle_deg <= cfg.corner_angle_deg) return cfg.min_corner_pts;
-    // Linear ramp from threshold..180 -> min_corner_pts..max_corner_pts
+// Forward decl: edgeInteriorCount() (defined below) is needed by
+// cornerSeverity() to estimate the incoming edge's approach speed.
+static uint16_t edgeInteriorCount(float length, const OptimizerConfig& cfg);
+
+// Corner severity in [0,1]: 0 = soft/straight (or an open-path endpoint
+// with no neighbor on one side), 1 = the sharpest case this optimizer
+// handles. Two independent contributors are blended with max() so
+// either one alone can drive dwell up to the sharpest setting:
+//
+//  - angleT:  geometric severity from the exterior angle (as before).
+//  - speedT:  severity from how fast the beam is
+//    actually moving when it arrives. A short edge below the
+//    edgeInteriorCount() floor (too few interior points for its
+//    length) gets snapped to the vertex in one oversized step instead
+//    of decelerating into it -- angle alone can't see this, since a
+//    short sharp edge and a long sharp edge produce the same angle but
+//    very different arrival speeds. speedT compares the incoming
+//    edge's actual per-point step length against the nominal step
+//    length the current pts_per_1000_units density targets: 0 at/below
+//    nominal, ramping to 1 at 2x nominal or more.
+static float cornerSeverity(const PathSegment& seg, const OptimizerConfig& cfg,
+                             size_t i) {
+    bool hasIncoming = seg.closed || i > 0;
+    bool hasOutgoing = seg.closed || i + 1 < seg.count;
+    if (!hasIncoming || !hasOutgoing) return 0.0f;
+
+    size_t prev = (i == 0) ? seg.count - 1 : i - 1;
+    size_t next = (i + 1) % seg.count;
+
+    float angle = exteriorAngle(seg.vertices[prev].x, seg.vertices[prev].y,
+                                 seg.vertices[i].x,    seg.vertices[i].y,
+                                 seg.vertices[next].x, seg.vertices[next].y);
+    float angle_deg = angle * (180.0f / PI_F);
     float span = 180.0f - cfg.corner_angle_deg;
-    float t = (span > 0.01f)
-                  ? (angle_deg - cfg.corner_angle_deg) / span
-                  : 1.0f;
-    t = std::max(0.0f, std::min(1.0f, t));
+    float angleT = (angle_deg <= cfg.corner_angle_deg) ? 0.0f :
+                   (span > 0.01f ? (angle_deg - cfg.corner_angle_deg) / span : 1.0f);
+    angleT = std::max(0.0f, std::min(1.0f, angleT));
+
+    float dxp = seg.vertices[i].x - seg.vertices[prev].x;
+    float dyp = seg.vertices[i].y - seg.vertices[prev].y;
+    float inLen = sqrtf(dxp * dxp + dyp * dyp);
+    uint16_t inPts = edgeInteriorCount(inLen, cfg);
+    float stepLen = inLen / (float)(inPts + 1);
+    float nominalStep = (cfg.pts_per_1000_units > 0.01f)
+                             ? 1000.0f / cfg.pts_per_1000_units : 0.0f;
+    float speedT = 0.0f;
+    if (nominalStep > 0.01f) {
+        speedT = (stepLen - nominalStep) / nominalStep;
+        speedT = std::max(0.0f, std::min(1.0f, speedT));
+    }
+
+    return std::max(angleT, speedT);
+}
+
+// Number of points to place at a corner, scaled by severity between
+// cfg.min_corner_pts (severity 0) and cfg.max_corner_pts (severity 1).
+static uint8_t cornerPointCount(float severity, const OptimizerConfig& cfg) {
     float pts = cfg.min_corner_pts +
-                t * (cfg.max_corner_pts - cfg.min_corner_pts);
+                severity * (cfg.max_corner_pts - cfg.min_corner_pts);
     return (uint8_t)lroundf(pts);
 }
 
-// Corner dwell point count at vertex i of a segment. Depends on the
-// exterior angle formed with its neighbors; falls back to
-// cfg.min_corner_pts if vertex i has no neighbor on one side (open-path
-// endpoint). Shared by planSegment(), emitSegment(), and the closed-path
-// second dwell at vertex 0 so all three agree on the same count.
+// Corner dwell point count at vertex i of a segment. Shared by
+// planSegment(), emitSegment(), and the closed-path second dwell at
+// vertex 0 so all three agree on the same count.
 static uint8_t cornerPtsAtVertex(const PathSegment& seg,
                                   const OptimizerConfig& cfg, size_t i) {
-    bool hasIncoming = seg.closed || i > 0;
-    bool hasOutgoing = seg.closed || i + 1 < seg.count;
-    if (!hasIncoming || !hasOutgoing) return cfg.min_corner_pts;
-    size_t prev = (i == 0) ? seg.count - 1 : i - 1;
-    size_t next = (i + 1) % seg.count;
-    float angle = exteriorAngle(seg.vertices[prev].x, seg.vertices[prev].y,
-                                 seg.vertices[i].x, seg.vertices[i].y,
-                                 seg.vertices[next].x, seg.vertices[next].y);
-    return cornerPointCount(angle, cfg);
+    return cornerPointCount(cornerSeverity(seg, cfg, i), cfg);
+}
+
+// Reshapes a uniformly-spaced edge parameter (0..1) into
+// a velocity-eased one. Endpoints (t=0, 0.5, 1) are always fixed, so
+// point COUNT and total coverage are unchanged -- only the spacing
+// within the edge is redistributed, denser near whichever end has
+// higher corner severity. This removes the velocity step that used to
+// exist at the corner-dwell/interior-point boundary (the beam went
+// from stationary dwell to full cruise speed in a single tick): with
+// easeIn/easeOut > 0 the beam now accelerates away from / decelerates
+// into that corner over several points instead of one. severity 0 on
+// both ends leaves every point exactly where uniform sampling put it
+// before this fix, so straight/soft-cornered shapes are unchanged.
+static float shapeEdgeT(float tLin, float easeIn, float easeOut) {
+    if (tLin <= 0.5f) {
+        float u = tLin / 0.5f;
+        float shaped = u + easeIn * (smoothstep(u) - u);
+        return shaped * 0.5f;
+    }
+    float u = (tLin - 0.5f) / 0.5f;
+    float shaped = u + easeOut * (smoothstep(u) - u);
+    return 0.5f + shaped * 0.5f;
 }
 
 // Interior (non-endpoint) sample count for one straight edge of the
@@ -289,14 +346,21 @@ static void emitSegment(const PathSegment& seg, const OptimizerConfig& cfg,
         float dx = vb.x - va.x, dy = vb.y - va.y;
         float len = sqrtf(dx * dx + dy * dy);
         uint16_t ipts = edgeInteriorCount(len, cfg);
+        // Ease speed into/out of whichever corner is
+        // more severe at each end, see shapeEdgeT().
+        float easeIn  = cornerSeverity(seg, cfg, a);
+        float easeOut = cornerSeverity(seg, cfg, b);
+
         for (uint16_t k = 1; k <= ipts; k++) {
-            float t = (float)k / (ipts + 1);
+            float tLin = (float)k / (ipts + 1);
+            float t = shapeEdgeT(tLin, easeIn, easeOut);
             float rf = va.r + (float)(vb.r - va.r) * t;
             float gf = va.g + (float)(vb.g - va.g) * t;
             float bf = va.b + (float)(vb.b - va.b) * t;
             emit(out, n, max, va.x + dx * t, va.y + dy * t,
                  (uint8_t)lroundf(rf), (uint8_t)lroundf(gf), (uint8_t)lroundf(bf), 0);
         }
+    }
 
     // Final vertex of an open path needs its own corner point(s) --
     // closed paths already covered the last vertex as the "a" of the
