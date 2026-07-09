@@ -1367,6 +1367,8 @@
       </label>
       <input type="range" id="opt-maxcp" min="1" max="20" step="1" value="6" oninput="optimizerSlider()">
       </div>
+
+      <div class="opt-col-block">
       <div class="opt-group-label">Interior density</div>
       <div class="opt-visual-row">
         <div class="opt-visual">
@@ -1411,11 +1413,10 @@
         <span class="help-icon" title="Minimum points inside a segment's interior, not counting its corner dwell points. Prevents overly sparse long straight lines even at low Interior density.">?</span>
       </label>
       <input type="range" id="opt-minip" min="0" max="50" step="1" value="6" oninput="optimizerSlider()">
-
-      <div class="opt-group-label">Frame budget</div>
       </div>
 
       <div class="opt-col-block">
+      <div class="opt-group-label">Frame budget</div>
       <label>Max points / frame (flicker budget) <span id="opt-maxppf-val" style="color:var(--accent);font-family:monospace">310</span>
         <span class="help-icon" title="Hard cap on total points per frame. If corner/interior/blank settings above would exceed it, the frame gets throttled instead of dropping geometry.">?</span>
       </label>
@@ -1423,7 +1424,6 @@
       </div>
 
       <div class="opt-col-block">
-
       <div class="opt-group-label">Blank jumps (laser off)</div>
       <div class="opt-visual-row">
         <div class="opt-visual">
@@ -1463,11 +1463,10 @@
         <span class="help-icon" title="Target point count for the first deceleration stage of a blank jump's S-curve ease. Shapes the ease-in/ease-out together with Blank samples.">?</span>
       </label>
       <input type="range" id="opt-s1tgt" min="1" max="100" step="1" value="20" oninput="optimizerSlider()">
-
-      <div class="opt-group-label">Ringing compensation (Pillar 3)</div>
       </div>
 
       <div class="opt-col-block">
+      <div class="opt-group-label">Ringing compensation (Pillar 3)</div>
       <label class="toggle"><input type="checkbox" id="opt-ring-en" onchange="optimizerSlider()"><span class="slider"></span>Enable ringing compensation</label>
 
       <label>Ring frequency (Hz) <span id="opt-rngfq-val" style="color:var(--accent);font-family:monospace">200.0</span>
