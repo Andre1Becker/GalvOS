@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title id="page-title">GalvOS — Laser Controller</title>
-<link rel="icon" type="image/svg+xml" href="galvos_logo.svg">
+<link rel="icon" type="image/svg+xml" href="galvos-logo.svg">
 <link rel="icon" type="image/png" href="favicon.png" sizes="32x32">
 <style>
   :root {
@@ -1826,7 +1826,6 @@ const DMX_CHANNELS = [
 // ============================================================
 // State
 // ============================================================
-let ws = null;
 let dmxValues = new Array(22).fill(0);
 
 // ============================================================
@@ -1925,30 +1924,6 @@ async function apiCall(method, url, body) {
     const ct = r.headers.get('content-type') || '';
     return ct.includes('json') ? await r.json() : await r.text();
   } catch(e) { toast('Network error', true); return null; }
-}
-
-
-
-
-// ============================================================
-// WebSocket -- connection status only
-// ============================================================
-function connectWs() {
-  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-  ws = new WebSocket(proto + '://' + location.host + '/ws');
-  ws.binaryType = 'arraybuffer';
-
-  ws.onopen = () => {
-    document.getElementById('conn-pill').textContent = 'connected';
-    document.getElementById('conn-pill').style.background = '#2a3';
-  };
-  ws.onclose = () => {
-    document.getElementById('conn-pill').textContent = 'disconnected';
-    document.getElementById('conn-pill').style.background = '#c33';
-    setTimeout(connectWs, 2000);
-  };
-  // State updates come via HTTP /api/state polling (every 1.5s)
-  ws.onerror = () => ws.close();
 }
 
 function handleStateUpdate(s) {
@@ -4457,7 +4432,6 @@ initCpuGraph();
     await loadCurveDefs();
     await loadProjection();
     await loadConfig();
-    connectWs();
     await refreshWifiStatus();
     setInterval(refreshWifiStatus, 10000);
     await loadLog(true);

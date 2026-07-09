@@ -68,7 +68,7 @@ static void denyUnauth(AsyncWebServerRequest* req) {
         "{\"error\":\"Unauthorized\",\"hint\":\"Send X-Auth: <token> header\"}");
 }
 
-static AsyncWebSocket s_ws("/ws");
+// WebSocket removed in 5.34.0 (unused, caused internal-heap exhaustion).
 // WiFi-Scan Status
 static volatile bool   s_scan_running = false;
 static volatile int    s_scan_results = 0;
@@ -1441,16 +1441,10 @@ void init() {
             req->send(200, "text/plain", "reset"); delay(500); ESP.restart();
         });
 
-    // ---- WebSocket ----
-    s_ws.onEvent([](AsyncWebSocket* s, AsyncWebSocketClient* c,
-                    AwsEventType type, void*, uint8_t* data, size_t len) {
-        if (type == WS_EVT_CONNECT) {
-            ESP_LOGI(TAG, "WS #%u connected", c->id());
-        } else if (type == WS_EVT_DISCONNECT) {
-            ESP_LOGI(TAG, "WS #%u disconnected", c->id());
-        }
-    });
-    s_server.addHandler(&s_ws);
+    // WebSocket removed in 5.34.0 — unused (state is polled via /api/state).
+    // Idle Chrome kept a /ws client open whose AsyncTCP framebuffers sat on
+    // internal DRAM, and the onerror->close->reconnect loop leaked a fresh
+    // client each round -> HEAP_CRITICAL. No server-side WS producer existed.
 
     // ═══ POST /api/debug/hw — Hardware debug: Galvo + Laser direkt setzen ════
     // Allowed: laser_armed=true OR gDebugNoHW=true
@@ -1917,7 +1911,7 @@ void task(void*) {
     // State updates run via HTTP /api/status (browser polls every 1s).
     // This greatly reduces core 0 load: no JSON serialization in the task loop.
     for (;;) {
-        s_ws.cleanupClients(2);
+        // (WebSocket removed — state served via /api/state poll)
         cpu_mon::update();             // has internal 500ms rate-limit
         vTaskDelay(pdMS_TO_TICKS(20));
     }
