@@ -93,8 +93,13 @@ static void failsafeReboot(const char* reason) {
     s_failsafe_magic = FAILSAFE_MAGIC;
     digitalWrite(PIN_LASER_ENABLE, LOW);
     gState.laser_armed.store(false);
-    ESP_LOGE(TAG, "FAILSAFE REBOOT: %s", reason);
-    LOG_E(logbuf::CAT_SAFETY, "Failsafe reboot: %s", reason);
+    size_t free_int    = heap_caps_get_free_size(MALLOC_CAP_INTERNAL);
+    size_t largest_int = heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL);
+    ESP_LOGE(TAG, "FAILSAFE REBOOT: %s | int_free=%u largest=%u limit=%u",
+             reason, (unsigned)free_int, (unsigned)largest_int,
+             (unsigned)gConfig.heap_critical_bytes);
+    LOG_E(logbuf::CAT_SAFETY, "Failsafe %s int_free=%u largest=%u",
+          reason, (unsigned)free_int, (unsigned)largest_int);
     delay(200);  // let log/WS flush
     esp_restart();
 }
@@ -153,6 +158,10 @@ void task(void*) {
         if (++heap_check_ctr >= 125) {  // ~2.5s @ 50 Hz
             heap_check_ctr = 0;
             size_t largest = heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL);
+            size_t free_int = heap_caps_get_free_size(MALLOC_CAP_INTERNAL);
+            ESP_LOGI(TAG, "[heap] int_free=%u largest=%u limit=%u",
+                     (unsigned)free_int, (unsigned)largest,
+                     (unsigned)gConfig.heap_critical_bytes);
             if (largest < gConfig.heap_critical_bytes) {
                 failsafeReboot("HEAP_CRITICAL");
             }
