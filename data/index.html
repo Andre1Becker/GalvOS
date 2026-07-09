@@ -2682,10 +2682,18 @@ function setupCalibSliders() {
     const s = document.getElementById(sid);
     if (!s) return;
     s.addEventListener('input', () => {
-     const v = document.getElementById(vid);
+      const v = document.getElementById(vid);
       if (v) v.textContent = (sid === 'cal-xgain' || sid === 'cal-ygain')
         ? (s.value / 32767).toFixed(2)
         : s.value;
+      if (gainLinked && (sid === 'cal-xgain' || sid === 'cal-ygain')) {
+        const otherId = sid === 'cal-xgain' ? 'cal-ygain' : 'cal-xgain';
+        const otherVid = sid === 'cal-xgain' ? 'v-ygain' : 'v-xgain';
+        const other = document.getElementById(otherId);
+        const otherV = document.getElementById(otherVid);
+        if (other) other.value = s.value;
+        if (otherV) otherV.textContent = (s.value / 32767).toFixed(2);
+      }
       sendCalibLive();
     });
   });
