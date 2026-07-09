@@ -12,7 +12,6 @@ static const char* TAG = "safety";
 
 static volatile bool     s_user_arm_request = false;
 static volatile uint32_t s_last_heartbeat_ms = 0;
-static volatile uint32_t s_last_ui_hb_ms = 0;
 
 void init() {
     pinMode(PIN_ESTOP,        INPUT_PULLUP);
@@ -20,13 +19,11 @@ void init() {
     // scanfail_ok is permanently true until NE555 is wired.
     pinMode(PIN_SCAN_FAIL_IN, INPUT_PULLUP);
     gState.scanfail_ok.store(true);
-
     pinMode(PIN_LASER_ENABLE, OUTPUT);
     pinMode(PIN_WATCHDOG_OUT, OUTPUT);
     digitalWrite(PIN_LASER_ENABLE, LOW);
     digitalWrite(PIN_WATCHDOG_OUT, LOW);
     s_last_heartbeat_ms = millis();  // prevent watchdog timeout before loop() starts
-    s_last_ui_hb_ms     = millis();  // grace period until first /api/state poll
     ESP_LOGI(TAG, "Safety initialized -- laser disabled at boot");
 }
 
@@ -48,14 +45,6 @@ void subsystemHeartbeat(int sys) {
         s_sub_active[sys] = true;
     }
 }
-
-void uiHeartbeat() { s_last_ui_hb_ms = millis(); }
-
-bool uiOk() {
-    return (millis() - s_last_ui_hb_ms) < gConfig.ui_heartbeat_timeout_ms;
-}
-
-
 
 void requestArm(bool v) {
     s_user_arm_request = v;
@@ -87,7 +76,6 @@ bool allOk() {
            gState.scanfail_ok.load() &&
            watchdogOk() &&
            subsystemsOk() &&
-           uiOk() &&
            s_user_arm_request;
 }
 
@@ -156,16 +144,14 @@ void task(void*) {
             last_state = now_armed;
         }
 
-        // ── UI / heap failsafe reboot (checked every cycle, 50 Hz) ──────
-        // Relay already dropped by uiOk() inside allOk() above at
-        // ui_heartbeat_timeout_ms; this is the harder recovery action
-        // after sustained loss, or on heap fragmentation independent of
-        // UI liveness.
-        uint32_t ui_age = millis() - s_last_ui_hb_ms;
-        if (ui_age > gConfig.ui_reboot_timeout_ms) {
-            failsafeReboot("UI_TIMEOUT");
-        }
-        if ((toggle & 0x1F) == 0) {  // rate-limit heap check to ~2.5 Hz
+        // Heap-critical failsafe: largest free internal block, not just total
+        // free heap (fragmentation-aware). Source-independent -- fires the
+        // same whether output is driven by DMX, Art-Net, WebUI or SD/ILDA.
+        // Own counter, not `toggle` (toggle only alternates 0/1 for the
+        // watchdog square wave -- `toggle & 0x1F` never rate-limited).
+        static uint32_t heap_check_ctr = 0;
+        if (++heap_check_ctr >= 125) {  // ~2.5s @ 50 Hz
+            heap_check_ctr = 0;
             size_t largest = heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL);
             if (largest < gConfig.heap_critical_bytes) {
                 failsafeReboot("HEAP_CRITICAL");
