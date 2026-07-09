@@ -8,7 +8,9 @@
  */
 #include "calib_patterns.h"
 #include "config.h"
+#include "point_optimizer.h"
 #include <math.h>
+#include <string.h>
 #include <Arduino.h>
 
 namespace calib_patterns {
@@ -886,10 +888,61 @@ static const PFn DISPATCH[CALIB_PATTERN_COUNT] = {
     ilda_test, dac_range_box, zone_outline,
 };
 
+static inline optimizer::OptimizerConfig liveOptimizerConfig() {
+    optimizer::OptimizerConfig cfg;
+    cfg.corner_angle_deg   = gOptimizerConfig.corner_angle_deg;
+    cfg.min_corner_pts     = gOptimizerConfig.min_corner_pts;
+    cfg.max_corner_pts     = gOptimizerConfig.max_corner_pts;
+    cfg.pts_per_1000_units = gOptimizerConfig.pts_per_1000_units;
+    cfg.min_segment_pts    = gOptimizerConfig.min_segment_pts;
+    cfg.blank_samples      = gOptimizerConfig.blank_samples;
+    cfg.max_pts_per_frame  = gOptimizerConfig.max_pts_per_frame;
+    cfg.min_blank_samples  = gOptimizerConfig.min_blank_samples;
+    cfg.blank_pts_per_1000_units = gOptimizerConfig.blank_pts_per_1000_units;
+    cfg.min_interior_pts_per_segment = gOptimizerConfig.min_interior_pts_per_segment;
+    cfg.stage1_blank_target = gOptimizerConfig.stage1_blank_target;
+    cfg.ringing_comp_enabled = gOptimizerConfig.ringing_comp_enabled;
+    cfg.ring_freq_hz         = gOptimizerConfig.ring_freq_hz;
+    cfg.ring_damping_ratio   = gOptimizerConfig.ring_damping_ratio;
+    cfg.galvo_kpps           = gProjection.galvo_kpps;
+    return cfg;
+}
+
 size_t generate(uint8_t idx, LaserPoint* out, size_t max_pts,
                 uint32_t phase, uint8_t brightness, uint8_t channel) {
     if (idx >= CALIB_PATTERN_COUNT || !out) return 0;
-    return DISPATCH[idx](out, max_pts, phase, brightness, channel);
+    size_t n = DISPATCH[idx](out, max_pts, phase, brightness, channel);
+
+    // Cross-frame seam bridge (#4), same as presets::generate(). rainbow and
+    // saturation_wheel rotate via phase; their first lit point jumps from the
+    // previous frame's end each push. Static patterns produce ~0 jump -> skip.
+    static float sLastX[CALIB_PATTERN_COUNT] = {0};
+    static float sLastY[CALIB_PATTERN_COUNT] = {0};
+    static bool  sHas[CALIB_PATTERN_COUNT]   = {false};
+    static constexpr float kSeamThresh2 = 100.f;
+    if (n > 0) {
+        size_t f = 0; while (f < n && out[f].blank) f++;
+        if (f < n && sHas[idx]) {
+            float dx = (float)out[f].x - sLastX[idx];
+            float dy = (float)out[f].y - sLastY[idx];
+            if (dx*dx + dy*dy > kSeamThresh2) {
+                const optimizer::OptimizerConfig cfg = liveOptimizerConfig();
+                LaserPoint br[130];
+                br[0] = LaserPoint((int16_t)sLastX[idx], (int16_t)sLastY[idx], 0,0,0,1);
+                size_t bn = 1;
+                optimizer::emitBlankTo(br, bn, 130, (float)out[f].x, (float)out[f].y, cfg);
+                size_t jc = bn - 1;
+                if (jc > 0 && max_pts > jc) {
+                    if (n + jc > max_pts) n = max_pts - jc;
+                    memmove(out + jc, out, n * sizeof(LaserPoint));
+                    memcpy(out, br + 1, jc * sizeof(LaserPoint));
+                    n += jc;
+                }
+            }
+        }
+        sLastX[idx] = (float)out[n-1].x; sLastY[idx] = (float)out[n-1].y; sHas[idx] = true;
+    }
+    return n;
 }
 
 } // namespace calib_patterns

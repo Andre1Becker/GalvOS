@@ -23,6 +23,26 @@ static inline void ap(LaserPoint* o, size_t& n, size_t mx,
     n++;
 }
 static inline float L(float a,float b,float t){return a+(b-a)*t;}
+// contDelta()/csweep() -- continuous-sweep parameterisation (#2). Instead of
+// drawing a fixed [0,2pi] loop plus a per-frame rotation offset (which makes
+// frame K's end and frame K+1's start land at different angles -> a lit jump
+// the galvo chases, the "Delle" seam), the sweep parameter advances
+// continuously: span = 2pi + contDelta(sp); since phase (ph) is monotonic,
+// frame K's last param == frame K+1's first param exactly. seam = 0,
+// C1-continuous, zero state, zero budget. fmod in double preserves precision
+// to ph=0xFFFFFF. Visual unchanged (closed figure rotating at contDelta/frame).
+static inline float contDelta(uint8_t sp) { return (sp / 255.0f) * 0.05f; }
+static inline float csweep(uint32_t ph, uint8_t sp, int i, int N) {
+    const double span = (double)PI2 + contDelta(sp);
+    double base = fmod((double)ph * span, (double)PI2);
+    return (float)(base + span * (double)i / (double)N);
+}
+static inline bool isContinuous(uint8_t idx) {
+    switch (idx) {
+        case 0: case 22: case 23: case 24: case 26: case 27: return true;
+        default: return false;
+    }
+}
 
 static inline int adaptN(uint8_t sz, int base, int min_pts=8, int max_pts=512){
     float factor = 0.4f + (sz / 255.f) * 1.2f;
@@ -266,13 +286,9 @@ typedef size_t(*PFn)(LaserPoint*,size_t,uint32_t,uint8_t,uint8_t);
 
 // ─── GEOMETRY 0-9 ──────────────────────────────────────────
 static size_t p00(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
-    // Circle: direct point generation, no optimizer (circle has no true corners).
-    // Point count 3x -- galvo (15kpps rated, driven at 30kpps) needs tighter
-    // per-step spacing to fully settle before closing the loop.
-    size_t n=0;
-    float sc=SC*ssc(sz)*.9f, off=aang(ph,sp);
-    int N=adaptN(sz,360,60,900);
-    for(int i=0;i<=N;i++){float a=PI2*i/N+off;ap(o,n,m,cosf(a)*sc,sinf(a)*sc,255,255,255,i==0?1:0);}
+    // Circle: continuous-sweep (#2), seam=0/C1. No offset, no closing dup.
+    size_t n=0;float sc=SC*ssc(sz)*.9f;int N=adaptN(sz,360,60,900);
+    for(int i=0;i<N;i++){float t=csweep(ph,sp,i,N);ap(o,n,m,cosf(t)*sc,sinf(t)*sc,255,255,255,i==0?1:0);}
     return n;
 }
 static size_t p01(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){return ngon(o,m,4,SC*ssc(sz)*.9f,aang(ph,sp),255,240,0);}
@@ -311,11 +327,11 @@ static size_t p22(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){size_
 
 // ─── Curves 23-28 ────────────────────────────────────────────
 // Parametric curves — not migrated.
-static size_t p23(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){size_t n=0;float sc=SC*ssc(sz)*.9f,off=aang(ph,sp);for(int i=0;i<=200;i++){float t=PI2*i/200.f+off,r=sc*cosf(4*t);ap(o,n,m,r*cosf(t),r*sinf(t),255,50,150,i==0?1:0);}return n;}
-static size_t p24(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){size_t n=0;float sc=SC*ssc(sz)*.45f,off=aang(ph,sp);for(int i=0;i<=200;i++){float t=PI2*i/200.f+off,r=sc*(1.f-cosf(t));ap(o,n,m,r*cosf(t),r*sinf(t),255,0,100,i==0?1:0);}return n;}
+static size_t p23(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){size_t n=0;float sc=SC*ssc(sz)*.9f;const int N=200;for(int i=0;i<N;i++){float t=csweep(ph,sp,i,N),r=sc*cosf(4*t);ap(o,n,m,r*cosf(t),r*sinf(t),255,50,150,i==0?1:0);}return n;}
+static size_t p24(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){size_t n=0;float sc=SC*ssc(sz)*.45f;const int N=200;for(int i=0;i<N;i++){float t=csweep(ph,sp,i,N),r=sc*(1.f-cosf(t));ap(o,n,m,r*cosf(t),r*sinf(t),255,0,100,i==0?1:0);}return n;}
 static size_t p25(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){size_t n=0;float sc=SC*ssc(sz)*.045f,a=aang(ph,sp);const int N=adaptN(sz,200,20,300);for(int i=0;i<=N;i++){float t=PI2*i/N,x=sc*16*powf(sinf(t),3),y=sc*(13*cosf(t)-5*cosf(2*t)-2*cosf(3*t)-cosf(4*t));ap(o,n,m,x*cosf(a)-y*sinf(a),x*sinf(a)+y*cosf(a),255,0,80,i==0?1:0);}return n;}
-static size_t p26(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){size_t n=0;float sc=SC*ssc(sz)*.9f,off=aang(ph,sp);const int N=adaptN(sz,500,60,800);for(int i=0;i<=N;i++){float t=PI2*i/N+off,d=1+sinf(t)*sinf(t);ap(o,n,m,sc*cosf(t)/d,sc*sinf(t)*cosf(t)/d,0,200,255,i==0?1:0);}return n;}
-static size_t p27(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){size_t n=0;float sc=SC*ssc(sz)*.9f,off=aang(ph,sp);for(int i=0;i<=200;i++){float t=PI2*i/200.f+off;ap(o,n,m,sc*powf(cosf(t),3),sc*powf(sinf(t),3),200,255,50,i==0?1:0);}return n;}
+static size_t p26(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){size_t n=0;float sc=SC*ssc(sz)*.9f;const int N=adaptN(sz,500,60,800);for(int i=0;i<N;i++){float t=csweep(ph,sp,i,N),d=1+sinf(t)*sinf(t);ap(o,n,m,sc*cosf(t)/d,sc*sinf(t)*cosf(t)/d,0,200,255,i==0?1:0);}return n;}
+static size_t p27(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){size_t n=0;float sc=SC*ssc(sz)*.9f;const int N=200;for(int i=0;i<N;i++){float t=csweep(ph,sp,i,N);ap(o,n,m,sc*powf(cosf(t),3),sc*powf(sinf(t),3),200,255,50,i==0?1:0);}return n;}
 static size_t p28(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){size_t n=0;const float R=3,r=1,d=2.5f,peakNorm=1.f/(R+r+d);float sc=SC*ssc(sz)*.9f*peakNorm,off=aang(ph,sp);for(int i=0;i<=800;i++){float t=PI2*i/800.f+off;ap(o,n,m,sc*((R+r)*cosf(t)-d*cosf((R+r)*t/r)),sc*((R+r)*sinf(t)-d*sinf((R+r)*t/r)),0,255,100,i==0?1:0);}return n;}
 
 // ─── 3D 29-34 ────────────────────────────────────────────────
@@ -1267,21 +1283,53 @@ size_t generate(uint8_t idx, LaserPoint* out, size_t max_pts,
     const uint32_t safe_phase = phase % 0xFFFFFF;
     size_t n = DISPATCH[idx](out, max_pts, safe_phase, speed, size_val);
 
-    // Centralized closing blank: prevents lit retrace on frame loop.
-    // optimizer-backed presets already close via emitBlankJump() back to
-    // their first vertex; ap()-based presets close geometrically (last
-    // point coincides with first) -- blank flag is irrelevant to that.
-    if (n > 0 && n < max_pts) {
+    // Geometric closing blank -- skipped for continuous-sweep (#2) presets
+    // whose open boundary is intentional (bridged by cross-frame continuity).
+    if (!isContinuous(idx) && n > 0 && n < max_pts) {
         const LaserPoint& last = out[n - 1];
         const LaserPoint& first = out[0];
         float _cdx = last.x - first.x, _cdy = last.y - first.y;
         bool already_closed = (_cdx*_cdx + _cdy*_cdy) < 100.f;
         if (!already_closed) {
-            LaserPoint cl = first;
-            cl.blank = 1;
+            LaserPoint cl = first; cl.blank = 1;
             for (int k = 0; k < 40 && n < max_pts; k++) out[n++] = cl;
         }
     }
+
+    // Cross-frame seam bridge (#4) for every non-continuous preset. Presets
+    // that reset their sweep to t=0 each frame (Lissajous, matrix-rotated,
+    // harmonic, multi-subpath) restart at a rotated position while the galvo
+    // physically rests at the PREVIOUS frame's end -- a real discontinuity.
+    // Eased distance-scaled blank move (emitBlankTo, Pillar 2) settles it in
+    // the dark. No up-front reservation: room made by evicting trailing
+    // (overdense) points only when needed. #2 presets exempt (seam=0).
+    // At speed 0 the jump is ~0 -> below threshold -> skipped (no cost).
+    static float sLastX[PRESET_COUNT] = {0};
+    static float sLastY[PRESET_COUNT] = {0};
+    static bool  sHas[PRESET_COUNT]   = {false};
+    static constexpr float kSeamThresh2 = 100.f; // (10 units)^2, above noise only
+    if (!isContinuous(idx) && n > 0) {
+        size_t f = 0; while (f < n && out[f].blank) f++;
+        if (f < n && sHas[idx]) {
+            float dx = (float)out[f].x - sLastX[idx];
+            float dy = (float)out[f].y - sLastY[idx];
+            if (dx*dx + dy*dy > kSeamThresh2) {
+                const optimizer::OptimizerConfig cfg = liveOptimizerConfig();
+                LaserPoint br[130];
+                br[0] = LaserPoint((int16_t)sLastX[idx], (int16_t)sLastY[idx], 0,0,0,1);
+                size_t bn = 1;
+                optimizer::emitBlankTo(br, bn, 130, (float)out[f].x, (float)out[f].y, cfg);
+                size_t jc = bn - 1;
+                if (jc > 0 && max_pts > jc) {
+                    if (n + jc > max_pts) n = max_pts - jc;
+                    memmove(out + jc, out, n * sizeof(LaserPoint));
+                    memcpy(out, br + 1, jc * sizeof(LaserPoint));
+                    n += jc;
+                }
+            }
+        }
+    }
+    if (n > 0) { sLastX[idx] = (float)out[n-1].x; sLastY[idx] = (float)out[n-1].y; sHas[idx] = true; }
     return n;
 }
 
