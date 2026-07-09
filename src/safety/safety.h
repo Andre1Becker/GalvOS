@@ -33,6 +33,7 @@ void requestArm(bool); // User-Wunsch ARM/DISARM
 void heartbeat();
 void subsystemHeartbeat(int sys);  // call each loop iteration
 void emergencyStop(); // immediate shutdown (E-stop from network/OTA)
+void uiHeartbeat();    // call on every /api/state request (UI liveness proxy)
 
 // ── ARM diagnostics ────────────────────────────────────────────────────
 // Individual condition checks for /api/state — lets the UI show *why*
@@ -40,5 +41,7 @@ void emergencyStop(); // immediate shutdown (E-stop from network/OTA)
 bool watchdogOk();
 bool subsystemsOk();
 bool userArmRequest();
+bool uiOk();
+const char* lastFailsafeReason();  // survives esp_restart() via RTC memory
 
 }  // namespace safety

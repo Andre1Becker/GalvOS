@@ -153,6 +153,8 @@ static void buildStateJson(JsonDocument& doc) {
     doc["laser_armed"]     = gState.laser_armed.load();
     doc["watchdog_ok"]     = safety::watchdogOk();
     doc["subsystems_ok"]   = safety::subsystemsOk();
+    doc["ui_ok"]           = safety::uiOk();
+    doc["last_failsafe"]   = safety::lastFailsafeReason();
     doc["arm_requested"]   = safety::userArmRequest();
     doc["calib_active"]    = gState.calib_active;
     doc["ilda_active"]     = ilda::gILDA.active;
@@ -293,6 +295,7 @@ void init() {
 
     // ---- GET /api/state ----
     s_server.on("/api/state", HTTP_GET, [](AsyncWebServerRequest* req) {
+        safety::uiHeartbeat();  // this endpoint IS the UI liveness proxy
         JsonDocument doc(&jsonAllocator()); buildStateJson(doc);
         String out; serializeJson(doc, out);
         req->send(200, "application/json", out);

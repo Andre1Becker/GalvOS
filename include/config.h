@@ -193,6 +193,15 @@ struct RuntimeConfig {
     char      ntp_tz[48]     = "UTC0";           // POSIX TZ string
 
     // Safety
+    // Safety
+    // UI-Failsafe: /api/state poll (frontend interval 1500ms) is the
+    // liveness signal. Gap > ui_heartbeat_timeout_ms -> relay drops
+    // (safety::allOk()). Gap > ui_reboot_timeout_ms -> esp_restart().
+    uint16_t  ui_heartbeat_timeout_ms = 3000;
+    uint16_t  ui_reboot_timeout_ms    = 10000;
+    // Largest free internal (DRAM) block -- catches fragmentation, not
+    // just total free heap. esp_restart() if below this for HEAP_CRIT_HOLD_MS.
+    uint32_t  heap_critical_bytes     = 10240;
     bool      safety_override = false;
     bool      dac_debug_log   = false;  // log DAC8562 writes (hex) to Serial+UI, rate-limited
 

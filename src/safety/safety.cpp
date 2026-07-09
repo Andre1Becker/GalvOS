@@ -1,6 +1,9 @@
 #include "safety.h"
 #include <Arduino.h>
 #include <esp_log.h>
+#include <esp_attr.h>
+#include <esp_heap_caps.h>
+#include <string.h>
 #include "util/log_buffer.h"
 
 namespace safety {
@@ -9,6 +12,7 @@ static const char* TAG = "safety";
 
 static volatile bool     s_user_arm_request = false;
 static volatile uint32_t s_last_heartbeat_ms = 0;
+static volatile uint32_t s_last_ui_hb_ms = 0;
 
 void init() {
     pinMode(PIN_ESTOP,        INPUT_PULLUP);
@@ -22,6 +26,7 @@ void init() {
     digitalWrite(PIN_LASER_ENABLE, LOW);
     digitalWrite(PIN_WATCHDOG_OUT, LOW);
     s_last_heartbeat_ms = millis();  // prevent watchdog timeout before loop() starts
+    s_last_ui_hb_ms     = millis();  // grace period until first /api/state poll
     ESP_LOGI(TAG, "Safety initialized -- laser disabled at boot");
 }
 
@@ -42,6 +47,12 @@ void subsystemHeartbeat(int sys) {
         s_sub_hb[sys] = millis();
         s_sub_active[sys] = true;
     }
+}
+
+void uiHeartbeat() { s_last_ui_hb_ms = millis(); }
+
+bool uiOk() {
+    return (millis() - s_last_ui_hb_ms) < gConfig.ui_heartbeat_timeout_ms;
 }
 
 
@@ -76,7 +87,28 @@ bool allOk() {
            gState.scanfail_ok.load() &&
            watchdogOk() &&
            subsystemsOk() &&
+           uiOk() &&
            s_user_arm_request;
+}
+
+static RTC_NOINIT_ATTR char     s_failsafe_reason[24];
+static RTC_NOINIT_ATTR uint32_t s_failsafe_magic;
+constexpr uint32_t FAILSAFE_MAGIC = 0x46534652;  // "FSFR"
+
+const char* lastFailsafeReason() {
+    return (s_failsafe_magic == FAILSAFE_MAGIC) ? s_failsafe_reason : "";
+}
+
+static void failsafeReboot(const char* reason) {
+    strncpy(s_failsafe_reason, reason, sizeof(s_failsafe_reason) - 1);
+    s_failsafe_reason[sizeof(s_failsafe_reason) - 1] = '\0';
+    s_failsafe_magic = FAILSAFE_MAGIC;
+    digitalWrite(PIN_LASER_ENABLE, LOW);
+    gState.laser_armed.store(false);
+    ESP_LOGE(TAG, "FAILSAFE REBOOT: %s", reason);
+    LOG_E(logbuf::CAT_SAFETY, "Failsafe reboot: %s", reason);
+    delay(200);  // let log/WS flush
+    esp_restart();
 }
 
 void emergencyStop() {
@@ -122,6 +154,22 @@ void task(void*) {
                      (int)watchdogOk(), (int)subsystemsOk(),
                      (int)s_user_arm_request, (int)gConfig.safety_override);
             last_state = now_armed;
+        }
+
+        // ── UI / heap failsafe reboot (checked every cycle, 50 Hz) ──────
+        // Relay already dropped by uiOk() inside allOk() above at
+        // ui_heartbeat_timeout_ms; this is the harder recovery action
+        // after sustained loss, or on heap fragmentation independent of
+        // UI liveness.
+        uint32_t ui_age = millis() - s_last_ui_hb_ms;
+        if (ui_age > gConfig.ui_reboot_timeout_ms) {
+            failsafeReboot("UI_TIMEOUT");
+        }
+        if ((toggle & 0x1F) == 0) {  // rate-limit heap check to ~2.5 Hz
+            size_t largest = heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL);
+            if (largest < gConfig.heap_critical_bytes) {
+                failsafeReboot("HEAP_CRITICAL");
+            }
         }
 
         vTaskDelay(pdMS_TO_TICKS(20));  // 50 Hz safety loop
