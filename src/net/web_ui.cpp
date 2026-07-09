@@ -662,51 +662,44 @@ void init() {
             }
             gCurves.initialized = true;
         }
-        String json = "{";
-        json += "\"active\":" + String(gCurves.active_curve) + ",";
-        json += "\"count\":" + String((int)curves::CURVE_COUNT) + ",";
+        JsonDocument doc(&jsonAllocator());
+        doc["active"] = gCurves.active_curve;
+        doc["count"]  = (int)curves::CURVE_COUNT;
 
-        // Curve definitions (labels, ranges, defaults)
-        json += "\"defs\":[";
+        JsonArray defs = doc["defs"].to<JsonArray>();
         for (uint8_t ci = 0; ci < curves::CURVE_COUNT; ci++) {
             const curves::CurveDef& d = curves::CURVE_DEFS[ci];
-            if (ci > 0) json += ",";
-            json += "{\"name\":\"" + String(d.name) + "\",";
-            json += "\"desc\":\"" + String(d.description) + "\",";
-            json += "\"params\":[";
+            JsonObject def = defs.add<JsonObject>();
+            def["name"] = d.name;
+            def["desc"] = d.description;
+            JsonArray params = def["params"].to<JsonArray>();
             for (int pi = 0; pi < 5; pi++) {
-                if (pi > 0) json += ",";
                 const curves::ParamDef& pd = d.params[pi];
-                char buf[128];
-                snprintf(buf, sizeof(buf),
-                    "{\"label\":\"%s\",\"min\":%.3f,\"max\":%.3f,"
-                    "\"def\":%.3f,\"step\":%.4f}",
-                    pd.label, pd.min_val, pd.max_val, pd.def_val, pd.step);
-                json += buf;
+                JsonObject p = params.add<JsonObject>();
+                p["label"] = pd.label;
+                p["min"]   = pd.min_val;
+                p["max"]   = pd.max_val;
+                p["def"]   = pd.def_val;
+                p["step"]  = pd.step;
             }
-            json += "],";
-            char col[32];
-            snprintf(col, sizeof(col), "\"dr\":%u,\"dg\":%u,\"db\":%u}",
-                     d.def_r, d.def_g, d.def_b);
-            json += col;
+            def["dr"] = d.def_r;
+            def["dg"] = d.def_g;
+            def["db"] = d.def_b;
         }
-        json += "],";
 
-        // Current parameter values
-        json += "\"params\":[";
+        JsonArray params = doc["params"].to<JsonArray>();
         for (uint8_t ci = 0; ci < curves::CURVE_COUNT; ci++) {
-            if (ci > 0) json += ",";
             const CurveConfig::Params& cp = gCurves.params[ci];
-            char buf[128];
-            snprintf(buf, sizeof(buf),
-                "{\"p\":[%.4f,%.4f,%.4f,%.4f,%.4f],"
-                "\"r\":%u,\"g\":%u,\"b\":%u}",
-                cp.p[0], cp.p[1], cp.p[2], cp.p[3], cp.p[4],
-                cp.r, cp.g, cp.b);
-            json += buf;
+            JsonObject po = params.add<JsonObject>();
+            JsonArray p = po["p"].to<JsonArray>();
+            for (int pi = 0; pi < 5; pi++) p.add(cp.p[pi]);
+            po["r"] = cp.r;
+            po["g"] = cp.g;
+            po["b"] = cp.b;
         }
-        json += "]}";
-        req->send(200, "application/json", json);
+
+        String out; serializeJson(doc, out);
+        req->send(200, "application/json", out);
     });
 
     // ── /api/curves POST — select curve + update params ──────────────────────
