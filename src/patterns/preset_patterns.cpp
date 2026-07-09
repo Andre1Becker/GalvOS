@@ -288,7 +288,7 @@ typedef size_t(*PFn)(LaserPoint*,size_t,uint32_t,uint8_t,uint8_t);
 static size_t p00(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     // Circle: continuous-sweep (#2), seam=0/C1. No offset, no closing dup.
     size_t n=0;float sc=SC*ssc(sz)*.9f;int N=adaptN(sz,360,60,900);
-    for(int i=0;i<N;i++){float t=csweep(ph,sp,i,N);ap(o,n,m,cosf(t)*sc,sinf(t)*sc,255,255,255,i==0?1:0);}
+    for(int i=0;i<=N;i++){float t=csweep(ph,sp,i,N);ap(o,n,m,cosf(t)*sc,sinf(t)*sc,255,255,255,i==0?1:0);}
     return n;
 }
 static size_t p01(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){return ngon(o,m,4,SC*ssc(sz)*.9f,aang(ph,sp),255,240,0);}
@@ -327,11 +327,11 @@ static size_t p22(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){size_
 
 // ─── Curves 23-28 ────────────────────────────────────────────
 // Parametric curves — not migrated.
-static size_t p23(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){size_t n=0;float sc=SC*ssc(sz)*.9f;const int N=200;for(int i=0;i<N;i++){float t=csweep(ph,sp,i,N),r=sc*cosf(4*t);ap(o,n,m,r*cosf(t),r*sinf(t),255,50,150,i==0?1:0);}return n;}
-static size_t p24(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){size_t n=0;float sc=SC*ssc(sz)*.45f;const int N=200;for(int i=0;i<N;i++){float t=csweep(ph,sp,i,N),r=sc*(1.f-cosf(t));ap(o,n,m,r*cosf(t),r*sinf(t),255,0,100,i==0?1:0);}return n;}
+static size_t p23(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){size_t n=0;float sc=SC*ssc(sz)*.9f;const int N=200;for(int i=0;i<=N;i++){float t=csweep(ph,sp,i,N),r=sc*cosf(4*t);ap(o,n,m,r*cosf(t),r*sinf(t),255,50,150,i==0?1:0);}return n;}
+static size_t p24(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){size_t n=0;float sc=SC*ssc(sz)*.45f;const int N=200;for(int i=0;i<=N;i++){float t=csweep(ph,sp,i,N),r=sc*(1.f-cosf(t));ap(o,n,m,r*cosf(t),r*sinf(t),255,0,100,i==0?1:0);}return n;}
 static size_t p25(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){size_t n=0;float sc=SC*ssc(sz)*.045f,a=aang(ph,sp);const int N=adaptN(sz,200,20,300);for(int i=0;i<=N;i++){float t=PI2*i/N,x=sc*16*powf(sinf(t),3),y=sc*(13*cosf(t)-5*cosf(2*t)-2*cosf(3*t)-cosf(4*t));ap(o,n,m,x*cosf(a)-y*sinf(a),x*sinf(a)+y*cosf(a),255,0,80,i==0?1:0);}return n;}
-static size_t p26(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){size_t n=0;float sc=SC*ssc(sz)*.9f;const int N=adaptN(sz,500,60,800);for(int i=0;i<N;i++){float t=csweep(ph,sp,i,N),d=1+sinf(t)*sinf(t);ap(o,n,m,sc*cosf(t)/d,sc*sinf(t)*cosf(t)/d,0,200,255,i==0?1:0);}return n;}
-static size_t p27(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){size_t n=0;float sc=SC*ssc(sz)*.9f;const int N=200;for(int i=0;i<N;i++){float t=csweep(ph,sp,i,N);ap(o,n,m,sc*powf(cosf(t),3),sc*powf(sinf(t),3),200,255,50,i==0?1:0);}return n;}
+static size_t p26(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){size_t n=0;float sc=SC*ssc(sz)*.9f;const int N=adaptN(sz,500,60,800);for(int i=0;i<=N;i++){float t=csweep(ph,sp,i,N),d=1+sinf(t)*sinf(t);ap(o,n,m,sc*cosf(t)/d,sc*sinf(t)*cosf(t)/d,0,200,255,i==0?1:0);}return n;}
+static size_t p27(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){size_t n=0;float sc=SC*ssc(sz)*.9f;const int N=200;ffor(int i=0;i<=N;i++){float t=csweep(ph,sp,i,N);ap(o,n,m,sc*powf(cosf(t),3),sc*powf(sinf(t),3),200,255,50,i==0?1:0);}return n;}
 static size_t p28(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){size_t n=0;const float R=3,r=1,d=2.5f,peakNorm=1.f/(R+r+d);float sc=SC*ssc(sz)*.9f*peakNorm,off=aang(ph,sp);for(int i=0;i<=800;i++){float t=PI2*i/800.f+off;ap(o,n,m,sc*((R+r)*cosf(t)-d*cosf((R+r)*t/r)),sc*((R+r)*sinf(t)-d*sinf((R+r)*t/r)),0,255,100,i==0?1:0);}return n;}
 
 // ─── 3D 29-34 ────────────────────────────────────────────────
