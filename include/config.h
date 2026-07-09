@@ -306,8 +306,8 @@ enum AutoScaleMode : uint8_t {
 };
 
 struct LivePresetControls {
-    volatile uint8_t  speed        = 80;
-    volatile uint8_t  size_val     = 128;
+    volatile uint8_t  speed        = 0;
+    volatile uint8_t  size_val     = 255;
     volatile uint8_t  col_r        = 255;
     volatile uint8_t  col_g        = 0;
     volatile uint8_t  col_b        = 0;
