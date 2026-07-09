@@ -19,6 +19,12 @@ constexpr uint8_t  POINTS_MODE_MAX_DOTS  = 80;  // UI slider ceiling
 constexpr uint8_t  POINTS_MODE_MIN_DWELL = 3;   // ticks; below this a dot is invisible
 constexpr uint8_t  POINTS_MODE_MAX_DWELL = 30;  // ticks; cap so few dots don't hog the whole frame
 
+// WebUI output-parameter preview animation (Point Optimizer, Galvo
+// Calibration live, Pattern Parameters tabs). Static UI layout constant --
+// mirrored by hand in data/index.html as --param-preview-size, same
+// convention as the POINTS_MODE_* constants above (no live API sync).
+constexpr uint8_t  UI_PARAM_PREVIEW_SIZE = 80;  // px, square
+
 // GalvOS v5 Point Optimizer (Pillar 1) -- runtime-tunable via WebUI slider.
 // Mirrors optimizer::OptimizerConfig field-for-field; kept as a separate
 // struct here (rather than including point_optimizer.h) to avoid pulling

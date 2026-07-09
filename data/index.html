@@ -12,6 +12,7 @@
     --border: #2a2a2a; --text: #e8e8e8; --dim: #888;
     --accent: #ff3060; --ok: #3c3; --bad: #c33; --warn: #fa3;
     --blue: #4af; --danger: #c33;
+    --param-preview-size: 80px; /* config.h: UI_PARAM_PREVIEW_SIZE */
   }
   * { box-sizing: border-box; }
   body {
@@ -117,6 +118,29 @@
   .opt-visual-caption { font-size: 10px; margin-top: 4px; line-height: 1.3; }
   .opt-visual-caption.bad { color: var(--bad); }
   .opt-visual-caption.good { color: var(--ok); }
+  /* Output-parameter preview: small looping animation next to every
+     control that affects laser output. Purely illustrative -- the mini
+     slider below the shape is NOT wired to the real control, it just
+     loops on its own so the direction (small->big, left->right) reads
+     the same as the real slider (low->high). */
+  .param-preview { width: var(--param-preview-size); height: var(--param-preview-size); margin: 6px 0 12px; }
+  .param-preview .pp-stage { position: relative; height: 62%; display: flex; align-items: center; justify-content: center; }
+  .param-preview .pp-frame { position: absolute; inset: 3px; border: 1px dashed var(--border); border-radius: 6px; }
+  .param-preview .pp-dot { width: 22%; height: 22%; border-radius: 50%; background: var(--accent); opacity: .85; animation: ppGrow 4.5s ease-in-out infinite; }
+  .param-preview.toggle .pp-dot { width: 30%; height: 30%; animation: ppFade 4.5s ease-in-out infinite; }
+  .param-preview .pp-track { position: relative; height: 18%; margin-top: 8%; }
+  .param-preview .pp-track::before { content: ''; position: absolute; top: 50%; left: 6%; right: 6%; height: 2px; background: var(--border); transform: translateY(-50%); }
+  .param-preview .pp-thumb { position: absolute; top: 50%; left: 6%; width: 16%; aspect-ratio: 1; border-radius: 50%; background: var(--accent); transform: translateY(-50%); animation: ppSlide 4.5s ease-in-out infinite; }
+  @keyframes ppGrow  { 0%, 100% { transform: scale(.35); } 50% { transform: scale(1.55); } }
+  @keyframes ppFade  { 0%, 45% { opacity: .18; transform: scale(.6); } 55%, 100% { opacity: .9; transform: scale(1.1); } }
+  @keyframes ppSlide { 0%, 100% { left: 6%; } 50% { left: 78%; } }
+
+  /* Splits a long single-column parameter card into two balanced columns.
+     Each .opt-col-block is one logical group (label + visuals + sliders)
+     and never gets split across the column break. */
+  .opt-columns { column-count: 2; column-gap: 28px; }
+  .opt-col-block { break-inside: avoid; -webkit-column-break-inside: avoid; }
+  @media (max-width: 620px) { .opt-columns { column-count: 1; } }
   .channel-row input[type=range] { width: 100%; -webkit-appearance: none; appearance: none; background: transparent; }
   .channel-row input[type=range]::-webkit-slider-runnable-track {
     height: 4px; background: var(--border); border-radius: 2px;
@@ -1305,7 +1329,8 @@
         Adaptive point density &amp; blank-jump tuning for migrated presets
         (ngon, wireframes). Changes apply live; click Save to persist across reboots.
       </p>
-
+    <div class="opt-columns">
+      <div class="opt-col-block">
       <div class="opt-group-label">Corner handling</div>
       <div class="opt-visual-row">
         <div class="opt-visual">
@@ -1341,7 +1366,7 @@
         <span class="help-icon" title="Upper cap on dwell points per corner. Higher gives a sharper corner but eats into the Max points/frame budget.">?</span>
       </label>
       <input type="range" id="opt-maxcp" min="1" max="20" step="1" value="6" oninput="optimizerSlider()">
-
+      </div>
       <div class="opt-group-label">Interior density</div>
       <div class="opt-visual-row">
         <div class="opt-visual">
@@ -1388,10 +1413,16 @@
       <input type="range" id="opt-minip" min="0" max="50" step="1" value="6" oninput="optimizerSlider()">
 
       <div class="opt-group-label">Frame budget</div>
+      </div>
+
+      <div class="opt-col-block">
       <label>Max points / frame (flicker budget) <span id="opt-maxppf-val" style="color:var(--accent);font-family:monospace">310</span>
         <span class="help-icon" title="Hard cap on total points per frame. If corner/interior/blank settings above would exceed it, the frame gets throttled instead of dropping geometry.">?</span>
       </label>
       <input type="range" id="opt-maxppf" min="50" max="2048" step="1" value="310" oninput="optimizerSlider()">
+      </div>
+
+      <div class="opt-col-block">
 
       <div class="opt-group-label">Blank jumps (laser off)</div>
       <div class="opt-visual-row">
@@ -1434,6 +1465,9 @@
       <input type="range" id="opt-s1tgt" min="1" max="100" step="1" value="20" oninput="optimizerSlider()">
 
       <div class="opt-group-label">Ringing compensation (Pillar 3)</div>
+      </div>
+
+      <div class="opt-col-block">
       <label class="toggle"><input type="checkbox" id="opt-ring-en" onchange="optimizerSlider()"><span class="slider"></span>Enable ringing compensation</label>
 
       <label>Ring frequency (Hz) <span id="opt-rngfq-val" style="color:var(--accent);font-family:monospace">200.0</span>
@@ -1445,6 +1479,8 @@
         <span class="help-icon" title="Measured damping ratio (zeta) of the galvo ringing decay. 0 = undamped, close to 1 = barely oscillates.">?</span>
       </label>
       <input type="range" id="opt-rngdr" min="0" max="90" step="1" value="15" oninput="optimizerSlider()">
+      </div>
+      </div><!-- /opt-columns -->
 
       <div class="btns" style="margin-top:12px">
         <button class="btn secondary" onclick="saveOptimizerConfig()">💾 Save to flash</button>
@@ -5942,6 +5978,90 @@ function enhanceSliders(root) {
 }
 
 document.addEventListener('DOMContentLoaded', () => enhanceSliders());
+// ============================================================
+// Output-parameter preview animations
+// Small looping SVG-free (pure CSS) widgets next to every control that
+// affects laser output, in: Point Optimizer, Galvo Calibration (live),
+// Pattern Parameters. Purely illustrative -- see .param-preview CSS.
+// Runs after enhanceSliders() (registration order) so the anchor lookup
+// below can rely on the synced number field already being in place.
+// ============================================================
+const PARAM_PREVIEWS = [
+  // Point Optimizer
+  { id: 'opt-cad',    type: 'range'  },
+  { id: 'opt-mincp',  type: 'range'  },
+  { id: 'opt-maxcp',  type: 'range'  },
+  { id: 'opt-ppu',    type: 'range'  },
+  { id: 'opt-minsp',  type: 'range'  },
+  { id: 'opt-minip',  type: 'range'  },
+  { id: 'opt-maxppf', type: 'range'  },
+  { id: 'opt-blank',  type: 'range'  },
+  { id: 'opt-minbl',  type: 'range'  },
+  { id: 'opt-blppu',  type: 'range'  },
+  { id: 'opt-s1tgt',  type: 'range'  },
+  { id: 'opt-ring-en',type: 'toggle' },
+  { id: 'opt-rngfq',  type: 'range'  },
+  { id: 'opt-rngdr',  type: 'range'  },
+  // Galvo Calibration (live)
+  { id: 'cal-xoff',        type: 'range'  },
+  { id: 'cal-yoff',        type: 'range'  },
+  { id: 'cal-xgain',       type: 'range'  },
+  { id: 'cal-ygain',       type: 'range'  },
+  { id: 'cal-swap',        type: 'toggle' },
+  { id: 'cal-invx',        type: 'toggle' },
+  { id: 'cal-invy',        type: 'toggle' },
+  { id: 'cal-r',           type: 'range'  },
+  { id: 'cal-g',           type: 'range'  },
+  { id: 'cal-b',           type: 'range'  },
+  { id: 'cal-dac-lim-min', type: 'range'  },
+  { id: 'cal-dac-lim-max', type: 'range'  },
+  // Pattern Parameters (Global Controls + Wave Parameters)
+  { id: 'lv-sp',            type: 'range'  },
+  { id: 'lv-sz',            type: 'range'  },
+  { id: 'lv-ascale',        type: 'range'  },
+  { id: 'lv-rot',           type: 'range'  },
+  { id: 'lv-mx',            type: 'toggle' },
+  { id: 'lv-my',            type: 'toggle' },
+  { id: 'lv-pm-on',         type: 'toggle' },
+  { id: 'lv-pm-count',      type: 'range'  },
+  { id: 'lv-pm-fadein',     type: 'range'  },
+  { id: 'lv-pm-fadeout',    type: 'range'  },
+  { id: 'lv-pm-static-on',  type: 'toggle' },
+  { id: 'lv-autorot',       type: 'toggle' },
+  { id: 'lv-rot-z',         type: 'range'  },
+  { id: 'lv-rot-y',         type: 'range'  },
+  { id: 'lv-rot-x',         type: 'range'  },
+  { id: 'lv-rspd',          type: 'range'  },
+  { id: 'lv-brightness',    type: 'range'  },
+  { id: 'lv-amp',           type: 'range'  },
+  { id: 'lv-freq',          type: 'range'  },
+];
+
+function paramPreviewMarkup(type) {
+  return '<div class="param-preview ' + type + '" aria-hidden="true">'
+       +   '<div class="pp-stage"><div class="pp-frame"></div><div class="pp-dot"></div></div>'
+       +   '<div class="pp-track"><div class="pp-thumb"></div></div>'
+       + '</div>';
+}
+
+// Range sliders get the synced number field inserted right after them by
+// enhanceSliders() -- anchor on that so the preview lands after it instead
+// of wedging between slider and number field. Toggles anchor on their
+// wrapping <label class="toggle">.
+function paramPreviewAnchor(ctrl) {
+  if (ctrl.type === 'checkbox') return ctrl.closest('label') || ctrl;
+  const next = ctrl.nextElementSibling;
+  return (next && next.matches('input[type="number"]')) ? next : ctrl;
+}
+
+function initParamPreviews() {
+  PARAM_PREVIEWS.forEach(p => {
+    const ctrl = document.getElementById(p.id);
+    if (!ctrl) return;
+    paramPreviewAnchor(ctrl).insertAdjacentHTML('afterend', paramPreviewMarkup(p.type));
+  });
+}
+document.addEventListener('DOMContentLoaded', initParamPreviews);
 /* ============================================================
  * Projection Zone Editor
  * Canvas 420x420 px maps to galvo +-32767. Screen Y is inverted.
