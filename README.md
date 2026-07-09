@@ -34,7 +34,6 @@
 - Some patterns need to be fixed
 - Brightness Parameter not working
 - Channel not working
-- x /y gain link not working as expected
 - ILDA Standard Testpattern kein output
 
 And: (Drum Roll please) Documentation :-)

@@ -24,6 +24,7 @@
 #include <Arduino.h>
 #include <math.h>
 #include <string.h>
+#include <memory>
 #include <ESPAsyncWebServer.h>
 #include <AsyncTCP.h>
 #include <ArduinoJson.h>
@@ -1383,14 +1384,6 @@ void init() {
         });
 
     // ---- POST /api/reboot ----
-    s_server.on("/api/reboot", HTTP_POST,
-        [](AsyncWebServerRequest* req) {
-            req->send(200, "text/plain", "rebooting");
-            delay(500); ESP.restart();
-        });
-
-    // ---- GET /api/log ----
-    // ?after=<ts_ms>&max=<n>  — Pagination: only entries newer than after_ts
     s_server.on("/api/log", HTTP_GET, [](AsyncWebServerRequest* req) {
         uint32_t after_ts  = 0;
         size_t   max_ent   = 200;
@@ -1398,14 +1391,28 @@ void init() {
         if (req->hasParam("max"))   max_ent  = (size_t)  atoi(req->getParam("max")->value().c_str());
         if (max_ent > 500) max_ent = 500;
 
-        // Buffer in heap (not stack!) -- max ~120 KB for 500 entries
+        // PSRAM buffer -- up to ~120 KB for 500 entries, must stay off internal heap.
+        // shared_ptr deleter frees it whether the chunked response completes
+        // normally or the client aborts mid-stream (same leak class as the
+        // pre-5.21.0 /api/paint/set String leak).
         size_t buf_len = max_ent * 220 + 32;
-        char* buf = (char*)malloc(buf_len);
+        std::shared_ptr<char> buf(
+            (char*)heap_caps_malloc(buf_len, MALLOC_CAP_SPIRAM),
+            [](char* p) { heap_caps_free(p); });
         if (!buf) { req->send(503, "text/plain", "OOM"); return; }
 
-        logbuf::toJson(buf, buf_len, after_ts, max_ent);
-        req->send(200, "application/json", buf);
-        free(buf);
+        logbuf::toJson(buf.get(), buf_len, after_ts, max_ent);
+        size_t json_len = strlen(buf.get());
+
+        AsyncWebServerResponse* resp = req->beginChunkedResponse(
+            "application/json",
+            [buf, json_len](uint8_t* out, size_t maxLen, size_t index) -> size_t {
+                if (index >= json_len) return 0;
+                size_t n = std::min(maxLen, json_len - index);
+                memcpy(out, buf.get() + index, n);
+                return n;
+            });
+        req->send(resp);
     });
 
     // ---- POST /api/log/clear ----
