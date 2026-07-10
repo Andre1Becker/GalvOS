@@ -462,6 +462,26 @@
         </div>
       </div>
 
+      <!-- Kaleidoscope (applies to Presets + Curves) -->
+      <div style="padding:10px;background:#050510;border:1px solid var(--border);border-radius:6px">
+        <label class="toggle" style="margin-bottom:8px">
+          <input type="checkbox" id="lv-kal-on" onchange="liveSlider()">
+          <span class="slider"></span><span style="font-size:12px">Kaleidoscope</span>
+        </label>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <div>
+            <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:2px">
+              <span>Segments</span><span id="lv-kal-segs-val" style="color:var(--accent);font-family:monospace">6</span>
+            </div>
+            <input type="range" id="lv-kal-segs" min="2" max="16" value="6" oninput="liveSlider()">
+          </div>
+          <div style="display:flex;gap:14px">
+            <label class="toggle"><input type="checkbox" id="lv-kal-mh" onchange="liveSlider()"><span class="slider"></span>Mirror H</label>
+            <label class="toggle"><input type="checkbox" id="lv-kal-mv" onchange="liveSlider()"><span class="slider"></span>Mirror V</label>
+          </div>
+        </div>
+      </div>
+
       <!-- Points-Only Mode (applies to all presets) -->
       <div style="padding:10px;background:#050510;border:1px solid var(--border);border-radius:6px">
         <label class="toggle" style="margin-bottom:8px">
@@ -3381,6 +3401,7 @@ function liveSlider() {
     document.getElementById('lv-b-val').textContent   = document.getElementById('lv-b').value;
     document.getElementById('lv-amp-val').textContent = (document.getElementById('lv-amp').value/100).toFixed(2);
     document.getElementById('lv-freq-val').textContent= (document.getElementById('lv-freq').value/100).toFixed(2);
+    document.getElementById('lv-kal-segs-val').textContent = document.getElementById('lv-kal-segs').value;
     document.getElementById('lv-pm-count-val').textContent = document.getElementById('lv-pm-count').value;
     document.getElementById('lv-pm-fadein-val').textContent  = document.getElementById('lv-pm-fadein').value;
     document.getElementById('lv-pm-fadeout-val').textContent = document.getElementById('lv-pm-fadeout').value;
@@ -3536,6 +3557,10 @@ async function sendLiveControls() {
         rot_speed_z:  sz / 1000,
         mirror_x:     document.getElementById('lv-mx').checked,
         mirror_y:     document.getElementById('lv-my').checked,
+        kaleido_enabled:  document.getElementById('lv-kal-on').checked,
+        kaleido_segments: +document.getElementById('lv-kal-segs').value,
+        kaleido_mirror_h: document.getElementById('lv-kal-mh').checked,
+        kaleido_mirror_v: document.getElementById('lv-kal-mv').checked,
         col_override: document.getElementById('lv-col-on').checked,
         col_r:        +document.getElementById('lv-r').value,
         col_g:        +document.getElementById('lv-g').value,
@@ -3564,6 +3589,10 @@ function resetLiveControls() {
     document.getElementById('lv-rot').value = 0;
     document.getElementById('lv-mx').checked = false;
     document.getElementById('lv-my').checked = false;
+    document.getElementById('lv-kal-on').checked = false;
+    document.getElementById('lv-kal-segs').value = 6;
+    document.getElementById('lv-kal-mh').checked = false;
+    document.getElementById('lv-kal-mv').checked = false;
     document.getElementById('lv-pm-on').checked = false;
     document.getElementById('lv-pm-count').value = 24;
     document.getElementById('lv-pm-fadein-on').checked = true;

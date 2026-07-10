@@ -18,16 +18,25 @@
 
 ### Patterns
 
-- Kaleidoscope / Mirror effect
+- WIP: Kaleidoscope / Mirror effect
 - point to multi point spread out
 - 3 cirle Preset
 - random points with fade out (modifiable)
+- Hypotrochoid (Complex) Way to huge scaling
+- Spirograph 5/3 (Complex), Chaos Bouncer (Combo) Loop not closed (jumps arround)
+- Champagne Bubbles(no circles just weird lines), Diamond (just a weird line), Yin Yang (broken Circle)
+- Confetti Burst and Discoball same Output
+- Disco Ball is no Disco Ball
+- Squarewave not Square
+- Beat Wave, Radial Wave, FM Wave, Vortex, Sine Helix, Wave Field, Fourier Square, Gravity Waves, Tsunami and Wave Spectrum  - Aplitude and Frequency no impact
+- Phyllotaxis bad output
 
 ### Text
 
 - Text not rendered fully (missing serifs)
 - 3D Extrusion not working
 - Orbit should be 3D - not cycling
+- Text X/Y flip option
 
 ### Calibration
 

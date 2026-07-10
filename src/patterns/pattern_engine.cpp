@@ -21,6 +21,7 @@ namespace patterns {
 static const char* TAG = "pattern";
 static LaserPoint s_frame[PATTERN_POINTS_MAX];
 static LaserPoint* s_pm_lit = nullptr;  // PSRAM buffer, allocated in init()
+static LaserPoint* s_pm_kaleido = nullptr;  // PSRAM buffer, allocated in init()
 static volatile int      s_test_pattern  = -1;
 static volatile uint32_t s_test_started  = 0;
 static volatile int8_t   s_preset_idx    = -1;  // -1 = no Preset active
@@ -321,6 +322,8 @@ static void applyRainbow(LaserPoint* pts, size_t n, uint8_t speed, uint32_t phas
 void init() {
     s_pm_lit = (LaserPoint*)ps_malloc(PATTERN_POINTS_MAX * sizeof(LaserPoint));
     if (!s_pm_lit) ESP_LOGE(TAG, "PSRAM alloc failed for points-only buffer");
+    s_pm_kaleido = (LaserPoint*)ps_malloc(PATTERN_POINTS_MAX * sizeof(LaserPoint));
+    if (!s_pm_kaleido) ESP_LOGE(TAG, "PSRAM alloc failed for kaleidoscope buffer");
 }
 void setManualMode(bool, uint8_t) {}
 
@@ -599,6 +602,80 @@ static float fadeWipePosition(uint8_t dir, float x, float y, float cx, float cy,
             return clamp01(d / halfDiag);
         }
     }
+}
+
+// ── Kaleidoscope effect (global toggle, Preset + Curve mode) ─────────────
+// N-fold rotational copy of the current frame around the origin. Odd-
+// indexed copies are optionally mirrored (Horizontal = flip X, Vertical =
+// flip Y, both = point reflection) before rotating, giving the alternating
+// symmetry of a true kaleidoscope. With both mirror axes off this degrades
+// to a plain N-fold rotational repeat (Paint-by-Finger's "Radial4" mode,
+// generalized to a configurable segment count).
+//
+// Segment count is silently capped so N copies + (N-1) blank transitions
+// still fit gOptimizerConfig.max_pts_per_frame -- same philosophy as
+// applyPointsOnlyMode(): never drop points mid-copy, only ever fewer
+// copies.
+static void applyKaleidoscope(size_t& n) {
+    if (!gLivePreset.kaleido_enabled || n == 0) return;
+    if (!s_pm_kaleido) return;  // PSRAM alloc failed in init() -- skip, don't crash
+
+    uint8_t segs = gLivePreset.kaleido_segments;
+    if (segs < 2) segs = 2;
+    if (segs > KALEIDO_SEGMENTS_MAX) segs = KALEIDO_SEGMENTS_MAX;
+
+    const uint8_t blankSamples = gOptimizerConfig.min_blank_samples;
+    uint16_t budget = gOptimizerConfig.max_pts_per_frame;
+    if (budget > PATTERN_POINTS_MAX) budget = PATTERN_POINTS_MAX;
+
+    size_t srcN = (n > PATTERN_POINTS_MAX) ? PATTERN_POINTS_MAX : n;
+    size_t perCopy = srcN + blankSamples;
+    size_t maxSegs = perCopy ? (budget / perCopy) : 0;
+    if (maxSegs < 2) return;  // can't fit even 2 copies this frame -- leave source frame untouched
+    if (segs > maxSegs) segs = (uint8_t)maxSegs;
+
+    // Snapshot the source wedge into PSRAM before overwriting s_frame in place.
+    memcpy(s_pm_kaleido, s_frame, srcN * sizeof(LaserPoint));
+
+    const bool mh = gLivePreset.kaleido_mirror_h;
+    const bool mv = gLivePreset.kaleido_mirror_v;
+
+    size_t o = 0;
+    for (uint8_t k = 0; k < segs; k++) {
+        if (o + srcN + blankSamples > PATTERN_POINTS_MAX) break;
+
+        float angle = k * (2.0f * PI / segs);
+        float ca = cosf(angle), sa = sinf(angle);
+        bool  flip = (k % 2) == 1;
+        float fx = (flip && mh) ? -1.0f : 1.0f;
+        float fy = (flip && mv) ? -1.0f : 1.0f;
+
+        // Blank jump from the end of the previous copy to the start of this
+        // one -- galvo must settle before the laser re-enables (distance-
+        // proportional single-point blanks cause streaks).
+        if (k > 0) {
+            const LaserPoint& first = s_pm_kaleido[0];
+            float fsx = first.x * fx, fsy = first.y * fy;
+            int16_t dstX = (int16_t)(fsx * ca - fsy * sa);
+            int16_t dstY = (int16_t)(fsx * sa + fsy * ca);
+            int16_t px = s_frame[o - 1].x, py = s_frame[o - 1].y;
+            for (uint8_t d = 0; d < blankSamples; d++) {
+                float t = (float)(d + 1) / (float)blankSamples;
+                s_frame[o++] = LaserPoint((int16_t)(px + (dstX - px) * t),
+                                          (int16_t)(py + (dstY - py) * t),
+                                          0, 0, 0, 1);
+            }
+        }
+
+        for (size_t i = 0; i < srcN; i++) {
+            const LaserPoint& src = s_pm_kaleido[i];
+            float sx = src.x * fx, sy = src.y * fy;
+            int16_t nx = (int16_t)(sx * ca - sy * sa);
+            int16_t ny = (int16_t)(sx * sa + sy * ca);
+            s_frame[o++] = LaserPoint(nx, ny, src.r, src.g, src.b, src.blank);
+        }
+    }
+    n = o;
 }
 
 // ── Points-Only render mode (global toggle, Proposal B) ──────────────────
@@ -954,6 +1031,8 @@ void task(void*) {
                     }
                 }
 
+                applyKaleidoscope(n);
+
                 // Apply master dimmer
                 uint8_t dim = gState.master_dimmer.load();
                 for (size_t i = 0; i < n; i++) {
@@ -1080,6 +1159,7 @@ void task(void*) {
             if (gLivePreset.mirror_y) for (size_t i=0;i<n;i++) s_frame[i].y = -s_frame[i].y;
             if (n == 0) { static LaserPoint blank_pt={0,0,0,0,0,1}; galvo::pushFrame(&blank_pt,1); vTaskDelay(pdMS_TO_TICKS(40)); continue; }  // guard: preset generated 0 points
 
+            applyKaleidoscope(n);
             applyPointsOnlyMode(n);
             if (n == 0) { static LaserPoint blank_pt={0,0,0,0,0,1}; galvo::pushFrame(&blank_pt,1); vTaskDelay(pdMS_TO_TICKS(40)); continue; }  // guard: points mode emptied frame
             {

@@ -19,6 +19,9 @@ constexpr uint8_t  POINTS_MODE_MAX_DOTS  = 80;  // UI slider ceiling
 constexpr uint8_t  POINTS_MODE_MIN_DWELL = 3;   // ticks; below this a dot is invisible
 constexpr uint8_t  POINTS_MODE_MAX_DWELL = 30;  // ticks; cap so few dots don't hog the whole frame
 
+// Kaleidoscope effect (pattern_engine.cpp::applyKaleidoscope)
+constexpr uint8_t  KALEIDO_SEGMENTS_MAX = 16;  // UI slider ceiling
+
 // WebUI output-parameter preview animation (Point Optimizer, Galvo
 // Calibration live, Pattern Parameters tabs). Static UI layout constant --
 // mirrored by hand in data/index.html as --param-preview-size, same
@@ -350,6 +353,11 @@ struct LivePresetControls {
     volatile uint16_t points_fade_out_ms   = 400;   // fade-out duration, ms
     volatile uint8_t  points_fade_dir      = FADE_DIR_IN_OUT;
     volatile bool     points_static_on     = false; // true = full brightness, no fade cycle
+    // Kaleidoscope effect (global toggle, Preset + Curve mode)
+    volatile bool     kaleido_enabled   = false;
+    volatile uint8_t  kaleido_segments  = 6;      // 2..KALEIDO_SEGMENTS_MAX
+    volatile bool     kaleido_mirror_h  = false;  // alternate segments: flip X
+    volatile bool     kaleido_mirror_v  = false;  // alternate segments: flip Y
     // Auto-Scaling: oscillates size between 0 and size_val, speed-driven
     volatile uint8_t  autoscaleSpeed  = 0;   // 0..100%, 0 = off
     volatile uint8_t  autoscaleMode   = AUTOSCALE_SMALL_BIG_SMALL;
