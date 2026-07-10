@@ -456,10 +456,6 @@
           </div>
           <input type="range" id="lv-rot" min="-180" max="180" value="0" oninput="liveSlider()">
         </div>
-        <div style="display:flex;gap:14px">
-          <label class="toggle"><input type="checkbox" id="lv-mx" onchange="liveSlider()"><span class="slider"></span>Mirror X</label>
-          <label class="toggle"><input type="checkbox" id="lv-my" onchange="liveSlider()"><span class="slider"></span>Mirror Y</label>
-        </div>
       </div>
 
       <!-- Kaleidoscope (applies to Presets + Curves) -->
@@ -479,6 +475,17 @@
             <label class="toggle"><input type="checkbox" id="lv-kal-mh" onchange="liveSlider()"><span class="slider"></span>Mirror H</label>
             <label class="toggle"><input type="checkbox" id="lv-kal-mv" onchange="liveSlider()"><span class="slider"></span>Mirror V</label>
           </div>
+        </div>
+      </div>
+
+      <!-- Mirror (separate from Kaleidoscope) -->
+      <div style="padding:10px;background:#050510;border:1px solid var(--border);border-radius:6px">
+        <div style="font-size:12px;margin-bottom:8px">Mirror</div>
+        <div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap" id="lv-mirror-btns">
+          <button class="btn secondary" id="lv-mirror-off"     onclick="setLiveMirror(0)" style="font-size:11px;padding:5px 8px">Off</button>
+          <button class="btn secondary" id="lv-mirror-x"       onclick="setLiveMirror(1)" style="font-size:11px;padding:5px 8px">↔ X</button>
+          <button class="btn secondary" id="lv-mirror-y"       onclick="setLiveMirror(2)" style="font-size:11px;padding:5px 8px">↕ Y</button>
+          <button class="btn secondary" id="lv-mirror-radial4" onclick="setLiveMirror(3)" style="font-size:11px;padding:5px 8px">✳ Radial4</button>
         </div>
       </div>
 
@@ -3388,6 +3395,23 @@ async function deactivatePreset() {
 // ============================================================
 let liveDebounce = null;
 
+let liveMirrorMode = 0;  // 0=off, 1=X, 2=Y, 3=Radial4 -- see MirrorMode enum (config.h)
+function highlightMirrorButtons(mode) {
+    const ids = ['lv-mirror-off', 'lv-mirror-x', 'lv-mirror-y', 'lv-mirror-radial4'];
+    ids.forEach((id, m) => {
+        const btn = document.getElementById(id);
+        if (!btn) return;
+        btn.style.background = (m === mode) ? 'var(--accent)' : '';
+        btn.style.color      = (m === mode) ? '#fff' : '';
+    });
+}
+function setLiveMirror(mode) {
+    liveMirrorMode = mode;
+    highlightMirrorButtons(mode);
+    liveSlider();
+}
+highlightMirrorButtons(0);  // visual init only -- no POST on page load
+
 function liveSlider() {
     // Update display values immediately
     document.getElementById('lv-sp-val').textContent  = document.getElementById('lv-sp').value;
@@ -3555,12 +3579,11 @@ async function sendLiveControls() {
         rot_speed_x:  sx / 1000,
         rot_speed_y:  sy / 1000,
         rot_speed_z:  sz / 1000,
-        mirror_x:     document.getElementById('lv-mx').checked,
-        mirror_y:     document.getElementById('lv-my').checked,
         kaleido_enabled:  document.getElementById('lv-kal-on').checked,
         kaleido_segments: +document.getElementById('lv-kal-segs').value,
         kaleido_mirror_h: document.getElementById('lv-kal-mh').checked,
         kaleido_mirror_v: document.getElementById('lv-kal-mv').checked,
+        mirror_mode:  liveMirrorMode,
         col_override: document.getElementById('lv-col-on').checked,
         col_r:        +document.getElementById('lv-r').value,
         col_g:        +document.getElementById('lv-g').value,
@@ -3587,8 +3610,7 @@ function resetLiveControls() {
     document.getElementById('lv-ascale').value = 0;
     document.getElementById('lv-ascale-mode').value = 0;
     document.getElementById('lv-rot').value = 0;
-    document.getElementById('lv-mx').checked = false;
-    document.getElementById('lv-my').checked = false;
+    setLiveMirror(0);
     document.getElementById('lv-kal-on').checked = false;
     document.getElementById('lv-kal-segs').value = 6;
     document.getElementById('lv-kal-mh').checked = false;

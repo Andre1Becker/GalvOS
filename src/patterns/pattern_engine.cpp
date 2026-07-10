@@ -604,23 +604,22 @@ static float fadeWipePosition(uint8_t dir, float x, float y, float cx, float cy,
     }
 }
 
-// ── Kaleidoscope effect (global toggle, Preset + Curve mode) ─────────────
-// N-fold rotational copy of the current frame around the origin. Odd-
-// indexed copies are optionally mirrored (Horizontal = flip X, Vertical =
-// flip Y, both = point reflection) before rotating, giving the alternating
-// symmetry of a true kaleidoscope. With both mirror axes off this degrades
-// to a plain N-fold rotational repeat (Paint-by-Finger's "Radial4" mode,
-// generalized to a configurable segment count).
+// ── Shared N-fold rotational copy core (Kaleidoscope + Mirror/Radial4) ───
+// Copies the current frame `segments` times around the origin, each copy
+// rotated by k*(360/segments)°. Odd-indexed copies are optionally
+// mirrored (altMirrorH = flip X, altMirrorV = flip Y) before rotating,
+// giving the alternating symmetry of a true kaleidoscope; with both flags
+// false this is a plain rotational repeat (Paint-by-Finger's "Radial4"
+// mode, generalized to a configurable segment count).
 //
-// Segment count is silently capped so N copies + (N-1) blank transitions
-// still fit gOptimizerConfig.max_pts_per_frame -- same philosophy as
-// applyPointsOnlyMode(): never drop points mid-copy, only ever fewer
-// copies.
-static void applyKaleidoscope(size_t& n) {
-    if (!gLivePreset.kaleido_enabled || n == 0) return;
-    if (!s_pm_kaleido) return;  // PSRAM alloc failed in init() -- skip, don't crash
+// Segment count is silently capped so `segments` copies + blank
+// transitions still fit gOptimizerConfig.max_pts_per_frame -- same
+// philosophy as applyPointsOnlyMode(): never drop points mid-copy, only
+// ever fewer copies.
+static void applyRadialCopy(size_t& n, uint8_t segments, bool altMirrorH, bool altMirrorV) {
+    if (n == 0 || !s_pm_kaleido) return;  // PSRAM alloc failed in init() -- skip, don't crash
 
-    uint8_t segs = gLivePreset.kaleido_segments;
+    uint8_t segs = segments;
     if (segs < 2) segs = 2;
     if (segs > KALEIDO_SEGMENTS_MAX) segs = KALEIDO_SEGMENTS_MAX;
 
@@ -637,9 +636,6 @@ static void applyKaleidoscope(size_t& n) {
     // Snapshot the source wedge into PSRAM before overwriting s_frame in place.
     memcpy(s_pm_kaleido, s_frame, srcN * sizeof(LaserPoint));
 
-    const bool mh = gLivePreset.kaleido_mirror_h;
-    const bool mv = gLivePreset.kaleido_mirror_v;
-
     size_t o = 0;
     for (uint8_t k = 0; k < segs; k++) {
         if (o + srcN + blankSamples > PATTERN_POINTS_MAX) break;
@@ -647,8 +643,8 @@ static void applyKaleidoscope(size_t& n) {
         float angle = k * (2.0f * PI / segs);
         float ca = cosf(angle), sa = sinf(angle);
         bool  flip = (k % 2) == 1;
-        float fx = (flip && mh) ? -1.0f : 1.0f;
-        float fy = (flip && mv) ? -1.0f : 1.0f;
+        float fx = (flip && altMirrorH) ? -1.0f : 1.0f;
+        float fy = (flip && altMirrorV) ? -1.0f : 1.0f;
 
         // Blank jump from the end of the previous copy to the start of this
         // one -- galvo must settle before the laser re-enables (distance-
@@ -676,6 +672,32 @@ static void applyKaleidoscope(size_t& n) {
         }
     }
     n = o;
+}
+
+// ── Kaleidoscope effect (global toggle, Preset + Curve mode) ─────────────
+static void applyKaleidoscope(size_t& n) {
+    if (!gLivePreset.kaleido_enabled) return;
+    applyRadialCopy(n, gLivePreset.kaleido_segments,
+                     gLivePreset.kaleido_mirror_h, gLivePreset.kaleido_mirror_v);
+}
+
+// ── Mirror effect (global toggle, separate from Kaleidoscope) ────────────
+// Off / Horizontal flip / Vertical flip / 4-fold radial copy -- same mode
+// set as Paint-by-Finger's mirror brush (see index.html::paintMirrorPoints()).
+static void applyMirror(size_t& n) {
+    switch (gLivePreset.mirror_mode) {
+        case MIRROR_X:
+            for (size_t i = 0; i < n; i++) s_frame[i].x = -s_frame[i].x;
+            break;
+        case MIRROR_Y:
+            for (size_t i = 0; i < n; i++) s_frame[i].y = -s_frame[i].y;
+            break;
+        case MIRROR_RADIAL4:
+            applyRadialCopy(n, 4, false, false);
+            break;
+        default:
+            break;  // MIRROR_OFF
+    }
 }
 
 // ── Points-Only render mode (global toggle, Proposal B) ──────────────────
@@ -1154,9 +1176,8 @@ void task(void*) {
                 }
             }
 
-            // Mirror
-            if (gLivePreset.mirror_x) for (size_t i=0;i<n;i++) s_frame[i].x = -s_frame[i].x;
-            if (gLivePreset.mirror_y) for (size_t i=0;i<n;i++) s_frame[i].y = -s_frame[i].y;
+            // Mirror (separate from Kaleidoscope, see applyMirror())
+            applyMirror(n);
             if (n == 0) { static LaserPoint blank_pt={0,0,0,0,0,1}; galvo::pushFrame(&blank_pt,1); vTaskDelay(pdMS_TO_TICKS(40)); continue; }  // guard: preset generated 0 points
 
             applyKaleidoscope(n);

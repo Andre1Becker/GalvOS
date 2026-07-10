@@ -622,12 +622,11 @@ void init() {
             if (doc["col_seg_count"].is<int>())  gLivePreset.col_seg_count  = (uint8_t)(int)doc["col_seg_count"];
             if (doc["col_seg_dir"].is<int>())    gLivePreset.col_seg_dir    = (int8_t)(int)doc["col_seg_dir"];
             if (doc["rotation"].is<int>())     gLivePreset.rotation    = (int16_t)(int)doc["rotation"];
-            if (doc["mirror_x"].is<bool>())    gLivePreset.mirror_x    = doc["mirror_x"];
-            if (doc["mirror_y"].is<bool>())    gLivePreset.mirror_y    = doc["mirror_y"];
             if (doc["kaleido_enabled"].is<bool>())  gLivePreset.kaleido_enabled  = doc["kaleido_enabled"];
             if (doc["kaleido_segments"].is<int>())  gLivePreset.kaleido_segments = (uint8_t)constrain((int)doc["kaleido_segments"], 2, KALEIDO_SEGMENTS_MAX);
             if (doc["kaleido_mirror_h"].is<bool>()) gLivePreset.kaleido_mirror_h = doc["kaleido_mirror_h"];
             if (doc["kaleido_mirror_v"].is<bool>()) gLivePreset.kaleido_mirror_v = doc["kaleido_mirror_v"];
+            if (doc["mirror_mode"].is<int>())       gLivePreset.mirror_mode      = (uint8_t)constrain((int)doc["mirror_mode"], 0, 3);
             { LOCK_STATE();
                 if (doc["rot_x"].is<bool>()) { gLivePreset.rot_x = doc["rot_x"]; gLivePreset.rot_angle_x = 0; }
                 if (doc["rot_y"].is<bool>()) { gLivePreset.rot_y = doc["rot_y"]; gLivePreset.rot_angle_y = 0; }

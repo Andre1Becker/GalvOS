@@ -315,6 +315,15 @@ enum AutoScaleMode : uint8_t {
     AUTOSCALE_BIG_SMALL       = 2, // size_val -> 0, then reset
 };
 
+// Mirror effect modes -- same set as Paint-by-Finger's mirror brush
+// (see data/index.html::paintMirrorPoints()), independent of Kaleidoscope.
+enum MirrorMode : uint8_t {
+    MIRROR_OFF     = 0,
+    MIRROR_X       = 1,  // flip horizontal (negate X)
+    MIRROR_Y       = 2,  // flip vertical (negate Y)
+    MIRROR_RADIAL4 = 3,  // 4-fold rotational copy, no reflection
+};
+
 struct LivePresetControls {
     volatile uint8_t  speed        = 0;
     volatile uint8_t  size_val     = 255;
@@ -337,8 +346,6 @@ struct LivePresetControls {
     volatile float    rot_angle_x = 0.f;
     volatile float    rot_angle_y = 0.f;
     volatile float    rot_angle_z = 0.f;
-    volatile bool     mirror_x   = false;
-    volatile bool     mirror_y   = false;
     volatile uint8_t  trail      = 0;
     volatile uint8_t  pattern_idx = 0;   // encoder: current preset index
     // Wave parameters (apply to all wave patterns #35-52)
@@ -358,6 +365,8 @@ struct LivePresetControls {
     volatile uint8_t  kaleido_segments  = 6;      // 2..KALEIDO_SEGMENTS_MAX
     volatile bool     kaleido_mirror_h  = false;  // alternate segments: flip X
     volatile bool     kaleido_mirror_v  = false;  // alternate segments: flip Y
+    // Mirror effect (separate from Kaleidoscope) -- Off/X/Y/Radial4
+    volatile uint8_t  mirror_mode = MIRROR_OFF;
     // Auto-Scaling: oscillates size between 0 and size_val, speed-driven
     volatile uint8_t  autoscaleSpeed  = 0;   // 0..100%, 0 = off
     volatile uint8_t  autoscaleMode   = AUTOSCALE_SMALL_BIG_SMALL;
