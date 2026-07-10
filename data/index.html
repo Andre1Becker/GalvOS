@@ -139,6 +139,7 @@
   @keyframes ppStateGood { 0%, 15% { opacity: 0; } 40%, 60% { opacity: 1; } 85%, 100% { opacity: 0; } }
   .opt-columns { column-count: 2; column-gap: 28px; }
   .opt-col-block { break-inside: avoid; -webkit-column-break-inside: avoid; }
+  @media (min-width: 900px) { .opt-columns { column-count: 3; } }
   @media (max-width: 620px) { .opt-columns { column-count: 1; } }
   .channel-row input[type=range] { width: 100%; -webkit-appearance: none; appearance: none; background: transparent; }
   .channel-row input[type=range]::-webkit-slider-runnable-track {
@@ -1321,105 +1322,6 @@
       </div>
 
       <div id="hw-debug-status" style="font-size:12px;color:var(--dim);padding:8px 12px;background:#0a0a14;border-radius:4px;border:1px solid var(--border);min-height:18px;font-family:monospace"></div>
-    </div>
-    <div class="card">
-      <h2>📐 Point Optimizer</h2>
-      <p style="color:var(--dim);font-size:12px;margin-bottom:12px">
-        Adaptive point density &amp; blank-jump tuning for migrated presets
-        (ngon, wireframes). Changes apply live; click Save to persist across reboots.
-      </p>
-    <div class="opt-columns">
-      <div class="opt-col-block">
-      <div class="opt-group-label">Corner handling</div>
-      
-      <label>Corner angle threshold (°) <span id="opt-cad-val" style="color:var(--accent);font-family:monospace">25.0</span>
-        <span class="help-icon" title="Vertex angle below which a point counts as a sharp corner (0°=straight through, 180°=full U-turn). Detected corners get extra dwell points from Min/Max corner points below.">?</span>
-      </label>
-      <input type="range" id="opt-cad" min="0" max="180" step="1" value="25" oninput="optimizerSlider()">
-
-      <label>Min corner points <span id="opt-mincp-val" style="color:var(--accent);font-family:monospace">1</span>
-        <span class="help-icon" title="Minimum dwell points placed at every detected corner. Too low causes mechanical overshoot/rounding. Paired with Max corner points.">?</span>
-      </label>
-      <input type="range" id="opt-mincp" min="1" max="20" step="1" value="1" oninput="optimizerSlider()">
-
-      <label>Max corner points <span id="opt-maxcp-val" style="color:var(--accent);font-family:monospace">6</span>
-        <span class="help-icon" title="Upper cap on dwell points per corner. Higher gives a sharper corner but eats into the Max points/frame budget.">?</span>
-      </label>
-      <input type="range" id="opt-maxcp" min="1" max="20" step="1" value="6" oninput="optimizerSlider()">
-      </div>
-
-      <div class="opt-col-block">
-      <div class="opt-group-label">Interior density</div>
-      
-      <label>Interior density (pts / 1000 units) <span id="opt-ppu-val" style="color:var(--accent);font-family:monospace">4.0</span>
-        <span class="help-icon" title="Point density along straight/curved edges between corners. Low value gives visible faceting. Works together with Min segment points and Min interior pts/segment.">?</span>
-      </label>
-      <input type="range" id="opt-ppu" min="1" max="500" step="1" value="40" oninput="optimizerSlider()">
-
-      <label>Min segment points <span id="opt-minsp-val" style="color:var(--accent);font-family:monospace">2</span>
-        <span class="help-icon" title="Floor on total points per edge segment, regardless of Interior density. Keeps very short edges from getting only 1-2 points.">?</span>
-      </label>
-      <input type="range" id="opt-minsp" min="2" max="20" step="1" value="2" oninput="optimizerSlider()">
-
-      <label>Min interior pts / segment <span id="opt-minip-val" style="color:var(--accent);font-family:monospace">6</span>
-        <span class="help-icon" title="Minimum points inside a segment's interior, not counting its corner dwell points. Prevents overly sparse long straight lines even at low Interior density.">?</span>
-      </label>
-      <input type="range" id="opt-minip" min="0" max="50" step="1" value="6" oninput="optimizerSlider()">
-      </div>
-
-      <div class="opt-col-block">
-      <div class="opt-group-label">Frame budget</div>
-      <label>Max points / frame (flicker budget) <span id="opt-maxppf-val" style="color:var(--accent);font-family:monospace">310</span>
-        <span class="help-icon" title="Hard cap on total points per frame. If corner/interior/blank settings above would exceed it, the frame gets throttled instead of dropping geometry.">?</span>
-      </label>
-      <input type="range" id="opt-maxppf" min="50" max="2048" step="1" value="310" oninput="optimizerSlider()">
-      </div>
-
-      <div class="opt-col-block">
-      <div class="opt-group-label">Blank jumps (laser off)</div>
-      
-      <label>Blank samples (max) <span id="opt-blank-val" style="color:var(--accent);font-family:monospace">40</span>
-        <span class="help-icon" title="Max points inserted into a blanked jump between shapes. Higher gives a smoother galvo move but costs more of the frame budget. Related to Min blank samples and Stage1 blank target.">?</span>
-      </label>
-      <input type="range" id="opt-blank" min="1" max="100" step="1" value="40" oninput="optimizerSlider()">
-
-      <label>Min blank samples (floor) <span id="opt-minbl-val" style="color:var(--accent);font-family:monospace">8</span>
-        <span class="help-icon" title="Minimum points for even the shortest blank jump, so short jumps aren't rushed into a visible flash.">?</span>
-      </label>
-      <input type="range" id="opt-minbl" min="1" max="100" step="1" value="8" oninput="optimizerSlider()">
-
-      <label>Blank jump density (pts / 1000 units) <span id="opt-blppu-val" style="color:var(--accent);font-family:monospace">10.0</span>
-        <span class="help-icon" title="Point density for long blank jumps — the blanked equivalent of Interior density. Too low can leave a faint streak on long jumps.">?</span>
-      </label>
-      <input type="range" id="opt-blppu" min="1" max="500" step="1" value="100" oninput="optimizerSlider()">
-
-      <label>Stage1 blank target <span id="opt-s1tgt-val" style="color:var(--accent);font-family:monospace">20</span>
-        <span class="help-icon" title="Target point count for the first deceleration stage of a blank jump's S-curve ease. Shapes the ease-in/ease-out together with Blank samples.">?</span>
-      </label>
-      <input type="range" id="opt-s1tgt" min="1" max="100" step="1" value="20" oninput="optimizerSlider()">
-      </div>
-
-      <div class="opt-col-block">
-      <div class="opt-group-label">Ringing compensation (Pillar 3)</div>
-      <label class="toggle"><input type="checkbox" id="opt-ring-en" onchange="optimizerSlider()"><span class="slider"></span>Enable ringing compensation</label>
-
-      <label>Ring frequency (Hz) <span id="opt-rngfq-val" style="color:var(--accent);font-family:monospace">200.0</span>
-        <span class="help-icon" title="Measured galvo mechanical resonance frequency (step-response capture on scope). Wrong value can make ringing worse -- measure before enabling.">?</span>
-      </label>
-      <input type="range" id="opt-rngfq" min="10" max="2000" step="1" value="200" oninput="optimizerSlider()">
-
-      <label>Ring damping ratio <span id="opt-rngdr-val" style="color:var(--accent);font-family:monospace">0.15</span>
-        <span class="help-icon" title="Measured damping ratio (zeta) of the galvo ringing decay. 0 = undamped, close to 1 = barely oscillates.">?</span>
-      </label>
-      <input type="range" id="opt-rngdr" min="0" max="90" step="1" value="15" oninput="optimizerSlider()">
-      </div>
-      </div><!-- /opt-columns -->
-
-      <div class="btns" style="margin-top:12px">
-        <button class="btn secondary" onclick="saveOptimizerConfig()">💾 Save to flash</button>
-        <button class="btn secondary" onclick="resetOptimizerDefaults()">↺ Reset defaults</button>
-      </div>
-      <div id="opt-save-status" style="font-size:12px;color:var(--dim);margin-top:8px"></div>
     </div>
 
   </div>
@@ -5476,6 +5378,107 @@ async function saveNtpConfig() {
   </div>
 </div>
   </div>
+
+  <!-- ── Point Optimizer ─────────────────────────────────────────── -->
+  <div class="card" style="margin-top:16px">
+      <h2>📐 Point Optimizer</h2>
+      <p style="color:var(--dim);font-size:12px;margin-bottom:12px">
+        Adaptive point density &amp; blank-jump tuning for migrated presets
+        (ngon, wireframes). Changes apply live; click Save to persist across reboots.
+      </p>
+    <div class="opt-columns">
+      <div class="opt-col-block">
+      <div class="opt-group-label">Corner handling</div>
+      
+      <label>Corner angle threshold (°) <span id="opt-cad-val" style="color:var(--accent);font-family:monospace">25.0</span>
+        <span class="help-icon" title="Vertex angle below which a point counts as a sharp corner (0°=straight through, 180°=full U-turn). Detected corners get extra dwell points from Min/Max corner points below.">?</span>
+      </label>
+      <input type="range" id="opt-cad" min="0" max="180" step="1" value="25" oninput="optimizerSlider()">
+
+      <label>Min corner points <span id="opt-mincp-val" style="color:var(--accent);font-family:monospace">1</span>
+        <span class="help-icon" title="Minimum dwell points placed at every detected corner. Too low causes mechanical overshoot/rounding. Paired with Max corner points.">?</span>
+      </label>
+      <input type="range" id="opt-mincp" min="1" max="20" step="1" value="1" oninput="optimizerSlider()">
+
+      <label>Max corner points <span id="opt-maxcp-val" style="color:var(--accent);font-family:monospace">6</span>
+        <span class="help-icon" title="Upper cap on dwell points per corner. Higher gives a sharper corner but eats into the Max points/frame budget.">?</span>
+      </label>
+      <input type="range" id="opt-maxcp" min="1" max="20" step="1" value="6" oninput="optimizerSlider()">
+      </div>
+
+      <div class="opt-col-block">
+      <div class="opt-group-label">Interior density</div>
+      
+      <label>Interior density (pts / 1000 units) <span id="opt-ppu-val" style="color:var(--accent);font-family:monospace">4.0</span>
+        <span class="help-icon" title="Point density along straight/curved edges between corners. Low value gives visible faceting. Works together with Min segment points and Min interior pts/segment.">?</span>
+      </label>
+      <input type="range" id="opt-ppu" min="1" max="500" step="1" value="40" oninput="optimizerSlider()">
+
+      <label>Min segment points <span id="opt-minsp-val" style="color:var(--accent);font-family:monospace">2</span>
+        <span class="help-icon" title="Floor on total points per edge segment, regardless of Interior density. Keeps very short edges from getting only 1-2 points.">?</span>
+      </label>
+      <input type="range" id="opt-minsp" min="2" max="20" step="1" value="2" oninput="optimizerSlider()">
+
+      <label>Min interior pts / segment <span id="opt-minip-val" style="color:var(--accent);font-family:monospace">6</span>
+        <span class="help-icon" title="Minimum points inside a segment's interior, not counting its corner dwell points. Prevents overly sparse long straight lines even at low Interior density.">?</span>
+      </label>
+      <input type="range" id="opt-minip" min="0" max="50" step="1" value="6" oninput="optimizerSlider()">
+      </div>
+
+      <div class="opt-col-block">
+      <div class="opt-group-label">Frame budget</div>
+      <label>Max points / frame (flicker budget) <span id="opt-maxppf-val" style="color:var(--accent);font-family:monospace">310</span>
+        <span class="help-icon" title="Hard cap on total points per frame. If corner/interior/blank settings above would exceed it, the frame gets throttled instead of dropping geometry.">?</span>
+      </label>
+      <input type="range" id="opt-maxppf" min="50" max="2048" step="1" value="310" oninput="optimizerSlider()">
+      </div>
+
+      <div class="opt-col-block">
+      <div class="opt-group-label">Blank jumps (laser off)</div>
+      
+      <label>Blank samples (max) <span id="opt-blank-val" style="color:var(--accent);font-family:monospace">40</span>
+        <span class="help-icon" title="Max points inserted into a blanked jump between shapes. Higher gives a smoother galvo move but costs more of the frame budget. Related to Min blank samples and Stage1 blank target.">?</span>
+      </label>
+      <input type="range" id="opt-blank" min="1" max="100" step="1" value="40" oninput="optimizerSlider()">
+
+      <label>Min blank samples (floor) <span id="opt-minbl-val" style="color:var(--accent);font-family:monospace">8</span>
+        <span class="help-icon" title="Minimum points for even the shortest blank jump, so short jumps aren't rushed into a visible flash.">?</span>
+      </label>
+      <input type="range" id="opt-minbl" min="1" max="100" step="1" value="8" oninput="optimizerSlider()">
+
+      <label>Blank jump density (pts / 1000 units) <span id="opt-blppu-val" style="color:var(--accent);font-family:monospace">10.0</span>
+        <span class="help-icon" title="Point density for long blank jumps — the blanked equivalent of Interior density. Too low can leave a faint streak on long jumps.">?</span>
+      </label>
+      <input type="range" id="opt-blppu" min="1" max="500" step="1" value="100" oninput="optimizerSlider()">
+
+      <label>Stage1 blank target <span id="opt-s1tgt-val" style="color:var(--accent);font-family:monospace">20</span>
+        <span class="help-icon" title="Target point count for the first deceleration stage of a blank jump's S-curve ease. Shapes the ease-in/ease-out together with Blank samples.">?</span>
+      </label>
+      <input type="range" id="opt-s1tgt" min="1" max="100" step="1" value="20" oninput="optimizerSlider()">
+      </div>
+
+      <div class="opt-col-block">
+      <div class="opt-group-label">Ringing compensation (Pillar 3)</div>
+      <label class="toggle"><input type="checkbox" id="opt-ring-en" onchange="optimizerSlider()"><span class="slider"></span>Enable ringing compensation</label>
+
+      <label>Ring frequency (Hz) <span id="opt-rngfq-val" style="color:var(--accent);font-family:monospace">200.0</span>
+        <span class="help-icon" title="Measured galvo mechanical resonance frequency (step-response capture on scope). Wrong value can make ringing worse -- measure before enabling.">?</span>
+      </label>
+      <input type="range" id="opt-rngfq" min="10" max="2000" step="1" value="200" oninput="optimizerSlider()">
+
+      <label>Ring damping ratio <span id="opt-rngdr-val" style="color:var(--accent);font-family:monospace">0.15</span>
+        <span class="help-icon" title="Measured damping ratio (zeta) of the galvo ringing decay. 0 = undamped, close to 1 = barely oscillates.">?</span>
+      </label>
+      <input type="range" id="opt-rngdr" min="0" max="90" step="1" value="15" oninput="optimizerSlider()">
+      </div>
+      </div><!-- /opt-columns -->
+
+      <div class="btns" style="margin-top:12px">
+        <button class="btn secondary" onclick="saveOptimizerConfig()">💾 Save to flash</button>
+        <button class="btn secondary" onclick="resetOptimizerDefaults()">↺ Reset defaults</button>
+      </div>
+      <div id="opt-save-status" style="font-size:12px;color:var(--dim);margin-top:8px"></div>
+    </div>
 
   <!-- ── ILDA Standard Test Pattern ─────────────────────────────── -->
   <div class="card" style="margin-top:16px">
