@@ -39,7 +39,7 @@ static inline float csweep(uint32_t ph, uint8_t sp, int i, int N) {
 }
 static inline bool isContinuous(uint8_t idx) {
     switch (idx) {
-        case 0: case 22: case 23: case 24: case 26: case 27: return true;
+        case 0: case 22: case 23: case 24: case 26: case 27: case 100: return true;
         default: return false;
     }
 }
@@ -367,13 +367,6 @@ static size_t p33(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     static const int E[][2]={{0,1},{0,2},{0,3},{1,2},{1,3},{2,3}};
     return wf(o,m,V,4,E,6,aang(ph,sp,1.2f),.4f,SC*ssc(sz)*.75f,200,0,255);
 }
-static size_t p34(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
-    const float phi=(1+sqrtf(5))/2,i1=1/phi;
-    static const P3D V[]={{1,1,1},{1,1,-1},{1,-1,1},{1,-1,-1},{-1,1,1},{-1,1,-1},{-1,-1,1},{-1,-1,-1},{0,(float)(1.618f),(float)(0.618f)},{0,(float)(1.618f),(float)(-0.618f)},{0,(float)(-1.618f),(float)(0.618f)},{0,(float)(-1.618f),(float)(-0.618f)},{(float)(0.618f),0,(float)(1.618f)},{(float)(-0.618f),0,(float)(1.618f)},{(float)(0.618f),0,(float)(-1.618f)},{(float)(-0.618f),0,(float)(-1.618f)},{(float)(1.618f),(float)(0.618f),0},{(float)(1.618f),(float)(-0.618f),0},{(float)(-1.618f),(float)(0.618f),0},{(float)(-1.618f),(float)(-0.618f),0}};
-    static const int E[][2]={{0,8},{0,12},{0,16},{1,9},{1,14},{1,16},{2,10},{2,12},{2,17},{3,11},{3,14},{3,17},{4,8},{4,13},{4,18},{5,9},{5,15},{5,18},{6,10},{6,13},{6,19},{7,11},{7,15},{7,19},{8,9},{10,11},{12,13},{14,15},{16,17},{18,19}};
-    return wf(o,m,V,20,E,30,aang(ph,sp,.8f),.3f,SC*ssc(sz)*.55f,255,180,0);
-}
-
 // ─── WELLEN 35-52 ────────────────────────────────────────────
 // Parametric continuous curves — not migrated to optimizer.
 static size_t p35(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){return sinewave(o,m,.55f,1,aang(ph,sp),SC*ssc(sz)*.9f,0,220,255);}
@@ -1246,13 +1239,80 @@ static size_t p100(LaserPoint*o, size_t m, uint32_t ph, uint8_t sp, uint8_t sz) 
     return n;
 }
 
+// ─── NEUE PRESETS 102-105 ───────────────────────────────────────
+// p102 Torus Knot (2,3) -- 2D projection: r(t)=R+cos(q*t), (R=2,q=3,p=2).
+// Peak radius R+1=3 -> normalized by 1/3. Single closed continuous curve,
+// uses csweep() like the other Curves-group presets (p22-p27).
+static size_t p102(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
+    size_t n=0;float sc=SC*ssc(sz)*.9f*(1.f/3.f);const int N=280;
+    for(int i=0;i<=N;i++){float t=csweep(ph,sp,i,N),r=2.f+cosf(3.f*t);
+        ap(o,n,m,sc*r*cosf(2.f*t),sc*r*sinf(2.f*t),0,220,255,i==0?1:0);}
+    return n;
+}
+
+// p103 Pentagram -- true 5/2 self-intersecting star polygon, single stroke.
+// Vertices placed at 144° (4*PI/5) spacing instead of the plain pentagon's
+// 72° -- connecting them in array order via a closed PathSegment produces
+// the classic self-crossing star silhouette. Unlike star() (p06-p09,
+// alternating outer/inner radius = convex points), this has real internal
+// crossings.
+static size_t p103(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
+    float sc=SC*ssc(sz)*.9f,off=aang(ph,sp);
+    optimizer::PathVertex verts[5];
+    for(int k=0;k<5;k++){
+        float a=off+k*4.f*(float)M_PI/5.f-(float)(M_PI/2);
+        verts[k].x=cosf(a)*sc; verts[k].y=sinf(a)*sc;
+        verts[k].r=255; verts[k].g=0; verts[k].b=80;
+        verts[k].lift=false;
+    }
+    optimizer::PathSegment seg(verts,5,/*closed=*/true);
+    return optimizer::optimize(&seg,1,o,m,liveOptimizerConfig());
+}
+
+// p104 DNA Double Helix -- two counter-phase sine strands (backbone) plus
+// straight rungs (base pairs) at fixed intervals via line().
+static size_t p104(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
+    size_t n=0;
+    float sc=SC*ssc(sz)*.9f, amp=sc*.32f, off=aang(ph,sp);
+    const int NS=70; const float TURNS=3.f;
+    for(int i=0;i<=NS;i++){float t=(float)i/NS,x=L(-sc,sc,t),a=t*PI2*TURNS+off;
+        ap(o,n,m,x,amp*sinf(a),0,180,255,i==0?1:0);}
+    for(int i=0;i<=NS;i++){float t=(float)i/NS,x=L(-sc,sc,t),a=t*PI2*TURNS+off;
+        ap(o,n,m,x,amp*sinf(a+(float)M_PI),255,0,150,i==0?1:0);}
+    const int RUNGS=9;
+    for(int rI=0;rI<RUNGS;rI++){
+        float t=(float)rI/(RUNGS-1),x=L(-sc,sc,t),a=t*PI2*TURNS+off;
+        line(o,n,m,x,amp*sinf(a),x,amp*sinf(a+(float)M_PI),120,120,120);
+    }
+    return n;
+}
+
+// p105 Yin-Yang -- outer circle + S-divider (two opposing half-circles) +
+// two accent dots. Wireframe laser output can't fill black/white halves,
+// so the eye-dots use contrasting colors instead of the traditional fill.
+static size_t p105(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
+    size_t n=0;
+    float R=SC*ssc(sz)*.85f, off=aang(ph,sp);
+    const int NC=64;
+    for(int i=0;i<=NC;i++){float a=PI2*i/NC+off;ap(o,n,m,R*cosf(a),R*sinf(a),255,255,255,i==0?1:0);}
+    const int NS=32;
+    for(int i=0;i<=NS;i++){float a=off-(float)(M_PI/2)+(float)M_PI*i/NS;
+        ap(o,n,m,(R*.5f)*cosf(a),(R*.5f)+(R*.5f)*sinf(a),255,255,255,i==0?1:0);}
+    for(int i=0;i<=NS;i++){float a=off+(float)(M_PI/2)+(float)M_PI*i/NS;
+        ap(o,n,m,(R*.5f)*cosf(a),-(R*.5f)+(R*.5f)*sinf(a),255,255,255,i==0?1:0);}
+    const int ND=20; float rd=R*.14f;
+    for(int i=0;i<=ND;i++){float a=PI2*i/ND;ap(o,n,m,rd*cosf(a),(R*.5f)+rd*sinf(a),255,60,60,i==0?1:0);}
+    for(int i=0;i<=ND;i++){float a=PI2*i/ND;ap(o,n,m,rd*cosf(a),-(R*.5f)+rd*sinf(a),60,180,255,i==0?1:0);}
+    return n;
+}
+
 // ─── DISPATCH ────────────────────────────────────────────────
 const PresetInfo PRESETS[PRESET_COUNT] = {
     {"Circle","Geometry"},{"Square","Geometry"},{"Triangle","Geometry"},{"Pentagon","Geometry"},{"Hexagon","Geometry"},{"Octagon","Geometry"},{"Star 4","Geometry"},{"Star 5","Geometry"},{"Star 6","Geometry"},{"Star 8","Geometry"},
     {"Cross +","Lines"},{"X Shape","Lines"},{"Grid 3x3","Lines"},{"H Line","Lines"},{"Diagonal","Lines"},
     {"Archimedean Spiral","Spirals"},{"Lissajous 1:2","Spirals"},{"Lissajous 2:3","Spirals"},{"Lissajous 3:4","Spirals"},{"Lissajous 3:5","Spirals"},{"Lissajous 5:6","Spirals"},{"Double Spiral","Spirals"},{"Rose 3","Spirals"},
     {"Rose 4","Curves"},{"Cardioid","Curves"},{"Heart","Curves"},{"Infinity","Curves"},{"Astroid","Curves"},{"Epitrochoid","Curves"},
-    {"Rotating Cube","3D"},{"Static Cube","3D"},{"Pyramid","3D"},{"Octahedron","3D"},{"Tetrahedron","3D"},{"Dodecahedron","3D"},
+    {"Rotating Cube","3D"},{"Static Cube","3D"},{"Pyramid","3D"},{"Octahedron","3D"},{"Tetrahedron","3D"},
     {"Sine Wave","Waves"},{"Standing Wave","Waves"},{"Multi Wave","Waves"},{"Ocean Wave","Waves"},{"Wave Interference","Waves"},{"Sawtooth","Waves"},{"Square Wave","Waves"},{"Wave Packet","Waves"},{"Beat Wave","Waves"},{"Radial Waves","Waves"},{"FM Wave","Waves"},{"Vortex","Waves"},{"Sine Helix","Waves"},{"Wave Field","Waves"},{"Fourier Square","Waves"},{"Gravity Waves","Waves"},{"Tsunami","Waves"},{"Wave Spectrum","Waves"},
     {"Hypotrochoid","Complex"},{"Butterfly","Complex"},{"Spirograph 5/3","Complex"},{"Concentric Rings","Complex"},{"Nested Squares","Complex"},{"Pulsing Circle","Complex"},
     {"Starburst","Combo"},{"Chaos Bouncer","Combo"},{"Laser Diamond","Combo"},{"Champagne Bubbles","Combo"},{"Confetti Burst","Combo"},{"Disco Ball","Combo"},
@@ -1260,6 +1320,7 @@ const PresetInfo PRESETS[PRESET_COUNT] = {
     {"Starfield","Scenes"},
     {"Countdown Timer","Timers"},
     {"Rocket","Vehicles"},{"Train","Vehicles"},{"Racing Car","Vehicles"},{"UFO","Vehicles"},{"Sailing Boat","Vehicles"},{"Bicycle","Vehicles"},{"Airplane","Vehicles"},{"Space Shuttle","Vehicles"},
+    {"Torus Knot","Curves"},{"Pentagram","Geometry"},{"DNA Helix","Complex"},{"Yin Yang","Symbols"},
 };
 
 static const PFn DISPATCH[PRESET_COUNT] = {
@@ -1267,7 +1328,7 @@ static const PFn DISPATCH[PRESET_COUNT] = {
     p10,p11,p12,p13,p14,
     p15,p16,p17,p18,p19,p20,p21,p22,
     p23,p24,p25,p26,p27,p28,
-    p29,p30,p31,p32,p33,p34,
+    p29,p30,p31,p32,p33,
     p35,p36,p37,p38,p39,p40,p41,p42,p43,p44,p45,p46,p47,p48,p49,p50,p51,p52,
     p53,p54,p55,p56,p57,p58,
     p59,p60,p61,p62,p63,p101,
@@ -1275,6 +1336,7 @@ static const PFn DISPATCH[PRESET_COUNT] = {
     p90,
     p100,
     p91,p92,p93,p94,p95,p96,p97,p98,
+    p102,p103,p104,p105,
 };
 
 size_t generate(uint8_t idx, LaserPoint* out, size_t max_pts,

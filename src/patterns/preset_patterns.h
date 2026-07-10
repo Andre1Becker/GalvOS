@@ -3,7 +3,7 @@
 
 namespace presets {
 
-constexpr uint8_t PRESET_COUNT = 101;
+constexpr uint8_t PRESET_COUNT = 104;
 
 struct PresetInfo { const char* name; const char* category; };
 extern const PresetInfo PRESETS[PRESET_COUNT];
