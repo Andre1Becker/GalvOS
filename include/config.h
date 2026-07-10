@@ -201,7 +201,14 @@ struct RuntimeConfig {
     // Safety
     // Largest free internal (DRAM) block -- catches heap fragmentation,
     // not just total free heap. esp_restart() if below this threshold.
-    uint32_t  heap_critical_bytes = 10240;
+    // Calibrated 2026-07-10 on real hardware post-WS-removal (5.34.x):
+    // idle largest=28660, single-client browser load-peak largest=11764
+    // (lowest observed in normal operation), settled largest=13812.
+    // No remaining internal-heap allocation exceeds a few KB (JSON/log
+    // buffers moved to PSRAM); 6144 gives ~2x margin below the measured
+    // peak for a second client/tab or slower WiFi timing, while still
+    // catching real fragmentation well before allocation failure.
+    uint32_t  heap_critical_bytes = 6144;
     bool      safety_override = false;
     bool      dac_debug_log   = false;  // log DAC8562 writes (hex) to Serial+UI, rate-limited
 
