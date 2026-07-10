@@ -5896,10 +5896,12 @@ document.addEventListener('DOMContentLoaded', () => enhanceSliders());
 // ============================================================
 // Output-parameter preview animations
 // Small looping SVG-free (pure CSS) widgets next to every control that
-// affects laser output, in: Point Optimizer, Galvo Calibration (live),
-// Pattern Parameters. Purely illustrative -- see .param-preview CSS.
-// Runs after enhanceSliders() (registration order) so the anchor lookup
-// below can rely on the synced number field already being in place.
+// affects laser output, in: Point Optimizer and Galvo Calibration (live).
+// Explicitly excluded: Pattern Parameters tab (Global Controls + Wave
+// Parameters) -- kept animation-free per product decision.
+// Purely illustrative -- see .param-preview CSS. Runs after enhanceSliders()
+// (registration order) so the anchor lookup below can rely on the synced
+// number field already being in place.
 // ============================================================
 const PARAM_PREVIEWS = [
   // Point Optimizer
@@ -5933,24 +5935,6 @@ const PARAM_PREVIEWS = [
   { id: 'cal-dac-lim-max', type: 'range',  family: 'dac-limit' },
   // Pattern Parameters (Global Controls + Wave Parameters)
   { id: 'lv-rspd',          type: 'range',  family: 'speed' },
-  { id: 'lv-sz',            type: 'range'  },
-  { id: 'lv-ascale',        type: 'range'  },
-  { id: 'lv-rot',           type: 'range'  },
-  { id: 'lv-mx',            type: 'toggle' },
-  { id: 'lv-my',            type: 'toggle' },
-  { id: 'lv-pm-on',         type: 'toggle' },
-  { id: 'lv-pm-count',      type: 'range'  },
-  { id: 'lv-pm-fadein',     type: 'range'  },
-  { id: 'lv-pm-fadeout',    type: 'range'  },
-  { id: 'lv-pm-static-on',  type: 'toggle' },
-  { id: 'lv-autorot',       type: 'toggle' },
-  { id: 'lv-rot-z',         type: 'range'  },
-  { id: 'lv-rot-y',         type: 'range'  },
-  { id: 'lv-rot-x',         type: 'range'  },
-  { id: 'lv-rspd',          type: 'range',  family: 'speed' },
-  { id: 'lv-brightness',    type: 'range'  },
-  { id: 'lv-amp',           type: 'range'  },
-  { id: 'lv-freq',          type: 'range'  },
 ];
 
 // Real-effect bad/good SVG pairs for parameters where the actual output
@@ -5998,10 +5982,6 @@ const PP_FAMILIES = {
   'dac-limit': {
     bad:  '<rect x="25" y="25" width="100" height="100" fill="none" stroke="var(--dim)" stroke-width="2"/><path d="M15,40 L135,40 M15,75 L135,75 M15,110 L135,110" stroke="var(--bad)" stroke-width="2.5" stroke-linecap="round"/>',
     good: '<rect x="25" y="25" width="100" height="100" fill="none" stroke="var(--dim)" stroke-width="2"/><path d="M30,40 L120,40 M30,75 L120,75 M30,110 L120,110" stroke="var(--ok)" stroke-width="2.5" stroke-linecap="round"/>'
-  },
-  speed: {
-    bad:  '<circle cx="75" cy="75" r="50" fill="none" stroke="var(--dim)" stroke-width="1" stroke-dasharray="2 4"/><circle cx="75" cy="25" r="6" fill="var(--bad)"/><circle cx="68" cy="26" r="3" fill="var(--bad)" opacity="0.4"/><circle cx="62" cy="29" r="2" fill="var(--bad)" opacity="0.2"/>',
-    good: '<circle cx="75" cy="75" r="50" fill="none" stroke="var(--dim)" stroke-width="1" stroke-dasharray="2 4"/><circle cx="75" cy="25" r="6" fill="var(--ok)"/><circle cx="45" cy="33" r="4" fill="var(--ok)" opacity="0.45"/><circle cx="27" cy="55" r="3" fill="var(--ok)" opacity="0.28"/><circle cx="27" cy="95" r="2" fill="var(--ok)" opacity="0.15"/>'
   }
 
 };
