@@ -23,12 +23,15 @@
   header {
     background: var(--panel); padding: 12px 20px; border-bottom: 1px solid var(--border);
     display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;
+    position: sticky; top: 0; z-index: 10;
   }
   header h1 { margin: 0; font-size: 18px; color: var(--accent); }
   header .status { display: flex; gap: 12px; align-items: center; font-size: 13px; }
   .pill { padding: 4px 10px; border-radius: 12px; background: var(--panel2); font-weight: 600; }
   .pill.armed { background: var(--accent); color: #fff; animation: pulse 1.2s infinite; }
   .pill.disarmed { background: #333; color: var(--dim); }
+  .pill.conn-ok { background: var(--ok); color: #fff; }
+  .pill.conn-bad { background: var(--bad); color: #fff; }
   @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
 
   nav { background: var(--panel); border-bottom: 1px solid var(--border); display: flex; overflow-x: auto; }
@@ -5718,14 +5721,22 @@ function toggleAutoRed(on) {
 }
 
 // -- State via HTTP polling (no WS-JSON needed) ─────────────────────
+function setConnPill(connected) {
+  const el = document.getElementById('conn-pill');
+  if (!el) return;
+  el.textContent = connected ? 'connected' : 'connecting…';
+  el.classList.toggle('conn-ok', connected);
+  el.classList.toggle('conn-bad', !connected);
+}
 async function pollState() {
   try {
     const r = await fetch('/api/state');
-    if (!r.ok) return;
+    if (!r.ok) { setConnPill(false); return; }
     const s = await r.json();
+    setConnPill(true);
     handleStateUpdate(s);
     handleTempState(s);
-  } catch(e) { /* ESP busy -- retry in 1s */ }
+  } catch(e) { setConnPill(false); /* ESP busy -- retry in 1s */ }
 }
 // Immediately + then every 1500ms
 pollState();
