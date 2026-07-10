@@ -5919,20 +5919,20 @@ const PARAM_PREVIEWS = [
   { id: 'opt-rngfq',  type: 'range',  family: 'ringing'  },
   { id: 'opt-rngdr',  type: 'range',  family: 'ringing'  },
   // Galvo Calibration (live)
-  { id: 'cal-xoff',        type: 'range'  },
-  { id: 'cal-yoff',        type: 'range'  },
-  { id: 'cal-xgain',       type: 'range'  },
-  { id: 'cal-ygain',       type: 'range'  },
-  { id: 'cal-swap',        type: 'toggle' },
-  { id: 'cal-invx',        type: 'toggle' },
-  { id: 'cal-invy',        type: 'toggle' },
+  { id: 'cal-xoff',        type: 'range',  family: 'offset'    },
+  { id: 'cal-yoff',        type: 'range',  family: 'offset'    },
+  { id: 'cal-xgain',       type: 'range',  family: 'gain'      },
+  { id: 'cal-ygain',       type: 'range',  family: 'gain'      },
+  { id: 'cal-swap',        type: 'toggle', family: 'swap'      },
+  { id: 'cal-invx',        type: 'toggle', family: 'invert'    },
+  { id: 'cal-invy',        type: 'toggle', family: 'invert'    },
   { id: 'cal-r',           type: 'range'  },
   { id: 'cal-g',           type: 'range'  },
   { id: 'cal-b',           type: 'range'  },
-  { id: 'cal-dac-lim-min', type: 'range'  },
-  { id: 'cal-dac-lim-max', type: 'range'  },
+  { id: 'cal-dac-lim-min', type: 'range',  family: 'dac-limit' },
+  { id: 'cal-dac-lim-max', type: 'range',  family: 'dac-limit' },
   // Pattern Parameters (Global Controls + Wave Parameters)
-  { id: 'lv-sp',            type: 'range'  },
+  { id: 'lv-rspd',          type: 'range',  family: 'speed' },
   { id: 'lv-sz',            type: 'range'  },
   { id: 'lv-ascale',        type: 'range'  },
   { id: 'lv-rot',           type: 'range'  },
@@ -5947,7 +5947,7 @@ const PARAM_PREVIEWS = [
   { id: 'lv-rot-z',         type: 'range'  },
   { id: 'lv-rot-y',         type: 'range'  },
   { id: 'lv-rot-x',         type: 'range'  },
-  { id: 'lv-rspd',          type: 'range'  },
+  { id: 'lv-rspd',          type: 'range',  family: 'speed' },
   { id: 'lv-brightness',    type: 'range'  },
   { id: 'lv-amp',           type: 'range'  },
   { id: 'lv-freq',          type: 'range'  },
@@ -5978,7 +5978,32 @@ const PP_FAMILIES = {
   ringing: {
     bad:  '<path d="M20,115 L75,115 Q88,115 90,100 Q95,85 82,80 Q70,75 75,63 Q80,50 100,55 L135,25" stroke="var(--bad)" stroke-width="3" fill="none" stroke-linecap="round"/>',
     good: '<path d="M20,115 L82,115 Q100,115 108,95 L135,25" stroke="var(--ok)" stroke-width="3" fill="none" stroke-linecap="round"/>'
+  },
+  offset: {
+    bad:  '<rect x="20" y="20" width="110" height="110" fill="none" stroke="var(--dim)" stroke-width="2" stroke-dasharray="5 4"/><circle cx="45" cy="45" r="7" fill="var(--bad)"/>',
+    good: '<rect x="20" y="20" width="110" height="110" fill="none" stroke="var(--dim)" stroke-width="2" stroke-dasharray="5 4"/><circle cx="75" cy="75" r="7" fill="var(--ok)"/>'
+  },
+  gain: {
+    bad:  '<ellipse cx="75" cy="75" rx="55" ry="30" fill="none" stroke="var(--bad)" stroke-width="3"/>',
+    good: '<circle cx="75" cy="75" r="42" fill="none" stroke="var(--ok)" stroke-width="3"/>'
+  },
+  swap: {
+    bad:  '<rect x="30" y="55" width="90" height="40" rx="4" fill="none" stroke="var(--dim)" stroke-width="3"/>',
+    good: '<rect x="55" y="30" width="40" height="90" rx="4" fill="none" stroke="var(--accent)" stroke-width="3"/>'
+  },
+  invert: {
+    bad:  '<path d="M25,75 L110,75 M85,50 L110,75 L85,100" stroke="var(--dim)" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>',
+    good: '<path d="M125,75 L40,75 M65,50 L40,75 L65,100" stroke="var(--accent)" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>'
+  },
+  'dac-limit': {
+    bad:  '<rect x="25" y="25" width="100" height="100" fill="none" stroke="var(--dim)" stroke-width="2"/><path d="M15,40 L135,40 M15,75 L135,75 M15,110 L135,110" stroke="var(--bad)" stroke-width="2.5" stroke-linecap="round"/>',
+    good: '<rect x="25" y="25" width="100" height="100" fill="none" stroke="var(--dim)" stroke-width="2"/><path d="M30,40 L120,40 M30,75 L120,75 M30,110 L120,110" stroke="var(--ok)" stroke-width="2.5" stroke-linecap="round"/>'
+  },
+  speed: {
+    bad:  '<circle cx="75" cy="75" r="50" fill="none" stroke="var(--dim)" stroke-width="1" stroke-dasharray="2 4"/><circle cx="75" cy="25" r="6" fill="var(--bad)"/><circle cx="68" cy="26" r="3" fill="var(--bad)" opacity="0.4"/><circle cx="62" cy="29" r="2" fill="var(--bad)" opacity="0.2"/>',
+    good: '<circle cx="75" cy="75" r="50" fill="none" stroke="var(--dim)" stroke-width="1" stroke-dasharray="2 4"/><circle cx="75" cy="25" r="6" fill="var(--ok)"/><circle cx="45" cy="33" r="4" fill="var(--ok)" opacity="0.45"/><circle cx="27" cy="55" r="3" fill="var(--ok)" opacity="0.28"/><circle cx="27" cy="95" r="2" fill="var(--ok)" opacity="0.15"/>'
   }
+
 };
 
 function paramPreviewMarkup(type, family) {
