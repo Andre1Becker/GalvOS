@@ -130,6 +130,24 @@ static const int CE[][2]={{0,1},{1,2},{2,3},{3,0},{4,5},{5,6},{6,7},{7,4},{0,4},
 static const int WF_MAX_EDGES = 64;
 static const int WF_MAX_VERTS = 32;
 
+// Greedily walks unused edges into the longest possible continuous
+// chain, closing it into a loop if the walk returns to its own start.
+// A chain only ends where it truly must: a dead end (no unused edge left
+// at `cur`) or a closed loop -- NOT merely because `cur` has more than
+// two edges. The previous version broke the walk at any vertex with
+// degree != 2, which for any proper polyhedron (min vertex degree 3,
+// e.g. every cube/pyramid/octahedron/tetrahedron corner) fragmented
+// every single edge into its own isolated 2-point segment before it
+// could ever be tested against `start`. Each such fragment gets its own
+// optimizer blank-jump (see optimize()'s per-segment emitBlankJump()),
+// so the wireframe never actually closed anywhere -- corners looked
+// "open" even where three+ edges met at one point. Removing the degree
+// check lets the walk continue across those vertices too, so e.g. a
+// cube now resolves into 2 closed square loops + 4 open struts instead
+// of 12 disconnected edges, and a pyramid into 1 closed base loop + 2
+// open apex chains instead of 8 disconnected edges -- far fewer blank
+// jumps, and the corners that are topologically closed (loops) render
+// as closed instead of flickering open.
 static int buildWfChains(int nv, const int(*E)[2], int ne,
                           int out_chains[][WF_MAX_VERTS + 1],
                           int out_chain_len[], bool out_closed[],
@@ -158,7 +176,6 @@ static int buildWfChains(int nv, const int(*E)[2], int ne,
         chain[len++] = start;
         chain[len++] = cur;
         while (len <= WF_MAX_VERTS) {
-            if (adj_count[cur] != 2) break;
             int next_edge = -1, next_v = -1;
             for (int k = 0; k < adj_count[cur]; k++) {
                 if (!used[adj_edge[cur][k]]) {
@@ -346,9 +363,11 @@ static size_t p30(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){retur
 // p31 Pyramid -- GalvOS v5.3: migrated from raw ap() to wf().
 // Previously: separate loop for base quad + 4 apex edges with manual
 // blank jumps and fixed 12-step interpolation.
-// Now: 5 edges (base quad closed + 4 open apex spokes) via wf().
-// wf() chains base quad into one closed loop (degree-2 all vertices),
-// apex spokes become 4 individual open PathSegments.
+// Now: 5 edges (base quad + 4 apex spokes) via wf(). Base vertices are
+// degree 3 (2 base edges + 1 apex spoke each), so buildWfChains() joins
+// the base into one closed loop and folds each pair of opposite apex
+// spokes into one open chain through the apex -- 3 chains total instead
+// of 8 disconnected edges.
 static size_t p31(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     // Base quad vertices + apex
     static const P3D V[]={
@@ -1412,79 +1431,67 @@ static size_t p105(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
 }
 
 // ─── SZENEN 106 ────────────────────────────────────────────
-// p106 Random Points: scattered point cloud, count set by `sz`. Positions
-// are seeded by index only (not time), so the cloud stays stable frame to
-// frame; the whole field slowly rotates via `sp` for a bit of motion.
-// Structurally mirrors p90 (Starfield): budget-capped point count, greedy
-// nearest-neighbor emission order, optimizer blank jump + dwell per point.
+// p106 Random Points: flickering point cloud. Up to RANDOM_PTS_MAX_COUNT
+// independent "slots" each run their own real-time appear -> hold ->
+// disappear -> idle cycle, desynced per slot via a hashed phase offset --
+// so the number of points lit at any given instant varies (anywhere from
+// 0 up to the slot count), instead of every point being on all the time.
+// Position and color are re-rolled every time a slot restarts its cycle
+// (hashed by slot index + cycle count), so it isn't the same dots
+// re-blinking forever. Runs on millis() rather than `ph` (unlike other
+// presets) so Duration/Speed read as real time regardless of frame rate --
+// same convention as pattern_engine.cpp's Points-Only mode fade timing.
 //
-// sp  = rotation speed (0=static, 255=fast)
-// sz  = point count (0=~5, 255=~150)
+// sp  = fade speed: how fast a point appears/disappears (0=slow, 255=fast)
+// sz  = max concurrent points, "Amount" (1..RANDOM_PTS_MAX_COUNT)
+// gLivePreset.random_pts_hold_ms = hold time at full brightness, "Duration"
 static size_t p106(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
+    (void)ph;   // real-time (millis) driven -- see header comment above
     size_t n=0;
-    int nPts = 5 + (int)(sz / 255.f * 145.f);   // 5..150 points
-    const float rot  = aang(ph, sp);
-    const float cosr = cosf(rot), sinr = sinf(rot);
+    int nSlots = 1 + (int)(sz / 255.f * (RANDOM_PTS_MAX_COUNT - 1));  // 1..RANDOM_PTS_MAX_COUNT
+
+    const uint16_t fadeMs = (uint16_t)(750.f - (sp / 255.f) * 650.f);  // 750..100ms
+    uint16_t holdMs = gLivePreset.random_pts_hold_ms;
+    if (holdMs < 50) holdMs = 50;
+
+    const uint32_t onMs     = (uint32_t)fadeMs * 2 + holdMs;  // appear+hold+disappear
+    const uint32_t periodMs = onMs * 2;                       // + idle gap -- desyncs slots
+    const uint32_t nowMs    = millis();
 
     const optimizer::OptimizerConfig cfg = liveOptimizerConfig();
-
-    // Dwell: lit ticks at destination so eye integrates a clean dot.
     uint16_t kpps = gProjection.galvo_kpps; if (kpps < 12) kpps = 12; if (kpps > 60) kpps = 60;
     const float tick_us = 1000000.f / ((float)kpps * 1000.f);
     int dwell = (int)ceilf(150.f / tick_us);
     if (dwell < 3) dwell = 3;
 
-    // Point-count cap: worst-case blank jump + dwell per point vs. budget.
-    const int perPointEst = (int)cfg.blank_samples + dwell;
-    const size_t budget = (m < (size_t)cfg.max_pts_per_frame) ? m : (size_t)cfg.max_pts_per_frame;
-    if ((size_t)(nPts * perPointEst) > budget) {
-        nPts = (int)(budget / perPointEst);
-        if (nPts < 1) nPts = 1;
-    }
-    if (nPts > 150) nPts = 150;
-
-    auto fr = [](int seed) -> float {
+    auto fr = [](uint32_t seed) -> float {
         float x = sinf((float)seed * 127.1f + 1.f) * 43758.5453f;
         return x - floorf(x);
     };
 
-    struct RPt { float x, y; uint8_t r, g, b; bool used; };
-    static RPt pts[150];
-    for (int i = 0; i < nPts; i++) {
-        const float rx = (fr(i * 7)  * 2.f - 1.f) * SC * 0.95f;
-        const float ry = (fr(i * 13) * 2.f - 1.f) * SC * 0.95f;
-        pts[i].x = rx * cosr - ry * sinr;
-        pts[i].y = rx * sinr + ry * cosr;
-        const float hue = fr(i * 3) * PI2;
-        pts[i].r = (uint8_t)(128 + 127 * sinf(hue));
-        pts[i].g = (uint8_t)(128 + 127 * sinf(hue + 2.094f));
-        pts[i].b = (uint8_t)(128 + 127 * sinf(hue + 4.189f));
-        pts[i].used = false;
-    }
+    for (int k = 0; k < nSlots && n < m; k++) {
+        const uint32_t slotOff = (uint32_t)(fr((uint32_t)k * 97u + 11u) * periodMs);
+        const uint32_t t       = (nowMs + slotOff) % periodMs;
+        if (t >= onMs) continue;   // this slot is idle right now -- not drawn
 
-    // Greedy nearest-neighbor emission order, starting from origin.
-    static RPt sorted[150];
-    float curX = 0.f, curY = 0.f;
-    for (int s = 0; s < nPts; s++) {
-        int best = -1; float bestD2 = 1e18f;
-        for (int k = 0; k < nPts; k++) {
-            if (pts[k].used) continue;
-            const float dx = pts[k].x - curX, dy = pts[k].y - curY;
-            const float d2 = dx*dx + dy*dy;
-            if (d2 < bestD2) { bestD2 = d2; best = k; }
-        }
-        if (best < 0) break;
-        pts[best].used = true;
-        sorted[s] = pts[best];
-        curX = sorted[s].x;
-        curY = sorted[s].y;
-    }
+        const uint32_t cycleIdx = (nowMs + slotOff) / periodMs;  // bumps on each restart
+        const uint32_t seed     = (uint32_t)k * 10007u + cycleIdx * 997u;
 
-    for (int i = 0; i < nPts && n < m; i++) {
-        const RPt& p = sorted[i];
-        optimizer::emitBlankTo(o, n, m, p.x, p.y, cfg);
-        for (int d = 0; d < dwell && n < m; d++)
-            ap(o, n, m, p.x, p.y, p.r, p.g, p.b, 0);
+        const float px = (fr(seed * 3u + 1u) * 2.f - 1.f) * SC * 0.9f;
+        const float py = (fr(seed * 7u + 2u) * 2.f - 1.f) * SC * 0.9f;
+        const float hue = fr(seed * 5u + 3u) * PI2;
+        const uint8_t r = (uint8_t)(128 + 127 * sinf(hue));
+        const uint8_t g = (uint8_t)(128 + 127 * sinf(hue + 2.094f));
+        const uint8_t b = (uint8_t)(128 + 127 * sinf(hue + 4.189f));
+
+        float v;
+        if (t < fadeMs)               v = (float)t / fadeMs;                          // fade in
+        else if (t < fadeMs + holdMs) v = 1.f;                                        // hold
+        else                          v = 1.f - (float)(t - fadeMs - holdMs) / fadeMs; // fade out
+
+        optimizer::emitBlankTo(o, n, m, px, py, cfg);
+        const uint8_t vr = (uint8_t)(r * v), vg = (uint8_t)(g * v), vb = (uint8_t)(b * v);
+        for (int d = 0; d < dwell && n < m; d++) ap(o, n, m, px, py, vr, vg, vb, 0);
     }
     return n;
 }

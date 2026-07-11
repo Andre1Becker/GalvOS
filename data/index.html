@@ -450,6 +450,12 @@
           </select>
         </div>
         <div id="lv-preset-hint" style="display:none;margin:0 0 8px;padding:8px;background:#050514;border:1px solid var(--border);border-radius:5px;font-size:11px;color:var(--dim);line-height:1.5"></div>
+        <div id="lv-randompts-row" style="display:none;margin-bottom:8px">
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:3px">
+            <span>Duration</span><span id="lv-randompts-val" style="color:var(--accent);font-family:monospace">500ms</span>
+          </div>
+          <input type="range" id="lv-randompts" min="50" max="5000" step="50" value="500" oninput="liveSlider()">
+        </div>
         <div style="margin-bottom:8px">
           <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:3px">
             <span>Rotation (Z)</span><span id="lv-rot-val" style="color:var(--accent);font-family:monospace">0°</span>
@@ -3386,8 +3392,8 @@ const PRESET_PARAM_HINTS = {
           hint: '⭐ Starfield — Speed controls how fast stars fall top→bottom. Size sets the number of stars (20–100). Twinkle brightness varies automatically.' },
     91: { sp: 'Blink Speed', sz: 'Digit Size',
           hint: '⏱ Countdown Timer — Speed controls the blink rate when expired. Size scales the digit height.' },
-    104: { sp: 'Drift Amount', sz: 'Point Count',
-          hint: '✨ Random Points — Speed controls how much the points slowly drift/float (0 = frozen field). Size sets the number of points (1–200).' },
+    104: { sp: 'Fade Speed', sz: 'Amount',
+          hint: '✨ Random Points — Speed controls how fast points appear/disappear. Size sets the max simultaneous points (1–14) -- the actual count flickers randomly below that. Duration sets how long each point stays fully lit.' },
 };
 
 function updatePresetHint(idx) {
@@ -3406,6 +3412,8 @@ function updatePresetHint(idx) {
         if (hintEl) hintEl.style.display = 'none';
     }
     if (spMulRow) spMulRow.style.display = (idx === 90) ? 'block' : 'none';
+    var randomPtsRow = document.getElementById('lv-randompts-row');
+    if (randomPtsRow) randomPtsRow.style.display = (idx === 104) ? 'block' : 'none';
 }
 
 async function deactivatePreset() {
@@ -3461,6 +3469,7 @@ function liveSlider() {
     document.getElementById('lv-pm-count-val').textContent = document.getElementById('lv-pm-count').value;
     document.getElementById('lv-pm-fadein-val').textContent  = document.getElementById('lv-pm-fadein').value;
     document.getElementById('lv-pm-fadeout-val').textContent = document.getElementById('lv-pm-fadeout').value;
+    document.getElementById('lv-randompts-val').textContent = document.getElementById('lv-randompts').value + 'ms';
     // Color Preview
     const r=document.getElementById('lv-r').value,g=document.getElementById('lv-g').value,b=document.getElementById('lv-b').value;
     document.getElementById('lv-col-preview').style.background = `rgb(${r},${g},${b})`;
@@ -3633,6 +3642,7 @@ async function sendLiveControls() {
         points_fade_out_ms:  +document.getElementById('lv-pm-fadeout').value,
         points_fade_dir:     +document.getElementById('lv-pm-dir').value,
         points_static_on:    document.getElementById('lv-pm-static-on').checked,
+        random_pts_hold_ms:  +document.getElementById('lv-randompts').value,
     });
 }
 
@@ -3655,6 +3665,7 @@ function resetLiveControls() {
     document.getElementById('lv-pm-fadeout').value = 400;
     document.getElementById('lv-pm-dir').value = 0;
     document.getElementById('lv-pm-static-on').checked = false;
+    document.getElementById('lv-randompts').value = 500;
     document.getElementById('lv-col-on').checked = false;
     document.getElementById('lv-r').value = 255;
     document.getElementById('lv-g').value = 255;
