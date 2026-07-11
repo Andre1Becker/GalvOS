@@ -40,6 +40,34 @@ AsyncWebServer s_server(80);  // file-scope: ota_update sieht es
 namespace web_ui {
 
 static const char* TAG = "web";
+
+// ── PSRAM-backed JSON response ────────────────────────────────────────────────
+// serializeJson() into an Arduino String allocates on the internal DRAM heap,
+// which is the scarce resource shared with lwIP/WiFi. On the polled /api/state
+// path this repeatedly pressured internal heap (root cause of the low-heap /
+// WiFiUdp ENOMEM spiral). This serializes straight into a PSRAM buffer and
+// streams it chunked; the shared_ptr deleter frees the buffer whether the
+// response completes or the client aborts mid-stream.
+static void sendJsonPsram(AsyncWebServerRequest* req, const JsonDocument& doc) {
+    size_t json_len = measureJson(doc);
+    size_t buf_len  = json_len + 1;
+    std::shared_ptr<char> buf(
+        (char*)heap_caps_malloc(buf_len, MALLOC_CAP_SPIRAM),
+        [](char* p) { heap_caps_free(p); });
+    if (!buf) { req->send(503, "text/plain", "OOM"); return; }
+
+    serializeJson(doc, buf.get(), buf_len);
+
+    AsyncWebServerResponse* resp = req->beginChunkedResponse(
+        "application/json",
+        [buf, json_len](uint8_t* out, size_t maxLen, size_t index) -> size_t {
+            if (index >= json_len) return 0;
+            size_t n = std::min(maxLen, json_len - index);
+            memcpy(out, buf.get() + index, n);
+            return n;
+        });
+    req->send(resp);
+}
 // ── Session Auth Token ────────────────────────────────────────────────────────
 static char s_auth_token[17] = {0};
 
@@ -296,15 +324,13 @@ void init() {
     // ---- GET /api/state ----
     s_server.on("/api/state", HTTP_GET, [](AsyncWebServerRequest* req) {
         JsonDocument doc(&jsonAllocator()); buildStateJson(doc);
-        String out; serializeJson(doc, out);
-        req->send(200, "application/json", out);
+        sendJsonPsram(req, doc);
     });
 
     // ---- GET /api/config ----
     s_server.on("/api/config", HTTP_GET, [](AsyncWebServerRequest* req) {
         JsonDocument doc(&jsonAllocator()); buildConfigJson(doc);
-        String out; serializeJson(doc, out);
-        req->send(200, "application/json", out);
+        sendJsonPsram(req, doc);
     });
 
     // ---- POST /api/config ----
@@ -465,8 +491,7 @@ void init() {
         JsonArray zx = doc["x"].to<JsonArray>();
         JsonArray zy = doc["y"].to<JsonArray>();
         for (uint8_t i = 0; i < gZone.count; i++) { zx.add(gZone.x[i]); zy.add(gZone.y[i]); }
-        String out; serializeJson(doc, out);
-        req->send(200, "application/json", out);
+        sendJsonPsram(req, doc);
     });
 
     // ---- POST /api/zone/enable ---- (toggle clipping without re-sending polygon)
@@ -557,8 +582,7 @@ void init() {
             p["name"] = presets::PRESETS[i].name;
             p["cat"]  = presets::PRESETS[i].category;
         }
-        String out; serializeJson(doc, out);
-        req->send(200, "application/json", out);
+        sendJsonPsram(req, doc);
     });
 
     // ---- POST /api/preset ---- activate/deactivate preset
@@ -702,8 +726,7 @@ void init() {
             po["b"] = cp.b;
         }
 
-        String out; serializeJson(doc, out);
-        req->send(200, "application/json", out);
+        sendJsonPsram(req, doc);
     });
 
     // ── /api/curves POST — select curve + update params ──────────────────────
@@ -791,8 +814,7 @@ void init() {
             for (uint8_t v = 0; v < paths[i].count; v++) { xa.add(paths[i].x[v]); ya.add(paths[i].y[v]); }
         }
         doc["count"] = (int)n;
-        String out; serializeJson(doc, out);
-        req->send(200, "application/json", out);
+        sendJsonPsram(req, doc);
     });
 
     // ---- GET /api/text ----
@@ -808,8 +830,7 @@ void init() {
         doc["col_b"]   = gTextConfig.col_b;
         doc["rainbow"] = gTextConfig.rainbow;
         doc["active"]  = gTextConfig.active;
-        String out; serializeJson(doc, out);
-        req->send(200, "application/json", out);
+        sendJsonPsram(req, doc);
     });
 
     // ---- POST /api/text/off ----
@@ -832,8 +853,7 @@ void init() {
                 for (uint16_t i = 0; i < st.count; i++) { xa.add(st.x[i]); ya.add(st.y[i]); }
             }
         }
-        String out; serializeJson(doc, out);
-        req->send(200, "application/json", out);
+        sendJsonPsram(req, doc);
     });
 
     // ---- POST /api/paint/set ---- replace canvas (full strokes[] upload)
@@ -918,8 +938,7 @@ void init() {
         doc["ilda_frame"]   = ilda::gILDA.current_frame;
         doc["ilda_total"]   = ilda::gILDA.total_frames;
         doc["ilda_points"]  = ilda::gILDA.total_points;
-        String out; serializeJson(doc, out);
-        req->send(200, "application/json", out);
+        sendJsonPsram(req, doc);
     });
 
 
@@ -1010,8 +1029,7 @@ void init() {
         doc["loop"]    = ilda::gILDA.loop;
         if (ilda::gILDA.file_idx >= 0 && ilda::gILDA.file_idx < sd_card::fileCount())
             doc["name"] = sd_card::fileName(ilda::gILDA.file_idx);
-        String out; serializeJson(doc, out);
-        req->send(200, "application/json", out);
+        sendJsonPsram(req, doc);
     });
 
     // ---- GET /api/dmx/channels ---- DMX-channel-Dokumentation
@@ -1024,8 +1042,7 @@ void init() {
             ch["name"] = DMX_CHANNEL_NAMES[i];
             ch["ilda"] = (i >= DMX_ILDA_SELECT);
         }
-        String out; serializeJson(doc, out);
-        req->send(200, "application/json", out);
+        sendJsonPsram(req, doc);
     });
 
     // ── calibration-Pattern API ──────────────────────────────────
@@ -1059,8 +1076,7 @@ void init() {
             doc["idx"]     = gState.calib_idx;
             doc["bright"]  = gState.calib_bright;
             doc["channel"] = gState.calib_channel;
-            String out; serializeJson(doc, out);
-            req->send(200, "application/json", out);
+            sendJsonPsram(req, doc);
         });
 
     // POST /api/calib-pattern {"idx":0,"bright":200,"channel":0,"active":true}
@@ -1101,8 +1117,7 @@ void init() {
         doc["temp_shutdown"] = gSafety.temp_shutdown_c;
         doc["fan_min_pct"]   = gSafety.fan_min_pct;
         doc["fan_auto"]      = gSafety.fan_auto;
-        String out; serializeJson(doc, out);
-        req->send(200, "application/json", out);
+        sendJsonPsram(req, doc);
     });
     s_server.on("/api/safety/config", HTTP_POST,
         [](AsyncWebServerRequest* req){},
@@ -1134,8 +1149,7 @@ void init() {
         JsonDocument doc(&jsonAllocator());
         doc["dmx_address"]     = gConfig.dmx_address;
         doc["artnet_universe"] = gConfig.artnet_universe;
-        String out; serializeJson(doc, out);
-        req->send(200, "application/json", out);
+        sendJsonPsram(req, doc);
     });
     s_server.on("/api/dmx/address", HTTP_POST,
         [](AsyncWebServerRequest* req){},
@@ -1217,8 +1231,7 @@ void init() {
         doc["dmx_address"]     = gConfig.dmx_address;
         doc["etherdream_connected"] = etherdream::isConnected();
         doc["etherdream_playing"]   = etherdream::isPlaying();
-        String out; serializeJson(doc, out);
-        req->send(200, "application/json", out);
+        sendJsonPsram(req, doc);
     });
 
     // ── Feature 4: Playlist ───────────────────────────────────
@@ -1237,8 +1250,7 @@ void init() {
             if (sd_card::fileName(gPlaylist.entries[i].file_idx))
                 e["name"] = sd_card::fileName(gPlaylist.entries[i].file_idx);
         }
-        String out; serializeJson(doc, out);
-        req->send(200, "application/json", out);
+        sendJsonPsram(req, doc);
     });
     s_server.on("/api/playlist/start", HTTP_POST,
         [](AsyncWebServerRequest* req) {
@@ -1312,8 +1324,7 @@ void init() {
         JsonDocument doc(&jsonAllocator());
         if (s_scan_running) {
             doc["status"] = "scanning";
-            String out; serializeJson(doc, out);
-            req->send(200, "application/json", out);
+            sendJsonPsram(req, doc);
             return;
         }
         int n = s_scan_results;
@@ -1322,8 +1333,7 @@ void init() {
             WiFi.scanDelete();
             xTaskCreatePinnedToCore(wifiScanTask, "wifi_scan", 4096, nullptr, 2, nullptr, 0);
             doc["status"] = "scanning";
-            String out; serializeJson(doc, out);
-            req->send(200, "application/json", out);
+            sendJsonPsram(req, doc);
             return;
         }
         // Ergebnisse liefern
@@ -1338,8 +1348,7 @@ void init() {
         }
         WiFi.scanDelete();
         s_scan_results = 0;
-        String out; serializeJson(doc, out);
-        req->send(200, "application/json", out);
+        sendJsonPsram(req, doc);
     });
 
     // ---- POST /api/wifi-scan (neuen Scan erzwingen) ----
@@ -1363,8 +1372,7 @@ void init() {
         doc["ip"]        = WiFi.localIP().toString();
         doc["rssi"]      = WiFi.RSSI();
         doc["mode"]      = gConfig.wifi_static ? "static" : "dhcp";
-        String out; serializeJson(doc, out);
-        req->send(200, "application/json", out);
+        sendJsonPsram(req, doc);
     });
 
     // ---- POST /api/wifi-connect ----

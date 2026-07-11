@@ -26,7 +26,7 @@
 - Confetti Burst and Discoball same Output
 - Disco Ball is no Disco Ball
 - Squarewave not Square
-- Beat Wave, Radial Wave, FM Wave, Vortex, Sine Helix, Wave Field, Fourier Square, Gravity Waves, Tsunami and Wave Spectrum  - Aplitude and Frequency no impact
+- WIP: Beat Wave, Radial Wave, FM Wave, Vortex, Sine Helix, Wave Field, Fourier Square, Gravity Waves, Tsunami and Wave Spectrum  - Aplitude and Frequency no impact
 - Phyllotaxis bad output
 
 ### Text
