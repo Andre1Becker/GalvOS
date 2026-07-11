@@ -1910,7 +1910,16 @@ void init() {
         req->send(200, "application/json", buf);
     });
 
-    s_server.serveStatic("/", LittleFS, "/").setDefaultFile("index.html");
+    // Cache-Control lets the browser reuse the gzipped index.html from its own
+    // cache instead of re-fetching ~106 KB on every load/refresh. The re-fetch
+    // was the last remaining internal-DRAM spike: the LittleFS .gz read plus
+    // the concurrent lwIP TX buffers drove `largest` down near the failsafe
+    // limit on cold loads. With a one-hour max-age, only the very first load
+    // pays that cost; refreshes and revisits are served from browser cache and
+    // never touch the device heap.
+    s_server.serveStatic("/", LittleFS, "/")
+        .setDefaultFile("index.html")
+        .setCacheControl("max-age=3600");
     s_server.begin();
     ESP_LOGI(TAG, "WebUI at http://%s/", WiFi.localIP().toString().c_str());
 }
