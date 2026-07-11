@@ -409,57 +409,68 @@ static size_t p41(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
 }
 static size_t p42(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     size_t n=0;float sc=SC*ssc(sz)*.9f,t=aang(ph,sp);
-    for(int i=0;i<=120;i++){float x=L(-1.f,1.f,i/120.f),env=expf(-12*x*x),y=env*sinf(8*x*M_PI+t)*.8f;ap(o,n,m,x*sc,y*sc,0,255,200,i==0?1:0);}
+    const float wa=gLivePreset.wave_amp,wf=gLivePreset.wave_freq;
+    for(int i=0;i<=120;i++){float x=L(-1.f,1.f,i/120.f),env=expf(-12*x*x),y=env*wa*sinf(8*wf*x*M_PI+t)*.8f;ap(o,n,m,x*sc,y*sc,0,255,200,i==0?1:0);}
     return n;
 }
 static size_t p43(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     size_t n=0;float sc=SC*ssc(sz)*.9f,t=aang(ph,sp);
-    for(int i=0;i<=120;i++){float x=L(-1.f,1.f,i/120.f),y=.5f*(sinf(10*x*M_PI+t)+sinf(11*x*M_PI+t));ap(o,n,m,x*sc,y*sc,255,150,0,i==0?1:0);}
+    const float wa=gLivePreset.wave_amp,wf=gLivePreset.wave_freq;
+    for(int i=0;i<=120;i++){float x=L(-1.f,1.f,i/120.f),y=.5f*wa*(sinf(10*wf*x*M_PI+t)+sinf(11*wf*x*M_PI+t));ap(o,n,m,x*sc,y*sc,255,150,0,i==0?1:0);}
     return n;
 }
 static size_t p44(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     size_t n=0;float sc=SC*ssc(sz)*.9f,t=aang(ph,sp);
-    for(int ring=1;ring<=4;ring++){float r=ring/4.f,R=r*sc;for(int i=0;i<=80;i++){float a=PI2*i/80.f,rad=R*(1+.12f*sinf(8*a+r*8-t));ap(o,n,m,cosf(a)*rad,sinf(a)*rad,0,(uint8_t)(100+155*r),255,i==0?1:0);}}
+    const float wa=gLivePreset.wave_amp,wf=gLivePreset.wave_freq;
+    for(int ring=1;ring<=4;ring++){float r=ring/4.f,R=r*sc;for(int i=0;i<=80;i++){float a=PI2*i/80.f,rad=R*(1+.12f*wa*sinf(8*wf*a+r*8*wf-t));ap(o,n,m,cosf(a)*rad,sinf(a)*rad,0,(uint8_t)(100+155*r),255,i==0?1:0);}}
     return n;
 }
 static size_t p45(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     size_t n=0;float sc=SC*ssc(sz)*.9f,t=aang(ph,sp);
-    for(int i=0;i<=120;i++){float x=L(-1.f,1.f,i/120.f),y=.5f*sinf(6*x*PI2+4*sinf(x*PI2*2+t));ap(o,n,m,x*sc,y*sc,0,255,255,i==0?1:0);}
+    const float wa=gLivePreset.wave_amp,wf=gLivePreset.wave_freq;
+    for(int i=0;i<=120;i++){float x=L(-1.f,1.f,i/120.f),y=.5f*wa*sinf(6*wf*x*PI2+4*sinf(wf*x*PI2*2+t));ap(o,n,m,x*sc,y*sc,0,255,255,i==0?1:0);}
     return n;
 }
 static size_t p46(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     size_t n=0;float sc=SC*ssc(sz)*.9f,off=aang(ph,sp);
-    for(int i=0;i<200;i++){float t=i/200.f,a=t*PI2*4+off,r=sc*(1-t*.8f),w=.08f*sinf(a*8);ap(o,n,m,cosf(a)*(r+w*sc),sinf(a)*(r+w*sc),(uint8_t)(t*255),(uint8_t)((1-t)*200),200,i==0?1:0);}
+    const float wa=gLivePreset.wave_amp,wf=gLivePreset.wave_freq;
+    for(int i=0;i<200;i++){float t=i/200.f,a=t*PI2*4*wf+off,r=sc*(1-t*.8f),w=.08f*wa*sinf(a*8);ap(o,n,m,cosf(a)*(r+w*sc),sinf(a)*(r+w*sc),(uint8_t)(t*255),(uint8_t)((1-t)*200),200,i==0?1:0);}
     return n;
 }
 static size_t p47(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     size_t n=0;float sc=SC*ssc(sz)*.9f,t=aang(ph,sp);
-    for(int i=0;i<=200;i++){float u=L(-1.f,1.f,i/200.f),a=u*PI2*3+t;ap(o,n,m,u*sc,sinf(a)*sc*.5f,0,(uint8_t)(128+127*cosf(a)),(uint8_t)(128+127*sinf(a)),i==0?1:0);}
+    const float wa=gLivePreset.wave_amp,wf=gLivePreset.wave_freq;
+    for(int i=0;i<=200;i++){float u=L(-1.f,1.f,i/200.f),a=u*PI2*3*wf+t;ap(o,n,m,u*sc,wa*sinf(a)*sc*.5f,0,(uint8_t)(128+127*cosf(a)),(uint8_t)(128+127*sinf(a)),i==0?1:0);}
     return n;
 }
 static size_t p48(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     size_t n=0;float sc=SC*ssc(sz)*.9f,t=aang(ph,sp);
-    for(int row=-2;row<=2;row++){float y0=row*.36f;for(int i=0;i<=60;i++){float x=L(-1.f,1.f,i/60.f),y=y0+.12f*sinf(x*PI2*3+t+row*.7f);ap(o,n,m,x*sc,y*sc,0,(uint8_t)(128+127*sinf(row+t)),200,i==0?1:0);}}
+    const float wa=gLivePreset.wave_amp,wf=gLivePreset.wave_freq;
+    for(int row=-2;row<=2;row++){float y0=row*.36f;for(int i=0;i<=60;i++){float x=L(-1.f,1.f,i/60.f),y=y0+.12f*wa*sinf(x*PI2*3*wf+t+row*.7f);ap(o,n,m,x*sc,y*sc,0,(uint8_t)(128+127*sinf(row+t)),200,i==0?1:0);}}
     return n;
 }
 static size_t p49(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     size_t n=0;float sc=SC*ssc(sz)*.9f,t=aang(ph,sp);
-    for(int i=0;i<=120;i++){float x=L(-1.f,1.f,i/120.f);float y=0;for(int k=1;k<=5;k+=2)y+=sinf(k*x*PI2*1.5f+t)/k;ap(o,n,m,x*sc,y*.5f*sc,100,255,100,i==0?1:0);}
+    const float wa=gLivePreset.wave_amp,wf=gLivePreset.wave_freq;
+    for(int i=0;i<=120;i++){float x=L(-1.f,1.f,i/120.f);float y=0;for(int k=1;k<=5;k+=2)y+=sinf(k*x*PI2*1.5f*wf+t)/k;ap(o,n,m,x*sc,y*wa*.5f*sc,100,255,100,i==0?1:0);}
     return n;
 }
 static size_t p50(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     size_t n=0;float sc=SC*ssc(sz)*.9f,t=aang(ph,sp);
-    for(int i=0;i<=120;i++){float x=L(-1.f,1.f,i/120.f),decay=expf(-2*fabsf(x)),y=decay*sinf(10*x*M_PI+t)*(.4f+.4f*fabsf(x));ap(o,n,m,x*sc,y*sc,255,80,200,i==0?1:0);}
+    const float wa=gLivePreset.wave_amp,wf=gLivePreset.wave_freq;
+    for(int i=0;i<=120;i++){float x=L(-1.f,1.f,i/120.f),decay=expf(-2*fabsf(x)),y=decay*wa*sinf(10*wf*x*M_PI+t)*(.4f+.4f*fabsf(x));ap(o,n,m,x*sc,y*sc,255,80,200,i==0?1:0);}
     return n;
 }
 static size_t p51(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     size_t n=0;float sc=SC*ssc(sz)*.9f,t=aang(ph,sp);
-    for(int i=0;i<=120;i++){float x=L(-1.f,1.f,i/120.f),build=.5f+.5f*x,y=build*.5f*sinf(PI2*(x*2-t*.3f))*.7f;ap(o,n,m,x*sc,y*sc,0,150,255,i==0?1:0);}
+    const float wa=gLivePreset.wave_amp,wf=gLivePreset.wave_freq;
+    for(int i=0;i<=120;i++){float x=L(-1.f,1.f,i/120.f),build=.5f+.5f*x,y=build*.5f*wa*sinf(PI2*(x*2*wf-t*.3f))*.7f;ap(o,n,m,x*sc,y*sc,0,150,255,i==0?1:0);}
     return n;
 }
 static size_t p52(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     size_t n=0;float sc=SC*ssc(sz)*.9f,t=aang(ph,sp);
-    for(int i=0;i<=120;i++){float x=L(-1.f,1.f,i/120.f);float y=0;int ks[]={1,2,3,4,5};for(int j=0;j<5;j++)y+=sinf(ks[j]*x*PI2+t*(j*.5f+.5f))*.2f/ks[j];ap(o,n,m,x*sc,y*sc,255,200,50,i==0?1:0);}
+    const float wa=gLivePreset.wave_amp,wf=gLivePreset.wave_freq;
+    for(int i=0;i<=120;i++){float x=L(-1.f,1.f,i/120.f);float y=0;int ks[]={1,2,3,4,5};for(int j=0;j<5;j++)y+=sinf(ks[j]*wf*x*PI2+t*(j*.5f+.5f))*.2f/ks[j];ap(o,n,m,x*sc,y*wa*sc,255,200,50,i==0?1:0);}
     return n;
 }
 
