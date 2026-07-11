@@ -7,9 +7,9 @@
 - SD-Card: Currently, if an SD-Card is populated, Galvos go crazy
 - try different approach to get sd card working
 - make features toggable via UI (fe. disable ArtNet if not needed)
-- Move Point Optimizer to Calib Tab
 - Add FPS Counter / Point Limit to Statusbar
 - Add Auto Tuning via Global Shutter CAM input
+- Add What to Expect Images next to Calibration Patterns
 
 ### Paint by Finger
 
@@ -18,7 +18,6 @@
 
 ### Patterns
 
-- WIP: Kaleidoscope / Mirror effect
 - point to multi point spread out
 - 3 cirle Preset
 - random points with fade out (modifiable)
