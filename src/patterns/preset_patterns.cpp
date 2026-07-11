@@ -1311,7 +1311,86 @@ static size_t p105(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     return n;
 }
 
+// ─── SZENEN 106 ────────────────────────────────────────────
+// p106 Random Points: scattered point cloud, count set by `sz`. Positions
+// are seeded by index only (not time), so the cloud stays stable frame to
+// frame; the whole field slowly rotates via `sp` for a bit of motion.
+// Structurally mirrors p90 (Starfield): budget-capped point count, greedy
+// nearest-neighbor emission order, optimizer blank jump + dwell per point.
+//
+// sp  = rotation speed (0=static, 255=fast)
+// sz  = point count (0=~5, 255=~150)
+static size_t p106(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
+    size_t n=0;
+    int nPts = 5 + (int)(sz / 255.f * 145.f);   // 5..150 points
+    const float rot  = aang(ph, sp);
+    const float cosr = cosf(rot), sinr = sinf(rot);
+
+    const optimizer::OptimizerConfig cfg = liveOptimizerConfig();
+
+    // Dwell: lit ticks at destination so eye integrates a clean dot.
+    uint16_t kpps = gProjection.galvo_kpps; if (kpps < 12) kpps = 12; if (kpps > 60) kpps = 60;
+    const float tick_us = 1000000.f / ((float)kpps * 1000.f);
+    int dwell = (int)ceilf(150.f / tick_us);
+    if (dwell < 3) dwell = 3;
+
+    // Point-count cap: worst-case blank jump + dwell per point vs. budget.
+    const int perPointEst = (int)cfg.blank_samples + dwell;
+    const size_t budget = (m < (size_t)cfg.max_pts_per_frame) ? m : (size_t)cfg.max_pts_per_frame;
+    if ((size_t)(nPts * perPointEst) > budget) {
+        nPts = (int)(budget / perPointEst);
+        if (nPts < 1) nPts = 1;
+    }
+    if (nPts > 150) nPts = 150;
+
+    auto fr = [](int seed) -> float {
+        float x = sinf((float)seed * 127.1f + 1.f) * 43758.5453f;
+        return x - floorf(x);
+    };
+
+    struct RPt { float x, y; uint8_t r, g, b; bool used; };
+    static RPt pts[150];
+    for (int i = 0; i < nPts; i++) {
+        const float rx = (fr(i * 7)  * 2.f - 1.f) * SC * 0.95f;
+        const float ry = (fr(i * 13) * 2.f - 1.f) * SC * 0.95f;
+        pts[i].x = rx * cosr - ry * sinr;
+        pts[i].y = rx * sinr + ry * cosr;
+        const float hue = fr(i * 3) * PI2;
+        pts[i].r = (uint8_t)(128 + 127 * sinf(hue));
+        pts[i].g = (uint8_t)(128 + 127 * sinf(hue + 2.094f));
+        pts[i].b = (uint8_t)(128 + 127 * sinf(hue + 4.189f));
+        pts[i].used = false;
+    }
+
+    // Greedy nearest-neighbor emission order, starting from origin.
+    static RPt sorted[150];
+    float curX = 0.f, curY = 0.f;
+    for (int s = 0; s < nPts; s++) {
+        int best = -1; float bestD2 = 1e18f;
+        for (int k = 0; k < nPts; k++) {
+            if (pts[k].used) continue;
+            const float dx = pts[k].x - curX, dy = pts[k].y - curY;
+            const float d2 = dx*dx + dy*dy;
+            if (d2 < bestD2) { bestD2 = d2; best = k; }
+        }
+        if (best < 0) break;
+        pts[best].used = true;
+        sorted[s] = pts[best];
+        curX = sorted[s].x;
+        curY = sorted[s].y;
+    }
+
+    for (int i = 0; i < nPts && n < m; i++) {
+        const RPt& p = sorted[i];
+        optimizer::emitBlankTo(o, n, m, p.x, p.y, cfg);
+        for (int d = 0; d < dwell && n < m; d++)
+            ap(o, n, m, p.x, p.y, p.r, p.g, p.b, 0);
+    }
+    return n;
+}
+
 // ─── DISPATCH ────────────────────────────────────────────────
+
 const PresetInfo PRESETS[PRESET_COUNT] = {
     {"Circle","Geometry"},{"Square","Geometry"},{"Triangle","Geometry"},{"Pentagon","Geometry"},{"Hexagon","Geometry"},{"Octagon","Geometry"},{"Star 4","Geometry"},{"Star 5","Geometry"},{"Star 6","Geometry"},{"Star 8","Geometry"},
     {"Cross +","Lines"},{"X Shape","Lines"},{"Grid 3x3","Lines"},{"H Line","Lines"},{"Diagonal","Lines"},
@@ -1326,6 +1405,7 @@ const PresetInfo PRESETS[PRESET_COUNT] = {
     {"Countdown Timer","Timers"},
     {"Rocket","Vehicles"},{"Train","Vehicles"},{"Racing Car","Vehicles"},{"UFO","Vehicles"},{"Sailing Boat","Vehicles"},{"Bicycle","Vehicles"},{"Airplane","Vehicles"},{"Space Shuttle","Vehicles"},
     {"Torus Knot","Curves"},{"Pentagram","Geometry"},{"DNA Helix","Complex"},{"Yin Yang","Symbols"},
+    {"Random Points","Scenes"},
 };
 
 static const PFn DISPATCH[PRESET_COUNT] = {
@@ -1342,6 +1422,7 @@ static const PFn DISPATCH[PRESET_COUNT] = {
     p100,
     p91,p92,p93,p94,p95,p96,p97,p98,
     p102,p103,p104,p105,
+    p106,
 };
 
 size_t generate(uint8_t idx, LaserPoint* out, size_t max_pts,
