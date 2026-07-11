@@ -9,7 +9,6 @@
 - make features toggable via UI (fe. disable ArtNet if not needed)
 - Add FPS Counter / Point Limit to Statusbar
 - Add Auto Tuning via Global Shutter CAM input
-- Add What to Expect Images next to Calibration Patterns
 
 ### Paint by Finger
 
@@ -23,10 +22,9 @@
 - Hypotrochoid (Complex) Way to huge scaling
 - Spirograph 5/3 (Complex), Chaos Bouncer (Combo) Loop not closed (jumps arround)
 - Champagne Bubbles(no circles just weird lines), Diamond (just a weird line), Yin Yang (broken Circle)
-- Confetti Burst and Discoball same Output
+- Confetti is broken
 - Disco Ball is no Disco Ball
 - Squarewave not Square
-- WIP: Beat Wave, Radial Wave, FM Wave, Vortex, Sine Helix, Wave Field, Fourier Square, Gravity Waves, Tsunami and Wave Spectrum  - Aplitude and Frequency no impact
 - Phyllotaxis bad output
 
 ### Text
