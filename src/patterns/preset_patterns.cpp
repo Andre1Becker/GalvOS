@@ -404,7 +404,21 @@ static size_t p40(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
 static size_t p41(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     size_t n=0;float sc=SC*ssc(sz)*.9f,t=aang(ph,sp);
     const float wa=gLivePreset.wave_amp,wf=gLivePreset.wave_freq;
-    for(int i=0;i<=200;i++){float x=L(-1.f,1.f,i/200.f),y=(sinf(3*wf*x*PI2+t)>0?1.f:-1.f)*wa*.55f;ap(o,n,m,x*sc,y*sc,200,100,255,i==0?1:0);}
+    // True square wave: explicit horizontal plateaus joined by vertical edges.
+    // Previous version sampled sign(sin) at 200 evenly-spaced x -> the galvo
+    // sloped diagonally through each transition instead of snapping vertically.
+    const int cycles=(int)fmaxf(1.f,roundf(3*wf));      // whole cycles across width
+    const int steps=cycles*2;                           // half-periods (plateaus)
+    const float amp=wa*.55f*sc,phi=fmodf(t,PI2)/PI2;    // phase shifts plateaus
+    float px=-sc,py=((sinf(phi*PI2)>0)?1.f:-1.f)*amp;
+    ap(o,n,m,px,py,200,100,255,1);                      // start
+    for(int s=0;s<=steps;s++){
+        float x=L(-1.f,1.f,(float)s/steps)*sc;
+        float lvl=(sinf(((float)s/steps+phi)*PI2*cycles)>0?1.f:-1.f)*amp;
+        if(lvl!=py){ap(o,n,m,px,lvl,200,100,255,0);py=lvl;} // vertical edge
+        ap(o,n,m,x,py,200,100,255,0);                   // horizontal plateau
+        px=x;
+    }
     return n;
 }
 static size_t p42(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
@@ -478,7 +492,24 @@ static size_t p52(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
 // p53-p55, p58: parametric curves — not migrated.
 static size_t p53(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){size_t n=0;float sc=SC*ssc(sz)*.38f,off=aang(ph,sp);const float R=5,r=3,d=5;for(int i=0;i<=400;i++){float t=PI2*i/400.f+off;ap(o,n,m,sc*((R-r)*cosf(t)+d*cosf((R-r)*t/r)),sc*((R-r)*sinf(t)-d*sinf((R-r)*t/r)),255,100,200,i==0?1:0);}return n;}
 static size_t p54(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){size_t n=0;float sc=SC*ssc(sz)*.38f,off=aang(ph,sp);for(int i=0;i<=200;i++){float t=PI2*i/200.f,e=expf(cosf(t))-2*cosf(4*t)-powf(sinf(t/12.f),5);ap(o,n,m,sc*e*sinf(t+off),sc*e*cosf(t+off),255,165,0,i==0?1:0);}return n;}
-static size_t p55(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){size_t n=0;float sc=SC*ssc(sz)*.38f,off=aang(ph,sp);const float R=5,k=3.f/5,l=.7f;for(int i=0;i<=400;i++){float t=PI2*i/400.f+off;ap(o,n,m,sc*R*((1-k)*cosf(t)+l*k*cosf((1-k)*t/k)),sc*R*((1-k)*sinf(t)-l*k*sinf((1-k)*t/k)),0,200,255,i==0?1:0);}return n;}
+// p55 Spirograph 5/3 -- hypotrochoid, fixed radii R=5, r=3. The curve only
+// closes after lcm(R,r)/R = 5 revolutions of the outer parameter, so sweep
+// t over [0,10*PI]. Previous version swept a single 2*PI turn -> open path
+// that jumped back to start via the closing blank. Peak radius (R-r)+d is
+// normalised so the figure fills the frame. off animates rotation.
+static size_t p55(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
+    size_t n=0;float off=aang(ph,sp);
+    const float R=5.f,r=3.f,d=3.f,peakNorm=1.f/((R-r)+d);
+    float sc=SC*ssc(sz)*.9f*peakNorm;
+    const int N=600;
+    for(int i=0;i<=N;i++){
+        float t=10.f*(float)M_PI*i/N;
+        float x=(R-r)*cosf(t)+d*cosf((R-r)/r*t);
+        float y=(R-r)*sinf(t)-d*sinf((R-r)/r*t);
+        ap(o,n,m,sc*(x*cosf(off)-y*sinf(off)),sc*(x*sinf(off)+y*cosf(off)),0,200,255,i==0?1:0);
+    }
+    return n;
+}
 
 // p56 Concentric Rings -- GalvOS v5.3: migrated to optimizer via ngon().
 // Previously: raw ap() loop per ring with manual blank jumps.
@@ -562,9 +593,23 @@ static size_t p59(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     return optimizer::optimize(segs,nspokes,o,m,liveOptimizerConfig());
 }
 
+// p60 Chaos Bouncer -- a closed Lissajous knot. Previous version multiplied
+// incommensurate frequencies (3.1, .7, 2.1, 1.3) so the path never returned
+// to its start over one 2*PI sweep -> a lit jump every frame. Now uses
+// integer harmonics (fx=3, fy=2) with a slowly drifting phase (dph) so the
+// figure morphs but always closes: at i=0 and i=N the sample is identical.
 static size_t p60(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
-    size_t n=0;float sc=SC*ssc(sz)*.9f,t0=aang(ph,sp,.5f);
-    for(int i=0;i<128;i++){float t=t0+PI2*i/128.f;ap(o,n,m,sc*.9f*sinf(3.1f*t)*cosf(.7f*t),sc*.9f*cosf(2.1f*t)*sinf(1.3f*t),(uint8_t)(128+127*sinf(t*2)),(uint8_t)(128+127*sinf(t*3+1)),(uint8_t)(128+127*cosf(t*1.5f)),i==0?1:0);}
+    size_t n=0;float sc=SC*ssc(sz)*.9f;
+    const float dph=aang(ph,sp,.5f);          // animated relative phase
+    const int N=256;
+    for(int i=0;i<=N;i++){
+        float t=PI2*i/N;
+        float x=sinf(3.f*t+dph),y=sinf(2.f*t);
+        ap(o,n,m,sc*x,sc*y,
+           (uint8_t)(128+127*sinf(t*2+dph)),
+           (uint8_t)(128+127*sinf(t*3+1)),
+           (uint8_t)(128+127*cosf(t*1.5f)),i==0?1:0);
+    }
     return n;
 }
 
@@ -607,86 +652,90 @@ static size_t p61(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     return n;
 }
 
+// p62 Champagne Bubbles -- rising ring cluster. Each bubble is a closed
+// 16-gon. Previous version drew all bubbles back-to-back; the per-frame
+// closing blank then linked the last bubble to the first as a lit diagonal
+// ("weird lines"). Fix: emit an explicit blank move to each bubble's start
+// (dark travel) and a trailing blank so the closing bridge starts/ends dark.
 static size_t p62(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     size_t n=0;float sc=SC*ssc(sz)*.9f,t=aang(ph,sp);
     static const struct{float x,spd,off,r;}b[]={{-.4f,.3f,1.3f,.08f},{-.2f,.5f,2.1f,.06f},{.1f,.7f,.7f,.09f},{.3f,.4f,1.8f,.07f},{-.1f,.6f,3.2f,.05f},{.5f,.2f,2.5f,.08f},{-.5f,.8f,.4f,.07f}};
-    for(auto& bl:b){float ph2=fmodf(t*bl.spd+bl.off,PI2),y=L(-1.f,1.f,ph2/PI2),wob=sinf(ph2*8)*.02f;for(int i=0;i<=16;i++){float a=PI2*i/16.f;ap(o,n,m,cosf(a)*bl.r*sc+bl.x*sc,sinf(a)*bl.r*sc+y*sc,200,220,255,i==0?1:0);}}
+    for(auto& bl:b){
+        float ph2=fmodf(t*bl.spd+bl.off,PI2),y=L(-1.f,1.f,ph2/PI2),wob=sinf(ph2*8)*.02f;
+        float cx=(bl.x+wob)*sc,cy=y*sc,rr=bl.r*sc;
+        ap(o,n,m,cx+rr,cy,0,0,0,1);                     // blank travel to ring start
+        for(int i=0;i<=16;i++){float a=PI2*i/16.f;ap(o,n,m,cx+cosf(a)*rr,cy+sinf(a)*rr,200,220,255,0);}
+    }
+    if(n>0)ap(o,n,m,o[n-1].x,o[n-1].y,0,0,0,1);         // end dark
     return n;
 }
 
 // p63 Disco Ball -- GalvOS v5.3: migrated.
 // Outline circle + latitude rings + equator: all via ngon().
 // Longitude spokes: migrated to optimizer PathSegments.
+// p63 Confetti Burst (Combo) -- previously a duplicate of the Disco Ball
+// code, so this slot never showed confetti. Now: pieces launch from centre
+// and drift outward on deterministic per-piece trajectories. Each piece is a
+// small rotating quad, blank-jumped to. `t` (0..1) is the burst progress
+// derived from a looping phase so the burst repeats.
 static size_t p63(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
-    size_t n=0;float sc=SC*ssc(sz)*.9f,rot=aang(ph,sp);
-    // Outline circle (ball silhouette)
-    n += ngon(o+n,m-n,48,sc,0,220,220,220);
-    // Latitude rings
-    for(int row=-2;row<=2;row++){
-        if(row==0) continue;
-        float y=row*.32f,rx=sqrtf(fmaxf(0.f,1.f-y*y));
-        optimizer::PathVertex verts[24];
-        for(int i=0;i<24;i++){
-            float a=PI2*i/24.f;
-            verts[i].x=cosf(a)*rx*sc; verts[i].y=y*sc;
-            verts[i].r=(uint8_t)(128+127*sinf(a+rot));
-            verts[i].g=(uint8_t)(128+127*sinf(a+rot+2.094f));
-            verts[i].b=(uint8_t)(128+127*sinf(a+rot+4.189f));
-            verts[i].lift=false;
-        }
-        optimizer::PathSegment seg(verts,24,true);
-        n += optimizer::optimize(&seg,1,o+n,m-n,liveOptimizerConfig());
+    size_t n=0;float sc=SC*ssc(sz)*.9f;
+    float burst=fmodf(aang(ph,sp,.5f)/PI2,1.f);        // 0..1 loop
+    const int NP=18;
+    for(int p=0;p<NP;p++){
+        float ang=PI2*p/NP+ (p*0.37f);                  // fixed launch direction
+        float r=burst*(0.35f+0.65f*fmodf(p*0.191f,1.f))*sc;
+        float cx=cosf(ang)*r,cy=sinf(ang)*r;
+        float spin=ang*3.f+burst*PI2*2.f,pr=0.05f*sc;
+        uint8_t cr=(uint8_t)(128+127*sinf(ang)),cg=(uint8_t)(128+127*sinf(ang+2.1f)),cb=(uint8_t)(128+127*sinf(ang+4.2f));
+        ap(o,n,m,cx+cosf(spin)*pr,cy+sinf(spin)*pr,0,0,0,1); // blank travel
+        for(int i=0;i<=4;i++){float a=spin+PI2*i/4.f;ap(o,n,m,cx+cosf(a)*pr,cy+sinf(a)*pr*.6f,cr,cg,cb,0);}
     }
-    // Equator
-    n += ngon(o+n,m-n,24,sc,0,255,255,255);
-    // Longitude spokes (8 vertical arcs as line segments)
-    for(int i=0;i<8;i++){
-        float a=PI2*i/8.f+rot;
-        optimizer::PathVertex verts[2];
-        verts[0].x=cosf(a)*sc; verts[0].y=-sc;
-        verts[0].r=(uint8_t)(128+127*cosf(a*2+rot));
-        verts[0].g=(uint8_t)(128+127*sinf(a*3-rot));
-        verts[0].b=255; verts[0].lift=true;
-        verts[1].x=cosf(a)*sc; verts[1].y=sc;
-        verts[1].r=verts[0].r; verts[1].g=verts[0].g; verts[1].b=255;
-        verts[1].lift=false;
-        optimizer::PathSegment seg(verts,2,false);
-        n += optimizer::optimize(&seg,1,o+n,m-n,liveOptimizerConfig());
-    }
+    if(n>0)ap(o,n,m,o[n-1].x,o[n-1].y,0,0,0,1);
     return n;
 }
 
 // p101 Disco Ball 2 (6th Combo preset)
+// p101 Disco Ball -- wire sphere. Previous latitudes held y constant (flat
+// horizontal scribbles, not rings) and meridians were full-height vertical
+// chords, so nothing read as a ball. Now latitudes are foreshortened
+// ellipses at height y=sin(lat) with x-radius cos(lat), and meridians are
+// vertical ellipse arcs whose horizontal extent shrinks with |sin(lon)|.
 static size_t p101(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     size_t n=0;float sc=SC*ssc(sz)*.9f,rot=aang(ph,sp);
+    const float yFore=.5f;                              // vertical foreshortening
+    // Silhouette
     n += ngon(o+n,m-n,48,sc,0,220,220,220);
+    // Latitude ellipses at ±30°, ±60° and equator.
     for(int row=-2;row<=2;row++){
-        if(row==0) continue;
-        float y=row*.32f,rx=sqrtf(fmaxf(0.f,1.f-y*y));
-        optimizer::PathVertex verts[24];
-        for(int i=0;i<24;i++){
-            float a=PI2*i/24.f;
-            verts[i].x=cosf(a)*rx*sc; verts[i].y=y*sc;
-            verts[i].r=(uint8_t)(128+127*sinf(a+rot));
-            verts[i].g=(uint8_t)(128+127*sinf(a+rot+2.094f));
-            verts[i].b=(uint8_t)(128+127*sinf(a+rot+4.189f));
+        float lat=row*30.f*(float)M_PI/180.f;
+        float ry=sinf(lat)*sc,rx=cosf(lat)*sc;
+        uint8_t cw=(row==0)?255:200;
+        optimizer::PathVertex verts[28];
+        for(int i=0;i<28;i++){
+            float a=PI2*i/28.f;
+            verts[i].x=cosf(a)*rx; verts[i].y=ry+sinf(a)*rx*.12f; // thin ellipse band
+            verts[i].r=(uint8_t)(cw*(0.5f+0.5f*sinf(a+rot)));
+            verts[i].g=(uint8_t)(cw*(0.5f+0.5f*sinf(a+rot+2.094f)));
+            verts[i].b=(uint8_t)(cw*(0.5f+0.5f*sinf(a+rot+4.189f)));
             verts[i].lift=false;
         }
-        optimizer::PathSegment seg(verts,24,true);
+        optimizer::PathSegment seg(verts,28,true);
         n += optimizer::optimize(&seg,1,o+n,m-n,liveOptimizerConfig());
     }
-    n += ngon(o+n,m-n,24,sc,0,255,255,255);
-    for(int i=0;i<8;i++){
-        float a=PI2*i/8.f+rot;
-        optimizer::PathVertex verts[2];
-        verts[0].x=cosf(a)*sc; verts[0].y=-sc;
-        verts[0].r=(uint8_t)(128+127*cosf(a*2+rot));
-        verts[0].g=(uint8_t)(128+127*sinf(a*3-rot));
-        verts[0].b=255; verts[0].lift=true;
-        verts[1].x=cosf(a)*sc; verts[1].y=sc;
-        verts[1].r=verts[0].r; verts[1].g=verts[0].g; verts[1].b=255;
-        verts[1].lift=false;
-        optimizer::PathSegment seg(verts,2,false);
+    // Meridians: vertical arcs, x = sin(lon)*cos(v)*sc, y = sin(v)*yFore*sc.
+    const int NM=6;
+    for(int mI=0;mI<NM;mI++){
+        float lon=(float)M_PI*mI/NM+rot;
+        optimizer::PathVertex verts[20];
+        for(int i=0;i<20;i++){
+            float v=-(float)(M_PI/2)+(float)M_PI*i/19.f;
+            verts[i].x=sinf(lon)*cosf(v)*sc; verts[i].y=sinf(v)*sc*yFore*2.f;
+            verts[i].r=(uint8_t)(128+127*cosf(lon*2+rot));
+            verts[i].g=(uint8_t)(128+127*sinf(lon*3-rot));
+            verts[i].b=255; verts[i].lift=(i==0);
+        }
+        optimizer::PathSegment seg(verts,20,false);
         n += optimizer::optimize(&seg,1,o+n,m-n,liveOptimizerConfig());
     }
     return n;
@@ -808,9 +857,21 @@ static size_t p77(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){ // K
     return n;
 }
 static size_t p78(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){ // Diamant
-    size_t n=0;float sc=SC*ssc(sz)*.9f,rot=aang(ph,sp,.2f);
-    float gem[][2]={{0,.8f},{.55f,.25f},{.55f,-.1f},{0,-.9f},{-.55f,-.1f},{-.55f,.25f},{0,.8f},{.2f,.25f},{.55f,.25f},{-.2f,.25f},{-.55f,.25f},{0,.25f},{.55f,-.1f},{0,.25f},{-.55f,-.1f},{0,.25f},{0,-.9f}};
-    for(size_t i=0;i<17;i++){float x=gem[i][0],y=gem[i][1];ap(o,n,m,(x*cosf(rot)-y*sinf(rot))*sc*.75f,(x*sinf(rot)+y*cosf(rot))*sc*.75f,180,220,255,i==0||i>=7?1:0);}
+    size_t n=0;float sc=SC*ssc(sz)*.9f*.75f,rot=aang(ph,sp,.2f);
+    const uint8_t R=180,G=220,B=255;
+    auto rp=[&](float x,float y,uint8_t bl){ap(o,n,m,(x*cosf(rot)-y*sinf(rot))*sc,(x*sinf(rot)+y*cosf(rot))*sc,R,G,B,bl);};
+    // Outline: table (top flat) + crown girdle + pavilion to culet, closed loop.
+    static const float out[][2]={{-.3f,.8f},{.3f,.8f},{.55f,.25f},{.55f,-.1f},{0,-.9f},{-.55f,-.1f},{-.55f,.25f},{-.3f,.8f}};
+    for(size_t i=0;i<8;i++)rp(out[i][0],out[i][1],i==0?1:0);
+    // Facet lines: each is a blank-jumped 2-point segment.
+    static const float fac[][4]={
+        {-.3f,.8f, -.2f,.25f},{.3f,.8f, .2f,.25f},   // table corners down to girdle
+        {-.55f,.25f, .55f,.25f},                     // girdle line
+        {-.2f,.25f, .2f,.25f},                       // table bottom edge
+        {-.55f,-.1f, 0,-.9f},{.55f,-.1f, 0,-.9f},    // pavilion edges to culet
+        {-.2f,.25f, 0,-.9f},{.2f,.25f, 0,-.9f}};     // inner pavilion facets
+    for(auto&fseg:fac){rp(fseg[0],fseg[1],1);rp(fseg[2],fseg[3],0);}
+    if(n>0)ap(o,n,m,o[n-1].x,o[n-1].y,0,0,0,1);
     return n;
 }
 static size_t p79(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){ // Cocktail-Schirm
@@ -832,10 +893,23 @@ static size_t p81(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){ // C
     for(auto&bl:b){float ph2=fmodf(t*bl[1]+bl[2],PI2),y=L(-1.f,1.f,ph2/PI2),wob=sinf(ph2*8)*.02f;for(int i=0;i<=16;i++){float a=PI2*i/16.f;ap(o,n,m,(cosf(a)*bl[3]+bl[0]+wob)*sc,(sinf(a)*bl[3]+y)*sc,200,220,255,i==0?1:0);}}
     return n;
 }
-static size_t p82(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){ // Konfetti-Burst
+static size_t p82(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){ // Konfetti
     size_t n=0;float sc=SC*ssc(sz)*.9f,t=aang(ph,sp);
+    // {startAngle, radiusFrac, phaseOffset}. Previously the start angle field
+    // was misused as an angular *speed* (fmod(t*angle+off)), so pieces spun
+    // in orbits instead of drifting. Now pieces fall with a gentle sway and
+    // wrap vertically; each quad is blank-jumped to.
     float s[][3]={{.3f,.6f,1.1f},{-.4f,.7f,2.3f},{.7f,.3f,3.5f},{-.6f,.4f,4.7f},{.2f,.8f,.8f},{-.3f,.5f,5.2f},{.5f,.6f,1.8f},{-.5f,.3f,2.9f},{.4f,.9f,4.1f},{-.2f,.7f,3.3f},{.6f,.2f,.5f},{-.7f,.6f,5.8f},{0,.9f,1.4f},{.8f,.4f,2.1f},{-.4f,.8f,3.8f}};
-    for(auto&bl:s){float ang=fmodf(t*bl[0]+bl[2],PI2),r=bl[1]*sc,cx=cosf(ang)*r,cy=sinf(ang)*r,cp=ang+bl[2];uint8_t cr=(uint8_t)(128+127*sinf(cp)),cg=(uint8_t)(128+127*sinf(cp+2.1f)),cb=(uint8_t)(128+127*sinf(cp+4.2f));for(int i=0;i<=4;i++){float a=PI2*i/4.f+ang*3;ap(o,n,m,cx+cosf(a)*.06f*sc,cy+sinf(a)*.04f*sc,cr,cg,cb,i==0?1:0);}}
+    for(auto&bl:s){
+        float fall=fmodf(t*.3f+bl[2],PI2)/PI2;          // 0..1 fall progress
+        float cx=(bl[0]+.06f*sinf(t+bl[2]*3.f))*sc;
+        float cy=L(1.f,-1.f,fall)*sc*bl[1];
+        float spin=t*2.f+bl[2];
+        uint8_t cr=(uint8_t)(128+127*sinf(bl[2])),cg=(uint8_t)(128+127*sinf(bl[2]+2.1f)),cb=(uint8_t)(128+127*sinf(bl[2]+4.2f));
+        ap(o,n,m,cx,cy,0,0,0,1);                        // blank travel
+        for(int i=0;i<=4;i++){float a=spin+PI2*i/4.f;ap(o,n,m,cx+cosf(a)*.05f*sc,cy+sinf(a)*.035f*sc,cr,cg,cb,0);}
+    }
+    if(n>0)ap(o,n,m,o[n-1].x,o[n-1].y,0,0,0,1);
     return n;
 }
 static size_t p83(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){return p63(o,m,ph,sp,sz);} // Disco-Ball = p63
@@ -1306,19 +1380,34 @@ static size_t p104(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
 // p105 Yin-Yang -- outer circle + S-divider (two opposing half-circles) +
 // two accent dots. Wireframe laser output can't fill black/white halves,
 // so the eye-dots use contrasting colors instead of the traditional fill.
+// p105 Yin-Yang -- outer circle + continuous S-divider + two accent dots.
+// Fix: the S half-circles and the eye dots are offset from the origin, so
+// they must be rotated as a rigid body together with the outer circle.
+// Previously only the arc *angle* got `off` while the ±R/2 centre offsets
+// stayed axis-aligned, so under animation the S and dots tore away from the
+// disc. Every emitted point now passes through one rotation by `off`. Each
+// sub-shape is blank-jumped so no stray connecting lines appear.
 static size_t p105(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     size_t n=0;
     float R=SC*ssc(sz)*.85f, off=aang(ph,sp);
+    const float c=cosf(off),s=sinf(off);
+    auto rot=[&](float x,float y,uint8_t r,uint8_t g,uint8_t b,uint8_t bl){
+        ap(o,n,m,x*c-y*s,x*s+y*c,r,g,b,bl);};
+    // Outer circle
     const int NC=64;
-    for(int i=0;i<=NC;i++){float a=PI2*i/NC+off;ap(o,n,m,R*cosf(a),R*sinf(a),255,255,255,i==0?1:0);}
+    for(int i=0;i<=NC;i++){float a=PI2*i/NC;rot(R*cosf(a),R*sinf(a),255,255,255,i==0?1:0);}
+    // S-divider: upper half-circle (centre 0,+R/2) then lower (centre 0,-R/2),
+    // meeting at the origin to form one continuous S along the local y-axis.
     const int NS=32;
-    for(int i=0;i<=NS;i++){float a=off-(float)(M_PI/2)+(float)M_PI*i/NS;
-        ap(o,n,m,(R*.5f)*cosf(a),(R*.5f)+(R*.5f)*sinf(a),255,255,255,i==0?1:0);}
-    for(int i=0;i<=NS;i++){float a=off+(float)(M_PI/2)+(float)M_PI*i/NS;
-        ap(o,n,m,(R*.5f)*cosf(a),-(R*.5f)+(R*.5f)*sinf(a),255,255,255,i==0?1:0);}
+    for(int i=0;i<=NS;i++){float a=-(float)(M_PI/2)+(float)M_PI*i/NS;
+        rot((R*.5f)*cosf(a),(R*.5f)+(R*.5f)*sinf(a),255,255,255,i==0?1:0);}
+    for(int i=0;i<=NS;i++){float a=(float)(M_PI/2)+(float)M_PI*i/NS;
+        rot((R*.5f)*cosf(a),-(R*.5f)+(R*.5f)*sinf(a),255,255,255,i==0?1:0);}
+    // Eye dots
     const int ND=20; float rd=R*.14f;
-    for(int i=0;i<=ND;i++){float a=PI2*i/ND;ap(o,n,m,rd*cosf(a),(R*.5f)+rd*sinf(a),255,60,60,i==0?1:0);}
-    for(int i=0;i<=ND;i++){float a=PI2*i/ND;ap(o,n,m,rd*cosf(a),-(R*.5f)+rd*sinf(a),60,180,255,i==0?1:0);}
+    for(int i=0;i<=ND;i++){float a=PI2*i/ND;rot(rd*cosf(a),(R*.5f)+rd*sinf(a),255,60,60,i==0?1:0);}
+    for(int i=0;i<=ND;i++){float a=PI2*i/ND;rot(rd*cosf(a),-(R*.5f)+rd*sinf(a),60,180,255,i==0?1:0);}
+    if(n>0)ap(o,n,m,o[n-1].x,o[n-1].y,0,0,0,1);
     return n;
 }
 

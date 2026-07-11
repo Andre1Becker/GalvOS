@@ -269,28 +269,32 @@ static size_t gen_phyllotaxis(const CurveParams& p, uint32_t phase,
     float angle_rad = angle_deg * (CURVE_PI / 180.0f);
     float rot_anim  = phase * speed * 0.002f;
 
+    // Per-dot budget: blank + DWELL lit copies + trailing blank. A single lit
+    // sample at 30 kpps is far too brief to register, so hold each dot for a
+    // few ticks (this was the "bad output" -- dots were invisible/faint).
+    const int DWELL = 3;
+    const int perDot = 2 + DWELL;
     int N = (int)(density * 400);
     if (N < 20)  N = 20;
-    if (N > (int)max / 3) N = (int)max / 3;  // 3 pts per dot (blank,lit,blank)
+    if (N > (int)max / perDot) N = (int)max / perDot;
 
-    // Sort by distance so we minimize jump distance
     size_t n = 0;
-    for (int i = 0; i < N && n + 3 <= max; i++) {
+    for (int i = 0; i < N && n + perDot <= max; i++) {
         float theta = i * angle_rad + rot_anim;
-        float r_    = sqrtf((float)i / N) * spread;
-        float x     = r_ * cosf(theta);
-        float y     = r_ * sinf(theta);
-        // normalize: max r_ = spread, so divide
-        x /= (spread + 0.01f);
-        y /= (spread + 0.01f);
+        // r_ in [0,1]: sqrt(i/N) already spans the unit disc, so it fills the
+        // frame without the previous double /(spread+.01) division that
+        // collapsed the pattern. `spread` now only shapes radial density.
+        float r_ = powf((float)i / N, 0.5f * spread * 0.5f + 0.25f);
+        float x  = r_ * cosf(theta);
+        float y  = r_ * sinf(theta);
 
-        // color: hue = i/N
         uint8_t r,g,b;
         hue2rgb((float)i / N, r, g, b, p.r, p.g, p.b, 0.5f);
 
-        buf[n++] = blankPt(x, y, zoom);   // move to dot
-        buf[n++] = pt(x, y, r, g, b, zoom); // light dot
-        buf[n++] = blankPt(x, y, zoom);   // blank before next jump
+        buf[n++] = blankPt(x, y, zoom);            // move to dot (dark)
+        for (int d = 0; d < DWELL; d++)
+            buf[n++] = pt(x, y, r, g, b, zoom);    // hold lit dot
+        buf[n++] = blankPt(x, y, zoom);            // blank before next jump
     }
     return n;
 }
