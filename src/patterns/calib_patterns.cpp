@@ -798,6 +798,60 @@ static size_t zone_outline(LaserPoint* o, size_t mx,
 
     return n;
 }
+
+// ══════════════════════════════════════════════════════════════
+// PATTERN 16: CORNER COLOR MAP (RGBW)
+// ══════════════════════════════════════════════════════════════
+// One solid colored dot in each corner so the projected orientation is
+// unambiguous:  Red = top-left, Green = top-right, Blue = bottom-right,
+// White = bottom-left. A dim frame connects the four dots as a reference.
+// DAC space here is +y = up, so top = +SC, bottom = -SC.
+static size_t corner_color_map(LaserPoint* o, size_t mx,
+                                uint32_t phase, uint8_t bright, uint8_t ch) {
+    size_t n = 0;
+    const float S = SC * 0.9f;   // corner distance from center
+
+    // corner position + its RGB colour (before gamma / white-balance)
+    struct Corner { float x, y; uint8_t r, g, b; };
+    const Corner corners[4] = {
+        { -S,  S, 255,   0,   0 },  // top-left    = Red
+        {  S,  S,   0, 255,   0 },  // top-right   = Green
+        {  S, -S,   0,   0, 255 },  // bottom-right= Blue
+        { -S, -S, 255, 255, 255 },  // bottom-left = White
+    };
+
+    // dim neutral frame joining the corners (spatial reference)
+    uint8_t fr, fg, fb;
+    colorOut(40, 40, 40, bright, fr, fg, fb);
+    line(o, n, mx, corners[0].x, corners[0].y, corners[1].x, corners[1].y, fr, fg, fb, 40);
+    line(o, n, mx, corners[1].x, corners[1].y, corners[2].x, corners[2].y, fr, fg, fb, 40);
+    line(o, n, mx, corners[2].x, corners[2].y, corners[3].x, corners[3].y, fr, fg, fb, 40);
+    line(o, n, mx, corners[3].x, corners[3].y, corners[0].x, corners[0].y, fr, fg, fb, 40);
+
+    // solid dot per corner: several concentric rings so the spot reads as
+    // filled rather than a thin outline.
+    const float radii[] = { SC*0.02f, SC*0.045f, SC*0.07f };
+    for (const Corner& c : corners) {
+        uint8_t ro, go, bo;
+        // channel filter: when isolating a channel, drop the others so the
+        // dot only lights if it carries that channel (same convention as the
+        // other patterns' `ch` argument).
+        uint8_t cr = c.r, cg = c.g, cb = c.b;
+        if (ch == 1) { cg = 0; cb = 0; }
+        else if (ch == 2) { cr = 0; cb = 0; }
+        else if (ch == 3) { cr = 0; cg = 0; }
+        colorOut(cr, cg, cb, bright, ro, go, bo);
+        for (float r : radii) {
+            blankMove(o, n, mx, c.x + r, c.y);
+            for (int i = 0; i <= 20; i++) {
+                float a = 6.2831853f * i / 20;
+                ap(o, n, mx, c.x + cosf(a)*r, c.y + sinf(a)*r, ro, go, bo, i == 0 ? 1 : 0);
+            }
+        }
+    }
+    return n;
+}
+
 // ══════════════════════════════════════════════════════════════
 // DISPATCH + METADATA
 // ══════════════════════════════════════════════════════════════
@@ -867,6 +921,12 @@ const CalibPatternInfo CALIB_INFO[CALIB_PATTERN_COUNT] = {
      "Red = zone boundary, green dots = vertices. Edit the polygon "
      "in the Calibration tab, then enable zone clipping to blank the laser "
      "outside this area."},
+
+    {"Corner Color Map",
+     "One colored dot per corner (RGBW) — shows how the image is projected",
+     "Position mapping: Red = top-left, Green = top-right, Blue = "
+     "bottom-right, White = bottom-left. If a dot appears in the wrong "
+     "corner the image is mirrored/rotated — fix with X/Y flip or invert."},
 };
 
 using PFn = size_t(*)(LaserPoint*, size_t, uint32_t, uint8_t, uint8_t);
@@ -876,6 +936,7 @@ static const PFn DISPATCH[CALIB_PATTERN_COUNT] = {
     focus_test, scan_linearity, blanking_test,
     aspect_ratio, corner_test, color_temp,
     ilda_test, dac_range_box, zone_outline,
+    corner_color_map,
 };
 
 static inline optimizer::OptimizerConfig liveOptimizerConfig() {
