@@ -237,6 +237,7 @@
     <span id="conn-pill" class="pill">connecting…</span>
     <span id="armed-pill" class="pill disarmed" title="">DISARMED</span>
     <span id="active-mode-pill" class="pill" style="display:none"></span>
+    <span id="preset-pill" class="pill" style="display:none" title="Active preset">🎭 <span id="preset-pill-name">--</span></span>
     <span id="ui-override-pill" class="pill" style="display:none;background:var(--accent);color:#fff">🖥 UI</span>
   </div>
   <div style="display:flex;align-items:center;gap:10px;margin-top:6px;flex-wrap:wrap">
@@ -267,10 +268,12 @@
 ">
   <span title="Firmware version">🔧 <span id="sb-fw">--</span></span>
   <span title="Core 0 (Net/DMX/UI) CPU load">⚙ C0: <span id="sb-cpu1" style="color:var(--text)">--</span>%</span>
+  <span title="Core 1 (Galvo output) CPU load">⚙ C1: <span id="sb-cpu2" style="color:var(--text)">--</span>%</span>
   <span title="Galvo output rate">⚡ <span id="sb-kpps" style="color:var(--text)">--</span> kpps</span>
   <span title="Frame buffer fill level">▦ Buf: <span id="sb-buf" style="color:var(--text)">--</span>%</span>
   <span title="Primary temperature sensor">🌡 <span id="sb-temp" style="color:var(--text)">--</span> °C</span>
-  <span title="Free heap memory">🧠 <span id="sb-heap" style="color:var(--text)">--</span> KB</span>
+  <span title="Free heap (RAM)">🧠 <span id="sb-heap" style="color:var(--text)">--</span> KB</span>
+  <span title="Free PSRAM">📦 <span id="sb-psram" style="color:var(--text)">--</span> KB</span>
   <span title="Master dimmer value">💡 Dim: <span id="sb-dim" style="color:var(--text)">--</span></span>
 </div>
 <div id="safety-override-banner" style="display:none;background:var(--bad);color:#000;font-weight:700;text-align:center;padding:6px;font-size:13px">
@@ -1872,6 +1875,19 @@ function handleStateUpdate(s) {
     }
   }
 
+  // Preset pill: shows the name of the currently active preset
+  const presetPill = document.getElementById('preset-pill');
+  if (presetPill) {
+    const pIdx = s.preset_idx;
+    const pDef = (typeof PRESET_DEFS !== 'undefined') ? PRESET_DEFS.find(x => x.idx === pIdx) : null;
+    if (pIdx !== undefined && pIdx >= 0 && pDef) {
+      setText('preset-pill-name', pDef.name);
+      presetPill.style.display = '';
+    } else {
+      presetPill.style.display = 'none';
+    }
+  }
+
   // Telemetry
   const srcNames = ['--', 'DMX', 'Art-Net', 'Ether Dream', 'Helios USB', 'Internal', 'WebUI'];
   setText('v-source', srcNames[s.source] || '?');
@@ -2010,6 +2026,10 @@ function handleStateUpdate(s) {
     var sbCpu = document.getElementById('sb-cpu1');
     if (sbCpu) { sbCpu.textContent = s.cpu0; sbCpu.style.color = s.cpu0 >= 90 ? 'var(--danger)' : s.cpu0 >= 70 ? 'var(--warn)' : 'var(--text)'; }
   }
+  if (s.cpu1 !== undefined) {
+    var sbCpu1 = document.getElementById('sb-cpu2');
+    if (sbCpu1) { sbCpu1.textContent = s.cpu1; sbCpu1.style.color = s.cpu1 >= 90 ? 'var(--danger)' : s.cpu1 >= 70 ? 'var(--warn)' : 'var(--text)'; }
+  }
   if (s.points_per_sec !== undefined) {
     var kppsVal = (s.points_per_sec / 1000).toFixed(1);
     var sbKpps = document.getElementById('sb-kpps');
@@ -2027,6 +2047,11 @@ function handleStateUpdate(s) {
     var heapKbSb = Math.round(s.free_heap / 1024);
     var sbHeap = document.getElementById('sb-heap');
     if (sbHeap) { sbHeap.textContent = heapKbSb; sbHeap.style.color = heapKbSb < 30 ? 'var(--danger)' : 'var(--text)'; }
+  }
+  if (s.free_psram !== undefined) {
+    var psramKbSb = Math.round(s.free_psram / 1024);
+    var sbPsram = document.getElementById('sb-psram');
+    if (sbPsram) sbPsram.textContent = psramKbSb;
   }
   if (s.master_dimmer !== undefined) {
     var sbDim = document.getElementById('sb-dim');
