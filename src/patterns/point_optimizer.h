@@ -67,6 +67,36 @@ struct PathSegment {
         : vertices(vertices), count(count), closed(closed) {}
 };
 
+// Affine 2x3 transform applied to every input vertex before the corner /
+// resample / blanking stages run (pipeline stage: Primitive -> Transform ->
+// Resample -> Corner Dwell -> Blanking -> ...). Row-major:
+//   x' = a*x + b*y + tx
+//   y' = c*x + d*y + ty
+// The default is the identity ({1,0,0, 0,1,0}), so callers that do not set a
+// transform get byte-identical output to the pre-transform-stage optimizer.
+// A full 2x3 (not 2x2) is used so translation composes into the same matrix
+// as rotation/scale/shear -- Phase 2 will build these from the live rotation
+// / scale / move controls instead of the current post-optimizer inline pass.
+struct AffineTransform {
+    float a, b, tx;   // first row  (x' = a*x + b*y + tx)
+    float c, d, ty;   // second row (y' = c*x + d*y + ty)
+
+    AffineTransform() : a(1), b(0), tx(0), c(0), d(1), ty(0) {}
+    AffineTransform(float a, float b, float tx, float c, float d, float ty)
+        : a(a), b(b), tx(tx), c(c), d(d), ty(ty) {}
+
+    bool isIdentity() const {
+        return a == 1.0f && b == 0.0f && tx == 0.0f &&
+               c == 0.0f && d == 1.0f && ty == 0.0f;
+    }
+
+    // Apply to a point (in-place-friendly: reads inputs before writing).
+    void apply(float xin, float yin, float& xout, float& yout) const {
+        xout = a * xin + b * yin + tx;
+        yout = c * xin + d * yin + ty;
+    }
+};
+
 // Runtime-tunable parameters (mirrors gOptimizerConfig in config.h --
 // passed explicitly here rather than read as a global so the function
 // stays testable / has no hidden state).
@@ -108,6 +138,13 @@ struct OptimizerConfig {
                                             // than read as a global (same rule as the rest of this
                                             // struct, see file header) so the ZV shaper can convert a
                                             // physical time (half the ring period) into a point count.
+
+    // Transform stage (Phase 1). Applied to every input vertex before
+    // corner/resample/blanking. Identity by default -> output is unchanged
+    // for callers that leave this alone. Phase 2 populates it from the live
+    // rotation/scale/move controls, retiring the post-optimizer inline
+    // rotation currently in pattern_engine.cpp.
+    AffineTransform transform;
 };
 
 // Runs Pillar-1 density optimization across all given segments and writes

@@ -380,6 +380,102 @@ static void emitSegment(const PathSegment& seg, const OptimizerConfig& cfg,
     }
 }
 
+// ── Transform stage (Phase 1) ────────────────────────────────────────────
+//
+// Pipeline order: Primitive -> [Transform] -> Resample -> Corner Dwell ->
+// Blanking -> Velocity Clamp -> Acceleration Clamp -> DAC. This is the
+// Transform stage: every input vertex is pushed through cfg.transform before
+// any scanner-dependent processing (corner detection, length-proportional
+// resampling, blank jumps) sees it. Corner severity and edge lengths are
+// therefore computed in the transformed frame, which is what a downstream
+// resample/velocity stage needs (a rotated square still has 90 deg corners;
+// a scaled path has correspondingly scaled edge lengths).
+//
+// Identity fast-path: when cfg.transform is the identity matrix (the default),
+// the original segment pointers are used unchanged -- no copy, no arithmetic,
+// byte-identical output to the pre-transform-stage optimizer. Only a non-
+// identity matrix triggers the copy into the scratch buffers below.
+//
+// Scratch sizing: input geometry (vertices before interior/corner fill) is far
+// smaller than the emitted point count. The largest caller today declares
+// PathVertex[64] / PathSegment[16] (text_renderer.cpp); these scratch sizes
+// leave an 8x/4x margin while keeping the static DRAM cost small (~8 KB total).
+// applyTransform bounds-checks against both, so an over-large caller degrades
+// by dropping trailing segments rather than overflowing.
+namespace {
+    constexpr size_t kMaxXfVerts = 512;
+    constexpr size_t kMaxXfSegs  = 64;
+    PathVertex  s_xf_verts[kMaxXfVerts];
+    PathSegment s_xf_segs[kMaxXfSegs];
+}
+
+// Fills s_xf_segs / s_xf_verts with transformed copies of the input and points
+// out_segments at them. Returns the segment count actually written (segments
+// beyond the scratch capacity are dropped -- practically unreachable, real
+// callers pass well under kMaxXfSegs segments). Only called for non-identity
+// transforms; the identity case bypasses this entirely.
+static size_t applyTransform(const PathSegment* segments, size_t segment_count,
+                              const AffineTransform& xf,
+                              const PathSegment** out_segments) {
+    size_t seg_out = 0;
+    size_t vtx_out = 0;
+    for (size_t s = 0; s < segment_count && seg_out < kMaxXfSegs; s++) {
+        const PathSegment& src = segments[s];
+        if (src.count == 0) {
+            s_xf_segs[seg_out] = PathSegment(nullptr, 0, src.closed);
+            seg_out++;
+            continue;
+        }
+        if (vtx_out + src.count > kMaxXfVerts) break;  // scratch exhausted
+
+        PathVertex* dst = &s_xf_verts[vtx_out];
+        for (size_t i = 0; i < src.count; i++) {
+            const PathVertex& v = src.vertices[i];
+            float nx, ny;
+            xf.apply(v.x, v.y, nx, ny);
+            dst[i] = PathVertex(nx, ny, v.r, v.g, v.b, v.lift);
+        }
+        s_xf_segs[seg_out] = PathSegment(dst, src.count, src.closed);
+        vtx_out += src.count;
+        seg_out++;
+    }
+    *out_segments = s_xf_segs;
+    return seg_out;
+}
+
+// Emit stage: for each non-empty segment, blank-jump to its first vertex and
+// write the segment's corner + interior points, then a closing blank back to
+// the first point of the first segment so the next frame does not open with a
+// lit retrace. Split out of optimize() so the pipeline reads as discrete
+// stages (transform / plan / clamp / emit) and Phase 2/3 stages have an
+// obvious insertion point. cfg is already fully resolved by optimize()
+// (density scaled, blank_samples clamped) before this runs.
+static size_t emitAllSegments(const PathSegment* segments, size_t segment_count,
+                               const OptimizerConfig& cfg,
+                               LaserPoint* out, size_t max_out) {
+    size_t n = 0;
+    for (size_t s = 0; s < segment_count; s++) {
+        const PathSegment& seg = segments[s];
+        if (seg.count == 0) continue;
+
+        // Blank jump to this segment's first vertex -- distance-
+        // proportional + eased (Pillar 2), see emitBlankJump().
+        emitBlankJump(out, n, max_out, seg.vertices[0].x, seg.vertices[0].y, cfg);
+
+        emitSegment(seg, cfg, out, n, max_out);
+    }
+
+    // Closing blank: return to the very first point with the laser off,
+    // so the next frame doesn't start with a lit retrace -- same purpose
+    // as the existing per-pattern closing-blank convention in
+    // preset_patterns.cpp (ngon()/star()).
+    if (n > 0 && segment_count > 0 && segments[0].count > 0) {
+        emitBlankJump(out, n, max_out,
+                      segments[0].vertices[0].x, segments[0].vertices[0].y, cfg);
+    }
+    return n;
+}
+
 // ── public entry point ───────────────────────────────────────────────────
 
 size_t optimize(const PathSegment* segments, size_t segment_count,
@@ -388,6 +484,18 @@ size_t optimize(const PathSegment* segments, size_t segment_count,
     if (segment_count == 0 || max_out == 0) return 0;
 
     OptimizerConfig cfg = cfg_in;
+
+    // Stage 0 -- Transform. Non-identity matrices are applied here, before any
+    // scanner-dependent stage sees the geometry (see applyTransform above).
+    // Identity (the default) uses the caller's segments unchanged, so output
+    // stays byte-identical to the pre-transform-stage optimizer.
+    if (!cfg.transform.isIdentity()) {
+        const PathSegment* xf_segments = nullptr;
+        segment_count = applyTransform(segments, segment_count,
+                                       cfg.transform, &xf_segments);
+        segments = xf_segments;
+        if (segment_count == 0) return 0;
+    }
 
     // Budget check: plan at the requested density first, tracking corner
     // and interior sub-totals separately (corner points are fixed
@@ -506,27 +614,19 @@ size_t optimize(const PathSegment* segments, size_t segment_count,
         cfg.pts_per_1000_units = std::max(0.1f, cfg.pts_per_1000_units * scale);
     }
 
-    size_t n = 0;
-    for (size_t s = 0; s < segment_count; s++) {
-        const PathSegment& seg = segments[s];
-        if (seg.count == 0) continue;
-
-        // Blank jump to this segment's first vertex -- distance-
-        // proportional + eased (Pillar 2), see emitBlankJump().
-        emitBlankJump(out, n, max_out, seg.vertices[0].x, seg.vertices[0].y, cfg);
-
-        emitSegment(seg, cfg, out, n, max_out);
-    }
-
-    // Closing blank: return to the very first point with the laser off,
-    // so the next frame doesn't start with a lit retrace -- same purpose
-    // as the existing per-pattern closing-blank convention in
-    // preset_patterns.cpp (ngon()/star()).
-    if (n > 0 && segment_count > 0 && segments[0].count > 0) {
-        emitBlankJump(out, n, max_out,
-                      segments[0].vertices[0].x, segments[0].vertices[0].y, cfg);
-    }
-
+    // Emit stage: walk segments, blank-jumping between them, writing corner +
+    // interior points per segment. This is where the remaining scanner-protection
+    // stages of the Phase-1 pipeline will hook in:
+    //   - Resample (Phase 2): replace edgeInteriorCount()'s density with a
+    //     constant-spacing pass (points = length / target_spacing) inside
+    //     emitSegment.
+    //   - Corner Dwell: already active (cornerPtsAtVertex / emitSegment).
+    //   - Blanking: already active (emitBlankJump, Pillars 2/3).
+    //   - Velocity Clamp / Acceleration Clamp (Phase 3): a post-pass over the
+    //     emitted out[0..n-1] that inserts intermediate points where the
+    //     per-tick position (velocity) or its delta (acceleration) exceeds the
+    //     galvo limit derived from cfg.galvo_kpps.
+    size_t n = emitAllSegments(segments, segment_count, cfg, out, max_out);
     return n;
 }
 
