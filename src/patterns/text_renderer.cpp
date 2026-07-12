@@ -22,7 +22,7 @@
 #include <string.h>
 #include <Arduino.h>
 
-static inline optimizer::OptimizerConfig textOptimizerConfig() {
+static inline optimizer::OptimizerConfig textOptimizerConfig(float sc = 0.f) {
     optimizer::OptimizerConfig cfg;
     cfg.corner_angle_deg             = gOptimizerConfig.corner_angle_deg;
     cfg.min_corner_pts               = gOptimizerConfig.min_corner_pts;
@@ -40,15 +40,23 @@ static inline optimizer::OptimizerConfig textOptimizerConfig() {
     cfg.ring_damping_ratio           = gOptimizerConfig.ring_damping_ratio;
     cfg.galvo_kpps                   = gProjection.galvo_kpps;
 
-    // Text-specific floors: the global optimizer is tuned for dense preset
-    // geometry, which starves short glyph strokes (serifs / crossbars of
-    // E, F, T, ...). At small scale their length * pts_per_1000_units rounds
-    // below the minimum and the whole 2-vertex stroke collapses to a single
-    // point -> the stroke disappears. Guarantee every stroke keeps both
-    // endpoints regardless of the global tuning or the current text scale.
+    // Serif fix (point-based, scale-INDEPENDENT): guarantee every stroke keeps
+    // both endpoints so short crossbars (E, F, T, ...) never collapse to a
+    // single point. These floors are counts, so they do not blow up with scale.
     if (cfg.min_segment_pts < 3)              cfg.min_segment_pts = 3;
     if (cfg.min_interior_pts_per_segment < 1) cfg.min_interior_pts_per_segment = 1;
-    if (cfg.pts_per_1000_units < 40.f)        cfg.pts_per_1000_units = 40.f;
+
+    // Interior density is length-proportional in DAC units, so at a large text
+    // scale one glyph would otherwise consume hundreds of points and fill the
+    // frame buffer after ~8 characters (truncating the rest of the string).
+    // Couple the density to the render scale so the point count PER GLYPH stays
+    // roughly constant regardless of text size: ppu = 8000 / sc, clamped.
+    if (sc > 1.f) {
+        float ppu = 8000.f / sc;
+        if (ppu < 2.f)  ppu = 2.f;
+        if (ppu > 30.f) ppu = 30.f;
+        cfg.pts_per_1000_units = ppu;
+    }
     return cfg;
 }
 namespace textrender {
@@ -198,7 +206,7 @@ static GlyphResult renderGlyph(LaserPoint* out, size_t& n, size_t max,
     if (nsegs == 0) return res;
 
     size_t before = n;
-    n += optimizer::optimize(segs, nsegs, out + n, max - n, textOptimizerConfig());
+    n += optimizer::optimize(segs, nsegs, out + n, max - n, textOptimizerConfig(sc));
 
     if (n > before) {
         res.last_x = out[n-1].x;

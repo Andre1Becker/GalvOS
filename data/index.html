@@ -869,17 +869,18 @@
       </p>
       <label>Enter text</label>
       <input id="tx-text" type="text" maxlength="127" placeholder="HELLO WORLD"
+             oninput="textLive()"
              style="font-size:16px;font-family:monospace;letter-spacing:0.1em">
 
       <label>Font</label>
-      <select id="tx-font">
+      <select id="tx-font" onchange="textLive()">
         <option value="0">Simple (thin, fast)</option>
         <option value="1">Bold (thick stroke)</option>
         <option value="2">Outline (double line)</option>
       </select>
 
       <label>Animation</label>
-      <select id="tx-anim">
+      <select id="tx-anim" onchange="textLive()">
         <option value="0">Static (centered)</option>
         <option value="1">Scroll Left ←</option>
         <option value="2">Scroll Right -></option>
@@ -893,7 +894,11 @@
         <option value="11">🎬 Star Wars Scroll</option>
       </select>
 
-      <div style="display:flex;gap:12px;margin-top:16px">
+      <label class="toggle" style="margin-top:16px">
+        <input type="checkbox" id="tx-live" checked onchange="textLive()">
+        <span class="slider"></span>⚡ Live (update while typing)
+      </label>
+      <div style="display:flex;gap:12px;margin-top:12px">
         <button class="btn ok" onclick="startText()">▶ Show text</button>
         <button class="btn danger" onclick="stopText()">⏹ Stopp</button>
       </div>
@@ -902,23 +907,23 @@
     <div class="card">
       <h2>Text Parameters</h2>
       <label>Speed  <span id="tx-sp-val" style="color:var(--accent);font-family:monospace">80</span></label>
-      <input type="range" id="tx-sp" min="5" max="255" value="80" oninput="document.getElementById('tx-sp-val').textContent=this.value">
+      <input type="range" id="tx-sp" min="5" max="255" value="80" oninput="document.getElementById('tx-sp-val').textContent=this.value;textLive()">
       <label>Size  <span id="tx-sz-val" style="color:var(--accent);font-family:monospace">128</span></label>
-      <input type="range" id="tx-sz" min="20" max="255" value="128" oninput="document.getElementById('tx-sz-val').textContent=this.value">
+      <input type="range" id="tx-sz" min="20" max="255" value="128" oninput="document.getElementById('tx-sz-val').textContent=this.value;textLive()">
 
       <label>Color</label>
-      <input type="color" id="tx-color" value="#ffffff"
+      <input type="color" id="tx-color" value="#ffffff" oninput="textLive()"
              style="width:60px;height:32px;cursor:pointer;background:transparent;border:1px solid var(--border);padding:2px">
       <label class="toggle" style="margin-top:12px">
-        <input type="checkbox" id="tx-rainbow">
+        <input type="checkbox" id="tx-rainbow" onchange="textLive()">
         <span class="slider"></span>🌈 Rainbow
       </label>
       <label class="toggle" style="margin-top:8px">
-        <input type="checkbox" id="tx-flip-x">
+        <input type="checkbox" id="tx-flip-x" onchange="textLive()">
         <span class="slider"></span>↔ Flip X
       </label>
       <label class="toggle" style="margin-top:8px">
-        <input type="checkbox" id="tx-flip-y">
+        <input type="checkbox" id="tx-flip-y" onchange="textLive()">
         <span class="slider"></span>↕ Flip Y
       </label>
 
@@ -3719,9 +3724,9 @@ function resetLiveControls() {
 // ============================================================
 // Text Mode
 // ============================================================
-async function startText() {
+async function startText(silent = false) {
     const text = document.getElementById('tx-text').value.trim();
-    if (!text) { toast('Text eingeben!', true); return; }
+    if (!text) { if (!silent) toast('Text eingeben!', true); return; }
     const color = document.getElementById('tx-color').value; // #rrggbb
     const r = parseInt(color.slice(1,3),16);
     const g = parseInt(color.slice(3,5),16);
@@ -3738,14 +3743,27 @@ async function startText() {
         flip_y:  document.getElementById('tx-flip-y').checked,
         active:  true,
     });
-    if (ok !== null) toast('Text active: ' + text);
+    if (ok !== null && !silent) toast('Text active: ' + text);
 }
 
-async function stopText() {
+// Live update (like the Paint tab): push text to the laser as the user types
+// or tweaks a control, debounced so we don't spam the device on every keypress.
+let _txLiveTimer = null;
+function textLive() {
+    if (!document.getElementById('tx-live').checked) return;
+    clearTimeout(_txLiveTimer);
+    _txLiveTimer = setTimeout(() => {
+        const text = document.getElementById('tx-text').value.trim();
+        if (!text) { stopText(true); return; }   // empty field -> blank output
+        startText(true);                          // silent: no toast spam
+    }, 120);
+}
+
+async function stopText(silent = false) {
     // Try /api/text/off first, fall back to setting active:false
     const r = await apiCall('POST', '/api/text/off');
     if (r === null) await apiCall('POST', '/api/text', { active: false });
-    toast('Text stopped');
+    if (!silent) toast('Text stopped');
 }
 
 // ============================================================
