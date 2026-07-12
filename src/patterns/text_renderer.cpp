@@ -375,21 +375,26 @@ size_t generate(LaserPoint* out, size_t max_pts, const TextConfig& cfg, uint32_t
     const int full_len = (int)strlen(cfg.text);
     float tw = textWidth(cfg.text, full_len) * sc;
 
-    // Scale is bound by GLYPH HEIGHT only, so long strings keep a readable
-    // letter size instead of being shrunk horizontally into an illegible line.
-    // (Static strings that overflow the scan width are auto-scrolled below.)
+    // Auto-scroll decision uses the UNSHRUNK width: a static string that is
+    // too long to fit legibly is scrolled instead of being crammed in.
     const float max_half = 30000.f;
     const float GLYPH_HALF_H = 7.f;
-    float display_sc = (GLYPH_HALF_H * sc > max_half) ? max_half / GLYPH_HALF_H : sc;
-    if (display_sc != sc) tw = textWidth(cfg.text, full_len) * display_sc;
-    float start_x = -tw / 2.f;
-    float base_y  = 0.f;
-
-    // Auto-scroll: a Static string longer than TEXT_MAX_STATIC_CHARS cannot be
-    // shown legibly at once -> present it as a left-scrolling marquee instead.
     TextAnim anim = cfg.animation;
     if (anim == TANIM_STATIC && full_len > TEXT_MAX_STATIC_CHARS)
         anim = TANIM_SCROLL_L;
+
+    // Scale for the NON-scrolling modes (which must show the whole string at
+    // once) is bound by BOTH height and width so the text never overflows the
+    // +/-32767 DAC range -- overflow was collapsing glyphs onto the scan edge
+    // (a single line on the right). Scrolling modes render the string off to
+    // the side and move it through, so they keep the height-only scale.
+    const bool scrolls = (anim == TANIM_SCROLL_L || anim == TANIM_SCROLL_R);
+    float sc_h = (GLYPH_HALF_H * sc > max_half) ? max_half / GLYPH_HALF_H : sc;
+    float sc_w = (tw * 0.5f > max_half)         ? sc * max_half / (tw * 0.5f) : sc;
+    float display_sc = scrolls ? sc_h : fminf(sc_h, sc_w);
+    if (display_sc != sc) tw = textWidth(cfg.text, full_len) * display_sc;
+    float start_x = -tw / 2.f;
+    float base_y  = 0.f;
 
     switch (anim) {
 
@@ -490,9 +495,15 @@ size_t generate(LaserPoint* out, size_t max_pts, const TextConfig& cfg, uint32_t
             const float focal  = 42000.f;               // perspective focal length
             const float camZ   = R + focal;             // camera distance from center
             const float spin   = fmodf(t * 1.2f, 2.f * (float)M_PI);
-            // arc-length -> radians: a full text width wraps ~1.6 rad of the sphere
-            const float halfW  = fmaxf(1.f, otw * 0.5f);
-            const float kLon   = 1.6f / halfW;          // X (DAC) -> longitude (rad)
+            // Wrap the FULL text width onto a moderate arc (~80 deg) of the
+            // sphere. Mapping half the width to 1.6 rad (as before) spread the
+            // string over ~183 deg -> more than one hemisphere, so part of it
+            // was always on the back side (Z<0) and blanked, leaving only the
+            // few centre glyphs visible. ARC/otw keeps the whole string on the
+            // front-facing arc; `spin` then carries it around the globe.
+            const float ARC   = 1.4f;                   // total wrap, radians (~80 deg)
+            const float fullW = fmaxf(1.f, otw);
+            const float kLon  = ARC / fullW;            // X (DAC) -> longitude (rad)
             // Keep the text in a THIN band around the equator (~+-11 deg) so the
             // letters run around the equator and never climb toward the poles.
             const float LAT_BAND = 0.20f;               // half-band, radians
