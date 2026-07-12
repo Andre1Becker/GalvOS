@@ -120,6 +120,15 @@ struct OptimizerConfig {
     uint8_t  stage1_blank_target = OPT_DEFAULT_STAGE1_BLANK_TARGET; // Stage 1 reduces blank_samples to
                                                                     // this value before falling back to
                                                                     // min_blank_samples as last resort.
+    bool     resample_enabled    = OPT_DEFAULT_RESAMPLE_ENABLED;    // RESAMPLE STAGE (Phase 2): when true,
+                                                                    // edgeInteriorCount() uses constant
+                                                                    // spacing (length / resample_spacing_units)
+                                                                    // instead of pts_per_1000_units. false =
+                                                                    // byte-identical to pre-resample output.
+    float    resample_spacing_units = OPT_DEFAULT_RESAMPLE_SPACING_UNITS; // Target distance between interior
+                                                                    // points when resample_enabled. Smaller =
+                                                                    // denser. Corner dwell runs on top of this
+                                                                    // (see pipeline: Resample -> Corner Dwell).
     float    blank_pts_per_1000_units = OPT_DEFAULT_BLANK_PTS_PER_1000_UNITS;
                                                                     // PILLAR 2: distance-proportional blank
                                                                     // density. emitBlankJump() clamps to

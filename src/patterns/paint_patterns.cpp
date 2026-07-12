@@ -22,6 +22,8 @@ static inline optimizer::OptimizerConfig liveOptimizerConfig() {
     cfg.blank_pts_per_1000_units     = gOptimizerConfig.blank_pts_per_1000_units;
     cfg.min_interior_pts_per_segment = gOptimizerConfig.min_interior_pts_per_segment;
     cfg.stage1_blank_target          = gOptimizerConfig.stage1_blank_target;
+    cfg.resample_enabled             = gOptimizerConfig.resample_enabled;
+    cfg.resample_spacing_units       = gOptimizerConfig.resample_spacing_units;
     cfg.ringing_comp_enabled         = gOptimizerConfig.ringing_comp_enabled;
     cfg.ring_freq_hz                 = gOptimizerConfig.ring_freq_hz;
     cfg.ring_damping_ratio           = gOptimizerConfig.ring_damping_ratio;

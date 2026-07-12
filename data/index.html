@@ -3521,6 +3521,7 @@ function optimizerSlider() {
     document.getElementById('opt-blppu-val').textContent  = (document.getElementById('opt-blppu').value/10).toFixed(1);
     document.getElementById('opt-minip-val').textContent  = document.getElementById('opt-minip').value;
     document.getElementById('opt-s1tgt-val').textContent  = document.getElementById('opt-s1tgt').value;
+    document.getElementById('opt-rssp-val').textContent   = document.getElementById('opt-rssp').value;
     document.getElementById('opt-rngfq-val').textContent  = (+document.getElementById('opt-rngfq').value).toFixed(1);
     document.getElementById('opt-rngdr-val').textContent  = (document.getElementById('opt-rngdr').value/100).toFixed(2);
     clearTimeout(optimizerDebounce);
@@ -3540,6 +3541,8 @@ async function sendOptimizerLive() {
         blank_pts_per_1000_units: +document.getElementById('opt-blppu').value/10,
         min_interior_pts_per_segment: +document.getElementById('opt-minip').value,
         stage1_blank_target: +document.getElementById('opt-s1tgt').value,
+        resample_enabled: document.getElementById('opt-rs-en').checked,
+        resample_spacing_units: +document.getElementById('opt-rssp').value,
         ringing_comp_enabled: document.getElementById('opt-ring-en').checked,
         ring_freq_hz:        +document.getElementById('opt-rngfq').value,
         ring_damping_ratio:  +document.getElementById('opt-rngdr').value/100,
@@ -3565,6 +3568,8 @@ function resetOptimizerDefaults() {
     document.getElementById('opt-blppu').value = 100;
     document.getElementById('opt-minip').value = 6;
     document.getElementById('opt-s1tgt').value = 20;
+    document.getElementById('opt-rs-en').checked = false;
+    document.getElementById('opt-rssp').value = 160;
     document.getElementById('opt-ring-en').checked = false;
     document.getElementById('opt-rngfq').value = 200;
     document.getElementById('opt-rngdr').value = 15;
@@ -3594,6 +3599,8 @@ function loadOptimizerConfig(cfg) {
     setVal('opt-blppu', Math.round(cfg.opt_blank_pts_per_1000_units*10));
     setVal('opt-minip', cfg.opt_min_interior_pts_per_segment);
     setVal('opt-s1tgt', cfg.opt_stage1_blank_target);
+    setCheck('opt-rs-en', !!cfg.opt_resample_enabled);
+    setVal('opt-rssp', Math.round(cfg.opt_resample_spacing_units));
     setCheck('opt-ring-en', !!cfg.opt_ringing_comp_enabled);
     setVal('opt-rngfq', cfg.opt_ring_freq_hz);
     setVal('opt-rngdr', Math.round(cfg.opt_ring_damping_ratio*100));
@@ -3611,13 +3618,14 @@ function loadOptimizerConfig(cfg) {
     setText('opt-blppu-val',  (getVal('opt-blppu')/10).toFixed(1));
     setText('opt-minip-val',  getVal('opt-minip'));
     setText('opt-s1tgt-val',  getVal('opt-s1tgt'));
+    setText('opt-rssp-val',   getVal('opt-rssp'));
     setText('opt-rngfq-val',  (+getVal('opt-rngfq')).toFixed(1));
     setText('opt-rngdr-val',  (getVal('opt-rngdr')/100).toFixed(2));
     // Nudge each slider by +1/-1 to force the browser to repaint the thumb
     // at the correct position when the tab was hidden during initial load.
     var ids = ['opt-cad','opt-mincp','opt-maxcp','opt-ppu','opt-minsp',
                'opt-blank','opt-maxppf','opt-minbl','opt-blppu','opt-minip','opt-s1tgt',
-               'opt-rngfq','opt-rngdr'];
+               'opt-rssp','opt-rngfq','opt-rngdr'];
     for (var i = 0; i < ids.length; i++) {
         var el = document.getElementById(ids[i]);
         if (!el) continue;
@@ -5597,6 +5605,16 @@ async function saveNtpConfig() {
         <span class="help-icon" title="Target point count for the first deceleration stage of a blank jump's S-curve ease. Shapes the ease-in/ease-out together with Blank samples.">?</span>
       </label>
       <input type="range" id="opt-s1tgt" min="1" max="100" step="1" value="20" oninput="optimizerSlider()">
+      </div>
+
+      <div class="opt-col-block">
+      <div class="opt-group-label">Resample (Phase 2)</div>
+      <label class="toggle"><input type="checkbox" id="opt-rs-en" onchange="optimizerSlider()"><span class="slider"></span>Enable constant spacing</label>
+
+      <label>Point spacing (units) <span id="opt-rssp-val" style="color:var(--accent);font-family:monospace">160</span>
+        <span class="help-icon" title="Target distance between interior points when constant spacing is enabled. Interior points per edge = length / spacing. Smaller = denser, more uniform galvo velocity. Overrides Pts per 1000 units while enabled.">?</span>
+      </label>
+      <input type="range" id="opt-rssp" min="10" max="2000" step="1" value="160" oninput="optimizerSlider()">
       </div>
 
       <div class="opt-col-block">

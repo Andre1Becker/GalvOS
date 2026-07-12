@@ -203,8 +203,16 @@ static float cornerSeverity(const PathSegment& seg, const OptimizerConfig& cfg,
     float inLen = sqrtf(dxp * dxp + dyp * dyp);
     uint16_t inPts = edgeInteriorCount(inLen, cfg);
     float stepLen = inLen / (float)(inPts + 1);
-    float nominalStep = (cfg.pts_per_1000_units > 0.01f)
-                             ? 1000.0f / cfg.pts_per_1000_units : 0.0f;
+    // Nominal per-point step the active density targets -- must match the
+    // mode edgeInteriorCount() used above, or speedT compares against the
+    // wrong reference. Resample: spacing is the nominal step directly.
+    float nominalStep;
+    if (cfg.resample_enabled && cfg.resample_spacing_units > 0.01f) {
+        nominalStep = cfg.resample_spacing_units;
+    } else {
+        nominalStep = (cfg.pts_per_1000_units > 0.01f)
+                          ? 1000.0f / cfg.pts_per_1000_units : 0.0f;
+    }
     float speedT = 0.0f;
     if (nominalStep > 0.01f) {
         speedT = (stepLen - nominalStep) / nominalStep;
@@ -248,10 +256,26 @@ static float shapeEdgeT(float t, float easeIn, float easeOut) {
     return t + blend * (smoothstep(t) - t);
 }
 
-// Interior (non-endpoint) sample count for one straight edge of the
-// given length, before the corner points at either end.
+// RESAMPLE STAGE (Phase 2): interior (non-endpoint) sample count for one
+// straight edge of the given length, before the corner points at either end.
+//
+// Two modes, selected by cfg.resample_enabled:
+//   - Resample OFF (default): length-proportional density via
+//     pts_per_1000_units. Byte-identical to the pre-resample optimizer.
+//   - Resample ON: constant spacing -- points = length / resample_spacing_units.
+//     Point spacing is then absolute and length-independent (a short and a
+//     long edge get the same points-per-unit), which is what keeps galvo
+//     velocity uniform across a shape instead of scaling with edge length.
 static uint16_t edgeInteriorCount(float length, const OptimizerConfig& cfg) {
-    float raw = (length / 1000.0f) * cfg.pts_per_1000_units;
+    float raw;
+    if (cfg.resample_enabled && cfg.resample_spacing_units > 0.01f) {
+        // -1: length/spacing counts the point intervals; interior points are
+        // the divisions strictly between the two endpoints (which are corner
+        // points), so one fewer than the interval count.
+        raw = (length / cfg.resample_spacing_units) - 1.0f;
+    } else {
+        raw = (length / 1000.0f) * cfg.pts_per_1000_units;
+    }
     int n = (int)lroundf(raw);
     if (n < 0) n = 0;
     return (uint16_t)n;
@@ -617,9 +641,9 @@ size_t optimize(const PathSegment* segments, size_t segment_count,
     // Emit stage: walk segments, blank-jumping between them, writing corner +
     // interior points per segment. This is where the remaining scanner-protection
     // stages of the Phase-1 pipeline will hook in:
-    //   - Resample (Phase 2): replace edgeInteriorCount()'s density with a
-    //     constant-spacing pass (points = length / target_spacing) inside
-    //     emitSegment.
+    //   - Resample (Phase 2): active. edgeInteriorCount() switches to
+    //     constant spacing (points = length / resample_spacing_units) when
+    //     cfg.resample_enabled; feeds planSegment / emitSegment / cornerSeverity.
     //   - Corner Dwell: already active (cornerPtsAtVertex / emitSegment).
     //   - Blanking: already active (emitBlankJump, Pillars 2/3).
     //   - Velocity Clamp / Acceleration Clamp (Phase 3): a post-pass over the

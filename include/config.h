@@ -52,6 +52,14 @@ constexpr uint8_t  UI_PARAM_PREVIEW_SIZE = 80;  // px, square
 #define OPT_DEFAULT_BLANK_PTS_PER_1000_UNITS    8.0f
 #define OPT_DEFAULT_MIN_INTERIOR_PTS_PER_SEG    8
 #define OPT_DEFAULT_STAGE1_BLANK_TARGET         16
+// RESAMPLE STAGE (Phase 2): constant point spacing. When enabled, interior
+// point count for an edge is length / resample_spacing_units instead of
+// length/1000 * pts_per_1000_units -- absolute, length-independent spacing
+// so a 100-unit and a 1000-unit edge get the same points-per-unit density.
+// Disabled by default -> edgeInteriorCount() keeps using pts_per_1000_units,
+// so output stays byte-identical to the pre-resample optimizer.
+#define OPT_DEFAULT_RESAMPLE_ENABLED             false
+#define OPT_DEFAULT_RESAMPLE_SPACING_UNITS       160.0f
 // PILLAR 3: ZV (Zero Vibration) input-shaping ringing compensation on
 // blank-jump moves. Disabled by default -- ring_freq_hz/ring_damping_ratio
 // must be measured on real hardware (step-response capture on a scope)
@@ -72,6 +80,8 @@ struct OptimizerLiveConfig {
     float    blank_pts_per_1000_units     = OPT_DEFAULT_BLANK_PTS_PER_1000_UNITS;
     uint8_t  min_interior_pts_per_segment = OPT_DEFAULT_MIN_INTERIOR_PTS_PER_SEG;
     uint8_t  stage1_blank_target          = OPT_DEFAULT_STAGE1_BLANK_TARGET;
+    bool     resample_enabled             = OPT_DEFAULT_RESAMPLE_ENABLED;
+    float    resample_spacing_units       = OPT_DEFAULT_RESAMPLE_SPACING_UNITS;
     bool     ringing_comp_enabled         = OPT_DEFAULT_RINGING_COMP_ENABLED;
     float    ring_freq_hz                 = OPT_DEFAULT_RING_FREQ_HZ;
     float    ring_damping_ratio           = OPT_DEFAULT_RING_DAMPING_RATIO;
