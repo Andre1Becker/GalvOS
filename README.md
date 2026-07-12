@@ -20,11 +20,12 @@
 - point to multi point spread out
 - 3 circle Preset
 - Hypotrochoid (Complex) Way to huge scaling
+- Phyllotaxis bad output
+
 
 ### Calibration
 
-- WIP Some patterns need to be fixed
-- Brightness Parameter not working
+- Some patterns need to be fixed
 - Channel not working
 - ILDA Standard Testpattern kein output
 
