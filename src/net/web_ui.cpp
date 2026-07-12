@@ -480,6 +480,7 @@ void init() {
                 gOptimizerConfig.ring_freq_hz = constrain((float)doc["ring_freq_hz"], 1.0f, 2000.0f);
             if (doc["ring_damping_ratio"].is<float>())
                 gOptimizerConfig.ring_damping_ratio = constrain((float)doc["ring_damping_ratio"], 0.0f, 0.9f);
+            gPatternCacheGen++;   // invalidate static-preset cache -- optimizer params changed
             req->send(200, "text/plain", "OK");
         });
 
@@ -1841,7 +1842,7 @@ void init() {
         bool changed = false;
         if (!doc["kpps"].isNull()) {
             uint16_t v = doc["kpps"];
-            if (v >= 12 && v <= 60) { gProjection.galvo_kpps = v; changed = true; }
+            if (v >= 12 && v <= 60) { gProjection.galvo_kpps = v; changed = true; gPatternCacheGen++; }
         }
         if (!doc["scan_angle_mech"].isNull()) {
             float v = doc["scan_angle_mech"];

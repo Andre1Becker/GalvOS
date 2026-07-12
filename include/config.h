@@ -89,6 +89,15 @@ struct OptimizerLiveConfig {
 
 extern OptimizerLiveConfig gOptimizerConfig;
 
+// Pattern cache invalidation counter (Phase 2). Bumped whenever a change
+// makes previously-cached static-preset geometry stale: any optimizer-live
+// write and any galvo_kpps change. preset_patterns.cpp compares the value it
+// cached against the current one and regenerates on mismatch. A plain
+// uint32_t is sufficient -- it's written only from the (single) web-server
+// task and read only from the pattern task; a stale read costs at most one
+// extra regeneration, never wrong geometry.
+extern volatile uint32_t gPatternCacheGen;
+
 enum DmxChannel : uint8_t {
     // ── default pattern control (CH 1-16) ────────────────────────────
     DMX_MASTER = 0,     // CH 1:  master dimmer 0-255

@@ -45,6 +45,7 @@ TextConfig       gTextConfig;
 CurveConfig      gCurves;
 ProjectionConfig gProjection;
 OptimizerLiveConfig gOptimizerConfig;   // GalvOS v5 Point Optimizer (Pillar 1)
+volatile uint32_t   gPatternCacheGen = 0; // Phase 2 static-preset cache invalidation
 ZoneConfig       gZone;                 // touch-defined projection zone
 PaintConfig      gPaint;                // paint-by-finger canvas
 volatile bool    gDebugNoHW = false;

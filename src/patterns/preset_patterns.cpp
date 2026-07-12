@@ -1534,11 +1534,98 @@ static const PFn DISPATCH[PRESET_COUNT] = {
     p106,
 };
 
+// ─── STATIC-PRESET CACHE (Phase 2) ───────────────────────────
+// A handful of presets produce identical raw geometry every frame: their
+// DISPATCH function ignores `phase` and reads no wall-clock/random state, so
+// for a fixed (idx, speed, size_val) the DISPATCH[idx]() + closing-blank
+// output is byte-identical frame to frame. Re-running the full generator +
+// point optimizer for them every frame is pure waste. This caches that raw
+// output and memcpy's it back on a hit.
+//
+// IMPORTANT: only the DISPATCH[idx]() call is cached. The per-frame seam
+// bridge, and all downstream stages in pattern_engine.cpp (rotation, color
+// animation, scale, kaleidoscope, mirror), still run on the copied points --
+// so a "static" preset can still be rotated/recolored live; only its base
+// geometry is reused.
+//
+// isStaticPreset(): the set was established by source analysis -- these are
+// the presets whose generator body references neither `ph` nor millis()/random
+// state. Kept as an explicit allow-list (not a heuristic) so a future edit
+// that makes one of them phase-dependent doesn't silently serve stale frames;
+// if that happens, remove it here.
+static inline bool isStaticPreset(uint8_t idx) {
+    switch (idx) {
+        case 10:  // Cross +
+        case 11:  // X Shape
+        case 12:  // Grid 3x3
+        case 30:  // Static Cube
+        case 64:  // Martini Glass
+        case 65:  // Wine Glass
+        case 66:  // Champagne Flute
+        case 74:  // Pineapple
+            return true;
+        default:
+            return false;
+    }
+}
+
+// Single-slot cache: only the currently-selected preset benefits, and the
+// active preset changes rarely relative to frame rate, so one slot captures
+// essentially all the win without PRESET_COUNT * PATTERN_POINTS_MAX of PSRAM.
+static LaserPoint* s_cacheBuf   = nullptr;   // PSRAM, PATTERN_POINTS_MAX points
+static size_t      s_cacheCount = 0;
+static uint8_t     s_cacheIdx   = 0xFF;      // 0xFF = empty
+static uint8_t     s_cacheSpeed = 0;
+static uint8_t     s_cacheSize  = 0;
+static uint32_t    s_cacheGen   = 0xFFFFFFFF;
+
+// Lazily allocate the cache buffer in PSRAM. Returns false if PSRAM is
+// exhausted -- caller then falls back to the uncached path (correct, just
+// slower), so a failed alloc never breaks rendering.
+static bool ensureCacheBuf() {
+    if (s_cacheBuf) return true;
+    s_cacheBuf = (LaserPoint*)ps_malloc(PATTERN_POINTS_MAX * sizeof(LaserPoint));
+    return s_cacheBuf != nullptr;
+}
+
+// Runs DISPATCH[idx]() with a cache in front for static presets. For dynamic
+// presets (or when PSRAM is unavailable) this is a direct pass-through, so
+// their behaviour is byte-identical to the pre-cache code path.
+static size_t dispatchCached(uint8_t idx, LaserPoint* out, size_t max_pts,
+                             uint32_t safe_phase, uint8_t speed, uint8_t size_val) {
+    if (!isStaticPreset(idx) || !ensureCacheBuf()) {
+        return DISPATCH[idx](out, max_pts, safe_phase, speed, size_val);
+    }
+
+    const uint32_t gen = gPatternCacheGen;
+    bool hit = (s_cacheIdx == idx) && (s_cacheSpeed == speed) &&
+               (s_cacheSize == size_val) && (s_cacheGen == gen) &&
+               (s_cacheCount > 0) && (s_cacheCount <= max_pts);
+    if (hit) {
+        memcpy(out, s_cacheBuf, s_cacheCount * sizeof(LaserPoint));
+        return s_cacheCount;
+    }
+
+    // Miss: generate into the caller's buffer, then snapshot into the cache.
+    size_t n = DISPATCH[idx](out, max_pts, safe_phase, speed, size_val);
+    if (n > 0 && n <= PATTERN_POINTS_MAX) {
+        memcpy(s_cacheBuf, out, n * sizeof(LaserPoint));
+        s_cacheCount = n;
+        s_cacheIdx   = idx;
+        s_cacheSpeed = speed;
+        s_cacheSize  = size_val;
+        s_cacheGen   = gen;
+    } else {
+        s_cacheIdx = 0xFF;   // don't cache empty/oversized results
+    }
+    return n;
+}
+
 size_t generate(uint8_t idx, LaserPoint* out, size_t max_pts,
                 uint32_t phase, uint8_t speed, uint8_t size_val) {
     if (idx >= PRESET_COUNT || !out) return 0;
     const uint32_t safe_phase = phase % 0xFFFFFF;
-    size_t n = DISPATCH[idx](out, max_pts, safe_phase, speed, size_val);
+    size_t n = dispatchCached(idx, out, max_pts, safe_phase, speed, size_val);
 
     // Geometric closing blank -- skipped for continuous-sweep (#2) presets
     // whose open boundary is intentional (bridged by cross-frame continuity).
