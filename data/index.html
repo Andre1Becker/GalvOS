@@ -884,8 +884,7 @@
         <option value="6">Pulse (pulsing size)</option>
         <option value="7">Rotate (spinning)</option>
         <option value="8">Zoom (in/out)</option>
-        <option value="9">📦 3D Extrusion</option>
-        <option value="10">🔄 Orbit / Circling</option>
+        <option value="10">🌐 Orbit (sphere wrap)</option>
         <option value="11">🎬 Star Wars Scroll</option>
       </select>
 
@@ -909,10 +908,18 @@
         <input type="checkbox" id="tx-rainbow">
         <span class="slider"></span>🌈 Rainbow
       </label>
+      <label class="toggle" style="margin-top:8px">
+        <input type="checkbox" id="tx-flip-x">
+        <span class="slider"></span>↔ Flip X
+      </label>
+      <label class="toggle" style="margin-top:8px">
+        <input type="checkbox" id="tx-flip-y">
+        <span class="slider"></span>↕ Flip Y
+      </label>
 
       <div style="margin-top:16px;padding:12px;background:#000;border:1px solid var(--border);border-radius:4px;font-family:monospace;font-size:11px;color:var(--dim)">
         API: <span style="color:var(--accent)">POST /api/text</span><br>
-        {text, font, anim, speed, size, col_r/g/b, rainbow, active}
+        {text, font, anim, speed, size, col_r/g/b, rainbow, flip_x, flip_y, active}
       </div>
     </div>
 
@@ -3696,6 +3703,8 @@ async function startText() {
         size:    +document.getElementById('tx-sz').value,
         col_r: r, col_g: g, col_b: b,
         rainbow: document.getElementById('tx-rainbow').checked,
+        flip_x:  document.getElementById('tx-flip-x').checked,
+        flip_y:  document.getElementById('tx-flip-y').checked,
         active:  true,
     });
     if (ok !== null) toast('Text active: ' + text);

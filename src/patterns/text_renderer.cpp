@@ -6,9 +6,11 @@
  *   - Speed: 4x faster animation across all modes
  *   - FONT_BOLD: dual-stroke with lateral offset
  *   - FONT_OUTLINE: 4-direction offset pass for outline effect
- *   - 3D Extrusion: proper blank jump before shadow, skip blank pts in shadow copy
- *   - Orbit: true 3D rotation (X/Y/Z axes) with perspective projection
+ *   - Orbit: text wrapped onto a spinning sphere (v5.46)
  *   - Star Wars: correct trapezoid perspective (wide bottom, narrow top)
+ *   - Serif fix: text-specific optimizer floors keep short strokes (v5.46)
+ *   - X/Y flip: per-string mirror around centroid (v5.46)
+ *   3D Extrusion removed (v5.46)
  */
 #include "text_renderer.h"
 #include "text_renderer.h"
@@ -34,6 +36,16 @@ static inline optimizer::OptimizerConfig textOptimizerConfig() {
     cfg.ring_freq_hz                 = gOptimizerConfig.ring_freq_hz;
     cfg.ring_damping_ratio           = gOptimizerConfig.ring_damping_ratio;
     cfg.galvo_kpps                   = gProjection.galvo_kpps;
+
+    // Text-specific floors: the global optimizer is tuned for dense preset
+    // geometry, which starves short glyph strokes (serifs / crossbars of
+    // E, F, T, ...). At small scale their length * pts_per_1000_units rounds
+    // below the minimum and the whole 2-vertex stroke collapses to a single
+    // point -> the stroke disappears. Guarantee every stroke keeps both
+    // endpoints regardless of the global tuning or the current text scale.
+    if (cfg.min_segment_pts < 3)              cfg.min_segment_pts = 3;
+    if (cfg.min_interior_pts_per_segment < 1) cfg.min_interior_pts_per_segment = 1;
+    if (cfg.pts_per_1000_units < 40.f)        cfg.pts_per_1000_units = 40.f;
     return cfg;
 }
 namespace textrender {
@@ -318,6 +330,18 @@ static size_t renderTextString(LaserPoint* out, size_t max,
         }
     }
 
+    // X/Y flip -- mirror the assembled string around its centroid so the
+    // text reads mirrored without shifting its screen position.
+    if ((cfg.flip_x || cfg.flip_y) && n > 0) {
+        float cxc = 0.f, cyc = 0.f;
+        for (size_t i = 0; i < n; i++) { cxc += out[i].x; cyc += out[i].y; }
+        cxc /= n; cyc /= n;
+        for (size_t i = 0; i < n; i++) {
+            if (cfg.flip_x) out[i].x = (int16_t)(2.f * cxc - out[i].x);
+            if (cfg.flip_y) out[i].y = (int16_t)(2.f * cyc - out[i].y);
+        }
+    }
+
     return n;
 }
 
@@ -420,74 +444,54 @@ size_t generate(LaserPoint* out, size_t max_pts, const TextConfig& cfg, uint32_t
                                     cfg, -zw * 0.5f, base_y, zoom_sc);
         }
 
-        case TANIM_3D_EXT: {
-            // FIX v2.0: render front text first, then blank jump, then shadow
-            // Shadow offset: right and downward (in DAC space: +x, +y = down after y-flip)
-            size_t n = renderTextString(out, max_pts, cfg.text, full_len,
-                                        cfg, start_x, base_y, display_sc);
-            size_t base_n = n;
-            if (base_n == 0) return 0;
-
-            // Blank jump to shadow start position
-            float sdx = display_sc * 1.5f;
-            float sdy = display_sc * 0.6f;  // positive = down in DAC space
-
-            // Compute shadow start (first non-blank point of front text, offset)
-            float shadow_start_x = out[0].x + sdx;
-            float shadow_start_y = out[0].y + sdy;
-            addPt(out, n, max_pts, shadow_start_x, shadow_start_y, 0, 0, 0, 1);
-
-            // Copy front text as dim shadow, skipping blank points
-            for (size_t i = 0; i < base_n && n < max_pts; i++) {
-                if (out[i].blank) continue;
-                LaserPoint p = out[i];
-                p.x += (int16_t)sdx;
-                p.y += (int16_t)sdy;
-                p.r  = (uint8_t)(out[i].r * 0.25f);
-                p.g  = (uint8_t)(out[i].g * 0.25f);
-                p.b  = (uint8_t)(out[i].b * 0.25f);
-                p.blank = 0;
-                out[n++] = p;
-            }
-            return n;
-        }
+        // TANIM_3D_EXT removed (v5.46) -- the shadow-copy extrusion was
+        // visually unconvincing on a vector laser and doubled the point
+        // budget. Enum value kept for ABI; an unhandled value falls through
+        // to the default (static) render below.
 
         case TANIM_ORBIT: {
-            // FIX v2.0: true 3D orbit on sphere — text rotates around Y-axis
-            // with tilt around X-axis, projected with perspective
-            float angY = fmodf(t * 1.5f, 2.f * (float)M_PI);
-            float angX = (float)M_PI * 0.25f;  // 45° tilt — looks 3D
-            float angZ = t * 0.3f;             // slow Z-roll for extra depth
-
-            float cosY = cosf(angY), sinY = sinf(angY);
-            float cosX = cosf(angX), sinX = sinf(angX);
-            float cosZ = cosf(angZ), sinZ = sinf(angZ);
-
-            // Orbit radius in DAC units
-            float orbit_r = 12000.f;
-
-            // Text center position on the orbit circle (XZ plane in 3D)
-            float px3 = orbit_r * sinY;
-            float py3 = orbit_r * sinX * cosY;
-            float pz3 = orbit_r * cosX * cosY + 20000.f;  // z-offset keeps it in front
-
-            // Perspective projection: focal length in DAC units
-            float focal = 40000.f;
-            float proj  = focal / fmaxf(pz3, 1000.f);
-
-            float screen_x = px3 * proj;
-            float screen_y = py3 * proj;
-
-            // Text scale from perspective
-            float persp_sc = display_sc * proj;
-
-            // Text faces toward viewer — apply Y-axis rotation to glyph coords
-            // We render at screen_x, screen_y with rotated scale
-            // For simplicity: render flat text, then rotate all points around 3D axis
+            // True 3D orbit: the whole string is wrapped onto the surface of a
+            // sphere and spun around the vertical (Y) axis, so the text reads
+            // as if it were circling a globe -- glyphs shrink and slide away
+            // toward the horizon on the far side instead of merely translating.
+            //
+            // 1) render flat, centered text into the buffer
+            // 2) treat each point's flat X as an arc-length -> longitude phi
+            //    (plus a time term for the spin) and its flat Y as height
+            // 3) place the point on the sphere, perspective-project to screen
+            // 4) blank points on the back hemisphere (facing away from viewer)
             size_t n = renderTextString(out, max_pts, cfg.text, full_len,
-                                        cfg, screen_x + start_x * proj,
-                                        screen_y + base_y, persp_sc,
-                                        angZ);  // Z-roll for depth feel
+                                        cfg, start_x, base_y, display_sc);
+            if (n == 0) return 0;
+
+            const float R      = 20000.f;               // sphere radius (DAC units)
+            const float focal  = 42000.f;               // perspective focal length
+            const float camZ   = R + focal;             // camera distance from center
+            const float spin   = fmodf(t * 1.2f, 2.f * (float)M_PI);
+            // arc-length -> radians: a full text width wraps ~1.6 rad of the sphere
+            const float halfW  = fmaxf(1.f, tw * 0.5f);
+            const float kLon   = 1.6f / halfW;          // X (DAC) -> longitude (rad)
+            const float kLat   = 0.9f / fmaxf(1.f, GLYPH_HALF_H * display_sc); // Y -> latitude
+
+            for (size_t i = 0; i < n; i++) {
+                float phi = out[i].x * kLon + spin;     // longitude
+                float lat = out[i].y * kLat;            // latitude
+                float clat = cosf(lat);
+
+                // sphere surface point (viewer looks down -Z)
+                float X = R * sinf(phi) * clat;
+                float Y = R * sinf(lat);
+                float Z = R * cosf(phi) * clat;
+
+                // perspective projection
+                float depth = camZ - Z;
+                float proj  = focal / fmaxf(depth, 1000.f);
+                out[i].x = (int16_t)constrain(X * proj, -32767.f, 32767.f);
+                out[i].y = (int16_t)constrain(Y * proj, -32767.f, 32767.f);
+
+                // blank the far hemisphere so the text wraps out of sight
+                if (Z < 0.f) out[i].blank = 1;
+            }
             return n;
         }
 

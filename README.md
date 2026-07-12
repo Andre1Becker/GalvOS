@@ -18,19 +18,19 @@
 ### Patterns
 
 - point to multi point spread out
-- 3 cirle Preset
+- 3 circle Preset
 - Hypotrochoid (Complex) Way to huge scaling
 
 ### Text
 
 - Text not rendered fully (missing serifs)
-- 3D Extrusion not working
-- Orbit should be 3D - not cycling
+- 3D Extrusion not working (maybe to complex; so remove it?)
+- Orbit should be 3D - not cycling. it should look like the text is cycling around a shpere
 - Text X/Y flip option
 
 ### Calibration
 
-- Some patterns need to be fixed
+- WIP Some patterns need to be fixed
 - Brightness Parameter not working
 - Channel not working
 - ILDA Standard Testpattern kein output

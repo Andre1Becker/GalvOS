@@ -778,6 +778,8 @@ void init() {
                 if (doc["col_g"].is<int>())          gTextConfig.col_g     = doc["col_g"];
                 if (doc["col_b"].is<int>())          gTextConfig.col_b     = doc["col_b"];
                 if (doc["rainbow"].is<bool>())       gTextConfig.rainbow   = doc["rainbow"];
+                if (doc["flip_x"].is<bool>())        gTextConfig.flip_x    = doc["flip_x"];
+                if (doc["flip_y"].is<bool>())        gTextConfig.flip_y    = doc["flip_y"];
                 if (doc["active"].is<bool>())        gTextConfig.active    = doc["active"];
             }
             req->send(200, "text/plain", "OK");
@@ -830,6 +832,8 @@ void init() {
         doc["col_g"]   = gTextConfig.col_g;
         doc["col_b"]   = gTextConfig.col_b;
         doc["rainbow"] = gTextConfig.rainbow;
+        doc["flip_x"]  = gTextConfig.flip_x;
+        doc["flip_y"]  = gTextConfig.flip_y;
         doc["active"]  = gTextConfig.active;
         sendJsonPsram(req, doc);
     });

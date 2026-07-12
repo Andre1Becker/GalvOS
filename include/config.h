@@ -402,6 +402,8 @@ struct TextConfig {
     uint8_t   col_g       = 255;
     uint8_t   col_b       = 255;
     bool      rainbow     = false;
+    bool      flip_x      = false;   // mirror text horizontally (negate X)
+    bool      flip_y      = false;   // mirror text vertically   (negate Y)
     volatile bool      active      = false;   // text mode active (overrides preset + DMX)
 };
 
