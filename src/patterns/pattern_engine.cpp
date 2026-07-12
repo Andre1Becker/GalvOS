@@ -5,6 +5,7 @@
 #include "text_renderer.h"
 #include "curve_patterns.h"
 #include "paint_patterns.h"
+#include "point_optimizer.h"
 #include "ilda/ilda_player.h"
 #include "control/dmx_in.h"
 #include "net/artnet_in.h"
@@ -856,6 +857,13 @@ void task(void*) {
         readDmx(v);
         gState.master_dimmer.store(resolveMasterDimmer(v.master));
 
+        // Phase 3: reset the live optimizer transform to identity each frame.
+        // Only the Preset and Paint paths (optimizer-fed, with Z-rot controls)
+        // republish a non-identity transform below; every other path (text,
+        // calib, ILDA, DMX, curves) inherits identity so a stale rotation from
+        // a previous preset frame can never leak in.
+        { LOCK_STATE(); optimizer::gLiveTransform = optimizer::AffineTransform(); }
+
         // ---- ILDA SD-card mode (highest priority) ----
         if (ilda::gILDA.active && ilda::hasNewFrame()) {
             size_t n = ilda::getFrame(s_frame, PATTERN_POINTS_MAX);
@@ -917,19 +925,12 @@ void task(void*) {
 
         // ---- Paint-by-Finger Mode ----
         if (gPaint.active) {
-            size_t n = paint::generate(s_frame, PATTERN_POINTS_MAX);
-            if (n == 0) { static LaserPoint blank_pt={0,0,0,0,0,1}; galvo::pushFrame(&blank_pt,1); vTaskDelay(pdMS_TO_TICKS(40)); continue; }  // guard: empty canvas
-
-            // Color animation (same engine as Preset/Curve Live-Controls).
-            // col_anim_type==OFF && !col_override leaves each stroke's own
-            // picked color untouched (multi-color canvas); Segment mode
-            // overrides all points with the cycling gradient.
-            applyColorAnim(n);
-
             // 3-axis rotation -- identical engine to Preset Live-Controls
             // (shared gLivePreset.rot_* state/angle accumulation, same
             // WebUI-reset race guard: snapshot + advance under mtx::state,
-            // trig from local copies only).
+            // trig from local copies only). Z (affine) is published into
+            // optimizer::gLiveTransform BEFORE generate(); Y/X perspective
+            // tilt stays a post-optimizer point pass using the snapshots.
             bool  rotZActive, rotYActive, rotXActive;
             float rotZAngle, rotYAngle, rotXAngle;
             { LOCK_STATE();
@@ -945,15 +946,18 @@ void task(void*) {
                 if (rotXActive) gLivePreset.rot_angle_x += gLivePreset.rot_speed_x;
                 rotXAngle = gLivePreset.rot_angle_x;
             }
-            if (rotZActive) {
-                float cz = cosf(rotZAngle);
-                float sz2 = sinf(rotZAngle);
-                for (size_t i=0;i<n;i++){
-                    int16_t nx=(int16_t)(s_frame[i].x*cz - s_frame[i].y*sz2);
-                    int16_t ny=(int16_t)(s_frame[i].x*sz2+ s_frame[i].y*cz);
-                    s_frame[i].x=nx; s_frame[i].y=ny;
-                }
-            }
+            { LOCK_STATE(); optimizer::gLiveTransform =
+                  optimizer::makeTransform(rotZActive ? rotZAngle : 0.f, 0.f, 0.f); }
+
+            size_t n = paint::generate(s_frame, PATTERN_POINTS_MAX);
+            if (n == 0) { static LaserPoint blank_pt={0,0,0,0,0,1}; galvo::pushFrame(&blank_pt,1); vTaskDelay(pdMS_TO_TICKS(40)); continue; }  // guard: empty canvas
+
+            // Color animation (same engine as Preset/Curve Live-Controls).
+            // col_anim_type==OFF && !col_override leaves each stroke's own
+            // picked color untouched (multi-color canvas); Segment mode
+            // overrides all points with the cycling gradient.
+            applyColorAnim(n);
+
             if (rotYActive) {
                 float cy = cosf(rotYAngle);
                 float sy2 = sinf(rotYAngle);
@@ -1113,6 +1117,43 @@ void task(void*) {
             uint8_t speed   = gLivePreset.speed;
             float   scaleFrac;
             uint8_t sz      = computeAutoScaleSize(gLivePreset.size_val, &scaleFrac);
+
+            // Additional Rotation from Live-Controls (Phase 3).
+            // rot_angle_x/y/z: read-modify-write here (Core 1) races WebUI
+            // resets (Core 0, /api/preset-live) -> snapshot + advance under
+            // mtx::state, then compute trig from local copies only.
+            //
+            // The in-plane Z rotation is affine, so it is published into
+            // optimizer::gLiveTransform BEFORE generate() runs -- the
+            // optimizer then samples the already-rotated geometry (corner
+            // detection / resampling see true edge angles). Y/X perspective
+            // tilt is NOT affine and stays a post-optimizer point pass below,
+            // reusing the rotYAngle/rotXAngle snapshotted here (accumulated
+            // exactly once per frame).
+            bool  rotZActive, rotYActive, rotXActive;
+            float rotZAngle, rotYAngle, rotXAngle, rotationDeg;
+            { LOCK_STATE();
+                rotZActive = gLivePreset.rot_z;
+                if (rotZActive) gLivePreset.rot_angle_z += gLivePreset.rot_speed_z;
+                rotZAngle = gLivePreset.rot_angle_z;
+
+                rotYActive = gLivePreset.rot_y;
+                if (rotYActive) gLivePreset.rot_angle_y += gLivePreset.rot_speed_y;
+                rotYAngle = gLivePreset.rot_angle_y;
+
+                rotXActive = gLivePreset.rot_x;
+                if (rotXActive) gLivePreset.rot_angle_x += gLivePreset.rot_speed_x;
+                rotXAngle = gLivePreset.rot_angle_x;
+
+                rotationDeg = gLivePreset.rotation;
+            }
+            // Publish the affine (Z-rot) part for the optimizer. rot_z takes
+            // precedence over the static `rotation` degrees control, matching
+            // the legacy if/else-if order.
+            float zRad = rotZActive ? rotZAngle
+                       : (fabsf(rotationDeg) > 0.5f ? rotationDeg * (float)(M_PI/180.) : 0.f);
+            { LOCK_STATE(); optimizer::gLiveTransform = optimizer::makeTransform(zRad, 0.f, 0.f); }
+
             size_t n = presets::generate((uint8_t)s_preset_idx, s_frame,
                                          PATTERN_POINTS_MAX, phase, speed, sz);
 
@@ -1135,46 +1176,11 @@ void task(void*) {
             // Apply color animation / override
             applyColorAnim(n);
 
-            // Additional Rotation from Live-Controls
-            // rot_angle_x/y/z: read-modify-write here (Core 1) races WebUI
-            // resets (Core 0, /api/preset-live) -> snapshot + advance under
-            // mtx::state, then compute trig from local copies only.
-            bool  rotZActive, rotYActive, rotXActive;
-            float rotZAngle, rotYAngle, rotXAngle, rotationDeg;
-            { LOCK_STATE();
-                rotZActive = gLivePreset.rot_z;
-                if (rotZActive) gLivePreset.rot_angle_z += gLivePreset.rot_speed_z;
-                rotZAngle = gLivePreset.rot_angle_z;
+            // Z-rotation is now applied via optimizer::gLiveTransform (Phase 3),
+            // published above before generate(). Only the non-affine Y/X
+            // perspective tilt remains as a post-optimizer point pass, using
+            // the rotYAngle/rotXAngle already snapshotted above.
 
-                rotYActive = gLivePreset.rot_y;
-                if (rotYActive) gLivePreset.rot_angle_y += gLivePreset.rot_speed_y;
-                rotYAngle = gLivePreset.rot_angle_y;
-
-                rotXActive = gLivePreset.rot_x;
-                if (rotXActive) gLivePreset.rot_angle_x += gLivePreset.rot_speed_x;
-                rotXAngle = gLivePreset.rot_angle_x;
-
-                rotationDeg = gLivePreset.rotation;
-            }
-
-            // Z-rotation (classic in-plane)
-            if (rotZActive) {
-                float cz = cosf(rotZAngle);
-                float sz2 = sinf(rotZAngle);
-                for (size_t i=0;i<n;i++){
-                    int16_t nx=(int16_t)(s_frame[i].x*cz - s_frame[i].y*sz2);
-                    int16_t ny=(int16_t)(s_frame[i].x*sz2+ s_frame[i].y*cz);
-                    s_frame[i].x=nx; s_frame[i].y=ny;
-                }
-            } else if (fabsf(rotationDeg) > 0.5f) {
-                float er = rotationDeg * (float)(M_PI/180.);
-                float cr=cosf(er), sr=sinf(er);
-                for (size_t i=0;i<n;i++){
-                    int16_t nx=(int16_t)(s_frame[i].x*cr-s_frame[i].y*sr);
-                    int16_t ny=(int16_t)(s_frame[i].x*sr+s_frame[i].y*cr);
-                    s_frame[i].x=nx; s_frame[i].y=ny;
-                }
-            }
             // Y-rotation (tilt left/right -- perspective X compression)
             if (rotYActive) {
                 float cy = cosf(rotYAngle);

@@ -28,6 +28,7 @@ static inline optimizer::OptimizerConfig liveOptimizerConfig() {
     cfg.ring_freq_hz                 = gOptimizerConfig.ring_freq_hz;
     cfg.ring_damping_ratio           = gOptimizerConfig.ring_damping_ratio;
     cfg.galvo_kpps                   = gProjection.galvo_kpps;
+    cfg.transform                    = optimizer::gLiveTransform;  // Phase 3: live Z-rot + move
     return cfg;
 }
 

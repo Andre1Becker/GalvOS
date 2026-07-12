@@ -75,8 +75,10 @@ struct PathSegment {
 // The default is the identity ({1,0,0, 0,1,0}), so callers that do not set a
 // transform get byte-identical output to the pre-transform-stage optimizer.
 // A full 2x3 (not 2x2) is used so translation composes into the same matrix
-// as rotation/scale/shear -- Phase 2 will build these from the live rotation
-// / scale / move controls instead of the current post-optimizer inline pass.
+// as rotation/scale/shear -- Phase 3 builds these from the live rotation /
+// move controls (pattern_engine publishes optimizer::gLiveTransform per frame)
+// instead of the old post-optimizer inline pass. Non-affine effects (Y/X
+// perspective tilt, DMX wave warp) remain post-optimizer point passes.
 struct AffineTransform {
     float a, b, tx;   // first row  (x' = a*x + b*y + tx)
     float c, d, ty;   // second row (y' = c*x + d*y + ty)
@@ -150,9 +152,9 @@ struct OptimizerConfig {
 
     // Transform stage (Phase 1). Applied to every input vertex before
     // corner/resample/blanking. Identity by default -> output is unchanged
-    // for callers that leave this alone. Phase 2 populates it from the live
-    // rotation/scale/move controls, retiring the post-optimizer inline
-    // rotation currently in pattern_engine.cpp.
+    // for callers that leave this alone. Phase 3 populates it from the live
+    // rotation/move controls via optimizer::gLiveTransform, retiring the
+    // post-optimizer inline Z-rotation formerly in pattern_engine.cpp.
     AffineTransform transform;
 };
 
@@ -166,6 +168,27 @@ struct OptimizerConfig {
 size_t optimize(const PathSegment* segments, size_t segment_count,
                  LaserPoint* out, size_t max_out,
                  const OptimizerConfig& cfg);
+
+// Builds a 2x3 affine from an in-plane rotation (radians, CCW) plus a
+// post-rotation translation (DAC units). Composition order matches the
+// legacy inline pass it replaces: rotate about the origin first, then
+// translate -- x' = R*x + t. angle==0 && tx==ty==0 yields the identity,
+// so a caller with no active rotation/move produces byte-identical output.
+inline AffineTransform makeTransform(float angle_rad, float tx, float ty) {
+    float ca = cosf(angle_rad), sa = sinf(angle_rad);
+    return AffineTransform(ca, -sa, tx,
+                           sa,  ca, ty);
+}
+
+// Live transform published by the pattern engine once per frame (under
+// mtx::state) BEFORE the active generate() call runs, and copied into
+// OptimizerConfig::transform by each path's liveOptimizerConfig(). Holds
+// the affine part (in-plane Z rotation + translation) of the live controls
+// / DMX so the optimizer sees rotated, moved geometry before corner
+// detection and resampling. Non-affine effects (Y/X perspective tilt, DMX
+// wave warp, auto-scale collapse) stay as post-optimizer point passes.
+// Defaults to identity -> no behavioural change until the engine writes it.
+extern AffineTransform gLiveTransform;
 
 // Emits a distance-proportional, smoothstep-eased blank jump from the
 // current galvo position (last point in out[0..n-1]) to (x1, y1).

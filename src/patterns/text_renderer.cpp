@@ -39,6 +39,7 @@ static inline optimizer::OptimizerConfig textOptimizerConfig(float sc = 0.f) {
     cfg.ring_freq_hz                 = gOptimizerConfig.ring_freq_hz;
     cfg.ring_damping_ratio           = gOptimizerConfig.ring_damping_ratio;
     cfg.galvo_kpps                   = gProjection.galvo_kpps;
+    cfg.transform                    = optimizer::gLiveTransform;  // Phase 3: live Z-rot + move
 
     // Serif fix (point-based, scale-INDEPENDENT): guarantee every stroke keeps
     // both endpoints so short crossbars (E, F, T, ...) never collapse to a

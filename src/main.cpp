@@ -17,6 +17,7 @@
 #include "output/galvo_out.h"
 #include "control/dmx_in.h"
 #include "patterns/pattern_engine.h"
+#include "patterns/point_optimizer.h"
 #include "storage/sd_card.h"
 #include "control/encoder.h"
 #include "mutex.h"
@@ -45,6 +46,7 @@ TextConfig       gTextConfig;
 CurveConfig      gCurves;
 ProjectionConfig gProjection;
 OptimizerLiveConfig gOptimizerConfig;   // GalvOS v5 Point Optimizer (Pillar 1)
+optimizer::AffineTransform optimizer::gLiveTransform;  // Phase 3: live Z-rot + move affine, published per-frame by pattern_engine
 volatile uint32_t   gPatternCacheGen = 0; // Phase 2 static-preset cache invalidation
 ZoneConfig       gZone;                 // touch-defined projection zone
 PaintConfig      gPaint;                // paint-by-finger canvas
