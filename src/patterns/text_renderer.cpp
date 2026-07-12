@@ -11,6 +11,9 @@
  *   - Serif fix: text-specific optimizer floors keep short strokes (v5.46)
  *   - X/Y flip: per-string mirror around centroid (v5.46)
  *   3D Extrusion removed (v5.46)
+ *   - Centering: glyph rendered at cell-center (half-advance offset) (v5.47)
+ *   - Auto-scroll: static text > TEXT_MAX_STATIC_CHARS scrolls left (v5.47)
+ *   - Orbit: thin equatorial band, reduced glyph scale (v5.47)
  */
 #include "text_renderer.h"
 #include "text_renderer.h"
@@ -294,16 +297,23 @@ static size_t renderTextString(LaserPoint* out, size_t max,
             }
         }
 
+        // Glyph strokes are centered on their own origin (x in [-4,4]), but
+        // the cursor `cx` marks the LEFT edge of the character cell. Offset the
+        // render origin by half the advance so the glyph sits centered in its
+        // cell -- otherwise the whole string is shifted by ~half a glyph and
+        // no longer centered on screen.
+        float gx = cx + glyph->advance * 0.5f * sc;
+
         GlyphResult gr;
         switch (cfg.font) {
             case FONT_BOLD:
-                gr = renderGlyphBold(out, n, max, glyph->strokes, cx, char_ty, sc, r, g, b);
+                gr = renderGlyphBold(out, n, max, glyph->strokes, gx, char_ty, sc, r, g, b);
                 break;
             case FONT_OUTLINE:
-                gr = renderGlyphOutline(out, n, max, glyph->strokes, cx, char_ty, sc, r, g, b);
+                gr = renderGlyphOutline(out, n, max, glyph->strokes, gx, char_ty, sc, r, g, b);
                 break;
             default: // FONT_SIMPLE
-                gr = renderGlyph(out, n, max, glyph->strokes, cx, char_ty, sc, r, g, b);
+                gr = renderGlyph(out, n, max, glyph->strokes, gx, char_ty, sc, r, g, b);
                 break;
         }
 
@@ -365,16 +375,23 @@ size_t generate(LaserPoint* out, size_t max_pts, const TextConfig& cfg, uint32_t
     const int full_len = (int)strlen(cfg.text);
     float tw = textWidth(cfg.text, full_len) * sc;
 
-    float max_half = 30000.f;
+    // Scale is bound by GLYPH HEIGHT only, so long strings keep a readable
+    // letter size instead of being shrunk horizontally into an illegible line.
+    // (Static strings that overflow the scan width are auto-scrolled below.)
+    const float max_half = 30000.f;
     const float GLYPH_HALF_H = 7.f;
-    float sc_w = (tw / 2.f > max_half) ? sc * max_half / (tw / 2.f) : sc;
-    float sc_h = (GLYPH_HALF_H * sc > max_half) ? max_half / GLYPH_HALF_H : sc;
-    float display_sc = fminf(sc_w, sc_h);
+    float display_sc = (GLYPH_HALF_H * sc > max_half) ? max_half / GLYPH_HALF_H : sc;
     if (display_sc != sc) tw = textWidth(cfg.text, full_len) * display_sc;
     float start_x = -tw / 2.f;
     float base_y  = 0.f;
 
-    switch (cfg.animation) {
+    // Auto-scroll: a Static string longer than TEXT_MAX_STATIC_CHARS cannot be
+    // shown legibly at once -> present it as a left-scrolling marquee instead.
+    TextAnim anim = cfg.animation;
+    if (anim == TANIM_STATIC && full_len > TEXT_MAX_STATIC_CHARS)
+        anim = TANIM_SCROLL_L;
+
+    switch (anim) {
 
         case TANIM_STATIC:
             return renderTextString(out, max_pts, cfg.text, full_len,
@@ -460,8 +477,13 @@ size_t generate(LaserPoint* out, size_t max_pts, const TextConfig& cfg, uint32_t
             //    (plus a time term for the spin) and its flat Y as height
             // 3) place the point on the sphere, perspective-project to screen
             // 4) blank points on the back hemisphere (facing away from viewer)
+            // 1) render flat, centered text into the buffer, at a REDUCED
+            //    scale -- the sphere + perspective magnify the near side, so a
+            //    full-size render would look oversized.
+            float orbit_sc = display_sc * 0.55f;
+            float otw = textWidth(cfg.text, full_len) * orbit_sc;
             size_t n = renderTextString(out, max_pts, cfg.text, full_len,
-                                        cfg, start_x, base_y, display_sc);
+                                        cfg, -otw * 0.5f, base_y, orbit_sc);
             if (n == 0) return 0;
 
             const float R      = 20000.f;               // sphere radius (DAC units)
@@ -469,9 +491,13 @@ size_t generate(LaserPoint* out, size_t max_pts, const TextConfig& cfg, uint32_t
             const float camZ   = R + focal;             // camera distance from center
             const float spin   = fmodf(t * 1.2f, 2.f * (float)M_PI);
             // arc-length -> radians: a full text width wraps ~1.6 rad of the sphere
-            const float halfW  = fmaxf(1.f, tw * 0.5f);
+            const float halfW  = fmaxf(1.f, otw * 0.5f);
             const float kLon   = 1.6f / halfW;          // X (DAC) -> longitude (rad)
-            const float kLat   = 0.9f / fmaxf(1.f, GLYPH_HALF_H * display_sc); // Y -> latitude
+            // Keep the text in a THIN band around the equator (~+-11 deg) so the
+            // letters run around the equator and never climb toward the poles.
+            const float LAT_BAND = 0.20f;               // half-band, radians
+            const float glyphHalf = fmaxf(1.f, GLYPH_HALF_H * orbit_sc);
+            const float kLat   = LAT_BAND / glyphHalf;  // Y (DAC) -> latitude (rad)
 
             for (size_t i = 0; i < n; i++) {
                 float phi = out[i].x * kLon + spin;     // longitude
@@ -542,7 +568,7 @@ size_t generate(LaserPoint* out, size_t max_pts, const TextConfig& cfg, uint32_t
                     size_t cap = total + glyph_cap < max_pts ? total + glyph_cap : max_pts;
                     addPt(out, total, cap, cx2, yBase, 0, 0, 0, 1);
                     renderGlyph(out, total, cap, g2->strokes,
-                                cx2, yBase, scaleP,
+                                cx2 + g2->advance * 0.5f * scaleP, yBase, scaleP,
                                 cfg.col_r, cfg.col_g, cfg.col_b);
                     cx2 += g2->advance * scaleP;
                     if (total >= max_pts - 16) break;
@@ -579,6 +605,7 @@ size_t glyphOutlinePaths(const char* text, float scale,
         if (!glyph) { cx += 10.f * scale; continue; }
 
         const int8_t* s = glyph->strokes;
+        const float gx = cx + glyph->advance * 0.5f * scale;  // center in cell
         GlyphSubpath tmp;
         tmp.count = 0;
 
@@ -588,7 +615,7 @@ size_t glyphOutlinePaths(const char* text, float scale,
             if (!flush) {
                 int8_t sy = s[i + 1];
                 if (tmp.count < GlyphSubpath::MAX_PTS) {
-                    tmp.x[tmp.count] = cx + sx * scale;
+                    tmp.x[tmp.count] = gx + sx * scale;
                     tmp.y[tmp.count] = cy - sy * scale;   // same y-flip as renderGlyph
                     tmp.count++;
                 }

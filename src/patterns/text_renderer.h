@@ -16,6 +16,11 @@ namespace textrender {
 // maximum output points
 static constexpr size_t TEXT_MAX_PTS = 1024;
 
+// Maximum characters that stay legible when shown statically across the full
+// scan width (~60k DAC units). Beyond this the glyphs would shrink below
+// readability, so generate() auto-switches a Static string to Scroll-Left.
+static constexpr int TEXT_MAX_STATIC_CHARS = 16;
+
 /**
  * Generate text frame.
  * @param out      output buffer
