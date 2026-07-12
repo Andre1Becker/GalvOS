@@ -6,8 +6,37 @@
 #include <math.h>
 #include <string.h>
 #include <algorithm>
+#include <Arduino.h>
+#include <esp_heap_caps.h>
 
 namespace curves {
+
+// Shared two-pass scratch, PSRAM. Several curve generators compute an (x,y)
+// array first, find its max radius, then normalise and emit -- they used to
+// keep this in per-function `static float xs[N], ys[N]` arrays living in
+// internal DRAM permanently (the 1025-element pair alone was ~8 KB, and a
+// second function held a 513 pair). Since all curve rendering runs in
+// patterns::task (Core 1, millisecond budget) and never in the galvo ISR, the
+// scratch can live in PSRAM. One shared pair, sized for the largest user
+// (1025), is lazily allocated on first use. No static internal fallback: such
+// an array would occupy the DRAM permanently and defeat the whole point; if
+// PSRAM is genuinely unavailable the affected curve simply renders nothing
+// (returns 0) rather than costing 8 KB of the heap we are trying to free.
+static constexpr size_t CURVE_SCRATCH_N = 1025;
+static float* s_curveXs = nullptr;
+static float* s_curveYs = nullptr;
+
+// On success sets xs/ys to CURVE_SCRATCH_N-element PSRAM buffers and returns
+// true. Returns false if PSRAM allocation fails -- caller must bail out.
+static bool curveScratch(float*& xs, float*& ys) {
+    if (!s_curveXs || !s_curveYs) {
+        if (!s_curveXs) s_curveXs = (float*)ps_malloc(CURVE_SCRATCH_N * sizeof(float));
+        if (!s_curveYs) s_curveYs = (float*)ps_malloc(CURVE_SCRATCH_N * sizeof(float));
+        if (!s_curveXs || !s_curveYs) return false;
+    }
+    xs = s_curveXs; ys = s_curveYs;
+    return true;
+}
 
 // Use CURVE_PI to avoid conflict with Arduino.h #define CURVE_PI
 static constexpr float CURVE_PI  = 3.14159265358979323846f;
@@ -347,8 +376,9 @@ static size_t gen_superformula(const CurveParams& p, uint32_t phase,
     size_t n = 0;
     float max_r = 0.001f;
 
-    // Two-pass: compute then normalize
-    static float xs[513], ys[513];
+    // Two-pass: compute then normalize. Scratch in shared PSRAM buffer.
+    float *xs, *ys;
+    if (!curveScratch(xs, ys)) return 0;
 
     for (size_t i = 0; i <= N; i++) {
         float theta = (float)i / N * TAU;
@@ -389,7 +419,9 @@ static size_t gen_butterfly(const CurveParams& p, uint32_t phase,
     size_t n = 0;
     float max_r = 0.001f;
 
-    static float xs[1025], ys[1025];
+    // Scratch in shared PSRAM buffer (sized CURVE_SCRATCH_N = 1025 = N+1).
+    float *xs, *ys;
+    if (!curveScratch(xs, ys)) return 0;
 
     for (size_t i = 0; i <= N; i++) {
         float t   = (float)i / N * TAU * 2.0f;  // two full loops

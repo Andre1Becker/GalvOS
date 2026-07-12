@@ -15,11 +15,20 @@
 #include <Arduino.h>
 #include <math.h>
 #include <esp_log.h>
+#include <esp_heap_caps.h>
 
 namespace patterns {
 
 static const char* TAG = "pattern";
-static LaserPoint s_frame[PATTERN_POINTS_MAX];
+// s_frame is the per-frame staging buffer the whole pattern pipeline writes
+// into before pushFrame() memcpy's it into the PSRAM output ring. It is only
+// ever touched from patterns::task (Core 1, millisecond budget) -- never from
+// the galvo ISR, which reads exclusively from s_ring -- so it can live in
+// PSRAM. At 2048*8 = 16 KB this is the single largest internal-DRAM static in
+// the firmware; moving it to PSRAM is the biggest cheap win for the cold-boot
+// internal-heap baseline. Allocated in init(); internal-DRAM fallback keeps
+// rendering alive if PSRAM is ever exhausted.
+static LaserPoint* s_frame = nullptr;   // PATTERN_POINTS_MAX points, PSRAM (init())
 static LaserPoint* s_pm_lit = nullptr;  // PSRAM buffer, allocated in init()
 static LaserPoint* s_pm_kaleido = nullptr;  // PSRAM buffer, allocated in init()
 static volatile int      s_test_pattern  = -1;
@@ -320,6 +329,15 @@ static void applyRainbow(LaserPoint* pts, size_t n, uint8_t speed, uint32_t phas
  * Public API
  * ============================================================ */
 void init() {
+    // Frame staging buffer -> PSRAM (frees 16 KB internal DRAM). Fall back to
+    // internal DRAM only if PSRAM is unavailable, so rendering never runs on a
+    // null pointer.
+    s_frame = (LaserPoint*)ps_malloc(PATTERN_POINTS_MAX * sizeof(LaserPoint));
+    if (!s_frame) {
+        ESP_LOGE(TAG, "PSRAM alloc failed for s_frame -- falling back to internal DRAM");
+        s_frame = (LaserPoint*)heap_caps_malloc(PATTERN_POINTS_MAX * sizeof(LaserPoint),
+                                                MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    }
     s_pm_lit = (LaserPoint*)ps_malloc(PATTERN_POINTS_MAX * sizeof(LaserPoint));
     if (!s_pm_lit) ESP_LOGE(TAG, "PSRAM alloc failed for points-only buffer");
     s_pm_kaleido = (LaserPoint*)ps_malloc(PATTERN_POINTS_MAX * sizeof(LaserPoint));
@@ -802,6 +820,14 @@ static void applyPointsOnlyMode(size_t& n) {
 
 void task(void*) {
     uint32_t phase = 0;
+
+    // s_frame must exist (PSRAM, or internal-DRAM fallback in init()). If both
+    // allocations failed the device is out of memory entirely -- park the task
+    // instead of dereferencing null and crashing the whole engine.
+    if (!s_frame) {
+        ESP_LOGE(TAG, "s_frame unavailable -- pattern task parked");
+        for (;;) { safety::subsystemHeartbeat(0); vTaskDelay(pdMS_TO_TICKS(1000)); }
+    }
 
     for (;;) {
         // Notify safety subsystem that the pattern engine is alive.
