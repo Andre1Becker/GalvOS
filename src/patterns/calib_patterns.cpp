@@ -170,19 +170,23 @@ static size_t gamma_ramp(LaserPoint* o, size_t mx,
 // ══════════════════════════════════════════════════════════════
 // PATTERN 1: WHITE BALANCE
 // ══════════════════════════════════════════════════════════════
+// Four stacked short strokes (W / R / G / B) instead of full-width lines,
+// keeping DAC travel small while the per-channel brightness stays comparable.
 static size_t white_balance(LaserPoint* o, size_t mx,
                              uint32_t phase, uint8_t bright, uint8_t) {
     size_t n = 0;
+    const float STROKE = SC * 0.20f;   // short stroke half-width
     struct { uint8_t r,g,b; float y; } rows[4] = {
-        {255,255,255,  SC*0.68f},
-        {255,  0,  0,  SC*0.23f},
-        {  0,255,  0, -SC*0.23f},
-        {  0,  0,255, -SC*0.68f},
+        {255,255,255,  SC*0.60f},
+        {255,  0,  0,  SC*0.20f},
+        {  0,255,  0, -SC*0.20f},
+        {  0,  0,255, -SC*0.60f},
     };
     for (auto& row : rows) {
         uint8_t ro,go,bo;
         colorOut(row.r, row.g, row.b, bright, ro, go, bo);
-        line(o, n, mx, -SC*0.85f, row.y, SC*0.85f, row.y, ro, go, bo, 50);
+        blankMove(o, n, mx, -STROKE, row.y);
+        line(o, n, mx, -STROKE, row.y, STROKE, row.y, ro, go, bo, 8);
     }
     return n;
 }
@@ -223,11 +227,13 @@ static size_t rainbow(LaserPoint* o, size_t mx,
 // ══════════════════════════════════════════════════════════════
 // PATTERN 3: STEP RAMP
 // ══════════════════════════════════════════════════════════════
+// Galvo cannot fill bars. Render 8 short horizontal strokes at increasing
+// brightness, arranged left->right. Each stroke is short (minimal DAC travel)
+// but the discrete brightness steps stay clearly distinguishable.
 static size_t step_ramp(LaserPoint* o, size_t mx,
                          uint32_t phase, uint8_t bright, uint8_t ch) {
     size_t n = 0;
-    const int STEPS_V = 30;
-    const float anim = sinf(phase * 0.008f) * 0.1f;
+    const float STROKE = SC * 0.09f;   // short stroke half-width
     for (int s = 0; s < 8; s++) {
         float t = (float)(s + 1) / 8.0f;
         uint8_t v = (uint8_t)(t * 255.0f);
@@ -236,24 +242,14 @@ static size_t step_ramp(LaserPoint* o, size_t mx,
         uint8_t bi = (ch==0||ch==3) ? v : 0;
         uint8_t ro, go, bo;
         colorOut(ri, gi, bi, bright, ro, go, bo);
-        float x_center = -SC*0.85f + (s + 0.5f) / 8.0f * SC * 1.70f;
-        float bar_w    = SC * 1.70f / 8.0f * 0.7f;
-        float bar_h    = (SC * 0.8f) * t + anim * SC;
-        blankMove(o, n, mx, x_center - bar_w/2, bar_h);
-        ap(o, n, mx, x_center - bar_w/2, bar_h, ro, go, bo, 0);
-        ap(o, n, mx, x_center + bar_w/2, bar_h, ro, go, bo, 0);
-        blankMove(o, n, mx, x_center + bar_w/2, bar_h);
-        for (int i = 0; i <= STEPS_V; i++) {
-            float yy = bar_h - bar_h * 1.8f * i / STEPS_V;
-            ap(o, n, mx, x_center + bar_w/2, yy, ro, go, bo, 0);
-        }
-        blankMove(o, n, mx, x_center - bar_w/2, -SC*0.85f);
-        ap(o, n, mx, x_center - bar_w/2, -SC*0.85f, ro, go, bo, 0);
-        ap(o, n, mx, x_center - bar_w/2,  bar_h,    ro, go, bo, 0);
+        float x = -SC*0.80f + (s + 0.5f) / 8.0f * SC * 1.60f;
+        blankMove(o, n, mx, x - STROKE, 0);
+        line(o, n, mx, x - STROKE, 0, x + STROKE, 0, ro, go, bo, 4);
     }
-    blankMove(o, n, mx, -SC*0.88f, -SC*0.85f);
-    ap(o, n, mx, -SC*0.88f, -SC*0.85f, 0, 0, 30, 0);
-    ap(o, n, mx,  SC*0.88f, -SC*0.85f, 0, 0, 30, 0);
+    // Dim blue baseline for orientation
+    blankMove(o, n, mx, -SC*0.85f, -SC*0.30f);
+    ap(o, n, mx, -SC*0.85f, -SC*0.30f, 0, 0, 30, 0);
+    ap(o, n, mx,  SC*0.85f, -SC*0.30f, 0, 0, 30, 0);
     return n;
 }
 
@@ -496,40 +492,34 @@ static size_t corner_test(LaserPoint* o, size_t mx,
 // ══════════════════════════════════════════════════════════════
 // PATTERN 11: COLOR TEMPERATURE
 // ══════════════════════════════════════════════════════════════
+// Galvo cannot fill areas. Represent white reference and each color as one
+// short horizontal stroke (minimal DAC travel). Left column = white, right
+// column = stacked R/G/B, so brightness can still be compared side by side.
 static size_t color_temp(LaserPoint* o, size_t mx,
                           uint32_t phase, uint8_t bright, uint8_t) {
     size_t n = 0;
+    const float STROKE = SC * 0.22f;   // short: keep DAC travel small
+    const float X_L    = -SC * 0.40f;  // white column center
+    const float X_R    =  SC * 0.40f;  // R/G/B column center
+
+    // White reference stroke (left)
     uint8_t wr, wg, wb;
     colorOut(bright, bright, bright, 200, wr, wg, wb);
-    for (int i = 0; i <= 50; i++) {
-        float y = -SC*0.75f + i * SC*1.5f/50;
-        if (i == 0) blankMove(o, n, mx, -SC*0.65f, y);
-        ap(o, n, mx, -SC*0.65f, y, wr, wg, wb, 0);
-        ap(o, n, mx, -SC*0.08f, y, wr, wg, wb, 0);
-        blankMove(o, n, mx, -SC*0.08f, y);
-    }
-    struct { uint8_t r,g,b; float y0,y1; } bars[3] = {
-        {bright,0,0,     SC*0.1f,  SC*0.75f},
-        {0,bright,0,    -SC*0.25f, SC*0.1f },
-        {0,0,bright,    -SC*0.75f,-SC*0.25f},
+    blankMove(o, n, mx, X_L - STROKE, 0);
+    line(o, n, mx, X_L - STROKE, 0, X_L + STROKE, 0, wr, wg, wb, 6);
+
+    // Stacked R / G / B strokes (right)
+    struct { uint8_t r,g,b; float y; } bars[3] = {
+        {bright, 0, 0,  SC*0.40f},
+        {0, bright, 0,  0.0f     },
+        {0, 0, bright, -SC*0.40f},
     };
     for (auto& b : bars) {
-        uint8_t ro,go,bo;
-        colorOut(b.r,b.g,b.b,200,ro,go,bo);
-        for (int i = 0; i <= 30; i++) {
-            float y = b.y0 + i*(b.y1-b.y0)/30;
-            if (i == 0) blankMove(o, n, mx, SC*0.08f, y);
-            ap(o, n, mx, SC*0.08f, y, ro,go,bo, 0);
-            ap(o, n, mx, SC*0.65f, y, ro,go,bo, 0);
-            blankMove(o, n, mx, SC*0.65f, y);
-        }
+        uint8_t ro, go, bo;
+        colorOut(b.r, b.g, b.b, 200, ro, go, bo);
+        blankMove(o, n, mx, X_R - STROKE, b.y);
+        line(o, n, mx, X_R - STROKE, b.y, X_R + STROKE, b.y, ro, go, bo, 6);
     }
-    blankMove(o, n, mx, -SC*0.08f, -SC*0.82f);
-    ap(o, n, mx, -SC*0.08f, -SC*0.82f, 0, 0, 30, 0);
-    ap(o, n, mx, -SC*0.08f,  SC*0.82f, 0, 0, 30, 0);
-    blankMove(o, n, mx,  SC*0.08f, -SC*0.82f);
-    ap(o, n, mx,  SC*0.08f, -SC*0.82f, 0, 0, 30, 0);
-    ap(o, n, mx,  SC*0.08f,  SC*0.82f, 0, 0, 30, 0);
     return n;
 }
 
@@ -817,16 +807,16 @@ const CalibPatternInfo CALIB_INFO[CALIB_PATTERN_COUNT] = {
      "Both ramps must look equally smooth"},
 
     {"White Balance",
-     "R / G / B / White each a line — compare channel brightness",
-     "All four lines must appear equally bright"},
+     "R / G / B / White each a short stroke — compare channel brightness",
+     "All four strokes must appear equally bright"},
 
     {"Rainbow",
      "Full color wheel — check all hues",
      "Smooth transitions, all 6 primary colors visible"},
 
     {"Step Ramp",
-     "8 discrete brightness steps — check gamma compression",
-     "All 8 steps must be visible and appear equally large"},
+     "8 short strokes of rising brightness — check gamma compression",
+     "All 8 brightness steps must be individually distinguishable"},
 
     {"Channel Separation",
      "7 color lines — check crosstalk between R / G / B",
@@ -857,7 +847,7 @@ const CalibPatternInfo CALIB_INFO[CALIB_PATTERN_COUNT] = {
      "Corners must be sharp; diagonals must be straight"},
 
     {"Color Temperature",
-     "White bar vs. stacked R/G/B bars — perceptual color balance",
+     "White stroke vs. stacked R/G/B strokes — perceptual color balance",
      "Left white must visually match combined R+G+B on the right"},
 
     {"ILDA Test Pattern",
