@@ -21,13 +21,6 @@
 - 3 circle Preset
 - Hypotrochoid (Complex) Way to huge scaling
 
-### Text
-
-- Text not rendered fully (missing serifs)
-- 3D Extrusion not working (maybe to complex; so remove it?)
-- Orbit should be 3D - not cycling. it should look like the text is cycling around a shpere
-- Text X/Y flip option
-
 ### Calibration
 
 - WIP Some patterns need to be fixed
