@@ -33,6 +33,8 @@ static inline optimizer::OptimizerConfig liveOptimizerConfig() {
     cfg.max_step_units               = gOptimizerConfig.max_step_units;
     cfg.accel_clamp_enabled          = gOptimizerConfig.accel_clamp_enabled;
     cfg.max_accel_units              = gOptimizerConfig.max_accel_units;
+    // PPS-derived scaling: density + both clamps from rated/output kpps.
+    optimizer::applyPpsScaling(cfg, gProjection.galvo_rated_kpps, gProjection.galvo_kpps);
     return cfg;
 }
 

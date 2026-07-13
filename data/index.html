@@ -2276,6 +2276,12 @@ async function loadProjection() {
     if (!d) return;
     g_proj = d;
     document.getElementById('proj-kpps').value    = d.kpps;
+    if (d.rated_kpps != null) {
+      s_galvoRatedKpps = d.rated_kpps;
+      const rk = document.getElementById('galvo-rated-kpps'); if (rk) rk.value = d.rated_kpps;
+      const rn = document.getElementById('galvo-rated-note'); if (rn) rn.textContent = '— currently: ' + d.rated_kpps + ' kpps';
+      const sl = document.getElementById('proj-kpps'); if (sl) sl.max = Math.round(d.rated_kpps);
+    }
     document.getElementById('proj-scan').value    = d.scan_angle_mech;
     document.getElementById('proj-exit').value    = d.exit_angle;
     document.getElementById('proj-ilda').value    = d.ilda_test_angle;

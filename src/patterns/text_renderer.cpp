@@ -62,6 +62,10 @@ static inline optimizer::OptimizerConfig textOptimizerConfig(float sc = 0.f) {
         if (ppu > 30.f) ppu = 30.f;
         cfg.pts_per_1000_units = ppu;
     }
+    // PPS-derived scaling: density + both clamps from rated/output kpps.
+    // Runs after the serif/scale density override so it scales the final
+    // density (and both clamps, which the text-specific logic never touches).
+    optimizer::applyPpsScaling(cfg, gProjection.galvo_rated_kpps, gProjection.galvo_kpps);
     return cfg;
 }
 namespace textrender {

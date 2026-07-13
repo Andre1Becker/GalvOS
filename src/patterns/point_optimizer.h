@@ -198,6 +198,39 @@ inline AffineTransform makeTransform(float angle_rad, float tx, float ty) {
 // Defaults to identity -> no behavioural change until the engine writes it.
 extern AffineTransform gLiveTransform;
 
+// PPS-derived optimizer scaling (single source of truth, called by every
+// path's liveOptimizerConfig()). Scales the three point-rate-dependent params
+// -- interior density and both scanner-protection clamps -- from the ratio of
+// the galvo's rated speed to the chosen output rate, leaving GEOMETRY (corner
+// counts, angles, segment minimums, blanking) untouched.
+//
+// Model (r = rated_kpps / output_kpps, the headroom ratio):
+//   pts_per_1000_units *= 1/r   -- density is per output tick, so a lower
+//                                  output rate (r>1) needs fewer points per
+//                                  unit length, a full-rate output (r==1)
+//                                  keeps the tuned value. Mirrors the
+//                                  Starfield dwell derivation (points scale
+//                                  with the output tick rate for a fixed
+//                                  physical target).
+//   max_step_units    *= r      -- units/tick velocity ceiling. Physical
+//                                  slew (units/s) tracks the rated speed;
+//                                  units/tick = slew / output_rate ∝ r.
+//   max_accel_units   *= r*r     -- units/tick^2, so the ratio squared.
+//
+// At the calibration point (output_kpps == rated_kpps) r==1 -> all three are
+// unchanged, so a system run at its rated speed sees the exact tuned values.
+// Guards against divide-by-zero / absurd ratios; clamps r to a sane band.
+inline void applyPpsScaling(OptimizerConfig& cfg,
+                            uint16_t rated_kpps, uint16_t output_kpps) {
+    if (rated_kpps == 0 || output_kpps == 0) return;   // nothing sane to derive
+    float r = (float)rated_kpps / (float)output_kpps;
+    if (r < 0.1f) r = 0.1f;                             // clamp to a sane band
+    if (r > 10.0f) r = 10.0f;
+    cfg.pts_per_1000_units *= (1.0f / r);
+    cfg.max_step_units     *= r;
+    cfg.max_accel_units    *= r * r;
+}
+
 // Emits a distance-proportional, smoothstep-eased blank jump from the
 // current galvo position (last point in out[0..n-1]) to (x1, y1).
 // Writes only blank points (laser OFF). Used by patterns that manage

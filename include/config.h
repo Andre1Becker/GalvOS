@@ -528,6 +528,16 @@ struct ProjectionConfig {
     // Galvo sample rate — user-adjustable at runtime
     uint16_t galvo_kpps          = 20;     // 12..60 kpps (kilo-points-per-second)
 
+    // Galvo rated speed (kpps) from the datasheet, measured at the ILDA test
+    // angle (±8° optical). This is the physical capability of the scanner and
+    // the basis for deriving PPS-dependent optimizer parameters (interior
+    // density + velocity/acceleration clamps) -- see liveOptimizerConfig().
+    // Distinct from galvo_kpps, which is the *chosen* output rate: the ratio
+    // (galvo_rated_kpps / galvo_kpps) is what scales the derived params, so at
+    // full-rate output (galvo_kpps == galvo_rated_kpps) the ratio is 1 and the
+    // tuned base values are used unchanged.
+    uint16_t galvo_rated_kpps    = 15;     // 1..100 kpps, datasheet value (UI default GALVO-15K)
+
     // Galvo angular specs (mechanical half-angle in degrees)
     float    scan_angle_mech_deg = 25.0f;  // galvo mechanical half-angle (full sweep ±25° = 50°)
     float    exit_angle_deg      = 20.0f;  // housing aperture half-angle (often smaller)

@@ -363,6 +363,13 @@ void init() {
             if (doc["wifi_mask"].is<const char*>()) strlcpy(gConfig.wifi_mask, doc["wifi_mask"], sizeof(gConfig.wifi_mask));
             if (doc["wifi_dns"].is<const char*>())  strlcpy(gConfig.wifi_dns,  doc["wifi_dns"],  sizeof(gConfig.wifi_dns));
             if (doc["dac_debug_log"].is<bool>())    gConfig.dac_debug_log = doc["dac_debug_log"];
+            if (doc["galvo_rated_kpps"].is<int>()) {
+                int rk = constrain((int)doc["galvo_rated_kpps"], 1, 100);
+                gProjection.galvo_rated_kpps = (uint16_t)rk;
+                gPatternCacheGen++;   // PPS-derived optimizer params changed
+                Preferences p; p.begin("projection", false);
+                p.putUShort("rated_kpps", gProjection.galvo_rated_kpps); p.end();
+            }
             if (doc["dac_limit_min"].is<int>() && doc["dac_limit_max"].is<int>()) {
                 int lo = constrain((int)doc["dac_limit_min"], 0, 65535);
                 int hi = constrain((int)doc["dac_limit_max"], 0, 65535);
@@ -1781,7 +1788,7 @@ void init() {
         // Max safe kpps for current exit angle (ILDA rated at ilda_test_angle)
         float rated_angle = gProjection.ilda_test_angle_deg;
         float cur_angle   = gProjection.exit_angle_deg;
-        float rated_kpps  = 15.0f;
+        float rated_kpps  = (float)gProjection.galvo_rated_kpps;
         float max_safe_kpps = (cur_angle <= rated_angle) ? 60.0f
                             : rated_kpps * (rated_angle / cur_angle);
         if (max_safe_kpps > 60.0f) max_safe_kpps = 60.0f;
@@ -1808,6 +1815,7 @@ void init() {
         snprintf(buf, sizeof(buf),
             "{"
             "\"kpps\":%u,"
+            "\"rated_kpps\":%u,"
             "\"scan_angle_mech\":%.1f,"
             "\"exit_angle\":%.1f,"
             "\"ilda_test_angle\":%.1f,"
@@ -1828,6 +1836,7 @@ void init() {
             "\"min_dist_m\":%.1f"
             "}",
             (unsigned)gProjection.galvo_kpps,
+            (unsigned)gProjection.galvo_rated_kpps,
             gProjection.scan_angle_mech_deg,
             gProjection.exit_angle_deg,
             gProjection.ilda_test_angle_deg,

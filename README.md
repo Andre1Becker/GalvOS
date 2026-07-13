@@ -22,6 +22,12 @@
 - Hypotrochoid (Complex) Way to huge scaling
 - Phyllotaxis bad output
 
+### Text
+
+- Bounce has no effect
+- Typewriter runs once only
+- Orbit: switch rotation direction
+- Star Wars Scroll: flow direction wrong, Text only Dots
 
 ### Calibration
 

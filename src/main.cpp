@@ -244,6 +244,7 @@ void setup() {
         prefs.begin("projection", true);
         if (prefs.isKey("kpps")) {
             gProjection.galvo_kpps          = prefs.getUShort("kpps", 30);
+            gProjection.galvo_rated_kpps    = prefs.getUShort("rated_kpps", 15);
             gProjection.scan_angle_mech_deg = prefs.getFloat("scan_ang", 20.0f);
             gProjection.exit_angle_deg      = prefs.getFloat("exit_ang", 15.0f);
             gProjection.ilda_test_angle_deg = prefs.getFloat("ilda_ang", 8.0f);
