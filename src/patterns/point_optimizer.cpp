@@ -760,7 +760,23 @@ size_t optimize(const PathSegment* segments, size_t segment_count,
             (float)effective_cap - (float)blank_overhead - (float)corner_total;
         if (available_for_interior < 0.0f) available_for_interior = 0.0f;
         float scale = available_for_interior / (float)interior_total;
-        cfg.pts_per_1000_units = std::max(0.1f, cfg.pts_per_1000_units * scale);
+        if (cfg.resample_enabled && cfg.resample_spacing_units > 0.01f) {
+            // Resample mode: edgeInteriorCount() ignores pts_per_1000_units
+            // entirely and derives its count from resample_spacing_units
+            // instead (points = length/spacing). Scaling pts_per_1000_units
+            // below this branch is a no-op against the actual emission path
+            // -- the fixed-spacing point count never shrinks, so total
+            // output keeps growing with pattern size until it silently
+            // overruns max_out (buffer truncation) instead of respecting
+            // max_pts_per_frame. Shrink the count by *growing* the spacing
+            // instead -- count scales as 1/spacing, so this reaches the
+            // same effective_cap target the ppu branch reaches for the
+            // non-resample case.
+            float safe_scale = std::max(scale, 0.02f);
+            cfg.resample_spacing_units = cfg.resample_spacing_units / safe_scale;
+        } else {
+            cfg.pts_per_1000_units = std::max(0.1f, cfg.pts_per_1000_units * scale);
+        }
     }
 
     // Emit stage: walk segments, blank-jumping between them, writing corner +
