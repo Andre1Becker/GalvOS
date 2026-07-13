@@ -2362,6 +2362,8 @@ function onKppsChange(val) {
     const kpps = parseInt(val);
     document.getElementById('proj-kpps-v').textContent = kpps + ' kpps';
     document.getElementById('proj-period').textContent = Math.round(1000000/kpps) + ' µs';
+    if (g_proj) g_proj.kpps = kpps;
+    updateEffectivePpsDisplay();
     calcProjection();
 }
 
@@ -3577,6 +3579,35 @@ clearTimeout(liveDebounce);
 }
 
 let optimizerDebounce;
+
+// Mirrors optimizer::applyPpsScaling() in point_optimizer.h -- keep formula
+// in sync if that changes. r = rated / output, clamped to the same [0.1,10]
+// band the firmware uses. r==1 at output_kpps == rated_kpps (tuned values
+// apply unchanged); r>1 = more headroom (slower output than rated); r<1 =
+// pushing past rated (tighter clamps).
+function ppsRatio(ratedKpps, outputKpps) {
+    if (!ratedKpps || !outputKpps) return 1;
+    let r = ratedKpps / outputKpps;
+    if (r < 0.1) r = 0.1;
+    if (r > 10)  r = 10;
+    return r;
+}
+
+// Live client-side preview of the PPS-derived effective clamp values, so
+// dragging the base sliders or changing kpps visibly shows the ratio effect
+// (Phase 3 gap: these previously looked "fixed" because only the tuned base
+// value -- not the effective, kpps-scaled value -- was ever displayed).
+function updateEffectivePpsDisplay() {
+    const ratedKpps  = s_galvoRatedKpps;
+    const outputKpps = g_proj ? g_proj.kpps : null;
+    const r = ppsRatio(ratedKpps, outputKpps);
+    const stepBase  = +document.getElementById('opt-vcstp').value;
+    const accelBase = +document.getElementById('opt-acmax').value;
+    const kppsLabel = outputKpps ? (outputKpps + ' kpps') : '-- kpps';
+    setText('opt-vcstp-eff', 'Effective at ' + kppsLabel + ' (rated ' + ratedKpps + 'k, ratio ' + r.toFixed(2) + '×): ' + Math.round(stepBase * r) + ' units/tick');
+    setText('opt-acmax-eff', 'Effective at ' + kppsLabel + ' (rated ' + ratedKpps + 'k, ratio ' + r.toFixed(2) + '×\u00b2): ' + Math.round(accelBase * r * r) + ' units/tick\u00b2');
+}
+
 function optimizerSlider() {
     document.getElementById('opt-cad-val').textContent   = (+document.getElementById('opt-cad').value).toFixed(1);
     document.getElementById('opt-mincp-val').textContent  = document.getElementById('opt-mincp').value;
@@ -3594,6 +3625,7 @@ function optimizerSlider() {
     document.getElementById('opt-rngdr-val').textContent  = (document.getElementById('opt-rngdr').value/100).toFixed(2);
     document.getElementById('opt-vcstp-val').textContent  = document.getElementById('opt-vcstp').value;
     document.getElementById('opt-acmax-val').textContent  = document.getElementById('opt-acmax').value;
+    updateEffectivePpsDisplay();
     clearTimeout(optimizerDebounce);
     optimizerDebounce = setTimeout(sendOptimizerLive, 50);
 }
@@ -3705,6 +3737,17 @@ function loadOptimizerConfig(cfg) {
     setText('opt-rngdr-val',  (getVal('opt-rngdr')/100).toFixed(2));
     setText('opt-vcstp-val',  getVal('opt-vcstp'));
     setText('opt-acmax-val',  getVal('opt-acmax'));
+    // Server-authoritative effective values (from applyPpsScaling() on the
+    // device, at the current galvo_rated_kpps/galvo_kpps) -- not the client
+    // mirror, so the initial display can never drift from firmware truth.
+    if (cfg.opt_eff_max_step_units != null && cfg.opt_eff_max_accel_units != null) {
+        const outputKpps = g_proj ? g_proj.kpps : null;
+        const kppsLabel = outputKpps ? (outputKpps + ' kpps') : '-- kpps';
+        setText('opt-vcstp-eff', 'Effective at ' + kppsLabel + ' (rated ' + s_galvoRatedKpps + 'k): ' + Math.round(cfg.opt_eff_max_step_units) + ' units/tick');
+        setText('opt-acmax-eff', 'Effective at ' + kppsLabel + ' (rated ' + s_galvoRatedKpps + 'k): ' + Math.round(cfg.opt_eff_max_accel_units) + ' units/tick\u00b2');
+    } else {
+        updateEffectivePpsDisplay();   // fallback: older firmware without opt_eff_* fields
+    }
     // Nudge each slider by +1/-1 to force the browser to repaint the thumb
     // at the correct position when the tab was hidden during initial load.
     var ids = ['opt-cad','opt-mincp','opt-maxcp','opt-ppu','opt-minsp',
@@ -5272,6 +5315,7 @@ function onGalvoRatedKppsChange(val) {
   }
   // Update percentage display
   updateKppsPercent();
+  updateEffectivePpsDisplay();
   // Save to config
   apiCall('POST', '/api/config', { galvo_rated_kpps: +val });
 }
@@ -5737,6 +5781,7 @@ async function saveNtpConfig() {
         <span class="help-icon" title="Ceiling on per-sample galvo travel. Lit steps longer than this are subdivided so the mirror never lags a single large jump. Galvo-specific -- tune on hardware. Off = byte-identical output.">?</span>
       </label>
       <input type="range" id="opt-vcstp" min="50" max="8000" step="10" value="2000" oninput="optimizerSlider()">
+      <div id="opt-vcstp-eff" style="font-size:10px;color:var(--dim);margin-top:2px">Effective at current PPS: --</div>
 
       <label class="toggle"><input type="checkbox" id="opt-ac-en" onchange="optimizerSlider()"><span class="slider"></span>Enable acceleration clamp</label>
 
@@ -5744,6 +5789,12 @@ async function saveNtpConfig() {
         <span class="help-icon" title="Ceiling on how fast the beam may speed up between samples. Where the step size grows harder than this (typically ramping out of a corner) a midpoint is inserted. Requires velocity clamp reasoning -- tune on hardware.">?</span>
       </label>
       <input type="range" id="opt-acmax" min="10" max="4000" step="10" value="800" oninput="optimizerSlider()">
+      <div id="opt-acmax-eff" style="font-size:10px;color:var(--dim);margin-top:2px">Effective at current PPS: --</div>
+      <div style="font-size:10px;color:var(--dim);margin-top:4px;font-style:italic">
+        The values above are the tuned reference (apply exactly when output rate == galvo rated speed).
+        Effective values scale with the ratio of Galvo rated speed to Output Sample Rate (Projection tab) --
+        they will differ at 20k / 30k / 40k PPS even though the slider number itself doesn't move.
+      </div>
       </div>
       </div><!-- /opt-columns -->
 

@@ -9,6 +9,7 @@
 #include "patterns/text_renderer.h"
 #include "ilda/ilda_player.h"
 #include "patterns/calib_patterns.h"
+#include "patterns/point_optimizer.h"
 #include "mutex.h"
 #include "storage/playlist.h"
 #include "net/ota_update.h"
@@ -301,6 +302,27 @@ static void buildConfigJson(JsonDocument& doc) {
     doc["opt_max_step_units"]       = gOptimizerConfig.max_step_units;
     doc["opt_accel_clamp_enabled"]  = gOptimizerConfig.accel_clamp_enabled;
     doc["opt_max_accel_units"]      = gOptimizerConfig.max_accel_units;
+
+    // Effective (PPS-derived) values actually applied by the optimizer at the
+    // CURRENT galvo_rated_kpps / galvo_kpps ratio -- see applyPpsScaling() in
+    // point_optimizer.h, reused here so this can never drift from what
+    // liveOptimizerConfig() actually computes. The opt_max_step_units /
+    // opt_max_accel_units / opt_pts_per_1000_units fields above are the tuned
+    // reference values (what applies when output_kpps == rated_kpps, ratio 1);
+    // they intentionally stay constant as galvo_kpps changes -- that constancy
+    // was being misread as "clamps don't depend on kpps". These opt_eff_*
+    // fields are what the WebUI should display to show the actual per-PPS
+    // behaviour (Phase 3 gap fix).
+    {
+        optimizer::OptimizerConfig eff;
+        eff.pts_per_1000_units = gOptimizerConfig.pts_per_1000_units;
+        eff.max_step_units     = gOptimizerConfig.max_step_units;
+        eff.max_accel_units    = gOptimizerConfig.max_accel_units;
+        optimizer::applyPpsScaling(eff, gProjection.galvo_rated_kpps, gProjection.galvo_kpps);
+        doc["opt_eff_pts_per_1000_units"] = eff.pts_per_1000_units;
+        doc["opt_eff_max_step_units"]     = eff.max_step_units;
+        doc["opt_eff_max_accel_units"]    = eff.max_accel_units;
+    }
 }
 
 /* ============================================================
