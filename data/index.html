@@ -3529,6 +3529,8 @@ function optimizerSlider() {
     document.getElementById('opt-rssp-val').textContent   = document.getElementById('opt-rssp').value;
     document.getElementById('opt-rngfq-val').textContent  = (+document.getElementById('opt-rngfq').value).toFixed(1);
     document.getElementById('opt-rngdr-val').textContent  = (document.getElementById('opt-rngdr').value/100).toFixed(2);
+    document.getElementById('opt-vcstp-val').textContent  = document.getElementById('opt-vcstp').value;
+    document.getElementById('opt-acmax-val').textContent  = document.getElementById('opt-acmax').value;
     clearTimeout(optimizerDebounce);
     optimizerDebounce = setTimeout(sendOptimizerLive, 50);
 }
@@ -3551,6 +3553,10 @@ async function sendOptimizerLive() {
         ringing_comp_enabled: document.getElementById('opt-ring-en').checked,
         ring_freq_hz:        +document.getElementById('opt-rngfq').value,
         ring_damping_ratio:  +document.getElementById('opt-rngdr').value/100,
+        vel_clamp_enabled:   document.getElementById('opt-vc-en').checked,
+        max_step_units:      +document.getElementById('opt-vcstp').value,
+        accel_clamp_enabled: document.getElementById('opt-ac-en').checked,
+        max_accel_units:     +document.getElementById('opt-acmax').value,
     });
 }
 
@@ -3578,6 +3584,10 @@ function resetOptimizerDefaults() {
     document.getElementById('opt-ring-en').checked = false;
     document.getElementById('opt-rngfq').value = 200;
     document.getElementById('opt-rngdr').value = 15;
+    document.getElementById('opt-vc-en').checked = false;
+    document.getElementById('opt-vcstp').value = 2000;
+    document.getElementById('opt-ac-en').checked = false;
+    document.getElementById('opt-acmax').value = 800;
     optimizerSlider();
 }
 
@@ -3609,6 +3619,10 @@ function loadOptimizerConfig(cfg) {
     setCheck('opt-ring-en', !!cfg.opt_ringing_comp_enabled);
     setVal('opt-rngfq', cfg.opt_ring_freq_hz);
     setVal('opt-rngdr', Math.round(cfg.opt_ring_damping_ratio*100));
+    setCheck('opt-vc-en', !!cfg.opt_vel_clamp_enabled);
+    setVal('opt-vcstp', Math.round(cfg.opt_max_step_units));
+    setCheck('opt-ac-en', !!cfg.opt_accel_clamp_enabled);
+    setVal('opt-acmax', Math.round(cfg.opt_max_accel_units));
     // Update labels and force slider thumb repaint (hidden tab workaround).
     // optimizerSlider() is called without the debounced POST -- we only want
     // visual sync here, not an immediate /api/optimizer-live call on load.
@@ -3626,11 +3640,13 @@ function loadOptimizerConfig(cfg) {
     setText('opt-rssp-val',   getVal('opt-rssp'));
     setText('opt-rngfq-val',  (+getVal('opt-rngfq')).toFixed(1));
     setText('opt-rngdr-val',  (getVal('opt-rngdr')/100).toFixed(2));
+    setText('opt-vcstp-val',  getVal('opt-vcstp'));
+    setText('opt-acmax-val',  getVal('opt-acmax'));
     // Nudge each slider by +1/-1 to force the browser to repaint the thumb
     // at the correct position when the tab was hidden during initial load.
     var ids = ['opt-cad','opt-mincp','opt-maxcp','opt-ppu','opt-minsp',
                'opt-blank','opt-maxppf','opt-minbl','opt-blppu','opt-minip','opt-s1tgt',
-               'opt-rssp','opt-rngfq','opt-rngdr'];
+               'opt-rssp','opt-rngfq','opt-rngdr','opt-vcstp','opt-acmax'];
     for (var i = 0; i < ids.length; i++) {
         var el = document.getElementById(ids[i]);
         if (!el) continue;
@@ -5649,6 +5665,23 @@ async function saveNtpConfig() {
       </label>
       <input type="range" id="opt-rngdr" min="0" max="90" step="1" value="15" oninput="optimizerSlider()">
       </div>
+
+      <div class="opt-col-block">
+      <div class="opt-group-label">Scanner protection (Phase 4)</div>
+      <label class="toggle"><input type="checkbox" id="opt-vc-en" onchange="optimizerSlider()"><span class="slider"></span>Enable velocity clamp</label>
+
+      <label>Max step (units/tick) <span id="opt-vcstp-val" style="color:var(--accent);font-family:monospace">2000</span>
+        <span class="help-icon" title="Ceiling on per-sample galvo travel. Lit steps longer than this are subdivided so the mirror never lags a single large jump. Galvo-specific -- tune on hardware. Off = byte-identical output.">?</span>
+      </label>
+      <input type="range" id="opt-vcstp" min="50" max="8000" step="10" value="2000" oninput="optimizerSlider()">
+
+      <label class="toggle"><input type="checkbox" id="opt-ac-en" onchange="optimizerSlider()"><span class="slider"></span>Enable acceleration clamp</label>
+
+      <label>Max accel (units/tick&sup2;) <span id="opt-acmax-val" style="color:var(--accent);font-family:monospace">800</span>
+        <span class="help-icon" title="Ceiling on how fast the beam may speed up between samples. Where the step size grows harder than this (typically ramping out of a corner) a midpoint is inserted. Requires velocity clamp reasoning -- tune on hardware.">?</span>
+      </label>
+      <input type="range" id="opt-acmax" min="10" max="4000" step="10" value="800" oninput="optimizerSlider()">
+      </div>
       </div><!-- /opt-columns -->
 
       <div class="btns" style="margin-top:12px">
@@ -6110,6 +6143,10 @@ const PARAM_PREVIEWS = [
   { id: 'opt-ring-en',type: 'toggle', family: 'ringing'  },
   { id: 'opt-rngfq',  type: 'range',  family: 'ringing'  },
   { id: 'opt-rngdr',  type: 'range',  family: 'ringing'  },
+  { id: 'opt-vc-en',  type: 'toggle', family: 'scanner'  },
+  { id: 'opt-vcstp',  type: 'range',  family: 'scanner'  },
+  { id: 'opt-ac-en',  type: 'toggle', family: 'scanner'  },
+  { id: 'opt-acmax',  type: 'range',  family: 'scanner'  },
   // Galvo Calibration (live)
   { id: 'cal-xoff',        type: 'range',  family: 'offset'    },
   { id: 'cal-yoff',        type: 'range',  family: 'offset'    },
