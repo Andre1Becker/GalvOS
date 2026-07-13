@@ -86,6 +86,13 @@ static void loadConfig() {
     gOptimizerConfig.stage1_blank_target = s_prefs.getUChar("opt_s1tgt", 20);
     gOptimizerConfig.resample_enabled       = s_prefs.getBool ("opt_rsen", OPT_DEFAULT_RESAMPLE_ENABLED);
     gOptimizerConfig.resample_spacing_units = s_prefs.getFloat("opt_rssp", OPT_DEFAULT_RESAMPLE_SPACING_UNITS);
+    gOptimizerConfig.ringing_comp_enabled    = s_prefs.getBool ("opt_rngen", OPT_DEFAULT_RINGING_COMP_ENABLED);
+    gOptimizerConfig.ring_freq_hz            = s_prefs.getFloat("opt_rngfq", OPT_DEFAULT_RING_FREQ_HZ);
+    gOptimizerConfig.ring_damping_ratio      = s_prefs.getFloat("opt_rngdr", OPT_DEFAULT_RING_DAMPING_RATIO);
+    gOptimizerConfig.vel_clamp_enabled       = s_prefs.getBool ("opt_vcen",  OPT_DEFAULT_VEL_CLAMP_ENABLED);
+    gOptimizerConfig.max_step_units          = s_prefs.getFloat("opt_vcstp", OPT_DEFAULT_MAX_STEP_UNITS);
+    gOptimizerConfig.accel_clamp_enabled     = s_prefs.getBool ("opt_acen",  OPT_DEFAULT_ACCEL_CLAMP_ENABLED);
+    gOptimizerConfig.max_accel_units         = s_prefs.getFloat("opt_acmax", OPT_DEFAULT_MAX_ACCEL_UNITS);
     gSafety.temp_warn_c     = s_prefs.getUChar("t_warn",  45);
     gSafety.temp_reduce_c   = s_prefs.getUChar("t_red",   55);
     gSafety.temp_shutdown_c = s_prefs.getUChar("t_shut",  70);
