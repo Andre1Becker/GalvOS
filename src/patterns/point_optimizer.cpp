@@ -174,10 +174,9 @@ static float exteriorAngle(float pxx, float pxy, float cxx, float cxy,
 // cornerSeverity() to estimate the incoming edge's approach speed.
 static uint16_t edgeInteriorCount(float length, const OptimizerConfig& cfg);
 
-// Corner severity in [0,1]: 0 = soft/straight (or an open-path endpoint
-// with no neighbor on one side), 1 = the sharpest case this optimizer
-// handles. Two independent contributors are blended with max() so
-// either one alone can drive dwell up to the sharpest setting:
+// Corner severity in [0,1]: 1 = the sharpest case this optimizer handles.
+// Two independent contributors are blended with max() so either one alone
+// can drive dwell up to the sharpest setting:
 //
 //  - angleT:  geometric severity from the exterior angle (as before).
 //  - speedT:  severity from how fast the beam is
@@ -190,11 +189,25 @@ static uint16_t edgeInteriorCount(float length, const OptimizerConfig& cfg);
 //    edge's actual per-point step length against the nominal step
 //    length the current pts_per_1000_units density targets: 0 at/below
 //    nominal, ramping to 1 at 2x nominal or more.
+//
+// An open-path endpoint (no neighbor on one side) returns max severity
+// (1.0), not 0. A genuinely free end (line()/text-stroke pen-up) just
+// gets a few extra dwell samples sitting still -- harmless. But
+// wf()/buildWfChains() (Cube/Pyramid/Tetrahedron) splits a polyhedron
+// into closed face-loops plus open struts that *share a vertex* with
+// those loops: from the strut's own PathSegment the shared vertex looks
+// like a free end, so it used to get min_corner_pts regardless of the
+// real angle there -- under-dwelling exactly where a strut meets a face,
+// visible as a small gap at that corner. Octahedron has no open chains
+// (all-closed decomposition) and never showed the gap, confirming this
+// path. Treating unknown-neighbor endpoints as worst-case sharp instead
+// of softest fixes the shared-vertex case and is a no-op risk for true
+// free ends.
 static float cornerSeverity(const PathSegment& seg, const OptimizerConfig& cfg,
                              size_t i) {
     bool hasIncoming = seg.closed || i > 0;
     bool hasOutgoing = seg.closed || i + 1 < seg.count;
-    if (!hasIncoming || !hasOutgoing) return 0.0f;
+    if (!hasIncoming || !hasOutgoing) return 1.0f;
 
     size_t prev = (i == 0) ? seg.count - 1 : i - 1;
     size_t next = (i + 1) % seg.count;
