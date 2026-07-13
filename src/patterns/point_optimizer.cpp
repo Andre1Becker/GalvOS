@@ -1,6 +1,16 @@
 #include "point_optimizer.h"
 #include <math.h>
 #include <algorithm>
+#if defined(ESP_PLATFORM) || defined(ARDUINO)
+#include <esp_heap_caps.h>
+#else
+// Host-side unit test build (g++ + cfg_stub.h): no ESP heap API. Fall back to
+// plain malloc so clampScannerLimits() is testable off-target. MALLOC_CAP_*
+// is ignored here.
+#include <cstdlib>
+#define MALLOC_CAP_SPIRAM 0
+static inline void* heap_caps_malloc(size_t sz, uint32_t) { return malloc(sz); }
+#endif
 
 namespace optimizer {
 
@@ -467,6 +477,121 @@ static size_t applyTransform(const PathSegment* segments, size_t segment_count,
     return seg_out;
 }
 
+// ── Velocity / Acceleration clamp (Phase 4) ──────────────────────────────
+//
+// Scanner-protection post-pass over the already-emitted lit point stream.
+// Runs last in optimize(), after every geometry/density stage, because it
+// reasons about the final per-tick motion the galvo will actually be
+// commanded to perform -- something only the fully emitted stream exposes.
+//
+// Two independent, cfg-gated limits, applied in physical order (velocity
+// before acceleration -- a velocity subdivision changes the step sizes the
+// acceleration pass then sees):
+//
+//   1. Velocity: no lit-to-lit step may exceed cfg.max_step_units. An
+//      over-long step of length L is split into ceil(L/max_step) equal
+//      sub-steps by linear interpolation of BOTH position and color, so a
+//      colour gradient along the step is preserved. This bounds how far the
+//      mirror is asked to travel in one sample, i.e. its peak velocity.
+//
+//   2. Acceleration: the per-tick growth of step magnitude is capped at
+//      cfg.max_accel_units. Where |v[i]| - |v[i-1]| exceeds the limit (the
+//      beam is being asked to speed up too hard, typically ramping out of a
+//      corner), an interpolated midpoint is inserted to split the velocity
+//      jump into two smaller increments. A single forward pass is sufficient
+//      in practice; it is not iterated to a fixed point (bounded cost, and
+//      the dominant hard-accel case is the isolated corner exit).
+//
+// Blank runs are EXEMPT from both. A blank jump is an intentional fast
+// reposition with the beam off, already shaped by Pillars 2/3 (eased,
+// distance-proportional); subdividing it here would fight that and waste
+// budget. A step is treated as blank-exempt if either endpoint is blanked.
+//
+// Bounded output: the pass writes into a PSRAM scratch buffer and stops
+// inserting once it reaches the cap, then copies the result back over out[].
+// An over-budget frame degrades to partial clamping rather than overflowing
+// -- the same graceful-degradation contract as the rest of the optimizer.
+// Returns the new point count.
+static LaserPoint* s_clamp_scratch = nullptr;   // lazy PSRAM, PATTERN_POINTS_MAX
+
+static inline void lerpPoint(const LaserPoint& a, const LaserPoint& b,
+                             float t, LaserPoint& dst) {
+    dst.x = (int16_t)lroundf(a.x + (b.x - a.x) * t);
+    dst.y = (int16_t)lroundf(a.y + (b.y - a.y) * t);
+    dst.r = (uint8_t)lroundf(a.r + (float)(b.r - a.r) * t);
+    dst.g = (uint8_t)lroundf(a.g + (float)(b.g - a.g) * t);
+    dst.b = (uint8_t)lroundf(a.b + (float)(b.b - a.b) * t);
+    dst.blank = b.blank;   // an inserted point on a lit step is lit
+}
+
+static size_t clampScannerLimits(LaserPoint* out, size_t n,
+                                 const OptimizerConfig& cfg, size_t max_out) {
+    if (n < 2) return n;
+    const bool doVel   = cfg.vel_clamp_enabled   && cfg.max_step_units  > 0.5f;
+    const bool doAccel = cfg.accel_clamp_enabled && cfg.max_accel_units > 0.5f;
+    if (!doVel && !doAccel) return n;   // gated off -> byte-identical passthrough
+
+    if (!s_clamp_scratch) {
+        s_clamp_scratch = (LaserPoint*)heap_caps_malloc(
+            sizeof(LaserPoint) * PATTERN_POINTS_MAX, MALLOC_CAP_SPIRAM);
+        if (!s_clamp_scratch) return n;   // no PSRAM -> skip clamp, never crash
+    }
+    LaserPoint* buf = s_clamp_scratch;
+    const size_t cap = std::min(max_out, (size_t)PATTERN_POINTS_MAX);
+
+    // ---- Pass 1: velocity (position-delta) clamp ----
+    size_t m = 0;
+    buf[m++] = out[0];
+    for (size_t i = 1; i < n && m < cap; i++) {
+        const LaserPoint& a = out[i - 1];
+        const LaserPoint& b = out[i];
+        bool blankStep = a.blank || b.blank;
+        if (doVel && !blankStep) {
+            float dx = (float)b.x - a.x, dy = (float)b.y - a.y;
+            float dist = sqrtf(dx * dx + dy * dy);
+            if (dist > cfg.max_step_units) {
+                uint32_t sub = (uint32_t)ceilf(dist / cfg.max_step_units);
+                for (uint32_t k = 1; k < sub && m < cap; k++) {
+                    lerpPoint(a, b, (float)k / sub, buf[m++]);
+                }
+            }
+        }
+        if (m < cap) buf[m++] = b;
+    }
+
+    // ---- Pass 2: acceleration (velocity-delta) clamp ----
+    // Operates on the velocity-clamped stream in buf[0..m-1], writing the
+    // final stream back into out[]. If the velocity pass already filled the
+    // buffer there is no room to insert accel points -> copy back and return.
+    if (!doAccel || m >= cap) {
+        for (size_t i = 0; i < m; i++) out[i] = buf[i];
+        return m;
+    }
+
+    auto stepMag = [](const LaserPoint& p, const LaserPoint& q) -> float {
+        float dx = (float)q.x - p.x, dy = (float)q.y - p.y;
+        return sqrtf(dx * dx + dy * dy);
+    };
+
+    size_t o = 0;
+    out[o++] = buf[0];
+    float prevMag = 0.f;
+    for (size_t i = 1; i < m && o < cap; i++) {
+        const LaserPoint& a = buf[i - 1];
+        const LaserPoint& b = buf[i];
+        bool blankStep = a.blank || b.blank;
+        float mag = stepMag(a, b);
+        if (!blankStep && (mag - prevMag) > cfg.max_accel_units) {
+            LaserPoint mid;
+            lerpPoint(a, b, 0.5f, mid);
+            if (o < cap) out[o++] = mid;
+        }
+        if (o < cap) out[o++] = b;
+        prevMag = mag;
+    }
+    return o;
+}
+
 // Emit stage: for each non-empty segment, blank-jump to its first vertex and
 // write the segment's corner + interior points, then a closing blank back to
 // the first point of the first segment so the next frame does not open with a
@@ -646,11 +771,17 @@ size_t optimize(const PathSegment* segments, size_t segment_count,
     //     cfg.resample_enabled; feeds planSegment / emitSegment / cornerSeverity.
     //   - Corner Dwell: already active (cornerPtsAtVertex / emitSegment).
     //   - Blanking: already active (emitBlankJump, Pillars 2/3).
-    //   - Velocity Clamp / Acceleration Clamp (Phase 3): a post-pass over the
+    //   - Velocity Clamp / Acceleration Clamp (Phase 4): a post-pass over the
     //     emitted out[0..n-1] that inserts intermediate points where the
     //     per-tick position (velocity) or its delta (acceleration) exceeds the
-    //     galvo limit derived from cfg.galvo_kpps.
+    //     galvo limit. Implemented in clampScannerLimits(), called below.
     size_t n = emitAllSegments(segments, segment_count, cfg, out, max_out);
+
+    // Final scanner-protection stage. No-op (byte-identical) unless
+    // cfg.vel_clamp_enabled / cfg.accel_clamp_enabled are set -- see
+    // clampScannerLimits(). Runs on the fully emitted stream so it sees the
+    // true per-tick motion; may grow n up to max_out.
+    n = clampScannerLimits(out, n, cfg, max_out);
     return n;
 }
 

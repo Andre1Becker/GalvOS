@@ -158,6 +158,10 @@ static void persistConfig() {
     s_prefs.putBool  ("opt_rngen",  gOptimizerConfig.ringing_comp_enabled);
     s_prefs.putFloat ("opt_rngfq",  gOptimizerConfig.ring_freq_hz);
     s_prefs.putFloat ("opt_rngdr",  gOptimizerConfig.ring_damping_ratio);
+    s_prefs.putBool  ("opt_vcen",   gOptimizerConfig.vel_clamp_enabled);
+    s_prefs.putFloat ("opt_vcstp",  gOptimizerConfig.max_step_units);
+    s_prefs.putBool  ("opt_acen",   gOptimizerConfig.accel_clamp_enabled);
+    s_prefs.putFloat ("opt_acmax",  gOptimizerConfig.max_accel_units);
     s_prefs.putBool ("zone_en",   gZone.enabled);
     s_prefs.putUChar("zone_cnt",  gZone.count);
     s_prefs.putBytes("zone_x",    (const void*)gZone.x, sizeof(gZone.x));
@@ -292,6 +296,10 @@ static void buildConfigJson(JsonDocument& doc) {
     doc["opt_ringing_comp_enabled"] = gOptimizerConfig.ringing_comp_enabled;
     doc["opt_ring_freq_hz"]         = gOptimizerConfig.ring_freq_hz;
     doc["opt_ring_damping_ratio"]   = gOptimizerConfig.ring_damping_ratio;
+    doc["opt_vel_clamp_enabled"]    = gOptimizerConfig.vel_clamp_enabled;
+    doc["opt_max_step_units"]       = gOptimizerConfig.max_step_units;
+    doc["opt_accel_clamp_enabled"]  = gOptimizerConfig.accel_clamp_enabled;
+    doc["opt_max_accel_units"]      = gOptimizerConfig.max_accel_units;
 }
 
 /* ============================================================
@@ -480,6 +488,14 @@ void init() {
                 gOptimizerConfig.ring_freq_hz = constrain((float)doc["ring_freq_hz"], 1.0f, 2000.0f);
             if (doc["ring_damping_ratio"].is<float>())
                 gOptimizerConfig.ring_damping_ratio = constrain((float)doc["ring_damping_ratio"], 0.0f, 0.9f);
+            if (doc["vel_clamp_enabled"].is<bool>())
+                gOptimizerConfig.vel_clamp_enabled = (bool)doc["vel_clamp_enabled"];
+            if (doc["max_step_units"].is<float>())
+                gOptimizerConfig.max_step_units = constrain((float)doc["max_step_units"], 50.0f, 32767.0f);
+            if (doc["accel_clamp_enabled"].is<bool>())
+                gOptimizerConfig.accel_clamp_enabled = (bool)doc["accel_clamp_enabled"];
+            if (doc["max_accel_units"].is<float>())
+                gOptimizerConfig.max_accel_units = constrain((float)doc["max_accel_units"], 10.0f, 32767.0f);
             gPatternCacheGen++;   // invalidate static-preset cache -- optimizer params changed
             req->send(200, "text/plain", "OK");
         });

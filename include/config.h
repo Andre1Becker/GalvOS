@@ -67,6 +67,25 @@ constexpr uint8_t  UI_PARAM_PREVIEW_SIZE = 80;  // px, square
 #define OPT_DEFAULT_RINGING_COMP_ENABLED         false
 #define OPT_DEFAULT_RING_FREQ_HZ                 200.0f
 #define OPT_DEFAULT_RING_DAMPING_RATIO           0.15f
+// VELOCITY / ACCELERATION CLAMP (Phase 4): a post-pass over the emitted lit
+// point stream that protects the galvo from being commanded to move faster
+// (velocity) or change speed harder (acceleration) than it can physically
+// track. Disabled by default -- max_step_units / max_accel_units are galvo-
+// specific (Jolooyo JY-15K-BL) and must be tuned on real hardware; unmeasured
+// defaults could either over-subdivide (wasting the flicker budget) or do
+// nothing. Off => output stays byte-identical to the pre-clamp optimizer.
+//   max_step_units:  ceiling on per-tick position change (DAC units/sample).
+//                    Long lit steps above this are subdivided by linear
+//                    interpolation (position + color) so the mirror never
+//                    lags a single large jump. Blank runs are exempt -- they
+//                    are already eased by Pillar 2/3.
+//   max_accel_units: ceiling on the per-tick change of that step magnitude
+//                    (DAC units/sample^2). Limits how fast the beam is allowed
+//                    to speed up, easing hard velocity ramps into corners.
+#define OPT_DEFAULT_VEL_CLAMP_ENABLED            false
+#define OPT_DEFAULT_MAX_STEP_UNITS               2000.0f
+#define OPT_DEFAULT_ACCEL_CLAMP_ENABLED          false
+#define OPT_DEFAULT_MAX_ACCEL_UNITS              800.0f
 
 struct OptimizerLiveConfig {
     float    corner_angle_deg             = OPT_DEFAULT_CORNER_ANGLE_DEG;
@@ -85,6 +104,10 @@ struct OptimizerLiveConfig {
     bool     ringing_comp_enabled         = OPT_DEFAULT_RINGING_COMP_ENABLED;
     float    ring_freq_hz                 = OPT_DEFAULT_RING_FREQ_HZ;
     float    ring_damping_ratio           = OPT_DEFAULT_RING_DAMPING_RATIO;
+    bool     vel_clamp_enabled            = OPT_DEFAULT_VEL_CLAMP_ENABLED;
+    float    max_step_units               = OPT_DEFAULT_MAX_STEP_UNITS;
+    bool     accel_clamp_enabled          = OPT_DEFAULT_ACCEL_CLAMP_ENABLED;
+    float    max_accel_units              = OPT_DEFAULT_MAX_ACCEL_UNITS;
 };
 
 extern OptimizerLiveConfig gOptimizerConfig;

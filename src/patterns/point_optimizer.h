@@ -156,6 +156,14 @@ struct OptimizerConfig {
     // rotation/move controls via optimizer::gLiveTransform, retiring the
     // post-optimizer inline Z-rotation formerly in pattern_engine.cpp.
     AffineTransform transform;
+
+    // Velocity / Acceleration clamp (Phase 4). Post-pass over the emitted
+    // lit point stream (see clampScannerLimits()). Both off by default ->
+    // output byte-identical to the pre-clamp optimizer. Tuned on hardware.
+    bool     vel_clamp_enabled    = OPT_DEFAULT_VEL_CLAMP_ENABLED;   // subdivide over-long lit steps
+    float    max_step_units       = OPT_DEFAULT_MAX_STEP_UNITS;      // max per-tick position delta (units/sample)
+    bool     accel_clamp_enabled  = OPT_DEFAULT_ACCEL_CLAMP_ENABLED; // limit per-tick step-magnitude growth
+    float    max_accel_units      = OPT_DEFAULT_MAX_ACCEL_UNITS;     // max per-tick velocity delta (units/sample^2)
 };
 
 // Runs Pillar-1 density optimization across all given segments and writes
