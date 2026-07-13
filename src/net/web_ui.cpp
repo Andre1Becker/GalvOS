@@ -209,7 +209,7 @@ static void buildStateJson(JsonDocument& doc) {
     doc["sd_file_count"]   = sd_card::fileCount();
     doc["dac_ok"]          = galvo::dacOk();
     doc["no_hw_mode"]      = galvo::noHwMode();
-    doc["preset_idx"]      = patterns::getPreset();
+    doc["preset_idx"]      = static_cast<int8_t>(patterns::getPreset());
     doc["dmx_frame_count"] = gState.dmx_frame_count.load();
     doc["master_dimmer"]   = gState.master_dimmer.load();
     doc["points_per_sec"]  = galvo::pointsPerSec();
@@ -625,8 +625,8 @@ void init() {
         [](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t, size_t) {
             JsonDocument doc(&jsonAllocator());
             if (deserializeJson(doc, data, len)) { req->send(400, "text/plain", "bad json"); return; }
-            int8_t idx = doc["idx"] | -1;
-            patterns::setPreset(idx);
+            int idx = doc["idx"] | -1;
+            patterns::setPreset(presets::presetFromIndex(idx));
             req->send(200, "text/plain", "OK");
         });
 

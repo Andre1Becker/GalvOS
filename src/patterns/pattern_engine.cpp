@@ -34,15 +34,15 @@ static LaserPoint* s_pm_lit = nullptr;  // PSRAM buffer, allocated in init()
 static LaserPoint* s_pm_kaleido = nullptr;  // PSRAM buffer, allocated in init()
 static volatile int      s_test_pattern  = -1;
 static volatile uint32_t s_test_started  = 0;
-static volatile int8_t   s_preset_idx    = -1;  // -1 = no Preset active
+static volatile presets::Preset s_preset_idx = presets::Preset::None;
 
-void setPreset(int8_t idx) {
-    s_preset_idx = (idx >= 0 && idx < (int8_t)presets::PRESET_COUNT) ? idx : -1;
+void setPreset(presets::Preset idx) {
+    s_preset_idx = idx;
     s_test_pattern = -1;
     gState.calib_active = false;
-    if (idx >= 0) gPaint.active = false;
+    if (idx != presets::Preset::None) gPaint.active = false;
 }
-int8_t getPreset() { return s_preset_idx; }
+presets::Preset getPreset() { return s_preset_idx; }
 
 /* ============================================================
  * Geometrie-Primitives
@@ -362,7 +362,7 @@ void setCurve(int8_t idx) {
     gCurves.active_curve = idx;
     if (idx >= 0) {
         // Deactivate competing modes
-        s_preset_idx   = -1;
+        s_preset_idx   = presets::Preset::None;
         gTextConfig.active = false;
         gState.calib_active = false;
         gPaint.active = false;
@@ -381,7 +381,7 @@ void setPaintActive(bool active) {
         s_test_pattern = -1;
         gState.calib_active = false;
         gTextConfig.active = false;
-        s_preset_idx = -1;
+        s_preset_idx = presets::Preset::None;
         gCurves.active_curve = -1;
     }
 }
@@ -1113,7 +1113,7 @@ void task(void*) {
         }
 
         // ---- Preset Mode (overrride DMX) ----
-        if (s_preset_idx >= 0) {
+        if (s_preset_idx != presets::Preset::None) {
             uint8_t speed   = gLivePreset.speed;
             float   scaleFrac;
             uint8_t sz      = computeAutoScaleSize(gLivePreset.size_val, &scaleFrac);
@@ -1154,7 +1154,7 @@ void task(void*) {
                        : (fabsf(rotationDeg) > 0.5f ? rotationDeg * (float)(M_PI/180.) : 0.f);
             { LOCK_STATE(); optimizer::gLiveTransform = optimizer::makeTransform(zRad, 0.f, 0.f); }
 
-            size_t n = presets::generate((uint8_t)s_preset_idx, s_frame,
+            size_t n = presets::generate(static_cast<uint8_t>(s_preset_idx), s_frame,
                                          PATTERN_POINTS_MAX, phase, speed, sz);
 
             // Continuous collapse toward a single point through Auto-Scaling's

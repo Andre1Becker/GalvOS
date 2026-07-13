@@ -64,7 +64,7 @@ static void applyDelta(int32_t delta) {
             static uint8_t enc_preset = 0;
             enc_preset = (uint8_t)constrain((int)enc_preset + delta, 0, presets::PRESET_COUNT - 1);
             gLivePreset.pattern_idx = enc_preset;
-            patterns::setPreset((int8_t)enc_preset);
+            patterns::setPreset(presets::presetFromIndex(enc_preset));
             break;
         }
         case MODE_DIMMER: {

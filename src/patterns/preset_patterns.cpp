@@ -1628,6 +1628,10 @@ static size_t dispatchCached(uint8_t idx, LaserPoint* out, size_t max_pts,
     return n;
 }
 
+Preset presetFromIndex(int raw) {
+    return (raw >= 0 && raw < PRESET_COUNT) ? static_cast<Preset>(raw) : Preset::None;
+}
+
 size_t generate(uint8_t idx, LaserPoint* out, size_t max_pts,
                 uint32_t phase, uint8_t speed, uint8_t size_val) {
     if (idx >= PRESET_COUNT || !out) return 0;
