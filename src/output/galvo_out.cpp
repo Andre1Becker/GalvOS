@@ -74,6 +74,11 @@ static volatile uint32_t s_points_last  = 0;
 static volatile uint32_t s_last_pps_t   = 0;
 static volatile uint32_t s_pps_cached   = 0;
 
+static volatile uint32_t s_frames_total = 0;
+static volatile uint32_t s_frames_last  = 0;
+static volatile uint32_t s_last_fps_t   = 0;
+static volatile uint32_t s_fps_cached   = 0;
+
 /* ============================================================
  * DAC8562 Write (polled SPI, 24-Bit Frame)
  *
@@ -508,6 +513,7 @@ static void IRAM_ATTR galvoTask(void*) {
                     s_ring_tail = next_tail;
                     tail        = next_tail;
                     s_point_idx = 0;
+                    s_frames_total++;
                 } else {
                      // Underrun: no new frame ready. Replay current frame from
                     // beginning instead of blanking — eliminates flicker caused
@@ -756,6 +762,19 @@ uint32_t pointsPerSec() {
         gState.points_per_sec = s_pps_cached;
     }
     return s_pps_cached;
+}
+
+// Real drawn-frame rate: counts only genuine ring-tail advances (see galvoTask),
+// so underrun replays and disarmed/blanked output are correctly excluded.
+uint32_t fps() {
+    uint32_t now = millis();
+    if (now - s_last_fps_t >= 1000) {
+        s_fps_cached  = (s_frames_total - s_frames_last) * 1000 / (now - s_last_fps_t);
+        s_frames_last = s_frames_total;
+        s_last_fps_t  = now;
+        gState.fps = s_fps_cached;
+    }
+    return s_fps_cached;
 }
 
 uint32_t bufferFillLevel() {

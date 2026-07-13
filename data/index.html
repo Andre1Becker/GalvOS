@@ -270,11 +270,11 @@
     <span title="Firmware version">🔧 <span id="sb-fw">--</span></span>
     <span title="Core 0 (Net/DMX/UI) CPU load">⚙ CPU: <span id="sb-cpu1" style="color:var(--text)">--</span>%</span>
     <span title="Galvo output rate">⚡ <span id="sb-kpps" style="color:var(--text)">--</span> kpps</span>
+    <span title="Drawn frames per second">🎞 <span id="sb-fps" style="color:var(--text)">--</span> fps</span>
     <span title="Frame buffer fill level">▦ Buf: <span id="sb-buf" style="color:var(--text)">--</span>%</span>
     <span title="Primary temperature sensor">🌡 <span id="sb-temp" style="color:var(--text)">--</span> °C</span>
     <span title="Free heap (RAM)">🧠 <span id="sb-heap" style="color:var(--text)">--</span> KB</span>
     <span title="Free PSRAM">📦 <span id="sb-psram" style="color:var(--text)">--</span> KB</span>
-    <span title="Master dimmer value">💡 Dim: <span id="sb-dim" style="color:var(--text)">--</span></span>
   </div>
 </header>
 <div id="safety-override-banner" style="display:none;background:var(--bad);color:#000;font-weight:700;text-align:center;padding:6px;font-size:13px">
@@ -2038,6 +2038,10 @@ function handleStateUpdate(s) {
     var sbKpps = document.getElementById('sb-kpps');
     if (sbKpps) sbKpps.textContent = kppsVal;
   }
+  if (s.fps !== undefined) {
+    var sbFps = document.getElementById('sb-fps');
+    if (sbFps) sbFps.textContent = s.fps;
+  }
   if (s.buffer_fill !== undefined) {
     var sbBuf = document.getElementById('sb-buf');
     if (sbBuf) { sbBuf.textContent = s.buffer_fill; sbBuf.style.color = s.buffer_fill > 90 ? 'var(--danger)' : s.buffer_fill > 75 ? 'var(--warn)' : 'var(--text)'; }
@@ -2055,10 +2059,6 @@ function handleStateUpdate(s) {
     var psramKbSb = Math.round(s.free_psram / 1024);
     var sbPsram = document.getElementById('sb-psram');
     if (sbPsram) sbPsram.textContent = psramKbSb;
-  }
-  if (s.master_dimmer !== undefined) {
-    var sbDim = document.getElementById('sb-dim');
-    if (sbDim) sbDim.textContent = s.master_dimmer;
   }
   } catch(e) { console.error('handleStateUpdate CRASH line ~' + (e.stack||'').match(/:(\d+):/)?.[1] + ':', e.message); }
 }

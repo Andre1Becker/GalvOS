@@ -39,6 +39,7 @@ void applyCalibration(LaserPoint* pts, size_t n);
 
 // Telemetrie
 uint32_t pointsPerSec();
+uint32_t fps();               // drawn frames/sec (real ring-tail advances)
 uint32_t bufferFillLevel();   // 0..100 %
 
 // ── Hardware debug: direkte Ausgabe ohne Pattern-Engine ──────────────────

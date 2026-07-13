@@ -213,6 +213,7 @@ static void buildStateJson(JsonDocument& doc) {
     doc["dmx_frame_count"] = gState.dmx_frame_count.load();
     doc["master_dimmer"]   = gState.master_dimmer.load();
     doc["points_per_sec"]  = galvo::pointsPerSec();
+    doc["fps"]              = galvo::fps();
     doc["buffer_fill"]     = galvo::bufferFillLevel();
     uint32_t age = millis() - gState.last_dmx_ms.load();
     doc["last_dmx_age_ms"] = (gState.last_dmx_ms.load() == 0) ? -1 : (int32_t)age;
