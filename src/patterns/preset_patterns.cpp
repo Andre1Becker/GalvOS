@@ -1522,6 +1522,60 @@ static size_t p106(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     return n;
 }
 
+// p107 Three Circles -- three same-size circles arranged side by side.
+// Static layout (no self-rotation) since "side by side" is the defining
+// shape; each circle is a separate 32-vertex closed PathSegment, one
+// optimize() call per circle -- same style as p56/p57. RGB colouring by
+// position (left/mid/right).
+static size_t p107(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
+    (void)ph; (void)sp;  // static layout, no animation
+    size_t n=0;const float sc=SC*ssc(sz)*.9f;
+    const float cx=0.62f*sc, rad=0.28f*sc;
+    const float cxs[3]={-cx,0.f,cx};
+    const uint8_t cols[3][3]={{255,0,0},{0,255,0},{0,0,255}};
+    for(int c=0;c<3;c++){
+        optimizer::PathVertex verts[32];
+        for(int i=0;i<32;i++){
+            float a=PI2*i/32.f;
+            verts[i].x=cxs[c]+cosf(a)*rad; verts[i].y=sinf(a)*rad;
+            verts[i].r=cols[c][0]; verts[i].g=cols[c][1]; verts[i].b=cols[c][2];
+            verts[i].lift=false;
+        }
+        optimizer::PathSegment seg(verts,32,true);
+        n += optimizer::optimize(&seg,1,o+n,m-n,liveOptimizerConfig());
+    }
+    return n;
+}
+
+// p108 Point Spread -- 1..12 points evenly spread on a circle (N=1: single
+// centre point). sz (Size control) selects point COUNT here rather than
+// scale -- same convention as p106 Random Points' "Amount" control, since
+// presets have no dedicated per-preset parameter slot. Positions/colours
+// are fixed per N (no animation); each dot gets a kpps-scaled dwell so it
+// actually registers at 30kpps -- same fix as Phyllotaxis' "bad output"
+// (invisible dots from a single too-brief sample).
+static size_t p108(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
+    (void)ph; (void)sp;  // static layout, no animation
+    size_t n=0;const float sc=SC*.85f;
+    int N=1+(sz*11)/255; if(N<1)N=1; if(N>12)N=12;
+
+    const optimizer::OptimizerConfig cfg = liveOptimizerConfig();
+    uint16_t kpps=gProjection.galvo_kpps; if(kpps<12)kpps=12; if(kpps>60)kpps=60;
+    const float tick_us=1000000.f/((float)kpps*1000.f);
+    int dwell=(int)ceilf(150.f/tick_us); if(dwell<3)dwell=3;
+
+    for(int i=0;i<N && n<m;i++){
+        float x,y;
+        if(N==1){x=0.f;y=0.f;}
+        else{float a=PI2*i/N-(float)M_PI/2.f;x=cosf(a)*sc;y=sinf(a)*sc;}
+        float h=(float)i/(float)(N>1?N:1);
+        uint8_t r=(uint8_t)(fabsf(sinf(h*M_PI))*255),g=(uint8_t)(fabsf(sinf(h*M_PI+2.094f))*255),b=(uint8_t)(fabsf(sinf(h*M_PI+4.189f))*255);
+        optimizer::emitBlankTo(o,n,m,x,y,cfg);
+        for(int d=0;d<dwell && n<m;d++) ap(o,n,m,x,y,r,g,b,0);
+    }
+    return n;
+}
+
 // ─── DISPATCH ────────────────────────────────────────────────
 
 const PresetInfo PRESETS[PRESET_COUNT] = {
@@ -1539,6 +1593,7 @@ const PresetInfo PRESETS[PRESET_COUNT] = {
     {"Rocket","Vehicles"},{"Train","Vehicles"},{"Racing Car","Vehicles"},{"UFO","Vehicles"},{"Sailing Boat","Vehicles"},{"Bicycle","Vehicles"},{"Airplane","Vehicles"},{"Space Shuttle","Vehicles"},
     {"Torus Knot","Curves"},{"Pentagram","Geometry"},{"DNA Helix","Complex"},{"Yin Yang","Symbols"},
     {"Random Points","Scenes"},
+    {"Three Circles","Geometry"},{"Point Spread","Scenes"},
 };
 
 static const PFn DISPATCH[PRESET_COUNT] = {
@@ -1556,6 +1611,7 @@ static const PFn DISPATCH[PRESET_COUNT] = {
     p91,p92,p93,p94,p95,p96,p97,p98,
     p102,p103,p104,p105,
     p106,
+    p107,p108,
 };
 
 // ─── STATIC-PRESET CACHE (Phase 2) ───────────────────────────
@@ -1587,6 +1643,8 @@ static inline bool isStaticPreset(uint8_t idx) {
         case 65:  // Wine Glass
         case 66:  // Champagne Flute
         case 74:  // Pineapple
+        case 105: // Three Circles
+        case 106: // Point Spread
             return true;
         default:
             return false;

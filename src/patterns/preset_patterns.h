@@ -3,7 +3,7 @@
 
 namespace presets {
 
-constexpr uint8_t PRESET_COUNT = 105;
+constexpr uint8_t PRESET_COUNT = 107;
 
 // Type-safe preset selection. Values are the raw dispatch index into
 // PRESETS[]/DISPATCH[] below and MUST stay in sync with the order of that
@@ -52,6 +52,8 @@ enum class Preset : int8_t {
     TorusKnot, Pentagram, DnaHelix, YinYang,
 
     RandomPoints,
+
+    ThreeCircles, PointSpread,
 };
 
 // Sanitizes a raw index (WebUI JSON, encoder, ...) into a valid Preset.
