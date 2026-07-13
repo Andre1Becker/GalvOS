@@ -41,6 +41,29 @@ void applyCalibration(LaserPoint* pts, size_t n);
 uint32_t pointsPerSec();
 uint32_t fps();               // drawn frames/sec (real ring-tail advances)
 uint32_t bufferFillLevel();   // 0..100 %
+uint32_t overflowCount();     // cumulative ring buffer overflow events
+
+// ── Sample-Rate Autotune ──────────────────────────────────────────────────
+// Empirically finds the highest galvo_kpps that runs without ring buffer
+// overflow, testing against whatever pattern is currently live (real
+// content/load -- a synthetic worst-case pattern would over- or understate
+// the rate achievable for the user's actual show). Runs as a background
+// task; poll autotuneStatus() for progress. On success, leaves
+// gProjection.galvo_kpps at the result (still requires the normal
+// /api/projection save to persist it to NVS). On abort, restores the
+// pre-autotune value.
+struct AutotuneStatus {
+    bool     running        = false;
+    bool     done           = false;
+    bool     floor_unstable = false;  // true if even AUTOTUNE_KPPS_MIN overflowed
+    uint16_t candidate_kpps = 0;   // kpps currently/last under test
+    uint16_t result_kpps    = 0;   // valid once done=true
+    uint8_t  step           = 0;
+    uint8_t  step_total     = 0;
+};
+void autotuneStart();
+void autotuneAbort();
+AutotuneStatus autotuneStatus();
 
 // ── Hardware debug: direkte Ausgabe ohne Pattern-Engine ──────────────────
 // Only active if s_hw_debug_active=true (set via /api/debug/hw).

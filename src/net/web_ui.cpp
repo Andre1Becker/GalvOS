@@ -1925,6 +1925,40 @@ void init() {
     });
 
 
+    // ── /api/galvo/autotune GET ── poll sample-rate autotune progress/result ──
+    s_server.on("/api/galvo/autotune", HTTP_GET, [](AsyncWebServerRequest* req) {
+        galvo::AutotuneStatus st = galvo::autotuneStatus();
+        char buf[192];
+        snprintf(buf, sizeof(buf),
+            "{\"running\":%s,\"done\":%s,\"floor_unstable\":%s,\"candidate_kpps\":%u,"
+            "\"result_kpps\":%u,\"step\":%u,\"step_total\":%u}",
+            st.running ? "true" : "false",
+            st.done    ? "true" : "false",
+            st.floor_unstable ? "true" : "false",
+            (unsigned)st.candidate_kpps,
+            (unsigned)st.result_kpps,
+            (unsigned)st.step,
+            (unsigned)st.step_total);
+        req->send(200, "application/json", buf);
+    });
+
+    // ── /api/galvo/autotune POST ── start/abort the sample-rate sweep ─────────
+    // Body: {"action":"start"} (default) | {"action":"abort"}
+    s_server.on("/api/galvo/autotune", HTTP_POST, [](AsyncWebServerRequest* req){},
+    nullptr,
+    [](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t, size_t) {
+        if (!isAuthorised(req)) { denyUnauth(req); return; }
+        JsonDocument doc(&jsonAllocator());
+        if (deserializeJson(doc, data, len) != DeserializationError::Ok) {
+            req->send(400, "application/json", "{\"error\":\"bad json\"}");
+            return;
+        }
+        const char* action = doc["action"] | "start";
+        if (strcmp(action, "abort") == 0) galvo::autotuneAbort();
+        else                              galvo::autotuneStart();
+        req->send(200, "application/json", "{\"ok\":true}");
+    });
+
     // ── /api/projection/awb — apply auto white balance from laser power specs ─
     s_server.on("/api/projection/awb", HTTP_POST, [](AsyncWebServerRequest* req) {
         uint8_t gr, gg, gb;

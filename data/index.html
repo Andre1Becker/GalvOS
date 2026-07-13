@@ -1440,6 +1440,21 @@
         <div>Max safe kpps for current angle: <span id="proj-maxsafe" style="color:var(--ok)">-- kpps</span></div>
       </div>
 
+      <!-- Sample-Rate Autotune -->
+      <div style="padding:10px;background:#050510;border:1px solid var(--border);border-radius:6px;margin-top:14px">
+        <div style="font-family:monospace;font-size:10px;color:var(--accent);margin-bottom:8px">AUTOTUNE</div>
+        <p style="color:var(--dim);font-size:11px;margin-bottom:8px">
+          Finds the highest kpps that runs without "Ring buffer overflow" by
+          testing against whatever is currently playing — start a real
+          pattern/show first for a meaningful result.
+        </p>
+        <div class="btns">
+          <button class="btn secondary" id="autotune-btn" onclick="startAutotune()">🎯 Autotune</button>
+          <button class="btn danger" id="autotune-abort-btn" style="display:none" onclick="abortAutotune()">✕ Abort</button>
+        </div>
+        <div id="autotune-status" style="display:none;margin-top:10px;font-size:12px;color:var(--dim)"></div>
+      </div>
+
       <div class="btns" style="margin-top:14px">
         <button class="btn ok" onclick="saveProjection()">💾 Apply &amp; Save</button>
         <button class="btn secondary" onclick="loadProjection()">↺ Reload</button>
@@ -2350,6 +2365,48 @@ function onKppsChange(val) {
     calcProjection();
 }
 
+// ── Sample-Rate Autotune ───────────────────────────────────────────────────
+let s_autotuneTimer = null;
+
+async function startAutotune() {
+  const r = await apiCall('POST', '/api/galvo/autotune', { action: 'start' });
+  if (!r || !r.ok) return;
+  document.getElementById('autotune-btn').style.display = 'none';
+  document.getElementById('autotune-abort-btn').style.display = '';
+  const st = document.getElementById('autotune-status');
+  st.style.display = 'block';
+  st.textContent = 'Starting…';
+  if (s_autotuneTimer) clearInterval(s_autotuneTimer);
+  s_autotuneTimer = setInterval(pollAutotune, 400);
+}
+
+async function abortAutotune() {
+  await apiCall('POST', '/api/galvo/autotune', { action: 'abort' });
+}
+
+async function pollAutotune() {
+  const d = await apiCall('GET', '/api/galvo/autotune');
+  if (!d) return;
+  const st = document.getElementById('autotune-status');
+  if (d.running) {
+    st.textContent = 'Testing ' + d.candidate_kpps + ' kpps… (step ' + d.step + '/' + d.step_total + ')';
+    return;
+  }
+  clearInterval(s_autotuneTimer);
+  s_autotuneTimer = null;
+  document.getElementById('autotune-btn').style.display = '';
+  document.getElementById('autotune-abort-btn').style.display = 'none';
+  await loadProjection();
+  if (d.done && d.floor_unstable) {
+    st.textContent = '⚠ Even ' + d.result_kpps + ' kpps (minimum) overflows — reduce pattern complexity or points/frame.';
+    toast('Autotune: overflow persists at minimum kpps', true);
+  } else if (d.done) {
+    st.textContent = '✓ Recommended: ' + d.result_kpps + ' kpps — click "Apply & Save" to persist.';
+    toast('Autotune done: ' + d.result_kpps + ' kpps');
+  } else {
+    st.textContent = 'Aborted — previous value restored.';
+  }
+}
 
 function syncPwr(ch, val) {
   const v = parseFloat(val) || 0;

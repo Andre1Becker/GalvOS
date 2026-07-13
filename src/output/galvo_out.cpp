@@ -46,6 +46,7 @@ static volatile size_t  s_ring_sizes[RING_FRAMES];
 static volatile size_t  s_ring_head = 0;
 static volatile size_t  s_ring_tail = 0;
 static volatile size_t  s_point_idx = 0;
+static volatile uint32_t s_overflow_count = 0;   // cumulative, see pushFrame() / overflowCount()
 
 // Laser-off latency compensation: on the first blank tick after a lit tick,
 // the DAC is held at the last lit position for LASER_OFF_HOLD_TICKS output
@@ -738,7 +739,6 @@ bool pushFrame(const LaserPoint* pts, size_t count) {
 
     size_t next_head = (s_ring_head + 1) % RING_FRAMES;
     if (next_head == s_ring_tail) {
-        static uint32_t s_overflow_count = 0;
         s_overflow_count++;
         if (s_overflow_count % 100 == 1)  // not spammen
             ESP_LOGW("galvo", "Ring buffer overflow #%u", s_overflow_count);
@@ -782,6 +782,124 @@ uint32_t bufferFillLevel() {
     if (fill < 0) fill += RING_FRAMES;
     return (uint32_t)(fill * 100 / RING_FRAMES);
 }
+
+uint32_t overflowCount() { return s_overflow_count; }
+
+/* ============================================================
+ * Sample-Rate Autotune
+ *
+ * Ring buffer overflow (pushFrame() above) happens when the configured
+ * galvo_kpps exceeds what galvoTask can actually sustain: pattern_engine
+ * paces its pushFrame() calls assuming the ring drains at exactly kpps
+ * (see the "drain_ms = n / gProjection.galvo_kpps" pacing in
+ * pattern_engine.cpp), but galvoTask's busy-wait loop only *targets* that
+ * rate -- above a hardware/CPU-dependent ceiling its per-tick SPI + RGB +
+ * safety work no longer fits in period_us, the real drain rate falls
+ * behind the configured one, and the ring fills up.
+ *
+ * That ceiling depends on the live pattern (point count, corner density)
+ * as well as the hardware, so it can't be computed analytically -- this
+ * runs a binary search against whatever is currently playing, each trial
+ * measuring real overflow events (not theoretical throughput) over a
+ * settle+observe window.
+ * ============================================================ */
+static constexpr uint16_t AUTOTUNE_KPPS_MIN    = 12;
+static constexpr uint16_t AUTOTUNE_KPPS_MAX    = 60;
+static constexpr uint32_t AUTOTUNE_SETTLE_MS   = 300;   // let old ring frames drain at the new rate
+static constexpr uint32_t AUTOTUNE_MEASURE_MS  = 1500;  // overflow observation window per trial
+static constexpr uint16_t AUTOTUNE_MARGIN_KPPS = 2;     // safety margin subtracted from the found ceiling
+static constexpr uint8_t  AUTOTUNE_MAX_STEPS   = 8;     // ceil(log2(60-12)) + headroom
+static constexpr uint8_t  AUTOTUNE_FILL_LIMIT  = 85;    // % -- a climbing fill predicts an overflow just past the window
+
+static AutotuneStatus  s_autotune;
+static uint16_t        s_autotune_saved_kpps = 0;
+static volatile bool   s_autotune_abort_req  = false;
+
+// Applies a candidate kpps and reports whether it ran overflow-free for
+// AUTOTUNE_MEASURE_MS. Bumps gPatternCacheGen like the normal /api/projection
+// handler does, so cached presets recompute their PPS-scaled point density
+// for the candidate rate instead of testing against stale geometry.
+static bool autotuneTrial(uint16_t kpps) {
+    gProjection.galvo_kpps = kpps;
+    gPatternCacheGen++;
+    vTaskDelay(pdMS_TO_TICKS(AUTOTUNE_SETTLE_MS));
+
+    uint32_t before   = s_overflow_count;
+    uint32_t deadline = millis() + AUTOTUNE_MEASURE_MS;
+    uint32_t max_fill = 0;
+    while (millis() < deadline) {
+        if (s_autotune_abort_req) return false;
+        uint32_t fill = bufferFillLevel();
+        if (fill > max_fill) max_fill = fill;
+        vTaskDelay(pdMS_TO_TICKS(50));
+    }
+    return (s_overflow_count - before) == 0 && max_fill < AUTOTUNE_FILL_LIMIT;
+}
+
+static void autotuneTask(void*) {
+    uint16_t hi = gProjection.galvo_rated_kpps;
+    if (hi < AUTOTUNE_KPPS_MIN || hi > AUTOTUNE_KPPS_MAX) hi = AUTOTUNE_KPPS_MAX;
+    uint16_t lo   = AUTOTUNE_KPPS_MIN;
+    uint16_t best = lo;
+    bool     floor_ok = false;
+
+    s_autotune.step           = 1;
+    s_autotune.candidate_kpps = lo;
+    if (!s_autotune_abort_req) {
+        floor_ok = autotuneTrial(lo);
+        if (floor_ok) {
+            best = lo;
+            uint16_t l = lo, h = hi;
+            while (l <= h && s_autotune.step < AUTOTUNE_MAX_STEPS) {
+                if (s_autotune_abort_req) break;
+                uint16_t mid = l + (h - l) / 2;
+                s_autotune.candidate_kpps = mid;
+                s_autotune.step++;
+                if (autotuneTrial(mid)) { best = mid; l = mid + 1; }
+                else if (mid == AUTOTUNE_KPPS_MIN) break;
+                else h = mid - 1;
+            }
+        }
+    }
+
+    if (s_autotune_abort_req) {
+        gProjection.galvo_kpps = s_autotune_saved_kpps;
+        gPatternCacheGen++;
+        s_autotune.done = false;
+        ESP_LOGI(TAG, "Autotune aborted, restored %u kpps", s_autotune_saved_kpps);
+    } else {
+        // No margin to subtract if even the floor was unstable -- best IS
+        // the floor already, there's nothing lower to fall back to.
+        uint16_t result = (floor_ok && best > AUTOTUNE_KPPS_MIN + AUTOTUNE_MARGIN_KPPS)
+                         ? best - AUTOTUNE_MARGIN_KPPS : best;
+        gProjection.galvo_kpps    = result;
+        gPatternCacheGen++;
+        s_autotune.result_kpps    = result;
+        s_autotune.floor_unstable = !floor_ok;
+        s_autotune.done           = true;
+        ESP_LOGI(TAG, "Autotune done: %u kpps (raw ceiling %u, floor_ok=%d)", result, best, (int)floor_ok);
+        LOG_I(logbuf::CAT_GALVO, "Galvo autotune: %u kpps (raw ceiling %u, margin -%u)",
+              result, best, AUTOTUNE_MARGIN_KPPS);
+    }
+    s_autotune.running = false;
+    vTaskDelete(nullptr);
+}
+
+void autotuneStart() {
+    if (s_autotune.running) return;   // already running
+    s_autotune_saved_kpps = gProjection.galvo_kpps;
+    s_autotune_abort_req  = false;
+    s_autotune             = AutotuneStatus{};
+    s_autotune.running     = true;
+    s_autotune.step_total  = AUTOTUNE_MAX_STEPS;
+    xTaskCreatePinnedToCore(autotuneTask, "autotune", 4096, nullptr, 2, nullptr, 0);
+}
+
+void autotuneAbort() {
+    if (s_autotune.running) s_autotune_abort_req = true;
+}
+
+AutotuneStatus autotuneStatus() { return s_autotune; }
 
 // ── applyCalibration: Offset, Gain, Flip from gConfig ─────────────────
 // Called by etherdream.cpp for externally received frames.
