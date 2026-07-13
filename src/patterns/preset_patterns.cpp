@@ -518,20 +518,37 @@ static size_t p52(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
 
 // ─── KOMPLEX 53-58 ───────────────────────────────────────────
 // p53-p55, p58: parametric curves — not migrated.
-static size_t p53(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){size_t n=0;float sc=SC*ssc(sz)*.38f,off=aang(ph,sp);const float R=5,r=3,d=5;for(int i=0;i<=400;i++){float t=PI2*i/400.f+off;ap(o,n,m,sc*((R-r)*cosf(t)+d*cosf((R-r)*t/r)),sc*((R-r)*sinf(t)-d*sinf((R-r)*t/r)),255,100,200,i==0?1:0);}return n;}
+// p53 Hypotrochoid -- R=5, r=3, d=5. Curve closes after 3 revolutions of
+// the outer parameter (t in [0,6*PI]); previous version swept only
+// [0,2*PI], drawing an incomplete, lopsided single lobe instead of the
+// full 3-lobed flower. Also lacked peak-radius normalisation (peak
+// (R-r)+d = 7), rendering far larger than sibling Complex presets.
+// Both fixed, matching the p55 normalisation pattern below.
+static size_t p53(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
+    size_t n=0;const float R=5,r=3,d=5,peakNorm=1.f/((R-r)+d);
+    float sc=SC*ssc(sz)*.9f*peakNorm,off=aang(ph,sp);
+    const int N=600;
+    for(int i=0;i<=N;i++){
+        float t=6.f*(float)M_PI*i/N+off;
+        ap(o,n,m,sc*((R-r)*cosf(t)+d*cosf((R-r)*t/r)),sc*((R-r)*sinf(t)-d*sinf((R-r)*t/r)),255,100,200,i==0?1:0);
+    }
+    return n;
+}
 static size_t p54(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){size_t n=0;float sc=SC*ssc(sz)*.38f,off=aang(ph,sp);for(int i=0;i<=200;i++){float t=PI2*i/200.f,e=expf(cosf(t))-2*cosf(4*t)-powf(sinf(t/12.f),5);ap(o,n,m,sc*e*sinf(t+off),sc*e*cosf(t+off),255,165,0,i==0?1:0);}return n;}
-// p55 Spirograph 5/3 -- hypotrochoid, fixed radii R=5, r=3. The curve only
-// closes after lcm(R,r)/R = 5 revolutions of the outer parameter, so sweep
-// t over [0,10*PI]. Previous version swept a single 2*PI turn -> open path
-// that jumped back to start via the closing blank. Peak radius (R-r)+d is
+// p55 Spirograph 5/3 -- hypotrochoid, fixed radii R=5, r=3. Curve closes
+// after 3 revolutions of the outer parameter (t in [0,6*PI]); the previous
+// [0,10*PI] sweep overshot the true period and retraced 2/3 of the curve
+// a second time. d was also equal to r, which degenerates the hypotrochoid
+// into a 5-cusp hypocycloid -- i.e. a pentagram, not a spirograph rosette.
+// d < r now gives the proper looping rosette. Peak radius (R-r)+d is
 // normalised so the figure fills the frame. off animates rotation.
 static size_t p55(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     size_t n=0;float off=aang(ph,sp);
-    const float R=5.f,r=3.f,d=3.f,peakNorm=1.f/((R-r)+d);
+    const float R=5.f,r=3.f,d=1.5f,peakNorm=1.f/((R-r)+d);
     float sc=SC*ssc(sz)*.9f*peakNorm;
-    const int N=600;
+    const int N=360;
     for(int i=0;i<=N;i++){
-        float t=10.f*(float)M_PI*i/N;
+        float t=6.f*(float)M_PI*i/N;
         float x=(R-r)*cosf(t)+d*cosf((R-r)/r*t);
         float y=(R-r)*sinf(t)-d*sinf((R-r)/r*t);
         ap(o,n,m,sc*(x*cosf(off)-y*sinf(off)),sc*(x*sinf(off)+y*cosf(off)),0,200,255,i==0?1:0);
