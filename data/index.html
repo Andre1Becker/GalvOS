@@ -1790,7 +1790,7 @@ document.querySelectorAll('nav button').forEach(btn => {
     if (t === 'presets' && g_curve_defs.length === 0) loadCurveDefs();
     if (t === 'thermal')  { buildTempSensors(); buildSensorNameEditor(); }
     if (t === 'paint') initPaintTab();
-    if (t !== 'calib') stopThreeCirclePattern();
+    if (t !== 'calib') { stopThreshTest(); stopThreeCirclePattern(); }
   });
 });
 
@@ -2725,16 +2725,38 @@ async function saveCalibration() {
   if (r !== null) toast('Calibration saved');
 }
 
-// ---- Three Circle Pattern (Visibility threshold + Color gain calib) ----
-// Shared test pattern for both Base R/G/B (Visibility threshold) and
-// Gain R/G/B (Color channel brightness matching) below: three same-size
-// circles side by side, one per channel, rendered through the normal
-// gain+gamma pipeline (see calib_patterns.cpp three_circles()) -- so
-// both slider sets have a direct, visible effect while it runs.
+// ---- Basiswert (visibility threshold) test beam ----
+// Static beam, gain/gamma/dimmer bypassed on the firmware side -- see
+// galvo_out.cpp galvoTask(). Only the Base R/G/B sliders affect it.
+// NOTE: this can't be the Three Circle Pattern below -- that pattern
+// renders each circle at full logical brightness (255) through the
+// normal gain+gamma pipeline, and mapVisibleRange() is a no-op at
+// logical=255 regardless of threshold (it only remaps the low end of
+// the range) -- so Base R/G/B would have zero visible effect on it.
+let threshTestActive = false;
+async function toggleThreshTest() {
+  threshTestActive = !threshTestActive;
+  await apiCall('POST', '/api/calib-thresh-test', { active: threshTestActive });
+  const btn = document.getElementById('thresh-test-btn');
+  if (btn) btn.textContent = threshTestActive ? '⏹ Stop test beam' : '▶ Start test beam';
+}
+async function stopThreshTest() {
+  if (!threshTestActive) return;
+  threshTestActive = false;
+  await apiCall('POST', '/api/calib-thresh-test', { active: false });
+  const btn = document.getElementById('thresh-test-btn');
+  if (btn) btn.textContent = '▶ Start test beam';
+}
+
+// ---- Three Circle Pattern (Color channel brightness matching) ----
+// Three same-size circles side by side, one per channel, rendered
+// through the normal gain+gamma pipeline at full brightness (see
+// calib_patterns.cpp three_circles()) -- so Gain R/G/B has a direct,
+// visible effect while it runs.
 let threeCircleActive = false;
 async function toggleThreeCirclePattern() {
   threeCircleActive = !threeCircleActive;
-  await apiCall('POST', '/api/calib-pattern', { active: threeCircleActive, idx: 16 });
+  await apiCall('POST', '/api/calib-pattern', { active: threeCircleActive, idx: 16, bright: 255 });
   const btn = document.getElementById('three-circle-btn');
   if (btn) btn.textContent = threeCircleActive ? '⏹ Stop the Three Circle Pattern' : '▶ Start the Three Circle Pattern';
 }
@@ -5616,12 +5638,14 @@ async function saveNtpConfig() {
 
       <h3 style="font-size:13px;margin-bottom:8px">Visibility threshold (Basiswert)</h3>
       <p style="color:var(--dim);font-size:11px;margin:0 0 10px">
-        Start the Three Circle Pattern, then lower each Base slider until
-        that circle just goes dark — that value is the base value. 0-100%
-        then always maps onto the actually visible range for that color.
+        Start the test beam, then lower each slider until that color just
+        goes dark — that value is the base value. The test beam ignores
+        gain, gamma and the Master Dimmer, so the sliders alone control
+        it. 0-100% then always maps onto the actually visible range for
+        that color.
       </p>
       <div class="btns" style="margin-bottom:10px">
-        <button class="btn ok" id="three-circle-btn" onclick="toggleThreeCirclePattern()">▶ Start the Three Circle Pattern</button>
+        <button class="btn ok" id="thresh-test-btn" onclick="toggleThreshTest()">▶ Start test beam</button>
       </div>
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
         <div>
@@ -5644,10 +5668,12 @@ async function saveNtpConfig() {
       <hr style="border-color:var(--border);margin:14px 0">
       <h3 style="font-size:13px;margin-bottom:8px">Color channel brightness matching</h3>
       <p style="color:var(--dim);font-size:11px;margin:0 0 10px">
-        With the Three Circle Pattern above running, adjust Gain R/G/B
-        until all three circles look equally bright.
+        Start the Three Circle Pattern — one solid R/G/B circle side by
+        side — then adjust Gain R/G/B until all three circles look
+        equally bright.
       </p>
       <div class="btns" style="margin-bottom:10px">
+        <button class="btn ok" id="three-circle-btn" onclick="toggleThreeCirclePattern()">▶ Start the Three Circle Pattern</button>
         <button class="btn secondary" onclick="applyAutoWB()">🪄 Auto White Balance</button>
       </div>
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
