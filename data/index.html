@@ -6230,6 +6230,31 @@ function enhanceSliders(root) {
 }
 
 document.addEventListener('DOMContentLoaded', () => enhanceSliders());
+
+// ============================================================
+// Mouse-wheel slider control
+// Delegated on document so every <input type="range"> reacts to
+// scrolling while hovered — including sliders injected after load.
+// Scroll up = increase, scroll down = decrease, by one step.
+// ============================================================
+document.addEventListener('wheel', (e) => {
+  const slider = e.target.closest('input[type="range"]');
+  if (!slider || slider.disabled) return;
+  e.preventDefault();
+
+  const min  = parseFloat(slider.min);
+  const max  = parseFloat(slider.max);
+  const step = parseFloat(slider.step) || 1;
+  const dir  = e.deltaY < 0 ? 1 : -1;
+
+  let value = parseFloat(slider.value) + dir * step;
+  if (!isNaN(min)) value = Math.max(min, value);
+  if (!isNaN(max)) value = Math.min(max, value);
+
+  slider.value = value;
+  slider.dispatchEvent(new Event('input',  { bubbles: true }));
+  slider.dispatchEvent(new Event('change', { bubbles: true }));
+}, { passive: false });
 // ============================================================
 // Output-parameter preview animations
 // Small looping SVG-free (pure CSS) widgets next to every control that
