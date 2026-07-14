@@ -3,7 +3,7 @@
 
 namespace presets {
 
-constexpr uint8_t PRESET_COUNT = 107;
+constexpr uint8_t PRESET_COUNT = 111;
 
 // Type-safe preset selection. Values are the raw dispatch index into
 // PRESETS[]/DISPATCH[] below and MUST stay in sync with the order of that
@@ -54,6 +54,11 @@ enum class Preset : int8_t {
     RandomPoints,
 
     ThreeCircles, PointSpread,
+
+    // Optimizer test/calibration patterns -- each isolates one tunable
+    // stage of the point_optimizer pipeline (see preset_patterns.cpp for
+    // the OptimizerConfig fields each one targets).
+    OptCornerSweep, OptDensityRamp, OptJumpRing, OptVelAccel,
 };
 
 // Sanitizes a raw index (WebUI JSON, encoder, ...) into a valid Preset.
