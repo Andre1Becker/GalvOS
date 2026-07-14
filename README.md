@@ -29,7 +29,6 @@
 - Concentric Rings: while zooming out, outer circle gets smaller (3/4s to 1/3)
 - Nested Squares: only 2 1/2 Squares (outer ons) visible
 
-
 ### Calibration
 
 - Some patterns need to be fixed
@@ -104,7 +103,7 @@ Lasers are capable of causing immediate and permanent eye injury and skin burns,
 ## Hardware Overview
 
 | Component | Part |
-|---|---|
+| --- | --- |
 | MCU | ESP32-S3-WROOM-1 N16R8 (DevKitC-1) |
 | DAC | DAC8562 (16-bit, dual, SPI) |
 | Op-Amp | OPA4134UA (quad, SOIC14) |
@@ -160,7 +159,7 @@ After flashing, connect to the ESP32 Wi-Fi AP or your local network and open the
 ## Control Input
 
 | Protocol | Details |
-|---|---|
+| --- | --- |
 | DMX-512 | via XLR, MAX485, CH1 = Master Dimmer |
 | Art-Net | UDP, universe configurable in WebUI |
 | ILDA | .ild files from SD card, selectable in WebUI |

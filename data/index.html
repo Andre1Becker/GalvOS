@@ -1790,7 +1790,7 @@ document.querySelectorAll('nav button').forEach(btn => {
     if (t === 'presets' && g_curve_defs.length === 0) loadCurveDefs();
     if (t === 'thermal')  { buildTempSensors(); buildSensorNameEditor(); }
     if (t === 'paint') initPaintTab();
-    if (t !== 'calib') stopThreshTest();
+    if (t !== 'calib') stopThreeCirclePattern();
   });
 });
 
@@ -2725,31 +2725,25 @@ async function saveCalibration() {
   if (r !== null) toast('Calibration saved');
 }
 
-// ---- Basiswert (visibility threshold) test beam ----
-// Static beam, gain/gamma/dimmer bypassed on the firmware side -- see
-// galvo_out.cpp galvoTask(). Only the Base R/G/B sliders affect it.
-let threshTestActive = false;
-async function toggleThreshTest() {
-  threshTestActive = !threshTestActive;
-  await apiCall('POST', '/api/calib-thresh-test', { active: threshTestActive });
-  const btn = document.getElementById('thresh-test-btn');
-  if (btn) btn.textContent = threshTestActive ? '⏹ Stop test beam' : '▶ Start test beam';
+// ---- Three Circle Pattern (Visibility threshold + Color gain calib) ----
+// Shared test pattern for both Base R/G/B (Visibility threshold) and
+// Gain R/G/B (Color channel brightness matching) below: three same-size
+// circles side by side, one per channel, rendered through the normal
+// gain+gamma pipeline (see calib_patterns.cpp three_circles()) -- so
+// both slider sets have a direct, visible effect while it runs.
+let threeCircleActive = false;
+async function toggleThreeCirclePattern() {
+  threeCircleActive = !threeCircleActive;
+  await apiCall('POST', '/api/calib-pattern', { active: threeCircleActive, idx: 16 });
+  const btn = document.getElementById('three-circle-btn');
+  if (btn) btn.textContent = threeCircleActive ? '⏹ Stop the Three Circle Pattern' : '▶ Start the Three Circle Pattern';
 }
-async function stopThreshTest() {
-  if (!threshTestActive) return;
-  threshTestActive = false;
-  await apiCall('POST', '/api/calib-thresh-test', { active: false });
-  const btn = document.getElementById('thresh-test-btn');
-  if (btn) btn.textContent = '▶ Start test beam';
-}
-
-// ---- Color channel brightness matching (Three Circle Pattern) ----
-let rgbMatchActive = false;
-async function toggleRgbMatchTest() {
-  rgbMatchActive = !rgbMatchActive;
-  await apiCall('POST', '/api/calib-pattern', { active: rgbMatchActive, idx: 16 });
-  const btn = document.getElementById('rgb-match-btn');
-  if (btn) btn.textContent = rgbMatchActive ? '⏹ Stop Three Circle Pattern' : '▶ Start Three Circle Pattern';
+async function stopThreeCirclePattern() {
+  if (!threeCircleActive) return;
+  threeCircleActive = false;
+  await apiCall('POST', '/api/calib-pattern/stop');
+  const btn = document.getElementById('three-circle-btn');
+  if (btn) btn.textContent = '▶ Start the Three Circle Pattern';
 }
 
 async function testPattern(name) {
@@ -5600,24 +5594,6 @@ async function saveNtpConfig() {
       </div>
 
       <hr style="border-color:var(--border);margin:14px 0">
-      <h3 style="font-size:13px;margin-bottom:8px">Color gain (white balance)</h3>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
-        <div>
-          <label>Gain R <span id="v-r" style="color:#ff8080;font-family:monospace">1.00</span></label>
-          <input type="range" id="cal-r" min="0" max="255" step="1" value="255">
-        </div>
-        <div>
-          <label>Gain G <span id="v-g" style="color:#80ff80;font-family:monospace">1.00</span></label>
-          <input type="range" id="cal-g" min="0" max="255" step="1" value="255">
-        </div>
-        <div>
-          <label>Gain B <span id="v-b" style="color:#8080ff;font-family:monospace">1.00</span></label>
-          <input type="range" id="cal-b" min="0" max="255" step="1" value="255">
-        </div>
-      </div>
-      <div id="awb-hint" style="font-size:11px;color:var(--dim);margin-top:8px"></div>
-
-      <hr style="border-color:var(--border);margin:14px 0">
       <h3 style="font-size:13px;margin-bottom:8px">DAC scan limits</h3>
       <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px">
         <div>
@@ -5640,14 +5616,12 @@ async function saveNtpConfig() {
 
       <h3 style="font-size:13px;margin-bottom:8px">Visibility threshold (Basiswert)</h3>
       <p style="color:var(--dim);font-size:11px;margin:0 0 10px">
-        Start the test beam, then lower each slider until that color just
-        goes dark — that value is the base value. The test beam ignores
-        gain, gamma and the Master Dimmer, so the sliders alone control
-        it. 0-100% then always maps onto the actually visible range for
-        that color.
+        Start the Three Circle Pattern, then lower each Base slider until
+        that circle just goes dark — that value is the base value. 0-100%
+        then always maps onto the actually visible range for that color.
       </p>
       <div class="btns" style="margin-bottom:10px">
-        <button class="btn ok" id="thresh-test-btn" onclick="toggleThreshTest()">▶ Start test beam</button>
+        <button class="btn ok" id="three-circle-btn" onclick="toggleThreeCirclePattern()">▶ Start the Three Circle Pattern</button>
       </div>
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
         <div>
@@ -5670,12 +5644,29 @@ async function saveNtpConfig() {
       <hr style="border-color:var(--border);margin:14px 0">
       <h3 style="font-size:13px;margin-bottom:8px">Color channel brightness matching</h3>
       <p style="color:var(--dim);font-size:11px;margin:0 0 10px">
-        Start the Three Circle Pattern — one solid R/G/B circle side by
-        side — then adjust Gain R/G/B (Galvo Calibration card, left) until
-        all three circles look equally bright.
+        With the Three Circle Pattern above running, adjust Gain R/G/B
+        until all three circles look equally bright.
       </p>
-      <div class="btns">
-        <button class="btn ok" id="rgb-match-btn" onclick="toggleRgbMatchTest()">▶ Start Three Circle Pattern</button>
+      <div class="btns" style="margin-bottom:10px">
+        <button class="btn secondary" onclick="applyAutoWB()">🪄 Auto White Balance</button>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+        <div>
+          <label>Gain R <span id="v-r" style="color:#ff8080;font-family:monospace">1.00</span></label>
+          <input type="range" id="cal-r" min="0" max="255" step="1" value="255">
+        </div>
+        <div>
+          <label>Gain G <span id="v-g" style="color:#80ff80;font-family:monospace">1.00</span></label>
+          <input type="range" id="cal-g" min="0" max="255" step="1" value="255">
+        </div>
+        <div>
+          <label>Gain B <span id="v-b" style="color:#8080ff;font-family:monospace">1.00</span></label>
+          <input type="range" id="cal-b" min="0" max="255" step="1" value="255">
+        </div>
+      </div>
+      <div id="awb-hint" style="font-size:11px;color:var(--dim);margin-top:8px"></div>
+      <div class="btns" style="margin-top:10px">
+        <button class="btn ok" onclick="saveCalibration()">💾 Save calibration</button>
       </div>
     </div>
     <div class="card">
