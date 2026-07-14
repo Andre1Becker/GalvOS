@@ -305,7 +305,7 @@ struct RuntimeState {
     // calibration pattern mode (less time-critical, volatile is sufficient)
     volatile bool         calib_active      = false;
     volatile uint8_t      calib_idx         = 0;
-    volatile uint8_t      calib_bright      = 200;
+    volatile uint8_t      calib_bright      = 255;   // WebUI slider removed; Master Dimmer is now the sole intensity control
     volatile uint8_t      calib_channel     = 0;
 };
 

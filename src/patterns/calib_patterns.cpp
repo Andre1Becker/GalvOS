@@ -47,13 +47,19 @@ static inline uint8_t applyGamma(uint8_t v) {
     return LUT[v];
 }
 
-// apply white balance + gamma to RGB triple
+// apply gamma to RGB triple. White-balance gain (gain_r/g/b) is NOT applied
+// here -- galvo_out.cpp's shared output pipeline already applies it to every
+// LaserPoint exactly once, regardless of source. Baking it in a second time
+// here squared the gain for calibration patterns specifically, which (with
+// gamma also compounding) crushed low/mid brightness down to a flat 0 before
+// it ever reached the PWM writer -- making the Basiswert (visibility
+// threshold) sliders in the Calib tab appear to have no effect.
 static inline void colorOut(uint8_t ri, uint8_t gi, uint8_t bi,
                              uint8_t bright,
                              uint8_t& ro, uint8_t& go, uint8_t& bo) {
-    ro = applyGamma((uint8_t)(((uint32_t)ri * bright * gConfig.gain_r) / (255UL * 255)));
-    go = applyGamma((uint8_t)(((uint32_t)gi * bright * gConfig.gain_g) / (255UL * 255)));
-    bo = applyGamma((uint8_t)(((uint32_t)bi * bright * gConfig.gain_b) / (255UL * 255)));
+    ro = applyGamma((uint8_t)(((uint16_t)ri * bright) / 255));
+    go = applyGamma((uint8_t)(((uint16_t)gi * bright) / 255));
+    bo = applyGamma((uint8_t)(((uint16_t)bi * bright) / 255));
 }
 
 // add point (with bounds check)
