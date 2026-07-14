@@ -859,6 +859,36 @@ static size_t corner_color_map(LaserPoint* o, size_t mx,
 }
 
 // ══════════════════════════════════════════════════════════════
+// PATTERN 16: THREE CIRCLES -- RGB brightness matching
+// ══════════════════════════════════════════════════════════════
+// Three same-size circles side by side, pure R / G / B. Unlike the other
+// patterns here, channel is deliberately ignored: the whole point is
+// spatial separation so all three colors are visible at once, with no
+// need to switch a channel selector. Rendered through the normal
+// generate() pipeline (gain_r/g/b + gamma applied downstream in
+// galvo_out.cpp, see colorOut() comment above) -- so the Color gain
+// (white balance) sliders directly change what's on screen: raise/lower
+// Gain R/G/B until all three circles look equally bright.
+static size_t three_circles(LaserPoint* o, size_t mx,
+                             uint32_t phase, uint8_t bright, uint8_t ch) {
+    (void)phase; (void)ch;  // static layout, channel-agnostic
+    size_t n = 0;
+    const float cx = SC * 0.5f, rad = SC * 0.28f;
+    const float cxs[3] = { -cx, 0.f, cx };
+    const uint8_t base[3][3] = { {255,0,0}, {0,255,0}, {0,0,255} };
+    for (int c = 0; c < 3; c++) {
+        uint8_t ro, go, bo;
+        colorOut(base[c][0], base[c][1], base[c][2], bright, ro, go, bo);
+        blankMove(o, n, mx, cxs[c] + rad, 0.f);
+        for (int i = 0; i <= 40; i++) {
+            float a = PI2 * i / 40;
+            ap(o, n, mx, cxs[c] + cosf(a)*rad, sinf(a)*rad, ro, go, bo, 0);
+        }
+    }
+    return n;
+}
+
+// ══════════════════════════════════════════════════════════════
 // DISPATCH + METADATA
 // ══════════════════════════════════════════════════════════════
 const CalibPatternInfo CALIB_INFO[CALIB_PATTERN_COUNT] = {
@@ -933,6 +963,11 @@ const CalibPatternInfo CALIB_INFO[CALIB_PATTERN_COUNT] = {
      "Position mapping: Red = top-left, Green = top-right, Blue = "
      "bottom-right, White = bottom-left. If a dot appears in the wrong "
      "corner the image is mirrored/rotated — fix with X/Y flip or invert."},
+
+    {"Three Circles",
+     "R / G / B circle side by side — match channel brightness by eye",
+     "All three circles must appear equally bright; adjust Color gain "
+     "R/G/B (Galvo Calibration card) until matched."},
 };
 
 using PFn = size_t(*)(LaserPoint*, size_t, uint32_t, uint8_t, uint8_t);
@@ -942,7 +977,7 @@ static const PFn DISPATCH[CALIB_PATTERN_COUNT] = {
     focus_test, scan_linearity, blanking_test,
     aspect_ratio, corner_test, color_temp,
     ilda_test, dac_range_box, zone_outline,
-    corner_color_map,
+    corner_color_map, three_circles,
 };
 
 static inline optimizer::OptimizerConfig liveOptimizerConfig() {

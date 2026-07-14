@@ -11,6 +11,7 @@
  *   5  CALIB_SATURATION       saturation spoke wheel
  *   ... 6-14 alignment/focus/zone patterns
  *   15 CORNER_COLOR_MAP       RGBW corner dots (projection orientation)
+ *   16 THREE_CIRCLES          R/G/B circles side by side (brightness matching)
  *
  * All patterns apply gamma + white balance from gConfig.
  *
@@ -21,7 +22,7 @@
 
 namespace calib_patterns {
 
-constexpr uint8_t CALIB_PATTERN_COUNT = 16;
+constexpr uint8_t CALIB_PATTERN_COUNT = 17;
 
 struct CalibPatternInfo {
     const char* name;
