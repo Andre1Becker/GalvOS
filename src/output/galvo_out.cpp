@@ -605,7 +605,14 @@ static void IRAM_ATTR galvoTask(void*) {
                 } else {
                     writeDAC8562XY((uint16_t)x, (uint16_t)y);
                     // PWM duty: 8-bit. Apply dimmer + thermal scale + gain.
-                    uint8_t dim = gState.master_dimmer.load();  // atomic load
+                    // Use max(master_dimmer, ui_master_dimmer) so that the
+                    // UI dimmer alone (DMX not active, master_dimmer=0) can
+                    // illuminate calib patterns -- mirrors the pushFrame guard
+                    // in pattern_engine.cpp which allows frames through when
+                    // either dimmer is non-zero.
+                    uint8_t dim = gState.master_dimmer.load();
+                    uint8_t uidim = gState.ui_master_dimmer.load();
+                    if (uidim > dim) dim = uidim;
                     uint8_t thermalScale = gState.thermal_power_scale.load();  // atomic load
                     uint8_t dimEff = (uint8_t)(((uint16_t)dim * thermalScale) / 255);
                     // FIX: s_snap instead of gConfig — race-condition-free
