@@ -18,12 +18,7 @@
 ### Patterns
 
 - point to multi point spread out
-- 3 circle Preset
-- Hypotrochoid (Complex) Way to huge scaling
 - Phyllotaxis bad output
-- Spirograph 5/3 is more like a Pentagram
-
-- Kaleidoscope and Mirror dont have any effect. Mirror just flips the projection.
 
 ### Text
 

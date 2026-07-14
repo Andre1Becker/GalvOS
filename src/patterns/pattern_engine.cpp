@@ -631,10 +631,13 @@ static float fadeWipePosition(uint8_t dir, float x, float y, float cx, float cy,
 // false this is a plain rotational repeat (Paint-by-Finger's "Radial4"
 // mode, generalized to a configurable segment count).
 //
-// Segment count is silently capped so `segments` copies + blank
-// transitions still fit gOptimizerConfig.max_pts_per_frame -- same
-// philosophy as applyPointsOnlyMode(): never drop points mid-copy, only
-// ever fewer copies.
+// Segment count is preserved by decimating the source wedge down to fit
+// the budget, rather than silently dropping segments: any preset dense
+// enough to already sit near gOptimizerConfig.max_pts_per_frame on its own
+// (e.g. a smooth Circle/Square outline) previously left no headroom for
+// even 2 copies, so Kaleidoscope/Radial-Mirror had no visible effect at
+// all. Blank (pen-lift) points are always kept during decimation so a
+// multi-loop shape never gets a spurious line drawn across a jump.
 static void applyRadialCopy(size_t& n, uint8_t segments, bool altMirrorH, bool altMirrorV) {
     if (n == 0 || !s_pm_kaleido) return;  // PSRAM alloc failed in init() -- skip, don't crash
 
@@ -647,13 +650,29 @@ static void applyRadialCopy(size_t& n, uint8_t segments, bool altMirrorH, bool a
     if (budget > PATTERN_POINTS_MAX) budget = PATTERN_POINTS_MAX;
 
     size_t srcN = (n > PATTERN_POINTS_MAX) ? PATTERN_POINTS_MAX : n;
-    size_t perCopy = srcN + blankSamples;
-    size_t maxSegs = perCopy ? (budget / perCopy) : 0;
-    if (maxSegs < 2) return;  // can't fit even 2 copies this frame -- leave source frame untouched
-    if (segs > maxSegs) segs = (uint8_t)maxSegs;
+
+    // segs copies + (segs-1) blank-jump transitions must fit the budget.
+    size_t jumpCost = (size_t)(segs - 1) * blankSamples;
+    if (budget <= jumpCost) return;  // no room even for the jumps -- leave source untouched
+    size_t maxPerCopy = (budget - jumpCost) / segs;
+    if (maxPerCopy < 2) return;  // degenerate -- no room for a visible wedge
 
     // Snapshot the source wedge into PSRAM before overwriting s_frame in place.
     memcpy(s_pm_kaleido, s_frame, srcN * sizeof(LaserPoint));
+
+    // Decimate in place if one copy can't afford the full wedge density.
+    if (srcN > maxPerCopy) {
+        float  stride   = (float)srcN / (float)maxPerCopy;
+        float  nextPick = 0.0f;
+        size_t w        = 0;
+        for (size_t i = 0; i < srcN; i++) {
+            if (s_pm_kaleido[i].blank || (float)i >= nextPick) {
+                s_pm_kaleido[w++] = s_pm_kaleido[i];
+                nextPick += stride;
+            }
+        }
+        srcN = w;
+    }
 
     size_t o = 0;
     for (uint8_t k = 0; k < segs; k++) {
