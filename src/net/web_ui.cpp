@@ -1903,6 +1903,38 @@ void init() {
         req->send(200, "application/json", buf);
     });
 
+    // ── /api/projection/awb — apply auto white balance from laser power specs ─
+    // NOTE: must be registered BEFORE the bare /api/projection POST route
+    // below -- ESPAsyncWebServer matches the first registered handler whose
+    // prefix matches the URL (same reason calib-pattern/stop+list are
+    // registered before the bare calib-pattern route). Registered here
+    // shadowed by /api/projection POST, this handler was unreachable and
+    // every request fell through to that handler's empty onRequest lambda,
+    // which never calls send() -- hence the 501.
+    s_server.on("/api/projection/awb", HTTP_POST, [](AsyncWebServerRequest* req) {
+        uint8_t gr, gg, gb;
+        gProjection.autoWhiteBalance(gr, gg, gb);
+        if (xSemaphoreTake(mtx::config, pdMS_TO_TICKS(10)) == pdTRUE) {
+            gConfig.gain_r = gr;
+            gConfig.gain_g = gg;
+            gConfig.gain_b = gb;
+            xSemaphoreGive(mtx::config);
+        }
+        // Persist to NVS (re-use config save)
+        Preferences prefs;
+        prefs.begin("config", false);
+        prefs.putUChar("gain_r", gr);
+        prefs.putUChar("gain_g", gg);
+        prefs.putUChar("gain_b", gb);
+        prefs.end();
+        char buf[80];
+        snprintf(buf, sizeof(buf),
+            "{\"ok\":true,\"gain_r\":%u,\"gain_g\":%u,\"gain_b\":%u}",
+            (unsigned)gr, (unsigned)gg, (unsigned)gb);
+        ESP_LOGI("webui", "Auto white balance applied: R=%u G=%u B=%u", gr, gg, gb);
+        req->send(200, "application/json", buf);
+    });
+
     // ── /api/projection POST ── update galvo rate + geometry ────────────────
     s_server.on("/api/projection", HTTP_POST, [](AsyncWebServerRequest* req){},
     nullptr,
@@ -2004,31 +2036,6 @@ void init() {
         if (strcmp(action, "abort") == 0) galvo::autotuneAbort();
         else                              galvo::autotuneStart();
         req->send(200, "application/json", "{\"ok\":true}");
-    });
-
-    // ── /api/projection/awb — apply auto white balance from laser power specs ─
-    s_server.on("/api/projection/awb", HTTP_POST, [](AsyncWebServerRequest* req) {
-        uint8_t gr, gg, gb;
-        gProjection.autoWhiteBalance(gr, gg, gb);
-        if (xSemaphoreTake(mtx::config, pdMS_TO_TICKS(10)) == pdTRUE) {
-            gConfig.gain_r = gr;
-            gConfig.gain_g = gg;
-            gConfig.gain_b = gb;
-            xSemaphoreGive(mtx::config);
-        }
-        // Persist to NVS (re-use config save)
-        Preferences prefs;
-        prefs.begin("config", false);
-        prefs.putUChar("gain_r", gr);
-        prefs.putUChar("gain_g", gg);
-        prefs.putUChar("gain_b", gb);
-        prefs.end();
-        char buf[80];
-        snprintf(buf, sizeof(buf),
-            "{\"ok\":true,\"gain_r\":%u,\"gain_g\":%u,\"gain_b\":%u}",
-            (unsigned)gr, (unsigned)gg, (unsigned)gb);
-        ESP_LOGI("webui", "Auto white balance applied: R=%u G=%u B=%u", gr, gg, gb);
-        req->send(200, "application/json", buf);
     });
 
     // Cache-Control lets the browser reuse the gzipped index.html from its own
