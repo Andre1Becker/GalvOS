@@ -83,7 +83,7 @@ constexpr uint8_t  UI_PARAM_PREVIEW_SIZE = 80;  // px, square
 //                    (DAC units/sample^2). Limits how fast the beam is allowed
 //                    to speed up, easing hard velocity ramps into corners.
 #define OPT_DEFAULT_VEL_CLAMP_ENABLED            false
-#define OPT_DEFAULT_MAX_STEP_UNITS               2000.0f
+#define OPT_DEFAULT_MAX_STEP_UNITS               200.0f
 #define OPT_DEFAULT_ACCEL_CLAMP_ENABLED          false
 #define OPT_DEFAULT_MAX_ACCEL_UNITS              800.0f
 

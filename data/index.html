@@ -3731,7 +3731,7 @@ function resetOptimizerDefaults() {
     document.getElementById('opt-rngfq').value = 200;
     document.getElementById('opt-rngdr').value = 15;
     document.getElementById('opt-vc-en').checked = false;
-    document.getElementById('opt-vcstp').value = 2000;
+    document.getElementById('opt-vcstp').value = 200;
     document.getElementById('opt-ac-en').checked = false;
     document.getElementById('opt-acmax').value = 800;
     optimizerSlider();
@@ -5841,7 +5841,7 @@ async function saveNtpConfig() {
       <label>Max step (units/tick) <span id="opt-vcstp-val" style="color:var(--accent);font-family:monospace">2000</span>
         <span class="help-icon" title="Ceiling on per-sample galvo travel. Lit steps longer than this are subdivided so the mirror never lags a single large jump. Galvo-specific -- tune on hardware. Off = byte-identical output.">?</span>
       </label>
-      <input type="range" id="opt-vcstp" min="50" max="8000" step="10" value="2000" oninput="optimizerSlider()">
+      <input type="range" id="opt-vcstp" min="10" max="500" step="5" value="200" oninput="optimizerSlider()">
       <div id="opt-vcstp-eff" style="font-size:10px;color:var(--dim);margin-top:2px">Effective at current PPS: --</div>
 
       <label class="toggle"><input type="checkbox" id="opt-ac-en" onchange="optimizerSlider()"><span class="slider"></span>Enable acceleration clamp</label>

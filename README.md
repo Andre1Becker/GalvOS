@@ -19,6 +19,7 @@
 
 - point to multi point spread out
 - Phyllotaxis bad output
+- New Pattern: Solar System
 
 ### Text
 

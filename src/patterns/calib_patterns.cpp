@@ -703,12 +703,24 @@ static size_t opt_vel_accel(LaserPoint* o, size_t m,
         spike[i] = optimizer::PathVertex(cosf(a) * rr, sinf(a) * rr, r, g, b, i == 0);
     }
 
-    optimizer::PathSegment segs[2] = {
-        optimizer::PathSegment(diag, 2, false),
-        optimizer::PathSegment(spike, SP * 2, true),
-    };
+    // Diagonal: deliberately sparse — no interpolation, just the two
+    // endpoints.  The raw inter-point step equals the full frame diagonal
+    // (~79 k units).  vel_clamp (not density) adds subdivisions, so the
+    // effect of max_step_units becomes directly visible.  Reduce
+    // max_step_units below ~200 to see dots appear on the line.
+    optimizer::OptimizerConfig cfgDiag = liveOptimizerConfig();
+    cfgDiag.pts_per_1000_units  = 0.0f;   // suppress density interpolation
+    cfgDiag.resample_enabled    = false;
+    cfgDiag.min_segment_pts     = 2;       // exactly the two endpoints
+    cfgDiag.accel_clamp_enabled = false;   // vel probe only
+
     const optimizer::OptimizerConfig cfg = liveOptimizerConfig();
-    return optimizer::optimize(segs, 2, o, m, cfg);
+    optimizer::PathSegment diagSeg(diag, 2, false);
+    optimizer::PathSegment starSeg(spike, SP * 2, true);
+
+    size_t n = optimizer::optimize(&diagSeg, 1, o,     m,     cfgDiag);
+    n        += optimizer::optimize(&starSeg, 1, o + n, m - n, cfg);
+    return n;
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -772,9 +784,11 @@ const CalibPatternInfo CALIB_INFO[CALIB_PATTERN_COUNT] = {
 
     {"Velocity & Accel Test",
      "Full-frame diagonal + 6-spike star (outer:inner = 0.95:0.06)",
-     "Tune: vel_clamp_enabled / max_step_units (subdivision on diagonal), "
-     "accel_clamp_enabled / max_accel_units (overshoot at spike tips). "
-     "Without clamping: tips overshoot. Reduce values until tips are sharp."},
+     "Diagonal = vel_clamp probe (2 raw endpoints, no interpolation): "
+     "enable vel_clamp and reduce max_step_units below ~200 to see "
+     "subdivision dots appear on the diagonal. "
+     "Star = accel_clamp probe: enable accel_clamp and reduce "
+     "max_accel_units until spike tips stop overshooting."},
 };
 
 using PFn = size_t(*)(LaserPoint*, size_t, uint32_t, uint8_t, uint8_t);
