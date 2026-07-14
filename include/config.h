@@ -235,6 +235,17 @@ struct RuntimeConfig {
     bool      gamma_enable = true;   // gamma correction γ=2.2
     float     gamma_val    = 2.2f;   // adjustable 1.0–3.0 via WebUI
 
+    // Visibility threshold ("Basiswert") per color: lowest final PWM duty
+    // at which the laser diode driver actually emits visible light -- below
+    // this the beam is physically dark regardless of duty. Measured per
+    // channel via the Calib tab (White Balance pattern). The logical 0-255
+    // color range is remapped onto [thresh_x..255] so 0-100% always spans
+    // the full visible range instead of wasting it on a dead zone.
+    // See galvo_out.cpp::mapVisibleRange().
+    uint8_t   thresh_r = 143;
+    uint8_t   thresh_g = 144;
+    uint8_t   thresh_b = 169;
+
     uint16_t  scanfail_timeout_ms = 50;
     uint16_t  watchdog_period_ms  = 500;
 

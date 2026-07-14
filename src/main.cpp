@@ -71,6 +71,9 @@ static void loadConfig() {
     gConfig.gain_r          = s_prefs.getUChar("gain_r", 115);  // FIX: R=1W
     gConfig.gain_g          = s_prefs.getUChar("gain_g",  43);  // FIX: G=1W
     gConfig.gain_b          = s_prefs.getUChar("gain_b", 255);  // FIX: B=3W
+    gConfig.thresh_r        = s_prefs.getUChar("thresh_r", 143);
+    gConfig.thresh_g        = s_prefs.getUChar("thresh_g", 144);
+    gConfig.thresh_b        = s_prefs.getUChar("thresh_b", 169);
     gConfig.gamma_enable    = s_prefs.getBool ("gamma_en", true);
     gConfig.gamma_val       = s_prefs.getFloat("gamma_val", 2.2f);
     gOptimizerConfig.corner_angle_deg   = s_prefs.getFloat("opt_cad",   25.0f);

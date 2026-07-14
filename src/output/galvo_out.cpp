@@ -320,6 +320,21 @@ static inline uint8_t applyGamma(uint8_t v) {
     return gConfig.gamma_enable ? GAMMA_LUT[v] : v;
 }
 
+/* ============================================================
+ * Visibility-threshold mapping ("Basiswert")
+ * Below a channel-specific PWM duty the laser diode driver emits no
+ * visible light at all (measured empirically, see thresh_r/g/b in
+ * RuntimeConfig -- Calib tab). Remaps the logical 0-255 range onto the
+ * physically visible [threshold..255] duty range, so 0-100% brightness
+ * always spans exactly what is actually visible. logical=0 always stays
+ * fully off (no minimum-on floor).
+ * ============================================================ */
+static inline uint8_t mapVisibleRange(uint8_t logical, uint8_t threshold) {
+    if (logical == 0 || threshold >= 255) return logical;
+    uint16_t span = 255 - threshold;
+    return threshold + (uint8_t)((span * logical + 127) / 255);
+}
+
 static inline void rgbOff() {
     // Pure register write — LEDC stays permanently attached after setup().
     // Duty 255 = pin HIGH = 6N137 conducts = laser OFF (inverted logic).
@@ -331,14 +346,15 @@ static inline void rgbOff() {
     ledcWrite(LEDC_CH_B, 255);
 }
 
-static inline void rgbWrite(uint8_t r, uint8_t g, uint8_t b) {
+static inline void rgbWrite(uint8_t r, uint8_t g, uint8_t b,
+                             uint8_t thresh_r, uint8_t thresh_g, uint8_t thresh_b) {
     // Inverted logic: HIGH = laser OFF, LOW = laser ON
     // Driver MN-1W5AT is active-HIGH: TTL HIGH (1.65V) enables laser
     // 6N137 inverts: GPIO HIGH -> conducts -> Pin6 LOW -> laser OFF
     //                GPIO LOW  -> off       -> Pin6 HIGH (1.65V) -> laser ON
-    ledcWrite(LEDC_CH_R, 255 - applyGamma(r));
-    ledcWrite(LEDC_CH_G, 255 - applyGamma(g));
-    ledcWrite(LEDC_CH_B, 255 - applyGamma(b));
+    ledcWrite(LEDC_CH_R, 255 - mapVisibleRange(applyGamma(r), thresh_r));
+    ledcWrite(LEDC_CH_G, 255 - mapVisibleRange(applyGamma(g), thresh_g));
+    ledcWrite(LEDC_CH_B, 255 - mapVisibleRange(applyGamma(b), thresh_b));
 }
 
 /* ============================================================
@@ -363,6 +379,9 @@ struct GalvoSnapshot {
     uint8_t  gain_g      =  43;
     uint8_t  gain_b      = 255;
     bool     gamma_en    = true;
+    uint8_t  thresh_r    = 143;
+    uint8_t  thresh_g    = 144;
+    uint8_t  thresh_b    = 169;
     uint16_t dac_limit_min = 0x0666;
     uint16_t dac_limit_max = 0xF999;
     uint32_t period_us     = 33;   // derived from gProjection.galvo_kpps (12..60)
@@ -379,6 +398,9 @@ static inline void updateSnapshot() {
         s_snap.gain_g   = gConfig.gain_g;
         s_snap.gain_b   = gConfig.gain_b;
         s_snap.gamma_en = gConfig.gamma_enable;
+        s_snap.thresh_r = gConfig.thresh_r;
+        s_snap.thresh_g = gConfig.thresh_g;
+        s_snap.thresh_b = gConfig.thresh_b;
         s_snap.dac_limit_min = gConfig.dac_limit_min;
         s_snap.dac_limit_max = gConfig.dac_limit_max;
         xSemaphoreGive(mtx::config);
@@ -498,7 +520,7 @@ static void IRAM_ATTR galvoTask(void*) {
                 int16_t dx = s_dbg_x, dy = s_dbg_y;
                 uint8_t dr = s_dbg_r, dg = s_dbg_g, db = s_dbg_b;
                 writeDAC8562XY((uint16_t)(dx + 32768), (uint16_t)(dy + 32768));
-                rgbWrite(dr, dg, db);
+                rgbWrite(dr, dg, db, s_snap.thresh_r, s_snap.thresh_g, s_snap.thresh_b);
             }
             next_tick += period_us;
             while (esp_timer_get_time() < (int64_t)next_tick) {}
@@ -565,7 +587,7 @@ static void IRAM_ATTR galvoTask(void*) {
                     uint8_t r = (uint8_t)(((uint32_t)p.r * dimEff * s_snap.gain_r) / (255UL * 255));
                     uint8_t g = (uint8_t)(((uint32_t)p.g * dimEff * s_snap.gain_g) / (255UL * 255));
                     uint8_t b = (uint8_t)(((uint32_t)p.b * dimEff * s_snap.gain_b) / (255UL * 255));
-                    rgbWrite(r, g, b);
+                    rgbWrite(r, g, b, s_snap.thresh_r, s_snap.thresh_g, s_snap.thresh_b);
                     s_laser_off_hold = LASER_OFF_HOLD_TICKS;
                 }
             }

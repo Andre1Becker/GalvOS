@@ -2623,7 +2623,8 @@ function setupCalibSliders() {
   const map = {
     'cal-xoff': 'v-xoff', 'cal-yoff': 'v-yoff',
     'cal-xgain': 'v-xgain', 'cal-ygain': 'v-ygain',
-    'cal-r': 'v-r', 'cal-g': 'v-g', 'cal-b': 'v-b'
+    'cal-r': 'v-r', 'cal-g': 'v-g', 'cal-b': 'v-b',
+    'cp-thr-r': 'cp-thr-r-v', 'cp-thr-g': 'cp-thr-g-v', 'cp-thr-b': 'cp-thr-b-v'
   };
   Object.entries(map).forEach(([sid, vid]) => {
     const s = document.getElementById(sid);
@@ -2674,6 +2675,9 @@ function sendCalibLive() {
       gain_r: +document.getElementById('cal-r').value,
       gain_g: +document.getElementById('cal-g').value,
       gain_b: +document.getElementById('cal-b').value,
+      thresh_r: +document.getElementById('cp-thr-r').value,
+      thresh_g: +document.getElementById('cp-thr-g').value,
+      thresh_b: +document.getElementById('cp-thr-b').value,
       dac_limit_min: +document.getElementById('cal-dac-lim-min').value,
       dac_limit_max: +document.getElementById('cal-dac-lim-max').value
     });
@@ -2704,6 +2708,9 @@ async function loadCalibration() {
   document.getElementById('cal-r').value = c.gain_r; document.getElementById('v-r').textContent = c.gain_r;
   document.getElementById('cal-g').value = c.gain_g; document.getElementById('v-g').textContent = c.gain_g;
   document.getElementById('cal-b').value = c.gain_b; document.getElementById('v-b').textContent = c.gain_b;
+  document.getElementById('cp-thr-r').value = c.thresh_r; document.getElementById('cp-thr-r-v').textContent = c.thresh_r;
+  document.getElementById('cp-thr-g').value = c.thresh_g; document.getElementById('cp-thr-g-v').textContent = c.thresh_g;
+  document.getElementById('cp-thr-b').value = c.thresh_b; document.getElementById('cp-thr-b-v').textContent = c.thresh_b;
   if (c.dac_limit_min !== undefined && c.dac_limit_max !== undefined) {
     document.getElementById('cal-dac-lim-min').value = c.dac_limit_min;
     document.getElementById('v-dac-lim-min').textContent = '0x' + c.dac_limit_min.toString(16).padStart(4,'0').toUpperCase();
@@ -5603,10 +5610,6 @@ async function saveNtpConfig() {
     <div class="card">
       <h2>Parameter</h2>
 
-      <label>Brightness <span id="cp-bright-v" style="color:var(--accent);font-family:monospace">200</span></label>
-      <input type="range" id="cp-bright" min="10" max="255" value="200"
-        oninput="document.getElementById('cp-bright-v').textContent=this.value;calibSend()">
-
       <label style="margin-top:12px">channel</label>
       <select id="cp-ch" onchange="calibSend()"
         style="width:100%;background:var(--card);border:1px solid var(--border);
@@ -5616,6 +5619,31 @@ async function saveNtpConfig() {
         <option value="2">Green only (520 nm)</option>
         <option value="3">Blue only (445 nm)</option>
       </select>
+
+      <hr style="border-color:var(--border);margin:14px 0">
+      <h3 style="font-size:13px;margin-bottom:8px">Visibility threshold (Basiswert)</h3>
+      <p style="color:var(--dim);font-size:11px;margin:0 0 10px">
+        Run the White Balance pattern and lower each slider until the color just
+        goes dark — that value is the base value. 0-100% then always maps onto
+        the actually visible range for that color.
+      </p>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+        <div>
+          <label>Base R <span id="cp-thr-r-v" style="color:#ff8080;font-family:monospace">143</span></label>
+          <input type="range" id="cp-thr-r" min="0" max="255" step="1" value="143">
+        </div>
+        <div>
+          <label>Base G <span id="cp-thr-g-v" style="color:#80ff80;font-family:monospace">144</span></label>
+          <input type="range" id="cp-thr-g" min="0" max="255" step="1" value="144">
+        </div>
+        <div>
+          <label>Base B <span id="cp-thr-b-v" style="color:#8080ff;font-family:monospace">169</span></label>
+          <input type="range" id="cp-thr-b" min="0" max="255" step="1" value="169">
+        </div>
+      </div>
+      <div class="btns" style="margin-top:10px">
+        <button class="btn ok" onclick="saveCalibration()">💾 Save thresholds</button>
+      </div>
 
       <hr style="border-color:var(--border);margin:14px 0">
       <h3 style="font-size:13px;margin-bottom:8px">What to check</h3>
@@ -5949,7 +5977,7 @@ const CALIB_PREVIEW=['<svg viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/s
 async function loadCalibPatterns(){const res=await apiCall('GET','/api/calib-pattern/list');if(!res||!res.patterns)return;const list=document.getElementById('calib-pattern-list');list.innerHTML=res.patterns.map(p=>'<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;border:1px solid var(--border);border-radius:4px;cursor:pointer" id="calib-btn-'+p.idx+'" onclick="calibPlay('+p.idx+')"><span style="font-family:monospace;font-size:11px;color:var(--accent);min-width:20px">'+(res.active&&res.idx===p.idx?'▶':'○')+'</span><span style="flex:1"><div style="font-size:12px;color:var(--text)">'+p.name+'</div><div style="font-size:10px;color:var(--dim)">'+p.desc+'</div>'+(p.check?'<div style="font-size:10px;color:var(--accent);margin-top:2px">💡 '+p.check+'</div>':'')+'</span><span style="flex:0 0 128px;width:128px;height:128px;border:1px solid var(--border);border-radius:4px;overflow:hidden;background:#000" title="Expected output">'+(CALIB_PREVIEW[p.idx]||'')+'</span></div>').join('');const cfg=await apiCall('GET','/api/config');if(cfg){document.getElementById('cp-gamma-v').textContent=(cfg.gamma_enable?'γ='+cfg.gamma_val.toFixed(2):'AUS');document.getElementById('cp-gr').textContent=cfg.gain_r;document.getElementById('cp-gg').textContent=cfg.gain_g;document.getElementById('cp-gb').textContent=cfg.gain_b;}}
 let calibActiveIdx=-1,calibPatterns=[];
 async function calibPlay(idx){calibActiveIdx=idx;calibPatterns=calibPatterns||[];await calibSend();document.getElementById('calib-status').textContent='▶ Pattern '+idx;loadCalibPatterns();}
-async function calibSend(){await apiCall('POST','/api/calib-pattern',{active:calibActiveIdx>=0,idx:Math.max(0,calibActiveIdx),bright:+document.getElementById('cp-bright').value,channel:+document.getElementById('cp-ch').value});}
+async function calibSend(){await apiCall('POST','/api/calib-pattern',{active:calibActiveIdx>=0,idx:Math.max(0,calibActiveIdx),channel:+document.getElementById('cp-ch').value});}
 async function calibStop(){calibActiveIdx=-1;await apiCall('POST','/api/calib-pattern/stop');document.getElementById('calib-status').textContent='No calibration pattern active';loadCalibPatterns();}
 async function ildaTestPlay(){const size=+document.getElementById('ilda-size').value;await apiCall('POST','/api/calib-pattern',{active:true,idx:12,bright:200,channel:size});}
 async function ildaPlayerStop() {
