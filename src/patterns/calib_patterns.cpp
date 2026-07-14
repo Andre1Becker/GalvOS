@@ -22,45 +22,18 @@ static constexpr float SC   = 28000.0f;  // ±88% full deflection
 
 // ── helper functions ──────────────────────────────────────────
 
-// Gamma LUT (γ=2.2) -- identical to galvo_out.cpp
-// Applied if gamma_enable=true, otherwise linear pass-through
-static inline uint8_t applyGamma(uint8_t v) {
-    if (!gConfig.gamma_enable) return v;
-    // Inline LUT (copy from galvo_out.cpp -- no cross-include needed)
-    static const uint8_t LUT[256] = {
-          0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,
-          1,  1,  1,  1,  1,  1,  1,  1,  1,  2,  2,  2,  2,  2,  2,  2,
-          3,  3,  3,  3,  3,  4,  4,  4,  4,  5,  5,  5,  5,  6,  6,  6,
-          6,  7,  7,  7,  8,  8,  8,  9,  9,  9, 10, 10, 11, 11, 11, 12,
-         12, 13, 13, 13, 14, 14, 15, 15, 16, 16, 17, 17, 18, 18, 19, 19,
-         20, 20, 21, 22, 22, 23, 23, 24, 25, 25, 26, 26, 27, 28, 28, 29,
-         30, 30, 31, 32, 33, 33, 34, 35, 35, 36, 37, 38, 39, 39, 40, 41,
-         42, 43, 43, 44, 45, 46, 47, 48, 49, 49, 50, 51, 52, 53, 54, 55,
-         56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71,
-         73, 74, 75, 76, 77, 78, 79, 81, 82, 83, 84, 85, 87, 88, 89, 90,
-         91, 93, 94, 95, 97, 98, 99,100,102,103,105,106,107,109,110,111,
-        113,114,116,117,119,120,121,123,124,126,127,129,130,132,133,135,
-        137,138,140,141,143,145,146,148,149,151,153,154,156,158,159,161,
-        163,165,166,168,170,172,173,175,177,179,181,182,184,186,188,190,
-        192,194,196,197,199,201,203,205,207,209,211,213,215,217,219,221,
-        223,225,227,229,231,234,236,238,240,242,244,246,248,251,253,255
-    };
-    return LUT[v];
-}
-
-// apply gamma to RGB triple. White-balance gain (gain_r/g/b) is NOT applied
-// here -- galvo_out.cpp's shared output pipeline already applies it to every
-// LaserPoint exactly once, regardless of source. Baking it in a second time
-// here squared the gain for calibration patterns specifically, which (with
-// gamma also compounding) crushed low/mid brightness down to a flat 0 before
-// it ever reached the PWM writer -- making the Basiswert (visibility
-// threshold) sliders in the Calib tab appear to have no effect.
+// Apply brightness scale to RGB triple.
+// NOTE: gamma is intentionally NOT applied here. galvo_out.cpp:rgbWrite()
+// applies it exactly once to every LaserPoint regardless of source.
+// Applying it a second time here squares the curve and crushes mid/low
+// brightness below thresh_r/g/b, making gain_r/g/b sliders appear to
+// have no effect on calib patterns.
 static inline void colorOut(uint8_t ri, uint8_t gi, uint8_t bi,
                              uint8_t bright,
                              uint8_t& ro, uint8_t& go, uint8_t& bo) {
-    ro = applyGamma((uint8_t)(((uint16_t)ri * bright) / 255));
-    go = applyGamma((uint8_t)(((uint16_t)gi * bright) / 255));
-    bo = applyGamma((uint8_t)(((uint16_t)bi * bright) / 255));
+    ro = (uint8_t)(((uint16_t)ri * bright) / 255);
+    go = (uint8_t)(((uint16_t)gi * bright) / 255);
+    bo = (uint8_t)(((uint16_t)bi * bright) / 255);
 }
 
 // add point (with bounds check)
