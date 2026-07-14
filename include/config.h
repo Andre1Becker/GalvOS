@@ -307,6 +307,13 @@ struct RuntimeState {
     volatile uint8_t      calib_idx         = 0;
     volatile uint8_t      calib_bright      = 255;   // WebUI slider removed; Master Dimmer is now the sole intensity control
     volatile uint8_t      calib_channel     = 0;
+
+    // Basiswert-Kalibrierung ("Visibility threshold" test beam): static
+    // low-level beam, bypasses gain/gamma/dimmer entirely -- see
+    // galvo_out.cpp galvoTask() and mapVisibleRange(). Toggled by the
+    // Start/Stop button in the Calib tab's Parameter card.
+    volatile bool          calib_thresh_test = false;
+    volatile uint8_t       calib_thresh_ch   = 0;      // 0=RGB,1=R,2=G,3=B
 };
 
 extern RuntimeState gState;

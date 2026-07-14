@@ -347,14 +347,18 @@ static inline void rgbOff() {
 }
 
 static inline void rgbWrite(uint8_t r, uint8_t g, uint8_t b,
-                             uint8_t thresh_r, uint8_t thresh_g, uint8_t thresh_b) {
+                             uint8_t thresh_r, uint8_t thresh_g, uint8_t thresh_b,
+                             bool skip_gamma = false) {
     // Inverted logic: HIGH = laser OFF, LOW = laser ON
     // Driver MN-1W5AT is active-HIGH: TTL HIGH (1.65V) enables laser
     // 6N137 inverts: GPIO HIGH -> conducts -> Pin6 LOW -> laser OFF
     //                GPIO LOW  -> off       -> Pin6 HIGH (1.65V) -> laser ON
-    ledcWrite(LEDC_CH_R, 255 - mapVisibleRange(applyGamma(r), thresh_r));
-    ledcWrite(LEDC_CH_G, 255 - mapVisibleRange(applyGamma(g), thresh_g));
-    ledcWrite(LEDC_CH_B, 255 - mapVisibleRange(applyGamma(b), thresh_b));
+    uint8_t rv = skip_gamma ? r : applyGamma(r);
+    uint8_t gv = skip_gamma ? g : applyGamma(g);
+    uint8_t bv = skip_gamma ? b : applyGamma(b);
+    ledcWrite(LEDC_CH_R, 255 - mapVisibleRange(rv, thresh_r));
+    ledcWrite(LEDC_CH_G, 255 - mapVisibleRange(gv, thresh_g));
+    ledcWrite(LEDC_CH_B, 255 - mapVisibleRange(bv, thresh_b));
 }
 
 /* ============================================================
@@ -502,6 +506,27 @@ static void IRAM_ATTR galvoTask(void*) {
             } else {
                 s_point_idx = s_ring_sizes[tail];  // skip rest of this frame
             }
+        } else if (gState.calib_thresh_test) {
+            // Basiswert-Kalibrierung: static beam at a fixed, minimal
+            // logical level (1). Gain, gamma AND the master dimmer are all
+            // bypassed here -- rgbWrite(..., skip_gamma=true) feeds that
+            // raw level straight into mapVisibleRange(), so the resulting
+            // PWM duty is (almost) exactly the configured threshold itself.
+            // Moving a Base R/G/B slider therefore moves the beam's duty
+            // 1:1, with nothing else in the signal path able to mask it.
+            if (!gState.laser_armed.load()) {
+                gState.calib_thresh_test = false;  // Auto-Deactiveierung if disarmed
+            } else {
+                writeDAC8562XY(0x8000, 0x8000);
+                uint8_t ch = gState.calib_thresh_ch;
+                uint8_t r = (ch == 0 || ch == 1) ? 1 : 0;
+                uint8_t g = (ch == 0 || ch == 2) ? 1 : 0;
+                uint8_t b = (ch == 0 || ch == 3) ? 1 : 0;
+                rgbWrite(r, g, b, s_snap.thresh_r, s_snap.thresh_g, s_snap.thresh_b, /*skip_gamma=*/true);
+            }
+            next_tick += period_us;
+            while (esp_timer_get_time() < (int64_t)next_tick) {}
+            continue;
         } else if (s_hw_debug_active) {
             // Hardware debug: fixed position/color, takes absolute priority
             // over ring-buffer consumption. Must be checked BEFORE the

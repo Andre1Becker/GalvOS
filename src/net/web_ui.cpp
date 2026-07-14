@@ -624,6 +624,22 @@ void init() {
             req->send(200, "text/plain", "saved");
         });
 
+    // ---- POST /api/calib-thresh-test {"active":true,"channel":0-3} ----
+    // Basiswert test beam: static, minimal-level beam with gain/gamma/
+    // dimmer bypassed (see galvo_out.cpp galvoTask()), so the Base R/G/B
+    // sliders in the Parameter card have a direct, unmasked effect.
+    s_server.on("/api/calib-thresh-test", HTTP_POST,
+        [](AsyncWebServerRequest* req) {},
+        nullptr,
+        [](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t, size_t) {
+            JsonDocument doc(&jsonAllocator());
+            if (deserializeJson(doc, data, len)) { req->send(400, "text/plain", "bad json"); return; }
+            if (doc["channel"].is<int>())
+                gState.calib_thresh_ch = constrain((int)doc["channel"], 0, 3);
+            gState.calib_thresh_test = doc["active"] | false;
+            req->send(200, "text/plain", "OK");
+        });
+
     // ---- POST /api/test-pattern ----
     s_server.on("/api/test-pattern", HTTP_POST,
         [](AsyncWebServerRequest* req) {},

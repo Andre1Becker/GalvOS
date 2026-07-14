@@ -1790,6 +1790,7 @@ document.querySelectorAll('nav button').forEach(btn => {
     if (t === 'presets' && g_curve_defs.length === 0) loadCurveDefs();
     if (t === 'thermal')  { buildTempSensors(); buildSensorNameEditor(); }
     if (t === 'paint') initPaintTab();
+    if (t !== 'calib') stopThreshTest();
   });
 });
 
@@ -2722,6 +2723,34 @@ async function loadCalibration() {
 async function saveCalibration() {
   const r = await apiCall('POST', '/api/calib-save', {});
   if (r !== null) toast('Calibration saved');
+}
+
+// ---- Basiswert (visibility threshold) test beam ----
+// Static beam, gain/gamma/dimmer bypassed on the firmware side -- see
+// galvo_out.cpp galvoTask(). Only the Base R/G/B sliders affect it.
+let threshTestActive = false;
+async function toggleThreshTest() {
+  threshTestActive = !threshTestActive;
+  await apiCall('POST', '/api/calib-thresh-test', {
+    active: threshTestActive,
+    channel: +document.getElementById('cp-ch').value
+  });
+  const btn = document.getElementById('thresh-test-btn');
+  if (btn) btn.textContent = threshTestActive ? '⏹ Stop test beam' : '▶ Start test beam';
+}
+async function stopThreshTest() {
+  if (!threshTestActive) return;
+  threshTestActive = false;
+  await apiCall('POST', '/api/calib-thresh-test', { active: false });
+  const btn = document.getElementById('thresh-test-btn');
+  if (btn) btn.textContent = '▶ Start test beam';
+}
+function threshTestChannelChanged() {
+  if (!threshTestActive) return;
+  apiCall('POST', '/api/calib-thresh-test', {
+    active: true,
+    channel: +document.getElementById('cp-ch').value
+  });
 }
 
 async function testPattern(name) {
@@ -5611,7 +5640,7 @@ async function saveNtpConfig() {
       <h2>Parameter</h2>
 
       <label style="margin-top:12px">channel</label>
-      <select id="cp-ch" onchange="calibSend()"
+      <select id="cp-ch" onchange="calibSend();threshTestChannelChanged()"
         style="width:100%;background:var(--card);border:1px solid var(--border);
                color:var(--text);padding:6px;font-family:monospace;font-size:12px">
         <option value="0">R + G + B (White)</option>
@@ -5623,10 +5652,15 @@ async function saveNtpConfig() {
       <hr style="border-color:var(--border);margin:14px 0">
       <h3 style="font-size:13px;margin-bottom:8px">Visibility threshold (Basiswert)</h3>
       <p style="color:var(--dim);font-size:11px;margin:0 0 10px">
-        Run the White Balance pattern and lower each slider until the color just
-        goes dark — that value is the base value. 0-100% then always maps onto
-        the actually visible range for that color.
+        Start the test beam (pick a channel above), then lower that slider
+        until the color just goes dark — that value is the base value. The
+        test beam ignores gain, gamma and the Master Dimmer, so the slider
+        alone controls it. 0-100% then always maps onto the actually
+        visible range for that color.
       </p>
+      <div class="btns" style="margin-bottom:10px">
+        <button class="btn ok" id="thresh-test-btn" onclick="toggleThreshTest()">▶ Start test beam</button>
+      </div>
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
         <div>
           <label>Base R <span id="cp-thr-r-v" style="color:#ff8080;font-family:monospace">143</span></label>
