@@ -33,8 +33,7 @@
 
 - Some patterns need to be fixed
 - Channel not working
-- ILDA Standard Testpattern kein output
-- Remove Patterns as not needed: Gamma Ramp, White Balance, Rainbow, Step Ramp, Channel Separation, Saturation Wheel, Focus Test, Scan Linearity, Corner Test, Color Temperature
+- ILDA Standard Testpattern bad output
 
 And: (Drum Roll please) Documentation :-)
 

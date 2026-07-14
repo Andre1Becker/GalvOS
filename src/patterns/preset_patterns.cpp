@@ -1576,170 +1576,6 @@ static size_t p108(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     return n;
 }
 
-// ─── OPTIMIZER TEST PATTERNS 107-110 ──────────────────────────
-// Each pattern below isolates ONE stage of the point_optimizer pipeline
-// (Primitive -> Transform -> Resample -> Corner Dwell -> Blanking ->
-// Velocity Clamp -> Acceleration Clamp) so the corresponding WebUI slider(s)
-// can be tuned against a live, hardware-projected reference instead of
-// guessing values. All four use a SINGLE optimizer::optimize() call over
-// an array of PathSegments (not one optimize() call per shape) -- this
-// matters: emitAllSegments() carries its running point count `n` across
-// segments within one call, so inter-shape blank jumps get the real
-// distance-proportional, ZV-shaped treatment (emitBlankJump(), n!=0
-// path). Chaining separate optimize() calls instead (like p107 Three
-// Circles) would make every inter-shape jump fall back to the n==0
-// "no prior position" flat settle -- fine for a decorative preset, wrong
-// for a pattern whose whole point is to expose blank-jump behaviour.
-
-// p109 Corner Sweep -- isolates corner_angle_deg / min_corner_pts /
-// max_corner_pts. 8 independent V-notches (3-vertex open PathSegments,
-// deliberately NOT one shared zigzag polyline) laid out left to right,
-// each with the SAME fixed edge length L so only the tip's exterior angle
-// varies (8..175 deg) -- cornerSeverity()'s speedT term stays constant
-// across all 8, isolating angle as the only variable. Angles bracket the
-// default corner_angle_deg (25 deg): notches below it should sweep
-// through with barely any dwell, notches above it should show growing
-// dwell up to max_corner_pts at the sharpest (175 deg) tip. Each notch's
-// two open shoulder ends get forced max-severity dwell regardless of
-// angle (cornerSeverity()'s !hasIncoming/!hasOutgoing rule, same as any
-// open line()) -- expected, ignore those, read the tip only.
-static size_t p109(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
-    (void)ph; (void)sp;  // static layout -- tune via the optimizer sliders, not speed/phase
-    const int N = 8;
-    static const float angDeg[8] = {8,20,35,55,80,110,145,175};
-    const float sc = SC*ssc(sz)*0.85f;
-    const float L  = sc*0.11f;                  // fixed edge length -- isolates angle
-    const float spacing = sc*2.0f/(N-1);
-
-    optimizer::PathVertex verts[8][3];
-    optimizer::PathSegment segs[8];
-    for (int i=0;i<N;i++){
-        float th = angDeg[i]*(float)M_PI/180.f;
-        float w = L*cosf(th*0.5f), h = L*sinf(th*0.5f);
-        float cx = -sc + i*spacing;
-        float hue = PI2*i/(float)N;
-        uint8_t r=(uint8_t)(128+127*sinf(hue)),
-                g=(uint8_t)(128+127*sinf(hue+2.094f)),
-                b=(uint8_t)(128+127*sinf(hue+4.189f));
-        verts[i][0]=optimizer::PathVertex(cx-w,0.f,r,g,b,true);   // shoulder (blank-jump in)
-        verts[i][1]=optimizer::PathVertex(cx,  h, r,g,b,false);   // tip -- the actual test vertex
-        verts[i][2]=optimizer::PathVertex(cx+w,0.f,r,g,b,false);  // shoulder
-        segs[i]=optimizer::PathSegment(verts[i],3,false);
-    }
-    return optimizer::optimize(segs,N,o,m,liveOptimizerConfig());
-}
-
-// p110 Density Ramp -- isolates pts_per_1000_units / resample_enabled /
-// resample_spacing_units. 5 parallel horizontal open lines (2-vertex
-// PathSegments) of steadily increasing length, stacked top to bottom.
-// Per-unit-length point spacing should look identical on every line
-// regardless of its absolute length -- both density modes are already
-// length-proportional by construction, so this is really a check that
-// pts_per_1000_units and resample_spacing_units are mutually consistent
-// (1000/ppu == spacing_units) after tuning one or the other; a visible
-// density mismatch between the shortest and longest line means they've
-// drifted apart. The longest (bottom) line doubles as a max_step_units
-// probe: enable vel_clamp_enabled and watch for step subdivision if
-// pts_per_1000_units is set too sparse for a long straight run.
-static size_t p110(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
-    (void)ph; (void)sp;
-    const int N = 5;
-    const float sc = SC*ssc(sz)*0.9f;
-    static const float halfLen[5] = {0.08f,0.30f,0.52f,0.74f,0.96f};
-
-    optimizer::PathVertex verts[5][2];
-    optimizer::PathSegment segs[5];
-    for (int i=0;i<N;i++){
-        float y  = sc*(-0.8f + i*0.4f);
-        float hw = sc*halfLen[i];
-        float hue = PI2*i/(float)N;
-        uint8_t r=(uint8_t)(128+127*sinf(hue)),
-                g=(uint8_t)(128+127*sinf(hue+2.094f)),
-                b=(uint8_t)(128+127*sinf(hue+4.189f));
-        verts[i][0]=optimizer::PathVertex(-hw,y,r,g,b,true);
-        verts[i][1]=optimizer::PathVertex( hw,y,r,g,b,false);
-        segs[i]=optimizer::PathSegment(verts[i],2,false);
-    }
-    return optimizer::optimize(segs,N,o,m,liveOptimizerConfig());
-}
-
-// p111 Jump Ring Test -- isolates the blanking + ringing-compensation
-// stages (Pillar 2/3): blank_samples, min_blank_samples,
-// blank_pts_per_1000_units, ringing_comp_enabled, ring_freq_hz,
-// ring_damping_ratio. 5 small ring markers on one line with STRICTLY
-// INCREASING gaps (0.15sc..0.75sc) so each inter-ring blank jump is
-// longer than the last -- one optimize() call over all 5 closed
-// PathSegments (see file-header note above) keeps every jump on the
-// real distance-proportional, ZV-shaped path instead of the n==0
-// fallback. Under-damped ringing shows as a visible flare/offset on the
-// first few points of a ring, worst on the longest (rightmost) jump --
-// tune ring_freq_hz/ring_damping_ratio against a scope capture of that
-// landing, then confirm the flare is gone here.
-static size_t p111(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
-    (void)ph; (void)sp;
-    const int N = 5, RS = 16;                    // 5 rings, 16 verts/ring
-    const float sc = SC*ssc(sz)*0.9f;
-    static const float gap[4] = {0.15f,0.35f,0.55f,0.75f};  // strictly increasing
-    float cx[5]; cx[0] = -0.9f*sc;
-    for (int i=1;i<N;i++) cx[i] = cx[i-1] + gap[i-1]*sc;
-    const float rad = sc*0.045f;
-
-    optimizer::PathVertex verts[5][16];
-    optimizer::PathSegment segs[5];
-    for (int i=0;i<N;i++){
-        float hue = PI2*i/(float)N;
-        uint8_t r=(uint8_t)(128+127*sinf(hue)),
-                g=(uint8_t)(128+127*sinf(hue+2.094f)),
-                b=(uint8_t)(128+127*sinf(hue+4.189f));
-        for (int k=0;k<RS;k++){
-            float a = PI2*k/(float)RS;
-            verts[i][k]=optimizer::PathVertex(cx[i]+cosf(a)*rad, sinf(a)*rad, r,g,b, k==0);
-        }
-        segs[i]=optimizer::PathSegment(verts[i],RS,true);
-    }
-    return optimizer::optimize(segs,N,o,m,liveOptimizerConfig());
-}
-
-// p112 Velocity & Accel Test -- isolates the Phase-4 scanner-protection
-// clamps: vel_clamp_enabled/max_step_units and accel_clamp_enabled/
-// max_accel_units (clampScannerLimits(), a post-pass over the emitted lit
-// stream -- byte-identical output when both are off). Two probes in one
-// optimize() call:
-//   - a single long diagonal spanning the full frame: the longest
-//     straight lit run this pattern set produces, so the first thing to
-//     show step subdivision once max_step_units is set below the run's
-//     natural per-tick spacing.
-//   - a 6-spike star with an extreme outer:inner radius ratio (long
-//     spikes, near-zero valleys): every spike/valley transition forces a
-//     large per-tick velocity swing independent of corner angle -- that
-//     swing is exactly what max_accel_units limits. Watch for overshoot
-//     past the spike tips with the clamp off, then confirm it tightens
-//     up with accel_clamp_enabled and a tuned value.
-static size_t p112(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
-    (void)ph; (void)sp;
-    const float sc = SC*ssc(sz)*0.9f;
-
-    optimizer::PathVertex diag[2];
-    diag[0]=optimizer::PathVertex(-sc,-sc,255,255,255,true);
-    diag[1]=optimizer::PathVertex( sc, sc,255,255,255,false);
-
-    const int SP = 6;                            // spike count
-    optimizer::PathVertex spike[SP*2];
-    const float outer = sc*0.95f, inner = sc*0.06f;
-    for (int i=0;i<SP*2;i++){
-        float a = PI2*i/(float)(SP*2) - (float)M_PI/2.f;
-        float rr = (i%2==0) ? outer : inner;
-        uint8_t r=255,g=(uint8_t)(80+i*10),b=0;
-        spike[i]=optimizer::PathVertex(cosf(a)*rr, sinf(a)*rr, r,g,b, i==0);
-    }
-
-    optimizer::PathSegment segs[2] = {
-        optimizer::PathSegment(diag,2,false),
-        optimizer::PathSegment(spike,SP*2,true),
-    };
-    return optimizer::optimize(segs,2,o,m,liveOptimizerConfig());
-}
-
 // ─── DISPATCH ────────────────────────────────────────────────
 
 const PresetInfo PRESETS[PRESET_COUNT] = {
@@ -1758,7 +1594,6 @@ const PresetInfo PRESETS[PRESET_COUNT] = {
     {"Torus Knot","Curves"},{"Pentagram","Geometry"},{"DNA Helix","Complex"},{"Yin Yang","Symbols"},
     {"Random Points","Scenes"},
     {"Three Circles","Geometry"},{"Point Spread","Scenes"},
-    {"Corner Sweep","Optimizer"},{"Density Ramp","Optimizer"},{"Jump Ring Test","Optimizer"},{"Velocity & Accel Test","Optimizer"},
 };
 
 static const PFn DISPATCH[PRESET_COUNT] = {
@@ -1777,7 +1612,6 @@ static const PFn DISPATCH[PRESET_COUNT] = {
     p102,p103,p104,p105,
     p106,
     p107,p108,
-    p109,p110,p111,p112,
 };
 
 // ─── STATIC-PRESET CACHE (Phase 2) ───────────────────────────
@@ -1811,10 +1645,6 @@ static inline bool isStaticPreset(uint8_t idx) {
         case 74:  // Pineapple
         case 105: // Three Circles
         case 106: // Point Spread
-        case 107: // Corner Sweep
-        case 108: // Density Ramp
-        case 109: // Jump Ring Test
-        case 110: // Velocity & Accel Test
             return true;
         default:
             return false;

@@ -11,6 +11,7 @@
 #include "point_optimizer.h"
 #include <math.h>
 #include <string.h>
+#include <initializer_list>
 #include <Arduino.h>
 
 namespace calib_patterns {
@@ -109,288 +110,8 @@ static void line(LaserPoint* o, size_t& n, size_t mx,
     }
 }
 
-// HSV → RGB (h=0-360, s=0-255, v=0-255)
-static void hsv2rgb(float h, uint8_t s, uint8_t v,
-                    uint8_t& r, uint8_t& g, uint8_t& b) {
-    if (s == 0) { r = g = b = v; return; }
-    h = fmodf(h, 360.0f);
-    float H = h / 60.0f;
-    int   i = (int)H;
-    float f = H - i;
-    float sf = s / 255.0f;
-    uint8_t p = (uint8_t)(v * (1.0f - sf));
-    uint8_t q = (uint8_t)(v * (1.0f - sf * f));
-    uint8_t t2 = (uint8_t)(v * (1.0f - sf * (1.0f - f)));
-    switch (i % 6) {
-        case 0: r=v;  g=t2; b=p;  break;
-        case 1: r=q;  g=v;  b=p;  break;
-        case 2: r=p;  g=v;  b=t2; break;
-        case 3: r=p;  g=q;  b=v;  break;
-        case 4: r=t2; g=p;  b=v;  break;
-        default:r=v;  g=p;  b=q;  break;
-    }
-}
-
 // ══════════════════════════════════════════════════════════════
 // PATTERN 0: GAMMA-RAMPE
-// ══════════════════════════════════════════════════════════════
-static size_t gamma_ramp(LaserPoint* o, size_t mx,
-                          uint32_t phase, uint8_t bright, uint8_t ch) {
-    size_t n = 0;
-    const int STEPS = 60;
-    const float Y_TOP =  SC * 0.55f;
-    const float Y_BOT = -SC * 0.55f;
-
-    for (int i = 0; i <= STEPS; i++) {
-        float t = (float)i / STEPS;
-        float x = -SC * 0.88f + t * SC * 1.76f;
-        uint8_t v = (uint8_t)(t * 255.0f);
-        uint8_t ri = (ch==0||ch==1) ? v : 0;
-        uint8_t gi = (ch==0||ch==2) ? v : 0;
-        uint8_t bi = (ch==0||ch==3) ? v : 0;
-        uint8_t ro, go, bo;
-        colorOut(ri, gi, bi, bright, ro, go, bo);
-        if (i == 0) blankMove(o, n, mx, x, Y_TOP);
-        ap(o, n, mx, x, Y_TOP, ro, go, bo, 0);
-        uint8_t ro2 = (uint8_t)(((uint32_t)ri * bright * gConfig.gain_r) / (255UL*255));
-        uint8_t go2 = (uint8_t)(((uint32_t)gi * bright * gConfig.gain_g) / (255UL*255));
-        uint8_t bo2 = (uint8_t)(((uint32_t)bi * bright * gConfig.gain_b) / (255UL*255));
-        blankMove(o, n, mx, x, Y_BOT);
-        ap(o, n, mx, x, Y_BOT, ro2, go2, bo2, 0);
-    }
-    for (int k = 0; k <= 4; k++) {
-        float x = -SC * 0.88f + k * SC * 1.76f / 4;
-        blankMove(o, n, mx, x,  SC*0.65f);
-        ap(o, n, mx, x,  SC*0.65f, 0, 0, 40, 0);
-        ap(o, n, mx, x,  SC*0.55f, 0, 0, 40, 0);
-        blankMove(o, n, mx, x, -SC*0.55f);
-        ap(o, n, mx, x, -SC*0.55f, 0, 0, 40, 0);
-        ap(o, n, mx, x, -SC*0.65f, 0, 0, 40, 0);
-    }
-    blankMove(o, n, mx, -SC*0.88f, 0);
-    ap(o, n, mx, -SC*0.88f, 0, 0, 0, 20, 0);
-    ap(o, n, mx,  SC*0.88f, 0, 0, 0, 20, 0);
-    return n;
-}
-
-// ══════════════════════════════════════════════════════════════
-// PATTERN 1: WHITE BALANCE
-// ══════════════════════════════════════════════════════════════
-// Four stacked short strokes (W / R / G / B) instead of full-width lines,
-// keeping DAC travel small while the per-channel brightness stays comparable.
-static size_t white_balance(LaserPoint* o, size_t mx,
-                             uint32_t phase, uint8_t bright, uint8_t) {
-    size_t n = 0;
-    const float STROKE = SC * 0.20f;   // short stroke half-width
-    struct { uint8_t r,g,b; float y; } rows[4] = {
-        {255,255,255,  SC*0.60f},
-        {255,  0,  0,  SC*0.20f},
-        {  0,255,  0, -SC*0.20f},
-        {  0,  0,255, -SC*0.60f},
-    };
-    for (auto& row : rows) {
-        uint8_t ro,go,bo;
-        colorOut(row.r, row.g, row.b, bright, ro, go, bo);
-        blankMove(o, n, mx, -STROKE, row.y);
-        line(o, n, mx, -STROKE, row.y, STROKE, row.y, ro, go, bo, 8);
-    }
-    return n;
-}
-
-// ══════════════════════════════════════════════════════════════
-// PATTERN 2: RAINBOW
-// ══════════════════════════════════════════════════════════════
-static size_t rainbow(LaserPoint* o, size_t mx,
-                       uint32_t phase, uint8_t bright, uint8_t) {
-    size_t n = 0;
-    const int STEPS = 180;
-    const float rot_offset = (phase % 3600) * 0.001f;
-    for (int i = 0; i <= STEPS; i++) {
-        float t = (float)i / STEPS;
-        float angle = t * PI2 + rot_offset;
-        float r_dist = SC * 0.85f;
-        float x = cosf(angle) * r_dist;
-        float y = sinf(angle) * r_dist;
-        uint8_t ri, gi, bi;
-        hsv2rgb(t * 360.0f, 255, bright, ri, gi, bi);
-        uint8_t ro, go, bo;
-        colorOut(ri, gi, bi, bright, ro, go, bo);
-        ap(o, n, mx, x, y, ro, go, bo, i==0?1:0);
-    }
-    for (int i = 0; i <= 90; i++) {
-        float t = (float)i / 90;
-        float angle = t * PI2;
-        float r_dist = SC * 0.4f;
-        uint8_t ri, gi, bi;
-        hsv2rgb(t * 360.0f, 120, bright, ri, gi, bi);
-        uint8_t ro, go, bo;
-        colorOut(ri, gi, bi, bright, ro, go, bo);
-        ap(o, n, mx, cosf(angle)*r_dist, sinf(angle)*r_dist, ro, go, bo, i==0?1:0);
-    }
-    return n;
-}
-
-// ══════════════════════════════════════════════════════════════
-// PATTERN 3: STEP RAMP
-// ══════════════════════════════════════════════════════════════
-// Galvo cannot fill bars. Render 8 short horizontal strokes at increasing
-// brightness, arranged left->right. Each stroke is short (minimal DAC travel)
-// but the discrete brightness steps stay clearly distinguishable.
-static size_t step_ramp(LaserPoint* o, size_t mx,
-                         uint32_t phase, uint8_t bright, uint8_t ch) {
-    size_t n = 0;
-    const float STROKE = SC * 0.09f;   // short stroke half-width
-    for (int s = 0; s < 8; s++) {
-        float t = (float)(s + 1) / 8.0f;
-        uint8_t v = (uint8_t)(t * 255.0f);
-        uint8_t ri = (ch==0||ch==1) ? v : 0;
-        uint8_t gi = (ch==0||ch==2) ? v : 0;
-        uint8_t bi = (ch==0||ch==3) ? v : 0;
-        uint8_t ro, go, bo;
-        colorOut(ri, gi, bi, bright, ro, go, bo);
-        float x = -SC*0.80f + (s + 0.5f) / 8.0f * SC * 1.60f;
-        blankMove(o, n, mx, x - STROKE, 0);
-        line(o, n, mx, x - STROKE, 0, x + STROKE, 0, ro, go, bo, 4);
-    }
-    // Dim blue baseline for orientation
-    blankMove(o, n, mx, -SC*0.85f, -SC*0.30f);
-    ap(o, n, mx, -SC*0.85f, -SC*0.30f, 0, 0, 30, 0);
-    ap(o, n, mx,  SC*0.85f, -SC*0.30f, 0, 0, 30, 0);
-    return n;
-}
-
-// ══════════════════════════════════════════════════════════════
-// PATTERN 4: CHANNEL SEPARATION
-// ══════════════════════════════════════════════════════════════
-static size_t channel_sep(LaserPoint* o, size_t mx,
-                            uint32_t phase, uint8_t bright, uint8_t ch) {
-    size_t n = 0;
-    const float t = phase * 0.010f;
-    struct { uint8_t r,g,b; float y; const char* name; } combos[7] = {
-        {255,  0,  0,  SC*0.80f, "R"},
-        {  0,255,  0,  SC*0.53f, "G"},
-        {  0,  0,255,  SC*0.27f, "B"},
-        {255,255,  0,  0.00f,    "R+G"},
-        {  0,255,255, -SC*0.27f, "G+B"},
-        {255,  0,255, -SC*0.53f, "R+B"},
-        {255,255,255, -SC*0.80f, "RGB"},
-    };
-    for (int i = 0; i < 7; i++) {
-        auto& c = combos[i];
-        uint8_t ro, go, bo;
-        uint8_t ri = (ch==0) ? c.r : (ch==1 ? (c.r ? bright : 0) : 0);
-        uint8_t gi = (ch==0) ? c.g : (ch==2 ? (c.g ? bright : 0) : 0);
-        uint8_t bi = (ch==0) ? c.b : (ch==3 ? (c.b ? bright : 0) : 0);
-        colorOut(ri, gi, bi, bright, ro, go, bo);
-        const int STEPS = 60;
-        for (int k = 0; k <= STEPS; k++) {
-            float tt = (float)k / STEPS;
-            float x = -SC*0.85f + tt * SC*1.70f;
-            float y = c.y + sinf(t * 1.5f + tt * PI2) * SC * 0.04f;
-            ap(o, n, mx, x, y, ro, go, bo, k==0?1:0);
-        }
-    }
-    return n;
-}
-
-// ══════════════════════════════════════════════════════════════
-// PATTERN 5: SATURATION WHEEL
-// ══════════════════════════════════════════════════════════════
-static size_t saturation_wheel(LaserPoint* o, size_t mx,
-                                 uint32_t phase, uint8_t bright, uint8_t) {
-    size_t n = 0;
-    const int SPOKES    = 12;
-    const int PTS_SPOKE = 35;
-    const float rot = (phase % 36000) * 0.0001f;
-    for (int s = 0; s < SPOKES; s++) {
-        float hue = (float)s / SPOKES * 360.0f;
-        float angle = (float)s / SPOKES * PI2 + rot;
-        for (int i = 0; i <= PTS_SPOKE; i++) {
-            float t = (float)i / PTS_SPOKE;
-            float r_dist = t * SC * 0.88f;
-            uint8_t sat = (uint8_t)(t * 255.0f);
-            uint8_t ri, gi, bi;
-            hsv2rgb(hue, sat, bright, ri, gi, bi);
-            uint8_t ro, go, bo;
-            colorOut(ri, gi, bi, bright, ro, go, bo);
-            float x = cosf(angle) * r_dist;
-            float y = sinf(angle) * r_dist;
-            ap(o, n, mx, x, y, ro, go, bo, i==0?1:0);
-        }
-    }
-    uint8_t wro, wgo, wbo;
-        colorOut(bright, bright, bright, bright, wro, wgo, wbo);
-    for (int i = 0; i <= 20; i++) {
-        float angle = (float)i / 20 * PI2;
-        ap(o, n, mx,
-           cosf(angle)*SC*0.08f, sinf(angle)*SC*0.08f,
-           wro, wgo, wbo, i==0?1:0);
-    }
-    return n;
-}
-
-// ══════════════════════════════════════════════════════════════
-// PATTERN 6: FOCUS TEST
-// ══════════════════════════════════════════════════════════════
-static size_t focus_test(LaserPoint* o, size_t mx,
-                          uint32_t phase, uint8_t bright, uint8_t ch) {
-    size_t n = 0;
-    uint8_t ro, go, bo;
-    colorOut(ch==1?bright:0, ch==2?bright:0, ch==3?bright:0, bright, ro, go, bo);
-    if (ch == 0) { ro = go = bo = bright; }
-    const float radii[] = { SC*0.1f, SC*0.25f, SC*0.45f, SC*0.65f, SC*0.88f };
-    for (float r : radii) {
-        int steps = (int)(r / SC * 80) + 20;
-        blankMove(o, n, mx, cosf(0)*r, sinf(0)*r);
-        for (int i = 0; i <= steps; i++) {
-            float a = 6.2831853f * i / steps;
-            ap(o, n, mx, cosf(a)*r, sinf(a)*r, ro, go, bo, 0);
-        }
-    }
-    uint8_t wr = bright, wg = bright, wb = bright;
-    if (ch==1){ wg=0; wb=0; } else if(ch==2){ wr=0; wb=0; } else if(ch==3){ wr=0; wg=0; }
-    blankMove(o, n, mx, -SC*0.15f, 0);
-    ap(o, n, mx, -SC*0.15f, 0, wr, wg, wb, 0);
-    ap(o, n, mx,  SC*0.15f, 0, wr, wg, wb, 0);
-    blankMove(o, n, mx, 0, -SC*0.15f);
-    ap(o, n, mx, 0, -SC*0.15f, wr, wg, wb, 0);
-    ap(o, n, mx, 0,  SC*0.15f, wr, wg, wb, 0);
-    blankMove(o, n, mx, cosf(0)*SC*0.025f, sinf(0)*SC*0.025f);
-    for (int i = 0; i <= 16; i++) {
-        float a = 6.2831853f*i/16;
-        ap(o, n, mx, cosf(a)*SC*0.025f, sinf(a)*SC*0.025f, wr, wg, wb, 0);
-    }
-    return n;
-}
-
-// ══════════════════════════════════════════════════════════════
-// PATTERN 7: SCAN LINEARITY
-// ══════════════════════════════════════════════════════════════
-static size_t scan_linearity(LaserPoint* o, size_t mx,
-                              uint32_t phase, uint8_t bright, uint8_t ch) {
-    size_t n = 0;
-    uint8_t ro, go, bo;
-    colorOut(ch==1?bright:0, ch==2?bright:0, ch==3?bright:0, bright, ro, go, bo);
-    if (ch == 0) { ro=0; go=bright; bo=0; }
-    const int LINES = 7;
-    for (int l = 0; l < LINES; l++) {
-        float pos = -SC*0.86f + l * SC*1.72f / (LINES-1);
-        blankMove(o, n, mx, -SC*0.86f, pos);
-        ap(o, n, mx, -SC*0.86f, pos, ro, go, bo, 0);
-        ap(o, n, mx,  SC*0.86f, pos, ro, go, bo, 0);
-        uint8_t vr, vg, vb;
-        colorOut(0, ch==3?0:bright, ch==2?0:bright, bright, vr, vg, vb);
-        if (ch==0){ vr=0; vg=0; vb=bright; }
-        blankMove(o, n, mx, pos, -SC*0.86f);
-        ap(o, n, mx, pos, -SC*0.86f, vr, vg, vb, 0);
-        ap(o, n, mx, pos,  SC*0.86f, vr, vg, vb, 0);
-    }
-    return n;
-}
-
-// ══════════════════════════════════════════════════════════════
-// PATTERN 8: BLANKING TEST
-// ══════════════════════════════════════════════════════════════
 static size_t blanking_test(LaserPoint* o, size_t mx,
                              uint32_t phase, uint8_t bright, uint8_t ch) {
     size_t n = 0;
@@ -465,73 +186,6 @@ static size_t aspect_ratio(LaserPoint* o, size_t mx,
 
 // ══════════════════════════════════════════════════════════════
 // PATTERN 10: CORNER / EDGE TEST
-// ══════════════════════════════════════════════════════════════
-static size_t corner_test(LaserPoint* o, size_t mx,
-                           uint32_t phase, uint8_t bright, uint8_t ch) {
-    size_t n = 0;
-    uint8_t ro, go, bo;
-    colorOut(ch==1?bright:0, ch==2?bright:0, ch==3?bright:0, bright, ro, go, bo);
-    if (ch == 0) { ro = go = bo = bright; }
-    const float S = SC * 0.85f;
-    auto draw_sq = [&](float s, uint8_t r, uint8_t g, uint8_t b) {
-        blankMove(o, n, mx, -s, -s);
-        ap(o, n, mx, -s, -s, r,g,b, 0);
-        ap(o, n, mx,  s, -s, r,g,b, 0);
-        ap(o, n, mx,  s,  s, r,g,b, 0);
-        ap(o, n, mx, -s,  s, r,g,b, 0);
-        ap(o, n, mx, -s, -s, r,g,b, 0);
-    };
-    draw_sq(S, ro, go, bo);
-    draw_sq(S*0.6f, ro/2, go/2, bo/2);
-    line(o, n, mx, -S, -S,  S,  S, ro, go, bo, 40);
-    line(o, n, mx,  S, -S, -S,  S, ro, go, bo, 40);
-    float dirs[][2] = {{1,0},{-1,0},{0,1},{0,-1},{0.707f,0.707f},{-0.707f,0.707f},{0.707f,-0.707f},{-0.707f,-0.707f}};
-    for (auto& d : dirs) {
-        float ex = d[0]*S, ey = d[1]*S;
-        blankMove(o, n, mx, 0, 0);
-        ap(o, n, mx, 0, 0, 0, 0, 60, 0);
-        ap(o, n, mx, ex, ey, 0, 0, 60, 0);
-    }
-    return n;
-}
-
-// ══════════════════════════════════════════════════════════════
-// PATTERN 11: COLOR TEMPERATURE
-// ══════════════════════════════════════════════════════════════
-// Galvo cannot fill areas. Represent white reference and each color as one
-// short horizontal stroke (minimal DAC travel). Left column = white, right
-// column = stacked R/G/B, so brightness can still be compared side by side.
-static size_t color_temp(LaserPoint* o, size_t mx,
-                          uint32_t phase, uint8_t bright, uint8_t) {
-    size_t n = 0;
-    const float STROKE = SC * 0.22f;   // short: keep DAC travel small
-    const float X_L    = -SC * 0.40f;  // white column center
-    const float X_R    =  SC * 0.40f;  // R/G/B column center
-
-    // White reference stroke (left)
-    uint8_t wr, wg, wb;
-    colorOut(bright, bright, bright, 200, wr, wg, wb);
-    blankMove(o, n, mx, X_L - STROKE, 0);
-    line(o, n, mx, X_L - STROKE, 0, X_L + STROKE, 0, wr, wg, wb, 6);
-
-    // Stacked R / G / B strokes (right)
-    struct { uint8_t r,g,b; float y; } bars[3] = {
-        {bright, 0, 0,  SC*0.40f},
-        {0, bright, 0,  0.0f     },
-        {0, 0, bright, -SC*0.40f},
-    };
-    for (auto& b : bars) {
-        uint8_t ro, go, bo;
-        colorOut(b.r, b.g, b.b, 200, ro, go, bo);
-        blankMove(o, n, mx, X_R - STROKE, b.y);
-        line(o, n, mx, X_R - STROKE, b.y, X_R + STROKE, b.y, ro, go, bo, 6);
-    }
-    return n;
-}
-
-// ══════════════════════════════════════════════════════════════
-// PATTERN 12: ILDA TEST PATTERN
-// ══════════════════════════════════════════════════════════════
 static size_t ilda_test(LaserPoint* o, size_t mx,
                          uint32_t phase, uint8_t bright, uint8_t size_ch) {
     size_t n = 0;
@@ -890,95 +544,6 @@ static size_t three_circles(LaserPoint* o, size_t mx,
 
 // ══════════════════════════════════════════════════════════════
 // DISPATCH + METADATA
-// ══════════════════════════════════════════════════════════════
-const CalibPatternInfo CALIB_INFO[CALIB_PATTERN_COUNT] = {
-    {"Gamma Ramp",
-     "Brightness from black to white — check linearity",
-     "Both ramps must look equally smooth"},
-
-    {"White Balance",
-     "R / G / B / White each a short stroke — compare channel brightness",
-     "All four strokes must appear equally bright"},
-
-    {"Rainbow",
-     "Full color wheel — check all hues",
-     "Smooth transitions, all 6 primary colors visible"},
-
-    {"Step Ramp",
-     "8 short strokes of rising brightness — check gamma compression",
-     "All 8 brightness steps must be individually distinguishable"},
-
-    {"Channel Separation",
-     "7 color lines — check crosstalk between R / G / B",
-     "Red line must contain no green or blue"},
-
-    {"Saturation Wheel",
-     "Color to white — mixing quality and white balance",
-     "Center of wheel must be pure neutral white"},
-
-    {"Focus Test",
-     "Concentric circles + crosshair — set beam focus here",
-     "All rings must appear equally sharp at correct focus"},
-
-    {"Scan Linearity",
-     "Equal-spaced H and V grid — checks for barrel / pincushion distortion",
-     "All lines must be perfectly straight and evenly spaced"},
-
-    {"Blanking Test",
-     "Alternating on/off segments — checks blanking accuracy",
-     "Dark segments must be completely dark (no light leakage)"},
-
-    {"Aspect Ratio",
-     "Square + circle of identical size — checks X/Y gain match",
-     "Circle must fit exactly inside the square corners"},
-
-    {"Corner Test",
-     "Tight corners, diagonals, star — checks scan rate vs. accuracy",
-     "Corners must be sharp; diagonals must be straight"},
-
-    {"Color Temperature",
-     "White stroke vs. stacked R/G/B strokes — perceptual color balance",
-     "Left white must visually match combined R+G+B on the right"},
-
-    {"ILDA Test Pattern",
-     "Official ILDA standard test pattern — galvo alignment & scanner tuning",
-     "Circle must be perfectly round and touch inner square at 4 points. "
-     "Adjust size slider until circle just stops distorting, then add 10%. "
-     "Sequence: Y damping -> Y gain -> X damping -> X gain -> DC offset."},
-
-    {"DAC Range Box",
-     "Rectangle + circle at exact dac_limit_max boundary — set safe scan range",
-     "Raise dac_limit_max until box corners just clip, then back off 5%. "
-     "Yellow box = limit boundary. Green circle = inscribed at same limit. "
-     "Dim inner box = 50% reference. Adjust X/Y gain if circle is not round."},
-
-    {"Projection Zone",
-     "Outline of the touch-defined projection zone polygon — verify safe area",
-     "Red = zone boundary, green dots = vertices. Edit the polygon "
-     "in the Calibration tab, then enable zone clipping to blank the laser "
-     "outside this area."},
-
-    {"Corner Color Map",
-     "One colored dot per corner (RGBW) — shows how the image is projected",
-     "Position mapping: Red = top-left, Green = top-right, Blue = "
-     "bottom-right, White = bottom-left. If a dot appears in the wrong "
-     "corner the image is mirrored/rotated — fix with X/Y flip or invert."},
-
-    {"Three Circles",
-     "R / G / B circle side by side — match channel brightness by eye",
-     "All three circles must appear equally bright; adjust Color gain "
-     "R/G/B (Galvo Calibration card) until matched."},
-};
-
-using PFn = size_t(*)(LaserPoint*, size_t, uint32_t, uint8_t, uint8_t);
-static const PFn DISPATCH[CALIB_PATTERN_COUNT] = {
-    gamma_ramp, white_balance, rainbow,
-    step_ramp,  channel_sep,  saturation_wheel,
-    focus_test, scan_linearity, blanking_test,
-    aspect_ratio, corner_test, color_temp,
-    ilda_test, dac_range_box, zone_outline,
-    corner_color_map, three_circles,
-};
 
 static inline optimizer::OptimizerConfig liveOptimizerConfig() {
     optimizer::OptimizerConfig cfg;
@@ -1009,14 +574,251 @@ static inline optimizer::OptimizerConfig liveOptimizerConfig() {
     return cfg;
 }
 
+// ──────────────────────────────────────────────────────────────
+// PATTERN 7: OPT CORNER SWEEP
+// Tune: corner_angle_deg | min_corner_pts | max_corner_pts
+// 8 V-notches, identical edge length, tip angle 8°→175° left to right.
+// cornerSeverity().speedT is constant (same edge length everywhere), so
+// ONLY the angle drives dwell. Notches whose tip angle is BELOW
+// corner_angle_deg get min_corner_pts; above it dwell grows toward
+// max_corner_pts at 175°. Correct tuning: leftmost 1-2 notches sweep
+// through almost without pause; rightmost notch has a clearly visible
+// dwell dot at its tip. Adjust corner_angle_deg until the transition
+// falls at the desired sharpness threshold.
+// ──────────────────────────────────────────────────────────────
+static size_t opt_corner_sweep(LaserPoint* o, size_t m,
+                                uint32_t ph, uint8_t bright, uint8_t) {
+    (void)ph;
+    static constexpr float PI2 = 6.2831853f;
+    const int N = 8;
+    static const float angDeg[8] = {8,20,35,55,80,110,145,175};
+    const float sc = SC * 0.85f;
+    const float L  = sc * 0.11f;
+    const float spacing = sc * 2.0f / (N - 1);
+    const optimizer::OptimizerConfig cfg = liveOptimizerConfig();
+
+    optimizer::PathVertex verts[8][3];
+    optimizer::PathSegment segs[8];
+    for (int i = 0; i < N; i++) {
+        float th = angDeg[i] * (float)M_PI / 180.f;
+        float w = L * cosf(th * 0.5f), h = L * sinf(th * 0.5f);
+        float cx = -sc + i * spacing;
+        float hue = PI2 * i / (float)N;
+        uint8_t r, g, b;
+        colorOut((uint8_t)(128 + 127 * sinf(hue)),
+                 (uint8_t)(128 + 127 * sinf(hue + 2.094f)),
+                 (uint8_t)(128 + 127 * sinf(hue + 4.189f)),
+                 bright, r, g, b);
+        verts[i][0] = optimizer::PathVertex(cx - w, 0.f, r, g, b, true);
+        verts[i][1] = optimizer::PathVertex(cx,     h,   r, g, b, false);
+        verts[i][2] = optimizer::PathVertex(cx + w, 0.f, r, g, b, false);
+        segs[i] = optimizer::PathSegment(verts[i], 3, false);
+    }
+    return optimizer::optimize(segs, N, o, m, cfg);
+}
+
+// ──────────────────────────────────────────────────────────────
+// PATTERN 8: OPT DENSITY RAMP
+// Tune: pts_per_1000_units | resample_enabled | resample_spacing_units
+// 5 horizontal lines of increasing length (8%→96% frame width).
+// Per-unit-length point spacing must look identical on all 5 lines.
+// Density mismatch between short/long = pts_per_1000_units and
+// resample_spacing_units are not mutually consistent (target:
+// 1000/ppu ≈ spacing_units). Longest line also probes max_step_units:
+// enable vel_clamp_enabled and reduce max_step_units until subdivision
+// dots become visible on the longest line.
+// ──────────────────────────────────────────────────────────────
+static size_t opt_density_ramp(LaserPoint* o, size_t m,
+                                uint32_t ph, uint8_t bright, uint8_t) {
+    (void)ph;
+    static constexpr float PI2 = 6.2831853f;
+    const int N = 5;
+    static const float halfLen[5] = {0.08f, 0.30f, 0.52f, 0.74f, 0.96f};
+    const optimizer::OptimizerConfig cfg = liveOptimizerConfig();
+
+    optimizer::PathVertex verts[5][2];
+    optimizer::PathSegment segs[5];
+    for (int i = 0; i < N; i++) {
+        float y  = SC * (-0.8f + i * 0.4f);
+        float hw = SC * halfLen[i];
+        float hue = PI2 * i / (float)N;
+        uint8_t r, g, b;
+        colorOut((uint8_t)(128 + 127 * sinf(hue)),
+                 (uint8_t)(128 + 127 * sinf(hue + 2.094f)),
+                 (uint8_t)(128 + 127 * sinf(hue + 4.189f)),
+                 bright, r, g, b);
+        verts[i][0] = optimizer::PathVertex(-hw, y, r, g, b, true);
+        verts[i][1] = optimizer::PathVertex( hw, y, r, g, b, false);
+        segs[i] = optimizer::PathSegment(verts[i], 2, false);
+    }
+    return optimizer::optimize(segs, N, o, m, cfg);
+}
+
+// ──────────────────────────────────────────────────────────────
+// PATTERN 9: OPT JUMP RING TEST
+// Tune: blank_samples | min_blank_samples | blank_pts_per_1000_units
+//       ringing_comp_enabled | ring_freq_hz | ring_damping_ratio
+// 5 small rings with strictly increasing gaps (0.15→0.75 SC).
+// One optimize() call over all 5 segments so inter-ring jumps use
+// the real distance-proportional, ZV-shaped path (emitBlankJump,
+// n≠0 branch). Under-tuned ringing: visible flare/offset on the
+// first few points of each ring, worst after the longest jump
+// (rightmost). Measure ring_freq_hz from a scope step-response,
+// then tune ring_damping_ratio until the flare disappears.
+// ──────────────────────────────────────────────────────────────
+static size_t opt_jump_ring(LaserPoint* o, size_t m,
+                             uint32_t ph, uint8_t bright, uint8_t) {
+    (void)ph;
+    static constexpr float PI2 = 6.2831853f;
+    const int N = 5, RS = 16;
+    static const float gap[4] = {0.15f, 0.35f, 0.55f, 0.75f};
+    float cx[5]; cx[0] = -0.9f * SC;
+    for (int i = 1; i < N; i++) cx[i] = cx[i-1] + gap[i-1] * SC;
+    const float rad = SC * 0.045f;
+    const optimizer::OptimizerConfig cfg = liveOptimizerConfig();
+
+    optimizer::PathVertex verts[5][16];
+    optimizer::PathSegment segs[5];
+    for (int i = 0; i < N; i++) {
+        float hue = PI2 * i / (float)N;
+        uint8_t r, g, b;
+        colorOut((uint8_t)(128 + 127 * sinf(hue)),
+                 (uint8_t)(128 + 127 * sinf(hue + 2.094f)),
+                 (uint8_t)(128 + 127 * sinf(hue + 4.189f)),
+                 bright, r, g, b);
+        for (int k = 0; k < RS; k++) {
+            float a = PI2 * k / (float)RS;
+            verts[i][k] = optimizer::PathVertex(
+                cx[i] + cosf(a) * rad, sinf(a) * rad, r, g, b, k == 0);
+        }
+        segs[i] = optimizer::PathSegment(verts[i], RS, true);
+    }
+    return optimizer::optimize(segs, N, o, m, cfg);
+}
+
+// ──────────────────────────────────────────────────────────────
+// PATTERN 10: OPT VEL/ACCEL TEST
+// Tune: vel_clamp_enabled | max_step_units
+//       accel_clamp_enabled | max_accel_units
+// Two probes in one optimize() call:
+//   Diagonal: longest single lit run → first to show step subdivision
+//     once max_step_units < natural per-tick spacing.
+//   6-spike star (outer:inner = 0.95:0.06): the extreme radius ratio
+//     creates large per-tick velocity swings at every spike/valley
+//     transition → max_accel_units limits that swing. Without clamping:
+//     overshoot past spike tips. With tuned values: sharp, settled tips.
+// ──────────────────────────────────────────────────────────────
+static size_t opt_vel_accel(LaserPoint* o, size_t m,
+                             uint32_t ph, uint8_t bright, uint8_t) {
+    (void)ph;
+    static constexpr float PI2 = 6.2831853f;
+    uint8_t wr, wg, wb;
+    colorOut(255, 255, 255, bright, wr, wg, wb);
+
+    optimizer::PathVertex diag[2];
+    diag[0] = optimizer::PathVertex(-SC, -SC, wr, wg, wb, true);
+    diag[1] = optimizer::PathVertex( SC,  SC, wr, wg, wb, false);
+
+    const int SP = 6;
+    optimizer::PathVertex spike[SP * 2];
+    const float outer = SC * 0.95f, inner = SC * 0.06f;
+    for (int i = 0; i < SP * 2; i++) {
+        float a = PI2 * i / (float)(SP * 2) - (float)M_PI / 2.f;
+        float rr = (i % 2 == 0) ? outer : inner;
+        uint8_t r, g, b;
+        colorOut(255, (uint8_t)(80 + i * 10), 0, bright, r, g, b);
+        spike[i] = optimizer::PathVertex(cosf(a) * rr, sinf(a) * rr, r, g, b, i == 0);
+    }
+
+    optimizer::PathSegment segs[2] = {
+        optimizer::PathSegment(diag, 2, false),
+        optimizer::PathSegment(spike, SP * 2, true),
+    };
+    const optimizer::OptimizerConfig cfg = liveOptimizerConfig();
+    return optimizer::optimize(segs, 2, o, m, cfg);
+}
+
+// ══════════════════════════════════════════════════════════════
+// DISPATCH + METADATA
+// ══════════════════════════════════════════════════════════════
+const CalibPatternInfo CALIB_INFO[CALIB_PATTERN_COUNT] = {
+    {"Blanking Test",
+     "Alternating on/off segments \u2014 checks blanking accuracy",
+     "Dark segments must be completely dark (no light leakage)"},
+
+    {"Aspect Ratio",
+     "Square + circle of identical size \u2014 checks X/Y gain match",
+     "Circle must fit exactly inside the square corners"},
+
+    {"ILDA Test Pattern",
+     "Official ILDA standard test pattern \u2014 galvo alignment & scanner tuning",
+     "Circle must be perfectly round and touch inner square at 4 points. "
+     "Adjust size slider until circle just stops distorting, then add 10%. "
+     "Sequence: Y damping -> Y gain -> X damping -> X gain -> DC offset."},
+
+    {"DAC Range Box",
+     "Rectangle + circle at exact dac_limit_max boundary \u2014 set safe scan range",
+     "Raise dac_limit_max until box corners just clip, then back off 5%. "
+     "Yellow box = limit boundary. Green circle = inscribed at same limit. "
+     "Dim inner box = 50% reference. Adjust X/Y gain if circle is not round."},
+
+    {"Projection Zone",
+     "Outline of the touch-defined projection zone polygon \u2014 verify safe area",
+     "Red = zone boundary, green dots = vertices. Edit the polygon "
+     "in the Calibration tab, then enable zone clipping to blank the laser "
+     "outside this area."},
+
+    {"Corner Color Map",
+     "One colored dot per corner (RGBW) \u2014 shows how the image is projected",
+     "Position mapping: Red = top-left, Green = top-right, Blue = "
+     "bottom-right, White = bottom-left. If a dot appears in the wrong "
+     "corner the image is mirrored/rotated \u2014 fix with X/Y flip or invert."},
+
+    {"Three Circles",
+     "R / G / B circles side by side \u2014 match channel brightness by eye",
+     "All three circles must appear equally bright; adjust Color gain "
+     "R/G/B (Galvo Calibration card) until matched."},
+
+    {"Corner Sweep",
+     "8 V-notches, tip angle 8\u00b0\u2192175\u00b0, identical edge length",
+     "Tune: corner_angle_deg / min_corner_pts / max_corner_pts. "
+     "Notches below corner_angle_deg get min dwell; above it dwell grows to max. "
+     "Adjust threshold until sharp patterns show a visible pause at the tip."},
+
+    {"Density Ramp",
+     "5 horizontal lines of increasing length (8%\u219296% frame)",
+     "Tune: pts_per_1000_units / resample_enabled / resample_spacing_units. "
+     "Point spacing must look identical on all 5 lines. "
+     "Enable vel_clamp + reduce max_step_units to see subdivision on longest line."},
+
+    {"Jump Ring Test",
+     "5 small rings with strictly increasing inter-ring gaps",
+     "Tune: blank_samples / blank_pts_per_1000_units / ringing_comp settings. "
+     "Under-damped ringing appears as a flare at ring entry, worst on rightmost ring. "
+     "Measure ring_freq_hz on scope, then tune ring_damping_ratio until flare gone."},
+
+    {"Velocity & Accel Test",
+     "Full-frame diagonal + 6-spike star (outer:inner = 0.95:0.06)",
+     "Tune: vel_clamp_enabled / max_step_units (subdivision on diagonal), "
+     "accel_clamp_enabled / max_accel_units (overshoot at spike tips). "
+     "Without clamping: tips overshoot. Reduce values until tips are sharp."},
+};
+
+using PFn = size_t(*)(LaserPoint*, size_t, uint32_t, uint8_t, uint8_t);
+static const PFn DISPATCH[CALIB_PATTERN_COUNT] = {
+    blanking_test, aspect_ratio, ilda_test,
+    dac_range_box, zone_outline, corner_color_map, three_circles,
+    opt_corner_sweep, opt_density_ramp, opt_jump_ring, opt_vel_accel,
+};
+
+
 size_t generate(uint8_t idx, LaserPoint* out, size_t max_pts,
                 uint32_t phase, uint8_t brightness, uint8_t channel) {
     if (idx >= CALIB_PATTERN_COUNT || !out) return 0;
     size_t n = DISPATCH[idx](out, max_pts, phase, brightness, channel);
 
-    // Cross-frame seam bridge (#4), same as presets::generate(). rainbow and
-    // saturation_wheel rotate via phase; their first lit point jumps from the
-    // previous frame's end each push. Static patterns produce ~0 jump -> skip.
+    // Cross-frame seam bridge (#4), same as presets::generate().
+    // Static patterns produce ~0 jump -> skip.
     static float sLastX[CALIB_PATTERN_COUNT] = {0};
     static float sLastY[CALIB_PATTERN_COUNT] = {0};
     static bool  sHas[CALIB_PATTERN_COUNT]   = {false};

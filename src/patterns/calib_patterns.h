@@ -1,28 +1,32 @@
 #pragma once
 /**
- * calib_patterns.h — calibration- and color gradient-Test-Patterns
+ * calib_patterns.h -- calibration and optimizer test patterns
  *
- * 6 patterns for gamma and white balance verification:
- *   0  CALIB_GAMMA_RAMP       brightness ramp black->white
- *   1  CALIB_WHITE_BALANCE    R/G/B/W horizontal lines
- *   2  CALIB_RAINBOW          color wheel spiral
- *   3  CALIB_STEP_RAMP        8 discrete brightness steps
- *   4  CALIB_CHANNEL_SEP      channel separation test (7 colors)
- *   5  CALIB_SATURATION       saturation spoke wheel
- *   ... 6-14 alignment/focus/zone patterns
- *   15 CORNER_COLOR_MAP       RGBW corner dots (projection orientation)
- *   16 THREE_CIRCLES          R/G/B circles side by side (brightness matching)
+ * 7 scanner/alignment patterns:
+ *   0  BLANKING_TEST      alternating on/off arc segments
+ *   1  ASPECT_RATIO       square + circle (X/Y gain match)
+ *   2  ILDA_TEST          ILDA standard test pattern
+ *   3  DAC_RANGE_BOX      full-range rectangle + inscribed circle
+ *   4  ZONE_OUTLINE       projection zone polygon outline
+ *   5  CORNER_COLOR_MAP   RGBW corner orientation dots
+ *   6  THREE_CIRCLES      R/G/B circles for channel brightness match
  *
- * All patterns apply gamma + white balance from gConfig.
+ * 4 optimizer calibration patterns -- each runs through the full
+ * point_optimizer pipeline (liveOptimizerConfig) and isolates one
+ * group of optimizer sliders:
+ *   7  OPT_CORNER_SWEEP   corner_angle_deg / min/max_corner_pts
+ *   8  OPT_DENSITY_RAMP   pts_per_1000_units / resample stage
+ *   9  OPT_JUMP_RING      blank_samples / ringing_comp (Pillar 2/3)
+ *  10  OPT_VEL_ACCEL      max_step_units / max_accel_units
  *
- * API: POST /api/calib-pattern {"idx": 0-5, "brightness": 200}
+ * API: POST /api/calib-pattern {"idx": 0-10, "brightness": 200}
  *      GET  /api/calib-pattern/list
  */
 #include "config.h"
 
 namespace calib_patterns {
 
-constexpr uint8_t CALIB_PATTERN_COUNT = 17;
+constexpr uint8_t CALIB_PATTERN_COUNT = 11;
 
 struct CalibPatternInfo {
     const char* name;
@@ -34,12 +38,12 @@ extern const CalibPatternInfo CALIB_INFO[CALIB_PATTERN_COUNT];
 
 /**
  * Generate pattern.
- * @param idx        0-5 (CALIB_GAMMA_RAMP … CALIB_SATURATION)
+ * @param idx        0-10
  * @param out        output buffer
  * @param max_pts    buffer size
  * @param phase      animation phase (from pattern_engine)
  * @param brightness 0-255 (master brightness, default 200)
- * @param channel    0=RGB, 1=R, 2=G, 3=B (for ramp/step patterns)
+ * @param channel    0=RGB, 1=R, 2=G, 3=B
  * @return           number of generated points
  */
 size_t generate(uint8_t idx, LaserPoint* out, size_t max_pts,
