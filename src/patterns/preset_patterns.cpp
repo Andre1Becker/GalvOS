@@ -1578,6 +1578,47 @@ static size_t p108(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
 
 // ─── DISPATCH ────────────────────────────────────────────────
 
+// presetClassOf() -- maps a Preset to its optimizer profile index.
+presets::PresetClass presets::presetClassOf(presets::Preset p) {
+    if (p == presets::Preset::None) return presets::PresetClass::Scenes;
+    using P = presets::Preset;
+    switch (p) {
+        // ── Simple: Geometry + Lines ──────────────────────────────────
+        case P::Circle: case P::Square: case P::Triangle:
+        case P::Pentagon: case P::Hexagon: case P::Octagon:
+        case P::Star4: case P::Star5: case P::Star6: case P::Star8:
+        case P::CrossPlus: case P::XShape: case P::Grid3x3:
+        case P::HLine: case P::Diagonal:
+        case P::ThreeCircles:
+            return presets::PresetClass::Simple;
+        // ── Curves: Spirals + Curves + Waves + Complex + Combo ────────
+        case P::ArchimedeanSpiral: case P::Lissajous1To2: case P::Lissajous2To3:
+        case P::Lissajous3To4: case P::Lissajous3To5: case P::Lissajous5To6:
+        case P::DoubleSpiral: case P::Rose3:
+        case P::Rose4: case P::Cardioid: case P::Heart: case P::Infinity:
+        case P::Astroid: case P::Epitrochoid: case P::TorusKnot:
+        case P::SineWave: case P::StandingWave: case P::MultiWave:
+        case P::OceanWave: case P::WaveInterference: case P::Sawtooth:
+        case P::SquareWave: case P::WavePacket: case P::BeatWave:
+        case P::RadialWaves: case P::FmWave: case P::Vortex:
+        case P::SineHelix: case P::WaveField: case P::FourierSquare:
+        case P::GravityWaves: case P::Tsunami: case P::WaveSpectrum:
+        case P::Hypotrochoid: case P::Butterfly: case P::Spirograph5To3:
+        case P::ConcentricRings: case P::NestedSquares: case P::PulsingCircle:
+        case P::Starburst: case P::ChaosBouncer: case P::LaserDiamond:
+        case P::ChampagneBubbles: case P::ConfettiBurst: case P::DiscoBall:
+        case P::Pentagram: case P::DnaHelix: case P::YinYang:
+            return presets::PresetClass::Curves;
+        // ── ThreeD: 3D wireframes ─────────────────────────────────────
+        case P::RotatingCube: case P::StaticCube: case P::Pyramid:
+        case P::Octahedron: case P::Tetrahedron:
+            return presets::PresetClass::ThreeD;
+        // ── Scenes: everything else ───────────────────────────────────
+        default:
+            return presets::PresetClass::Scenes;
+    }
+}
+
 const PresetInfo PRESETS[PRESET_COUNT] = {
     {"Circle","Geometry"},{"Square","Geometry"},{"Triangle","Geometry"},{"Pentagon","Geometry"},{"Hexagon","Geometry"},{"Octagon","Geometry"},{"Star 4","Geometry"},{"Star 5","Geometry"},{"Star 6","Geometry"},{"Star 8","Geometry"},
     {"Cross +","Lines"},{"X Shape","Lines"},{"Grid 3x3","Lines"},{"H Line","Lines"},{"Diagonal","Lines"},

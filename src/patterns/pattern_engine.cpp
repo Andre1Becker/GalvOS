@@ -41,6 +41,15 @@ void setPreset(presets::Preset idx) {
     s_test_pattern = -1;
     gState.calib_active = false;
     if (idx != presets::Preset::None) gPaint.active = false;
+    // Switch optimizer profile to match the new preset's class.
+    if (idx != presets::Preset::None) {
+        uint8_t cls = static_cast<uint8_t>(presets::presetClassOf(idx));
+        if (cls != gActiveOptimizerProfile) {
+            gActiveOptimizerProfile = cls;
+            syncOptimizerConfig();
+            gPatternCacheGen++;
+        }
+    }
 }
 presets::Preset getPreset() { return s_preset_idx; }
 

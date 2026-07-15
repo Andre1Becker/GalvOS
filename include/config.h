@@ -110,7 +110,31 @@ struct OptimizerLiveConfig {
     float    max_accel_units              = OPT_DEFAULT_MAX_ACCEL_UNITS;
 };
 
-extern OptimizerLiveConfig gOptimizerConfig;
+// ── OPTIMIZER PROFILES ──────────────────────────────────────────────────────
+// Four independent OptimizerLiveConfig profiles, one per PresetClass.
+// gOptimizerConfig is always a live copy of the active profile; call
+// syncOptimizerConfig() after writing to gOptimizerProfiles[n].
+//
+//   Index 0 = Simple  (Geometry, Lines)
+//   Index 1 = Curves  (Spirals, Curves, Waves, Complex, Combo)
+//   Index 2 = ThreeD  (3D)
+//   Index 3 = Scenes  (Scenes, Party, Vehicles, Symbols, Timers)
+
+constexpr uint8_t OPT_PROFILE_COUNT  = 4;
+constexpr uint8_t OPT_PROFILE_SIMPLE = 0;
+constexpr uint8_t OPT_PROFILE_CURVES = 1;
+constexpr uint8_t OPT_PROFILE_THREED = 2;
+constexpr uint8_t OPT_PROFILE_SCENES = 3;
+
+extern OptimizerLiveConfig gOptimizerProfiles[OPT_PROFILE_COUNT];
+extern OptimizerLiveConfig gOptimizerConfig;   // live copy of active profile
+extern volatile uint8_t    gActiveOptimizerProfile;
+
+// Copy gOptimizerProfiles[gActiveOptimizerProfile] → gOptimizerConfig.
+// Call whenever the active profile index or its contents change.
+inline void syncOptimizerConfig() {
+    gOptimizerConfig = gOptimizerProfiles[gActiveOptimizerProfile];
+}
 
 // Pattern cache invalidation counter (Phase 2). Bumped whenever a change
 // makes previously-cached static-preset geometry stale: any optimizer-live

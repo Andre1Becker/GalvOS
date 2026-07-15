@@ -45,7 +45,9 @@ LivePresetControls gLivePreset;
 TextConfig       gTextConfig;
 CurveConfig      gCurves;
 ProjectionConfig gProjection;
-OptimizerLiveConfig gOptimizerConfig;   // GalvOS v5 Point Optimizer (Pillar 1)
+OptimizerLiveConfig gOptimizerProfiles[OPT_PROFILE_COUNT];  // one per PresetClass
+OptimizerLiveConfig gOptimizerConfig;          // live copy of active profile
+volatile uint8_t    gActiveOptimizerProfile = OPT_PROFILE_SIMPLE;
 optimizer::AffineTransform optimizer::gLiveTransform;  // Phase 3: live Z-rot + move affine, published per-frame by pattern_engine
 volatile uint32_t   gPatternCacheGen = 0; // Phase 2 static-preset cache invalidation
 ZoneConfig       gZone;                 // touch-defined projection zone
@@ -75,26 +77,45 @@ static void loadConfig() {
     gConfig.thresh_g        = s_prefs.getUChar("thresh_g", 144);
     gConfig.thresh_b        = s_prefs.getUChar("thresh_b", 169);
     gConfig.gamma_enable    = s_prefs.getBool ("gamma_en", true);
-    gOptimizerConfig.corner_angle_deg   = s_prefs.getFloat("opt_cad",   25.0f);
-    gOptimizerConfig.min_corner_pts     = s_prefs.getUChar("opt_mincp", 1);
-    gOptimizerConfig.max_corner_pts     = s_prefs.getUChar("opt_maxcp", 6);
-    gOptimizerConfig.pts_per_1000_units = s_prefs.getFloat("opt_ppu",   4.0f);
-    gOptimizerConfig.min_segment_pts    = s_prefs.getUChar("opt_minsp", 2);
-    gOptimizerConfig.blank_samples      = s_prefs.getUChar("opt_blank", 40);
-    gOptimizerConfig.max_pts_per_frame  = s_prefs.getUShort("opt_maxppf", 310);
-    gOptimizerConfig.min_blank_samples  = s_prefs.getUChar("opt_minbl", 8);
-    gOptimizerConfig.blank_pts_per_1000_units = s_prefs.getFloat("opt_blppu", 10.0f);
-    gOptimizerConfig.min_interior_pts_per_segment = s_prefs.getUChar("opt_minip", 6);
-    gOptimizerConfig.stage1_blank_target = s_prefs.getUChar("opt_s1tgt", 20);
-    gOptimizerConfig.resample_enabled       = s_prefs.getBool ("opt_rsen", OPT_DEFAULT_RESAMPLE_ENABLED);
-    gOptimizerConfig.resample_spacing_units = s_prefs.getFloat("opt_rssp", OPT_DEFAULT_RESAMPLE_SPACING_UNITS);
-    gOptimizerConfig.ringing_comp_enabled    = s_prefs.getBool ("opt_rngen", OPT_DEFAULT_RINGING_COMP_ENABLED);
-    gOptimizerConfig.ring_freq_hz            = s_prefs.getFloat("opt_rngfq", OPT_DEFAULT_RING_FREQ_HZ);
-    gOptimizerConfig.ring_damping_ratio      = s_prefs.getFloat("opt_rngdr", OPT_DEFAULT_RING_DAMPING_RATIO);
-    gOptimizerConfig.vel_clamp_enabled       = s_prefs.getBool ("opt_vcen",  OPT_DEFAULT_VEL_CLAMP_ENABLED);
-    gOptimizerConfig.max_step_units          = s_prefs.getFloat("opt_vcstp", OPT_DEFAULT_MAX_STEP_UNITS);
-    gOptimizerConfig.accel_clamp_enabled     = s_prefs.getBool ("opt_acen",  OPT_DEFAULT_ACCEL_CLAMP_ENABLED);
-    gOptimizerConfig.max_accel_units         = s_prefs.getFloat("opt_acmax", OPT_DEFAULT_MAX_ACCEL_UNITS);
+    static const struct { const char* sfx; uint8_t idx; } PROF_MAP[] = {
+        { "_s",  OPT_PROFILE_SIMPLE },
+        { "_c",  OPT_PROFILE_CURVES },
+        { "_3",  OPT_PROFILE_THREED },
+        { "_sc", OPT_PROFILE_SCENES },
+    };
+    for (auto& pm : PROF_MAP) {
+        OptimizerLiveConfig& p = gOptimizerProfiles[pm.idx];
+        char k[16];
+        #define LOAD_F(b,f,d)  snprintf(k,sizeof(k),"%s%s",b,pm.sfx); p.f=s_prefs.getFloat(k,d)
+        #define LOAD_U(b,f,d)  snprintf(k,sizeof(k),"%s%s",b,pm.sfx); p.f=s_prefs.getUChar(k,d)
+        #define LOAD_S(b,f,d)  snprintf(k,sizeof(k),"%s%s",b,pm.sfx); p.f=s_prefs.getUShort(k,d)
+        #define LOAD_B(b,f,d)  snprintf(k,sizeof(k),"%s%s",b,pm.sfx); p.f=s_prefs.getBool(k,d)
+        LOAD_F("opt_cad",   corner_angle_deg,             OPT_DEFAULT_CORNER_ANGLE_DEG);
+        LOAD_U("opt_mincp", min_corner_pts,               OPT_DEFAULT_MIN_CORNER_PTS);
+        LOAD_U("opt_maxcp", max_corner_pts,               OPT_DEFAULT_MAX_CORNER_PTS);
+        LOAD_F("opt_ppu",   pts_per_1000_units,           OPT_DEFAULT_PTS_PER_1000_UNITS);
+        LOAD_U("opt_minsp", min_segment_pts,              OPT_DEFAULT_MIN_SEGMENT_PTS);
+        LOAD_U("opt_blank", blank_samples,                OPT_DEFAULT_BLANK_SAMPLES);
+        LOAD_S("opt_maxppf",max_pts_per_frame,            OPT_DEFAULT_MAX_PTS_PER_FRAME);
+        LOAD_U("opt_minbl", min_blank_samples,            OPT_DEFAULT_MIN_BLANK_SAMPLES);
+        LOAD_F("opt_blppu", blank_pts_per_1000_units,     OPT_DEFAULT_BLANK_PTS_PER_1000_UNITS);
+        LOAD_U("opt_minip", min_interior_pts_per_segment, OPT_DEFAULT_MIN_INTERIOR_PTS_PER_SEG);
+        LOAD_U("opt_s1tgt", stage1_blank_target,          OPT_DEFAULT_STAGE1_BLANK_TARGET);
+        LOAD_B("opt_rsen",  resample_enabled,             OPT_DEFAULT_RESAMPLE_ENABLED);
+        LOAD_F("opt_rssp",  resample_spacing_units,       OPT_DEFAULT_RESAMPLE_SPACING_UNITS);
+        LOAD_B("opt_rngen", ringing_comp_enabled,         OPT_DEFAULT_RINGING_COMP_ENABLED);
+        LOAD_F("opt_rngfq", ring_freq_hz,                 OPT_DEFAULT_RING_FREQ_HZ);
+        LOAD_F("opt_rngdr", ring_damping_ratio,           OPT_DEFAULT_RING_DAMPING_RATIO);
+        LOAD_B("opt_vcen",  vel_clamp_enabled,            OPT_DEFAULT_VEL_CLAMP_ENABLED);
+        LOAD_F("opt_vcstp", max_step_units,               OPT_DEFAULT_MAX_STEP_UNITS);
+        LOAD_B("opt_acen",  accel_clamp_enabled,          OPT_DEFAULT_ACCEL_CLAMP_ENABLED);
+        LOAD_F("opt_acmax", max_accel_units,              OPT_DEFAULT_MAX_ACCEL_UNITS);
+        #undef LOAD_F
+        #undef LOAD_U
+        #undef LOAD_S
+        #undef LOAD_B
+    }
+    syncOptimizerConfig();
     gSafety.temp_warn_c     = s_prefs.getUChar("t_warn",  45);
     gSafety.temp_reduce_c   = s_prefs.getUChar("t_red",   55);
     gSafety.temp_shutdown_c = s_prefs.getUChar("t_shut",  70);

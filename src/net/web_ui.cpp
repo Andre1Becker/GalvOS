@@ -145,26 +145,42 @@ static void persistConfig() {
     s_prefs.putString("gw",         gConfig.wifi_gw);
     s_prefs.putString("mask",       gConfig.wifi_mask);
     s_prefs.putString("dns",        gConfig.wifi_dns);
-    s_prefs.putFloat ("opt_cad",    gOptimizerConfig.corner_angle_deg);
-    s_prefs.putUChar ("opt_mincp",  gOptimizerConfig.min_corner_pts);
-    s_prefs.putUChar ("opt_maxcp",  gOptimizerConfig.max_corner_pts);
-    s_prefs.putFloat ("opt_ppu",    gOptimizerConfig.pts_per_1000_units);
-    s_prefs.putUChar ("opt_minsp",  gOptimizerConfig.min_segment_pts);
-    s_prefs.putUChar ("opt_blank",  gOptimizerConfig.blank_samples);
-    s_prefs.putUShort("opt_maxppf", gOptimizerConfig.max_pts_per_frame);
-    s_prefs.putUChar ("opt_minbl",  gOptimizerConfig.min_blank_samples);
-    s_prefs.putFloat ("opt_blppu",  gOptimizerConfig.blank_pts_per_1000_units);
-    s_prefs.putUChar ("opt_minip",  gOptimizerConfig.min_interior_pts_per_segment);
-    s_prefs.putUChar ("opt_s1tgt",  gOptimizerConfig.stage1_blank_target);
-    s_prefs.putBool  ("opt_rsen",   gOptimizerConfig.resample_enabled);
-    s_prefs.putFloat ("opt_rssp",   gOptimizerConfig.resample_spacing_units);
-    s_prefs.putBool  ("opt_rngen",  gOptimizerConfig.ringing_comp_enabled);
-    s_prefs.putFloat ("opt_rngfq",  gOptimizerConfig.ring_freq_hz);
-    s_prefs.putFloat ("opt_rngdr",  gOptimizerConfig.ring_damping_ratio);
-    s_prefs.putBool  ("opt_vcen",   gOptimizerConfig.vel_clamp_enabled);
-    s_prefs.putFloat ("opt_vcstp",  gOptimizerConfig.max_step_units);
-    s_prefs.putBool  ("opt_acen",   gOptimizerConfig.accel_clamp_enabled);
-    s_prefs.putFloat ("opt_acmax",  gOptimizerConfig.max_accel_units);
+    static const struct { const char* sfx; uint8_t idx; } PMAP[] = {
+        {"_s",OPT_PROFILE_SIMPLE},{"_c",OPT_PROFILE_CURVES},
+        {"_3",OPT_PROFILE_THREED},{"_sc",OPT_PROFILE_SCENES},
+    };
+    for (auto& pm : PMAP) {
+        const OptimizerLiveConfig& p = gOptimizerProfiles[pm.idx];
+        char k[16];
+        #define SAVE_F(b,f)  snprintf(k,sizeof(k),"%s%s",b,pm.sfx); s_prefs.putFloat(k,p.f)
+        #define SAVE_U(b,f)  snprintf(k,sizeof(k),"%s%s",b,pm.sfx); s_prefs.putUChar(k,p.f)
+        #define SAVE_S(b,f)  snprintf(k,sizeof(k),"%s%s",b,pm.sfx); s_prefs.putUShort(k,p.f)
+        #define SAVE_B(b,f)  snprintf(k,sizeof(k),"%s%s",b,pm.sfx); s_prefs.putBool(k,p.f)
+        SAVE_F("opt_cad",   corner_angle_deg);
+        SAVE_U("opt_mincp", min_corner_pts);
+        SAVE_U("opt_maxcp", max_corner_pts);
+        SAVE_F("opt_ppu",   pts_per_1000_units);
+        SAVE_U("opt_minsp", min_segment_pts);
+        SAVE_U("opt_blank", blank_samples);
+        SAVE_S("opt_maxppf",max_pts_per_frame);
+        SAVE_U("opt_minbl", min_blank_samples);
+        SAVE_F("opt_blppu", blank_pts_per_1000_units);
+        SAVE_U("opt_minip", min_interior_pts_per_segment);
+        SAVE_U("opt_s1tgt", stage1_blank_target);
+        SAVE_B("opt_rsen",  resample_enabled);
+        SAVE_F("opt_rssp",  resample_spacing_units);
+        SAVE_B("opt_rngen", ringing_comp_enabled);
+        SAVE_F("opt_rngfq", ring_freq_hz);
+        SAVE_F("opt_rngdr", ring_damping_ratio);
+        SAVE_B("opt_vcen",  vel_clamp_enabled);
+        SAVE_F("opt_vcstp", max_step_units);
+        SAVE_B("opt_acen",  accel_clamp_enabled);
+        SAVE_F("opt_acmax", max_accel_units);
+        #undef SAVE_F
+        #undef SAVE_U
+        #undef SAVE_S
+        #undef SAVE_B
+    }
     s_prefs.putBool ("zone_en",   gZone.enabled);
     s_prefs.putUChar("zone_cnt",  gZone.count);
     s_prefs.putBytes("zone_x",    (const void*)gZone.x, sizeof(gZone.x));
@@ -294,47 +310,68 @@ static void buildConfigJson(JsonDocument& doc) {
     doc["dac_debug_log"]   = gConfig.dac_debug_log;
     doc["dac_limit_min"]   = gConfig.dac_limit_min;
     doc["dac_limit_max"]   = gConfig.dac_limit_max;
-    doc["opt_corner_angle_deg"]   = gOptimizerConfig.corner_angle_deg;
-    doc["opt_min_corner_pts"]     = gOptimizerConfig.min_corner_pts;
-    doc["opt_max_corner_pts"]     = gOptimizerConfig.max_corner_pts;
-    doc["opt_pts_per_1000_units"] = gOptimizerConfig.pts_per_1000_units;
-    doc["opt_min_segment_pts"]    = gOptimizerConfig.min_segment_pts;
-    doc["opt_blank_samples"]      = gOptimizerConfig.blank_samples;
-    doc["opt_max_pts_per_frame"]  = gOptimizerConfig.max_pts_per_frame;
-    doc["opt_min_blank_samples"]  = gOptimizerConfig.min_blank_samples;
-    doc["opt_blank_pts_per_1000_units"] = gOptimizerConfig.blank_pts_per_1000_units;
-    doc["opt_min_interior_pts_per_segment"] = gOptimizerConfig.min_interior_pts_per_segment;
-    doc["opt_stage1_blank_target"] = gOptimizerConfig.stage1_blank_target;
-    doc["opt_resample_enabled"] = gOptimizerConfig.resample_enabled;
-    doc["opt_resample_spacing_units"] = gOptimizerConfig.resample_spacing_units;
-    doc["opt_ringing_comp_enabled"] = gOptimizerConfig.ringing_comp_enabled;
-    doc["opt_ring_freq_hz"]         = gOptimizerConfig.ring_freq_hz;
-    doc["opt_ring_damping_ratio"]   = gOptimizerConfig.ring_damping_ratio;
-    doc["opt_vel_clamp_enabled"]    = gOptimizerConfig.vel_clamp_enabled;
-    doc["opt_max_step_units"]       = gOptimizerConfig.max_step_units;
-    doc["opt_accel_clamp_enabled"]  = gOptimizerConfig.accel_clamp_enabled;
-    doc["opt_max_accel_units"]      = gOptimizerConfig.max_accel_units;
-
-    // Effective (PPS-derived) values actually applied by the optimizer at the
-    // CURRENT galvo_rated_kpps / galvo_kpps ratio -- see applyPpsScaling() in
-    // point_optimizer.h, reused here so this can never drift from what
-    // liveOptimizerConfig() actually computes. The opt_max_step_units /
-    // opt_max_accel_units / opt_pts_per_1000_units fields above are the tuned
-    // reference values (what applies when output_kpps == rated_kpps, ratio 1);
-    // they intentionally stay constant as galvo_kpps changes -- that constancy
-    // was being misread as "clamps don't depend on kpps". These opt_eff_*
-    // fields are what the WebUI should display to show the actual per-PPS
-    // behaviour (Phase 3 gap fix).
+    doc["opt_active_profile"] = (uint8_t)gActiveOptimizerProfile;
     {
-        optimizer::OptimizerConfig eff;
-        eff.pts_per_1000_units = gOptimizerConfig.pts_per_1000_units;
-        eff.max_step_units     = gOptimizerConfig.max_step_units;
-        eff.max_accel_units    = gOptimizerConfig.max_accel_units;
-        optimizer::applyPpsScaling(eff, gProjection.galvo_rated_kpps, gProjection.galvo_kpps);
-        doc["opt_eff_pts_per_1000_units"] = eff.pts_per_1000_units;
-        doc["opt_eff_max_step_units"]     = eff.max_step_units;
-        doc["opt_eff_max_accel_units"]    = eff.max_accel_units;
+        JsonArray profiles = doc["opt_profiles"].to<JsonArray>();
+        for (uint8_t pi = 0; pi < OPT_PROFILE_COUNT; pi++) {
+            const OptimizerLiveConfig& p = gOptimizerProfiles[pi];
+            JsonObject o = profiles.add<JsonObject>();
+            o["opt_corner_angle_deg"]             = p.corner_angle_deg;
+            o["opt_min_corner_pts"]               = p.min_corner_pts;
+            o["opt_max_corner_pts"]               = p.max_corner_pts;
+            o["opt_pts_per_1000_units"]           = p.pts_per_1000_units;
+            o["opt_min_segment_pts"]              = p.min_segment_pts;
+            o["opt_blank_samples"]                = p.blank_samples;
+            o["opt_max_pts_per_frame"]            = p.max_pts_per_frame;
+            o["opt_min_blank_samples"]            = p.min_blank_samples;
+            o["opt_blank_pts_per_1000_units"]     = p.blank_pts_per_1000_units;
+            o["opt_min_interior_pts_per_segment"] = p.min_interior_pts_per_segment;
+            o["opt_stage1_blank_target"]          = p.stage1_blank_target;
+            o["opt_resample_enabled"]             = p.resample_enabled;
+            o["opt_resample_spacing_units"]       = p.resample_spacing_units;
+            o["opt_ringing_comp_enabled"]         = p.ringing_comp_enabled;
+            o["opt_ring_freq_hz"]                 = p.ring_freq_hz;
+            o["opt_ring_damping_ratio"]           = p.ring_damping_ratio;
+            o["opt_vel_clamp_enabled"]            = p.vel_clamp_enabled;
+            o["opt_max_step_units"]               = p.max_step_units;
+            o["opt_accel_clamp_enabled"]          = p.accel_clamp_enabled;
+            o["opt_max_accel_units"]              = p.max_accel_units;
+            optimizer::OptimizerConfig eff;
+            eff.pts_per_1000_units = p.pts_per_1000_units;
+            eff.max_step_units     = p.max_step_units;
+            eff.max_accel_units    = p.max_accel_units;
+            optimizer::applyPpsScaling(eff, gProjection.galvo_rated_kpps, gProjection.galvo_kpps);
+            o["opt_eff_pts_per_1000_units"] = eff.pts_per_1000_units;
+            o["opt_eff_max_step_units"]     = eff.max_step_units;
+            o["opt_eff_max_accel_units"]    = eff.max_accel_units;
+        }
     }
+    // Top-level opt_* = active profile (backwards compat)
+    {
+        const OptimizerLiveConfig& p = gOptimizerConfig;
+        doc["opt_corner_angle_deg"]             = p.corner_angle_deg;
+        doc["opt_min_corner_pts"]               = p.min_corner_pts;
+        doc["opt_max_corner_pts"]               = p.max_corner_pts;
+        doc["opt_pts_per_1000_units"]           = p.pts_per_1000_units;
+        doc["opt_min_segment_pts"]              = p.min_segment_pts;
+        doc["opt_blank_samples"]                = p.blank_samples;
+        doc["opt_max_pts_per_frame"]            = p.max_pts_per_frame;
+        doc["opt_min_blank_samples"]            = p.min_blank_samples;
+        doc["opt_blank_pts_per_1000_units"]     = p.blank_pts_per_1000_units;
+        doc["opt_min_interior_pts_per_segment"] = p.min_interior_pts_per_segment;
+        doc["opt_stage1_blank_target"]          = p.stage1_blank_target;
+        doc["opt_resample_enabled"]             = p.resample_enabled;
+        doc["opt_resample_spacing_units"]       = p.resample_spacing_units;
+        doc["opt_ringing_comp_enabled"]         = p.ringing_comp_enabled;
+        doc["opt_ring_freq_hz"]                 = p.ring_freq_hz;
+        doc["opt_ring_damping_ratio"]           = p.ring_damping_ratio;
+        doc["opt_vel_clamp_enabled"]            = p.vel_clamp_enabled;
+        doc["opt_max_step_units"]               = p.max_step_units;
+        doc["opt_accel_clamp_enabled"]          = p.accel_clamp_enabled;
+        doc["opt_max_accel_units"]              = p.max_accel_units;
+    }
+
+    // opt_eff_* now included per-profile inside opt_profiles[] above.
 }
 
 /* ============================================================
@@ -490,6 +527,21 @@ void init() {
             req->send(200, "text/plain", "OK");
         });
 
+    // ---- POST /api/optimizer-profile-switch ---- (switch active profile)
+    s_server.on("/api/optimizer-profile-switch", HTTP_POST,
+        [](AsyncWebServerRequest* req) {},
+        nullptr,
+        [](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t, size_t) {
+            JsonDocument doc(&jsonAllocator());
+            if (deserializeJson(doc, data, len)) { req->send(400, "text/plain", "bad json"); return; }
+            int prof = doc["profile"] | -1;
+            if (prof < 0 || prof >= OPT_PROFILE_COUNT) { req->send(400, "text/plain", "bad profile"); return; }
+            gActiveOptimizerProfile = (uint8_t)prof;
+            syncOptimizerConfig();
+            gPatternCacheGen++;
+            req->send(200, "text/plain", "OK");
+        });
+
     // ---- POST /api/optimizer-live ---- (apply immediately, no persist)
     s_server.on("/api/optimizer-live", HTTP_POST,
         [](AsyncWebServerRequest* req) {},
@@ -497,47 +549,51 @@ void init() {
         [](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t, size_t) {
             JsonDocument doc(&jsonAllocator());
             if (deserializeJson(doc, data, len)) { req->send(400, "text/plain", "bad json"); return; }
+            uint8_t targetProf = gActiveOptimizerProfile;
+            if (doc["profile"].is<int>()) { int pr=(int)doc["profile"]; if(pr>=0&&pr<OPT_PROFILE_COUNT) targetProf=(uint8_t)pr; }
+            OptimizerLiveConfig& P = gOptimizerProfiles[targetProf];
             if (doc["corner_angle_deg"].is<float>())
-                gOptimizerConfig.corner_angle_deg = constrain((float)doc["corner_angle_deg"], 0.0f, 180.0f);
+                P.corner_angle_deg = constrain((float)doc["corner_angle_deg"], 0.0f, 180.0f);
             if (doc["min_corner_pts"].is<int>())
-                gOptimizerConfig.min_corner_pts = constrain((int)doc["min_corner_pts"], 1, 20);
+                P.min_corner_pts = constrain((int)doc["min_corner_pts"], 1, 20);
             if (doc["max_corner_pts"].is<int>())
-                gOptimizerConfig.max_corner_pts = constrain((int)doc["max_corner_pts"], 1, 20);
+                P.max_corner_pts = constrain((int)doc["max_corner_pts"], 1, 20);
             if (doc["pts_per_1000_units"].is<float>())
-                gOptimizerConfig.pts_per_1000_units = constrain((float)doc["pts_per_1000_units"], 0.1f, 50.0f);
+                P.pts_per_1000_units = constrain((float)doc["pts_per_1000_units"], 0.1f, 50.0f);
             if (doc["min_segment_pts"].is<int>())
-                gOptimizerConfig.min_segment_pts = constrain((int)doc["min_segment_pts"], 2, 20);
+                P.min_segment_pts = constrain((int)doc["min_segment_pts"], 2, 20);
             if (doc["blank_samples"].is<int>())
-                gOptimizerConfig.blank_samples = constrain((int)doc["blank_samples"], 1, 100);
+                P.blank_samples = constrain((int)doc["blank_samples"], 1, 100);
             if (doc["max_pts_per_frame"].is<int>())
-                gOptimizerConfig.max_pts_per_frame = constrain((int)doc["max_pts_per_frame"], 50, (int)PATTERN_POINTS_MAX);
+                P.max_pts_per_frame = constrain((int)doc["max_pts_per_frame"], 50, (int)PATTERN_POINTS_MAX);
             if (doc["min_blank_samples"].is<int>())
-                gOptimizerConfig.min_blank_samples = constrain((int)doc["min_blank_samples"], 1, 100);
+                P.min_blank_samples = constrain((int)doc["min_blank_samples"], 1, 100);
             if (doc["blank_pts_per_1000_units"].is<float>())
-                gOptimizerConfig.blank_pts_per_1000_units = constrain((float)doc["blank_pts_per_1000_units"], 0.1f, 50.0f);
+                P.blank_pts_per_1000_units = constrain((float)doc["blank_pts_per_1000_units"], 0.1f, 50.0f);
             if (doc["min_interior_pts_per_segment"].is<int>())
-                gOptimizerConfig.min_interior_pts_per_segment = constrain((int)doc["min_interior_pts_per_segment"], 0, 50);
+                P.min_interior_pts_per_segment = constrain((int)doc["min_interior_pts_per_segment"], 0, 50);
             if (doc["stage1_blank_target"].is<int>())
-                gOptimizerConfig.stage1_blank_target = constrain((int)doc["stage1_blank_target"], 1, 100);
+                P.stage1_blank_target = constrain((int)doc["stage1_blank_target"], 1, 100);
             if (doc["resample_enabled"].is<bool>())
-                gOptimizerConfig.resample_enabled = (bool)doc["resample_enabled"];
+                P.resample_enabled = (bool)doc["resample_enabled"];
             if (doc["resample_spacing_units"].is<float>())
-                gOptimizerConfig.resample_spacing_units = constrain((float)doc["resample_spacing_units"], 10.0f, 2000.0f);
+                P.resample_spacing_units = constrain((float)doc["resample_spacing_units"], 10.0f, 2000.0f);
             if (doc["ringing_comp_enabled"].is<bool>())
-                gOptimizerConfig.ringing_comp_enabled = (bool)doc["ringing_comp_enabled"];
+                P.ringing_comp_enabled = (bool)doc["ringing_comp_enabled"];
             if (doc["ring_freq_hz"].is<float>())
-                gOptimizerConfig.ring_freq_hz = constrain((float)doc["ring_freq_hz"], 1.0f, 2000.0f);
+                P.ring_freq_hz = constrain((float)doc["ring_freq_hz"], 1.0f, 2000.0f);
             if (doc["ring_damping_ratio"].is<float>())
-                gOptimizerConfig.ring_damping_ratio = constrain((float)doc["ring_damping_ratio"], 0.0f, 0.9f);
+                P.ring_damping_ratio = constrain((float)doc["ring_damping_ratio"], 0.0f, 0.9f);
             if (doc["vel_clamp_enabled"].is<bool>())
-                gOptimizerConfig.vel_clamp_enabled = (bool)doc["vel_clamp_enabled"];
+                P.vel_clamp_enabled = (bool)doc["vel_clamp_enabled"];
             if (doc["max_step_units"].is<float>())
-                gOptimizerConfig.max_step_units = constrain((float)doc["max_step_units"], 50.0f, 32767.0f);
+                P.max_step_units = constrain((float)doc["max_step_units"], 50.0f, 32767.0f);
             if (doc["accel_clamp_enabled"].is<bool>())
-                gOptimizerConfig.accel_clamp_enabled = (bool)doc["accel_clamp_enabled"];
+                P.accel_clamp_enabled = (bool)doc["accel_clamp_enabled"];
             if (doc["max_accel_units"].is<float>())
-                gOptimizerConfig.max_accel_units = constrain((float)doc["max_accel_units"], 10.0f, 32767.0f);
-            gPatternCacheGen++;   // invalidate static-preset cache -- optimizer params changed
+                P.max_accel_units = constrain((float)doc["max_accel_units"], 10.0f, 32767.0f);
+            if (targetProf == gActiveOptimizerProfile) syncOptimizerConfig();
+            gPatternCacheGen++;
             req->send(200, "text/plain", "OK");
         });
 

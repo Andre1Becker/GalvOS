@@ -62,6 +62,15 @@ enum class Preset : int8_t {
 // of propagating an invalid ID into pattern_engine state.
 Preset presetFromIndex(int raw);
 
+// PresetClass -- optimizer profile selector derived from the preset category.
+enum class PresetClass : uint8_t {
+    Simple = 0,   // Geometry, Lines
+    Curves = 1,   // Spirals, Curves, Waves, Complex, Combo
+    ThreeD = 2,   // 3D
+    Scenes = 3,   // Scenes, Party, Vehicles, Symbols, Timers, unknown
+};
+PresetClass presetClassOf(Preset p);
+
 struct PresetInfo { const char* name; const char* category; };
 extern const PresetInfo PRESETS[PRESET_COUNT];
 
