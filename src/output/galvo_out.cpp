@@ -492,7 +492,10 @@ static void IRAM_ATTR galvoTask(void*) {
         // point; at 45kpps (22us budget) that overruns the per-point window,
         // so galvoTask cannot reach the target rate, the ring drains slower
         // than pattern_engine pushes, and the buffer overflows (= flicker).
-        // s_point_idx==0 marks the start of a new frame.
+        // s_point_idx==0 here only occurs while the ring is idle (disarmed,
+        // underrun with null frame, thresh-test). During active playback the
+        // per-frame refresh happens at the frame-advance point inside the
+        // ring-buffer branch below.
         if (s_point_idx == 0) {
             updateSnapshot();
             period_us = s_snap.period_us;  // pick up runtime kpps changes
@@ -590,6 +593,15 @@ static void IRAM_ATTR galvoTask(void*) {
                     // by the 37ms gap between pattern_engine pushes at 25fps.
                     s_point_idx = 0;
                 }
+                // Frame boundary: refresh the snapshot HERE. The top-of-loop
+                // `if (s_point_idx == 0)` check never fires while frames are
+                // actively consumed, because s_point_idx is set to 0 and then
+                // immediately incremented to 1 within the same iteration below.
+                // Without this call, gain/gamma/thresh/dac-limit changes were
+                // only picked up while the ring was idle (disarmed or
+                // thresh-test), never during pattern playback.
+                updateSnapshot();
+                period_us = s_snap.period_us;
             }
             {
                 if (!s_ring[tail]) { s_point_idx=0; continue; }  // Null-Guard
