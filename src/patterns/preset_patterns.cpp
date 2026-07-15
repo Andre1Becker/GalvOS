@@ -768,6 +768,80 @@ static size_t p101(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     return n;
 }
 
+static size_t p71(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){ // Wasser-Splash
+    size_t n=0;float sc=SC*ssc(sz)*.9f,t=aang(ph,sp);
+    for(int i=0;i<8;i++){float a=PI2*i/8.f,tipH=.5f+.25f*sinf(i*1.3f+t);ap(o,n,m,cosf(a-.15f)*.35f*sc,sinf(a-.15f)*.35f*sc,0,150,255,1);for(int k=1;k<=8;k++){float ang=L(a-.15f,a,k/8.f),rad=L(.35f,.35f+tipH,k/8.f);ap(o,n,m,cosf(ang)*rad*sc,sinf(ang)*rad*sc,0,(uint8_t)(150+100*(k/8.f)),255,0);}for(int k=0;k<=8;k++){float ang=L(a,a+.15f,k/8.f),rad=L(.35f+tipH,.35f,k/8.f);ap(o,n,m,cosf(ang)*rad*sc,sinf(ang)*rad*sc,0,220,255,0);}}
+    float dy=.1f*fabsf(sinf(t*1.5f));for(int i=0;i<=20;i++){float a=PI2*i/20.f;ap(o,n,m,cosf(a)*.12f*sc,(sinf(a)*.12f+dy)*sc,100,220,255,i==0?1:0);}
+    return n;
+}
+static size_t p72(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){ // Pool-Wellen
+    size_t n=0;float sc=SC*ssc(sz)*.9f,t=aang(ph,sp);
+    for(int ring=1;ring<=4;ring++){float r=(.15f+ring*.18f)*sc,amp=.03f*expf(-ring*.3f)*sc;for(int i=0;i<=60;i++){float a=PI2*i/60.f,wave=amp*sinf(8*a+ring*.8f-t);ap(o,n,m,cosf(a)*(r+wave),sinf(a)*(r+wave)*.3f,0,(uint8_t)(180-ring*30),255,i==0?1:0);}}
+    for(int i=0;i<=80;i++){float x=L(-1.f,1.f,i/80.f),y=-.55f+.05f*sinf(x*PI2*3+t)+.02f*sinf(x*PI2*7+t*1.7f);ap(o,n,m,x*sc,y*sc,0,100,200,i==0?1:0);}
+    return n;
+}
+static size_t p73(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){ // Tropische Sonne
+    size_t n=0;float sc=SC*ssc(sz)*.9f,rot=aang(ph,sp,.3f);
+    n += ngon(o+n,m-n,32,.35f*sc,0,255,220,0);
+    for(int i=0;i<12;i++){float a=PI2*i/12.f+rot,len=.25f+.1f*sinf(i*2.3f+rot*2);line(o,n,m,cosf(a)*.38f*sc,sinf(a)*.38f*sc,cosf(a)*(.38f+len)*sc,sinf(a)*(.38f+len)*sc,255,(uint8_t)(200-len*100/0.35f),0);}
+    return n;
+}
+static size_t p75(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){ // Musiknote
+    size_t n=0;float sc=SC*ssc(sz)*.9f,bob=sinf(aang(ph,sp))*.05f;
+    for(int i=0;i<=30;i++){float a=PI2*i/30.f;ap(o,n,m,(cosf(a)*.17f+sinf(a)*.05f-.1f)*sc,(sinf(a)*.13f+bob-.55f)*sc,255,255,255,i==0?1:0);}
+    for(int k=0;k<=20;k++)ap(o,n,m,.07f*sc,L(-.55f+bob,.5f+bob,k/20.f)*sc,255,255,255,k==0?1:0);
+    for(int k=0;k<=12;k++){float t=k/12.f;ap(o,n,m,(.07f+t*.35f)*sc,(.5f-t*.4f+bob)*sc,255,255,255,k==0?1:0);}
+    for(int k=0;k<=12;k++){float t=k/12.f;ap(o,n,m,(.07f+t*.28f)*sc,(.3f-t*.35f+bob)*sc,255,255,200,k==0?1:0);}
+    return n;
+}
+static size_t p80(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){ // Wasser-Tropfen
+    size_t n=0;float sc=SC*ssc(sz)*.9f,t=aang(ph,sp),pulse=1+.05f*sinf(t*2);
+    for(int i=0;i<=60;i++){float a=PI2*i/60.f-M_PI/2,r=.4f*(1-sinf(a))*.5f+.25f;ap(o,n,m,cosf(a)*r*sc*pulse,sinf(a)*r*sc*pulse+.1f*sc,0,180,255,i==0?1:0);}
+    for(int i=0;i<=16;i++){float a=PI2*i/16.f;ap(o,n,m,(cosf(a)*.1f-.08f)*sc,(sinf(a)*.08f+.25f)*sc,150,230,255,i==0?1:0);}
+    return n;
+}
+static size_t p81(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){ // Champagner-Blasen
+    size_t n=0;float sc=SC*ssc(sz)*.9f,t=aang(ph,sp);
+    float b[][4]={{-.4f,.3f,1.3f,.08f},{-.2f,.5f,2.1f,.06f},{.1f,.7f,.7f,.09f},{.3f,.4f,1.8f,.07f},{-.1f,.6f,3.2f,.05f},{.5f,.2f,2.5f,.08f},{-.5f,.8f,.4f,.07f}};
+    for(auto&bl:b){float ph2=fmodf(t*bl[1]+bl[2],PI2),y=L(-1.f,1.f,ph2/PI2),wob=sinf(ph2*8)*.02f;for(int i=0;i<=16;i++){float a=PI2*i/16.f;ap(o,n,m,(cosf(a)*bl[3]+bl[0]+wob)*sc,(sinf(a)*bl[3]+y)*sc,200,220,255,i==0?1:0);}}
+    return n;
+}
+static size_t p82(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){ // Konfetti
+    size_t n=0;float sc=SC*ssc(sz)*.9f,t=aang(ph,sp);
+    // {startAngle, radiusFrac, phaseOffset}. Previously the start angle field
+    // was misused as an angular *speed* (fmod(t*angle+off)), so pieces spun
+    // in orbits instead of drifting. Now pieces fall with a gentle sway and
+    // wrap vertically; each quad is blank-jumped to.
+    float s[][3]={{.3f,.6f,1.1f},{-.4f,.7f,2.3f},{.7f,.3f,3.5f},{-.6f,.4f,4.7f},{.2f,.8f,.8f},{-.3f,.5f,5.2f},{.5f,.6f,1.8f},{-.5f,.3f,2.9f},{.4f,.9f,4.1f},{-.2f,.7f,3.3f},{.6f,.2f,.5f},{-.7f,.6f,5.8f},{0,.9f,1.4f},{.8f,.4f,2.1f},{-.4f,.8f,3.8f}};
+    for(auto&bl:s){
+        float fall=fmodf(t*.3f+bl[2],PI2)/PI2;          // 0..1 fall progress
+        float cx=(bl[0]+.06f*sinf(t+bl[2]*3.f))*sc;
+        float cy=L(1.f,-1.f,fall)*sc*bl[1];
+        float spin=t*2.f+bl[2];
+        uint8_t cr=(uint8_t)(128+127*sinf(bl[2])),cg=(uint8_t)(128+127*sinf(bl[2]+2.1f)),cb=(uint8_t)(128+127*sinf(bl[2]+4.2f));
+        ap(o,n,m,cx,cy,0,0,0,1);                        // blank travel
+        for(int i=0;i<=4;i++){float a=spin+PI2*i/4.f;ap(o,n,m,cx+cosf(a)*.05f*sc,cy+sinf(a)*.035f*sc,cr,cg,cb,0);}
+    }
+    if(n>0)ap(o,n,m,o[n-1].x,o[n-1].y,0,0,0,1);
+    return n;
+}
+static size_t p84(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){ // Sonnenuntergang
+    size_t n=0;float sc=SC*ssc(sz)*.9f,t=aang(ph,sp);
+    for(int i=0;i<=40;i++){float a=M_PI*i/40.f;ap(o,n,m,cosf(a)*.5f*sc,(sinf(a)*.5f-.3f)*sc,255,(uint8_t)(100+80*sinf(t)),0,i==0?1:0);}
+    for(int i=0;i<=80;i++){float x=L(-1.f,1.f,i/80.f),y=-.5f+.04f*sinf(x*PI2*4+t);ap(o,n,m,x*sc,y*sc,0,100,200,i==0?1:0);}
+    return n;
+}
+static size_t p86(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){ // Hibiskus
+    size_t n=0;float sc=SC*ssc(sz)*.9f,rot=aang(ph,sp,.2f);
+    for(int p=0;p<5;p++){float base=PI2*p/5.f+rot;for(int i=0;i<=30;i++){float t=i/30.f,spread=sinf(t*M_PI),a=base+spread*.4f,r=L(.15f,.65f,t);ap(o,n,m,cosf(a)*r*sc,sinf(a)*r*sc,255,(uint8_t)(50+t*100),(uint8_t)(100-t*100),i==0?1:0);}for(int i=30;i>=0;i--){float t=i/30.f,spread=sinf(t*M_PI),a=base-spread*.4f,r=L(.15f,.65f,t);ap(o,n,m,cosf(a)*r*sc,sinf(a)*r*sc,255,(uint8_t)(50+t*100),0,0);}}
+    for(int i=0;i<=12;i++){float a=PI2*i/12.f+rot*2;ap(o,n,m,cosf(a)*.12f*sc,sinf(a)*.12f*sc,255,255,0,i==0?1:0);}
+    return n;
+}
+static size_t p88(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){ // Starburst (Kombi)
+    size_t n=0;float sc=SC*ssc(sz)*.9f,off=aang(ph,sp);
+    for(int i=0;i<24;i++){float a=PI2*i/24.f+off,inner=sc*.3f,outer=sc*(.7f+.3f*sinf(i*.8f));line(o,n,m,cosf(a)*inner,sinf(a)*inner,cosf(a)*outer,sinf(a)*outer,(uint8_t)(128+127*sinf(a)),(uint8_t)(128+127*cosf(a)),255,8);}
+    return n;
+}
 // ─── SZENEN 90 ─────────────────────────────────────────────
 // p90 Starfield: falling star field, top→bottom with wrap.
 // v5.6: blank travel via optimizer::emitBlankTo() -- distance-proportional,
