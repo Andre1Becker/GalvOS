@@ -1579,7 +1579,9 @@ static size_t p108(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
 // ─── DISPATCH ────────────────────────────────────────────────
 
 // presetClassOf() -- maps a Preset to its optimizer profile index.
-presets::PresetClass presets::presetClassOf(presets::Preset p) {
+//presets::PresetClass presets::presetClassOf(presets::Preset p) 
+PresetClass presetClassOf(Preset p)
+{
     if (p == presets::Preset::None) return presets::PresetClass::Scenes;
     using P = presets::Preset;
     switch (p) {
