@@ -427,9 +427,9 @@
       </div>
     </div>
 
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:16px">
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;align-items:start">
 
-      <!-- Speed / Size / Rotation / Mirror -->
+      <!-- Col 1: Speed / Size / Rotation Z -->
       <div>
         <div style="margin-bottom:8px">
           <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:3px">
@@ -475,38 +475,98 @@
         </div>
       </div>
 
-      <!-- Kaleidoscope (applies to Presets + Curves) -->
+      <!-- Col 2: Auto-Rotation -->
       <div style="padding:10px;background:#050510;border:1px solid var(--border);border-radius:6px">
+        <div style="font-family:monospace;font-size:10px;color:var(--accent);margin-bottom:8px">AUTO-ROTATION</div>
         <label class="toggle" style="margin-bottom:8px">
-          <input type="checkbox" id="lv-kal-on" onchange="liveSlider()">
-          <span class="slider"></span><span style="font-size:12px">Kaleidoscope</span>
+          <input type="checkbox" id="lv-autorot" onchange="toggleAutoRed(this.checked)">
+          <span class="slider"></span><span style="font-size:12px">Continuous rotation</span>
         </label>
         <div style="display:flex;flex-direction:column;gap:6px">
           <div>
             <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:2px">
-              <span>Segments</span><span id="lv-kal-segs-val" style="color:var(--accent);font-family:monospace">6</span>
+              <span>Z axis</span><span id="lv-rspd-z-val" style="color:var(--accent);font-family:monospace">20</span>
             </div>
-            <input type="range" id="lv-kal-segs" min="2" max="16" value="6" oninput="liveSlider()">
+            <input type="range" id="lv-rot-z" min="0" max="100" value="20"
+              oninput="document.getElementById('lv-rspd-z-val').textContent=this.value;sendLiveControls()">
           </div>
-          <div style="display:flex;gap:14px">
-            <label class="toggle"><input type="checkbox" id="lv-kal-mh" onchange="liveSlider()"><span class="slider"></span>Mirror H</label>
-            <label class="toggle"><input type="checkbox" id="lv-kal-mv" onchange="liveSlider()"><span class="slider"></span>Mirror V</label>
+          <div>
+            <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:2px">
+              <span>Y axis (tilt)</span><span id="lv-rspd-y-val" style="color:var(--accent);font-family:monospace">0</span>
+            </div>
+            <input type="range" id="lv-rot-y" min="0" max="100" value="0"
+              oninput="document.getElementById('lv-rspd-y-val').textContent=this.value;sendLiveControls()">
+          </div>
+          <div>
+            <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:2px">
+              <span>X axis (pitch)</span><span id="lv-rspd-x-val" style="color:var(--accent);font-family:monospace">0</span>
+            </div>
+            <input type="range" id="lv-rot-x" min="0" max="100" value="0"
+              oninput="document.getElementById('lv-rspd-x-val').textContent=this.value;sendLiveControls()">
+          </div>
+          <div>
+            <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:2px">
+              <span>Master speed</span><span id="lv-rspd-val" style="color:var(--accent);font-family:monospace">20</span>
+            </div>
+            <input type="range" id="lv-rspd" min="1" max="100" value="20"
+              oninput="document.getElementById('lv-rspd-val').textContent=this.value;sendLiveControls()">
           </div>
         </div>
       </div>
 
-      <!-- Mirror (separate from Kaleidoscope) -->
-      <div style="padding:10px;background:#050510;border:1px solid var(--border);border-radius:6px">
-        <div style="font-size:12px;margin-bottom:8px">Mirror</div>
-        <div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap" id="lv-mirror-btns">
-          <button class="btn secondary" id="lv-mirror-off"     onclick="setLiveMirror(0)" style="font-size:11px;padding:5px 8px">Off</button>
-          <button class="btn secondary" id="lv-mirror-x"       onclick="setLiveMirror(1)" style="font-size:11px;padding:5px 8px">↔ X</button>
-          <button class="btn secondary" id="lv-mirror-y"       onclick="setLiveMirror(2)" style="font-size:11px;padding:5px 8px">↕ Y</button>
-          <button class="btn secondary" id="lv-mirror-radial4" onclick="setLiveMirror(3)" style="font-size:11px;padding:5px 8px">✳ Radial4</button>
+      <!-- Col 3: Color -->
+      <div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <span style="font-size:10px;color:var(--dim);font-family:monospace">COLOR</span>
+          <label class="toggle" style="margin:0">
+            <input type="checkbox" id="lv-col-on" onchange="liveSlider()">
+            <span class="slider"></span>
+            <span style="font-size:12px">Override</span>
+          </label>
         </div>
+        <div style="display:flex;gap:14px;align-items:flex-start;margin-bottom:10px">
+          <div style="position:relative;flex-shrink:0">
+            <canvas id="lv-color-wheel" width="120" height="120"
+              style="border-radius:50%;cursor:crosshair;display:block"
+              onclick="colorWheelClick(event)"
+              onmousemove="colorWheelDrag(event)"
+              onmousedown="colorWheelDrag(event)"></canvas>
+            <div id="lv-wheel-cursor" style="position:absolute;width:12px;height:12px;
+              border-radius:50%;border:2px solid #fff;box-shadow:0 0 4px #000;
+              pointer-events:none;transform:translate(-50%,-50%);
+              left:60px;top:60px"></div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:8px;justify-content:center">
+            <div style="font-size:11px;color:var(--dim)">Brightness</div>
+            <input type="range" id="lv-brightness" min="0" max="255" value="255"
+              style="writing-mode:vertical-lr;direction:rtl;height:80px;width:28px"
+              oninput="colorWheelBrightness(this.value)">
+            <div id="lv-col-preview" style="width:40px;height:24px;border-radius:5px;border:1px solid var(--border);background:rgb(255,255,255)"></div>
+            <div style="font-family:monospace;font-size:10px;color:var(--dim)" id="lv-col-hex">#ffffff</div>
+          </div>
+        </div>
+        <!-- Quick Color Buttons: primaries + mixes -->
+        <div style="margin-bottom:8px">
+          <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px">
+            <div onclick="setQuickColor(255,0,0)"   title="Red"          style="height:22px;border-radius:4px;background:#f00;cursor:pointer;border:1px solid #333;transition:transform 0.1s" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform=''"></div>
+            <div onclick="setQuickColor(0,255,0)"   title="Green"        style="height:22px;border-radius:4px;background:#0f0;cursor:pointer;border:1px solid #333;transition:transform 0.1s" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform=''"></div>
+            <div onclick="setQuickColor(0,0,255)"   title="Blue"         style="height:22px;border-radius:4px;background:#00f;cursor:pointer;border:1px solid #333;transition:transform 0.1s" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform=''"></div>
+            <div onclick="setQuickColor(255,0,255)" title="R+B Magenta"  style="height:22px;border-radius:4px;background:#f0f;cursor:pointer;border:1px solid #333;transition:transform 0.1s" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform=''"></div>
+            <div onclick="setQuickColor(255,255,0)" title="R+G Yellow"   style="height:22px;border-radius:4px;background:#ff0;cursor:pointer;border:1px solid #333;transition:transform 0.1s" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform=''"></div>
+            <div onclick="setQuickColor(0,255,255)" title="G+B Cyan"     style="height:22px;border-radius:4px;background:#0ff;cursor:pointer;border:1px solid #333;transition:transform 0.1s" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform=''"></div>
+            <div onclick="setQuickColor(255,255,255)" title="White"      style="height:22px;border-radius:4px;background:#fff;cursor:pointer;border:1px solid #555;transition:transform 0.1s" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform=''"></div>
+          </div>
+        </div>
+        <!-- Hidden RGB inputs (API compatibility) -->
+        <input type="hidden" id="lv-r" value="255">
+        <input type="hidden" id="lv-g" value="255">
+        <input type="hidden" id="lv-b" value="255">
+        <span id="lv-r-val" style="display:none">255</span>
+        <span id="lv-g-val" style="display:none">255</span>
+        <span id="lv-b-val" style="display:none">255</span>
       </div>
 
-      <!-- Points-Only Mode (applies to all presets) -->
+      <!-- Col 4: Points-Only Mode -->
       <div style="padding:10px;background:#050510;border:1px solid var(--border);border-radius:6px">
         <label class="toggle" style="margin-bottom:8px">
           <input type="checkbox" id="lv-pm-on" onchange="liveSlider()">
@@ -557,97 +617,37 @@
         </div>
       </div>
 
-      <!-- Auto-Rotation (applies to all presets) -->
-      <div style="padding:10px;background:#050510;border:1px solid var(--border);border-radius:6px">
-        <div style="font-family:monospace;font-size:10px;color:var(--accent);margin-bottom:8px">AUTO-ROTATION</div>
-        <label class="toggle" style="margin-bottom:8px">
-          <input type="checkbox" id="lv-autorot" onchange="toggleAutoRed(this.checked)">
-          <span class="slider"></span><span style="font-size:12px">Continuous rotation</span>
-        </label>
-        <div style="display:flex;flex-direction:column;gap:6px">
-          <div>
-            <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:2px">
-              <span>Z axis</span><span id="lv-rspd-z-val" style="color:var(--accent);font-family:monospace">20</span>
-            </div>
-            <input type="range" id="lv-rot-z" min="0" max="100" value="20"
-              oninput="document.getElementById('lv-rspd-z-val').textContent=this.value;sendLiveControls()">
-          </div>
-          <div>
-            <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:2px">
-              <span>Y axis (tilt)</span><span id="lv-rspd-y-val" style="color:var(--accent);font-family:monospace">0</span>
-            </div>
-            <input type="range" id="lv-rot-y" min="0" max="100" value="0"
-              oninput="document.getElementById('lv-rspd-y-val').textContent=this.value;sendLiveControls()">
-          </div>
-          <div>
-            <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:2px">
-              <span>X axis (pitch)</span><span id="lv-rspd-x-val" style="color:var(--accent);font-family:monospace">0</span>
-            </div>
-            <input type="range" id="lv-rot-x" min="0" max="100" value="0"
-              oninput="document.getElementById('lv-rspd-x-val').textContent=this.value;sendLiveControls()">
-          </div>
-          <div>
-            <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:2px">
-              <span>Master speed</span><span id="lv-rspd-val" style="color:var(--accent);font-family:monospace">20</span>
-            </div>
-            <input type="range" id="lv-rspd" min="1" max="100" value="20"
-              oninput="document.getElementById('lv-rspd-val').textContent=this.value;sendLiveControls()">
-          </div>
-        </div>
-      </div>
-
-      <!-- Color -->
-      <div>
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-          <span style="font-size:10px;color:var(--dim);font-family:monospace">COLOR</span>
-          <label class="toggle" style="margin:0">
-            <input type="checkbox" id="lv-col-on" onchange="liveSlider()">
-            <span class="slider"></span>
-            <span style="font-size:12px">Override</span>
+      <!-- Col 5: Kaleidoscope + Mirror stacked -->
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <!-- Kaleidoscope -->
+        <div style="padding:10px;background:#050510;border:1px solid var(--border);border-radius:6px">
+          <label class="toggle" style="margin-bottom:6px">
+            <input type="checkbox" id="lv-kal-on" onchange="liveSlider()">
+            <span class="slider"></span><span style="font-size:12px">Kaleidoscope</span>
           </label>
-        </div>
-        <div style="display:flex;gap:14px;align-items:flex-start;margin-bottom:10px">
-          <div style="position:relative;flex-shrink:0">
-            <canvas id="lv-color-wheel" width="120" height="120"
-              style="border-radius:50%;cursor:crosshair;display:block"
-              onclick="colorWheelClick(event)"
-              onmousemove="colorWheelDrag(event)"
-              onmousedown="colorWheelDrag(event)"></canvas>
-            <div id="lv-wheel-cursor" style="position:absolute;width:12px;height:12px;
-              border-radius:50%;border:2px solid #fff;box-shadow:0 0 4px #000;
-              pointer-events:none;transform:translate(-50%,-50%);
-              left:60px;top:60px"></div>
-          </div>
-          <div style="display:flex;flex-direction:column;gap:8px;justify-content:center">
-            <div style="font-size:11px;color:var(--dim)">Brightness</div>
-            <input type="range" id="lv-brightness" min="0" max="255" value="255"
-              style="writing-mode:vertical-lr;direction:rtl;height:80px;width:28px"
-              oninput="colorWheelBrightness(this.value)">
-            <div id="lv-col-preview" style="width:40px;height:24px;border-radius:5px;border:1px solid var(--border);background:rgb(255,255,255)"></div>
-            <div style="font-family:monospace;font-size:10px;color:var(--dim)" id="lv-col-hex">#ffffff</div>
+          <div style="display:flex;flex-direction:column;gap:5px">
+            <div>
+              <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:2px">
+                <span>Segments</span><span id="lv-kal-segs-val" style="color:var(--accent);font-family:monospace">6</span>
+              </div>
+              <input type="range" id="lv-kal-segs" min="2" max="16" value="6" oninput="liveSlider()">
+            </div>
+            <div style="display:flex;gap:10px">
+              <label class="toggle"><input type="checkbox" id="lv-kal-mh" onchange="liveSlider()"><span class="slider"></span><span style="font-size:11px">Mirror H</span></label>
+              <label class="toggle"><input type="checkbox" id="lv-kal-mv" onchange="liveSlider()"><span class="slider"></span><span style="font-size:11px">Mirror V</span></label>
+            </div>
           </div>
         </div>
-
-        <!-- Quick Color Buttons: primaries + mixes -->
-        <div style="margin-bottom:8px">
-          <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px">
-            <div onclick="setQuickColor(255,0,0)"   title="Red"     style="height:22px;border-radius:4px;background:#f00;cursor:pointer;border:1px solid #333;transition:transform 0.1s" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform=''"></div>
-            <div onclick="setQuickColor(0,255,0)"   title="Green"   style="height:22px;border-radius:4px;background:#0f0;cursor:pointer;border:1px solid #333;transition:transform 0.1s" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform=''"></div>
-            <div onclick="setQuickColor(0,0,255)"   title="Blue"    style="height:22px;border-radius:4px;background:#00f;cursor:pointer;border:1px solid #333;transition:transform 0.1s" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform=''"></div>
-            <div onclick="setQuickColor(255,0,255)" title="R+B Magenta" style="height:22px;border-radius:4px;background:#f0f;cursor:pointer;border:1px solid #333;transition:transform 0.1s" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform=''"></div>
-            <div onclick="setQuickColor(255,255,0)" title="R+G Yellow"  style="height:22px;border-radius:4px;background:#ff0;cursor:pointer;border:1px solid #333;transition:transform 0.1s" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform=''"></div>
-            <div onclick="setQuickColor(0,255,255)" title="G+B Cyan"    style="height:22px;border-radius:4px;background:#0ff;cursor:pointer;border:1px solid #333;transition:transform 0.1s" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform=''"></div>
-            <div onclick="setQuickColor(255,255,255)" title="White"    style="height:22px;border-radius:4px;background:#fff;cursor:pointer;border:1px solid #555;transition:transform 0.1s" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform=''"></div>
+        <!-- Mirror -->
+        <div style="padding:10px;background:#050510;border:1px solid var(--border);border-radius:6px">
+          <div style="font-size:12px;margin-bottom:6px">Mirror</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px" id="lv-mirror-btns">
+            <button class="btn secondary" id="lv-mirror-off"     onclick="setLiveMirror(0)" style="font-size:11px;padding:4px 6px">Off</button>
+            <button class="btn secondary" id="lv-mirror-x"       onclick="setLiveMirror(1)" style="font-size:11px;padding:4px 6px">↔ X</button>
+            <button class="btn secondary" id="lv-mirror-y"       onclick="setLiveMirror(2)" style="font-size:11px;padding:4px 6px">↕ Y</button>
+            <button class="btn secondary" id="lv-mirror-radial4" onclick="setLiveMirror(3)" style="font-size:11px;padding:4px 6px">✳ Radial4</button>
           </div>
         </div>
-
-        <!-- Hidden RGB inputs (API compatibility) -->
-        <input type="hidden" id="lv-r" value="255">
-        <input type="hidden" id="lv-g" value="255">
-        <input type="hidden" id="lv-b" value="255">
-        <span id="lv-r-val" style="display:none">255</span>
-        <span id="lv-g-val" style="display:none">255</span>
-        <span id="lv-b-val" style="display:none">255</span>
       </div>
 
     </div>
