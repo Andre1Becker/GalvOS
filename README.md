@@ -9,6 +9,7 @@
 - make features toggable via UI (fe. disable ArtNet if not needed)
 - Add FPS Counter / Point Limit to Statusbar
 - Add Auto Tuning via Global Shutter CAM input
+- Add kpps history Graph on dashboard
 
 ### Paint by Finger
 
