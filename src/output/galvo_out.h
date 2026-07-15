@@ -77,6 +77,10 @@ bool isDebugOutputActive();
 // dacOk()    : true if DAC8562 SPI init succeeded and self-test passed.
 //              Always false when noHwMode() is true.
 // noHwMode() : true when gDebugNoHW flag is set (SPI skipped at boot).
+// DEBUG (gain live-update issue): snapshot state introspection.
+void snapDebug(uint32_t& updates, uint8_t& gr, uint8_t& gg, uint8_t& gb,
+               uint8_t& cr, uint8_t& cg, uint8_t& cb);
+
 bool dacOk();
 bool noHwMode();
 

@@ -211,6 +211,13 @@ static void buildStateJson(JsonDocument& doc) {
     doc["sd_fs_type"]      = sd_card::fsType();
     doc["sd_file_count"]   = sd_card::fileCount();
     doc["dac_ok"]          = galvo::dacOk();
+    { // DEBUG (gain live-update issue)
+      uint32_t su; uint8_t sgr, sgg, sgb, cgr, cgg, cgb;
+      galvo::snapDebug(su, sgr, sgg, sgb, cgr, cgg, cgb);
+      doc["dbg_snap_updates"] = su;
+      doc["dbg_snap_gain_r"]  = sgr;  doc["dbg_snap_gain_g"] = sgg;  doc["dbg_snap_gain_b"] = sgb;
+      doc["dbg_cfg_gain_r"]   = cgr;  doc["dbg_cfg_gain_g"]  = cgg;  doc["dbg_cfg_gain_b"]  = cgb;
+    }
     doc["no_hw_mode"]      = galvo::noHwMode();
     doc["preset_idx"]      = static_cast<int8_t>(patterns::getPreset());
     doc["dmx_frame_count"] = gState.dmx_frame_count.load();

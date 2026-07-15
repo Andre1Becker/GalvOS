@@ -416,8 +416,11 @@ static GalvoSnapshot s_snap;
 // caused permanent snapshot stalls when Core 0 (web_ui calib-live handler)
 // held the mutex during slider updates — gain/thresh changes were invisible
 // until re-arm. mtx::zone is retained for the polygon struct copy.
+static volatile uint32_t s_snap_update_count = 0;  // DEBUG: gain live-update issue
+
 static inline void updateSnapshot() {
     {
+        s_snap_update_count = s_snap_update_count + 1;
         s_snap.gain_r   = gConfig.gain_r;
         s_snap.gain_g   = gConfig.gain_g;
         s_snap.gain_b   = gConfig.gain_b;
@@ -1048,6 +1051,14 @@ void clearDebugOutput() {
 }
 
 bool isDebugOutputActive() { return s_hw_debug_active; }
+
+// DEBUG (gain live-update issue): expose snapshot state for /api/state.
+void snapDebug(uint32_t& updates, uint8_t& gr, uint8_t& gg, uint8_t& gb,
+               uint8_t& cr, uint8_t& cg, uint8_t& cb) {
+    updates = s_snap_update_count;
+    gr = s_snap.gain_r;  gg = s_snap.gain_g;  gb = s_snap.gain_b;
+    cr = gConfig.gain_r; cg = gConfig.gain_g; cb = gConfig.gain_b;
+}
 
 bool dacOk()    { return s_dac_ok; }
 bool noHwMode() { return gDebugNoHW; }
