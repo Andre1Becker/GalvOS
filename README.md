@@ -19,8 +19,7 @@
 
 - point to multi point spread out
 - Phyllotaxis bad output
-- New Pattern: Solar System, Endless Spiral, Endless Tunnel, Mandelbrot Animation
-- Remove Patterns: Champagne Bubbles, Wine Glass, Martini Glass, Champagne Flute, Tropical Cocktail, Palm Tree, Flamingo, Tropical Fish, Pineapple, Balloon, Crown, Diamond, Cocktail Umbrella, Disco Ball 2, Starfish, Coconut Palm, Party Finale, Train, Sailing Boat, Bicycle, Airplane, Space Shuttle, Torus Knot
+- New Pattern: Solar System, Endless Spiral, Endless Tunnel, Mandelbrot Animation, Bouncing Points (Parameter Count,Speed and Trail, Trail Length)
 - Chaos Bouncer is now a Lissajous - needs fixing
 - Hypotrochoid ist a Star - needs fixing
 

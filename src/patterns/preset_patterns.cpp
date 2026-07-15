@@ -697,24 +697,6 @@ static size_t p61(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     return n;
 }
 
-// p62 Champagne Bubbles -- rising ring cluster. Each bubble is a closed
-// 16-gon. Previous version drew all bubbles back-to-back; the per-frame
-// closing blank then linked the last bubble to the first as a lit diagonal
-// ("weird lines"). Fix: emit an explicit blank move to each bubble's start
-// (dark travel) and a trailing blank so the closing bridge starts/ends dark.
-static size_t p62(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
-    size_t n=0;float sc=SC*ssc(sz)*.9f,t=aang(ph,sp);
-    static const struct{float x,spd,off,r;}b[]={{-.4f,.3f,1.3f,.08f},{-.2f,.5f,2.1f,.06f},{.1f,.7f,.7f,.09f},{.3f,.4f,1.8f,.07f},{-.1f,.6f,3.2f,.05f},{.5f,.2f,2.5f,.08f},{-.5f,.8f,.4f,.07f}};
-    for(auto& bl:b){
-        float ph2=fmodf(t*bl.spd+bl.off,PI2),y=L(-1.f,1.f,ph2/PI2),wob=sinf(ph2*8)*.02f;
-        float cx=(bl.x+wob)*sc,cy=y*sc,rr=bl.r*sc;
-        ap(o,n,m,cx+rr,cy,0,0,0,1);                     // blank travel to ring start
-        for(int i=0;i<=16;i++){float a=PI2*i/16.f;ap(o,n,m,cx+cosf(a)*rr,cy+sinf(a)*rr,200,220,255,0);}
-    }
-    if(n>0)ap(o,n,m,o[n-1].x,o[n-1].y,0,0,0,1);         // end dark
-    return n;
-}
-
 // p63 Disco Ball -- GalvOS v5.3: migrated.
 // Outline circle + latitude rings + equator: all via ngon().
 // Longitude spokes: migrated to optimizer PathSegments.
@@ -783,214 +765,6 @@ static size_t p101(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
         optimizer::PathSegment seg(verts,20,false);
         n += optimizer::optimize(&seg,1,o+n,m-n,liveOptimizerConfig());
     }
-    return n;
-}
-
-// ─── PARTY-SILHOUETTEN 64-89 ─────────────────────────────────
-// These use line() and circ_draw() which are now optimizer-backed.
-// No per-preset changes needed — migration is transparent.
-static size_t p64(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){ // Martini
-    size_t n=0;float sc=SC*ssc(sz)*.9f;
-    for(int i=0;i<=40;i++){float a=M_PI*i/40.f;ap(o,n,m,cosf(a)*.65f*sc,(.55f+sinf(a)*.04f)*sc,0,220,255,i==0?1:0);}
-    for(int k=0;k<=16;k++)ap(o,n,m,L(.65f,0,k/16.f)*sc,L(.55f,-.12f,k/16.f)*sc,0,220,255,k==0?1:0);
-    for(int k=0;k<=16;k++)ap(o,n,m,L(-.65f,0,k/16.f)*sc,L(.55f,-.12f,k/16.f)*sc,0,220,255,k==0?1:0);
-    for(int k=0;k<=14;k++)ap(o,n,m,0,L(-.12f,-.72f,k/14.f)*sc,100,200,255,k==0?1:0);
-    for(int k=0;k<=14;k++)ap(o,n,m,L(-.32f,.32f,k/14.f)*sc,-.72f*sc,100,200,255,k==0?1:0);
-    return n;
-}
-static size_t p65(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){ // Weinglas
-    size_t n=0;float sc=SC*ssc(sz)*.9f;
-    for(int i=0;i<=50;i++){float t=M_PI*i/50.f;ap(o,n,m,cosf(t)*.4f*sc,(.4f+sinf(t)*.4f)*sc,200,50,100,i==0?1:0);}
-    for(int k=0;k<=12;k++)ap(o,n,m,L(.4f,.08f,k/12.f)*sc,L(.4f,-.25f,k/12.f)*sc,200,50,100,k==0?1:0);
-    for(int k=0;k<=12;k++)ap(o,n,m,.08f*sc*(1-k/12.f),L(-.25f,-.7f,k/12.f)*sc,180,50,80,k==0?1:0);
-    for(int k=0;k<=14;k++)ap(o,n,m,L(-.3f,.3f,k/14.f)*sc,-.7f*sc,180,50,80,k==0?1:0);
-    for(int k=0;k<=12;k++)ap(o,n,m,L(0,-.08f,k/12.f)*sc,L(-.7f,-.25f,k/12.f)*sc,180,50,80,k==0?1:0);
-    for(int k=0;k<=12;k++)ap(o,n,m,L(-.08f,-.4f,k/12.f)*sc,L(-.25f,.4f,k/12.f)*sc,200,50,100,k==0?1:0);
-    return n;
-}
-static size_t p66(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){ // Champagner
-    size_t n=0;float sc=SC*ssc(sz)*.9f;
-    auto lft=[](float y)->float{if(y<-.4f)return-.12f-.15f*(y+.7f);if(y<.2f)return-.12f+.08f*(y+.4f)/.6f;return-.12f+.08f+.12f*(y-.2f)/.6f;};
-    for(int i=0;i<=40;i++){float y=L(-.7f,.8f,i/40.f);ap(o,n,m,lft(y)*sc,y*sc,200,200,80,i==0?1:0);}
-    for(int i=0;i<=40;i++){float y=L(.8f,-.7f,i/40.f);ap(o,n,m,-lft(y)*sc,y*sc,200,200,80,i==0?1:0);}
-    for(int k=0;k<=10;k++)ap(o,n,m,L(-.27f,.27f,k/10.f)*sc,-.7f*sc,200,200,80,k==0?1:0);
-    return n;
-}
-static size_t p67(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){ // Tropical Cocktail
-    size_t n=0;float sc=SC*ssc(sz)*.9f,wob=sinf(aang(ph,sp))*.05f;
-    for(int i=0;i<=60;i++){float a=M_PI+M_PI*i/60.f;ap(o,n,m,cosf(a)*.45f*sc,(sinf(a)*.45f-.2f)*sc,0,200,255,i==0?1:0);}
-    for(int i=0;i<=20;i++){float a=-M_PI*i/20.f;ap(o,n,m,cosf(a)*.45f*sc,(sinf(a)*.04f-.2f+.45f)*sc,0,200,255,i==0?1:0);}
-    for(int k=0;k<=14;k++)ap(o,n,m,(.1f+k*.04f+wob)*sc,L(.25f,.85f,k/14.f)*sc,255,200,0,k==0?1:0);
-    for(int i=0;i<=20;i++){float a=M_PI+M_PI*.6f*(i/20.f-.5f);ap(o,n,m,(.66f+wob+cosf(a)*.18f)*sc,(.85f+sinf(a)*.12f)*sc,255,80,150,i==0?1:0);}
-    return n;
-}
-static size_t p68(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){ // Palme
-    size_t n=0;float sc=SC*ssc(sz)*.9f,sw=sinf(aang(ph,sp,.5f))*.04f;
-    for(int i=0;i<=20;i++){float y=L(-.8f,0,i/20.f);ap(o,n,m,(-.06f+y*.1f+sw*y)*sc,y*sc,160,100,50,i==0?1:0);}
-    float fronds[][4]={{.0f,.9f,-.45f,.5f},{.3f,.8f,.55f,.4f},{-.3f,.8f,-.55f,.4f},{.5f,.5f,.85f,.1f},{-.5f,.5f,-.85f,.1f}};
-    for(auto&f:fronds){for(int k=0;k<=14;k++){float t=k/14.f,bx=L(f[0],f[2],t)*sc,by=(L(f[1],f[3],t)+sinf(t*M_PI)*.15f)*sc;ap(o,n,m,bx+sw*sc*2,by,0,(uint8_t)(150+105*t),0,k==0?1:0);}}
-    return n;
-}
-static size_t p69(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){ // Flamingo
-    size_t n=0;float sc=SC*ssc(sz)*.9f,bob=sinf(aang(ph,sp,.5f))*.03f;
-    for(int i=0;i<=30;i++){float a=PI2*i/30.f;ap(o,n,m,(cosf(a)*.28f+.05f)*sc,(sinf(a)*.2f+.15f+bob)*sc,255,120,180,i==0?1:0);}
-    float nx[]={.15f,.2f,.1f,.05f,.15f},ny[]={.3f,.45f,.6f,.7f,.8f};
-    for(int i=1;i<5;i++){for(int k=1;k<=8;k++)ap(o,n,m,L(nx[i-1],nx[i],k/8.f)*sc,L(ny[i-1],ny[i],k/8.f)*sc,255,150,200,k==1?1:0);}
-    for(int i=0;i<=16;i++){float a=PI2*i/16.f;ap(o,n,m,(cosf(a)*.06f+.15f)*sc,(sinf(a)*.05f+.83f+bob)*sc,255,120,180,i==0?1:0);}
-    for(int k=0;k<=6;k++)ap(o,n,m,L(.21f,.38f,k/6.f)*sc,(L(.83f,.78f,k/6.f)+bob)*sc,255,165,0,k==0?1:0);
-    for(int k=0;k<=12;k++)ap(o,n,m,L(.1f,.08f,k/12.f)*sc,L(.02f,-.8f,k/12.f)*sc,255,150,180,k==0?1:0);
-    for(int k=0;k<=12;k++)ap(o,n,m,L(-.02f,-.04f,k/12.f)*sc,L(.02f,-.8f,k/12.f)*sc,255,150,180,k==0?1:0);
-    return n;
-}
-static size_t p70(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){ // Tropischer Fisch
-    size_t n=0;float sc=SC*ssc(sz)*.9f,sw=sinf(aang(ph,sp,.8f))*.08f;
-    for(int i=0;i<=50;i++){float a=PI2*i/50.f;ap(o,n,m,(cosf(a)*.45f+sw)*sc,sinf(a)*.3f*sc,255,150,0,i==0?1:0);}
-    for(int k=0;k<=10;k++)ap(o,n,m,L(-.45f+sw,-.75f+sw,k/10.f)*sc,L(0,.35f,k/10.f)*sc,255,100,0,k==0?1:0);
-    for(int k=0;k<=10;k++)ap(o,n,m,L(-.75f+sw,-.45f+sw,k/10.f)*sc,L(.35f,-.35f,k/10.f)*sc,255,100,0,k==0?1:0);
-    for(int k=0;k<=10;k++)ap(o,n,m,L(-.45f+sw,-.75f+sw,k/10.f)*sc,L(0,-.35f,k/10.f)*sc,255,100,0,k==0?1:0);
-    for(int i=0;i<=12;i++){float a=PI2*i/12.f;ap(o,n,m,(cosf(a)*.04f+.25f+sw)*sc,(sinf(a)*.04f+.08f)*sc,0,0,0,i==0?1:0);}
-    return n;
-}
-static size_t p71(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){ // Wasser-Splash
-    size_t n=0;float sc=SC*ssc(sz)*.9f,t=aang(ph,sp);
-    for(int i=0;i<8;i++){float a=PI2*i/8.f,tipH=.5f+.25f*sinf(i*1.3f+t);ap(o,n,m,cosf(a-.15f)*.35f*sc,sinf(a-.15f)*.35f*sc,0,150,255,1);for(int k=1;k<=8;k++){float ang=L(a-.15f,a,k/8.f),rad=L(.35f,.35f+tipH,k/8.f);ap(o,n,m,cosf(ang)*rad*sc,sinf(ang)*rad*sc,0,(uint8_t)(150+100*(k/8.f)),255,0);}for(int k=0;k<=8;k++){float ang=L(a,a+.15f,k/8.f),rad=L(.35f+tipH,.35f,k/8.f);ap(o,n,m,cosf(ang)*rad*sc,sinf(ang)*rad*sc,0,220,255,0);}}
-    float dy=.1f*fabsf(sinf(t*1.5f));for(int i=0;i<=20;i++){float a=PI2*i/20.f;ap(o,n,m,cosf(a)*.12f*sc,(sinf(a)*.12f+dy)*sc,100,220,255,i==0?1:0);}
-    return n;
-}
-static size_t p72(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){ // Pool-Wellen
-    size_t n=0;float sc=SC*ssc(sz)*.9f,t=aang(ph,sp);
-    for(int ring=1;ring<=4;ring++){float r=(.15f+ring*.18f)*sc,amp=.03f*expf(-ring*.3f)*sc;for(int i=0;i<=60;i++){float a=PI2*i/60.f,wave=amp*sinf(8*a+ring*.8f-t);ap(o,n,m,cosf(a)*(r+wave),sinf(a)*(r+wave)*.3f,0,(uint8_t)(180-ring*30),255,i==0?1:0);}}
-    for(int i=0;i<=80;i++){float x=L(-1.f,1.f,i/80.f),y=-.55f+.05f*sinf(x*PI2*3+t)+.02f*sinf(x*PI2*7+t*1.7f);ap(o,n,m,x*sc,y*sc,0,100,200,i==0?1:0);}
-    return n;
-}
-static size_t p73(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){ // Tropische Sonne
-    size_t n=0;float sc=SC*ssc(sz)*.9f,rot=aang(ph,sp,.3f);
-    n += ngon(o+n,m-n,32,.35f*sc,0,255,220,0);
-    for(int i=0;i<12;i++){float a=PI2*i/12.f+rot,len=.25f+.1f*sinf(i*2.3f+rot*2);line(o,n,m,cosf(a)*.38f*sc,sinf(a)*.38f*sc,cosf(a)*(.38f+len)*sc,sinf(a)*(.38f+len)*sc,255,(uint8_t)(200-len*100/0.35f),0);}
-    return n;
-}
-static size_t p74(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){ // Ananas
-    size_t n=0;float sc=SC*ssc(sz)*.9f;
-    for(int i=0;i<=40;i++){float a=PI2*i/40.f;ap(o,n,m,cosf(a)*.32f*sc,(sinf(a)*.45f-.15f)*sc,255,180,0,i==0?1:0);}
-    for(int r=-3;r<=3;r++)for(int c=-2;c<=2;c++){float cx=c*.16f,cy=r*.2f-.15f;if(cx*cx/(.28f*.28f)+(cy+.15f)*(cy+.15f)/(.45f*.45f)<=.9f){ap(o,n,m,cx*sc,(cy+.04f)*sc,200,130,0,1);ap(o,n,m,(cx+.08f)*sc,cy*sc,200,130,0,0);ap(o,n,m,cx*sc,(cy-.04f)*sc,200,130,0,0);ap(o,n,m,(cx-.08f)*sc,cy*sc,200,130,0,0);ap(o,n,m,cx*sc,(cy+.04f)*sc,200,130,0,0);}}
-    float lv[][2]={{0,.45f},{.15f,.65f},{-.15f,.65f},{.28f,.55f},{-.28f,.55f}};
-    for(auto&lf:lv){for(int k=0;k<=8;k++)ap(o,n,m,L(0,lf[0],k/8.f)*sc,L(.3f,lf[1],k/8.f)*sc,0,180,0,k==0?1:0);}
-    return n;
-}
-static size_t p75(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){ // Musiknote
-    size_t n=0;float sc=SC*ssc(sz)*.9f,bob=sinf(aang(ph,sp))*.05f;
-    for(int i=0;i<=30;i++){float a=PI2*i/30.f;ap(o,n,m,(cosf(a)*.17f+sinf(a)*.05f-.1f)*sc,(sinf(a)*.13f+bob-.55f)*sc,255,255,255,i==0?1:0);}
-    for(int k=0;k<=20;k++)ap(o,n,m,.07f*sc,L(-.55f+bob,.5f+bob,k/20.f)*sc,255,255,255,k==0?1:0);
-    for(int k=0;k<=12;k++){float t=k/12.f;ap(o,n,m,(.07f+t*.35f)*sc,(.5f-t*.4f+bob)*sc,255,255,255,k==0?1:0);}
-    for(int k=0;k<=12;k++){float t=k/12.f;ap(o,n,m,(.07f+t*.28f)*sc,(.3f-t*.35f+bob)*sc,255,255,200,k==0?1:0);}
-    return n;
-}
-static size_t p76(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){ // Ballon
-    size_t n=0;float sc=SC*ssc(sz)*.9f,sw=sinf(aang(ph,sp,.6f))*.06f;
-    for(int i=0;i<=50;i++){float a=PI2*i/50.f-M_PI/2,r=a>0?.4f:.35f;ap(o,n,m,(cosf(a)*r+sw)*sc,(sinf(a)*r*.55f+.2f)*sc,255,80,150,i==0?1:0);}
-    for(int i=0;i<=10;i++){float a=PI2*i/10.f;ap(o,n,m,(cosf(a)*.04f+sw)*sc,(sinf(a)*.04f-.18f)*sc,255,50,120,i==0?1:0);}
-    for(int k=0;k<=20;k++){float t=k/20.f;ap(o,n,m,(sw+sinf(t*M_PI*3)*.04f)*sc,L(-.22f,-.85f,t)*sc,255,150,200,k==0?1:0);}
-    return n;
-}
-static size_t p77(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){ // Krone
-    size_t n=0;float sc=SC*ssc(sz)*.9f,pulse=1+.05f*sinf(aang(ph,sp,2));
-    for(int k=0;k<=30;k++)ap(o,n,m,L(-.65f,.65f,k/30.f)*sc,-.35f*sc*pulse,255,200,0,k==0?1:0);
-    float tips[]={-.65f,-.325f,0,.325f,.65f},heights[]={.05f,.35f,.55f,.35f,.05f};
-    for(int i=0;i<5;i++){ap(o,n,m,tips[i]*sc,-.35f*sc*pulse,255,200,0,1);for(int k=0;k<=10;k++)ap(o,n,m,tips[i]*sc,L(-.35f,.35f+heights[i],k/10.f)*sc*pulse,255,220,0,0);for(int k=0;k<=10;k++)ap(o,n,m,tips[i]*sc,L(.35f+heights[i],-.35f,k/10.f)*sc*pulse,255,200,0,0);}
-    float gems[][2]={{-.45f,-.15f},{0,-.05f},{.45f,-.15f}};
-    for(auto&g:gems){for(int i=0;i<=12;i++){float a=PI2*i/12.f;ap(o,n,m,(cosf(a)*.05f+g[0])*sc,(sinf(a)*.05f+g[1])*sc,255,100,200,i==0?1:0);}}
-    return n;
-}
-static size_t p78(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){ // Diamant
-    size_t n=0;float sc=SC*ssc(sz)*.9f*.75f,rot=aang(ph,sp,.2f);
-    const uint8_t R=180,G=220,B=255;
-    auto rp=[&](float x,float y,uint8_t bl){ap(o,n,m,(x*cosf(rot)-y*sinf(rot))*sc,(x*sinf(rot)+y*cosf(rot))*sc,R,G,B,bl);};
-    // Outline: table (top flat) + crown girdle + pavilion to culet, closed loop.
-    static const float out[][2]={{-.3f,.8f},{.3f,.8f},{.55f,.25f},{.55f,-.1f},{0,-.9f},{-.55f,-.1f},{-.55f,.25f},{-.3f,.8f}};
-    for(size_t i=0;i<8;i++)rp(out[i][0],out[i][1],i==0?1:0);
-    // Facet lines: each is a blank-jumped 2-point segment.
-    static const float fac[][4]={
-        {-.3f,.8f, -.2f,.25f},{.3f,.8f, .2f,.25f},   // table corners down to girdle
-        {-.55f,.25f, .55f,.25f},                     // girdle line
-        {-.2f,.25f, .2f,.25f},                       // table bottom edge
-        {-.55f,-.1f, 0,-.9f},{.55f,-.1f, 0,-.9f},    // pavilion edges to culet
-        {-.2f,.25f, 0,-.9f},{.2f,.25f, 0,-.9f}};     // inner pavilion facets
-    for(auto&fseg:fac){rp(fseg[0],fseg[1],1);rp(fseg[2],fseg[3],0);}
-    if(n>0)ap(o,n,m,o[n-1].x,o[n-1].y,0,0,0,1);
-    return n;
-}
-static size_t p79(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){ // Cocktail-Schirm
-    size_t n=0;float sc=SC*ssc(sz)*.9f,tilt=sinf(aang(ph,sp,.4f))*.15f;
-    for(int i=0;i<=60;i++){float a=M_PI*i/60.f;ap(o,n,m,(cosf(a)*.7f+tilt)*sc,(sinf(a)*.4f+.2f)*sc,255,80,150,i==0?1:0);}
-    for(int s=0;s<=6;s++){float a=M_PI*s/6.f;for(int k=0;k<=10;k++)ap(o,n,m,L(tilt,(cosf(a)*.7f+tilt),k/10.f)*sc,L(.2f,(sinf(a)*.4f+.2f),k/10.f)*sc,255,150,200,k==0?1:0);}
-    for(int k=0;k<=20;k++)ap(o,n,m,tilt*sc,L(.2f,-.8f,k/20.f)*sc,200,150,100,k==0?1:0);
-    return n;
-}
-static size_t p80(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){ // Wasser-Tropfen
-    size_t n=0;float sc=SC*ssc(sz)*.9f,t=aang(ph,sp),pulse=1+.05f*sinf(t*2);
-    for(int i=0;i<=60;i++){float a=PI2*i/60.f-M_PI/2,r=.4f*(1-sinf(a))*.5f+.25f;ap(o,n,m,cosf(a)*r*sc*pulse,sinf(a)*r*sc*pulse+.1f*sc,0,180,255,i==0?1:0);}
-    for(int i=0;i<=16;i++){float a=PI2*i/16.f;ap(o,n,m,(cosf(a)*.1f-.08f)*sc,(sinf(a)*.08f+.25f)*sc,150,230,255,i==0?1:0);}
-    return n;
-}
-static size_t p81(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){ // Champagner-Blasen
-    size_t n=0;float sc=SC*ssc(sz)*.9f,t=aang(ph,sp);
-    float b[][4]={{-.4f,.3f,1.3f,.08f},{-.2f,.5f,2.1f,.06f},{.1f,.7f,.7f,.09f},{.3f,.4f,1.8f,.07f},{-.1f,.6f,3.2f,.05f},{.5f,.2f,2.5f,.08f},{-.5f,.8f,.4f,.07f}};
-    for(auto&bl:b){float ph2=fmodf(t*bl[1]+bl[2],PI2),y=L(-1.f,1.f,ph2/PI2),wob=sinf(ph2*8)*.02f;for(int i=0;i<=16;i++){float a=PI2*i/16.f;ap(o,n,m,(cosf(a)*bl[3]+bl[0]+wob)*sc,(sinf(a)*bl[3]+y)*sc,200,220,255,i==0?1:0);}}
-    return n;
-}
-static size_t p82(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){ // Konfetti
-    size_t n=0;float sc=SC*ssc(sz)*.9f,t=aang(ph,sp);
-    // {startAngle, radiusFrac, phaseOffset}. Previously the start angle field
-    // was misused as an angular *speed* (fmod(t*angle+off)), so pieces spun
-    // in orbits instead of drifting. Now pieces fall with a gentle sway and
-    // wrap vertically; each quad is blank-jumped to.
-    float s[][3]={{.3f,.6f,1.1f},{-.4f,.7f,2.3f},{.7f,.3f,3.5f},{-.6f,.4f,4.7f},{.2f,.8f,.8f},{-.3f,.5f,5.2f},{.5f,.6f,1.8f},{-.5f,.3f,2.9f},{.4f,.9f,4.1f},{-.2f,.7f,3.3f},{.6f,.2f,.5f},{-.7f,.6f,5.8f},{0,.9f,1.4f},{.8f,.4f,2.1f},{-.4f,.8f,3.8f}};
-    for(auto&bl:s){
-        float fall=fmodf(t*.3f+bl[2],PI2)/PI2;          // 0..1 fall progress
-        float cx=(bl[0]+.06f*sinf(t+bl[2]*3.f))*sc;
-        float cy=L(1.f,-1.f,fall)*sc*bl[1];
-        float spin=t*2.f+bl[2];
-        uint8_t cr=(uint8_t)(128+127*sinf(bl[2])),cg=(uint8_t)(128+127*sinf(bl[2]+2.1f)),cb=(uint8_t)(128+127*sinf(bl[2]+4.2f));
-        ap(o,n,m,cx,cy,0,0,0,1);                        // blank travel
-        for(int i=0;i<=4;i++){float a=spin+PI2*i/4.f;ap(o,n,m,cx+cosf(a)*.05f*sc,cy+sinf(a)*.035f*sc,cr,cg,cb,0);}
-    }
-    if(n>0)ap(o,n,m,o[n-1].x,o[n-1].y,0,0,0,1);
-    return n;
-}
-static size_t p83(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){return p63(o,m,ph,sp,sz);} // Disco-Ball = p63
-static size_t p84(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){ // Sonnenuntergang
-    size_t n=0;float sc=SC*ssc(sz)*.9f,t=aang(ph,sp);
-    for(int i=0;i<=40;i++){float a=M_PI*i/40.f;ap(o,n,m,cosf(a)*.5f*sc,(sinf(a)*.5f-.3f)*sc,255,(uint8_t)(100+80*sinf(t)),0,i==0?1:0);}
-    for(int i=0;i<=80;i++){float x=L(-1.f,1.f,i/80.f),y=-.5f+.04f*sinf(x*PI2*4+t);ap(o,n,m,x*sc,y*sc,0,100,200,i==0?1:0);}
-    return n;
-}
-static size_t p85(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){ // Seestern
-    float s=SC*ssc(sz)*.9f;return star(o,m,5,s,s*.35f,aang(ph,sp,.3f),255,150,0);
-}
-static size_t p86(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){ // Hibiskus
-    size_t n=0;float sc=SC*ssc(sz)*.9f,rot=aang(ph,sp,.2f);
-    for(int p=0;p<5;p++){float base=PI2*p/5.f+rot;for(int i=0;i<=30;i++){float t=i/30.f,spread=sinf(t*M_PI),a=base+spread*.4f,r=L(.15f,.65f,t);ap(o,n,m,cosf(a)*r*sc,sinf(a)*r*sc,255,(uint8_t)(50+t*100),(uint8_t)(100-t*100),i==0?1:0);}for(int i=30;i>=0;i--){float t=i/30.f,spread=sinf(t*M_PI),a=base-spread*.4f,r=L(.15f,.65f,t);ap(o,n,m,cosf(a)*r*sc,sinf(a)*r*sc,255,(uint8_t)(50+t*100),0,0);}}
-    for(int i=0;i<=12;i++){float a=PI2*i/12.f+rot*2;ap(o,n,m,cosf(a)*.12f*sc,sinf(a)*.12f*sc,255,255,0,i==0?1:0);}
-    return n;
-}
-static size_t p87(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){ // Kokospalme
-    size_t n=0;float sc=SC*ssc(sz)*.9f,sw=sinf(aang(ph,sp,.4f))*.03f;
-    for(int k=0;k<=20;k++){float t=k/20.f;ap(o,n,m,sw*t*sc,L(-.8f,.1f,t)*sc,160,100,50,k==0?1:0);}
-    float fronds[][2]={{.6f,.6f},{-.6f,.6f},{0,.7f}};
-    for(auto&f:fronds){for(int k=0;k<=16;k++)ap(o,n,m,(sw+L(0,f[0],k/16.f))*sc,L(.1f,f[1],k/16.f)*sc,0,180,0,k==0?1:0);}
-    float ccs[][2]={{-.2f,.05f},{.1f,.1f},{.25f,-.05f}};
-    for(auto&c:ccs){for(int i=0;i<=16;i++){float a=PI2*i/16.f;ap(o,n,m,(cosf(a)*.07f+c[0]+sw)*sc,(sinf(a)*.07f+c[1])*sc,100,70,30,i==0?1:0);}}
-    return n;
-}
-static size_t p88(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){ // Starburst (Kombi)
-    size_t n=0;float sc=SC*ssc(sz)*.9f,off=aang(ph,sp);
-    for(int i=0;i<24;i++){float a=PI2*i/24.f+off,inner=sc*.3f,outer=sc*(.7f+.3f*sinf(i*.8f));line(o,n,m,cosf(a)*inner,sinf(a)*inner,cosf(a)*outer,sinf(a)*outer,(uint8_t)(128+127*sinf(a)),(uint8_t)(128+127*cosf(a)),255,8);}
-    return n;
-}
-static size_t p89(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){ // Party-Finale / Lorenz
-    size_t n=0;float sc=SC*ssc(sz)*.04f,t=aang(ph,sp)*10;
-    float x=.1f,y=0,z=0,dt=.005f;
-    for(int i=0;i<350;i++){float dx=10*(y-x),dy=x*(28-z)-y,dz=x*y-8.f/3*z;x+=dx*dt;y+=dy*dt;z+=dz*dt;float rot=t*.01f,px=x*cosf(rot)-z*sinf(rot);ap(o,n,m,px*sc,(y-20)*sc,(uint8_t)(128+127*sinf(i*.02f)),(uint8_t)(128+127*cosf(i*.02f)),150,i==0?1:0);}
     return n;
 }
 
@@ -1112,20 +886,6 @@ static size_t p91(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     circ_draw(o,n,m,ox,bh*.45f,bw*.52f,100,220,255,16);
     return n;
 }
-static size_t p92(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
-    size_t n=0; float sc2=ssc(sz)*0.7f, ox=scrollX(ph,sp);
-    float lw=SC*.42f*sc2, lh=SC*.20f*sc2, ly=SC*.06f*sc2;
-    rect_outline(o,n,m,ox-lw,ly-lh,ox+lw,ly+lh,200,110,50,10);
-    rect_outline(o,n,m,ox+lw*.25f,ly+lh,ox+lw,ly+lh*1.8f,190,100,45,8);
-    line(o,n,m,ox-lw*.5f,ly+lh,ox-lw*.5f,ly+lh*1.9f,160,80,40,6);
-    circ_draw(o,n,m,ox-lw*.5f,ly+lh*2.0f,lw*.1f,160,80,40,12);
-    for(int k=0;k<3;k++){float sy=ly+lh*2.2f+k*lw*.22f,sx=ox-lw*.5f+k*lw*.14f*(((int)(ph*.01f)+k)%2?1.f:-1.f);circ_draw(o,n,m,sx,sy,lw*.09f*(1.f+k*.25f),170,170,170,8);}
-    float wy=ly-lh, wr=SC*.1f*sc2;
-    for(int k=0;k<4;k++){float wx=ox-lw*.75f+k*lw*.5f;circ_draw(o,n,m,wx,wy,wr,70,70,70,16);float rot=ph*0.06f;ap(o,n,m,wx+cosf(rot)*wr,wy+sinf(rot)*wr,120,120,120,1);ap(o,n,m,wx+cosf(rot+M_PI)*wr,wy+sinf(rot+M_PI)*wr,120,120,120,0);}
-    line(o,n,m,-SC*.98f,wy-wr*1.1f,SC*.98f,wy-wr*1.1f,100,80,60,30);
-    line(o,n,m,-SC*.98f,wy-wr*1.25f,SC*.98f,wy-wr*1.25f,100,80,60,30);
-    return n;
-}
 static size_t p93(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     size_t n=0; float sc2=ssc(sz)*0.75f, ox=scrollX(ph,sp);
     float bw=SC*.5f*sc2, bh=SC*.13f*sc2, by=-SC*.04f*sc2;
@@ -1159,84 +919,6 @@ static size_t p94(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     for(int k=0;k<6;k++){float a=PI2*k/6.f+ph*0.06f;uint8_t br=(uint8_t)(128+127*sinf(a+ph*.1f));ap(o,n,m,ox+cosf(a)*dw,sinf(a)*dh+hover,br,br,0,0);}
     return n;
 }
-static size_t p95(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
-    size_t n=0; float sc2=ssc(sz)*0.8f, ox=scrollX(ph,sp);
-    float rock=sinf(ph*0.025f)*SC*.04f*sc2;
-    float hw=SC*.52f*sc2, hh=SC*.12f*sc2, hy=-SC*.1f*sc2+rock;
-    line(o,n,m,ox-hw,hy,ox+hw,hy,180,140,80,16);
-    line(o,n,m,ox-hw,hy,ox-hw*.7f,hy-hh,180,140,80,8);
-    line(o,n,m,ox+hw,hy,ox+hw*.7f,hy-hh,180,140,80,8);
-    line(o,n,m,ox-hw*.7f,hy-hh,ox+hw*.7f,hy-hh,180,140,80,12);
-    line(o,n,m,ox,hy-hh,ox,hy-hh+SC*.88f*sc2,200,200,200,10);
-    float mt=hy-hh+SC*.85f*sc2, mb=hy-hh+SC*.1f*sc2;
-    line(o,n,m,ox,mt,ox+hw*.95f,hy,255,255,240,10);
-    line(o,n,m,ox,mb,ox+hw*.95f,hy,255,255,240,10);
-    line(o,n,m,ox,mb,ox,mt,255,255,240,6);
-    line(o,n,m,ox,mt*.35f+mb*.65f,ox-hw*.65f,hy*.2f+mb*.8f,200,240,255,8);
-    line(o,n,m,ox,mb,ox-hw*.65f,hy*.2f+mb*.8f,200,240,255,5);
-    for(int i=0;i<=50;i++){float wx=L(-SC*.98f,SC*.98f,i/50.f),wy=hy+hh*.5f+sinf(wx*.00015f+ph*.03f)*SC*.04f*sc2;ap(o,n,m,wx,wy,0,100,200,i==0?1:0);}
-    return n;
-}
-static size_t p96(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
-    size_t n=0; float sc2=ssc(sz)*0.75f, ox=scrollX(ph,sp);
-    float wr=SC*.24f*sc2, ws=SC*.55f*sc2;
-    float lw=ox-ws*.5f, rw=ox+ws*.5f, cy=0;
-    float rot=ph*0.07f;
-    for(int w=0;w<2;w++){
-        float wx=w?rw:lw;
-        circ_draw(o,n,m,wx,cy,wr,160,120,60,24);
-        for(int s=0;s<4;s++){float a=rot+PI2*s/4.f;ap(o,n,m,wx+cosf(a)*wr,cy+sinf(a)*wr,120,90,50,1);ap(o,n,m,wx,cy,120,90,50,0);}
-        circ_draw(o,n,m,wx,cy,wr*.15f,140,100,60,8);
-    }
-    float bbx=lw+ws*.45f, bby=cy;
-    line(o,n,m,bbx,bby,lw,cy,140,140,140,8);
-    line(o,n,m,bbx,bby,bbx,bby+wr*.8f,140,140,140,6);
-    line(o,n,m,bbx,bby+wr*.8f,rw-wr*.15f,cy+wr*.4f+wr*.5f,140,140,140,8);
-    line(o,n,m,bbx,bby,rw-wr*.15f,cy+wr*.4f+wr*.5f,140,140,140,8);
-    line(o,n,m,rw-wr*.15f,cy+wr*.4f+wr*.5f,rw-wr*.15f,cy+wr*.1f,140,140,140,6);
-    line(o,n,m,bbx-wr*.28f,bby+wr*.82f,bbx+wr*.28f,bby+wr*.82f,100,100,200,5);
-    float hbx=rw-wr*.15f, hby=cy+wr*.5f+wr*.5f;
-    line(o,n,m,hbx-wr*.22f,hby+wr*.35f,hbx+wr*.22f,hby+wr*.4f,180,180,255,5);
-    return n;
-}
-static size_t p97(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
-    size_t n=0; float sc2=ssc(sz)*0.82f, ox=scrollX(ph,sp);
-    float bank=sinf(ph*0.022f)*SC*.05f*sc2;
-    float fw=SC*.55f*sc2, fh=SC*.1f*sc2;
-    for(int i=0;i<=40;i++){float a=PI2*i/40.f;ap(o,n,m,ox+cosf(a)*fw,sinf(a)*fh+bank,220,230,255,i==0?1:0);}
-    line(o,n,m,ox+fw,bank,ox+fw*1.42f,bank,220,230,255,8);
-    float wy=ox-fw*.1f;
-    line(o,n,m,wy,bank-fh*.2f,wy-fw*1.3f,bank+fh*1.5f,220,230,255,14);
-    line(o,n,m,wy,bank+fh*.45f,wy-fw*1.3f,bank+fh*1.5f,200,210,240,6);
-    line(o,n,m,wy,bank-fh*.2f,wy+fw*.6f,bank+fh*1.5f,220,230,255,14);
-    line(o,n,m,wy,bank+fh*.45f,wy+fw*.6f,bank+fh*1.5f,200,210,240,6);
-    line(o,n,m,ox-fw*.82f,bank,ox-fw*1.0f,bank+fh*2.8f,200,210,255,8);
-    line(o,n,m,ox-fw*1.0f,bank+fh*2.8f,ox-fw*.6f,bank,200,210,255,5);
-    line(o,n,m,ox-fw*.72f,bank,ox-fw*1.18f,bank+fh*1.2f,200,210,255,8);
-    line(o,n,m,ox-fw*.72f,bank,ox-fw*.35f,bank+fh*1.2f,200,210,255,8);
-    for(int e=-1;e<=1;e+=2){float ex=ox+e*SC*.28f*sc2;circ_draw(o,n,m,ex,bank-fh*1.3f,fh*.65f,180,190,220,12);line(o,n,m,ex-fh,bank-fh*1.3f,ex+fh*1.8f,bank-fh*1.3f,180,190,220,8);}
-    for(int k=1;k<=5;k++){ap(o,n,m,ox-fw-SC*k*.07f*sc2,bank+(k%2?fh*.15f:-fh*.15f),210,220,255,1);ap(o,n,m,ox-fw-SC*(k+.5f)*.07f*sc2,bank,190,200,240,0);}
-    return n;
-}
-static size_t p98(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
-    size_t n=0; float sc2=ssc(sz)*0.72f, ox=scrollX(ph,sp);
-    float tw=SC*.18f*sc2, th=SC*.5f*sc2;
-    for(int i=0;i<=40;i++){float a=PI2*i/40.f;ap(o,n,m,ox+cosf(a)*tw,sinf(a)*th,200,110,50,i==0?1:0);}
-    line(o,n,m,ox-tw,th,ox,th+tw*1.5f,200,110,50,8);
-    line(o,n,m,ox+tw,th,ox,th+tw*1.5f,200,110,50,8);
-    for(int i=0;i<=30;i++){float a=PI2*i/30.f;ap(o,n,m,ox+tw*2.0f+cosf(a)*tw*.7f,sinf(a)*th*.6f+th*.25f,210,215,230,i==0?1:0);}
-    line(o,n,m,ox+tw*1.3f,th*.85f,ox+tw*2.7f,th*1.1f,210,215,230,6);
-    line(o,n,m,ox+tw*2.7f,th*1.1f,ox+tw*2.0f,th*1.35f,210,215,230,6);
-    line(o,n,m,ox+tw*1.3f,-th*.15f,ox+tw*3.4f,-th*.35f,180,185,210,10);
-    line(o,n,m,ox+tw*2.7f,th*.25f,ox+tw*3.4f,-th*.35f,180,185,210,6);
-    for(int i=0;i<=30;i++){float a=PI2*i/30.f;ap(o,n,m,ox-tw*2.0f+cosf(a)*tw*.55f,sinf(a)*th*.72f,215,215,215,i==0?1:0);}
-    float fl=th*.35f+th*.1f*fabsf(sinf(ph*0.22f));
-    for(int e=-1;e<=1;e++){float ex=ox+e*tw*.85f;line(o,n,m,ex-tw*.2f,-th,ex,-th-fl,255,(uint8_t)(100+50*fabsf(sinf(ph*.25f+e))),0,6);line(o,n,m,ex+tw*.2f,-th,ex,-th-fl,255,200,0,4);}
-    line(o,n,m,ox-tw*2.4f,-th*.72f,ox-tw*2.0f,-th*.72f-fl*.85f,255,150,0,6);
-    line(o,n,m,ox-tw*1.6f,-th*.72f,ox-tw*2.0f,-th*.72f-fl*.85f,255,210,0,4);
-    return n;
-}
-
 static size_t p99(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     size_t n=0; float sc2=SC*ssc(sz)*0.7f, ox=scrollX(ph,sp);
     line(o,n,m, ox-sc2,0,            ox+sc2,0,            200,200,255, 20);
@@ -1375,16 +1057,6 @@ static size_t p100(LaserPoint*o, size_t m, uint32_t ph, uint8_t sp, uint8_t sz) 
 }
 
 // ─── NEUE PRESETS 102-105 ───────────────────────────────────────
-// p102 Torus Knot (2,3) -- 2D projection: r(t)=R+cos(q*t), (R=2,q=3,p=2).
-// Peak radius R+1=3 -> normalized by 1/3. Single closed continuous curve,
-// uses csweep() like the other Curves-group presets (p22-p27).
-static size_t p102(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
-    size_t n=0;float sc=SC*ssc(sz)*.9f*(1.f/3.f);const int N=280;
-    for(int i=0;i<=N;i++){float t=csweep(ph,sp,i,N),r=2.f+cosf(3.f*t);
-        ap(o,n,m,sc*r*cosf(2.f*t),sc*r*sinf(2.f*t),0,220,255,i==0?1:0);}
-    return n;
-}
-
 // p103 Pentagram -- true 5/2 self-intersecting star polygon, single stroke.
 // Vertices placed at 144° (4*PI/5) spacing instead of the plain pentagon's
 // 72° -- connecting them in array order via a closed PathSegment produces
@@ -1598,7 +1270,7 @@ PresetClass presetClassOf(Preset p)
         case P::Lissajous3To4: case P::Lissajous3To5: case P::Lissajous5To6:
         case P::DoubleSpiral: case P::Rose3:
         case P::Rose4: case P::Cardioid: case P::Heart: case P::Infinity:
-        case P::Astroid: case P::Epitrochoid: case P::TorusKnot:
+        case P::Astroid: case P::Epitrochoid:
         case P::SineWave: case P::StandingWave: case P::MultiWave:
         case P::OceanWave: case P::WaveInterference: case P::Sawtooth:
         case P::SquareWave: case P::WavePacket: case P::BeatWave:
@@ -1608,7 +1280,7 @@ PresetClass presetClassOf(Preset p)
         case P::Hypotrochoid: case P::Butterfly: case P::Spirograph5To3:
         case P::ConcentricRings: case P::NestedSquares: case P::PulsingCircle:
         case P::Starburst: case P::ChaosBouncer: case P::LaserDiamond:
-        case P::ChampagneBubbles: case P::ConfettiBurst: case P::DiscoBall:
+        case P::ConfettiBurst: case P::DiscoBall:
         case P::Pentagram: case P::DnaHelix: case P::YinYang:
             return presets::PresetClass::Curves;
         // ── ThreeD: 3D wireframes ─────────────────────────────────────
@@ -1629,12 +1301,12 @@ const PresetInfo PRESETS[PRESET_COUNT] = {
     {"Rotating Cube","3D"},{"Static Cube","3D"},{"Pyramid","3D"},{"Octahedron","3D"},{"Tetrahedron","3D"},
     {"Sine Wave","Waves"},{"Standing Wave","Waves"},{"Multi Wave","Waves"},{"Ocean Wave","Waves"},{"Wave Interference","Waves"},{"Sawtooth","Waves"},{"Square Wave","Waves"},{"Wave Packet","Waves"},{"Beat Wave","Waves"},{"Radial Waves","Waves"},{"FM Wave","Waves"},{"Vortex","Waves"},{"Sine Helix","Waves"},{"Wave Field","Waves"},{"Fourier Square","Waves"},{"Gravity Waves","Waves"},{"Tsunami","Waves"},{"Wave Spectrum","Waves"},
     {"Hypotrochoid","Complex"},{"Butterfly","Complex"},{"Spirograph 5/3","Complex"},{"Concentric Rings","Complex"},{"Nested Squares","Complex"},{"Pulsing Circle","Complex"},
-    {"Starburst","Combo"},{"Chaos Bouncer","Combo"},{"Laser Diamond","Combo"},{"Champagne Bubbles","Combo"},{"Confetti Burst","Combo"},{"Disco Ball","Combo"},
-    {"Martini Glass","Party"},{"Wine Glass","Party"},{"Champagne Flute","Party"},{"Tropical Cocktail","Party"},{"Palm Tree","Party"},{"Flamingo","Party"},{"Tropical Fish","Party"},{"Water Splash","Party"},{"Pool Waves","Party"},{"Tropical Sun","Party"},{"Pineapple","Party"},{"Music Note","Party"},{"Balloon","Party"},{"Crown","Party"},{"Diamond","Party"},{"Cocktail Umbrella","Party"},{"Water Drop","Party"},{"Rising Bubbles","Party"},{"Confetti","Party"},{"Disco Ball 2","Party"},{"Sunset","Party"},{"Starfish","Party"},{"Hibiscus","Party"},{"Coconut Palm","Party"},{"Starburst Party","Party"},{"Party Finale","Party"},
+    {"Starburst","Combo"},{"Chaos Bouncer","Combo"},{"Laser Diamond","Combo"},{"Confetti Burst","Combo"},{"Disco Ball","Combo"},
+    {"Water Splash","Party"},{"Pool Waves","Party"},{"Tropical Sun","Party"},{"Music Note","Party"},{"Water Drop","Party"},{"Rising Bubbles","Party"},{"Confetti","Party"},{"Sunset","Party"},{"Hibiscus","Party"},{"Starburst Party","Party"},
     {"Starfield","Scenes"},
     {"Countdown Timer","Timers"},
-    {"Rocket","Vehicles"},{"Train","Vehicles"},{"Racing Car","Vehicles"},{"UFO","Vehicles"},{"Sailing Boat","Vehicles"},{"Bicycle","Vehicles"},{"Airplane","Vehicles"},{"Space Shuttle","Vehicles"},
-    {"Torus Knot","Curves"},{"Pentagram","Geometry"},{"DNA Helix","Complex"},{"Yin Yang","Symbols"},
+    {"Rocket","Vehicles"},{"Racing Car","Vehicles"},{"UFO","Vehicles"},
+    {"Pentagram","Geometry"},{"DNA Helix","Complex"},{"Yin Yang","Symbols"},
     {"Random Points","Scenes"},
     {"Three Circles","Geometry"},{"Point Spread","Scenes"},
 };
@@ -1647,12 +1319,12 @@ static const PFn DISPATCH[PRESET_COUNT] = {
     p29,p30,p31,p32,p33,
     p35,p36,p37,p38,p39,p40,p41,p42,p43,p44,p45,p46,p47,p48,p49,p50,p51,p52,
     p53,p54,p55,p56,p57,p58,
-    p59,p60,p61,p62,p63,p101,
-    p64,p65,p66,p67,p68,p69,p70,p71,p72,p73,p74,p75,p76,p77,p78,p79,p80,p81,p82,p83,p84,p85,p86,p87,p88,p89,
+    p59,p60,p61,p63,p101,
+    p71,p72,p73,p75,p80,p81,p82,p84,p86,p88,
     p90,
     p100,
-    p91,p92,p93,p94,p95,p96,p97,p98,
-    p102,p103,p104,p105,
+    p91,p93,p94,
+    p103,p104,p105,
     p106,
     p107,p108,
 };
@@ -1682,12 +1354,8 @@ static inline bool isStaticPreset(uint8_t idx) {
         case 11:  // X Shape
         case 12:  // Grid 3x3
         case 30:  // Static Cube
-        case 64:  // Martini Glass
-        case 65:  // Wine Glass
-        case 66:  // Champagne Flute
-        case 74:  // Pineapple
-        case 105: // Three Circles
-        case 106: // Point Spread
+        case 82:  // Three Circles
+        case 83:  // Point Spread
             return true;
         default:
             return false;

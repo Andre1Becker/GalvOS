@@ -3,7 +3,7 @@
 
 namespace presets {
 
-constexpr uint8_t PRESET_COUNT = 107;
+constexpr uint8_t PRESET_COUNT = 84;
 
 // Type-safe preset selection. Values are the raw dispatch index into
 // PRESETS[]/DISPATCH[] below and MUST stay in sync with the order of that
@@ -33,23 +33,19 @@ enum class Preset : int8_t {
     Hypotrochoid, Butterfly, Spirograph5To3, ConcentricRings,
     NestedSquares, PulsingCircle,
 
-    Starburst, ChaosBouncer, LaserDiamond, ChampagneBubbles,
-    ConfettiBurst, DiscoBall,
+    Starburst, ChaosBouncer, LaserDiamond, ConfettiBurst, DiscoBall,
 
-    MartiniGlass, WineGlass, ChampagneFlute, TropicalCocktail, PalmTree,
-    Flamingo, TropicalFish, WaterSplash, PoolWaves, TropicalSun,
-    Pineapple, MusicNote, Balloon, Crown, Diamond, CocktailUmbrella,
-    WaterDrop, RisingBubbles, Confetti, DiscoBall2, Sunset, Starfish,
-    Hibiscus, CoconutPalm, StarburstParty, PartyFinale,
+    WaterSplash, PoolWaves, TropicalSun,
+    MusicNote, WaterDrop, RisingBubbles, Confetti, Sunset,
+    Hibiscus, StarburstParty,
 
     Starfield,
 
     CountdownTimer,
 
-    Rocket, Train, RacingCar, Ufo, SailingBoat, Bicycle, Airplane,
-    SpaceShuttle,
+    Rocket, RacingCar, Ufo,
 
-    TorusKnot, Pentagram, DnaHelix, YinYang,
+    Pentagram, DnaHelix, YinYang,
 
     RandomPoints,
 
