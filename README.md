@@ -20,6 +20,10 @@
 - point to multi point spread out
 - Phyllotaxis bad output
 - New Pattern: Solar System
+- Remove Patterns: Champagne Bubbles, Wine Glass, Martini Glass, Champagne Flute, Tropical Cocktail, Palm Tree, Flamingo, Tropical Fish, Pineapple, Balloon, Crown, Diamond, Cocktail Umbrella, Disco Ball 2, Starfish, Coconut Palm, Party Finale, Train, Sailing Boat, Bicycle, Airplane, Space Shuttle, Torus Knot
+- Chaos Bouncer is now a Lissajous - needs fixing
+- Hypotrochoid ist a Star - needs fixing
+
 
 ### Text
 
