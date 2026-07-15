@@ -410,9 +410,14 @@ struct GalvoSnapshot {
 static GalvoSnapshot s_snap;
 
 // Called by galvoTask once per frame (not per point!)
-// Under mutex: < 200 ns, well within the 20µs frame budget
+// No mutex for scalar config fields: gain_r/g/b, thresh_r/g/b,
+// gamma_enable (uint8_t/bool) and dac_limit_min/max (uint16_t, aligned)
+// are atomically readable on Xtensa LX7. Taking mtx::config with timeout=0
+// caused permanent snapshot stalls when Core 0 (web_ui calib-live handler)
+// held the mutex during slider updates — gain/thresh changes were invisible
+// until re-arm. mtx::zone is retained for the polygon struct copy.
 static inline void updateSnapshot() {
-    if (xSemaphoreTake(mtx::config, 0) == pdTRUE) {
+    {
         s_snap.gain_r   = gConfig.gain_r;
         s_snap.gain_g   = gConfig.gain_g;
         s_snap.gain_b   = gConfig.gain_b;
@@ -422,7 +427,6 @@ static inline void updateSnapshot() {
         s_snap.thresh_b = gConfig.thresh_b;
         s_snap.dac_limit_min = gConfig.dac_limit_min;
         s_snap.dac_limit_max = gConfig.dac_limit_max;
-        xSemaphoreGive(mtx::config);
     }
     if (xSemaphoreTake(mtx::zone, 0) == pdTRUE) {
         s_snap.zone = gZone;   // polygon + count + enabled, copied atomically
