@@ -394,13 +394,13 @@ static inline void rgbWrite(uint8_t r, uint8_t g, uint8_t b,
  *     galvoTask sees the new value only at the next snapshot.
  * ============================================================ */
 struct GalvoSnapshot {
-    uint8_t  gain_r      = 115;
-    uint8_t  gain_g      =  43;
-    uint8_t  gain_b      = 255;
+    volatile uint8_t  gain_r      = 255;
+    volatile uint8_t  gain_g      =  255;
+    volatile uint8_t  gain_b      = 255;
     bool     gamma_en    = true;
-    uint8_t  thresh_r    = 143;
-    uint8_t  thresh_g    = 144;
-    uint8_t  thresh_b    = 169;
+    uint8_t  thresh_r    = 10;
+    uint8_t  thresh_g    = 8;
+    uint8_t  thresh_b    = 8;
     uint16_t dac_limit_min = 0x0666;
     uint16_t dac_limit_max = 0xF999;
     uint32_t period_us     = 33;   // derived from gProjection.galvo_kpps (12..60)
