@@ -663,7 +663,7 @@ static void IRAM_ATTR galvoTask(void*) {
  * Oeffentliche API
  * ============================================================ */
 void init() {
-    rebuildGammaLut(gConfig.gamma_val);
+    rebuildGammaLut(0.0f); // CIE 1931 LUT is compile-time const; argument ignored
     // ALWAYS allocate Ring-Buffer
     for (size_t i = 0; i < RING_FRAMES; i++) {
         if (!s_ring[i]) {
