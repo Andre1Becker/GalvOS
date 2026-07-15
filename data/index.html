@@ -109,6 +109,17 @@
     flex-shrink: 0; user-select: none; transition: all .15s;
   }
   .help-icon:hover { background: var(--accent); color: #000; }
+  /* Optimizer profile selector */
+  .opt-profile-bar { display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap; }
+  .opt-profile-btn { padding:6px 14px; border-radius:4px; border:1px solid var(--border);
+    background:var(--card); color:var(--dim); cursor:pointer; font-size:12px; transition:all .15s; }
+  .opt-profile-btn.active { background:var(--accent); color:#000; border-color:var(--accent); font-weight:600; }
+  /* Optimizer profile preview grid */
+  .opt-profile-previews { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:14px; }
+  .opt-profile-preview { background:rgba(0,0,0,.35); border:1px solid var(--border);
+    border-radius:6px; padding:8px; display:flex; flex-direction:column; align-items:center; gap:4px; }
+  .opt-profile-preview svg { width:80px; height:80px; display:block; }
+  .opt-profile-preview .opt-pp-label { font-size:10px; color:var(--dim); text-align:center; }
   .opt-group-label {
     font-size: 12px; font-weight: 700; color: var(--blue);
     text-transform: uppercase; letter-spacing: .03em;
@@ -123,23 +134,18 @@
   .param-preview { width: var(--param-preview-size); height: var(--param-preview-size); margin: 6px 0 12px; }
   .param-preview .pp-stage { position: relative; height: 62%; display: flex; align-items: center; justify-content: center; }
   .param-preview .pp-frame { position: absolute; inset: 3px; border: 1px dashed var(--border); border-radius: 6px; }
-  .param-preview .pp-dot { width: 22%; height: 22%; border-radius: 50%; background: var(--accent); opacity: .85; animation: ppGrow 4.5s ease-in-out infinite; }
-  .param-preview.toggle .pp-dot { width: 30%; height: 30%; animation: ppFade 4.5s ease-in-out infinite; }
+  .param-preview .pp-dot { width: 22%; height: 22%; border-radius: 50%; background: var(--accent); opacity: .85; }
+  .param-preview.toggle .pp-dot { width: 30%; height: 30%; }
   .param-preview .pp-track { position: relative; height: 18%; margin-top: 8%; }
   .param-preview .pp-track::before { content: ''; position: absolute; top: 50%; left: 6%; right: 6%; height: 2px; background: var(--border); transform: translateY(-50%); }
-  .param-preview .pp-thumb { position: absolute; top: 50%; left: 6%; width: 16%; aspect-ratio: 1; border-radius: 50%; background: var(--accent); transform: translateY(-50%); animation: ppSlide 4.5s ease-in-out infinite; }
-  @keyframes ppGrow  { 0%, 100% { transform: scale(.35); } 50% { transform: scale(1.55); } }
-  @keyframes ppFade  { 0%, 45% { opacity: .18; transform: scale(.6); } 55%, 100% { opacity: .9; transform: scale(1.1); } }
-  @keyframes ppSlide { 0%, 100% { left: 6%; } 50% { left: 78%; } }
+  .param-preview .pp-thumb { position: absolute; top: 50%; left: 6%; width: 16%; aspect-ratio: 1; border-radius: 50%; background: var(--accent); transform: translateY(-50%); } 50% { transform: scale(1.55); } } 55%, 100% { opacity: .9; transform: scale(1.1); } } 50% { left: 78%; } }
 
   /* Splits a long single-column parameter card into two balanced columns.
      Each .opt-col-block is one logical group (label + visuals + sliders)
      and never gets split across the column break. */
   .param-preview .pp-fx { width: 100%; height: 100%; display: block; }
-  .param-preview .pp-fx-bad  { animation: ppStateBad  4.5s ease-in-out infinite; }
-  .param-preview .pp-fx-good { animation: ppStateGood 4.5s ease-in-out infinite; }
-  @keyframes ppStateBad  { 0%, 15% { opacity: 1; } 40%, 60% { opacity: 0; } 85%, 100% { opacity: 1; } }
-  @keyframes ppStateGood { 0%, 15% { opacity: 0; } 40%, 60% { opacity: 1; } 85%, 100% { opacity: 0; } }
+  .param-preview .pp-fx-bad  { opacity: 0.25; }
+  .param-preview .pp-fx-good { opacity: 1; } 40%, 60% { opacity: 0; } 85%, 100% { opacity: 1; } } 40%, 60% { opacity: 1; } 85%, 100% { opacity: 0; } }
   .opt-columns { column-count: 2; column-gap: 28px; }
   .opt-col-block { break-inside: avoid; -webkit-column-break-inside: avoid; }
   @media (min-width: 900px) { .opt-columns { column-count: 3; } }
@@ -289,6 +295,7 @@
   <button data-tab="paint">🖌 Paint</button>
   <button data-tab="ilda">💿 ILDA / SD</button>
   <button data-tab="calib">⊹ Calibration</button>
+  <button data-tab="optimizer">📐 Optimizer</button>
   <button data-tab="projection">📐 Projection</button>
   <button data-tab="playlist">▶ Playlist</button>
   <button data-tab="thermal">🌡 Thermal</button>
@@ -2282,6 +2289,7 @@ function resetCurveParams() {
 // PROJECTION & GALVO RATE
 // ════════════════════════════════════════════════════════════════════════════
 
+let g_activeOptimizerProfile = 0;
 let g_proj = {
     kpps: 30, scan_angle_mech: 20, exit_angle: 15,
     ilda_test_angle: 8, laser_power_mw: 5000, distance_m: 3
@@ -3683,6 +3691,7 @@ function optimizerSlider() {
 
 async function sendOptimizerLive() {
     await apiCall('POST', '/api/optimizer-live', {
+        profile: g_activeOptimizerProfile,
         corner_angle_deg:    +document.getElementById('opt-cad').value,
         min_corner_pts:      +document.getElementById('opt-mincp').value,
         max_corner_pts:      +document.getElementById('opt-maxcp').value,
@@ -3771,6 +3780,23 @@ function applyOptimizerSmartDefaults() {
     optimizerSlider();
 }
 
+async function switchOptimizerProfile(idx) {
+    await apiCall('POST', '/api/optimizer-profile-switch', { profile: idx });
+    g_activeOptimizerProfile = idx;
+    const cfg = await apiCall('GET', '/api/config');
+    if (cfg && cfg.opt_profiles) loadOptimizerConfig(cfg);
+}
+
+function updateOptimizerProfileUI(activeIdx) {
+    const names = ['Simple', 'Curves', '3D', 'Scenes'];
+    for (let i = 0; i < 4; i++) {
+        const btn = document.getElementById('opt-prof-btn-' + i);
+        if (btn) btn.classList.toggle('active', i === activeIdx);
+    }
+    const lbl = document.getElementById('opt-active-profile-label');
+    if (lbl) lbl.textContent = names[activeIdx] || '';
+}
+
 function loadOptimizerConfig(cfg) {
     if (!cfg) return;
     // Calibration-tab markup sits after this <script> block in document
@@ -3783,26 +3809,32 @@ function loadOptimizerConfig(cfg) {
     const setText  = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
     const getVal   = (id) => { const el = document.getElementById(id); return el ? el.value : null; };
 
-    setVal('opt-cad',   cfg.opt_corner_angle_deg);
-    setVal('opt-mincp', cfg.opt_min_corner_pts);
-    setVal('opt-maxcp', cfg.opt_max_corner_pts);
-    setVal('opt-ppu',   Math.round(cfg.opt_pts_per_1000_units*10));
-    setVal('opt-minsp', cfg.opt_min_segment_pts);
-    setVal('opt-blank', cfg.opt_blank_samples);
-    setVal('opt-maxppf',cfg.opt_max_pts_per_frame);
-    setVal('opt-minbl', cfg.opt_min_blank_samples);
-    setVal('opt-blppu', Math.round(cfg.opt_blank_pts_per_1000_units*10));
-    setVal('opt-minip', cfg.opt_min_interior_pts_per_segment);
-    setVal('opt-s1tgt', cfg.opt_stage1_blank_target);
-    setCheck('opt-rs-en', !!cfg.opt_resample_enabled);
-    setVal('opt-rssp', Math.round(cfg.opt_resample_spacing_units));
-    setCheck('opt-ring-en', !!cfg.opt_ringing_comp_enabled);
-    setVal('opt-rngfq', cfg.opt_ring_freq_hz);
-    setVal('opt-rngdr', Math.round(cfg.opt_ring_damping_ratio*100));
-    setCheck('opt-vc-en', !!cfg.opt_vel_clamp_enabled);
-    setVal('opt-vcstp', Math.round(cfg.opt_max_step_units));
-    setCheck('opt-ac-en', !!cfg.opt_accel_clamp_enabled);
-    setVal('opt-acmax', Math.round(cfg.opt_max_accel_units));
+    // Read from profile array if available, fall back to top-level fields
+    const activeIdx = (cfg.opt_active_profile != null) ? cfg.opt_active_profile : g_activeOptimizerProfile;
+    g_activeOptimizerProfile = activeIdx;
+    const p = (cfg.opt_profiles && cfg.opt_profiles[activeIdx]) ? cfg.opt_profiles[activeIdx] : cfg;
+    updateOptimizerProfileUI(activeIdx);
+
+    setVal('opt-cad',   p.opt_corner_angle_deg);
+    setVal('opt-mincp', p.opt_min_corner_pts);
+    setVal('opt-maxcp', p.opt_max_corner_pts);
+    setVal('opt-ppu',   Math.round(p.opt_pts_per_1000_units*10));
+    setVal('opt-minsp', p.opt_min_segment_pts);
+    setVal('opt-blank', p.opt_blank_samples);
+    setVal('opt-maxppf',p.opt_max_pts_per_frame);
+    setVal('opt-minbl', p.opt_min_blank_samples);
+    setVal('opt-blppu', Math.round(p.opt_blank_pts_per_1000_units*10));
+    setVal('opt-minip', p.opt_min_interior_pts_per_segment);
+    setVal('opt-s1tgt', p.opt_stage1_blank_target);
+    setCheck('opt-rs-en', !!p.opt_resample_enabled);
+    setVal('opt-rssp', Math.round(p.opt_resample_spacing_units));
+    setCheck('opt-ring-en', !!p.opt_ringing_comp_enabled);
+    setVal('opt-rngfq', p.opt_ring_freq_hz);
+    setVal('opt-rngdr', Math.round(p.opt_ring_damping_ratio*100));
+    setCheck('opt-vc-en', !!p.opt_vel_clamp_enabled);
+    setVal('opt-vcstp', Math.round(p.opt_max_step_units));
+    setCheck('opt-ac-en', !!p.opt_accel_clamp_enabled);
+    setVal('opt-acmax', Math.round(p.opt_max_accel_units));
     // Update labels and force slider thumb repaint (hidden tab workaround).
     // optimizerSlider() is called without the debounced POST -- we only want
     // visual sync here, not an immediate /api/optimizer-live call on load.
@@ -3825,13 +3857,14 @@ function loadOptimizerConfig(cfg) {
     // Server-authoritative effective values (from applyPpsScaling() on the
     // device, at the current galvo_rated_kpps/galvo_kpps) -- not the client
     // mirror, so the initial display can never drift from firmware truth.
-    if (cfg.opt_eff_max_step_units != null && cfg.opt_eff_max_accel_units != null) {
+    const effSrc = (cfg.opt_profiles && cfg.opt_profiles[activeIdx]) ? cfg.opt_profiles[activeIdx] : cfg;
+    if (effSrc.opt_eff_max_step_units != null && effSrc.opt_eff_max_accel_units != null) {
         const outputKpps = g_proj ? g_proj.kpps : null;
         const kppsLabel = outputKpps ? (outputKpps + ' kpps') : '-- kpps';
-        setText('opt-vcstp-eff', 'Effective at ' + kppsLabel + ' (rated ' + s_galvoRatedKpps + 'k): ' + Math.round(cfg.opt_eff_max_step_units) + ' units/tick');
-        setText('opt-acmax-eff', 'Effective at ' + kppsLabel + ' (rated ' + s_galvoRatedKpps + 'k): ' + Math.round(cfg.opt_eff_max_accel_units) + ' units/tick\u00b2');
+        setText('opt-vcstp-eff', 'Effective at ' + kppsLabel + ' (rated ' + s_galvoRatedKpps + 'k): ' + Math.round(effSrc.opt_eff_max_step_units) + ' units/tick');
+        setText('opt-acmax-eff', 'Effective at ' + kppsLabel + ' (rated ' + s_galvoRatedKpps + 'k): ' + Math.round(effSrc.opt_eff_max_accel_units) + ' units/tick²');
     } else {
-        updateEffectivePpsDisplay();   // fallback: older firmware without opt_eff_* fields
+        updateEffectivePpsDisplay();
     }
     // Nudge each slider by +1/-1 to force the browser to repaint the thumb
     // at the correct position when the tab was hidden during initial load.
@@ -5765,142 +5798,6 @@ async function saveNtpConfig() {
 </div>
   </div>
 
-  <!-- ── Point Optimizer ─────────────────────────────────────────── -->
-  <div class="card" style="margin-top:16px">
-      <h2>📐 Point Optimizer</h2>
-      <p style="color:var(--dim);font-size:12px;margin-bottom:12px">
-        Adaptive point density &amp; blank-jump tuning for migrated presets
-        (ngon, wireframes). Changes apply live; click Save to persist across reboots.
-      </p>
-    <div class="opt-columns">
-      <div class="opt-col-block">
-      <div class="opt-group-label">Corner handling</div>
-      
-      <label>Corner angle threshold (°) <span id="opt-cad-val" style="color:var(--accent);font-family:monospace">25.0</span>
-        <span class="help-icon" title="Vertex angle below which a point counts as a sharp corner (0°=straight through, 180°=full U-turn). Detected corners get extra dwell points from Min/Max corner points below.">?</span>
-      </label>
-      <input type="range" id="opt-cad" min="0" max="180" step="1" value="25" oninput="optimizerSlider()">
-
-      <label>Min corner points <span id="opt-mincp-val" style="color:var(--accent);font-family:monospace">1</span>
-        <span class="help-icon" title="Minimum dwell points placed at every detected corner. Too low causes mechanical overshoot/rounding. Paired with Max corner points.">?</span>
-      </label>
-      <input type="range" id="opt-mincp" min="1" max="20" step="1" value="1" oninput="optimizerSlider()">
-
-      <label>Max corner points <span id="opt-maxcp-val" style="color:var(--accent);font-family:monospace">6</span>
-        <span class="help-icon" title="Upper cap on dwell points per corner. Higher gives a sharper corner but eats into the Max points/frame budget.">?</span>
-      </label>
-      <input type="range" id="opt-maxcp" min="1" max="20" step="1" value="6" oninput="optimizerSlider()">
-      </div>
-
-      <div class="opt-col-block">
-      <div class="opt-group-label">Interior density</div>
-      
-      <label>Interior density (pts / 1000 units) <span id="opt-ppu-val" style="color:var(--accent);font-family:monospace">4.0</span>
-        <span class="help-icon" title="Point density along straight/curved edges between corners. Low value gives visible faceting. Works together with Min segment points and Min interior pts/segment.">?</span>
-      </label>
-      <input type="range" id="opt-ppu" min="1" max="500" step="1" value="40" oninput="optimizerSlider()">
-
-      <label>Min segment points <span id="opt-minsp-val" style="color:var(--accent);font-family:monospace">2</span>
-        <span class="help-icon" title="Floor on total points per edge segment, regardless of Interior density. Keeps very short edges from getting only 1-2 points.">?</span>
-      </label>
-      <input type="range" id="opt-minsp" min="2" max="20" step="1" value="2" oninput="optimizerSlider()">
-
-      <label>Min interior pts / segment <span id="opt-minip-val" style="color:var(--accent);font-family:monospace">6</span>
-        <span class="help-icon" title="Minimum points inside a segment's interior, not counting its corner dwell points. Prevents overly sparse long straight lines even at low Interior density.">?</span>
-      </label>
-      <input type="range" id="opt-minip" min="0" max="50" step="1" value="6" oninput="optimizerSlider()">
-      </div>
-
-      <div class="opt-col-block">
-      <div class="opt-group-label">Frame budget</div>
-      <label>Max points / frame (flicker budget) <span id="opt-maxppf-val" style="color:var(--accent);font-family:monospace">310</span>
-        <span class="help-icon" title="Hard cap on total points per frame. If corner/interior/blank settings above would exceed it, the frame gets throttled instead of dropping geometry.">?</span>
-      </label>
-      <input type="range" id="opt-maxppf" min="50" max="2048" step="1" value="310" oninput="optimizerSlider()">
-      </div>
-
-      <div class="opt-col-block">
-      <div class="opt-group-label">Blank jumps (laser off)</div>
-      
-      <label>Blank samples (max) <span id="opt-blank-val" style="color:var(--accent);font-family:monospace">40</span>
-        <span class="help-icon" title="Max points inserted into a blanked jump between shapes. Higher gives a smoother galvo move but costs more of the frame budget. Related to Min blank samples and Stage1 blank target.">?</span>
-      </label>
-      <input type="range" id="opt-blank" min="1" max="100" step="1" value="40" oninput="optimizerSlider()">
-
-      <label>Min blank samples (floor) <span id="opt-minbl-val" style="color:var(--accent);font-family:monospace">8</span>
-        <span class="help-icon" title="Minimum points for even the shortest blank jump, so short jumps aren't rushed into a visible flash.">?</span>
-      </label>
-      <input type="range" id="opt-minbl" min="1" max="100" step="1" value="8" oninput="optimizerSlider()">
-
-      <label>Blank jump density (pts / 1000 units) <span id="opt-blppu-val" style="color:var(--accent);font-family:monospace">10.0</span>
-        <span class="help-icon" title="Point density for long blank jumps — the blanked equivalent of Interior density. Too low can leave a faint streak on long jumps.">?</span>
-      </label>
-      <input type="range" id="opt-blppu" min="1" max="500" step="1" value="100" oninput="optimizerSlider()">
-
-      <label>Stage1 blank target <span id="opt-s1tgt-val" style="color:var(--accent);font-family:monospace">20</span>
-        <span class="help-icon" title="Target point count for the first deceleration stage of a blank jump's S-curve ease. Shapes the ease-in/ease-out together with Blank samples.">?</span>
-      </label>
-      <input type="range" id="opt-s1tgt" min="1" max="100" step="1" value="20" oninput="optimizerSlider()">
-      </div>
-
-      <div class="opt-col-block">
-      <div class="opt-group-label">Resample (Phase 2)</div>
-      <label class="toggle"><input type="checkbox" id="opt-rs-en" onchange="optimizerSlider()"><span class="slider"></span>Enable constant spacing</label>
-
-      <label>Point spacing (units) <span id="opt-rssp-val" style="color:var(--accent);font-family:monospace">160</span>
-        <span class="help-icon" title="Target distance between interior points when constant spacing is enabled. Interior points per edge = length / spacing. Smaller = denser, more uniform galvo velocity. Overrides Pts per 1000 units while enabled.">?</span>
-      </label>
-      <input type="range" id="opt-rssp" min="10" max="2000" step="1" value="160" oninput="optimizerSlider()">
-      </div>
-
-      <div class="opt-col-block">
-      <div class="opt-group-label">Ringing compensation (Pillar 3)</div>
-      <label class="toggle"><input type="checkbox" id="opt-ring-en" onchange="optimizerSlider()"><span class="slider"></span>Enable ringing compensation</label>
-
-      <label>Ring frequency (Hz) <span id="opt-rngfq-val" style="color:var(--accent);font-family:monospace">200.0</span>
-        <span class="help-icon" title="Measured galvo mechanical resonance frequency (step-response capture on scope). Wrong value can make ringing worse -- measure before enabling.">?</span>
-      </label>
-      <input type="range" id="opt-rngfq" min="10" max="2000" step="1" value="200" oninput="optimizerSlider()">
-
-      <label>Ring damping ratio <span id="opt-rngdr-val" style="color:var(--accent);font-family:monospace">0.15</span>
-        <span class="help-icon" title="Measured damping ratio (zeta) of the galvo ringing decay. 0 = undamped, close to 1 = barely oscillates.">?</span>
-      </label>
-      <input type="range" id="opt-rngdr" min="0" max="90" step="1" value="15" oninput="optimizerSlider()">
-      </div>
-
-      <div class="opt-col-block">
-      <div class="opt-group-label">Scanner protection (Phase 4)</div>
-      <label class="toggle"><input type="checkbox" id="opt-vc-en" onchange="optimizerSlider()"><span class="slider"></span>Enable velocity clamp</label>
-
-      <label>Max step (units/tick) <span id="opt-vcstp-val" style="color:var(--accent);font-family:monospace">2000</span>
-        <span class="help-icon" title="Ceiling on per-sample galvo travel. Lit steps longer than this are subdivided so the mirror never lags a single large jump. Galvo-specific -- tune on hardware. Off = byte-identical output.">?</span>
-      </label>
-      <input type="range" id="opt-vcstp" min="10" max="4000" step="10" value="200" oninput="optimizerSlider()">
-      <div id="opt-vcstp-eff" style="font-size:10px;color:var(--dim);margin-top:2px">Effective at current PPS: --</div>
-
-      <label class="toggle"><input type="checkbox" id="opt-ac-en" onchange="optimizerSlider()"><span class="slider"></span>Enable acceleration clamp</label>
-
-      <label>Max accel (units/tick&sup2;) <span id="opt-acmax-val" style="color:var(--accent);font-family:monospace">800</span>
-        <span class="help-icon" title="Ceiling on how fast the beam may speed up between samples. Where the step size grows harder than this (typically ramping out of a corner) a midpoint is inserted. Requires velocity clamp reasoning -- tune on hardware.">?</span>
-      </label>
-      <input type="range" id="opt-acmax" min="10" max="4000" step="10" value="800" oninput="optimizerSlider()">
-      <div id="opt-acmax-eff" style="font-size:10px;color:var(--dim);margin-top:2px">Effective at current PPS: --</div>
-      <div style="font-size:10px;color:var(--dim);margin-top:4px;font-style:italic">
-        The values above are the tuned reference (apply exactly when output rate == galvo rated speed).
-        Effective values scale with the ratio of Galvo rated speed to Output Sample Rate (Projection tab) --
-        they will differ at 20k / 30k / 40k PPS even though the slider number itself doesn't move.
-      </div>
-      </div>
-      </div><!-- /opt-columns -->
-
-      <div class="btns" style="margin-top:12px">
-        <button class="btn secondary" onclick="saveOptimizerConfig()">💾 Save to flash</button>
-        <button class="btn secondary" onclick="applyOptimizerSmartDefaults()">⚙ Smart defaults</button>
-        <button class="btn secondary" onclick="resetOptimizerDefaults()">↺ Reset defaults</button>
-      </div>
-      <div id="opt-save-status" style="font-size:12px;color:var(--dim);margin-top:8px"></div>
-    </div>
-
   <!-- ── ILDA Standard Test Pattern ─────────────────────────────── -->
   <div class="card" style="margin-top:16px">
     <h2>📐 ILDA Standard Test Pattern</h2>
@@ -6352,14 +6249,7 @@ document.addEventListener('wheel', (e) => {
   slider.dispatchEvent(new Event('change', { bubbles: true }));
 }, { passive: false });
 // ============================================================
-// Output-parameter preview animations
-// Small looping SVG-free (pure CSS) widgets next to every control that
-// affects laser output, in: Point Optimizer and Galvo Calibration (live).
-// Explicitly excluded: Pattern Parameters tab (Global Controls + Wave
-// Parameters) -- kept animation-free per product decision.
-// Purely illustrative -- see .param-preview CSS. Runs after enhanceSliders()
-// (registration order) so the anchor lookup below can rely on the synced
-// number field already being in place.
+// Output-parameter preview widgets (static SVG, no animation).
 // ============================================================
 const PARAM_PREVIEWS = [
   // Point Optimizer
@@ -6672,6 +6562,230 @@ document.addEventListener('DOMContentLoaded', initParamPreviews);
   loadZone();
 })();
 </script>
+
+<section id="tab-optimizer" class="tab">
+  <div style="display:grid;grid-template-columns:240px 1fr;gap:16px;align-items:start">
+
+    <!-- ── Profile selector sidebar ── -->
+    <div>
+      <div class="card" style="margin-bottom:12px">
+        <h2 style="margin-bottom:12px">📐 Optimizer Profiles</h2>
+        <p style="font-size:11px;color:var(--dim);margin:0 0 14px">
+          Each preset class uses independent settings. The active profile
+          switches automatically when you select a preset.
+        </p>
+        <div class="opt-profile-bar" style="flex-direction:column">
+          <button class="opt-profile-btn" id="opt-prof-btn-0" onclick="switchOptimizerProfile(0)">◻ Simple</button>
+          <button class="opt-profile-btn" id="opt-prof-btn-1" onclick="switchOptimizerProfile(1)">〜 Curves</button>
+          <button class="opt-profile-btn" id="opt-prof-btn-2" onclick="switchOptimizerProfile(2)">⬡ 3D</button>
+          <button class="opt-profile-btn" id="opt-prof-btn-3" onclick="switchOptimizerProfile(3)">✦ Scenes</button>
+        </div>
+      </div>
+  <div class="card" style="margin-bottom:12px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <h3 style="margin:0;font-size:14px">◻ Simple — Geometry &amp; Lines</h3>
+      <span id="opt-profile-badge-0" style="font-size:10px;color:var(--dim);font-family:monospace"></span>
+    </div>
+    <div class="opt-profile-previews">
+      <div class="opt-profile-preview">
+        <svg viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg"><rect width="80" height="80" fill="none"/><polygon points="40,12 68,28 68,52 40,68 12,52 12,28" fill="none" stroke="var(--accent)" stroke-width="2"/><circle cx="40" cy="12" r="2" fill="var(--accent)"/><circle cx="68" cy="28" r="2" fill="var(--accent)"/><circle cx="68" cy="52" r="2" fill="var(--accent)"/><circle cx="40" cy="68" r="2" fill="var(--accent)"/><circle cx="12" cy="52" r="2" fill="var(--accent)"/><circle cx="12" cy="28" r="2" fill="var(--accent)"/></svg>
+        <span class="opt-pp-label">Circle / Hexagon</span>
+      </div>
+      <div class="opt-profile-preview">
+        <svg viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg"><rect width="80" height="80" fill="none"/><rect x="14" y="14" width="52" height="52" fill="none" stroke="var(--accent)" stroke-width="2"/><line x1="14" y1="14" x2="66" y2="66" stroke="var(--dim)" stroke-width="1"/><line x1="66" y1="14" x2="14" y2="66" stroke="var(--dim)" stroke-width="1"/><line x1="40" y1="14" x2="40" y2="66" stroke="var(--dim)" stroke-width="1"/><line x1="14" y1="40" x2="66" y2="40" stroke="var(--dim)" stroke-width="1"/></svg>
+        <span class="opt-pp-label">Grid 3×3</span>
+      </div>
+    </div>
+  </div>
+  <div class="card" style="margin-bottom:12px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <h3 style="margin:0;font-size:14px">〜 Curves — Spirals, Waves &amp; Complex</h3>
+      <span id="opt-profile-badge-1" style="font-size:10px;color:var(--dim);font-family:monospace"></span>
+    </div>
+    <div class="opt-profile-previews">
+      <div class="opt-profile-preview">
+        <svg viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg"><rect width="80" height="80" fill="none"/><path d="M40,40 m0,-24 a24,24 0 1,1 0,48 a24,24 0 1,1 0,-48" fill="none" stroke="var(--accent)" stroke-width="2"/><path d="M40,16 Q56,40 40,64 Q24,40 40,16" fill="none" stroke="var(--dim)" stroke-width="1.5" stroke-dasharray="3 2"/></svg>
+        <span class="opt-pp-label">Lissajous 1:2</span>
+      </div>
+      <div class="opt-profile-preview">
+        <svg viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg"><rect width="80" height="80" fill="none"/><path d="M8,40 Q14,10 20,40 Q26,70 32,40 Q38,10 44,40 Q50,70 56,40 Q62,10 68,40 Q74,70 80,40" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"/><path d="M8,60 Q20,20 32,60 Q44,20 56,60 Q68,20 80,60" fill="none" stroke="#444" stroke-width="1"/></svg>
+        <span class="opt-pp-label">Wave Interference</span>
+      </div>
+    </div>
+  </div>
+  <div class="card" style="margin-bottom:12px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <h3 style="margin:0;font-size:14px">⬡ 3D — Wireframes</h3>
+      <span id="opt-profile-badge-2" style="font-size:10px;color:var(--dim);font-family:monospace"></span>
+    </div>
+    <div class="opt-profile-previews">
+      <div class="opt-profile-preview">
+        <svg viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg"><rect width="80" height="80" fill="none"/><rect x="24" y="30" width="32" height="32" fill="none" stroke="var(--accent)" stroke-width="2"/><rect x="14" y="18" width="32" height="32" fill="none" stroke="var(--dim)" stroke-width="1.5"/><line x1="14" y1="18" x2="24" y2="30" stroke="var(--accent)" stroke-width="1.5"/><line x1="46" y1="18" x2="56" y2="30" stroke="var(--accent)" stroke-width="1.5"/><line x1="14" y1="50" x2="24" y2="62" stroke="var(--accent)" stroke-width="1.5"/><line x1="46" y1="50" x2="56" y2="62" stroke="var(--accent)" stroke-width="1.5"/></svg>
+        <span class="opt-pp-label">Static Cube</span>
+      </div>
+      <div class="opt-profile-preview">
+        <svg viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg"><rect width="80" height="80" fill="none"/><polygon points="40,8 72,26 72,56 40,72 8,56 8,26" fill="none" stroke="var(--accent)" stroke-width="2"/><line x1="40" y1="8" x2="40" y2="72" stroke="var(--dim)" stroke-width="1" stroke-dasharray="3 2"/><line x1="8" y1="26" x2="72" y2="56" stroke="var(--dim)" stroke-width="1" stroke-dasharray="3 2"/><line x1="72" y1="26" x2="8" y2="56" stroke="var(--dim)" stroke-width="1" stroke-dasharray="3 2"/></svg>
+        <span class="opt-pp-label">Torus Knot</span>
+      </div>
+    </div>
+  </div>
+  <div class="card" style="margin-bottom:12px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <h3 style="margin:0;font-size:14px">✦ Scenes — Particles &amp; Party</h3>
+      <span id="opt-profile-badge-3" style="font-size:10px;color:var(--dim);font-family:monospace"></span>
+    </div>
+    <div class="opt-profile-previews">
+      <div class="opt-profile-preview">
+        <svg viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg"><rect width="80" height="80" fill="none"/><circle cx="18" cy="22" r="2" fill="var(--accent)"/><circle cx="62" cy="15" r="2" fill="var(--accent)"/><circle cx="45" cy="38" r="2" fill="var(--accent)"/><circle cx="25" cy="55" r="2" fill="var(--accent)"/><circle cx="67" cy="48" r="2" fill="var(--accent)"/><circle cx="38" cy="68" r="2" fill="var(--accent)"/><circle cx="10" cy="65" r="2" fill="var(--accent)"/><circle cx="72" cy="70" r="2" fill="var(--accent)"/><circle cx="52" cy="58" r="1.5" fill="var(--dim)"/><circle cx="30" cy="32" r="1.5" fill="var(--dim)"/><circle cx="58" cy="30" r="1.5" fill="var(--dim)"/></svg>
+        <span class="opt-pp-label">Starfield</span>
+      </div>
+      <div class="opt-profile-preview">
+        <svg viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg"><rect width="80" height="80" fill="none"/><circle cx="40" cy="40" r="28" fill="none" stroke="var(--dim)" stroke-width="1" stroke-dasharray="2 3"/><line x1="40" y1="12" x2="40" y2="68" stroke="var(--accent)" stroke-width="2"/><line x1="12" y1="40" x2="68" y2="40" stroke="var(--accent)" stroke-width="2"/><line x1="20" y1="20" x2="60" y2="60" stroke="var(--accent)" stroke-width="2"/><line x1="60" y1="20" x2="20" y2="60" stroke="var(--accent)" stroke-width="2"/><line x1="13" y1="30" x2="67" y2="50" stroke="var(--dim)" stroke-width="1"/><line x1="13" y1="50" x2="67" y2="30" stroke="var(--dim)" stroke-width="1"/><circle cx="40" cy="40" r="4" fill="var(--accent)"/></svg>
+        <span class="opt-pp-label">Party Finale</span>
+      </div>
+    </div>
+  </div>
+    </div>
+
+    <!-- ── Slider panel ── -->
+    <div class="card">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
+        <h2 style="margin:0">Optimizer Settings</h2>
+        <span id="opt-active-profile-label" style="font-size:11px;padding:2px 8px;border-radius:10px;background:var(--accent);color:#000;font-weight:600"></span>
+      </div>
+      <p style="color:var(--dim);font-size:12px;margin-bottom:12px">
+        Changes apply live to the selected profile. Save to persist across reboots.
+      </p>
+<div class="opt-columns">
+      <div class="opt-col-block">
+      <div class="opt-group-label">Corner handling</div>
+      
+      <label>Corner angle threshold (°) <span id="opt-cad-val" style="color:var(--accent);font-family:monospace">25.0</span>
+        <span class="help-icon" title="Vertex angle below which a point counts as a sharp corner (0°=straight through, 180°=full U-turn). Detected corners get extra dwell points from Min/Max corner points below.">?</span>
+      </label>
+      <input type="range" id="opt-cad" min="0" max="180" step="1" value="25" oninput="optimizerSlider()">
+
+      <label>Min corner points <span id="opt-mincp-val" style="color:var(--accent);font-family:monospace">1</span>
+        <span class="help-icon" title="Minimum dwell points placed at every detected corner. Too low causes mechanical overshoot/rounding. Paired with Max corner points.">?</span>
+      </label>
+      <input type="range" id="opt-mincp" min="1" max="20" step="1" value="1" oninput="optimizerSlider()">
+
+      <label>Max corner points <span id="opt-maxcp-val" style="color:var(--accent);font-family:monospace">6</span>
+        <span class="help-icon" title="Upper cap on dwell points per corner. Higher gives a sharper corner but eats into the Max points/frame budget.">?</span>
+      </label>
+      <input type="range" id="opt-maxcp" min="1" max="20" step="1" value="6" oninput="optimizerSlider()">
+      </div>
+
+      <div class="opt-col-block">
+      <div class="opt-group-label">Interior density</div>
+      
+      <label>Interior density (pts / 1000 units) <span id="opt-ppu-val" style="color:var(--accent);font-family:monospace">4.0</span>
+        <span class="help-icon" title="Point density along straight/curved edges between corners. Low value gives visible faceting. Works together with Min segment points and Min interior pts/segment.">?</span>
+      </label>
+      <input type="range" id="opt-ppu" min="1" max="500" step="1" value="40" oninput="optimizerSlider()">
+
+      <label>Min segment points <span id="opt-minsp-val" style="color:var(--accent);font-family:monospace">2</span>
+        <span class="help-icon" title="Floor on total points per edge segment, regardless of Interior density. Keeps very short edges from getting only 1-2 points.">?</span>
+      </label>
+      <input type="range" id="opt-minsp" min="2" max="20" step="1" value="2" oninput="optimizerSlider()">
+
+      <label>Min interior pts / segment <span id="opt-minip-val" style="color:var(--accent);font-family:monospace">6</span>
+        <span class="help-icon" title="Minimum points inside a segment's interior, not counting its corner dwell points. Prevents overly sparse long straight lines even at low Interior density.">?</span>
+      </label>
+      <input type="range" id="opt-minip" min="0" max="50" step="1" value="6" oninput="optimizerSlider()">
+      </div>
+
+      <div class="opt-col-block">
+      <div class="opt-group-label">Frame budget</div>
+      <label>Max points / frame (flicker budget) <span id="opt-maxppf-val" style="color:var(--accent);font-family:monospace">310</span>
+        <span class="help-icon" title="Hard cap on total points per frame. If corner/interior/blank settings above would exceed it, the frame gets throttled instead of dropping geometry.">?</span>
+      </label>
+      <input type="range" id="opt-maxppf" min="50" max="2048" step="1" value="310" oninput="optimizerSlider()">
+      </div>
+
+      <div class="opt-col-block">
+      <div class="opt-group-label">Blank jumps (laser off)</div>
+      
+      <label>Blank samples (max) <span id="opt-blank-val" style="color:var(--accent);font-family:monospace">40</span>
+        <span class="help-icon" title="Max points inserted into a blanked jump between shapes. Higher gives a smoother galvo move but costs more of the frame budget. Related to Min blank samples and Stage1 blank target.">?</span>
+      </label>
+      <input type="range" id="opt-blank" min="1" max="100" step="1" value="40" oninput="optimizerSlider()">
+
+      <label>Min blank samples (floor) <span id="opt-minbl-val" style="color:var(--accent);font-family:monospace">8</span>
+        <span class="help-icon" title="Minimum points for even the shortest blank jump, so short jumps aren't rushed into a visible flash.">?</span>
+      </label>
+      <input type="range" id="opt-minbl" min="1" max="100" step="1" value="8" oninput="optimizerSlider()">
+
+      <label>Blank jump density (pts / 1000 units) <span id="opt-blppu-val" style="color:var(--accent);font-family:monospace">10.0</span>
+        <span class="help-icon" title="Point density for long blank jumps — the blanked equivalent of Interior density. Too low can leave a faint streak on long jumps.">?</span>
+      </label>
+      <input type="range" id="opt-blppu" min="1" max="500" step="1" value="100" oninput="optimizerSlider()">
+
+      <label>Stage1 blank target <span id="opt-s1tgt-val" style="color:var(--accent);font-family:monospace">20</span>
+        <span class="help-icon" title="Target point count for the first deceleration stage of a blank jump's S-curve ease. Shapes the ease-in/ease-out together with Blank samples.">?</span>
+      </label>
+      <input type="range" id="opt-s1tgt" min="1" max="100" step="1" value="20" oninput="optimizerSlider()">
+      </div>
+
+      <div class="opt-col-block">
+      <div class="opt-group-label">Resample (Phase 2)</div>
+      <label class="toggle"><input type="checkbox" id="opt-rs-en" onchange="optimizerSlider()"><span class="slider"></span>Enable constant spacing</label>
+
+      <label>Point spacing (units) <span id="opt-rssp-val" style="color:var(--accent);font-family:monospace">160</span>
+        <span class="help-icon" title="Target distance between interior points when constant spacing is enabled. Interior points per edge = length / spacing. Smaller = denser, more uniform galvo velocity. Overrides Pts per 1000 units while enabled.">?</span>
+      </label>
+      <input type="range" id="opt-rssp" min="10" max="2000" step="1" value="160" oninput="optimizerSlider()">
+      </div>
+
+      <div class="opt-col-block">
+      <div class="opt-group-label">Ringing compensation (Pillar 3)</div>
+      <label class="toggle"><input type="checkbox" id="opt-ring-en" onchange="optimizerSlider()"><span class="slider"></span>Enable ringing compensation</label>
+
+      <label>Ring frequency (Hz) <span id="opt-rngfq-val" style="color:var(--accent);font-family:monospace">200.0</span>
+        <span class="help-icon" title="Measured galvo mechanical resonance frequency (step-response capture on scope). Wrong value can make ringing worse -- measure before enabling.">?</span>
+      </label>
+      <input type="range" id="opt-rngfq" min="10" max="2000" step="1" value="200" oninput="optimizerSlider()">
+
+      <label>Ring damping ratio <span id="opt-rngdr-val" style="color:var(--accent);font-family:monospace">0.15</span>
+        <span class="help-icon" title="Measured damping ratio (zeta) of the galvo ringing decay. 0 = undamped, close to 1 = barely oscillates.">?</span>
+      </label>
+      <input type="range" id="opt-rngdr" min="0" max="90" step="1" value="15" oninput="optimizerSlider()">
+      </div>
+
+      <div class="opt-col-block">
+      <div class="opt-group-label">Scanner protection (Phase 4)</div>
+      <label class="toggle"><input type="checkbox" id="opt-vc-en" onchange="optimizerSlider()"><span class="slider"></span>Enable velocity clamp</label>
+
+      <label>Max step (units/tick) <span id="opt-vcstp-val" style="color:var(--accent);font-family:monospace">2000</span>
+        <span class="help-icon" title="Ceiling on per-sample galvo travel. Lit steps longer than this are subdivided so the mirror never lags a single large jump. Galvo-specific -- tune on hardware. Off = byte-identical output.">?</span>
+      </label>
+      <input type="range" id="opt-vcstp" min="10" max="4000" step="10" value="200" oninput="optimizerSlider()">
+      <div id="opt-vcstp-eff" style="font-size:10px;color:var(--dim);margin-top:2px">Effective at current PPS: --</div>
+
+      <label class="toggle"><input type="checkbox" id="opt-ac-en" onchange="optimizerSlider()"><span class="slider"></span>Enable acceleration clamp</label>
+
+      <label>Max accel (units/tick&sup2;) <span id="opt-acmax-val" style="color:var(--accent);font-family:monospace">800</span>
+        <span class="help-icon" title="Ceiling on how fast the beam may speed up between samples. Where the step size grows harder than this (typically ramping out of a corner) a midpoint is inserted. Requires velocity clamp reasoning -- tune on hardware.">?</span>
+      </label>
+      <input type="range" id="opt-acmax" min="10" max="4000" step="10" value="800" oninput="optimizerSlider()">
+      <div id="opt-acmax-eff" style="font-size:10px;color:var(--dim);margin-top:2px">Effective at current PPS: --</div>
+      <div style="font-size:10px;color:var(--dim);margin-top:4px;font-style:italic">
+        The values above are the tuned reference (apply exactly when output rate == galvo rated speed).
+        Effective values scale with the ratio of Galvo rated speed to Output Sample Rate (Projection tab) --
+        they will differ at 20k / 30k / 40k PPS even though the slider number itself doesn't move.
+      </div>
+      </div>
+      </div><!-- /opt-columns -->
+
+      <div class="btns" style="margin-top:12px">
+        <button class="btn secondary" onclick="saveOptimizerConfig()">💾 Save to flash</button>
+        <button class="btn secondary" onclick="applyOptimizerSmartDefaults()">⚙ Smart defaults</button>
+        <button class="btn secondary" onclick="resetOptimizerDefaults()">↺ Reset defaults</button>
+      </div>
+      <div id="opt-save-status" style="font-size:12px;color:var(--dim);margin-top:8px"></div>
+    </div>
+  </div>
+</section>
 
 <section id="tab-playlist" class="tab">
   <div class="grid cols-2">
