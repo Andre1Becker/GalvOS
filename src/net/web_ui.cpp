@@ -135,7 +135,6 @@ static void persistConfig() {
     s_prefs.putUChar("thresh_g",    gConfig.thresh_g);
     s_prefs.putUChar("thresh_b",    gConfig.thresh_b);
     s_prefs.putBool ("gamma_en",    gConfig.gamma_enable);
-    s_prefs.putFloat("gamma_val",   gConfig.gamma_val);
     s_prefs.putUChar("gain_g",      gConfig.gain_g);
     s_prefs.putUChar("gain_b",      gConfig.gain_b);
     s_prefs.putString("ssid",       gConfig.wifi_ssid);
@@ -472,10 +471,6 @@ void init() {
             if (doc["thresh_g"].is<int>()) gConfig.thresh_g = doc["thresh_g"];
             if (doc["thresh_b"].is<int>()) gConfig.thresh_b = doc["thresh_b"];
             if (doc["gamma_enable"].is<bool>()) gConfig.gamma_enable = doc["gamma_enable"];
-            if (doc["gamma_val"].is<float>()) {
-                gConfig.gamma_val = constrain((float)doc["gamma_val"], 1.0f, 3.0f);
-                galvo::rebuildGammaLut(gConfig.gamma_val);
-            }
             if (doc["dac_limit_min"].is<int>() && doc["dac_limit_max"].is<int>()) {
                 int lo = constrain((int)doc["dac_limit_min"], 0, 65535);
                 int hi = constrain((int)doc["dac_limit_max"], 0, 65535);

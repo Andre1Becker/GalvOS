@@ -305,19 +305,34 @@ static volatile int      s_raw_cmd_result = -1;  // -1=pending, 0=fail, 1=ok
  *   B: 3000mW × sens(445nm,0.040) = 120 mW_vis → gain=255
  * All three channels deliver ~120 mW_vis at full drive.
  * ============================================================ */
-// PROGMEM is a no-op on ESP32 (no AVR Harvard split) -- plain DRAM array.
-static uint8_t GAMMA_LUT[256];
+// CIE 1931 perceptual brightness LUT.
+// Maps linear input 0-255 to perceptually uniform output 0-255.
+// Formula: L* = 12.92·Y for Y≤0.0031308, else 1.055·Y^(1/2.4)−0.055
+// Generated once at build time; no runtime powf() needed.
+static const uint8_t kCie1931[256] = {
+      0,  13,  22,  28,  34,  38,  42,  46,  50,  53,  56,  59,  61,  64,  66,  69,
+     71,  73,  75,  77,  79,  81,  83,  85,  86,  88,  90,  92,  93,  95,  96,  98,
+     99, 101, 102, 104, 105, 106, 108, 109, 110, 112, 113, 114, 115, 117, 118, 119,
+    120, 121, 122, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136,
+    137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 148, 149, 150, 151,
+    152, 153, 154, 155, 155, 156, 157, 158, 159, 159, 160, 161, 162, 163, 163, 164,
+    165, 166, 167, 167, 168, 169, 170, 170, 171, 172, 173, 173, 174, 175, 175, 176,
+    177, 178, 178, 179, 180, 180, 181, 182, 182, 183, 184, 185, 185, 186, 187, 187,
+    188, 189, 189, 190, 190, 191, 192, 192, 193, 194, 194, 195, 196, 196, 197, 197,
+    198, 199, 199, 200, 200, 201, 202, 202, 203, 203, 204, 205, 205, 206, 206, 207,
+    208, 208, 209, 209, 210, 210, 211, 212, 212, 213, 213, 214, 214, 215, 215, 216,
+    216, 217, 218, 218, 219, 219, 220, 220, 221, 221, 222, 222, 223, 223, 224, 224,
+    225, 226, 226, 227, 227, 228, 228, 229, 229, 230, 230, 231, 231, 232, 232, 233,
+    233, 234, 234, 235, 235, 236, 236, 237, 237, 238, 238, 238, 239, 239, 240, 240,
+    241, 241, 242, 242, 243, 243, 244, 244, 245, 245, 246, 246, 246, 247, 247, 248,
+    248, 249, 249, 250, 250, 251, 251, 251, 252, 252, 253, 253, 254, 254, 255, 255,
+};
 
-// Rebuilds GAMMA_LUT for the given gamma exponent (gConfig.gamma_val, 1.0-3.0).
-// Call once at boot (galvo::init) and again whenever gamma_val changes via /api/config.
-void rebuildGammaLut(float gamma) {
-    for (int v = 0; v < 256; v++) {
-        GAMMA_LUT[v] = (uint8_t)(255.0f * powf(v / 255.0f, gamma) + 0.5f);
-    }
-}
+// No-op stub — kept for link compatibility. CIE 1931 LUT is compile-time const.
+void rebuildGammaLut(float /*gamma*/) {}
 
 static inline uint8_t applyGamma(uint8_t v) {
-    return gConfig.gamma_enable ? GAMMA_LUT[v] : v;
+    return gConfig.gamma_enable ? kCie1931[v] : v;
 }
 
 /* ============================================================

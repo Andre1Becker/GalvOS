@@ -232,8 +232,7 @@ struct RuntimeConfig {
     uint8_t   gain_r = 115;   // 1000mW × 45% × 0.265 ≈ 120 mW_vis ✓
     uint8_t   gain_g =  43;   // 1000mW × 17% × 0.710 ≈ 120 mW_vis ✓
     uint8_t   gain_b = 255;   // 3000mW ×100% × 0.040 = 120 mW_vis ✓
-    bool      gamma_enable = true;   // gamma correction γ=2.2
-    float     gamma_val    = 2.2f;   // adjustable 1.0–3.0 via WebUI
+    bool      gamma_enable = true;   // perceptual brightness correction (CIE 1931)
 
     // Visibility threshold ("Basiswert") per color: lowest final PWM duty
     // at which the laser diode driver actually emits visible light -- below

@@ -75,7 +75,6 @@ static void loadConfig() {
     gConfig.thresh_g        = s_prefs.getUChar("thresh_g", 144);
     gConfig.thresh_b        = s_prefs.getUChar("thresh_b", 169);
     gConfig.gamma_enable    = s_prefs.getBool ("gamma_en", true);
-    gConfig.gamma_val       = s_prefs.getFloat("gamma_val", 2.2f);
     gOptimizerConfig.corner_angle_deg   = s_prefs.getFloat("opt_cad",   25.0f);
     gOptimizerConfig.min_corner_pts     = s_prefs.getUChar("opt_mincp", 1);
     gOptimizerConfig.max_corner_pts     = s_prefs.getUChar("opt_maxcp", 6);
