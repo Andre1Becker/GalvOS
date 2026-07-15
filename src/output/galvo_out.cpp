@@ -619,7 +619,15 @@ static void IRAM_ATTR galvoTask(void*) {
                     uint8_t r = (uint8_t)(((uint32_t)p.r * dimEff * s_snap.gain_r) / (255UL * 255));
                     uint8_t g = (uint8_t)(((uint32_t)p.g * dimEff * s_snap.gain_g) / (255UL * 255));
                     uint8_t b = (uint8_t)(((uint32_t)p.b * dimEff * s_snap.gain_b) / (255UL * 255));
-                    rgbWrite(r, g, b, s_snap.thresh_r, s_snap.thresh_g, s_snap.thresh_b);
+                    // Three Circles gain-matching pattern bypasses the threshold
+                    // floor so that mapVisibleRange() does not mask gain changes
+                    // (even a tiny logical value would otherwise be lifted to
+                    // ~thresh, making all gains look equally bright).
+                    if (gState.calib_no_thresh) {
+                        rgbWrite(r, g, b, 0, 0, 0);
+                    } else {
+                        rgbWrite(r, g, b, s_snap.thresh_r, s_snap.thresh_g, s_snap.thresh_b);
+                    }
                     s_laser_off_hold = LASER_OFF_HOLD_TICKS;
                 }
             }

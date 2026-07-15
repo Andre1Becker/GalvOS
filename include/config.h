@@ -314,6 +314,10 @@ struct RuntimeState {
     // Start/Stop button in the Calib tab's Parameter card.
     volatile bool          calib_thresh_test = false;
     volatile uint8_t       calib_thresh_ch   = 0;      // 0=RGB,1=R,2=G,3=B
+    // Three Circles gain-matching pattern: skip mapVisibleRange() so gain
+    // changes are not masked by the threshold floor. Set by /api/calib-pattern
+    // when idx==6, cleared on stop or any other pattern selection.
+    volatile bool          calib_no_thresh   = false;
 };
 
 extern RuntimeState gState;

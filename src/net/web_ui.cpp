@@ -1138,7 +1138,8 @@ void init() {
     // POST /api/calib-pattern/stop  (registered first — avoids prefix match)
     s_server.on("/api/calib-pattern/stop", HTTP_POST,
         [](AsyncWebServerRequest* req) {
-            gState.calib_active = false;
+            gState.calib_active    = false;
+            gState.calib_no_thresh = false;
             // Release calib-forced dimmer only if no real DMX source active
             if (gState.master_dimmer.load() == 0)
                 gState.ui_master_dimmer.store(0);
@@ -1175,13 +1176,19 @@ void init() {
             if (doc["idx"].is<int>())       gState.calib_idx     = constrain((int)doc["idx"], 0, calib_patterns::CALIB_PATTERN_COUNT-1);
             if (doc["bright"].is<int>())    gState.calib_bright  = doc["bright"];
             if (doc["channel"].is<int>())   gState.calib_channel = constrain((int)doc["channel"], 0, 3);
+            // Three Circles (idx 6): skip mapVisibleRange() threshold floor so
+            // gain slider changes are not masked. All other patterns use the
+            // normal threshold-remapped output path.
+            gState.calib_no_thresh = (gState.calib_active && gState.calib_idx == 6);
             // Calib mode enabled -> disable ILDA and text
-           if (gState.calib_active) {
+            if (gState.calib_active) {
                 ilda::stop();
                 gTextConfig.active = false;
-                // Ensure beam is active during calibration even without DMX
-                if (gState.ui_master_dimmer.load() == 0)
-                    gState.ui_master_dimmer.store(200);
+                // Three Circles needs full dimmer so gain spans its full visible
+                // range; other patterns use 200 to leave headroom.
+                const uint8_t dimTarget = (gState.calib_idx == 6) ? 255 : 200;
+                if (gState.ui_master_dimmer.load() < dimTarget)
+                    gState.ui_master_dimmer.store(dimTarget);
             }
             req->send(200, "text/plain", "OK");
         });
@@ -1189,7 +1196,8 @@ void init() {
     // POST /api/calib-pattern/stop
     s_server.on("/api/calib-pattern/stop", HTTP_POST,
         [](AsyncWebServerRequest* req) {
-            gState.calib_active = false;
+            gState.calib_active    = false;
+            gState.calib_no_thresh = false;
             req->send(200, "text/plain", "OK");
         });
 
