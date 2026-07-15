@@ -31,8 +31,6 @@
 - Typewriter runs once only
 - Orbit: switch rotation direction
 - Star Wars Scroll: flow direction wrong, Text only Dots
-- Concentric Rings: while zooming out, outer circle gets smaller (3/4s to 1/3)
-- Nested Squares: only 2 1/2 Squares (outer ons) visible
 
 ### Calibration
 

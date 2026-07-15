@@ -3737,6 +3737,40 @@ function resetOptimizerDefaults() {
     optimizerSlider();
 }
 
+function applyOptimizerSmartDefaults() {
+    const maxPpf   = +document.getElementById('opt-maxppf').value || 1300;
+    const output   = g_proj ? g_proj.kpps : 30;
+    const rated    = s_galvoRatedKpps || 15;
+    const r        = (rated > 0 && output > 0) ? rated / output : 1;
+    // Point density scales inversely with speed ratio
+    const ppu      = Math.round(6.0 / r * 10);           // slider ×10 encoding
+    // Step/accel: derive from frame budget and speed ratio
+    const stepBase = Math.min(4000, Math.max(10, Math.round(65535 / maxPpf * 4 / r)));
+    const accelBase= Math.min(4000, Math.max(10, Math.round(stepBase * 4)));
+
+    document.getElementById('opt-cad').value   = 25;
+    document.getElementById('opt-mincp').value = 2;
+    document.getElementById('opt-maxcp').value = 8;
+    document.getElementById('opt-ppu').value   = ppu;
+    document.getElementById('opt-minsp').value = 2;
+    document.getElementById('opt-blank').value = 18;
+    document.getElementById('opt-maxppf').value= maxPpf;
+    document.getElementById('opt-minbl').value = 6;
+    document.getElementById('opt-blppu').value = 80;   // 8.0 ×10
+    document.getElementById('opt-minip').value = 8;
+    document.getElementById('opt-s1tgt').value = 18;
+    document.getElementById('opt-rs-en').checked = false;
+    document.getElementById('opt-rssp').value  = 160;
+    document.getElementById('opt-ring-en').checked = false;
+    document.getElementById('opt-rngfq').value = 200;
+    document.getElementById('opt-rngdr').value = 15;
+    document.getElementById('opt-vc-en').checked  = false;
+    document.getElementById('opt-vcstp').value = stepBase;
+    document.getElementById('opt-ac-en').checked  = false;
+    document.getElementById('opt-acmax').value = accelBase;
+    optimizerSlider();
+}
+
 function loadOptimizerConfig(cfg) {
     if (!cfg) return;
     // Calibration-tab markup sits after this <script> block in document
@@ -5841,7 +5875,7 @@ async function saveNtpConfig() {
       <label>Max step (units/tick) <span id="opt-vcstp-val" style="color:var(--accent);font-family:monospace">2000</span>
         <span class="help-icon" title="Ceiling on per-sample galvo travel. Lit steps longer than this are subdivided so the mirror never lags a single large jump. Galvo-specific -- tune on hardware. Off = byte-identical output.">?</span>
       </label>
-      <input type="range" id="opt-vcstp" min="10" max="500" step="5" value="200" oninput="optimizerSlider()">
+      <input type="range" id="opt-vcstp" min="10" max="4000" step="10" value="200" oninput="optimizerSlider()">
       <div id="opt-vcstp-eff" style="font-size:10px;color:var(--dim);margin-top:2px">Effective at current PPS: --</div>
 
       <label class="toggle"><input type="checkbox" id="opt-ac-en" onchange="optimizerSlider()"><span class="slider"></span>Enable acceleration clamp</label>
@@ -5861,6 +5895,7 @@ async function saveNtpConfig() {
 
       <div class="btns" style="margin-top:12px">
         <button class="btn secondary" onclick="saveOptimizerConfig()">💾 Save to flash</button>
+        <button class="btn secondary" onclick="applyOptimizerSmartDefaults()">⚙ Smart defaults</button>
         <button class="btn secondary" onclick="resetOptimizerDefaults()">↺ Reset defaults</button>
       </div>
       <div id="opt-save-status" style="font-size:12px;color:var(--dim);margin-top:8px"></div>
