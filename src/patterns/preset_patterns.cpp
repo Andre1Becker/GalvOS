@@ -1292,7 +1292,17 @@ static size_t p_bouncing(LaserPoint* o, size_t m, uint32_t ph, uint8_t sp, uint8
     const uint8_t  trailLen = (gLivePreset.trail < BP_TRAIL_MAX) ? gLivePreset.trail : BP_TRAIL_MAX;
     const bool     endless  = gLivePreset.bp_endless;
     const uint32_t durMs    = (uint32_t)gLivePreset.bp_duration_sec * 1000u;
-    const bool     expired  = (!endless && elapsed >= durMs);
+    // Time-limited mode: run for durMs, then go dark for durMs, then
+    // auto-restart at a new random position (re-seed next cycle).
+    bool expired = false;
+    if (!endless && durMs > 0) {
+        const uint32_t cycle = elapsed % (durMs * 2u);
+        expired = (cycle >= durMs);
+        if (cycle < durMs && elapsed >= durMs) {
+            // Crossed into a new run phase -- re-seed balls
+            seeded = false;
+        }
+    }
 
     // Number of active balls: 1..BP_MAX_BALLS mapped from sz
     int nBalls = 1 + (int)((sz / 255.f) * (BP_MAX_BALLS - 1));
@@ -1324,16 +1334,23 @@ static size_t p_bouncing(LaserPoint* o, size_t m, uint32_t ph, uint8_t sp, uint8
                 b.init = true;
                 for (int t = 0; t < BP_TRAIL_MAX; t++) { b.trailX[t] = b.x; b.trailY[t] = b.y; }
             }
-            // Shift trail history
-            for (int t = BP_TRAIL_MAX - 1; t > 0; t--) {
-                b.trailX[t] = b.trailX[t - 1];
-                b.trailY[t] = b.trailY[t - 1];
-            }
-            b.trailX[0] = b.x;
-            b.trailY[0] = b.y;
-            // Integrate
+            // Integrate first, then record trail only when ball moved
+            // enough -- prevents all trail slots collapsing to the same
+            // point at high frame rates.
             b.x += b.vx * spd * (float)dtMs;
             b.y += b.vy * spd * (float)dtMs;
+            {
+                float tdx = b.x - b.trailX[0], tdy = b.y - b.trailY[0];
+                const float kTrailStep2 = 400.f; // shift when moved >20 units
+                if (tdx*tdx + tdy*tdy >= kTrailStep2) {
+                    for (int t = BP_TRAIL_MAX - 1; t > 0; t--) {
+                        b.trailX[t] = b.trailX[t - 1];
+                        b.trailY[t] = b.trailY[t - 1];
+                    }
+                    b.trailX[0] = b.x;
+                    b.trailY[0] = b.y;
+                }
+            }
             // Bounce
             if (b.x >  boundary) { b.x =  2.f * boundary - b.x; b.vx = -fabsf(b.vx); }
             if (b.x < -boundary) { b.x = -2.f * boundary - b.x; b.vx =  fabsf(b.vx); }
@@ -1343,6 +1360,7 @@ static size_t p_bouncing(LaserPoint* o, size_t m, uint32_t ph, uint8_t sp, uint8
     }
 
     // ── Output ────────────────────────────────────────────────────────────
+    if (expired) return 0;   // dark phase: beam off, balls invisible
     const optimizer::OptimizerConfig cfg = liveOptimizerConfig();
     uint16_t kpps = gProjection.galvo_kpps;
     if (kpps < 12) kpps = 12; if (kpps > 60) kpps = 60;
