@@ -1053,7 +1053,7 @@ static size_t p104(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
         for(int i=0;i<=NS;i++){
             float t=(float)i/NS, x=L(-sc,sc,t), a=t*PI2*TURNS+off;
             verts[i].x=x; verts[i].y=amp*sinf(a);
-            verts[i].r=0; verts[i].g=180; verts[i].b=255;
+            verts[i].r=0; verts[i].g=255; verts[i].b=255;
             verts[i].lift=(i==0);
         }
         optimizer::PathSegment seg(verts,(size_t)(NS+1),/*closed=*/false);
@@ -1065,7 +1065,7 @@ static size_t p104(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
         for(int i=0;i<=NS;i++){
             float t=(float)i/NS, x=L(-sc,sc,t), a=t*PI2*TURNS+off+(float)M_PI;
             verts[i].x=x; verts[i].y=amp*sinf(a);
-            verts[i].r=255; verts[i].g=0; verts[i].b=150;
+            verts[i].r=255; verts[i].g=0; verts[i].b=255;
             verts[i].lift=(i==0);
         }
         optimizer::PathSegment seg(verts,(size_t)(NS+1),/*closed=*/false);
@@ -1255,15 +1255,15 @@ static size_t p_solar(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
 
     for(int i=0;i<48;i++){
         float a=PI2*i/48.f;
-        vSun[i]=optimizer::PathVertex(cosf(a)*rSun,sinf(a)*rSun,255,220,80,i==0);
+        vSun[i]=optimizer::PathVertex(cosf(a)*rSun,sinf(a)*rSun,255,255,0,i==0);
     }
     for(int i=0;i<36;i++){
         float a=PI2*i/36.f;
-        vPla[i]=optimizer::PathVertex(px+cosf(a)*rPla,py+sinf(a)*rPla,40,160,255,i==0);
+        vPla[i]=optimizer::PathVertex(px+cosf(a)*rPla,py+sinf(a)*rPla,0,0,255,i==0);
     }
     for(int i=0;i<24;i++){
         float a=PI2*i/24.f;
-        vMoo[i]=optimizer::PathVertex(mx_+cosf(a)*rMoo,my_+sinf(a)*rMoo,220,60,220,i==0);
+        vMoo[i]=optimizer::PathVertex(mx_+cosf(a)*rMoo,my_+sinf(a)*rMoo,255,0,255,i==0);
     }
 
     optimizer::PathSegment segs[3] = {
