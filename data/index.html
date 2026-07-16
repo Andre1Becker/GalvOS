@@ -430,7 +430,7 @@
     <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;align-items:start">
 
       <!-- Col 1: Speed / Size / Rotation Z -->
-      <div>
+      <div style="padding:10px;background:#050510;border:1px solid var(--border);border-radius:6px">
         <div style="margin-bottom:8px">
           <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:3px">
             <span id="lv-sp-label">Speed</span><span id="lv-sp-val" style="color:var(--accent);font-family:monospace">80</span>
@@ -532,8 +532,9 @@
         </div>
       </div>
 
-      <!-- Col 3: Color -->
-      <div>
+      <!-- Col 3: Color + Color Animations -->
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <div style="padding:10px;background:#050510;border:1px solid var(--border);border-radius:6px">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
           <span style="font-size:10px;color:var(--dim);font-family:monospace">COLOR</span>
           <label class="toggle" style="margin:0">
@@ -587,6 +588,88 @@
         <span id="lv-r-val" style="display:none">255</span>
         <span id="lv-g-val" style="display:none">255</span>
         <span id="lv-b-val" style="display:none">255</span>
+      </div>
+        <!-- Color Animations (embedded) -->
+        <div style="padding:10px;background:#050510;border:1px solid var(--border);border-radius:6px">
+        <h2 style="margin:0 0 10px">🎬 Color Animations</h2>
+        <div style="display:flex;gap:3px;flex-wrap:wrap;margin-bottom:8px" id="anim-type-btns">
+          <button onclick="setAnimType('gradient')" id="anim-btn-gradient" class="btn secondary" style="flex:1;font-size:10px;padding:4px 2px;min-width:0">Gradient</button>
+          <button onclick="setAnimType('chase')"    id="anim-btn-chase"    class="btn secondary" style="flex:1;font-size:10px;padding:4px 2px;min-width:0">Chase</button>
+          <button onclick="setAnimType('strobe')"   id="anim-btn-strobe"   class="btn secondary" style="flex:1;font-size:10px;padding:4px 2px;min-width:0">Strobe</button>
+          <button onclick="setAnimType('pulse')"    id="anim-btn-pulse"    class="btn secondary" style="flex:1;font-size:10px;padding:4px 2px;min-width:0">Pulse</button>
+          <button onclick="setAnimType('twinkle')"  id="anim-btn-twinkle"  class="btn secondary" style="flex:1;font-size:10px;padding:4px 2px;min-width:0">Twinkle</button>
+          <button onclick="setAnimType('colorflip')"id="anim-btn-colorflip"class="btn secondary" style="flex:1;font-size:10px;padding:4px 2px;min-width:0">Flip</button>
+          <button onclick="setAnimType('segment')"  id="anim-btn-segment"  class="btn secondary" style="flex:1;font-size:10px;padding:4px 2px;min-width:0">Seg</button>
+        </div>
+
+        <div id="anim-panel-gradient">
+          <div id="grad-seq-grid" style="display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-bottom:8px"></div>
+        </div>
+
+        <div id="anim-panel-chase" style="display:none">
+          <div style="font-size:10px;color:var(--dim);margin-bottom:5px">Color sequence for Chase</div>
+          <div id="chase-seq-grid" style="display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-bottom:8px"></div>
+        </div>
+
+        <div id="anim-panel-strobe" style="display:none">
+          <div style="font-size:10px;color:var(--dim);margin-bottom:5px">Strobe color</div>
+          <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px">
+            <div onclick="setStrobeColor(255,201,110)" style="width:28px;height:22px;background:#ffc96e;border-radius:3px;cursor:pointer;border:2px solid transparent" id="sc-w"></div>
+            <div onclick="setStrobeColor(255,0,0)"     style="width:28px;height:22px;background:#f00;border-radius:3px;cursor:pointer;border:2px solid transparent" id="sc-r"></div>
+            <div onclick="setStrobeColor(0,255,0)"     style="width:28px;height:22px;background:#0f0;border-radius:3px;cursor:pointer;border:2px solid transparent" id="sc-g"></div>
+            <div onclick="setStrobeColor(0,0,255)"     style="width:28px;height:22px;background:#00f;border-radius:3px;cursor:pointer;border:2px solid transparent" id="sc-b"></div>
+            <div onclick="setStrobeColor(255,0,142)"   style="width:28px;height:22px;background:#ff008e;border-radius:3px;cursor:pointer;border:2px solid transparent" id="sc-m"></div>
+            <div onclick="setStrobeColor(0,255,255)"   style="width:28px;height:22px;background:#0ff;border-radius:3px;cursor:pointer;border:2px solid transparent" id="sc-c"></div>
+            <div onclick="setStrobeColor(255,167,0)"   style="width:28px;height:22px;background:#ffa700;border-radius:3px;cursor:pointer;border:2px solid transparent" id="sc-y"></div>
+          </div>
+        </div>
+
+        <div id="anim-panel-pulse" style="display:none">
+          <div style="font-size:10px;color:var(--dim);margin-bottom:5px">Pulse color</div>
+          <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px">
+            <div onclick="setPulseColor(255,201,110)" style="width:28px;height:22px;background:#ffc96e;border-radius:3px;cursor:pointer;border:2px solid transparent" id="pc-w"></div>
+            <div onclick="setPulseColor(255,0,0)"     style="width:28px;height:22px;background:#f00;border-radius:3px;cursor:pointer;border:2px solid transparent" id="pc-r"></div>
+            <div onclick="setPulseColor(0,255,0)"     style="width:28px;height:22px;background:#0f0;border-radius:3px;cursor:pointer;border:2px solid transparent" id="pc-g"></div>
+            <div onclick="setPulseColor(0,0,255)"     style="width:28px;height:22px;background:#00f;border-radius:3px;cursor:pointer;border:2px solid transparent" id="pc-b"></div>
+            <div onclick="setPulseColor(255,0,142)"   style="width:28px;height:22px;background:#ff008e;border-radius:3px;cursor:pointer;border:2px solid transparent" id="pc-m"></div>
+            <div onclick="setPulseColor(0,255,255)"   style="width:28px;height:22px;background:#0ff;border-radius:3px;cursor:pointer;border:2px solid transparent" id="pc-c"></div>
+            <div onclick="setPulseColor(255,167,0)"   style="width:28px;height:22px;background:#ffa700;border-radius:3px;cursor:pointer;border:2px solid transparent" id="pc-y"></div>
+          </div>
+        </div>
+
+        <div id="anim-panel-twinkle"   style="display:none">
+          <div style="font-size:10px;color:var(--dim);margin-bottom:8px">Random brightness spikes on current color — simulates spark/glitter effect.</div>
+        </div>
+        <div id="anim-panel-colorflip" style="display:none">
+          <div style="font-size:10px;color:var(--dim);margin-bottom:8px">Hard cuts between R, G, B, W at the set speed.</div>
+        </div>
+        <div id="anim-panel-segment" style="display:none">
+          <div style="font-size:10px;color:var(--dim);margin-bottom:5px">Color palette for segments</div>
+          <div id="seg-seq-grid" style="display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-bottom:8px"></div>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+            <span style="font-size:11px;color:var(--dim);white-space:nowrap">Segments</span>
+            <input type="range" id="seg-count-slider" min="1" max="10" value="4"
+              oninput="document.getElementById('seg-count-val').textContent=this.value;applyGradient()">
+            <span id="seg-count-val" style="color:var(--accent);font-family:monospace;min-width:16px">4</span>
+          </div>
+        </div>
+
+        <div style="margin-bottom:6px">
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:3px">
+            <span>Speed</span><span id="grad-speed-val" style="color:var(--accent);font-family:monospace">50</span>
+          </div>
+          <input type="range" id="grad-speed" min="0" max="255" value="60"
+            oninput="document.getElementById('grad-speed-val').textContent=this.value;applyGradient()">
+        </div>
+        <div style="display:flex;gap:10px;margin-bottom:8px" id="anim-dir-row">
+          <label style="font-size:11px;cursor:pointer"><input type="radio" name="grad-dir" value="1"  checked onchange="applyGradient()"> → Fwd</label>
+          <label style="font-size:11px;cursor:pointer"><input type="radio" name="grad-dir" value="-1"        onchange="applyGradient()"> ← Rev</label>
+        </div>
+        <div style="display:flex;gap:6px">
+          <button class="btn secondary" onclick="stopGradient()" style="flex:1;font-size:11px;padding:5px">⏹ Stop Animation</button>
+          <button class="btn secondary" onclick="resetColorOverride()" style="flex:1;font-size:11px;padding:5px">↺ Reset Colors</button>
+        </div>
+        </div>
       </div>
 
       <!-- Col 4: Points-Only Mode -->
@@ -741,87 +824,6 @@
       </div>
     </div>
 
-    <!-- Color Animations -->
-    <div class="card" style="padding:14px">
-      <h2 style="margin:0 0 10px">🎬 Color Animations</h2>
-      <div style="display:flex;gap:3px;flex-wrap:wrap;margin-bottom:8px" id="anim-type-btns">
-        <button onclick="setAnimType('gradient')" id="anim-btn-gradient" class="btn secondary" style="flex:1;font-size:10px;padding:4px 2px;min-width:0">Gradient</button>
-        <button onclick="setAnimType('chase')"    id="anim-btn-chase"    class="btn secondary" style="flex:1;font-size:10px;padding:4px 2px;min-width:0">Chase</button>
-        <button onclick="setAnimType('strobe')"   id="anim-btn-strobe"   class="btn secondary" style="flex:1;font-size:10px;padding:4px 2px;min-width:0">Strobe</button>
-        <button onclick="setAnimType('pulse')"    id="anim-btn-pulse"    class="btn secondary" style="flex:1;font-size:10px;padding:4px 2px;min-width:0">Pulse</button>
-        <button onclick="setAnimType('twinkle')"  id="anim-btn-twinkle"  class="btn secondary" style="flex:1;font-size:10px;padding:4px 2px;min-width:0">Twinkle</button>
-        <button onclick="setAnimType('colorflip')"id="anim-btn-colorflip"class="btn secondary" style="flex:1;font-size:10px;padding:4px 2px;min-width:0">Flip</button>
-        <button onclick="setAnimType('segment')"  id="anim-btn-segment"  class="btn secondary" style="flex:1;font-size:10px;padding:4px 2px;min-width:0">Seg</button>
-      </div>
-
-      <div id="anim-panel-gradient">
-        <div id="grad-seq-grid" style="display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-bottom:8px"></div>
-      </div>
-
-      <div id="anim-panel-chase" style="display:none">
-        <div style="font-size:10px;color:var(--dim);margin-bottom:5px">Color sequence for Chase</div>
-        <div id="chase-seq-grid" style="display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-bottom:8px"></div>
-      </div>
-
-      <div id="anim-panel-strobe" style="display:none">
-        <div style="font-size:10px;color:var(--dim);margin-bottom:5px">Strobe color</div>
-        <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px">
-          <div onclick="setStrobeColor(255,201,110)" style="width:28px;height:22px;background:#ffc96e;border-radius:3px;cursor:pointer;border:2px solid transparent" id="sc-w"></div>
-          <div onclick="setStrobeColor(255,0,0)"     style="width:28px;height:22px;background:#f00;border-radius:3px;cursor:pointer;border:2px solid transparent" id="sc-r"></div>
-          <div onclick="setStrobeColor(0,255,0)"     style="width:28px;height:22px;background:#0f0;border-radius:3px;cursor:pointer;border:2px solid transparent" id="sc-g"></div>
-          <div onclick="setStrobeColor(0,0,255)"     style="width:28px;height:22px;background:#00f;border-radius:3px;cursor:pointer;border:2px solid transparent" id="sc-b"></div>
-          <div onclick="setStrobeColor(255,0,142)"   style="width:28px;height:22px;background:#ff008e;border-radius:3px;cursor:pointer;border:2px solid transparent" id="sc-m"></div>
-          <div onclick="setStrobeColor(0,255,255)"   style="width:28px;height:22px;background:#0ff;border-radius:3px;cursor:pointer;border:2px solid transparent" id="sc-c"></div>
-          <div onclick="setStrobeColor(255,167,0)"   style="width:28px;height:22px;background:#ffa700;border-radius:3px;cursor:pointer;border:2px solid transparent" id="sc-y"></div>
-        </div>
-      </div>
-
-      <div id="anim-panel-pulse" style="display:none">
-        <div style="font-size:10px;color:var(--dim);margin-bottom:5px">Pulse color</div>
-        <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px">
-          <div onclick="setPulseColor(255,201,110)" style="width:28px;height:22px;background:#ffc96e;border-radius:3px;cursor:pointer;border:2px solid transparent" id="pc-w"></div>
-          <div onclick="setPulseColor(255,0,0)"     style="width:28px;height:22px;background:#f00;border-radius:3px;cursor:pointer;border:2px solid transparent" id="pc-r"></div>
-          <div onclick="setPulseColor(0,255,0)"     style="width:28px;height:22px;background:#0f0;border-radius:3px;cursor:pointer;border:2px solid transparent" id="pc-g"></div>
-          <div onclick="setPulseColor(0,0,255)"     style="width:28px;height:22px;background:#00f;border-radius:3px;cursor:pointer;border:2px solid transparent" id="pc-b"></div>
-          <div onclick="setPulseColor(255,0,142)"   style="width:28px;height:22px;background:#ff008e;border-radius:3px;cursor:pointer;border:2px solid transparent" id="pc-m"></div>
-          <div onclick="setPulseColor(0,255,255)"   style="width:28px;height:22px;background:#0ff;border-radius:3px;cursor:pointer;border:2px solid transparent" id="pc-c"></div>
-          <div onclick="setPulseColor(255,167,0)"   style="width:28px;height:22px;background:#ffa700;border-radius:3px;cursor:pointer;border:2px solid transparent" id="pc-y"></div>
-        </div>
-      </div>
-
-      <div id="anim-panel-twinkle"   style="display:none">
-        <div style="font-size:10px;color:var(--dim);margin-bottom:8px">Random brightness spikes on current color — simulates spark/glitter effect.</div>
-      </div>
-      <div id="anim-panel-colorflip" style="display:none">
-        <div style="font-size:10px;color:var(--dim);margin-bottom:8px">Hard cuts between R, G, B, W at the set speed.</div>
-      </div>
-      <div id="anim-panel-segment" style="display:none">
-        <div style="font-size:10px;color:var(--dim);margin-bottom:5px">Color palette for segments</div>
-        <div id="seg-seq-grid" style="display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-bottom:8px"></div>
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-          <span style="font-size:11px;color:var(--dim);white-space:nowrap">Segments</span>
-          <input type="range" id="seg-count-slider" min="1" max="10" value="4"
-            oninput="document.getElementById('seg-count-val').textContent=this.value;applyGradient()">
-          <span id="seg-count-val" style="color:var(--accent);font-family:monospace;min-width:16px">4</span>
-        </div>
-      </div>
-
-      <div style="margin-bottom:6px">
-        <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:3px">
-          <span>Speed</span><span id="grad-speed-val" style="color:var(--accent);font-family:monospace">50</span>
-        </div>
-        <input type="range" id="grad-speed" min="0" max="255" value="60"
-          oninput="document.getElementById('grad-speed-val').textContent=this.value;applyGradient()">
-      </div>
-      <div style="display:flex;gap:10px;margin-bottom:8px" id="anim-dir-row">
-        <label style="font-size:11px;cursor:pointer"><input type="radio" name="grad-dir" value="1"  checked onchange="applyGradient()"> → Fwd</label>
-        <label style="font-size:11px;cursor:pointer"><input type="radio" name="grad-dir" value="-1"        onchange="applyGradient()"> ← Rev</label>
-      </div>
-      <div style="display:flex;gap:6px">
-        <button class="btn secondary" onclick="stopGradient()" style="flex:1;font-size:11px;padding:5px">⏹ Stop Animation</button>
-        <button class="btn secondary" onclick="resetColorOverride()" style="flex:1;font-size:11px;padding:5px">↺ Reset Colors</button>
-      </div>
-    </div>
 
     <!-- Countdown Timer (standalone utility) -->
     <div class="card" style="padding:14px">
