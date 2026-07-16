@@ -767,28 +767,6 @@ static size_t p101(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     return n;
 }
 
-    size_t n=0;float sc=SC*ssc(sz)*.9f,bob=sinf(aang(ph,sp))*.05f;
-    for(int i=0;i<=30;i++){float a=PI2*i/30.f;ap(o,n,m,(cosf(a)*.17f+sinf(a)*.05f-.1f)*sc,(sinf(a)*.13f+bob-.55f)*sc,255,255,255,i==0?1:0);}
-    for(int k=0;k<=20;k++)ap(o,n,m,.07f*sc,L(-.55f+bob,.5f+bob,k/20.f)*sc,255,255,255,k==0?1:0);
-    for(int k=0;k<=12;k++){float t=k/12.f;ap(o,n,m,(.07f+t*.35f)*sc,(.5f-t*.4f+bob)*sc,255,255,255,k==0?1:0);}
-    for(int k=0;k<=12;k++){float t=k/12.f;ap(o,n,m,(.07f+t*.28f)*sc,(.3f-t*.35f+bob)*sc,255,255,200,k==0?1:0);}
-    return n;
-}
-    size_t n=0;float sc=SC*ssc(sz)*.9f,t=aang(ph,sp),pulse=1+.05f*sinf(t*2);
-    for(int i=0;i<=60;i++){float a=PI2*i/60.f-M_PI/2,r=.4f*(1-sinf(a))*.5f+.25f;ap(o,n,m,cosf(a)*r*sc*pulse,sinf(a)*r*sc*pulse+.1f*sc,0,180,255,i==0?1:0);}
-    for(int i=0;i<=16;i++){float a=PI2*i/16.f;ap(o,n,m,(cosf(a)*.1f-.08f)*sc,(sinf(a)*.08f+.25f)*sc,150,230,255,i==0?1:0);}
-    return n;
-}
-    size_t n=0;float sc=SC*ssc(sz)*.9f,t=aang(ph,sp);
-    float b[][4]={{-.4f,.3f,1.3f,.08f},{-.2f,.5f,2.1f,.06f},{.1f,.7f,.7f,.09f},{.3f,.4f,1.8f,.07f},{-.1f,.6f,3.2f,.05f},{.5f,.2f,2.5f,.08f},{-.5f,.8f,.4f,.07f}};
-    for(auto&bl:b){float ph2=fmodf(t*bl[1]+bl[2],PI2),y=L(-1.f,1.f,ph2/PI2),wob=sinf(ph2*8)*.02f;for(int i=0;i<=16;i++){float a=PI2*i/16.f;ap(o,n,m,(cosf(a)*bl[3]+bl[0]+wob)*sc,(sinf(a)*bl[3]+y)*sc,200,220,255,i==0?1:0);}}
-    return n;
-}
-    size_t n=0;float sc=SC*ssc(sz)*.9f,t=aang(ph,sp);
-    for(int i=0;i<=40;i++){float a=M_PI*i/40.f;ap(o,n,m,cosf(a)*.5f*sc,(sinf(a)*.5f-.3f)*sc,255,(uint8_t)(100+80*sinf(t)),0,i==0?1:0);}
-    for(int i=0;i<=80;i++){float x=L(-1.f,1.f,i/80.f),y=-.5f+.04f*sinf(x*PI2*4+t);ap(o,n,m,x*sc,y*sc,0,100,200,i==0?1:0);}
-    return n;
-}
 static size_t p86(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){ // Hibiskus
     size_t n=0;float sc=SC*ssc(sz)*.9f,rot=aang(ph,sp,.2f);
     for(int p=0;p<5;p++){float base=PI2*p/5.f+rot;for(int i=0;i<=30;i++){float t=i/30.f,spread=sinf(t*M_PI),a=base+spread*.4f,r=L(.15f,.65f,t);ap(o,n,m,cosf(a)*r*sc,sinf(a)*r*sc,255,(uint8_t)(50+t*100),(uint8_t)(100-t*100),i==0?1:0);}for(int i=30;i>=0;i--){float t=i/30.f,spread=sinf(t*M_PI),a=base-spread*.4f,r=L(.15f,.65f,t);ap(o,n,m,cosf(a)*r*sc,sinf(a)*r*sc,255,(uint8_t)(50+t*100),0,0);}}
