@@ -3,7 +3,7 @@
 
 namespace presets {
 
-constexpr uint8_t PRESET_COUNT = 84;
+constexpr uint8_t PRESET_COUNT = 72;
 
 // Type-safe preset selection. Values are the raw dispatch index into
 // PRESETS[]/DISPATCH[] below and MUST stay in sync with the order of that
@@ -21,7 +21,7 @@ enum class Preset : int8_t {
     ArchimedeanSpiral, Lissajous1To2, Lissajous2To3, Lissajous3To4,
     Lissajous3To5, Lissajous5To6, DoubleSpiral, Rose3,
 
-    Rose4, Cardioid, Heart, Infinity, Astroid, Epitrochoid,
+    Rose4, Heart, Infinity, Astroid, Epitrochoid,
 
     RotatingCube, StaticCube, Pyramid, Octahedron, Tetrahedron,
 
@@ -35,15 +35,11 @@ enum class Preset : int8_t {
 
     Starburst, ChaosBouncer, LaserDiamond, ConfettiBurst, DiscoBall,
 
-    WaterSplash, PoolWaves, TropicalSun,
-    MusicNote, WaterDrop, RisingBubbles, Confetti, Sunset,
     Hibiscus, StarburstParty,
 
     Starfield,
 
     CountdownTimer,
-
-    Rocket, RacingCar, Ufo,
 
     Pentagram, DnaHelix, YinYang,
 

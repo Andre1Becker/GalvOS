@@ -20,11 +20,9 @@
 
 - point to multi point spread out
 - Phyllotaxis bad output
-- New Pattern: Solar System, Endless Spiral, Endless Tunnel, Mandelbrot Animation, Bouncing Points (Parameter Count,Speed and Trail, Trail Length)
+- New Pattern: Solar System (one bigger Circle in the center, A middlesized one orbiting the big one, and a Small circle orbiting the midlle one), Endless Spiral, Endless Tunnel, Mandelbrot Animation, Bouncing Points (Parameter Count,Speed and Trail, Trail Length)
 - Chaos Bouncer is now a Lissajous - needs fixing
 - Hypotrochoid ist a Star - needs fixing
-- Remove Presets: Cardioid, Sunset, Rocket, Racing Car, Ufo, Confetti, Rising Bubbles, Water Drop, Water Splash, Pool Waves, Tropical Suun, Music Note
-- Hypotrochoid is more a Star
 - Helix output needs adjusting
 
 
