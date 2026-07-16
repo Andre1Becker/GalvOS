@@ -111,7 +111,7 @@ struct OptimizerLiveConfig {
 };
 
 // ── OPTIMIZER PROFILES ──────────────────────────────────────────────────────
-// Four independent OptimizerLiveConfig profiles, one per PresetClass.
+// Five independent OptimizerLiveConfig profiles, one per PresetClass.
 // gOptimizerConfig is always a live copy of the active profile; call
 // syncOptimizerConfig() after writing to gOptimizerProfiles[n].
 //
@@ -119,12 +119,14 @@ struct OptimizerLiveConfig {
 //   Index 1 = Curves  (Spirals, Curves, Waves, Complex, Combo)
 //   Index 2 = ThreeD  (3D)
 //   Index 3 = Scenes  (Scenes, Party, Vehicles, Symbols, Timers)
+//   Index 4 = Solar   (Solar System — long blank jumps, multi-object)
 
-constexpr uint8_t OPT_PROFILE_COUNT  = 4;
+constexpr uint8_t OPT_PROFILE_COUNT  = 5;
 constexpr uint8_t OPT_PROFILE_SIMPLE = 0;
 constexpr uint8_t OPT_PROFILE_CURVES = 1;
 constexpr uint8_t OPT_PROFILE_THREED = 2;
 constexpr uint8_t OPT_PROFILE_SCENES = 3;
+constexpr uint8_t OPT_PROFILE_SOLAR  = 4;
 
 extern OptimizerLiveConfig gOptimizerProfiles[OPT_PROFILE_COUNT];
 extern OptimizerLiveConfig gOptimizerConfig;   // live copy of active profile

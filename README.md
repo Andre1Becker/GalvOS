@@ -24,6 +24,7 @@
 - Chaos Bouncer is now a Lissajous - needs fixing
 - Hypotrochoid ist a Star - needs fixing
 - Helix output needs adjusting
+- Point only Mode: which Optimizer Profile is used?
 
 
 ### Text

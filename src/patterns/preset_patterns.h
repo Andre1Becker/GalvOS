@@ -64,6 +64,7 @@ enum class PresetClass : uint8_t {
     Curves = 1,   // Spirals, Curves, Waves, Complex, Combo
     ThreeD = 2,   // 3D
     Scenes = 3,   // Scenes, Party, Vehicles, Symbols, Timers, unknown
+    Solar  = 4,   // Solar System (long blank jumps, multi-object)
 };
 PresetClass presetClassOf(Preset p);
 

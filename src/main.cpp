@@ -78,10 +78,11 @@ static void loadConfig() {
     gConfig.thresh_b        = s_prefs.getUChar("thresh_b", 169);
     gConfig.gamma_enable    = s_prefs.getBool ("gamma_en", true);
     static const struct { const char* sfx; uint8_t idx; } PROF_MAP[] = {
-        { "_s",  OPT_PROFILE_SIMPLE },
-        { "_c",  OPT_PROFILE_CURVES },
-        { "_3",  OPT_PROFILE_THREED },
-        { "_sc", OPT_PROFILE_SCENES },
+        { "_s",   OPT_PROFILE_SIMPLE },
+        { "_c",   OPT_PROFILE_CURVES },
+        { "_3",   OPT_PROFILE_THREED },
+        { "_sc",  OPT_PROFILE_SCENES },
+        { "_sol", OPT_PROFILE_SOLAR  },
     };
     for (auto& pm : PROF_MAP) {
         OptimizerLiveConfig& p = gOptimizerProfiles[pm.idx];

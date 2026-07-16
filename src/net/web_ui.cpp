@@ -148,6 +148,7 @@ static void persistConfig() {
     static const struct { const char* sfx; uint8_t idx; } PMAP[] = {
         {"_s",OPT_PROFILE_SIMPLE},{"_c",OPT_PROFILE_CURVES},
         {"_3",OPT_PROFILE_THREED},{"_sc",OPT_PROFILE_SCENES},
+        {"_sol",OPT_PROFILE_SOLAR},
     };
     for (auto& pm : PMAP) {
         const OptimizerLiveConfig& p = gOptimizerProfiles[pm.idx];

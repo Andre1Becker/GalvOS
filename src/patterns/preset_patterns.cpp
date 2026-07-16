@@ -1439,6 +1439,9 @@ PresetClass presetClassOf(Preset p)
         case P::RotatingCube: case P::StaticCube: case P::Pyramid:
         case P::Octahedron: case P::Tetrahedron:
             return presets::PresetClass::ThreeD;
+        // ── Solar System: dedicated profile for long blank jumps ─────
+        case P::SolarSystem:
+            return presets::PresetClass::Solar;
         // ── Scenes: everything else ───────────────────────────────────
         default:
             return presets::PresetClass::Scenes;

@@ -3825,8 +3825,8 @@ async function switchOptimizerProfile(idx) {
 }
 
 function updateOptimizerProfileUI(activeIdx) {
-    const names = ['Simple', 'Curves', '3D', 'Scenes'];
-    for (let i = 0; i < 4; i++) {
+    const names = ['Simple', 'Curves', '3D', 'Scenes', 'Solar'];
+    for (let i = 0; i < 5; i++) {
         const btn = document.getElementById('opt-prof-btn-' + i);
         if (btn) btn.classList.toggle('active', i === activeIdx);
     }
@@ -6663,6 +6663,7 @@ document.addEventListener('DOMContentLoaded', initParamPreviews);
           <button class="opt-profile-btn" id="opt-prof-btn-1" onclick="switchOptimizerProfile(1)">〜 Curves</button>
           <button class="opt-profile-btn" id="opt-prof-btn-2" onclick="switchOptimizerProfile(2)">⬡ 3D</button>
           <button class="opt-profile-btn" id="opt-prof-btn-3" onclick="switchOptimizerProfile(3)">✦ Scenes</button>
+          <button class="opt-profile-btn" id="opt-prof-btn-4" onclick="switchOptimizerProfile(4)">☀ Solar</button>
         </div>
       </div>
   <div class="card" style="margin-bottom:12px">
@@ -6717,6 +6718,18 @@ document.addEventListener('DOMContentLoaded', initParamPreviews);
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
       <h3 style="margin:0;font-size:14px">✦ Scenes — Particles &amp; Party</h3>
       <span id="opt-profile-badge-3" style="font-size:10px;color:var(--dim);font-family:monospace"></span>
+    </div>
+  </div>
+  <div class="card" style="margin-bottom:12px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <h3 style="margin:0;font-size:14px">☀ Solar — Multi-object Scenes</h3>
+      <span id="opt-profile-badge-4" style="font-size:10px;color:var(--dim);font-family:monospace"></span>
+    </div>
+    <div class="opt-profile-previews">
+      <div class="opt-profile-preview">
+        <svg viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg"><rect width="80" height="80" fill="none"/><circle cx="40" cy="40" r="10" fill="none" stroke="#fdc050" stroke-width="2.5"/><circle cx="40" cy="40" r="28" fill="none" stroke="var(--dim)" stroke-width="1" stroke-dasharray="3 3"/><circle cx="68" cy="40" r="6" fill="none" stroke="var(--accent)" stroke-width="2"/><circle cx="68" cy="28" r="3" fill="none" stroke="#dc3cdc" stroke-width="1.5"/></svg>
+        <span class="opt-pp-label">Solar System</span>
+      </div>
     </div>
     <div class="opt-profile-previews">
       <div class="opt-profile-preview">
