@@ -7,7 +7,7 @@
 - SD-Card: Currently, if an SD-Card is populated, Galvos go crazy
 - try different approach to get sd card working
 - make features toggable via UI (fe. disable ArtNet if not needed)
-- Add FPS Counter / Point Limit to Statusbar
+- Add Point Limit to Statusbar
 - Add Auto Tuning via Global Shutter CAM input
 - Add kpps history Graph on dashboard
 
@@ -23,9 +23,7 @@
 - Endless Spiral, Endless Tunnel, Mandelbrot Animation, Shooting Star
 - Chaos Bouncer is now a Lissajous - needs fixing
 - Hypotrochoid ist a Star - needs fixing
-- Helix output needs adjusting
 - Point only Mode: which Optimizer Profile is used?
-
 
 ### Text
 

@@ -322,25 +322,25 @@ static size_t p00(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     for(int i=0;i<=N;i++){float t=csweep(ph,sp,i,N);ap(o,n,m,cosf(t)*sc,sinf(t)*sc,255,255,255,0);}
     return n;
 }
-static size_t p01(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){return ngon(o,m,4,SC*ssc(sz)*.9f,aang(ph,sp),255,240,0);}
-static size_t p02(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){return ngon(o,m,3,SC*ssc(sz)*.9f,aang(ph,sp),0,255,240);}
-static size_t p03(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){return ngon(o,m,5,SC*ssc(sz)*.9f,aang(ph,sp),255,128,0);}
-static size_t p04(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){return ngon(o,m,6,SC*ssc(sz)*.9f,aang(ph,sp),0,255,128);}
-static size_t p05(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){return ngon(o,m,8,SC*ssc(sz)*.9f,aang(ph,sp),128,0,255);}
+static size_t p01(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){return ngon(o,m,4,SC*ssc(sz)*.9f,aang(ph,sp),255,255,0);}
+static size_t p02(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){return ngon(o,m,3,SC*ssc(sz)*.9f,aang(ph,sp),0,255,255);}
+static size_t p03(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){return ngon(o,m,5,SC*ssc(sz)*.9f,aang(ph,sp),255,255,0);}
+static size_t p04(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){return ngon(o,m,6,SC*ssc(sz)*.9f,aang(ph,sp),0,255,0);}
+static size_t p05(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){return ngon(o,m,8,SC*ssc(sz)*.9f,aang(ph,sp),0,0,255);}
 static size_t p06(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){float s=SC*ssc(sz)*.9f;return star(o,m,4,s,s*.36f,aang(ph,sp),255,0,0);}
-static size_t p07(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){float s=SC*ssc(sz)*.9f;return star(o,m,5,s,s*.36f,aang(ph,sp),255,220,0);}
+static size_t p07(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){float s=SC*ssc(sz)*.9f;return star(o,m,5,s,s*.36f,aang(ph,sp),255,255,0);}
 static size_t p08(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){float s=SC*ssc(sz)*.9f;return star(o,m,6,s,s*.36f,aang(ph,sp),0,255,0);}
-static size_t p09(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){float s=SC*ssc(sz)*.9f;return star(o,m,8,s,s*.36f,aang(ph,sp),0,128,255);}
+static size_t p09(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){float s=SC*ssc(sz)*.9f;return star(o,m,8,s,s*.36f,aang(ph,sp),0,255,255);}
 
 // ─── LINES 10-14 ────────────────────────────────────────────
 // These use line() which is now optimizer-backed. Grid p12 benefits
 // most: 8 line segments share the flicker budget via one optimize() call
 // each, preventing the fixed-cost 40-blank overhead from dominating.
-static size_t p10(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){size_t n=0;float s=SC*ssc(sz)*.9f;line(o,n,m,-s,0,s,0,255,60,60,50);line(o,n,m,0,-s,0,s,60,255,60,50);return n;}
+static size_t p10(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){size_t n=0;float s=SC*ssc(sz)*.9f;line(o,n,m,-s,0,s,0,255,0,0,50);line(o,n,m,0,-s,0,s,0,255,0,50);return n;}
 static size_t p11(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){size_t n=0;float s=SC*ssc(sz)*.65f;line(o,n,m,-s,-s,s,s,0,255,255,50);line(o,n,m,s,-s,-s,s,255,0,255,50);return n;}
-static size_t p12(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){size_t n=0;float s=SC*ssc(sz)*.9f,st=s*2.f/3.f;for(int i=0;i<=3;i++){float x=-s+i*st;line(o,n,m,x,-s,x,s,0,200,200,20);}for(int i=0;i<=3;i++){float y=-s+i*st;line(o,n,m,-s,y,s,y,0,200,200,20);}return n;}
-static size_t p13(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){size_t n=0;float s=SC*ssc(sz)*.9f,off=(aang(ph,sp)/PI2*2.f-1.f)*s;for(int i=0;i<=60;i++)ap(o,n,m,L(-s,s,i/60.f),off,255,128,0,i==0?1:0);return n;}
-static size_t p14(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){size_t n=0;float s=SC*ssc(sz)*.9f,a=aang(ph,sp);for(int i=0;i<=60;i++)ap(o,n,m,L(-s,s,i/60.f)*cosf(a),L(-s,s,i/60.f)*sinf(a),255,0,128,i==0?1:0);return n;}
+static size_t p12(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){size_t n=0;float s=SC*ssc(sz)*.9f,st=s*2.f/3.f;for(int i=0;i<=3;i++){float x=-s+i*st;line(o,n,m,x,-s,x,s,0,255,255,20);}for(int i=0;i<=3;i++){float y=-s+i*st;line(o,n,m,-s,y,s,y,0,255,255,20);}return n;}
+static size_t p13(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){size_t n=0;float s=SC*ssc(sz)*.9f,off=(aang(ph,sp)/PI2*2.f-1.f)*s;for(int i=0;i<=60;i++)ap(o,n,m,L(-s,s,i/60.f),off,255,255,0,i==0?1:0);return n;}
+static size_t p14(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){size_t n=0;float s=SC*ssc(sz)*.9f,a=aang(ph,sp);for(int i=0;i<=60;i++)ap(o,n,m,L(-s,s,i/60.f)*cosf(a),L(-s,s,i/60.f)*sinf(a),255,0,255,i==0?1:0);return n;}
 
 // ─── spirals 15-22 ──────────────────────────────────────────
 // Parametric curves — not migrated (no discrete vertices).
@@ -348,11 +348,11 @@ static size_t p15(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){size_
 // Point counts raised (2.5-3x, scaled to combined frequency = curve
 // complexity) -- galvo (15kpps rated, driven at 30kpps) needs tighter
 // per-step spacing on high-curvature Lissajous paths to close cleanly.
-static size_t p16(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){size_t n=0;float sc=SC*ssc(sz)*.9f,off=aang(ph,sp);for(int i=0;i<=500;i++){float t=PI2*i/500.f;ap(o,n,m,cosf(t+off)*sc,sinf(2*t+M_PI/4.f)*sc,0,200,255,i==0?1:0);}return n;}
-static size_t p17(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){size_t n=0;float sc=SC*ssc(sz)*.9f,off=aang(ph,sp);for(int i=0;i<=700;i++){float t=PI2*i/700.f;ap(o,n,m,cosf(2*t+off)*sc,sinf(3*t+M_PI/4.f)*sc,0,180,255,i==0?1:0);}return n;}
-static size_t p18(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){size_t n=0;float sc=SC*ssc(sz)*.9f,off=aang(ph,sp);for(int i=0;i<=900;i++){float t=PI2*i/900.f;ap(o,n,m,cosf(3*t+off)*sc,sinf(4*t+M_PI/3.f)*sc,100,200,255,i==0?1:0);}return n;}
-static size_t p19(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){size_t n=0;float sc=SC*ssc(sz)*.9f,off=aang(ph,sp);for(int i=0;i<=1100;i++){float t=PI2*i/1100.f;ap(o,n,m,cosf(3*t+off)*sc,sinf(5*t+M_PI/6.f)*sc,150,100,255,i==0?1:0);}return n;}
-static size_t p20(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){size_t n=0;float sc=SC*ssc(sz)*.9f,off=aang(ph,sp);for(int i=0;i<=1300;i++){float t=PI2*i/1300.f;ap(o,n,m,cosf(5*t+off)*sc,sinf(6*t+PI2/5.f)*sc,255,150,0,i==0?1:0);}return n;}
+static size_t p16(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){size_t n=0;float sc=SC*ssc(sz)*.9f,off=aang(ph,sp);for(int i=0;i<=500;i++){float t=PI2*i/500.f;ap(o,n,m,cosf(t+off)*sc,sinf(2*t+M_PI/4.f)*sc,0,255,255,i==0?1:0);}return n;}
+static size_t p17(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){size_t n=0;float sc=SC*ssc(sz)*.9f,off=aang(ph,sp);for(int i=0;i<=700;i++){float t=PI2*i/700.f;ap(o,n,m,cosf(2*t+off)*sc,sinf(3*t+M_PI/4.f)*sc,0,255,255,i==0?1:0);}return n;}
+static size_t p18(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){size_t n=0;float sc=SC*ssc(sz)*.9f,off=aang(ph,sp);for(int i=0;i<=900;i++){float t=PI2*i/900.f;ap(o,n,m,cosf(3*t+off)*sc,sinf(4*t+M_PI/3.f)*sc,0,255,255,i==0?1:0);}return n;}
+static size_t p19(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){size_t n=0;float sc=SC*ssc(sz)*.9f,off=aang(ph,sp);for(int i=0;i<=1100;i++){float t=PI2*i/1100.f;ap(o,n,m,cosf(3*t+off)*sc,sinf(5*t+M_PI/6.f)*sc,0,0,255,i==0?1:0);}return n;}
+static size_t p20(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){size_t n=0;float sc=SC*ssc(sz)*.9f,off=aang(ph,sp);for(int i=0;i<=1300;i++){float t=PI2*i/1300.f;ap(o,n,m,cosf(5*t+off)*sc,sinf(6*t+PI2/5.f)*sc,255,255,0,i==0?1:0);}return n;}
 static size_t p21(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){size_t n=0;float sc=SC*ssc(sz)*.9f,off=aang(ph,sp);for(int i=0;i<150;i++){float t=i/150.f,a=t*PI2*3.f+off,r=t*sc;ap(o,n,m,cosf(a)*r,sinf(a)*r,255,80,0,i==0?1:0);}for(int i=0;i<150;i++){float t=i/150.f,a=t*PI2*3.f+off+M_PI,r=t*sc;ap(o,n,m,cosf(a)*r,sinf(a)*r,0,80,255,i==0?1:0);}return n;}
 static size_t p22(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){size_t n=0;float sc=SC*ssc(sz)*.9f;const int N=200;for(int i=0;i<=N;i++){float t=csweep(ph,sp,i,N),r=sc*cosf(3*t);ap(o,n,m,r*cosf(t),r*sinf(t),255,100,0,0);}return n;}
 
@@ -386,46 +386,46 @@ static size_t p31(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
         {0,1},{1,2},{2,3},{3,0},  // base quad
         {0,4},{1,4},{2,4},{3,4}   // apex spokes
     };
-    return wf(o,m,V,5,E,8,aang(ph,sp),0.3f,SC*ssc(sz)*.65f,255,128,0);
+    return wf(o,m,V,5,E,8,aang(ph,sp),0.3f,SC*ssc(sz)*.65f,255,255,0);
 }
 
 static size_t p32(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     static const P3D V[]={{1,0,0},{-1,0,0},{0,1,0},{0,-1,0},{0,0,1},{0,0,-1}};
     static const int E[][2]={{0,2},{0,3},{1,2},{1,3},{0,4},{0,5},{1,4},{1,5},{2,4},{2,5},{3,4},{3,5}};
-    return wf(o,m,V,6,E,12,aang(ph,sp),.35f,SC*ssc(sz)*.7f,100,255,100);
+    return wf(o,m,V,6,E,12,aang(ph,sp),.35f,SC*ssc(sz)*.7f,0,255,0);
 }
 static size_t p33(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     static const P3D V[]={{0,1,0},{.943f,-.333f,0},{-.471f,-.333f,.816f},{-.471f,-.333f,-.816f}};
     static const int E[][2]={{0,1},{0,2},{0,3},{1,2},{1,3},{2,3}};
-    return wf(o,m,V,4,E,6,aang(ph,sp,1.2f),.4f,SC*ssc(sz)*.75f,200,0,255);
+    return wf(o,m,V,4,E,6,aang(ph,sp,1.2f),.4f,SC*ssc(sz)*.75f,0,0,255);
 }
 // ─── WELLEN 35-52 ────────────────────────────────────────────
 // Parametric continuous curves — not migrated to optimizer.
-static size_t p35(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){return sinewave(o,m,.55f,1,aang(ph,sp),SC*ssc(sz)*.9f,0,220,255);}
-static size_t p36(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){float A=fabsf(sinf(aang(ph,sp)))*.8f+.1f;return sinewave(o,m,A,2,0,SC*ssc(sz)*.9f,0,255,150);}
+static size_t p35(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){return sinewave(o,m,.55f,1,aang(ph,sp),SC*ssc(sz)*.9f,0,255,255);}
+static size_t p36(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){float A=fabsf(sinf(aang(ph,sp)))*.8f+.1f;return sinewave(o,m,A,2,0,SC*ssc(sz)*.9f,0,255,0);}
 static size_t p37(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     size_t n=0;float sc=SC*ssc(sz)*.9f,t=aang(ph,sp);
-    n+=sinewave(o,m,.3f,1,t,sc,255,80,80);
-    n+=sinewave(o+n,m-n,.2f,2,t*1.5f,sc,80,255,80);
-    n+=sinewave(o+n,m-n,.15f,3,t*2.f,sc,80,80,255);
+    n+=sinewave(o,m,.3f,1,t,sc,255,0,0);
+    n+=sinewave(o+n,m-n,.2f,2,t*1.5f,sc,0,255,0);
+    n+=sinewave(o+n,m-n,.15f,3,t*2.f,sc,0,0,255);
     return n;
 }
 static size_t p38(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     size_t n=0;float sc=SC*ssc(sz)*.9f,t=aang(ph,sp);
     const float wa=gLivePreset.wave_amp,wf=gLivePreset.wave_freq;
-    for(int i=0;i<=120;i++){float x=L(-1.f,1.f,i/120.f),y=wa*(.3f*sinf(4*wf*x*M_PI+t)+.15f*sinf(8*wf*x*M_PI+t*1.7f)+.08f*sinf(16*wf*x*M_PI+t*2.3f));ap(o,n,m,x*sc,y*sc,0,100,255,i==0?1:0);}
+    for(int i=0;i<=120;i++){float x=L(-1.f,1.f,i/120.f),y=wa*(.3f*sinf(4*wf*x*M_PI+t)+.15f*sinf(8*wf*x*M_PI+t*1.7f)+.08f*sinf(16*wf*x*M_PI+t*2.3f));ap(o,n,m,x*sc,y*sc,0,0,255,i==0?1:0);}
     return n;
 }
 static size_t p39(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     size_t n=0;float sc=SC*ssc(sz)*.9f,t=aang(ph,sp);
     const float wa=gLivePreset.wave_amp,wf=gLivePreset.wave_freq;
-    for(int i=0;i<=120;i++){float x=L(-1.f,1.f,i/120.f),y=wa*.45f*(sinf(5*wf*x*M_PI+t)+sinf(7*wf*x*M_PI-t))*.5f;ap(o,n,m,x*sc,y*sc,255,200,0,i==0?1:0);}
+    for(int i=0;i<=120;i++){float x=L(-1.f,1.f,i/120.f),y=wa*.45f*(sinf(5*wf*x*M_PI+t)+sinf(7*wf*x*M_PI-t))*.5f;ap(o,n,m,x*sc,y*sc,255,255,0,i==0?1:0);}
     return n;
 }
 static size_t p40(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     size_t n=0;float sc=SC*ssc(sz)*.9f,t=aang(ph,sp);
     const float wa=gLivePreset.wave_amp,wf=gLivePreset.wave_freq;
-    for(int i=0;i<=120;i++){float x=L(-1.f,1.f,i/120.f),ph2=fmodf((x*2.f*wf+t/M_PI),2.f),y=wa*.6f*(ph2<1?ph2:ph2-2);ap(o,n,m,x*sc,y*sc,255,100,0,i==0?1:0);}
+    for(int i=0;i<=120;i++){float x=L(-1.f,1.f,i/120.f),ph2=fmodf((x*2.f*wf+t/M_PI),2.f),y=wa*.6f*(ph2<1?ph2:ph2-2);ap(o,n,m,x*sc,y*sc,255,0,0,i==0?1:0);}
     return n;
 }
 static size_t p41(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
@@ -438,12 +438,12 @@ static size_t p41(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     const int steps=cycles*2;                           // half-periods (plateaus)
     const float amp=wa*.55f*sc,phi=fmodf(t,PI2)/PI2;    // phase shifts plateaus
     float px=-sc,py=((sinf(phi*PI2)>0)?1.f:-1.f)*amp;
-    ap(o,n,m,px,py,200,100,255,1);                      // start
+    ap(o,n,m,px,py,0,0,255,1);                      // start
     for(int s=0;s<=steps;s++){
         float x=L(-1.f,1.f,(float)s/steps)*sc;
         float lvl=(sinf(((float)s/steps+phi)*PI2*cycles)>0?1.f:-1.f)*amp;
-        if(lvl!=py){ap(o,n,m,px,lvl,200,100,255,0);py=lvl;} // vertical edge
-        ap(o,n,m,x,py,200,100,255,0);                   // horizontal plateau
+        if(lvl!=py){ap(o,n,m,px,lvl,0,0,255,0);py=lvl;} // vertical edge
+        ap(o,n,m,x,py,0,0,255,0);                   // horizontal plateau
         px=x;
     }
     return n;
@@ -451,13 +451,13 @@ static size_t p41(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
 static size_t p42(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     size_t n=0;float sc=SC*ssc(sz)*.9f,t=aang(ph,sp);
     const float wa=gLivePreset.wave_amp,wf=gLivePreset.wave_freq;
-    for(int i=0;i<=120;i++){float x=L(-1.f,1.f,i/120.f),env=expf(-12*x*x),y=env*wa*sinf(8*wf*x*M_PI+t)*.8f;ap(o,n,m,x*sc,y*sc,0,255,200,i==0?1:0);}
+    for(int i=0;i<=120;i++){float x=L(-1.f,1.f,i/120.f),env=expf(-12*x*x),y=env*wa*sinf(8*wf*x*M_PI+t)*.8f;ap(o,n,m,x*sc,y*sc,0,255,0,i==0?1:0);}
     return n;
 }
 static size_t p43(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     size_t n=0;float sc=SC*ssc(sz)*.9f,t=aang(ph,sp);
     const float wa=gLivePreset.wave_amp,wf=gLivePreset.wave_freq;
-    for(int i=0;i<=120;i++){float x=L(-1.f,1.f,i/120.f),y=.5f*wa*(sinf(10*wf*x*M_PI+t)+sinf(11*wf*x*M_PI+t));ap(o,n,m,x*sc,y*sc,255,150,0,i==0?1:0);}
+    for(int i=0;i<=120;i++){float x=L(-1.f,1.f,i/120.f),y=.5f*wa*(sinf(10*wf*x*M_PI+t)+sinf(11*wf*x*M_PI+t));ap(o,n,m,x*sc,y*sc,255,255,0,i==0?1:0);}
     return n;
 }
 static size_t p44(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
@@ -493,19 +493,19 @@ static size_t p48(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
 static size_t p49(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     size_t n=0;float sc=SC*ssc(sz)*.9f,t=aang(ph,sp);
     const float wa=gLivePreset.wave_amp,wf=gLivePreset.wave_freq;
-    for(int i=0;i<=120;i++){float x=L(-1.f,1.f,i/120.f);float y=0;for(int k=1;k<=5;k+=2)y+=sinf(k*x*PI2*1.5f*wf+t)/k;ap(o,n,m,x*sc,y*wa*.5f*sc,100,255,100,i==0?1:0);}
+    for(int i=0;i<=120;i++){float x=L(-1.f,1.f,i/120.f);float y=0;for(int k=1;k<=5;k+=2)y+=sinf(k*x*PI2*1.5f*wf+t)/k;ap(o,n,m,x*sc,y*wa*.5f*sc,0,255,0,i==0?1:0);}
     return n;
 }
 static size_t p50(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     size_t n=0;float sc=SC*ssc(sz)*.9f,t=aang(ph,sp);
     const float wa=gLivePreset.wave_amp,wf=gLivePreset.wave_freq;
-    for(int i=0;i<=120;i++){float x=L(-1.f,1.f,i/120.f),decay=expf(-2*fabsf(x)),y=decay*wa*sinf(10*wf*x*M_PI+t)*(.4f+.4f*fabsf(x));ap(o,n,m,x*sc,y*sc,255,80,200,i==0?1:0);}
+    for(int i=0;i<=120;i++){float x=L(-1.f,1.f,i/120.f),decay=expf(-2*fabsf(x)),y=decay*wa*sinf(10*wf*x*M_PI+t)*(.4f+.4f*fabsf(x));ap(o,n,m,x*sc,y*sc,255,0,255,i==0?1:0);}
     return n;
 }
 static size_t p51(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     size_t n=0;float sc=SC*ssc(sz)*.9f,t=aang(ph,sp);
     const float wa=gLivePreset.wave_amp,wf=gLivePreset.wave_freq;
-    for(int i=0;i<=120;i++){float x=L(-1.f,1.f,i/120.f),build=.5f+.5f*x,y=build*.5f*wa*sinf(PI2*(x*2*wf-t*.3f))*.7f;ap(o,n,m,x*sc,y*sc,0,150,255,i==0?1:0);}
+    for(int i=0;i<=120;i++){float x=L(-1.f,1.f,i/120.f),build=.5f+.5f*x,y=build*.5f*wa*sinf(PI2*(x*2*wf-t*.3f))*.7f;ap(o,n,m,x*sc,y*sc,0,255,255,i==0?1:0);}
     return n;
 }
 static size_t p52(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
@@ -529,11 +529,11 @@ static size_t p53(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     const int N=600;
     for(int i=0;i<=N;i++){
         float t=6.f*(float)M_PI*i/N+off;
-        ap(o,n,m,sc*((R-r)*cosf(t)+d*cosf((R-r)*t/r)),sc*((R-r)*sinf(t)-d*sinf((R-r)*t/r)),255,100,200,i==0?1:0);
+        ap(o,n,m,sc*((R-r)*cosf(t)+d*cosf((R-r)*t/r)),sc*((R-r)*sinf(t)-d*sinf((R-r)*t/r)),255,0,255,i==0?1:0);
     }
     return n;
 }
-static size_t p54(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){size_t n=0;float sc=SC*ssc(sz)*.38f,off=aang(ph,sp);for(int i=0;i<=200;i++){float t=PI2*i/200.f,e=expf(cosf(t))-2*cosf(4*t)-powf(sinf(t/12.f),5);ap(o,n,m,sc*e*sinf(t+off),sc*e*cosf(t+off),255,165,0,i==0?1:0);}return n;}
+static size_t p54(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){size_t n=0;float sc=SC*ssc(sz)*.38f,off=aang(ph,sp);for(int i=0;i<=200;i++){float t=PI2*i/200.f,e=expf(cosf(t))-2*cosf(4*t)-powf(sinf(t/12.f),5);ap(o,n,m,sc*e*sinf(t+off),sc*e*cosf(t+off),255,255,0,i==0?1:0);}return n;}
 // p55 Spirograph 5/3 -- hypotrochoid, fixed radii R=5, r=3. Curve closes
 // after 3 revolutions of the outer parameter (t in [0,6*PI]); the previous
 // [0,10*PI] sweep overshot the true period and retraced 2/3 of the curve
@@ -550,7 +550,7 @@ static size_t p55(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
         float t=6.f*(float)M_PI*i/N;
         float x=(R-r)*cosf(t)+d*cosf((R-r)/r*t);
         float y=(R-r)*sinf(t)-d*sinf((R-r)/r*t);
-        ap(o,n,m,sc*(x*cosf(off)-y*sinf(off)),sc*(x*sinf(off)+y*cosf(off)),0,200,255,i==0?1:0);
+        ap(o,n,m,sc*(x*cosf(off)-y*sinf(off)),sc*(x*sinf(off)+y*cosf(off)),0,255,255,i==0?1:0);
     }
     return n;
 }
@@ -671,7 +671,7 @@ static size_t p61(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
             float rx=ouV[i][0]*sc*cosf(rot)-ouV[i][1]*sc*sinf(rot);
             float ry=ouV[i][0]*sc*sinf(rot)+ouV[i][1]*sc*cosf(rot);
             verts[i].x=rx; verts[i].y=ry;
-            verts[i].r=0; verts[i].g=240; verts[i].b=255;
+            verts[i].r=0; verts[i].g=255; verts[i].b=255;
             verts[i].lift=false;
         }
         optimizer::PathSegment seg(verts,4,true);
@@ -685,14 +685,14 @@ static size_t p61(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
             float rx=inV[i][0]*sc*cosf(-rot)-inV[i][1]*sc*sinf(-rot);
             float ry=inV[i][0]*sc*sinf(-rot)+inV[i][1]*sc*cosf(-rot);
             verts[i].x=rx; verts[i].y=ry;
-            verts[i].r=255; verts[i].g=80; verts[i].b=200;
+            verts[i].r=255; verts[i].g=0; verts[i].b=255;
             verts[i].lift=false;
         }
         optimizer::PathSegment seg(verts,4,true);
         n += optimizer::optimize(&seg,1,o+n,m-n,liveOptimizerConfig());
     }
     // Circle via ngon
-    n += ngon(o+n,m-n,32,.72f*sc,rot,100,200,255);
+    n += ngon(o+n,m-n,32,.72f*sc,rot,0,255,255);
     return n;
 }
 
@@ -731,7 +731,7 @@ static size_t p101(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     size_t n=0;float sc=SC*ssc(sz)*.9f,rot=aang(ph,sp);
     const float yFore=.5f;                              // vertical foreshortening
     // Silhouette
-    n += ngon(o+n,m-n,48,sc,0,220,220,220);
+    n += ngon(o+n,m-n,48,sc,0,255,255,255);
     // Latitude ellipses at ±30°, ±60° and equator.
     for(int row=-2;row<=2;row++){
         float lat=row*30.f*(float)M_PI/180.f;
@@ -881,17 +881,17 @@ static size_t p90(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
 // No per-vehicle changes needed.
 static size_t p99(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     size_t n=0; float sc2=SC*ssc(sz)*0.7f, ox=scrollX(ph,sp);
-    line(o,n,m, ox-sc2,0,            ox+sc2,0,            200,200,255, 20);
-    line(o,n,m, ox-sc2*.1f,0,        ox-sc2*.4f, sc2*.45f, 200,200,255, 14);
-    line(o,n,m, ox-sc2*.4f,sc2*.45f, ox-sc2*.1f,0,         200,200,255,  6);
-    line(o,n,m, ox-sc2*.1f,0,        ox-sc2*.4f,-sc2*.45f, 200,200,255, 14);
-    line(o,n,m, ox-sc2*.4f,-sc2*.45f,ox-sc2*.1f,0,         200,200,255,  6);
-    line(o,n,m, ox-sc2*.75f,0,       ox-sc2,     sc2*.3f,  200,200,255,  8);
-    line(o,n,m, ox-sc2*.75f,0,       ox-sc2,    -sc2*.3f,  200,200,255,  8);
-    line(o,n,m, ox+sc2,0,            ox+sc2*.85f, sc2*.08f, 200,200,255,  4);
-    line(o,n,m, ox+sc2,0,            ox+sc2*.85f,-sc2*.08f, 200,200,255,  4);
-    line(o,n,m, ox-sc2*.15f, sc2*.2f, ox-sc2*.45f, sc2*.2f,  180,220,255,  8);
-    line(o,n,m, ox-sc2*.15f,-sc2*.2f, ox-sc2*.45f,-sc2*.2f,  180,220,255,  8);
+    line(o,n,m, ox-sc2,0,            ox+sc2,0,            0,0,255, 20);
+    line(o,n,m, ox-sc2*.1f,0,        ox-sc2*.4f, sc2*.45f, 0,0,255, 14);
+    line(o,n,m, ox-sc2*.4f,sc2*.45f, ox-sc2*.1f,0,         0,0,255,  6);
+    line(o,n,m, ox-sc2*.1f,0,        ox-sc2*.4f,-sc2*.45f, 0,0,255, 14);
+    line(o,n,m, ox-sc2*.4f,-sc2*.45f,ox-sc2*.1f,0,         0,0,255,  6);
+    line(o,n,m, ox-sc2*.75f,0,       ox-sc2,     sc2*.3f,  0,0,255,  8);
+    line(o,n,m, ox-sc2*.75f,0,       ox-sc2,    -sc2*.3f,  0,0,255,  8);
+    line(o,n,m, ox+sc2,0,            ox+sc2*.85f, sc2*.08f, 0,0,255,  4);
+    line(o,n,m, ox+sc2,0,            ox+sc2*.85f,-sc2*.08f, 0,0,255,  4);
+    line(o,n,m, ox-sc2*.15f, sc2*.2f, ox-sc2*.45f, sc2*.2f,  0,255,255,  8);
+    line(o,n,m, ox-sc2*.15f,-sc2*.2f, ox-sc2*.45f,-sc2*.2f,  0,255,255,  8);
     return n;
 }
 
@@ -962,13 +962,13 @@ static size_t p100(LaserPoint*o, size_t m, uint32_t ph, uint8_t sp, uint8_t sz) 
         bool blink = (ph % 60) < 30;
         cr = blink ? 255 : 0; cg = 0; cb = 0;
     } else if (rem == 0) {
-        cr = 80; cg = 80; cb = 80;
+        cr = 255; cg = 255; cb = 255;
     } else if (rem <= 10) {
-        cr = 255; cg = 40;  cb = 0;
+        cr = 255; cg = 0;   cb = 0;
     } else if (rem <= 30) {
-        cr = 255; cg = 180; cb = 0;
+        cr = 255; cg = 255; cb = 0;
     } else {
-        cr = 0;   cg = 220; cb = 80;
+        cr = 0;   cg = 255; cb = 0;
     }
 
     uint32_t hh = rem / 3600;
@@ -1029,7 +1029,7 @@ static size_t p103(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     for(int k=0;k<5;k++){
         float a=off+k*4.f*(float)M_PI/5.f-(float)(M_PI/2);
         verts[k].x=cosf(a)*sc; verts[k].y=sinf(a)*sc;
-        verts[k].r=255; verts[k].g=0; verts[k].b=80;
+        verts[k].r=255; verts[k].g=0; verts[k].b=255;
         verts[k].lift=false;
     }
     optimizer::PathSegment seg(verts,5,/*closed=*/true);
@@ -1075,7 +1075,7 @@ static size_t p104(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     const int RUNGS=9;
     for(int rI=0;rI<RUNGS;rI++){
         float t=(float)rI/(RUNGS-1), x=L(-sc,sc,t), a=t*PI2*TURNS+off;
-        line(o,n,m,x,amp*sinf(a),x,amp*sinf(a+(float)M_PI),120,120,120);
+        line(o,n,m,x,amp*sinf(a),x,amp*sinf(a+(float)M_PI),255,255,255);
     }
     return n;
 }
@@ -1108,8 +1108,8 @@ static size_t p105(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
         rot((R*.5f)*cosf(a),-(R*.5f)+(R*.5f)*sinf(a),255,255,255,i==0?1:0);}
     // Eye dots
     const int ND=20; float rd=R*.14f;
-    for(int i=0;i<=ND;i++){float a=PI2*i/ND;rot(rd*cosf(a),(R*.5f)+rd*sinf(a),255,60,60,i==0?1:0);}
-    for(int i=0;i<=ND;i++){float a=PI2*i/ND;rot(rd*cosf(a),-(R*.5f)+rd*sinf(a),60,180,255,i==0?1:0);}
+    for(int i=0;i<=ND;i++){float a=PI2*i/ND;rot(rd*cosf(a),(R*.5f)+rd*sinf(a),255,0,0,i==0?1:0);}
+    for(int i=0;i<=ND;i++){float a=PI2*i/ND;rot(rd*cosf(a),-(R*.5f)+rd*sinf(a),0,255,255,i==0?1:0);}
     if(n>0)ap(o,n,m,o[n-1].x,o[n-1].y,0,0,0,1);
     return n;
 }
