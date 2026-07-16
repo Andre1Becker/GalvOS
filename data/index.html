@@ -560,7 +560,12 @@
               style="writing-mode:vertical-lr;direction:rtl;height:80px;width:28px"
               oninput="colorWheelBrightness(this.value)">
             <div id="lv-col-preview" style="width:40px;height:24px;border-radius:5px;border:1px solid var(--border);background:rgb(255,255,255)"></div>
-            <div style="font-family:monospace;font-size:10px;color:var(--dim)" id="lv-col-hex">#ffffff</div>
+            <div style="display:flex;align-items:center;gap:4px">
+              <span style="font-family:monospace;font-size:9px;color:var(--dim)">#</span>
+              <input type="text" id="lv-col-hex" value="ffc96e" maxlength="6"
+                style="font-family:monospace;font-size:10px;width:52px;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:3px;padding:2px 4px;outline:none"
+                oninput="hexInputChanged(this.value)">
+            </div>
           </div>
         </div>
         <!-- Quick Color Buttons: primaries + mixes -->
@@ -569,10 +574,10 @@
             <div onclick="setQuickColor(255,0,0)"   title="Red"          style="height:22px;border-radius:4px;background:#f00;cursor:pointer;border:1px solid #333;transition:transform 0.1s" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform=''"></div>
             <div onclick="setQuickColor(0,255,0)"   title="Green"        style="height:22px;border-radius:4px;background:#0f0;cursor:pointer;border:1px solid #333;transition:transform 0.1s" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform=''"></div>
             <div onclick="setQuickColor(0,0,255)"   title="Blue"         style="height:22px;border-radius:4px;background:#00f;cursor:pointer;border:1px solid #333;transition:transform 0.1s" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform=''"></div>
-            <div onclick="setQuickColor(255,0,255)" title="R+B Magenta"  style="height:22px;border-radius:4px;background:#f0f;cursor:pointer;border:1px solid #333;transition:transform 0.1s" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform=''"></div>
-            <div onclick="setQuickColor(255,255,0)" title="R+G Yellow"   style="height:22px;border-radius:4px;background:#ff0;cursor:pointer;border:1px solid #333;transition:transform 0.1s" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform=''"></div>
+            <div onclick="setQuickColor(255,0,142)" title="R+B Magenta"  style="height:22px;border-radius:4px;background:#ff008e;cursor:pointer;border:1px solid #333;transition:transform 0.1s" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform=''"></div>
+            <div onclick="setQuickColor(255,167,0)" title="R+G Yellow"   style="height:22px;border-radius:4px;background:#ffa700;cursor:pointer;border:1px solid #333;transition:transform 0.1s" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform=''"></div>
             <div onclick="setQuickColor(0,255,255)" title="G+B Cyan"     style="height:22px;border-radius:4px;background:#0ff;cursor:pointer;border:1px solid #333;transition:transform 0.1s" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform=''"></div>
-            <div onclick="setQuickColor(255,255,255)" title="White"      style="height:22px;border-radius:4px;background:#fff;cursor:pointer;border:1px solid #555;transition:transform 0.1s" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform=''"></div>
+            <div onclick="setQuickColor(255,201,110)" title="White"      style="height:22px;border-radius:4px;background:#ffc96e;cursor:pointer;border:1px solid #555;transition:transform 0.1s" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform=''"></div>
           </div>
         </div>
         <!-- Hidden RGB inputs (API compatibility) -->
@@ -761,26 +766,26 @@
       <div id="anim-panel-strobe" style="display:none">
         <div style="font-size:10px;color:var(--dim);margin-bottom:5px">Strobe color</div>
         <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px">
-          <div onclick="setStrobeColor(255,255,255)" style="width:28px;height:22px;background:#fff;border-radius:3px;cursor:pointer;border:2px solid transparent" id="sc-w"></div>
+          <div onclick="setStrobeColor(255,201,110)" style="width:28px;height:22px;background:#ffc96e;border-radius:3px;cursor:pointer;border:2px solid transparent" id="sc-w"></div>
           <div onclick="setStrobeColor(255,0,0)"     style="width:28px;height:22px;background:#f00;border-radius:3px;cursor:pointer;border:2px solid transparent" id="sc-r"></div>
           <div onclick="setStrobeColor(0,255,0)"     style="width:28px;height:22px;background:#0f0;border-radius:3px;cursor:pointer;border:2px solid transparent" id="sc-g"></div>
           <div onclick="setStrobeColor(0,0,255)"     style="width:28px;height:22px;background:#00f;border-radius:3px;cursor:pointer;border:2px solid transparent" id="sc-b"></div>
-          <div onclick="setStrobeColor(255,0,255)"   style="width:28px;height:22px;background:#f0f;border-radius:3px;cursor:pointer;border:2px solid transparent" id="sc-m"></div>
+          <div onclick="setStrobeColor(255,0,142)"   style="width:28px;height:22px;background:#ff008e;border-radius:3px;cursor:pointer;border:2px solid transparent" id="sc-m"></div>
           <div onclick="setStrobeColor(0,255,255)"   style="width:28px;height:22px;background:#0ff;border-radius:3px;cursor:pointer;border:2px solid transparent" id="sc-c"></div>
-          <div onclick="setStrobeColor(255,255,0)"   style="width:28px;height:22px;background:#ff0;border-radius:3px;cursor:pointer;border:2px solid transparent" id="sc-y"></div>
+          <div onclick="setStrobeColor(255,167,0)"   style="width:28px;height:22px;background:#ffa700;border-radius:3px;cursor:pointer;border:2px solid transparent" id="sc-y"></div>
         </div>
       </div>
 
       <div id="anim-panel-pulse" style="display:none">
         <div style="font-size:10px;color:var(--dim);margin-bottom:5px">Pulse color</div>
         <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px">
-          <div onclick="setPulseColor(255,255,255)" style="width:28px;height:22px;background:#fff;border-radius:3px;cursor:pointer;border:2px solid transparent" id="pc-w"></div>
+          <div onclick="setPulseColor(255,201,110)" style="width:28px;height:22px;background:#ffc96e;border-radius:3px;cursor:pointer;border:2px solid transparent" id="pc-w"></div>
           <div onclick="setPulseColor(255,0,0)"     style="width:28px;height:22px;background:#f00;border-radius:3px;cursor:pointer;border:2px solid transparent" id="pc-r"></div>
           <div onclick="setPulseColor(0,255,0)"     style="width:28px;height:22px;background:#0f0;border-radius:3px;cursor:pointer;border:2px solid transparent" id="pc-g"></div>
           <div onclick="setPulseColor(0,0,255)"     style="width:28px;height:22px;background:#00f;border-radius:3px;cursor:pointer;border:2px solid transparent" id="pc-b"></div>
-          <div onclick="setPulseColor(255,0,255)"   style="width:28px;height:22px;background:#f0f;border-radius:3px;cursor:pointer;border:2px solid transparent" id="pc-m"></div>
+          <div onclick="setPulseColor(255,0,142)"   style="width:28px;height:22px;background:#ff008e;border-radius:3px;cursor:pointer;border:2px solid transparent" id="pc-m"></div>
           <div onclick="setPulseColor(0,255,255)"   style="width:28px;height:22px;background:#0ff;border-radius:3px;cursor:pointer;border:2px solid transparent" id="pc-c"></div>
-          <div onclick="setPulseColor(255,200,0)"   style="width:28px;height:22px;background:#fc0;border-radius:3px;cursor:pointer;border:2px solid transparent" id="pc-y"></div>
+          <div onclick="setPulseColor(255,167,0)"   style="width:28px;height:22px;background:#ffa700;border-radius:3px;cursor:pointer;border:2px solid transparent" id="pc-y"></div>
         </div>
       </div>
 
@@ -988,10 +993,10 @@
           <div onclick="paintSetColor(255,0,0)"     title="Red"     style="height:24px;border-radius:4px;background:#f00;cursor:pointer;border:1px solid #333"></div>
           <div onclick="paintSetColor(0,255,0)"     title="Green"   style="height:24px;border-radius:4px;background:#0f0;cursor:pointer;border:1px solid #333"></div>
           <div onclick="paintSetColor(0,0,255)"     title="Blue"    style="height:24px;border-radius:4px;background:#00f;cursor:pointer;border:1px solid #333"></div>
-          <div onclick="paintSetColor(255,0,255)"   title="Magenta" style="height:24px;border-radius:4px;background:#f0f;cursor:pointer;border:1px solid #333"></div>
-          <div onclick="paintSetColor(255,255,0)"   title="Yellow"  style="height:24px;border-radius:4px;background:#ff0;cursor:pointer;border:1px solid #333"></div>
+          <div onclick="paintSetColor(255,0,142)"   title="Magenta" style="height:24px;border-radius:4px;background:#ff008e;cursor:pointer;border:1px solid #333"></div>
+          <div onclick="paintSetColor(255,167,0)"   title="Yellow"  style="height:24px;border-radius:4px;background:#ffa700;cursor:pointer;border:1px solid #333"></div>
           <div onclick="paintSetColor(0,255,255)"   title="Cyan"    style="height:24px;border-radius:4px;background:#0ff;cursor:pointer;border:1px solid #333"></div>
-          <div onclick="paintSetColor(255,255,255)" title="White"   style="height:24px;border-radius:4px;background:#fff;cursor:pointer;border:1px solid #555"></div>
+          <div onclick="paintSetColor(255,201,110)" title="White"   style="height:24px;border-radius:4px;background:#ffc96e;cursor:pointer;border:1px solid #555"></div>
         </div>
         <input type="color" id="pt-custom-color" value="#ff0000"
           onchange="const c=paintHexToRgb(this.value);paintSetColor(c[0],c[1],c[2])"
@@ -5068,7 +5073,7 @@ document.addEventListener('DOMContentLoaded', () => {
     var hex     = document.getElementById('lv-col-hex');
     var css = 'rgb('+r+','+g+','+b+')';
     if (preview) preview.style.background = css;
-    if (hex) hex.textContent = '#' +
+    if (hex) hex.value =
       ('0'+r.toString(16)).slice(-2) +
       ('0'+g.toString(16)).slice(-2) +
       ('0'+b.toString(16)).slice(-2);
@@ -5271,7 +5276,7 @@ function selectSegSeq(i)       { window._selectSegSeq      && window._selectSegS
     var er=document.getElementById('lv-r'); if(er) er.value=r;
     var eg=document.getElementById('lv-g'); if(eg) eg.value=g;
     var eb=document.getElementById('lv-b'); if(eb) eb.value=b;
-    var map={'sc-w':[255,255,255],'sc-r':[255,0,0],'sc-g':[0,255,0],'sc-b':[0,0,255],'sc-m':[255,0,255],'sc-c':[0,255,255],'sc-y':[255,255,0]};
+    var map={'sc-w':[255,201,110],'sc-r':[255,0,0],'sc-g':[0,255,0],'sc-b':[0,0,255],'sc-m':[255,0,142],'sc-c':[0,255,255],'sc-y':[255,167,0]};
     Object.keys(map).forEach(function(id){var el=document.getElementById(id);if(el)el.style.borderColor=(map[id][0]===r&&map[id][1]===g&&map[id][2]===b)?'var(--accent)':'transparent';});
     sendAnimConfig();
   };
@@ -5280,7 +5285,7 @@ function selectSegSeq(i)       { window._selectSegSeq      && window._selectSegS
     var er=document.getElementById('lv-r'); if(er) er.value=r;
     var eg=document.getElementById('lv-g'); if(eg) eg.value=g;
     var eb=document.getElementById('lv-b'); if(eb) eb.value=b;
-    var map={'pc-w':[255,255,255],'pc-r':[255,0,0],'pc-g':[0,255,0],'pc-b':[0,0,255],'pc-m':[255,0,255],'pc-c':[0,255,255],'pc-y':[255,200,0]};
+    var map={'pc-w':[255,201,110],'pc-r':[255,0,0],'pc-g':[0,255,0],'pc-b':[0,0,255],'pc-m':[255,0,142],'pc-c':[0,255,255],'pc-y':[255,167,0]};
     Object.keys(map).forEach(function(id){var el=document.getElementById(id);if(el)el.style.borderColor=(map[id][0]===r&&map[id][1]===g&&map[id][2]===b)?'var(--accent)':'transparent';});
     sendAnimConfig();
   };
@@ -5304,6 +5309,15 @@ function selectSegSeq(i)       { window._selectSegSeq      && window._selectSegS
   window._applyGradient = function() { sendAnimConfig(); };
 
   // Quick-color: stop animation, set static color
+  window.hexInputChanged = function(val) {
+    val = val.replace(/[^0-9a-fA-F]/g, '').slice(0, 6);
+    if (val.length !== 6) return;
+    var r = parseInt(val.slice(0,2), 16);
+    var g = parseInt(val.slice(2,4), 16);
+    var b = parseInt(val.slice(4,6), 16);
+    window._setQuickColor && window._setQuickColor(r, g, b);
+  };
+
   window._setQuickColor = function(r, g, b) {
     s_activeType = ''; s_activeSeq = -1;
     var er=document.getElementById('lv-r'); if(er) er.value=r;
@@ -5312,7 +5326,7 @@ function selectSegSeq(i)       { window._selectSegSeq      && window._selectSegS
     var preview=document.getElementById('lv-col-preview');
     var hexEl=document.getElementById('lv-col-hex');
     if(preview) preview.style.background='rgb('+r+','+g+','+b+')';
-    if(hexEl) hexEl.textContent='#'+('0'+r.toString(16)).slice(-2)+('0'+g.toString(16)).slice(-2)+('0'+b.toString(16)).slice(-2);
+    if(hexEl) hexEl.value=('0'+r.toString(16)).slice(-2)+('0'+g.toString(16)).slice(-2)+('0'+b.toString(16)).slice(-2);
     var rn=r/255,gn=g/255,bn=b/255;
     var max=Math.max(rn,gn,bn),d=max-Math.min(rn,gn,bn);
     var h=0,s=max===0?0:d/max*100,v=max*255;
