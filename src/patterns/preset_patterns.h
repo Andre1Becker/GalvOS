@@ -58,18 +58,35 @@ enum class Preset : int8_t {
 // of propagating an invalid ID into pattern_engine state.
 Preset presetFromIndex(int raw);
 
-// PresetClass -- optimizer profile selector derived from the preset category.
+// PresetClass -- optimizer profile selector derived from a pattern's
+// scanner workload, not from its display category. Two patterns in the same
+// UI category can stress the galvos very differently (a Heart is one smooth
+// closed loop, a Confetti Burst is 40 blanked jumps), so the grouping below
+// is by geometry topology:
+//
+//   Vector      closed polygons / straight runs -> corner dwell dominates
+//   Smooth      continuous closed curves, no corners -> density dominates
+//   Waves       open polylines, high spatial frequency -> velocity dominates
+//   Wireframe   3D edge chains -> corner dwell + short blank jumps
+//   MultiObject several separate closed objects -> long blank jumps
+//   Particles   isolated dots, no geometry -> blank jumps dominate
 enum class PresetClass : uint8_t {
-    Simple = 0,   // Geometry, Lines
-    Curves = 1,   // Spirals, Curves, Waves, Complex, Combo
-    ThreeD = 2,   // 3D
-    Scenes = 3,   // Scenes, Party, Vehicles, Symbols, Timers, unknown
-    Solar  = 4,   // Solar System (long blank jumps, multi-object)
+    Vector      = 0,
+    Smooth      = 1,
+    Waves       = 2,
+    Wireframe   = 3,
+    MultiObject = 4,
+    Particles   = 5,
 };
 PresetClass presetClassOf(Preset p);
 
 struct PresetInfo { const char* name; const char* category; };
 extern const PresetInfo PRESETS[PRESET_COUNT];
+
+// Member list of an optimizer profile, for display in the WebUI.
+// Derived from presetClassOf() over PRESETS[] -- never hand-maintained.
+uint8_t     profileMemberCount(uint8_t profile);
+const char* profileMemberName(uint8_t profile, uint8_t n);
 
 size_t generate(uint8_t idx, LaserPoint* out, size_t max_pts,
                 uint32_t phase, uint8_t speed, uint8_t size_val);

@@ -28,6 +28,15 @@ namespace calib_patterns {
 
 constexpr uint8_t CALIB_PATTERN_COUNT = 11;
 
+// Optimizer profile each calibration pattern runs under. The alignment
+// patterns (0-6) are plain polygons and circles, so they belong with the
+// presets of the same shape; the four optimizer test patterns (7-10) are
+// each built to exercise one pipeline stage and are mapped to the profile
+// whose sliders they isolate. Activating a calibration pattern switches
+// the active profile the same way selecting a preset does, so what you see
+// on the wall is what the sliders in front of you actually control.
+uint8_t profileOf(uint8_t idx);
+
 struct CalibPatternInfo {
     const char* name;
     const char* desc;

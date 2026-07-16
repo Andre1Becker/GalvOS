@@ -114,18 +114,20 @@
   .opt-profile-btn { padding:6px 14px; border-radius:4px; border:1px solid var(--border);
     background:var(--card); color:var(--dim); cursor:pointer; font-size:12px; transition:all .15s; }
   .opt-profile-btn.active { background:var(--accent); color:#000; border-color:var(--accent); font-weight:600; }
-  /* Optimizer profile preview grid */
-  .opt-profile-previews { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:14px; }
-  .opt-profile-preview { background:rgba(0,0,0,.35); border:1px solid var(--border);
-    border-radius:6px; padding:8px; display:flex; flex-direction:column; align-items:center; gap:4px; }
-  .opt-profile-preview svg { width:80px; height:80px; display:block; }
-  .opt-profile-preview .opt-pp-label { font-size:10px; color:var(--dim); text-align:center; }
+  /* Optimizer tab: sliders left, profile member list right */
+  .opt-layout { display:grid; grid-template-columns:1fr 240px; gap:16px; align-items:start; }
+  @media (max-width: 900px) { .opt-layout { grid-template-columns:1fr; } }
+  .opt-members { position:sticky; top:12px; }
+  .opt-member-item { font-size:11px; font-family:monospace; color:var(--dim);
+    padding:3px 0; border-bottom:1px solid var(--border); }
+  .opt-member-item:last-child { border-bottom:0; }
+  .opt-member-empty { font-size:11px; color:var(--dim); font-style:italic; }
+  /* Each parameter group is one visually enclosed cell. */
   .opt-group-label {
     font-size: 12px; font-weight: 700; color: var(--blue);
     text-transform: uppercase; letter-spacing: .03em;
-    margin: 16px 0 6px; padding-top: 10px; border-top: 1px solid var(--border);
+    margin: 0 0 10px; padding: 0 0 6px; border-bottom: 1px solid var(--border);
   }
-  .opt-group-label:first-of-type { border-top: 0; padding-top: 0; margin-top: 0; }
     /* Output-parameter preview: small looping animation next to every
      control that affects laser output. Purely illustrative -- the mini
      slider below the shape is NOT wired to the real control, it just
@@ -146,9 +148,11 @@
   .param-preview .pp-fx { width: 100%; height: 100%; display: block; }
   .param-preview .pp-fx-bad  { opacity: 0.25; }
   .param-preview .pp-fx-good { opacity: 1; } 40%, 60% { opacity: 0; } 85%, 100% { opacity: 1; } } 40%, 60% { opacity: 1; } 85%, 100% { opacity: 0; } }
-  .opt-columns { column-count: 2; column-gap: 28px; }
-  .opt-col-block { break-inside: avoid; -webkit-column-break-inside: avoid; }
-  @media (min-width: 900px) { .opt-columns { column-count: 3; } }
+  .opt-columns { column-count: 2; column-gap: 16px; }
+  .opt-col-block { break-inside: avoid; -webkit-column-break-inside: avoid;
+    background: rgba(0,0,0,.22); border: 1px solid var(--border);
+    border-radius: 8px; padding: 12px 14px; margin: 0 0 16px; }
+  @media (min-width: 1400px) { .opt-columns { column-count: 3; } }
   @media (max-width: 620px) { .opt-columns { column-count: 1; } }
   .channel-row input[type=range] { width: 100%; -webkit-appearance: none; appearance: none; background: transparent; }
   .channel-row input[type=range]::-webkit-slider-runnable-track {
@@ -3824,14 +3828,58 @@ async function switchOptimizerProfile(idx) {
     if (cfg && cfg.opt_profiles) loadOptimizerConfig(cfg);
 }
 
+// Optimizer profile metadata. Index must match OPT_PROFILE_* in config.h.
+// Member names are not listed here -- they come from the firmware via
+// /api/config opt_profile_members, derived from presetClassOf().
+const OPT_PROFILES = [
+    { icon: '\u25FB', name: 'Vector',
+      desc: 'Closed polygons and straight runs. Corner dwell dominates.' },
+    { icon: '\u223F', name: 'Smooth',
+      desc: 'Continuous closed curves without corners. Interior density dominates.' },
+    { icon: '\u3030', name: 'Waves',
+      desc: 'Open polylines with fast direction reversals. Velocity clamp dominates.' },
+    { icon: '\u2B21', name: 'Wireframe',
+      desc: '3D edge chains. Corner dwell plus short blank jumps.' },
+    { icon: '\u2600', name: 'Multi-Object',
+      desc: 'Several separate closed objects. Long blank jumps dominate.' },
+    { icon: '\u2726', name: 'Particles',
+      desc: 'Isolated dots without connecting geometry. Blank jumps only.' },
+];
+
+// Member names per profile, filled from /api/config.
+let g_optProfileMembers = [];
+
+function renderOptimizerProfileBar() {
+    const bar = document.getElementById('opt-profile-bar');
+    if (!bar || bar.childElementCount) return;
+    bar.innerHTML = OPT_PROFILES.map((p, i) =>
+        `<button class="opt-profile-btn" id="opt-prof-btn-${i}" title="${p.desc}"
+                 onclick="switchOptimizerProfile(${i})">${p.icon} ${p.name}</button>`
+    ).join('');
+}
+
+function renderOptimizerMembers(activeIdx) {
+    const prof = OPT_PROFILES[activeIdx];
+    const list = g_optProfileMembers[activeIdx] || [];
+    const setText = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+    setText('opt-members-title', prof ? `${prof.icon} ${prof.name} (${list.length})` : 'Patterns');
+    setText('opt-members-desc',  prof ? prof.desc : '');
+    const box = document.getElementById('opt-members-list');
+    if (!box) return;
+    box.innerHTML = list.length
+        ? list.map(n => `<div class="opt-member-item">${n}</div>`).join('')
+        : '<div class="opt-member-empty">No patterns assigned</div>';
+}
+
 function updateOptimizerProfileUI(activeIdx) {
-    const names = ['Simple', 'Curves', '3D', 'Scenes', 'Solar'];
-    for (let i = 0; i < 5; i++) {
+    renderOptimizerProfileBar();
+    for (let i = 0; i < OPT_PROFILES.length; i++) {
         const btn = document.getElementById('opt-prof-btn-' + i);
         if (btn) btn.classList.toggle('active', i === activeIdx);
     }
     const lbl = document.getElementById('opt-active-profile-label');
-    if (lbl) lbl.textContent = names[activeIdx] || '';
+    if (lbl) lbl.textContent = OPT_PROFILES[activeIdx] ? OPT_PROFILES[activeIdx].name : '';
+    renderOptimizerMembers(activeIdx);
 }
 
 function loadOptimizerConfig(cfg) {
@@ -3849,6 +3897,7 @@ function loadOptimizerConfig(cfg) {
     // Read from profile array if available, fall back to top-level fields
     const activeIdx = (cfg.opt_active_profile != null) ? cfg.opt_active_profile : g_activeOptimizerProfile;
     g_activeOptimizerProfile = activeIdx;
+    if (cfg.opt_profile_members) g_optProfileMembers = cfg.opt_profile_members;
     const p = (cfg.opt_profiles && cfg.opt_profiles[activeIdx]) ? cfg.opt_profiles[activeIdx] : cfg;
     updateOptimizerProfileUI(activeIdx);
 
@@ -6648,103 +6697,21 @@ document.addEventListener('DOMContentLoaded', initParamPreviews);
 </script>
 
 <section id="tab-optimizer" class="tab">
-  <div style="display:grid;grid-template-columns:240px 1fr;gap:16px;align-items:start">
 
-    <!-- ── Profile selector sidebar ── -->
-    <div>
-      <div class="card" style="margin-bottom:12px">
-        <h2 style="margin-bottom:12px">📐 Optimizer Profiles</h2>
-        <p style="font-size:11px;color:var(--dim);margin:0 0 14px">
-          Each preset class uses independent settings. The active profile
-          switches automatically when you select a preset.
-        </p>
-        <div class="opt-profile-bar" style="flex-direction:column">
-          <button class="opt-profile-btn" id="opt-prof-btn-0" onclick="switchOptimizerProfile(0)">◻ Simple</button>
-          <button class="opt-profile-btn" id="opt-prof-btn-1" onclick="switchOptimizerProfile(1)">〜 Curves</button>
-          <button class="opt-profile-btn" id="opt-prof-btn-2" onclick="switchOptimizerProfile(2)">⬡ 3D</button>
-          <button class="opt-profile-btn" id="opt-prof-btn-3" onclick="switchOptimizerProfile(3)">✦ Scenes</button>
-          <button class="opt-profile-btn" id="opt-prof-btn-4" onclick="switchOptimizerProfile(4)">☀ Solar</button>
-        </div>
-      </div>
+  <!-- Row 1: profile selector -->
   <div class="card" style="margin-bottom:12px">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-      <h3 style="margin:0;font-size:14px">◻ Simple — Geometry &amp; Lines</h3>
-      <span id="opt-profile-badge-0" style="font-size:10px;color:var(--dim);font-family:monospace"></span>
+    <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+      <h2 style="margin:0">&#128208; Optimizer Profiles</h2>
+      <span style="font-size:11px;color:var(--dim)">
+        Grouped by scanner workload. The active profile switches automatically
+        with the selected preset or calibration pattern.
+      </span>
     </div>
-    <div class="opt-profile-previews">
-      <div class="opt-profile-preview">
-        <svg viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg"><rect width="80" height="80" fill="none"/><polygon points="40,12 68,28 68,52 40,68 12,52 12,28" fill="none" stroke="var(--accent)" stroke-width="2"/><circle cx="40" cy="12" r="2" fill="var(--accent)"/><circle cx="68" cy="28" r="2" fill="var(--accent)"/><circle cx="68" cy="52" r="2" fill="var(--accent)"/><circle cx="40" cy="68" r="2" fill="var(--accent)"/><circle cx="12" cy="52" r="2" fill="var(--accent)"/><circle cx="12" cy="28" r="2" fill="var(--accent)"/></svg>
-        <span class="opt-pp-label">Circle / Hexagon</span>
-      </div>
-      <div class="opt-profile-preview">
-        <svg viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg"><rect width="80" height="80" fill="none"/><rect x="14" y="14" width="52" height="52" fill="none" stroke="var(--accent)" stroke-width="2"/><line x1="14" y1="14" x2="66" y2="66" stroke="var(--dim)" stroke-width="1"/><line x1="66" y1="14" x2="14" y2="66" stroke="var(--dim)" stroke-width="1"/><line x1="40" y1="14" x2="40" y2="66" stroke="var(--dim)" stroke-width="1"/><line x1="14" y1="40" x2="66" y2="40" stroke="var(--dim)" stroke-width="1"/></svg>
-        <span class="opt-pp-label">Grid 3×3</span>
-      </div>
-    </div>
+    <div class="opt-profile-bar" id="opt-profile-bar"></div>
   </div>
-  <div class="card" style="margin-bottom:12px">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-      <h3 style="margin:0;font-size:14px">〜 Curves — Spirals, Waves &amp; Complex</h3>
-      <span id="opt-profile-badge-1" style="font-size:10px;color:var(--dim);font-family:monospace"></span>
-    </div>
-    <div class="opt-profile-previews">
-      <div class="opt-profile-preview">
-        <svg viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg"><rect width="80" height="80" fill="none"/><path d="M40,40 m0,-24 a24,24 0 1,1 0,48 a24,24 0 1,1 0,-48" fill="none" stroke="var(--accent)" stroke-width="2"/><path d="M40,16 Q56,40 40,64 Q24,40 40,16" fill="none" stroke="var(--dim)" stroke-width="1.5" stroke-dasharray="3 2"/></svg>
-        <span class="opt-pp-label">Lissajous 1:2</span>
-      </div>
-      <div class="opt-profile-preview">
-        <svg viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg"><rect width="80" height="80" fill="none"/><path d="M8,40 Q14,10 20,40 Q26,70 32,40 Q38,10 44,40 Q50,70 56,40 Q62,10 68,40 Q74,70 80,40" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"/><path d="M8,60 Q20,20 32,60 Q44,20 56,60 Q68,20 80,60" fill="none" stroke="#444" stroke-width="1"/></svg>
-        <span class="opt-pp-label">Wave Interference</span>
-      </div>
-    </div>
-  </div>
-  <div class="card" style="margin-bottom:12px">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-      <h3 style="margin:0;font-size:14px">⬡ 3D — Wireframes</h3>
-      <span id="opt-profile-badge-2" style="font-size:10px;color:var(--dim);font-family:monospace"></span>
-    </div>
-    <div class="opt-profile-previews">
-      <div class="opt-profile-preview">
-        <svg viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg"><rect width="80" height="80" fill="none"/><rect x="24" y="30" width="32" height="32" fill="none" stroke="var(--accent)" stroke-width="2"/><rect x="14" y="18" width="32" height="32" fill="none" stroke="var(--dim)" stroke-width="1.5"/><line x1="14" y1="18" x2="24" y2="30" stroke="var(--accent)" stroke-width="1.5"/><line x1="46" y1="18" x2="56" y2="30" stroke="var(--accent)" stroke-width="1.5"/><line x1="14" y1="50" x2="24" y2="62" stroke="var(--accent)" stroke-width="1.5"/><line x1="46" y1="50" x2="56" y2="62" stroke="var(--accent)" stroke-width="1.5"/></svg>
-        <span class="opt-pp-label">Static Cube</span>
-      </div>
-      <div class="opt-profile-preview">
-        <svg viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg"><rect width="80" height="80" fill="none"/><polygon points="40,8 72,26 72,56 40,72 8,56 8,26" fill="none" stroke="var(--accent)" stroke-width="2"/><line x1="40" y1="8" x2="40" y2="72" stroke="var(--dim)" stroke-width="1" stroke-dasharray="3 2"/><line x1="8" y1="26" x2="72" y2="56" stroke="var(--dim)" stroke-width="1" stroke-dasharray="3 2"/><line x1="72" y1="26" x2="8" y2="56" stroke="var(--dim)" stroke-width="1" stroke-dasharray="3 2"/></svg>
-        <span class="opt-pp-label">Torus Knot</span>
-      </div>
-    </div>
-  </div>
-  <div class="card" style="margin-bottom:12px">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-      <h3 style="margin:0;font-size:14px">✦ Scenes — Particles &amp; Party</h3>
-      <span id="opt-profile-badge-3" style="font-size:10px;color:var(--dim);font-family:monospace"></span>
-    </div>
-  </div>
-  <div class="card" style="margin-bottom:12px">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-      <h3 style="margin:0;font-size:14px">☀ Solar — Multi-object Scenes</h3>
-      <span id="opt-profile-badge-4" style="font-size:10px;color:var(--dim);font-family:monospace"></span>
-    </div>
-    <div class="opt-profile-previews">
-      <div class="opt-profile-preview">
-        <svg viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg"><rect width="80" height="80" fill="none"/><circle cx="40" cy="40" r="10" fill="none" stroke="#fdc050" stroke-width="2.5"/><circle cx="40" cy="40" r="28" fill="none" stroke="var(--dim)" stroke-width="1" stroke-dasharray="3 3"/><circle cx="68" cy="40" r="6" fill="none" stroke="var(--accent)" stroke-width="2"/><circle cx="68" cy="28" r="3" fill="none" stroke="#dc3cdc" stroke-width="1.5"/></svg>
-        <span class="opt-pp-label">Solar System</span>
-      </div>
-    </div>
-    <div class="opt-profile-previews">
-      <div class="opt-profile-preview">
-        <svg viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg"><rect width="80" height="80" fill="none"/><circle cx="18" cy="22" r="2" fill="var(--accent)"/><circle cx="62" cy="15" r="2" fill="var(--accent)"/><circle cx="45" cy="38" r="2" fill="var(--accent)"/><circle cx="25" cy="55" r="2" fill="var(--accent)"/><circle cx="67" cy="48" r="2" fill="var(--accent)"/><circle cx="38" cy="68" r="2" fill="var(--accent)"/><circle cx="10" cy="65" r="2" fill="var(--accent)"/><circle cx="72" cy="70" r="2" fill="var(--accent)"/><circle cx="52" cy="58" r="1.5" fill="var(--dim)"/><circle cx="30" cy="32" r="1.5" fill="var(--dim)"/><circle cx="58" cy="30" r="1.5" fill="var(--dim)"/></svg>
-        <span class="opt-pp-label">Starfield</span>
-      </div>
-      <div class="opt-profile-preview">
-        <svg viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg"><rect width="80" height="80" fill="none"/><circle cx="40" cy="40" r="28" fill="none" stroke="var(--dim)" stroke-width="1" stroke-dasharray="2 3"/><line x1="40" y1="12" x2="40" y2="68" stroke="var(--accent)" stroke-width="2"/><line x1="12" y1="40" x2="68" y2="40" stroke="var(--accent)" stroke-width="2"/><line x1="20" y1="20" x2="60" y2="60" stroke="var(--accent)" stroke-width="2"/><line x1="60" y1="20" x2="20" y2="60" stroke="var(--accent)" stroke-width="2"/><line x1="13" y1="30" x2="67" y2="50" stroke="var(--dim)" stroke-width="1"/><line x1="13" y1="50" x2="67" y2="30" stroke="var(--dim)" stroke-width="1"/><circle cx="40" cy="40" r="4" fill="var(--accent)"/></svg>
-        <span class="opt-pp-label">Party Finale</span>
-      </div>
-    </div>
-  </div>
-    </div>
 
-    <!-- ── Slider panel ── -->
+  <!-- Row 2: sliders (left) + member list (right) -->
+  <div class="opt-layout">
     <div class="card">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
         <h2 style="margin:0">Optimizer Settings</h2>
@@ -6880,8 +6847,15 @@ document.addEventListener('DOMContentLoaded', initParamPreviews);
         <button class="btn secondary" onclick="resetOptimizerDefaults()">↺ Reset defaults</button>
       </div>
       <div id="opt-save-status" style="font-size:12px;color:var(--dim);margin-top:8px"></div>
-    </div>
-  </div>
+    </div><!-- /slider card -->
+
+    <!-- Member column -->
+    <aside class="card opt-members">
+      <h3 style="margin:0 0 4px;font-size:14px" id="opt-members-title">Patterns</h3>
+      <p style="font-size:11px;color:var(--dim);margin:0 0 10px" id="opt-members-desc"></p>
+      <div id="opt-members-list"></div>
+    </aside>
+  </div><!-- /opt-layout -->
 </section>
 
 <section id="tab-playlist" class="tab">

@@ -1403,49 +1403,104 @@ static size_t p_bouncing(LaserPoint* o, size_t m, uint32_t ph, uint8_t sp, uint8
 // ─── DISPATCH ────────────────────────────────────────────────
 
 // presetClassOf() -- maps a Preset to its optimizer profile index.
-//presets::PresetClass presets::presetClassOf(presets::Preset p) 
+// Grouped by scanner workload (see PresetClass in preset_patterns.h), so the
+// mapping deliberately cuts across the display categories in PRESETS[].
 PresetClass presetClassOf(Preset p)
 {
-    if (p == presets::Preset::None) return presets::PresetClass::Scenes;
+    if (p == presets::Preset::None) return presets::PresetClass::Vector;
     using P = presets::Preset;
     switch (p) {
-        // ── Simple: Geometry + Lines ──────────────────────────────────
+        // ── Vector: closed polygons + straight-line runs ──────────────
+        // Sharp vertices with long straight edges between them: corner
+        // dwell is the dominant cost, interior density barely matters.
         case P::Circle: case P::Square: case P::Triangle:
         case P::Pentagon: case P::Hexagon: case P::Octagon:
         case P::Star4: case P::Star5: case P::Star6: case P::Star8:
+        case P::Pentagram:
         case P::CrossPlus: case P::XShape: case P::Grid3x3:
         case P::HLine: case P::Diagonal:
         case P::ThreeCircles:
-            return presets::PresetClass::Simple;
-        // ── Curves: Spirals + Curves + Waves + Complex + Combo ────────
-        case P::ArchimedeanSpiral: case P::Lissajous1To2: case P::Lissajous2To3:
-        case P::Lissajous3To4: case P::Lissajous3To5: case P::Lissajous5To6:
-        case P::DoubleSpiral: case P::Rose3:
-        case P::Rose4: case P::Heart: case P::Infinity:
-        case P::Astroid: case P::Epitrochoid:
+            return presets::PresetClass::Vector;
+
+        // ── Smooth: continuous closed curves ──────────────────────────
+        // No true corners -- quality is set by interior density alone.
+        // Corner dwell here only wastes frame budget.
+        case P::ArchimedeanSpiral: case P::DoubleSpiral:
+        case P::Lissajous1To2: case P::Lissajous2To3: case P::Lissajous3To4:
+        case P::Lissajous3To5: case P::Lissajous5To6:
+        case P::Rose3: case P::Rose4:
+        case P::Heart: case P::Infinity: case P::Astroid: case P::Epitrochoid:
+        case P::Hypotrochoid: case P::Butterfly: case P::Spirograph5To3:
+        case P::PulsingCircle: case P::DnaHelix: case P::YinYang:
+            return presets::PresetClass::Smooth;
+
+        // ── Waves: open polylines, high spatial frequency ─────────────
+        // Left-to-right sweeps that never close. Fast direction reversals
+        // at every crest make velocity/accel clamping the binding limit.
         case P::SineWave: case P::StandingWave: case P::MultiWave:
         case P::OceanWave: case P::WaveInterference: case P::Sawtooth:
         case P::SquareWave: case P::WavePacket: case P::BeatWave:
         case P::RadialWaves: case P::FmWave: case P::Vortex:
         case P::SineHelix: case P::WaveField: case P::FourierSquare:
         case P::GravityWaves: case P::Tsunami: case P::WaveSpectrum:
-        case P::Hypotrochoid: case P::Butterfly: case P::Spirograph5To3:
-        case P::ConcentricRings: case P::NestedSquares: case P::PulsingCircle:
-        case P::Starburst: case P::ChaosBouncer: case P::LaserDiamond:
-        case P::ConfettiBurst: case P::DiscoBall:
-        case P::Pentagram: case P::DnaHelix: case P::YinYang:
-            return presets::PresetClass::Curves;
-        // ── ThreeD: 3D wireframes ─────────────────────────────────────
+            return presets::PresetClass::Waves;
+
+        // ── Wireframe: 3D edge chains ─────────────────────────────────
+        // Needs buildWfChains() to see incoming+outgoing edges per vertex.
         case P::RotatingCube: case P::StaticCube: case P::Pyramid:
         case P::Octahedron: case P::Tetrahedron:
-            return presets::PresetClass::ThreeD;
-        // ── Solar System: dedicated profile for long blank jumps ─────
+            return presets::PresetClass::Wireframe;
+
+        // ── MultiObject: several separate closed objects per frame ────
+        // Frame time is dominated by the blanked jumps between objects,
+        // not by the objects themselves.
         case P::SolarSystem:
-            return presets::PresetClass::Solar;
-        // ── Scenes: everything else ───────────────────────────────────
+        case P::ConcentricRings: case P::NestedSquares:
+        case P::DiscoBall: case P::LaserDiamond:
+        case P::Starburst: case P::StarburstParty: case P::Hibiscus:
+        case P::ChaosBouncer: case P::CountdownTimer:
+            return presets::PresetClass::MultiObject;
+
+        // ── Particles: isolated dots, no connecting geometry ──────────
+        case P::Starfield: case P::RandomPoints: case P::PointSpread:
+        case P::ConfettiBurst: case P::BouncingPoints:
+            return presets::PresetClass::Particles;
+
         default:
-            return presets::PresetClass::Scenes;
+            return presets::PresetClass::Vector;
     }
+}
+
+// ─── PROFILE MEMBER LISTS (WebUI) ────────────────────────────
+// Names shown in the Optimizer tab's member column. Built from PRESETS[]
+// at startup rather than duplicated here, so a preset rename can never
+// desync the two.
+static uint8_t s_profileMembers[OPT_PROFILE_COUNT][PRESET_COUNT];
+static uint8_t s_profileMemberCount[OPT_PROFILE_COUNT];
+static bool    s_profileMembersBuilt = false;
+
+static void buildProfileMembers() {
+    if (s_profileMembersBuilt) return;
+    for (uint8_t i = 0; i < OPT_PROFILE_COUNT; i++) s_profileMemberCount[i] = 0;
+    for (uint8_t i = 0; i < PRESET_COUNT; i++) {
+        const uint8_t cls = (uint8_t)presetClassOf((Preset)i);
+        if (cls >= OPT_PROFILE_COUNT) continue;
+        s_profileMembers[cls][s_profileMemberCount[cls]++] = i;
+    }
+    s_profileMembersBuilt = true;
+}
+
+uint8_t profileMemberCount(uint8_t profile) {
+    if (profile >= OPT_PROFILE_COUNT) return 0;
+    buildProfileMembers();
+    return s_profileMemberCount[profile];
+}
+
+const char* profileMemberName(uint8_t profile, uint8_t n) {
+    if (profile >= OPT_PROFILE_COUNT) return nullptr;
+    buildProfileMembers();
+    if (n >= s_profileMemberCount[profile]) return nullptr;
+    return PRESETS[s_profileMembers[profile][n]].name;
 }
 
 const PresetInfo PRESETS[PRESET_COUNT] = {

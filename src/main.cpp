@@ -47,7 +47,7 @@ CurveConfig      gCurves;
 ProjectionConfig gProjection;
 OptimizerLiveConfig gOptimizerProfiles[OPT_PROFILE_COUNT];  // one per PresetClass
 OptimizerLiveConfig gOptimizerConfig;          // live copy of active profile
-volatile uint8_t    gActiveOptimizerProfile = OPT_PROFILE_SIMPLE;
+volatile uint8_t    gActiveOptimizerProfile = OPT_PROFILE_VECTOR;
 optimizer::AffineTransform optimizer::gLiveTransform;  // Phase 3: live Z-rot + move affine, published per-frame by pattern_engine
 volatile uint32_t   gPatternCacheGen = 0; // Phase 2 static-preset cache invalidation
 ZoneConfig       gZone;                 // touch-defined projection zone
@@ -77,12 +77,17 @@ static void loadConfig() {
     gConfig.thresh_g        = s_prefs.getUChar("thresh_g", 144);
     gConfig.thresh_b        = s_prefs.getUChar("thresh_b", 169);
     gConfig.gamma_enable    = s_prefs.getBool ("gamma_en", true);
+    // NVS suffixes are pinned to the profile index, not to its name, so the
+    // v1 profile set (Simple/Curves/3D/Scenes/Solar) migrates in place onto
+    // the renamed profiles instead of resetting. "_w" is new (Waves) and
+    // falls back to compile-time defaults on first boot.
     static const struct { const char* sfx; uint8_t idx; } PROF_MAP[] = {
-        { "_s",   OPT_PROFILE_SIMPLE },
-        { "_c",   OPT_PROFILE_CURVES },
-        { "_3",   OPT_PROFILE_THREED },
-        { "_sc",  OPT_PROFILE_SCENES },
-        { "_sol", OPT_PROFILE_SOLAR  },
+        { "_s",   OPT_PROFILE_VECTOR      },  // was Simple
+        { "_c",   OPT_PROFILE_SMOOTH      },  // was Curves
+        { "_w",   OPT_PROFILE_WAVES       },  // new
+        { "_3",   OPT_PROFILE_WIREFRAME   },  // was ThreeD
+        { "_sol", OPT_PROFILE_MULTIOBJECT },  // was Solar
+        { "_sc",  OPT_PROFILE_PARTICLES   },  // was Scenes
     };
     for (auto& pm : PROF_MAP) {
         OptimizerLiveConfig& p = gOptimizerProfiles[pm.idx];

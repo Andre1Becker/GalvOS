@@ -726,6 +726,29 @@ static size_t opt_vel_accel(LaserPoint* o, size_t m,
 // ══════════════════════════════════════════════════════════════
 // DISPATCH + METADATA
 // ══════════════════════════════════════════════════════════════
+uint8_t profileOf(uint8_t idx) {
+    switch (idx) {
+        case 1:  // Aspect Ratio     -- square + circle
+        case 3:  // DAC Range Box    -- rectangle + inscribed circle
+        case 4:  // Zone Outline     -- polygon outline
+        case 7:  // Opt Corner Sweep -- isolates corner_angle_deg / corner pts
+            return OPT_PROFILE_VECTOR;
+        case 0:  // Blanking Test    -- arc segments split by blank jumps
+        case 2:  // ILDA Test        -- circle + square + blanked sub-figures
+        case 6:  // Three Circles    -- three separate closed circles
+        case 9:  // Opt Jump Ring    -- isolates blank_samples / ringing_comp
+            return OPT_PROFILE_MULTIOBJECT;
+        case 5:  // Corner Color Map -- four isolated dots
+            return OPT_PROFILE_PARTICLES;
+        case 8:  // Opt Density Ramp -- isolates pts_per_1000_units / resample
+            return OPT_PROFILE_SMOOTH;
+        case 10: // Opt Vel/Accel    -- isolates max_step_units / max_accel
+            return OPT_PROFILE_WAVES;
+        default:
+            return OPT_PROFILE_VECTOR;
+    }
+}
+
 const CalibPatternInfo CALIB_INFO[CALIB_PATTERN_COUNT] = {
     {"Blanking Test",
      "Alternating on/off segments \u2014 checks blanking accuracy",

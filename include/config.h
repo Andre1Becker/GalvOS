@@ -111,22 +111,30 @@ struct OptimizerLiveConfig {
 };
 
 // ── OPTIMIZER PROFILES ──────────────────────────────────────────────────────
-// Five independent OptimizerLiveConfig profiles, one per PresetClass.
+// Six independent OptimizerLiveConfig profiles, one per PresetClass.
 // gOptimizerConfig is always a live copy of the active profile; call
 // syncOptimizerConfig() after writing to gOptimizerProfiles[n].
 //
-//   Index 0 = Simple  (Geometry, Lines)
-//   Index 1 = Curves  (Spirals, Curves, Waves, Complex, Combo)
-//   Index 2 = ThreeD  (3D)
-//   Index 3 = Scenes  (Scenes, Party, Vehicles, Symbols, Timers)
-//   Index 4 = Solar   (Solar System — long blank jumps, multi-object)
+// Profiles are grouped by scanner workload, not by display category --
+// see PresetClass in preset_patterns.h for the rationale.
+//
+//   Index 0 = Vector       closed polygons, straight runs (corner dwell)
+//   Index 1 = Smooth       continuous closed curves (interior density)
+//   Index 2 = Waves        open polylines, high frequency (velocity clamp)
+//   Index 3 = Wireframe    3D edge chains (corner dwell + short jumps)
+//   Index 4 = MultiObject  several closed objects (long blank jumps)
+//   Index 5 = Particles    isolated dots (blank jumps only)
+//
+// NVS key suffixes are pinned per index so existing stored parameters
+// migrate onto the renamed profile rather than resetting to defaults.
 
-constexpr uint8_t OPT_PROFILE_COUNT  = 5;
-constexpr uint8_t OPT_PROFILE_SIMPLE = 0;
-constexpr uint8_t OPT_PROFILE_CURVES = 1;
-constexpr uint8_t OPT_PROFILE_THREED = 2;
-constexpr uint8_t OPT_PROFILE_SCENES = 3;
-constexpr uint8_t OPT_PROFILE_SOLAR  = 4;
+constexpr uint8_t OPT_PROFILE_COUNT       = 6;
+constexpr uint8_t OPT_PROFILE_VECTOR      = 0;
+constexpr uint8_t OPT_PROFILE_SMOOTH      = 1;
+constexpr uint8_t OPT_PROFILE_WAVES       = 2;
+constexpr uint8_t OPT_PROFILE_WIREFRAME   = 3;
+constexpr uint8_t OPT_PROFILE_MULTIOBJECT = 4;
+constexpr uint8_t OPT_PROFILE_PARTICLES   = 5;
 
 extern OptimizerLiveConfig gOptimizerProfiles[OPT_PROFILE_COUNT];
 extern OptimizerLiveConfig gOptimizerConfig;   // live copy of active profile

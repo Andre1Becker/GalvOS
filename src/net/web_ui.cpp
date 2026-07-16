@@ -145,10 +145,11 @@ static void persistConfig() {
     s_prefs.putString("gw",         gConfig.wifi_gw);
     s_prefs.putString("mask",       gConfig.wifi_mask);
     s_prefs.putString("dns",        gConfig.wifi_dns);
+    // Suffixes must match PROF_MAP in main.cpp::loadConfig().
     static const struct { const char* sfx; uint8_t idx; } PMAP[] = {
-        {"_s",OPT_PROFILE_SIMPLE},{"_c",OPT_PROFILE_CURVES},
-        {"_3",OPT_PROFILE_THREED},{"_sc",OPT_PROFILE_SCENES},
-        {"_sol",OPT_PROFILE_SOLAR},
+        {"_s",  OPT_PROFILE_VECTOR},      {"_c",   OPT_PROFILE_SMOOTH},
+        {"_w",  OPT_PROFILE_WAVES},       {"_3",   OPT_PROFILE_WIREFRAME},
+        {"_sol",OPT_PROFILE_MULTIOBJECT}, {"_sc",  OPT_PROFILE_PARTICLES},
     };
     for (auto& pm : PMAP) {
         const OptimizerLiveConfig& p = gOptimizerProfiles[pm.idx];
@@ -313,6 +314,17 @@ static void buildConfigJson(JsonDocument& doc) {
     doc["dac_limit_max"]   = gConfig.dac_limit_max;
     doc["gamma_enable"]    = gConfig.gamma_enable;
     doc["opt_active_profile"] = (uint8_t)gActiveOptimizerProfile;
+    {
+        // Member name list per profile -- drives the Optimizer tab's
+        // right-hand column. Derived from presetClassOf(), so it stays
+        // correct without a parallel table in the WebUI.
+        JsonArray members = doc["opt_profile_members"].to<JsonArray>();
+        for (uint8_t pi = 0; pi < OPT_PROFILE_COUNT; pi++) {
+            JsonArray m = members.add<JsonArray>();
+            const uint8_t n = presets::profileMemberCount(pi);
+            for (uint8_t k = 0; k < n; k++) m.add(presets::profileMemberName(pi, k));
+        }
+    }
     {
         JsonArray profiles = doc["opt_profiles"].to<JsonArray>();
         for (uint8_t pi = 0; pi < OPT_PROFILE_COUNT; pi++) {
@@ -1247,6 +1259,14 @@ void init() {
             if (gState.calib_active) {
                 ilda::stop();
                 gTextConfig.active = false;
+                // Run the pattern under the profile it was designed to
+                // exercise, so its sliders are the ones on screen.
+                const uint8_t prof = calib_patterns::profileOf(gState.calib_idx);
+                if (prof != gActiveOptimizerProfile) {
+                    gActiveOptimizerProfile = prof;
+                    syncOptimizerConfig();
+                    gPatternCacheGen++;
+                }
                 // Three Circles needs full dimmer so gain spans its full visible
                 // range; other patterns use 200 to leave headroom.
                 const uint8_t dimTarget = (gState.calib_idx == 6) ? 255 : 200;
