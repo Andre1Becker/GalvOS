@@ -812,6 +812,9 @@ void init() {
             if (doc["points_fade_dir"].is<int>())     gLivePreset.points_fade_dir    = (uint8_t)constrain((int)doc["points_fade_dir"], 0, 5);
             if (doc["points_static_on"].is<bool>())   gLivePreset.points_static_on   = doc["points_static_on"];
             if (doc["random_pts_hold_ms"].is<int>())  gLivePreset.random_pts_hold_ms = (uint16_t)constrain((int)doc["random_pts_hold_ms"], 50, 5000);
+            if (doc["bp_trail_len"].is<int>())    gLivePreset.bp_trail_len    = (uint8_t)constrain((int)doc["bp_trail_len"], 0, 12);
+            if (doc["bp_endless"].is<bool>())     gLivePreset.bp_endless      = doc["bp_endless"];
+            if (doc["bp_duration_sec"].is<int>()) gLivePreset.bp_duration_sec = (uint16_t)constrain((int)doc["bp_duration_sec"], 1, 90);
             req->send(200, "text/plain", "OK");
         });
 

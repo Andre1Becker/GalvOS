@@ -454,6 +454,10 @@ struct LivePresetControls {
     // Random Points preset (preset_patterns.cpp::p106) -- Amount/Speed
     // reuse size_val/speed above, Duration needed its own field.
     volatile uint16_t random_pts_hold_ms   = 500;   // 50..5000, hold time per dot, ms
+    // Bouncing Points preset (preset_patterns.cpp::p_bouncing)
+    volatile uint8_t  bp_trail_len     = 6;     // 0=off, 1..12 trail ghost steps
+    volatile bool     bp_endless        = true;  // true=loop forever, false=time-limited
+    volatile uint16_t bp_duration_sec   = 30;   // 1..90 s, ignored when bp_endless=true
     // Kaleidoscope effect (global toggle, Preset + Curve mode)
     volatile bool     kaleido_enabled   = false;
     volatile uint8_t  kaleido_segments  = 6;      // 2..KALEIDO_SEGMENTS_MAX

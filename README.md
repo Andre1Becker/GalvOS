@@ -20,7 +20,7 @@
 
 - point to multi point spread out
 - Phyllotaxis bad output
-- Endless Spiral, Endless Tunnel, Mandelbrot Animation, Bouncing Points (Parameter Count,Speed and Trail, Trail Length), Shooting Star
+- Endless Spiral, Endless Tunnel, Mandelbrot Animation, Shooting Star
 - Chaos Bouncer is now a Lissajous - needs fixing
 - Hypotrochoid ist a Star - needs fixing
 - Helix output needs adjusting

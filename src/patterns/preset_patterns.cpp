@@ -1235,6 +1235,154 @@ static size_t p_solar(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     return n;
 }
 
+
+// p_bouncing -- Bouncing Points. Up to 8 independent dots bounce inside the
+// scan area like a ping-pong game. Each ball has its own direction vector and
+// hue (evenly distributed around the colour wheel); when a ball hits a wall it
+// reflects on the relevant axis. Trail: up to 12 ghost positions stored per
+// ball, drawn with linearly decaying brightness (Fade-out style).
+//
+// sp  = ball speed (0=very slow, 255=fast)
+// sz  = ball count 1..8
+// gLivePreset.trail          = trail length 0..12 (0 = no trail)
+// gLivePreset.bp_endless     = true -> run forever, false -> time-limited
+// gLivePreset.bp_duration_sec = stop after this many seconds (1..90)
+#define BP_MAX_BALLS 8
+#define BP_TRAIL_MAX 12
+static size_t p_bouncing(LaserPoint* o, size_t m, uint32_t ph, uint8_t sp, uint8_t sz) {
+    (void)ph;  // millis()-driven
+
+    // ── persistent state ──────────────────────────────────────────────────
+    struct Ball {
+        float x, y;       // current position [-SC..SC]
+        float vx, vy;     // velocity direction (unit vector)
+        float trailX[BP_TRAIL_MAX];
+        float trailY[BP_TRAIL_MAX];
+        bool  init;
+    };
+    static Ball   balls[BP_MAX_BALLS];
+    static uint32_t lastMs   = 0;
+    static uint32_t startMs  = 0;
+    static bool     seeded   = false;
+
+    const uint32_t nowMs = millis();
+    if (!seeded) {
+        auto fr0 = [](uint32_t seed) -> float {
+            float x = sinf((float)seed * 127.1f + 1.f) * 43758.5453f;
+            return x - floorf(x);
+        };
+        for (int k = 0; k < BP_MAX_BALLS; k++) {
+            const float ang = fr0((uint32_t)k * 7919u + 1u) * PI2;
+            balls[k].x = (fr0((uint32_t)k * 3u + 1u) * 2.f - 1.f) * SC * 0.5f;
+            balls[k].y = (fr0((uint32_t)k * 5u + 2u) * 2.f - 1.f) * SC * 0.5f;
+            balls[k].vx = cosf(ang);
+            balls[k].vy = sinf(ang);
+            balls[k].init = true;
+            for (int t = 0; t < BP_TRAIL_MAX; t++) {
+                balls[k].trailX[t] = balls[k].x;
+                balls[k].trailY[t] = balls[k].y;
+            }
+        }
+        seeded  = true;
+        lastMs  = nowMs;
+        startMs = nowMs;
+    }
+
+    const uint32_t elapsed  = nowMs - startMs;
+    const uint8_t  trailLen = (gLivePreset.trail < BP_TRAIL_MAX) ? gLivePreset.trail : BP_TRAIL_MAX;
+    const bool     endless  = gLivePreset.bp_endless;
+    const uint32_t durMs    = (uint32_t)gLivePreset.bp_duration_sec * 1000u;
+    const bool     expired  = (!endless && elapsed >= durMs);
+
+    // Number of active balls: 1..BP_MAX_BALLS mapped from sz
+    int nBalls = 1 + (int)((sz / 255.f) * (BP_MAX_BALLS - 1));
+    if (nBalls < 1) nBalls = 1;
+    if (nBalls > BP_MAX_BALLS) nBalls = BP_MAX_BALLS;
+
+    // Speed: units per millisecond (4..36 u/ms depending on sp)
+    const float spd = 4.f + (sp / 255.f) * 32.f;
+
+    // Delta-time integration
+    uint32_t dtMs = (nowMs > lastMs) ? (nowMs - lastMs) : 0;
+    if (dtMs > 50) dtMs = 50;  // cap to avoid tunnelling after hiccup
+    lastMs = nowMs;
+
+    const float boundary = SC * 0.92f;
+
+    if (!expired) {
+        auto fr1 = [](uint32_t seed) -> float {
+            float x = sinf((float)seed * 127.1f + 1.f) * 43758.5453f;
+            return x - floorf(x);
+        };
+        for (int k = 0; k < nBalls; k++) {
+            Ball& b = balls[k];
+            // Re-seed ball if it was just enabled (init still false from a previous lower count)
+            if (!b.init) {
+                const float ang = fr1((uint32_t)(k * 997u + nowMs * 31u)) * PI2;
+                b.vx   = cosf(ang);
+                b.vy   = sinf(ang);
+                b.init = true;
+                for (int t = 0; t < BP_TRAIL_MAX; t++) { b.trailX[t] = b.x; b.trailY[t] = b.y; }
+            }
+            // Shift trail history
+            for (int t = BP_TRAIL_MAX - 1; t > 0; t--) {
+                b.trailX[t] = b.trailX[t - 1];
+                b.trailY[t] = b.trailY[t - 1];
+            }
+            b.trailX[0] = b.x;
+            b.trailY[0] = b.y;
+            // Integrate
+            b.x += b.vx * spd * (float)dtMs;
+            b.y += b.vy * spd * (float)dtMs;
+            // Bounce
+            if (b.x >  boundary) { b.x =  2.f * boundary - b.x; b.vx = -fabsf(b.vx); }
+            if (b.x < -boundary) { b.x = -2.f * boundary - b.x; b.vx =  fabsf(b.vx); }
+            if (b.y >  boundary) { b.y =  2.f * boundary - b.y; b.vy = -fabsf(b.vy); }
+            if (b.y < -boundary) { b.y = -2.f * boundary - b.y; b.vy =  fabsf(b.vy); }
+        }
+    }
+
+    // ── Output ────────────────────────────────────────────────────────────
+    const optimizer::OptimizerConfig cfg = liveOptimizerConfig();
+    uint16_t kpps = gProjection.galvo_kpps;
+    if (kpps < 12) kpps = 12; if (kpps > 60) kpps = 60;
+    const float tick_us = 1000000.f / ((float)kpps * 1000.f);
+    int dwell = (int)ceilf(180.f / tick_us);
+    if (dwell < 4) dwell = 4;
+
+    size_t n = 0;
+    for (int k = 0; k < nBalls && n < m; k++) {
+        const Ball& b = balls[k];
+        const float hue = PI2 * (float)k / (float)nBalls;
+        const uint8_t br_ = (uint8_t)(128 + 127 * sinf(hue));
+        const uint8_t bg_ = (uint8_t)(128 + 127 * sinf(hue + 2.094f));
+        const uint8_t bb_ = (uint8_t)(128 + 127 * sinf(hue + 4.189f));
+
+        // Draw trail oldest-first so head overwrites (appears brightest)
+        if (trailLen > 0) {
+            for (int t = trailLen - 1; t >= 0; t--) {
+                const float fade = 1.f - (float)(t + 1) / (float)(trailLen + 1);
+                const uint8_t tr_ = (uint8_t)(br_ * fade);
+                const uint8_t tg_ = (uint8_t)(bg_ * fade);
+                const uint8_t tb_ = (uint8_t)(bb_ * fade);
+                if (n >= m) break;
+                optimizer::emitBlankTo(o, n, m, b.trailX[t], b.trailY[t], cfg);
+                for (int d = 0; d < dwell && n < m; d++)
+                    ap(o, n, m, b.trailX[t], b.trailY[t], tr_, tg_, tb_, 0);
+            }
+        }
+        // Head
+        if (n < m) {
+            optimizer::emitBlankTo(o, n, m, b.x, b.y, cfg);
+            for (int d = 0; d < dwell && n < m; d++)
+                ap(o, n, m, b.x, b.y, br_, bg_, bb_, 0);
+        }
+    }
+    return n;
+}
+#undef BP_MAX_BALLS
+#undef BP_TRAIL_MAX
+
 // ─── DISPATCH ────────────────────────────────────────────────
 
 // presetClassOf() -- maps a Preset to its optimizer profile index.
@@ -1296,6 +1444,7 @@ const PresetInfo PRESETS[PRESET_COUNT] = {
     {"Random Points","Scenes"},
     {"Three Circles","Geometry"},{"Point Spread","Scenes"},
     {"Solar System","Scenes"},
+    {"Bouncing Points","Scenes"},
 };
 
 static const PFn DISPATCH[PRESET_COUNT] = {
@@ -1315,6 +1464,7 @@ static const PFn DISPATCH[PRESET_COUNT] = {
     p106,
     p107,p108,
     p_solar,
+    p_bouncing,
 };
 
 // ─── STATIC-PRESET CACHE (Phase 2) ───────────────────────────

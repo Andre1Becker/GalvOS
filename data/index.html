@@ -467,6 +467,24 @@
           </div>
           <input type="range" id="lv-randompts" min="50" max="5000" step="50" value="500" oninput="liveSlider()">
         </div>
+        <div id="lv-bouncing-row" style="display:none;margin-bottom:8px">
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:3px">
+            <span>Trail Length</span><span id="lv-bp-trail-val" style="color:var(--accent);font-family:monospace">6</span>
+          </div>
+          <input type="range" id="lv-bp-trail" min="0" max="12" step="1" value="6" oninput="liveSlider()">
+          <div style="display:flex;gap:8px;margin-top:6px;align-items:center">
+            <label class="toggle">
+              <input type="checkbox" id="lv-bp-endless" checked onchange="liveSlider()">
+              <span class="slider"></span><span style="font-size:11px">Endless</span>
+            </label>
+          </div>
+          <div id="lv-bp-dur-row" style="display:none;margin-top:6px">
+            <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:3px">
+              <span>Duration</span><span id="lv-bp-dur-val" style="color:var(--accent);font-family:monospace">30s</span>
+            </div>
+            <input type="range" id="lv-bp-dur" min="1" max="90" step="1" value="30" oninput="liveSlider()">
+          </div>
+        </div>
         <div style="margin-bottom:8px">
           <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:3px">
             <span>Rotation (Z)</span><span id="lv-rot-val" style="color:var(--accent);font-family:monospace">0°</span>
@@ -3415,6 +3433,7 @@ const STATIC_PRESET_DEFS = [
   {idx:70,name:"Three Circles",cat:"Geometry",svg:`<svg width="72" height="72" viewBox="0 0 72 72"><rect width="72" height="72" fill="#000"/><circle cx="18" cy="36" r="14" fill="none" stroke="#f44" stroke-width="2"/><circle cx="36" cy="36" r="14" fill="none" stroke="#4f4" stroke-width="2"/><circle cx="54" cy="36" r="14" fill="none" stroke="#44f" stroke-width="2"/></svg>`},
   {idx:71,name:"Point Spread",cat:"Scenes",svg:`<svg width="72" height="72" viewBox="0 0 72 72"><rect width="72" height="72" fill="#000"/><circle cx="22" cy="22" r="2" fill="#f44"/><circle cx="50" cy="22" r="2" fill="#4f4"/><circle cx="22" cy="50" r="2" fill="#44f"/><circle cx="50" cy="50" r="2" fill="#ff4"/><circle cx="36" cy="36" r="2" fill="#fff"/><circle cx="10" cy="36" r="1.5" fill="#f80"/><circle cx="62" cy="36" r="1.5" fill="#0ff"/><circle cx="36" cy="10" r="1.5" fill="#f0f"/><circle cx="36" cy="62" r="1.5" fill="#0f8"/></svg>`},
   {idx:72,name:"Solar System",cat:"Scenes",svg:`<svg width="72" height="72" viewBox="0 0 72 72"><rect width="72" height="72" fill="#000"/><circle cx="36" cy="36" r="10" fill="none" stroke="#fdc050" stroke-width="3"/><circle cx="36" cy="36" r="28" fill="none" stroke="#1a1a1a" stroke-width="1" stroke-dasharray="3 3"/><circle cx="64" cy="36" r="5.5" fill="none" stroke="#28a0ff" stroke-width="2"/><circle cx="64" cy="36" r="12" fill="none" stroke="#111" stroke-width="1" stroke-dasharray="2 3"/><circle cx="64" cy="24" r="3" fill="none" stroke="#dc3cdc" stroke-width="1.5"/></svg>`},
+  {idx:73,name:"Bouncing Points",cat:"Scenes",svg:`<svg width="72" height="72" viewBox="0 0 72 72"><rect width="72" height="72" fill="#000"/><circle cx="22" cy="28" r="4" fill="#f44"/><circle cx="20" cy="26" r="3" fill="#f44" opacity="0.6"/><circle cx="18" cy="24" r="2" fill="#f44" opacity="0.3"/><circle cx="52" cy="44" r="4" fill="#4f4"/><circle cx="54" cy="42" r="3" fill="#4f4" opacity="0.6"/><circle cx="56" cy="40" r="2" fill="#4f4" opacity="0.3"/><circle cx="36" cy="56" r="4" fill="#44f"/><circle cx="38" cy="52" r="3" fill="#44f" opacity="0.6"/><circle cx="40" cy="48" r="2" fill="#44f" opacity="0.3"/><rect x="4" y="4" width="64" height="64" rx="2" fill="none" stroke="#333" stroke-width="1.5"/></svg>`},
 
 ];
 
@@ -3550,6 +3569,8 @@ const PRESET_PARAM_HINTS = {
           hint: '⏱ Countdown Timer — Speed controls the blink rate when expired. Size scales the digit height.' },
     104: { sp: 'Fade Speed', sz: 'Amount',
           hint: '✨ Random Points — Speed controls how fast points appear/disappear. Size sets the max simultaneous points (1–14) -- the actual count flickers randomly below that. Duration sets how long each point stays fully lit.' },
+    73:  { sp: 'Ball Speed', sz: 'Ball Count',
+          hint: '🏓 Bouncing Points — Balls bounce off the scan-area edges (ping-pong style). Speed sets velocity. Size sets ball count (1–8). Trail sets ghost length. Use Endless or set a Duration (0–90 s).' },
 };
 
 function updatePresetHint(idx) {
@@ -3570,6 +3591,16 @@ function updatePresetHint(idx) {
     if (spMulRow) spMulRow.style.display = (idx === 90) ? 'block' : 'none';
     var randomPtsRow = document.getElementById('lv-randompts-row');
     if (randomPtsRow) randomPtsRow.style.display = (idx === 104) ? 'block' : 'none';
+    var bouncingRow = document.getElementById('lv-bouncing-row');
+    if (bouncingRow) { bouncingRow.style.display = (idx === 73) ? 'block' : 'none'; }
+    var bpEndless = document.getElementById('lv-bp-endless');
+    if (bpEndless && !bpEndless._bpListenerAdded) {
+        bpEndless._bpListenerAdded = true;
+        bpEndless.addEventListener('change', function() {
+            var dr = document.getElementById('lv-bp-dur-row');
+            if (dr) dr.style.display = this.checked ? 'none' : 'block';
+        });
+    }
 }
 
 async function deactivatePreset() {
@@ -3626,6 +3657,8 @@ function liveSlider() {
     document.getElementById('lv-pm-fadein-val').textContent  = document.getElementById('lv-pm-fadein').value;
     document.getElementById('lv-pm-fadeout-val').textContent = document.getElementById('lv-pm-fadeout').value;
     document.getElementById('lv-randompts-val').textContent = document.getElementById('lv-randompts').value + 'ms';
+    document.getElementById('lv-bp-trail-val').textContent = document.getElementById('lv-bp-trail').value;
+    document.getElementById('lv-bp-dur-val').textContent   = document.getElementById('lv-bp-dur').value + 's';
     // Color Preview
     const r=document.getElementById('lv-r').value,g=document.getElementById('lv-g').value,b=document.getElementById('lv-b').value;
     document.getElementById('lv-col-preview').style.background = `rgb(${r},${g},${b})`;
@@ -3923,6 +3956,9 @@ async function sendLiveControls() {
         points_fade_dir:     +document.getElementById('lv-pm-dir').value,
         points_static_on:    document.getElementById('lv-pm-static-on').checked,
         random_pts_hold_ms:  +document.getElementById('lv-randompts').value,
+        bp_trail_len:        +document.getElementById('lv-bp-trail').value,
+        bp_endless:          document.getElementById('lv-bp-endless').checked,
+        bp_duration_sec:     +document.getElementById('lv-bp-dur').value,
     });
 }
 
@@ -3946,6 +3982,10 @@ function resetLiveControls() {
     document.getElementById('lv-pm-dir').value = 0;
     document.getElementById('lv-pm-static-on').checked = false;
     document.getElementById('lv-randompts').value = 500;
+    document.getElementById('lv-bp-trail').value = 6;
+    document.getElementById('lv-bp-endless').checked = true;
+    document.getElementById('lv-bp-dur').value = 30;
+    var bpDurRow = document.getElementById('lv-bp-dur-row'); if (bpDurRow) bpDurRow.style.display = 'none';
     document.getElementById('lv-col-on').checked = false;
     document.getElementById('lv-r').value = 255;
     document.getElementById('lv-g').value = 255;
