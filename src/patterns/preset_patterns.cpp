@@ -1210,9 +1210,8 @@ static size_t p108(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
 
 static size_t p_solar(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     const float sc   = SC * ssc(sz) * 0.9f;
-    const float t    = (float)(ph & 0xFFFFu) / 65536.f;
-    const float ap_  = PI2 * t;                   // planet angle
-    const float am   = PI2 * t * 4.0f;            // moon angle (4x faster)
+    const float ap_  = aang(ph, sp);              // planet angle (sp-controlled)
+    const float am   = aang(ph, sp, 4.0f);        // moon angle (4x faster)
     const float rSun = sc * 0.16f;
     const float rPla = sc * 0.08f;
     const float rMoo = sc * 0.04f;
