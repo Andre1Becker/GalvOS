@@ -1038,17 +1038,43 @@ static size_t p103(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
 
 // p104 DNA Double Helix -- two counter-phase sine strands (backbone) plus
 // straight rungs (base pairs) at fixed intervals via line().
+// v1.1: strands migrated to PathSegment+optimize() for proper S-curve
+// blanking and velocity clamping; stray connecting lines and hot end-
+// dwell points eliminated.
 static size_t p104(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     size_t n=0;
     float sc=SC*ssc(sz)*.9f, amp=sc*.32f, off=aang(ph,sp);
     const int NS=70; const float TURNS=3.f;
-    for(int i=0;i<=NS;i++){float t=(float)i/NS,x=L(-sc,sc,t),a=t*PI2*TURNS+off;
-        ap(o,n,m,x,amp*sinf(a),0,180,255,i==0?1:0);}
-    for(int i=0;i<=NS;i++){float t=(float)i/NS,x=L(-sc,sc,t),a=t*PI2*TURNS+off;
-        ap(o,n,m,x,amp*sinf(a+(float)M_PI),255,0,150,i==0?1:0);}
+    optimizer::OptimizerConfig cfg=liveOptimizerConfig();
+
+    // Strand 1: cyan
+    {
+        optimizer::PathVertex verts[NS+1];
+        for(int i=0;i<=NS;i++){
+            float t=(float)i/NS, x=L(-sc,sc,t), a=t*PI2*TURNS+off;
+            verts[i].x=x; verts[i].y=amp*sinf(a);
+            verts[i].r=0; verts[i].g=180; verts[i].b=255;
+            verts[i].lift=(i==0);
+        }
+        optimizer::PathSegment seg(verts,(size_t)(NS+1),/*closed=*/false);
+        n+=optimizer::optimize(&seg,1,o+n,m-n,cfg);
+    }
+    // Strand 2: magenta (phase-shifted by π)
+    {
+        optimizer::PathVertex verts[NS+1];
+        for(int i=0;i<=NS;i++){
+            float t=(float)i/NS, x=L(-sc,sc,t), a=t*PI2*TURNS+off+(float)M_PI;
+            verts[i].x=x; verts[i].y=amp*sinf(a);
+            verts[i].r=255; verts[i].g=0; verts[i].b=150;
+            verts[i].lift=(i==0);
+        }
+        optimizer::PathSegment seg(verts,(size_t)(NS+1),/*closed=*/false);
+        n+=optimizer::optimize(&seg,1,o+n,m-n,cfg);
+    }
+    // Rungs (base pairs): line() uses lift=true internally
     const int RUNGS=9;
     for(int rI=0;rI<RUNGS;rI++){
-        float t=(float)rI/(RUNGS-1),x=L(-sc,sc,t),a=t*PI2*TURNS+off;
+        float t=(float)rI/(RUNGS-1), x=L(-sc,sc,t), a=t*PI2*TURNS+off;
         line(o,n,m,x,amp*sinf(a),x,amp*sinf(a+(float)M_PI),120,120,120);
     }
     return n;
