@@ -19,14 +19,17 @@
  *   9  OPT_JUMP_RING      blank_samples / ringing_comp (Pillar 2/3)
  *  10  OPT_VEL_ACCEL      max_step_units / max_accel_units
  *
- * API: POST /api/calib-pattern {"idx": 0-10, "brightness": 200}
+ * 1 animated demo pattern:
+ *  11  SOLAR_SYSTEM       sun + orbiting planet + orbiting moon (phase-animated)
+ *
+ * API: POST /api/calib-pattern {"idx": 0-11, "brightness": 200}
  *      GET  /api/calib-pattern/list
  */
 #include "config.h"
 
 namespace calib_patterns {
 
-constexpr uint8_t CALIB_PATTERN_COUNT = 11;
+constexpr uint8_t CALIB_PATTERN_COUNT = 12;
 
 struct CalibPatternInfo {
     const char* name;
