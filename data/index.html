@@ -2669,6 +2669,27 @@ function setupCalibSliders() {
 }
 
 let calibSendTimer = null;
+function updateGammaBtn(enabled) {
+  const btn = document.getElementById('cal-gamma-btn');
+  if (!btn) return;
+  if (enabled) {
+    btn.textContent = '✓ CIE 1931 ON';
+    btn.classList.remove('secondary');
+    btn.classList.add('ok');
+  } else {
+    btn.textContent = '✗ CIE 1931 OFF';
+    btn.classList.remove('ok');
+    btn.classList.add('secondary');
+  }
+}
+
+function toggleGammaEnable() {
+  const cb = document.getElementById('cal-gamma-enable');
+  cb.checked = !cb.checked;
+  updateGammaBtn(cb.checked);
+  sendCalibLive();
+}
+
 function sendCalibLive() {
   if (calibSendTimer) return;
   calibSendTimer = setTimeout(async () => {
@@ -2688,7 +2709,8 @@ function sendCalibLive() {
       thresh_g: +document.getElementById('cp-thr-g').value,
       thresh_b: +document.getElementById('cp-thr-b').value,
       dac_limit_min: +document.getElementById('cal-dac-lim-min').value,
-      dac_limit_max: +document.getElementById('cal-dac-lim-max').value
+      dac_limit_max: +document.getElementById('cal-dac-lim-max').value,
+      gamma_enable: document.getElementById('cal-gamma-enable').checked
     });
     const lim = document.getElementById('dac-lim-status');
     if (lim) {
@@ -2720,6 +2742,10 @@ async function loadCalibration() {
   document.getElementById('cp-thr-r').value = c.thresh_r; document.getElementById('cp-thr-r-v').textContent = c.thresh_r;
   document.getElementById('cp-thr-g').value = c.thresh_g; document.getElementById('cp-thr-g-v').textContent = c.thresh_g;
   document.getElementById('cp-thr-b').value = c.thresh_b; document.getElementById('cp-thr-b-v').textContent = c.thresh_b;
+  if (c.gamma_enable !== undefined) {
+    document.getElementById('cal-gamma-enable').checked = c.gamma_enable;
+    updateGammaBtn(c.gamma_enable);
+  }
   if (c.dac_limit_min !== undefined && c.dac_limit_max !== undefined) {
     document.getElementById('cal-dac-lim-min').value = c.dac_limit_min;
     document.getElementById('v-dac-lim-min').textContent = '0x' + c.dac_limit_min.toString(16).padStart(4,'0').toUpperCase();
@@ -5735,6 +5761,16 @@ async function saveNtpConfig() {
         </div>
       </div>
       <div id="awb-hint" style="font-size:11px;color:var(--dim);margin-top:8px"></div>
+      <hr style="border-color:var(--border);margin:14px 0">
+      <h3 style="font-size:13px;margin-bottom:8px">CIE 1931 Gamma</h3>
+      <p style="color:var(--dim);font-size:11px;margin:0 0 10px">
+        Perceptual brightness correction (γ≈2.2). Disable to send linear
+        0–255 values directly to the laser driver.
+      </p>
+      <div class="btns" style="margin-bottom:10px">
+        <button class="btn ok" id="cal-gamma-btn" onclick="toggleGammaEnable()">✓ CIE 1931 ON</button>
+      </div>
+      <input type="checkbox" id="cal-gamma-enable" style="display:none" checked>
       <div class="btns" style="margin-top:10px">
         <button class="btn ok" onclick="saveCalibration()">💾 Save calibration</button>
       </div>

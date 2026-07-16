@@ -310,6 +310,7 @@ static void buildConfigJson(JsonDocument& doc) {
     doc["dac_debug_log"]   = gConfig.dac_debug_log;
     doc["dac_limit_min"]   = gConfig.dac_limit_min;
     doc["dac_limit_max"]   = gConfig.dac_limit_max;
+    doc["gamma_enable"]    = gConfig.gamma_enable;
     doc["opt_active_profile"] = (uint8_t)gActiveOptimizerProfile;
     {
         JsonArray profiles = doc["opt_profiles"].to<JsonArray>();
