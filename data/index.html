@@ -794,7 +794,10 @@
         <label style="font-size:11px;cursor:pointer"><input type="radio" name="grad-dir" value="1"  checked onchange="applyGradient()"> → Fwd</label>
         <label style="font-size:11px;cursor:pointer"><input type="radio" name="grad-dir" value="-1"        onchange="applyGradient()"> ← Rev</label>
       </div>
-      <button class="btn secondary" onclick="stopGradient()" style="width:100%;font-size:11px;padding:5px">⏹ Stop Animation</button>
+      <div style="display:flex;gap:6px">
+        <button class="btn secondary" onclick="stopGradient()" style="flex:1;font-size:11px;padding:5px">⏹ Stop Animation</button>
+        <button class="btn secondary" onclick="resetColorOverride()" style="flex:1;font-size:11px;padding:5px">↺ Reset Colors</button>
+      </div>
     </div>
 
     <!-- Countdown Timer (standalone utility) -->
@@ -5088,6 +5091,20 @@ function setAnimType(t)        { window._setAnimType       && window._setAnimTyp
 function setStrobeColor(r,g,b) { window._setStrobeColor    && window._setStrobeColor(r,g,b); }
 function setPulseColor(r,g,b)  { window._setPulseColor     && window._setPulseColor(r,g,b); }
 function setQuickColor(r,g,b)  { window._setQuickColor     && window._setQuickColor(r,g,b); }
+function resetColorOverride() {
+  if (typeof stopGradient === 'function') stopGradient();
+  var colOn = document.getElementById('lv-col-on');
+  if (colOn) colOn.checked = false;
+  document.getElementById('lv-r').value = 255;
+  document.getElementById('lv-g').value = 255;
+  document.getElementById('lv-b').value = 255;
+  if (typeof apiCall === 'function') apiCall('POST', '/api/preset-live', {
+    col_anim_type: 0, col_anim_seq: 0, col_anim_speed: 128,
+    col_override: false,
+    col_r: 255, col_g: 255, col_b: 255
+  });
+}
+
 function stopGradient()        { window._stopGradient      && window._stopGradient(); }
 function applyGradient()       { window._applyGradient     && window._applyGradient(); }
 function selectGradient(i)     { window._selectGradient    && window._selectGradient(i); }
@@ -5239,11 +5256,18 @@ function selectSegSeq(i)       { window._selectSegSeq      && window._selectSegS
 
   window._stopGradient = function() {
     s_activeType = ''; s_activeSeq = -1;
+    window._animActiveType  = 0;
+    window._animActiveSeq   = 0;
     buildGrid('grad-seq-grid',  GRAD_SEQS,  -1, 'window.selectGradient');
     buildGrid('chase-seq-grid', CHASE_SEQS, -1, 'window.selectChase');
     buildGrid('seg-seq-grid',   GRAD_SEQS,  -1, 'window.selectSegSeq');
     highlightTypeBtn('');
-    sendAnimConfig();
+    var colOn = document.getElementById('lv-col-on');
+    if (colOn) colOn.checked = false;
+    if (typeof apiCall === 'function') apiCall('POST', '/api/preset-live', {
+      col_anim_type: 0, col_anim_seq: 0, col_anim_speed: 128,
+      col_override: false
+    });
   };
 
   window._applyGradient = function() { sendAnimConfig(); };
