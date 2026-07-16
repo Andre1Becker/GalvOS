@@ -1208,6 +1208,33 @@ static size_t p108(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     return n;
 }
 
+static size_t p_solar(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
+    const float sc   = SC * ssc(sz) * 0.9f;
+    const float t    = (float)(ph & 0xFFFFu) / 65536.f;
+    const float ap_  = PI2 * t;                   // planet angle
+    const float am   = PI2 * t * 4.0f;            // moon angle (4x faster)
+    const float rSun = sc * 0.16f;
+    const float rPla = sc * 0.08f;
+    const float rMoo = sc * 0.04f;
+    const float oPla = sc * 0.48f;                // planet orbital radius
+    const float oMoo = sc * 0.20f;                // moon orbital radius
+    const float px   = cosf(ap_) * oPla;
+    const float py   = sinf(ap_) * oPla;
+    const float mx_  = px + cosf(am) * oMoo;
+    const float my_  = py + sinf(am) * oMoo;
+    size_t n = 0;
+    // Sun (yellow/white)
+    ap(o,n,m, rSun, 0, 255,220,80, 1);
+    for(int i=0;i<=48;i++){float a=PI2*i/48;ap(o,n,m,cosf(a)*rSun,sinf(a)*rSun,255,220,80);}
+    // Planet (cyan-blue)
+    ap(o,n,m, px+rPla, py, 40,160,255, 1);
+    for(int i=0;i<=36;i++){float a=PI2*i/36;ap(o,n,m,px+cosf(a)*rPla,py+sinf(a)*rPla,40,160,255);}
+    // Moon (magenta)
+    ap(o,n,m, mx_+rMoo, my_, 220,60,220, 1);
+    for(int i=0;i<=24;i++){float a=PI2*i/24;ap(o,n,m,mx_+cosf(a)*rMoo,my_+sinf(a)*rMoo,220,60,220);}
+    return n;
+}
+
 // ─── DISPATCH ────────────────────────────────────────────────
 
 // presetClassOf() -- maps a Preset to its optimizer profile index.
@@ -1268,6 +1295,7 @@ const PresetInfo PRESETS[PRESET_COUNT] = {
     {"Pentagram","Geometry"},{"DNA Helix","Complex"},{"Yin Yang","Symbols"},
     {"Random Points","Scenes"},
     {"Three Circles","Geometry"},{"Point Spread","Scenes"},
+    {"Solar System","Scenes"},
 };
 
 static const PFn DISPATCH[PRESET_COUNT] = {
@@ -1286,6 +1314,7 @@ static const PFn DISPATCH[PRESET_COUNT] = {
     p103,p104,p105,
     p106,
     p107,p108,
+    p_solar,
 };
 
 // ─── STATIC-PRESET CACHE (Phase 2) ───────────────────────────

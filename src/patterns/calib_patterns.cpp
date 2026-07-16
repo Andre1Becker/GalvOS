@@ -723,70 +723,6 @@ static size_t opt_vel_accel(LaserPoint* o, size_t m,
     return n;
 }
 
-// ──────────────────────────────────────────────────────────────
-// PATTERN 11: SOLAR SYSTEM
-// Animated 3-body system: sun (center, large, white/yellow) +
-// planet (medium, cyan/blue, orbiting sun) +
-// moon (small, magenta, orbiting planet).
-// Uses phase for animation; fully static when phase==0.
-static size_t solar_system(LaserPoint* o, size_t mx,
-                            uint32_t phase, uint8_t bright, uint8_t ch) {
-    (void)ch;
-
-    // Animation angles derived from phase (wraps every 65536).
-    const float t          = (float)(phase & 0xFFFFu) / 65536.f;
-    const float anglePlanet = PI2 * t;
-    const float angleMoon   = PI2 * t * 4.0f;  // moon orbits 4x faster
-
-    // Radii for each body (drawn circles).
-    const float rSun    = SC * 0.14f;
-    const float rPlanet = SC * 0.07f;
-    const float rMoon   = SC * 0.035f;
-
-    // Orbital radii.
-    const float orbitPlanet = SC * 0.42f;
-    const float orbitMoon   = SC * 0.18f;
-
-    // Orbit centres.
-    const float sunCx = 0.f, sunCy = 0.f;
-    const float planCx = sunCx + cosf(anglePlanet) * orbitPlanet;
-    const float planCy = sunCy + sinf(anglePlanet) * orbitPlanet;
-
-    uint8_t ro, go, bo;
-    const int stepsLarge  = 48;
-    const int stepsMedium = 36;
-    const int stepsSmall  = 24;
-    size_t n = 0;
-
-    // --- Sun (white/yellow) ---
-    colorOut(255, 220, 80, bright, ro, go, bo);
-    blankMove(o, n, mx, sunCx + rSun, sunCy);
-    for (int i = 0; i <= stepsLarge; i++) {
-        float a = PI2 * i / stepsLarge;
-        ap(o, n, mx, sunCx + cosf(a)*rSun, sunCy + sinf(a)*rSun, ro, go, bo, 0);
-    }
-
-    // --- Planet (cyan-blue) ---
-    colorOut(40, 160, 255, bright, ro, go, bo);
-    blankMove(o, n, mx, planCx + rPlanet, planCy);
-    for (int i = 0; i <= stepsMedium; i++) {
-        float a = PI2 * i / stepsMedium;
-        ap(o, n, mx, planCx + cosf(a)*rPlanet, planCy + sinf(a)*rPlanet, ro, go, bo, 0);
-    }
-
-    // --- Moon (magenta) ---
-    const float moonCx = planCx + cosf(angleMoon) * orbitMoon;
-    const float moonCy = planCy + sinf(angleMoon) * orbitMoon;
-    colorOut(220, 60, 220, bright, ro, go, bo);
-    blankMove(o, n, mx, moonCx + rMoon, moonCy);
-    for (int i = 0; i <= stepsSmall; i++) {
-        float a = PI2 * i / stepsSmall;
-        ap(o, n, mx, moonCx + cosf(a)*rMoon, moonCy + sinf(a)*rMoon, ro, go, bo, 0);
-    }
-
-    return n;
-}
-
 // ══════════════════════════════════════════════════════════════
 // DISPATCH + METADATA
 // ══════════════════════════════════════════════════════════════
@@ -854,11 +790,6 @@ const CalibPatternInfo CALIB_INFO[CALIB_PATTERN_COUNT] = {
      "Star = accel_clamp probe: enable accel_clamp and reduce "
      "max_accel_units until spike tips stop overshooting."},
 
-    {"Solar System",
-     "Animated 3-body: sun (center) + orbiting planet + orbiting moon",
-     "Verify smooth circular orbits at varying scan speeds. "
-     "Planet orbits sun; moon orbits planet 4x faster. "
-     "Use to visually check ringing/blanking at different galvo_kpps."},
 };
 
 using PFn = size_t(*)(LaserPoint*, size_t, uint32_t, uint8_t, uint8_t);
@@ -866,7 +797,6 @@ static const PFn DISPATCH[CALIB_PATTERN_COUNT] = {
     blanking_test, aspect_ratio, ilda_test,
     dac_range_box, zone_outline, corner_color_map, three_circles,
     opt_corner_sweep, opt_density_ramp, opt_jump_ring, opt_vel_accel,
-    solar_system,
 };
 
 
