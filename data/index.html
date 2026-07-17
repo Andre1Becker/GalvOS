@@ -311,9 +311,36 @@
 
 <!-- ============= DASHBOARD ============= -->
 <section id="tab-dashboard" class="tab active">
-  <div class="grid cols-2">
+  <div class="grid" style="grid-template-columns:minmax(220px,1fr) minmax(220px,1fr) minmax(220px,1fr)">
 
-    <div class="card">
+    <!-- System — left column, spans all rows above full-width cards -->
+    <div class="card" style="grid-column:1;grid-row:1/3">
+      <h2>⚙ System</h2>
+      <div class="stat-row"><span>Firmware</span><span id="dash-fw-ver" class="val" style="font-family:monospace">--</span></div>
+      <div class="stat-row"><span>Hostname</span><span id="v-host" class="val">--</span></div>
+      <div class="stat-row"><span>IP Address</span><span id="v-ip" class="val">--</span></div>
+      <div class="stat-row"><span>WiFi-Signal</span><span id="v-rssi" class="val">--</span></div>
+      <div class="stat-row"><span>Uptime</span><span id="v-uptime" class="val">--</span></div>
+      <div class="stat-row"><span>Free Heap</span><span id="v-heap" class="val">--</span></div>
+      <div class="stat-row"><span>Free PSRAM</span><span id="v-psram" class="val">--</span></div>
+      <div class="stat-row"><span>NTP Time</span><span id="v-ntp" class="val" style="font-family:monospace">--</span></div>
+      <div class="stat-row"><span>DAC / Galvo</span><span id="v-dac" class="val">--</span></div>
+      <div class="stat-row"><span>SD Card</span><span id="v-sd" class="val">--</span></div>
+      <div class="stat-row"><span>SD Type</span><span id="v-sd-type" class="val">--</span></div>
+      <div class="stat-row"><span>SD Size</span><span id="v-sd-size" class="val">--</span></div>
+      <div class="stat-row"><span>SD Free</span><span id="v-sd-free" class="val">--</span></div>
+      <div class="stat-row"><span>SD Files</span><span id="v-sd-files" class="val">--</span></div>
+      <div style="display:flex;gap:8px;margin-top:6px">
+        <button class="btn" id="btn-sd-remount" onclick="sdRemount()" style="flex:1;font-size:12px;padding:5px 8px">⟳ Mount</button>
+        <button class="btn" id="btn-sd-eject"   onclick="sdEject()"   style="flex:1;font-size:12px;padding:5px 8px;background:var(--warn);color:#000">⏏ Eject</button>
+      </div>
+      <div id="v-sd-status" style="font-size:11px;color:var(--dim);min-height:14px;margin-top:4px"></div>
+      <div class="stat-row"><span>HTTP-OTA Pass</span><span id="dash-ota-pass" class="val" style="font-family:monospace;color:var(--warn)">--</span></div>
+      <div class="stat-row"><span>API Token</span><span id="dash-auth-token" class="val" style="font-family:monospace;font-size:11px;color:var(--dim);cursor:pointer" title="Click to copy" onclick="navigator.clipboard?.writeText(this.textContent);this.style.color='var(--ok)';setTimeout(()=>this.style.color='',1200)">--</span></div>
+      <div style="font-size:11px;color:var(--dim);margin-top:4px">OTA: <code>http://laser/update</code> · User: <code>admin</code><br>API write access requires <code>X-Auth: &lt;token&gt;</code> header</div>
+    </div>
+
+    <div class="card" style="grid-column:2">
       <h2>Safety Status</h2>
       <div class="stat-row"><span><span id="led-estop" class="led"></span>E-Stop</span><span id="v-estop" class="val">--</span></div>
       <div class="stat-row"><span><span id="led-scanfail" class="led"></span>Scan-Fail HW</span><span id="v-scanfail" class="val">--</span></div>
@@ -324,7 +351,7 @@
       </div>
     </div>
 
-    <div class="card">
+    <div class="card" style="grid-column:3">
       <h2>Telemetry</h2>
       <div class="stat-row"><span>Source</span><span id="v-source" class="val">--</span></div>
       <div class="stat-row"><span>Master-Dimmer</span><span id="v-dim" class="val">--</span></div>
@@ -396,31 +423,6 @@
       <canvas id="kpps-chart" style="width:100%;height:120px;background:#000;border-radius:4px;border:1px solid var(--border)"></canvas>
     </div>
 
-    <div class="card">
-      <h2>⚙ System</h2>
-      <div class="stat-row"><span>Firmware</span><span id="dash-fw-ver" class="val" style="font-family:monospace">--</span></div>
-      <div class="stat-row"><span>Hostname</span><span id="v-host" class="val">--</span></div>
-      <div class="stat-row"><span>IP Address</span><span id="v-ip" class="val">--</span></div>
-      <div class="stat-row"><span>WiFi-Signal</span><span id="v-rssi" class="val">--</span></div>
-      <div class="stat-row"><span>Uptime</span><span id="v-uptime" class="val">--</span></div>
-      <div class="stat-row"><span>Free Heap</span><span id="v-heap" class="val">--</span></div>
-      <div class="stat-row"><span>Free PSRAM</span><span id="v-psram" class="val">--</span></div>
-      <div class="stat-row"><span>NTP Time</span><span id="v-ntp" class="val" style="font-family:monospace">--</span></div>
-      <div class="stat-row"><span>DAC / Galvo</span><span id="v-dac" class="val">--</span></div>
-      <div class="stat-row"><span>SD Card</span><span id="v-sd" class="val">--</span></div>
-      <div class="stat-row"><span>SD Type</span><span id="v-sd-type" class="val">--</span></div>
-      <div class="stat-row"><span>SD Size</span><span id="v-sd-size" class="val">--</span></div>
-      <div class="stat-row"><span>SD Free</span><span id="v-sd-free" class="val">--</span></div>
-      <div class="stat-row"><span>SD Files</span><span id="v-sd-files" class="val">--</span></div>
-      <div style="display:flex;gap:8px;margin-top:6px">
-        <button class="btn" id="btn-sd-remount" onclick="sdRemount()" style="flex:1;font-size:12px;padding:5px 8px">⟳ Mount</button>
-        <button class="btn" id="btn-sd-eject"   onclick="sdEject()"   style="flex:1;font-size:12px;padding:5px 8px;background:var(--warn);color:#000">⏏ Eject</button>
-      </div>
-      <div id="v-sd-status" style="font-size:11px;color:var(--dim);min-height:14px;margin-top:4px"></div>
-      <div class="stat-row"><span>HTTP-OTA Pass</span><span id="dash-ota-pass" class="val" style="font-family:monospace;color:var(--warn)">--</span></div>
-      <div class="stat-row"><span>API Token</span><span id="dash-auth-token" class="val" style="font-family:monospace;font-size:11px;color:var(--dim);cursor:pointer" title="Click to copy" onclick="navigator.clipboard?.writeText(this.textContent);this.style.color='var(--ok)';setTimeout(()=>this.style.color='',1200)">--</span></div>
-      <div style="font-size:11px;color:var(--dim);margin-top:4px">OTA: <code>http://laser/update</code> · User: <code>admin</code><br>API write access requires <code>X-Auth: &lt;token&gt;</code> header</div>
-    </div>
   </div>
 </section>
 
