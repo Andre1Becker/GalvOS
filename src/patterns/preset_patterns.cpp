@@ -1717,6 +1717,10 @@ PresetClass presetClassOf(Preset p)
         case P::ConfettiBurst: case P::BouncingPoints: case P::ShootingStars:
             return presets::PresetClass::Particles;
 
+        // ── Animated geometric structures ──────────────────────────────────
+        case P::PythagorasTree:
+            return presets::PresetClass::MultiObject;
+
         default:
             return presets::PresetClass::Vector;
     }
@@ -1754,6 +1758,137 @@ const char* profileMemberName(uint8_t profile, uint8_t n) {
     return PRESETS[s_profileMembers[profile][n]].name;
 }
 
+// p_pythagoras_tree -- Animated Pythagoras Tree, depth 7.
+// The split angle oscillates continuously so the tree "breathes".
+// Colour fades from red (trunk) to green (leaves) by depth.
+//
+// sp  = animation speed  (0=frozen .. 255=fast sweep)
+// sz  = tree scale       (0=small .. 255=full)
+#define PT_MAX_DEPTH 7
+#define PT_MAX_NODES 254   // 2^(depth+1)-2 = 254 segments at depth 7
+static size_t p_pythagoras_tree(LaserPoint* o, size_t m,
+                                uint32_t ph, uint8_t sp, uint8_t sz) {
+    // Sweep angle oscillates: 20..70 degrees
+    const float speedFactor = sp / 255.0f * 0.002f + 0.0002f;
+    const float sweep = fmodf((float)ph * speedFactor, PI2);
+    // angle of left branch relative to parent square's top side
+    const float leftAng  = (0.349f + 0.436f * (0.5f + 0.5f * sinf(sweep)));
+    // rightAng is complementary: together they must sum to pi/2
+    const float rightAng = (float)M_PI * 0.5f - leftAng;
+
+    const float baseW = SC * (0.25f + (sz / 255.0f) * 0.65f);
+
+    // Iterative stack-based traversal
+    struct Frame {
+        float x0, y0;   // bottom-left of square
+        float x1, y1;   // bottom-right of square
+        int   depth;
+    };
+
+    static Frame stk[PT_MAX_NODES + 4];
+    int top = 0;
+
+    // Root square: centred horizontally, bottom near screen bottom
+    {
+        Frame root;
+        root.x0 = -baseW * 0.5f;
+        root.y0 =  SC * 0.78f;
+        root.x1 =  baseW * 0.5f;
+        root.y1 =  SC * 0.78f;
+        root.depth = 0;
+        stk[top++] = root;
+    }
+
+    size_t n = 0;
+
+    const optimizer::OptimizerConfig cfg = liveOptimizerConfig();
+
+    while (top > 0 && n < m) {
+        Frame fr = stk[--top];
+
+        // Scale factor for this depth
+        const float scale = 1.0f / (float)(1 << (PT_MAX_DEPTH - 1));
+        (void)scale;
+
+        // Edge vector of the square base
+        const float ex = fr.x1 - fr.x0;
+        const float ey = fr.y1 - fr.y0;
+        const float w  = sqrtf(ex * ex + ey * ey);
+
+        // Perpendicular (pointing "up" in canvas coords = negative y in galvo)
+        const float px = -ey;
+        const float py =  ex;
+        const float pLen = w; // same length
+
+        // Four corners of this square:
+        //   BL = (x0, y0),  BR = (x1, y1)
+        //   TL = BL + perp, TR = BR + perp
+        const float tlx = fr.x0 + px;
+        const float tly = fr.y0 + py;
+        const float trx = fr.x1 + px;
+        const float try_ = fr.y1 + py;
+
+        // Depth-based colour: root = red (255,0,0), leaves = green (0,255,0)
+        const float t_col = (float)fr.depth / (float)PT_MAX_DEPTH;
+        const uint8_t cr  = (uint8_t)(255.0f * (1.0f - t_col));
+        const uint8_t cg  = (uint8_t)(255.0f * t_col);
+
+        // Draw the four sides (skip bottom of root to avoid stray beam at boundary)
+        const bool isRoot = (fr.depth == 0);
+        if (!isRoot) {
+            // Bottom side (connecting to parent)
+            optimizer::emitBlankTo(o, n, m, fr.x0, fr.y0, cfg);
+            ap(o, n, m, fr.x1, fr.y1, cr, cg, 0, 0);
+        } else {
+            optimizer::emitBlankTo(o, n, m, fr.x0, fr.y0, cfg);
+        }
+        // Left side
+        ap(o, n, m, tlx, tly, cr, cg, 0, 0);
+        // Top side
+        ap(o, n, m, trx, try_, cr, cg, 0, 0);
+        // Right side (close square back to start)
+        if (!isRoot)
+            ap(o, n, m, fr.x1, fr.y1, cr, cg, 0, 0);
+        else
+            ap(o, n, m, fr.x0, fr.y0, cr, cg, 0, 0);
+
+        if (fr.depth < PT_MAX_DEPTH && top + 2 <= PT_MAX_NODES + 3) {
+            // Left child square: apex = TL, built on side TL..apex_l
+            // apex of left child: rotate TL->TR by leftAng around TL
+            const float cosL = cosf(leftAng);
+            const float sinL = sinf(leftAng);
+            const float dxL  = (trx - tlx) * cosL - (try_ - tly) * sinL;
+            const float dyL  = (trx - tlx) * sinL + (try_ - tly) * cosL;
+            const float wL   = w * cosf(leftAng);  // left child width = w*cos(leftAng)
+            // normalise to wL
+            const float dxLn = dxL / sqrtf(dxL*dxL + dyL*dyL) * wL;
+            const float dyLn = dyL / sqrtf(dxL*dxL + dyL*dyL) * wL;
+
+            Frame childL;
+            childL.x0    = tlx;
+            childL.y0    = tly;
+            childL.x1    = tlx + dxLn;
+            childL.y1    = tly + dyLn;
+            childL.depth = fr.depth + 1;
+            stk[top++]   = childL;
+
+            // Right child square: built on side apex_l..TR
+            Frame childR;
+            childR.x0    = childL.x1;
+            childR.y0    = childL.y1;
+            childR.x1    = trx;
+            childR.y1    = try_;
+            childR.depth = fr.depth + 1;
+            stk[top++]   = childR;
+        }
+    }
+
+    return n;
+}
+#undef PT_MAX_DEPTH
+#undef PT_MAX_NODES
+
+
 const PresetInfo PRESETS[PRESET_COUNT] = {
     {"Circle","Geometry"},{"Square","Geometry"},{"Triangle","Geometry"},{"Pentagon","Geometry"},{"Hexagon","Geometry"},{"Octagon","Geometry"},{"Star 4","Geometry"},{"Star 5","Geometry"},{"Star 6","Geometry"},{"Star 8","Geometry"},
     {"Cross +","Lines"},{"X Shape","Lines"},{"Grid 3x3","Lines"},{"H Line","Lines"},{"Diagonal","Lines"},
@@ -1772,6 +1907,7 @@ const PresetInfo PRESETS[PRESET_COUNT] = {
     {"Solar System","Scenes"},
     {"Bouncing Points","Scenes"},
     {"Shooting Stars","Scenes"},
+    {"Pythagoras Tree","Scenes"},
 };
 
 static const PFn DISPATCH[PRESET_COUNT] = {
@@ -1793,6 +1929,7 @@ static const PFn DISPATCH[PRESET_COUNT] = {
     p_solar,
     p_bouncing,
     p_shooting,
+    p_pythagoras_tree,
 };
 
 // ─── STATIC-PRESET CACHE (Phase 2) ───────────────────────────

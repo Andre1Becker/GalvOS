@@ -63,9 +63,9 @@ These affect core functionality and should be resolved before relying on those f
 ### Missing Patterns (Planned)
 
 The following patterns are planned but not yet implemented:
+
 - Endless Spiral
 - Endless Tunnel
-- Mandelbrot Animation
 - Point-to-multipoint spread
 
 ---
@@ -145,10 +145,6 @@ These are features that are designed and intended, but not yet implemented.
 ### Auto-Tuning via Global Shutter Camera
 
 The plan is to add an auto-tuning mode that uses a global-shutter camera input to capture the projected image and automatically calibrate galvo linearity, offset, gain, and potentially optimizer parameters. This would replace the current manual calibration workflow.
-
-### kpps History Graph on Dashboard
-
-A live graph of the effective output rate (kpps) over time is planned for the dashboard/status area. This would make it easier to spot frame-budget overruns and jitter.
 
 ---
 
