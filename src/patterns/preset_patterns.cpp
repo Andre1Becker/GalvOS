@@ -1759,134 +1759,125 @@ const char* profileMemberName(uint8_t profile, uint8_t n) {
 }
 
 // p_pythagoras_tree -- Animated Pythagoras Tree, depth 7.
-// The split angle oscillates continuously so the tree "breathes".
-// Colour fades from red (trunk) to green (leaves) by depth.
+// Iterative DFS stack; each square is one closed PathSegment (4 vertices).
+// The split angle oscillates so the tree "breathes".
+// Colour fades red (trunk, depth 0) -> green (leaves, depth 7).
 //
-// sp  = animation speed  (0=frozen .. 255=fast sweep)
-// sz  = tree scale       (0=small .. 255=full)
-#define PT_MAX_DEPTH 7
-#define PT_MAX_NODES 254   // 2^(depth+1)-2 = 254 segments at depth 7
+// Galvo coordinate convention: x right, y DOWN, origin centre, range ±SC.
+// "Up" in tree-space = negative y (toward y_min = top of screen).
+//
+// sp  = animation speed  (0=frozen .. 255=fast)
+// sz  = tree scale       (0=small  .. 255=full)
+//
+// Geometry per node: 4 PathVertex corners -> 1 closed PathSegment.
+// Depth 7 -> 2^8-2 = 254 squares -> 254 segments, 1016 vertices.
+// Budget fits within 1300 pts/frame after optimizer resampling.
+#define PT_DEPTH   7
+#define PT_NSEG    254   // 2^(PT_DEPTH+1) - 2
+#define PT_NVERT  (PT_NSEG * 4)
 static size_t p_pythagoras_tree(LaserPoint* o, size_t m,
                                 uint32_t ph, uint8_t sp, uint8_t sz) {
-    // Sweep angle oscillates: 20..70 degrees
-    const float speedFactor = sp / 255.0f * 0.002f + 0.0002f;
-    const float sweep = fmodf((float)ph * speedFactor, PI2);
-    // angle of left branch relative to parent square's top side
-    const float leftAng  = (0.349f + 0.436f * (0.5f + 0.5f * sinf(sweep)));
-    // rightAng is complementary: together they must sum to pi/2
-    const float rightAng = (float)M_PI * 0.5f - leftAng;
+    // Static vertex + segment storage (DRAM; 254*4*12B = ~12KB)
+    static optimizer::PathVertex verts[PT_NVERT];
+    static optimizer::PathSegment segs[PT_NSEG];
 
-    const float baseW = SC * (0.25f + (sz / 255.0f) * 0.65f);
+    // Oscillating split angle: 20..70 degrees
+    const float spd   = sp / 255.0f * 0.0015f + 0.00015f;
+    const float sweep = fmodf((float)ph * spd, PI2);
+    const float alpha = 0.349f + 0.436f * (0.5f + 0.5f * sinf(sweep)); // left angle
+    // right angle = pi/2 - alpha (so left²+right²=90° pythagorean split)
+    // cosines needed for child widths
+    const float cosA = cosf(alpha);
+    const float sinA = sinf(alpha);
+    const float cosB = sinf(alpha); // cos(pi/2-alpha) = sin(alpha)
+    const float sinB = cosf(alpha); // sin(pi/2-alpha) = cos(alpha)
 
-    // Iterative stack-based traversal
+    const float baseW = SC * (0.3f + (sz / 255.0f) * 0.55f);
+
+    // Stack frame: base edge defined by two points (x0,y0)->(x1,y1)
+    // The square grows "upward" = toward negative y (galvo y-down).
     struct Frame {
-        float x0, y0;   // bottom-left of square
-        float x1, y1;   // bottom-right of square
-        int   depth;
+        float x0, y0, x1, y1;
+        int depth;
     };
-
-    static Frame stk[PT_MAX_NODES + 4];
+    // Max stack depth for DFS: PT_DEPTH * 2 + a few extras
+    Frame stk[PT_NSEG + 4];
     int top = 0;
 
-    // Root square: centred horizontally, bottom near screen bottom
-    {
-        Frame root;
-        root.x0 = -baseW * 0.5f;
-        root.y0 =  SC * 0.78f;
-        root.x1 =  baseW * 0.5f;
-        root.y1 =  SC * 0.78f;
-        root.depth = 0;
-        stk[top++] = root;
-    }
+    // Root base: horizontal, centred, near screen bottom (+y in galvo = down)
+    stk[top++] = { -baseW * 0.5f, SC * 0.75f,
+                    baseW * 0.5f, SC * 0.75f, 0 };
 
-    size_t n = 0;
+    int segCount = 0;
+    int vIdx     = 0;
 
-    const optimizer::OptimizerConfig cfg = liveOptimizerConfig();
-
-    while (top > 0 && n < m) {
+    while (top > 0 && segCount < PT_NSEG) {
         Frame fr = stk[--top];
 
-        // Scale factor for this depth
-        const float scale = 1.0f / (float)(1 << (PT_MAX_DEPTH - 1));
-        (void)scale;
-
-        // Edge vector of the square base
+        // Base edge vector
         const float ex = fr.x1 - fr.x0;
         const float ey = fr.y1 - fr.y0;
+        // w = edge length (always positive)
         const float w  = sqrtf(ex * ex + ey * ey);
+        if (w < 1.0f) continue;  // degenerate; skip
 
-        // Perpendicular (pointing "up" in canvas coords = negative y in galvo)
-        const float px = -ey;
-        const float py =  ex;
-        const float pLen = w; // same length
+        // Unit perpendicular pointing UP in screen = negative-y direction.
+        // Galvo: y grows downward, so "up" = subtract y.
+        // perp = rotate base vector 90° CCW in standard math = (-ey, ex),
+        // but galvo y-axis is flipped, so "screen up" = (ey, -ex) / w * w
+        // = (ey, -ex) (already length w).
+        const float upx =  ey;   // "up" perpendicular, length = w
+        const float upy = -ex;
 
-        // Four corners of this square:
-        //   BL = (x0, y0),  BR = (x1, y1)
-        //   TL = BL + perp, TR = BR + perp
-        const float tlx = fr.x0 + px;
-        const float tly = fr.y0 + py;
-        const float trx = fr.x1 + px;
-        const float try_ = fr.y1 + py;
+        // Four corners of this square (CCW order for clean laser trace):
+        //  BL=(x0,y0), BR=(x1,y1), TR=BR+up, TL=BL+up
+        const float blx = fr.x0,      bly = fr.y0;
+        const float brx = fr.x1,      bry = fr.y1;
+        const float trx = brx + upx,  try_ = bry + upy;
+        const float tlx = blx + upx,  tly  = bly + upy;
 
-        // Depth-based colour: root = red (255,0,0), leaves = green (0,255,0)
-        const float t_col = (float)fr.depth / (float)PT_MAX_DEPTH;
-        const uint8_t cr  = (uint8_t)(255.0f * (1.0f - t_col));
-        const uint8_t cg  = (uint8_t)(255.0f * t_col);
+        // Depth-based colour: red -> green
+        const float tc = (float)fr.depth / (float)PT_DEPTH;
+        const uint8_t cr = (uint8_t)(255.0f * (1.0f - tc));
+        const uint8_t cg = (uint8_t)(255.0f * tc);
 
-        // Draw the four sides (skip bottom of root to avoid stray beam at boundary)
-        const bool isRoot = (fr.depth == 0);
-        if (!isRoot) {
-            // Bottom side (connecting to parent)
-            optimizer::emitBlankTo(o, n, m, fr.x0, fr.y0, cfg);
-            ap(o, n, m, fr.x1, fr.y1, cr, cg, 0, 0);
-        } else {
-            optimizer::emitBlankTo(o, n, m, fr.x0, fr.y0, cfg);
-        }
-        // Left side
-        ap(o, n, m, tlx, tly, cr, cg, 0, 0);
-        // Top side
-        ap(o, n, m, trx, try_, cr, cg, 0, 0);
-        // Right side (close square back to start)
-        if (!isRoot)
-            ap(o, n, m, fr.x1, fr.y1, cr, cg, 0, 0);
-        else
-            ap(o, n, m, fr.x0, fr.y0, cr, cg, 0, 0);
+        // Emit 4 vertices for this square (closed PathSegment)
+        int vi = vIdx;
+        verts[vi+0] = optimizer::PathVertex(blx, bly, cr, cg, 0, /*lift=*/true);
+        verts[vi+1] = optimizer::PathVertex(brx, bry, cr, cg, 0);
+        verts[vi+2] = optimizer::PathVertex(trx, try_, cr, cg, 0);
+        verts[vi+3] = optimizer::PathVertex(tlx, tly,  cr, cg, 0);
+        segs[segCount] = optimizer::PathSegment(&verts[vi], 4, /*closed=*/true);
+        vIdx     += 4;
+        segCount += 1;
 
-        if (fr.depth < PT_MAX_DEPTH && top + 2 <= PT_MAX_NODES + 3) {
-            // Left child square: apex = TL, built on side TL..apex_l
-            // apex of left child: rotate TL->TR by leftAng around TL
-            const float cosL = cosf(leftAng);
-            const float sinL = sinf(leftAng);
-            const float dxL  = (trx - tlx) * cosL - (try_ - tly) * sinL;
-            const float dyL  = (trx - tlx) * sinL + (try_ - tly) * cosL;
-            const float wL   = w * cosf(leftAng);  // left child width = w*cos(leftAng)
-            // normalise to wL
-            const float dxLn = dxL / sqrtf(dxL*dxL + dyL*dyL) * wL;
-            const float dyLn = dyL / sqrtf(dxL*dxL + dyL*dyL) * wL;
+        if (fr.depth < PT_DEPTH && top + 2 <= PT_NSEG + 2) {
+            // Left child: base = TL -> apex.
+            // apex = TL + rotate(TL->TR, +alpha) normalised to wL = w*cosA
+            // TL->TR vector = (trx-tlx, try_-tly) = (ex, ey) (same as base)
+            // Rotate +alpha (CCW in math = CW on screen due to y-flip):
+            // rx = ex*cosA - ey*sinA,  ry = ex*sinA + ey*cosA  then scale to wL
+            const float wL   = w * cosA;
+            const float rxL  = (ex * cosA - ey * sinA);
+            const float ryL  = (ex * sinA + ey * cosA);
+            const float lenL = sqrtf(rxL*rxL + ryL*ryL);
+            const float apLx = tlx + rxL / lenL * wL;
+            const float apLy = tly + ryL / lenL * wL;
 
-            Frame childL;
-            childL.x0    = tlx;
-            childL.y0    = tly;
-            childL.x1    = tlx + dxLn;
-            childL.y1    = tly + dyLn;
-            childL.depth = fr.depth + 1;
-            stk[top++]   = childL;
+            stk[top++] = { tlx, tly, apLx, apLy, fr.depth + 1 };
 
-            // Right child square: built on side apex_l..TR
-            Frame childR;
-            childR.x0    = childL.x1;
-            childR.y0    = childL.y1;
-            childR.x1    = trx;
-            childR.y1    = try_;
-            childR.depth = fr.depth + 1;
-            stk[top++]   = childR;
+            // Right child: base = apex -> TR
+            // width = w * cosB = w * sinA
+            stk[top++] = { apLx, apLy, trx, try_, fr.depth + 1 };
         }
     }
 
-    return n;
+    if (segCount == 0) return 0;
+    return optimizer::optimize(segs, (size_t)segCount, o, m, liveOptimizerConfig());
 }
-#undef PT_MAX_DEPTH
-#undef PT_MAX_NODES
+#undef PT_DEPTH
+#undef PT_NSEG
+#undef PT_NVERT
 
 
 const PresetInfo PRESETS[PRESET_COUNT] = {
