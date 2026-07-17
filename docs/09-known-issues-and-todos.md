@@ -66,7 +66,6 @@ The following patterns are planned but not yet implemented:
 - Endless Spiral
 - Endless Tunnel
 - Mandelbrot Animation
-- Shooting Star
 - Point-to-multipoint spread
 
 ---

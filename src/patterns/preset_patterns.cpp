@@ -1440,6 +1440,217 @@ static size_t p_bouncing(LaserPoint* o, size_t m, uint32_t ph, uint8_t sp, uint8
 #undef BP_MAX_BALLS
 #undef BP_TRAIL_MAX
 
+
+// p_shooting -- Shooting Stars. Each meteor travels diagonally across the
+// scan area; when it exits, a "+" cross flashes briefly at the tail impact
+// point and fades out. Trails drawn oldest-to-newest for natural fade.
+//
+// sp  = travel speed   (0=slow .. 255=fast)
+// sz  = meteor count   (0=1 .. 255=8)
+#define SS_MAX   8
+#define SS_TRAIL 14
+static size_t p_shooting(LaserPoint* o, size_t m, uint32_t ph, uint8_t sp, uint8_t sz) {
+    (void)ph;  // millis()-driven
+
+    struct Meteor {
+        float x, y;          // current head position
+        float vx, vy;        // unit direction * speed
+        float trailX[SS_TRAIL];
+        float trailY[SS_TRAIL];
+        float plusX, plusY;  // position of the "+" flash
+        uint32_t plusStart;  // millis() when "+" started, 0 = inactive
+        uint8_t  hue_idx;    // colour slot 0..SS_MAX-1
+        bool     active;
+    };
+
+    static Meteor  meteors[SS_MAX];
+    static uint32_t lastMs = 0;
+    static bool     inited = false;
+
+    const uint32_t nowMs = millis();
+    const uint32_t dtMs  = (nowMs > lastMs && (nowMs - lastMs) < 100u)
+                           ? (nowMs - lastMs) : 16u;
+    lastMs = nowMs;
+
+    const int nMeteors = 1 + (int)((sz / 255.f) * (SS_MAX - 1));
+    // Speed: units/ms. At sp=128 a meteor crosses the field in ~1 s.
+    const float baseSpd = 8.f + (sp / 255.f) * 72.f;
+
+    // Deterministic seed hash
+    auto fr = [](uint32_t s) -> float {
+        float x = sinf((float)s * 127.1f + 1.f) * 43758.5453f;
+        return x - floorf(x);
+    };
+
+    // Spawn a meteor at a random entry edge (top or left side), heading
+    // diagonally toward the opposite side. Angle ±20..±70° to horizontal.
+    auto spawnMeteor = [&](Meteor& met, int idx, uint32_t seed) {
+        const float side = fr(seed);            // 0-0.5 = top, 0.5-1 = left
+        const float ang  = (0.35f + fr(seed + 7u) * 0.35f) * M_PI; // 63..126°
+        met.vx = cosf(ang) * baseSpd;
+        met.vy = sinf(ang) * baseSpd;
+        // Entry position
+        if (side < 0.5f) {
+            // spawn at top, heading downward (vy > 0 after flip)
+            met.x  = (fr(seed + 1u) * 2.f - 1.f) * SC * 0.9f;
+            met.y  = -SC * 0.95f;
+            met.vy =  fabsf(met.vy);
+        } else {
+            // spawn at left, heading rightward
+            met.x  = -SC * 0.95f;
+            met.y  = (fr(seed + 2u) * 2.f - 1.f) * SC * 0.9f;
+            met.vx =  fabsf(met.vx);
+        }
+        for (int t = 0; t < SS_TRAIL; t++) { met.trailX[t] = met.x; met.trailY[t] = met.y; }
+        met.plusX     = met.x;
+        met.plusY     = met.y;
+        met.plusStart = 0;
+        met.hue_idx   = (uint8_t)idx;
+        met.active    = true;
+    };
+
+    if (!inited) {
+        for (int k = 0; k < SS_MAX; k++) {
+            // Stagger meteors across the field so they don't all start together
+            uint32_t seed = (uint32_t)k * 6271u + 1u;
+            spawnMeteor(meteors[k], k, seed);
+            // Phase-offset position so they enter at different points
+            const float offset = fr(seed + 3u) * 2.f;
+            meteors[k].x += meteors[k].vx * offset * 500.f;
+            meteors[k].y += meteors[k].vy * offset * 500.f;
+            for (int t = 0; t < SS_TRAIL; t++) {
+                meteors[k].trailX[t] = meteors[k].x;
+                meteors[k].trailY[t] = meteors[k].y;
+            }
+        }
+        inited = true;
+    }
+
+    const float boundary = SC * 0.98f;
+    const uint32_t plusDurMs = 600u;  // "+" visible for 600 ms
+
+    for (int k = 0; k < nMeteors; k++) {
+        Meteor& met = meteors[k];
+        if (!met.active) continue;
+
+        // Recompute velocity from current baseSpd (sp may have changed live)
+        const float len = sqrtf(met.vx * met.vx + met.vy * met.vy);
+        if (len > 0.1f) {
+            met.vx = (met.vx / len) * baseSpd;
+            met.vy = (met.vy / len) * baseSpd;
+        }
+
+        // Advance
+        met.x += met.vx * (float)dtMs;
+        met.y += met.vy * (float)dtMs;
+
+        // Trail shift when moved enough
+        {
+            float dx = met.x - met.trailX[0], dy = met.y - met.trailY[0];
+            if (dx*dx + dy*dy >= 400.f) {
+                for (int t = SS_TRAIL - 1; t > 0; t--) {
+                    met.trailX[t] = met.trailX[t-1];
+                    met.trailY[t] = met.trailY[t-1];
+                }
+                met.trailX[0] = met.x;
+                met.trailY[0] = met.y;
+            }
+        }
+
+        // Out-of-bounds: trigger "+" flash, then respawn
+        if (met.x >  boundary || met.x < -boundary ||
+            met.y >  boundary || met.y < -boundary) {
+            met.plusX     = met.x;
+            met.plusY     = met.y;
+            // Clamp "+" position to visible area
+            if (met.plusX >  boundary) met.plusX =  boundary;
+            if (met.plusX < -boundary) met.plusX = -boundary;
+            if (met.plusY >  boundary) met.plusY =  boundary;
+            if (met.plusY < -boundary) met.plusY = -boundary;
+            met.plusStart = nowMs;
+            spawnMeteor(meteors[k], k, nowMs ^ (uint32_t)k * 6271u);
+        }
+    }
+
+    // ── Output ────────────────────────────────────────────────────────────
+    const optimizer::OptimizerConfig cfg = liveOptimizerConfig();
+    uint16_t kpps = gProjection.galvo_kpps;
+    if (kpps < 12) kpps = 12; if (kpps > 60) kpps = 60;
+    const float tick_us = 1000000.f / ((float)kpps * 1000.f);
+    int dwell = (int)ceilf(120.f / tick_us);
+    if (dwell < 2) dwell = 2;
+
+    size_t n = 0;
+
+    for (int k = 0; k < nMeteors; k++) {
+        const Meteor& met = meteors[k];
+        if (!met.active) continue;
+
+        // Hue: evenly spaced, white-ish blue-white palette
+        const float hue = PI2 * (float)met.hue_idx / (float)SS_MAX;
+        const uint8_t cr = (uint8_t)(180 + 75 * sinf(hue));
+        const uint8_t cg = (uint8_t)(180 + 75 * sinf(hue + 2.094f));
+        const uint8_t cb = 255;
+
+        // Trail: oldest (dim) → newest (bright), fade linear
+        for (int t = SS_TRAIL - 1; t >= 0; t--) {
+            const float fade = 1.f - (float)(t + 1) / (float)(SS_TRAIL + 1);
+            const uint8_t tr = (uint8_t)(cr * fade);
+            const uint8_t tg = (uint8_t)(cg * fade);
+            const uint8_t tb = (uint8_t)(255 * fade);
+            if (n >= m) break;
+            optimizer::emitBlankTo(o, n, m, met.trailX[t], met.trailY[t], cfg);
+            for (int d = 0; d < dwell && n < m; d++)
+                ap(o, n, m, met.trailX[t], met.trailY[t], tr, tg, tb, 0);
+        }
+        // Head (full brightness)
+        if (n < m) {
+            optimizer::emitBlankTo(o, n, m, met.x, met.y, cfg);
+            for (int d = 0; d < dwell * 2 && n < m; d++)
+                ap(o, n, m, met.x, met.y, cr, cg, cb, 0);
+        }
+
+        // "+" flash: draw cross at plusX/plusY with fade-out
+        if (met.plusStart > 0 && (nowMs - met.plusStart) < plusDurMs) {
+            const float t_norm = 1.f - (float)(nowMs - met.plusStart) / (float)plusDurMs;
+            const float fade   = t_norm * t_norm;  // quadratic fade
+            const uint8_t pr   = (uint8_t)(255 * fade);
+            const uint8_t pg   = (uint8_t)(255 * fade);
+            const uint8_t pb   = (uint8_t)(255 * fade);
+            const float armLen = SC * 0.06f;
+            // Horizontal arm
+            if (n < m) {
+                optimizer::emitBlankTo(o, n, m, met.plusX - armLen, met.plusY, cfg);
+                for (int d = 0; d < dwell && n < m; d++)
+                    ap(o, n, m, met.plusX - armLen, met.plusY, pr, pg, pb, 0);
+            }
+            if (n < m) {
+                optimizer::emitBlankTo(o, n, m, met.plusX, met.plusY, cfg);
+                for (int d = 0; d < dwell && n < m; d++)
+                    ap(o, n, m, met.plusX, met.plusY, pr, pg, pb, 0);
+            }
+            if (n < m) {
+                optimizer::emitBlankTo(o, n, m, met.plusX + armLen, met.plusY, cfg);
+                for (int d = 0; d < dwell && n < m; d++)
+                    ap(o, n, m, met.plusX + armLen, met.plusY, pr, pg, pb, 0);
+            }
+            // Vertical arm
+            if (n < m) {
+                optimizer::emitBlankTo(o, n, m, met.plusX, met.plusY - armLen, cfg);
+                for (int d = 0; d < dwell && n < m; d++)
+                    ap(o, n, m, met.plusX, met.plusY - armLen, pr, pg, pb, 0);
+            }
+            if (n < m) {
+                optimizer::emitBlankTo(o, n, m, met.plusX, met.plusY + armLen, cfg);
+                for (int d = 0; d < dwell && n < m; d++)
+                    ap(o, n, m, met.plusX, met.plusY + armLen, pr, pg, pb, 0);
+            }
+        }
+    }
+    return n;
+}
+#undef SS_MAX
+#undef SS_TRAIL
 // ─── DISPATCH ────────────────────────────────────────────────
 
 // presetClassOf() -- maps a Preset to its optimizer profile index.
@@ -1503,7 +1714,7 @@ PresetClass presetClassOf(Preset p)
 
         // ── Particles: isolated dots, no connecting geometry ──────────
         case P::Starfield: case P::RandomPoints: case P::PointSpread:
-        case P::ConfettiBurst: case P::BouncingPoints:
+        case P::ConfettiBurst: case P::BouncingPoints: case P::ShootingStars:
             return presets::PresetClass::Particles;
 
         default:
@@ -1560,6 +1771,7 @@ const PresetInfo PRESETS[PRESET_COUNT] = {
     {"Three Circles","Geometry"},{"Point Spread","Scenes"},
     {"Solar System","Scenes"},
     {"Bouncing Points","Scenes"},
+    {"Shooting Stars","Scenes"},
 };
 
 static const PFn DISPATCH[PRESET_COUNT] = {
@@ -1580,6 +1792,7 @@ static const PFn DISPATCH[PRESET_COUNT] = {
     p107,p108,
     p_solar,
     p_bouncing,
+    p_shooting,
 };
 
 // ─── STATIC-PRESET CACHE (Phase 2) ───────────────────────────

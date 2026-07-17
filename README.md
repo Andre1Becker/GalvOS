@@ -72,6 +72,7 @@ If you just want to get up and running:
 | [07 — API Reference](docs/07-api-reference.md) | REST API endpoints for integration and automation |
 | [08 — Contributing](docs/08-contributing.md) | How to contribute, code style, patch workflow |
 | [09 — Known Issues & Todos](docs/09-known-issues-and-todos.md) | Open bugs, missing features, planned work |
+| [10 — Glossary & Terminology](docs/10-glossary.md) | All abbreviations and technical terms explained |
 
 ---
 
