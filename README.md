@@ -1,7 +1,7 @@
 # GalvOS
 
 > **Open-source ESP32-S3 laser show controller — built to replace proprietary OEM controllers in RGB galvo laser projectors.**
-
+(**Headsup**: *This complete project is - i hate that wordring - "vibe coded"*)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
 [![Hardware License: CERN-OHL-S](https://img.shields.io/badge/HW_License-CERN--OHL--S-orange.svg)](https://ohwr.org/cern_ohl_s_v2.txt)
 [![Platform: ESP32-S3](https://img.shields.io/badge/Platform-ESP32--S3-red.svg)](https://www.espressif.com/en/products/socs/esp32-s3)
@@ -34,6 +34,7 @@ GalvOS replaces the original control board of an RGB galvo laser projector (spec
 The origin story: the stock firmware couldn't dim the laser — it was full-brightness or nothing. What started as a quick bug investigation turned into a complete hardware and firmware replacement. Classic maker story.
 
 **Key capabilities:**
+
 - 16-bit galvo DAC (vs. OEM 12-bit) via SPI DAC8562
 - Browser-based WebUI — no app install, works from any phone or desktop
 - DMX-512 and Art-Net input
@@ -85,7 +86,7 @@ If you just want to get up and running:
 | Safety | NE555 scan-fail + NE555 hardware watchdog, 6N137 optocouplers |
 | Temperature | DS18B20 × up to 5, 1-Wire bus |
 | Power | HW-613 buck converter (+5V rail); external ±15V galvo PSU |
-| Construction | Perfboard 15 × 9 cm |
+| Construction | Perfboard 15 × 9 cm; Gerber File for custom PCB is in progress |
 
 Full netlist: [`hardware/`](hardware/)
 
