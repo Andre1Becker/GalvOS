@@ -1758,104 +1758,126 @@ const char* profileMemberName(uint8_t profile, uint8_t n) {
     return PRESETS[s_profileMembers[profile][n]].name;
 }
 
-// p_pythagoras_tree -- Animated Pythagoras Tree, depth 7.
-// Iterative DFS stack; each square is one closed PathSegment (4 vertices).
-// The split angle oscillates so the tree "breathes".
-// Colour fades red (trunk, depth 0) -> green (leaves, depth 7).
+// p_pythagoras_tree -- Animated Pythagoras Tree, continuous zoom-in.
 //
-// Galvo coordinate convention: x right, y DOWN, origin centre, range ±SC.
-// "Up" in tree-space = negative y (toward y_min = top of screen).
+// Effect: the tree endlessly zooms in -- the camera perpetually dives into
+// the canopy. Implemented by scaling baseW down by 2^frac (frac 0..1 loops)
+// so every level appears to grow in from below while the top fades out.
 //
-// sp  = animation speed  (0=frozen .. 255=fast)
-// sz  = tree scale       (0=small  .. 255=full)
+// Each node is drawn as TWO open line segments (left wall + right wall of the
+// square), not a closed rectangle. This avoids the horizontal base-streak
+// that appears when the galvo sweeps the root's bottom edge across the screen.
 //
-// Geometry per node: 4 PathVertex corners -> 1 closed PathSegment.
-// Depth 7 -> 2^8-2 = 254 squares -> 254 segments, 1016 vertices.
-// Budget fits within 1300 pts/frame after optimizer resampling.
-#define PT_DEPTH   7
-#define PT_NSEG    254   // 2^(PT_DEPTH+1) - 2
-#define PT_NVERT  (PT_NSEG * 4)
+// Galvo coords: x right, y DOWN, origin centre, range ±SC.
+// "Up" in tree-space = negative y.
+//
+// sp  = zoom speed   (0=very slow .. 255=fast)
+// sz  = tree scale   (0=small .. 255=full)
+//
+// Segments: 254 nodes × 2 walls = 508 open segments, 1016 vertices (~12 KB).
+// Point count after optimizer resampling fits within the 1300 pt budget.
+#define PT_DEPTH  7
+#define PT_NSEG   508    // 2 segments per node, (2^(PT_DEPTH+1)-2) nodes
+#define PT_NVERT  1016   // 2 vertices per segment
 static size_t p_pythagoras_tree(LaserPoint* o, size_t m,
                                 uint32_t ph, uint8_t sp, uint8_t sz) {
-    // Static storage in DRAM: 254 segments * 4 vertices * 12 B = ~12 KB.
+    // Static storage: 508 segments * 2 vertices * 12 B = ~12 KB in DRAM.
     static optimizer::PathVertex verts[PT_NVERT];
     static optimizer::PathSegment segs[PT_NSEG];
 
-    // Animation: ph is a frame counter (increments by 1 per rendered frame at
-    // ~20 fps). Scale to achieve a ~6..60 s full sweep period depending on sp.
-    // spd range: sp=0 -> 0.005 rad/frame (~20 s), sp=255 -> 0.05 rad/frame (~2 s).
-    const float spd   = 0.005f + (sp / 255.0f) * 0.045f;
-    const float sweep = fmodf((float)ph * spd, PI2);
+    // Zoom: frac runs 0..1 endlessly (ph frame counter, ~20 fps).
+    // spd range: sp=0 -> 0.003 (1 zoom cycle / ~33 s),
+    //            sp=255 -> 0.03  (1 zoom cycle / ~3.3 s).
+    const float spd  = 0.003f + (sp / 255.0f) * 0.027f;
+    const float frac = fmodf((float)ph * spd, 1.0f);
 
-    // Left split angle oscillates 20..70 degrees (0.349..1.222 rad).
-    const float alpha = 0.349f + 0.436f * (0.5f + 0.5f * sinf(sweep));
-    const float cosA  = cosf(alpha);
-    const float sinA  = sinf(alpha);
+    // Scale: 1.0 (frac=0) -> 0.5 (frac=1) then reset to 1.0.
+    // This continuously shrinks the base so the tree appears to zoom in.
+    const float zoomScale = powf(0.5f, frac);   // 1.0 .. 0.5
 
-    const float baseW = SC * (0.3f + (sz / 255.0f) * 0.55f);
+    // Fixed 45-degree split (symmetric tree) for clean infinite zoom.
+    const float alpha = (float)M_PI * 0.25f;    // 45°
+    const float cosA  = 0.70711f;               // cos(45°)
+    const float sinA  = 0.70711f;               // sin(45°)
 
-    // Stack frame: base edge (x0,y0)->(x1,y1), square grows toward screen top
-    // (negative y in galvo y-down convention).
+    // Max base width; zoomScale shrinks it each frame so the root stays
+    // within the screen even as the tree grows one extra level per cycle.
+    const float baseW = SC * (0.55f + (sz / 255.0f) * 0.35f) * zoomScale;
+
     struct Frame { float x0, y0, x1, y1; int depth; };
-    Frame stk[PT_NSEG + 4];
+    // Stack sized for (PT_DEPTH+1) levels to accommodate the extra fade-in level.
+    Frame stk[512];
     int top = 0;
 
-    // Root base: horizontal, centred, near screen bottom.
+    // Root base: horizontal, centred, anchored near screen bottom.
     stk[top++] = { -baseW * 0.5f, SC * 0.72f,
                     baseW * 0.5f, SC * 0.72f, 0 };
 
     int segCount = 0;
     int vIdx     = 0;
 
-    while (top > 0 && segCount < PT_NSEG) {
+    const int drawDepth = PT_DEPTH + 1;  // render one extra level for fade-in
+
+    while (top > 0 && segCount + 2 <= PT_NSEG) {
         Frame fr = stk[--top];
 
         const float ex = fr.x1 - fr.x0;
         const float ey = fr.y1 - fr.y0;
         const float w  = sqrtf(ex * ex + ey * ey);
-        if (w < 1.0f) continue;
+        if (w < 2.0f) continue;
 
-        // Perpendicular "up" in galvo screen space (y grows down):
-        // Rotate base vector 90° CW in screen = (+ey, -ex).
+        // Perpendicular "up": rotate base 90° CW in screen (galvo y-down).
         const float upx =  ey;
         const float upy = -ex;
 
-        // Four corners: BL, BR, TR, TL
         const float blx = fr.x0,      bly = fr.y0;
         const float brx = fr.x1,      bry = fr.y1;
         const float trx = brx + upx,  try_ = bry + upy;
         const float tlx = blx + upx,  tly  = bly + upy;
 
-        // Depth colour: red (trunk) -> green (leaves)
-        const float   tc = (float)fr.depth / (float)PT_DEPTH;
-        const uint8_t cr = (uint8_t)(255.0f * (1.0f - tc));
-        const uint8_t cg = (uint8_t)(255.0f * tc);
+        // Depth colour: red (depth 0) -> green (depth PT_DEPTH).
+        // Extra fade-in level (depth=drawDepth) fades in proportional to frac.
+        // Shallowest visible level (depth=0 when frac>0) fades out.
+        float brightness = 1.0f;
+        if (fr.depth == 0) {
+            // Root fades out as zoom progresses (disappears off the bottom).
+            brightness = 1.0f - frac;
+        } else if (fr.depth == drawDepth) {
+            // Deepest extra level fades in.
+            brightness = frac;
+        }
+        const int   colorDepth = (fr.depth < PT_DEPTH) ? fr.depth : PT_DEPTH;
+        const float tc  = (float)colorDepth / (float)PT_DEPTH;
+        const uint8_t cr = (uint8_t)(255.0f * (1.0f - tc) * brightness);
+        const uint8_t cg = (uint8_t)(255.0f * tc           * brightness);
 
-        // Emit closed square as one PathSegment (optimizer resamples edges).
-        const int vi = vIdx;
-        verts[vi+0] = optimizer::PathVertex(blx,  bly,  cr, cg, 0, /*lift=*/true);
-        verts[vi+1] = optimizer::PathVertex(brx,  bry,  cr, cg, 0);
-        verts[vi+2] = optimizer::PathVertex(trx,  try_, cr, cg, 0);
-        verts[vi+3] = optimizer::PathVertex(tlx,  tly,  cr, cg, 0);
-        segs[segCount] = optimizer::PathSegment(&verts[vi], 4, /*closed=*/true);
-        vIdx     += 4;
+        // Draw left wall: BL -> TL  (open segment, 2 vertices)
+        verts[vIdx+0] = optimizer::PathVertex(blx, bly, cr, cg, 0, /*lift=*/true);
+        verts[vIdx+1] = optimizer::PathVertex(tlx, tly, cr, cg, 0);
+        segs[segCount] = optimizer::PathSegment(&verts[vIdx], 2, /*closed=*/false);
+        vIdx     += 2;
         segCount += 1;
 
-        if (fr.depth < PT_DEPTH && top + 2 <= PT_NSEG + 2) {
-            // Apex of the left child triangle sits on the top edge TL->TR.
-            // In galvo y-down space, screen-CCW rotation by angle alpha:
-            //   R_ccw(v) = (vx*cos + vy*sin,  -vx*sin + vy*cos)
-            // Top-edge vector = (trx-tlx, try_-tly) = (ex, ey) (parallel to base).
+        // Draw right wall: BR -> TR  (open segment, 2 vertices)
+        verts[vIdx+0] = optimizer::PathVertex(brx, bry, cr, cg, 0, /*lift=*/true);
+        verts[vIdx+1] = optimizer::PathVertex(trx, try_, cr, cg, 0);
+        segs[segCount] = optimizer::PathSegment(&verts[vIdx], 2, /*closed=*/false);
+        vIdx     += 2;
+        segCount += 1;
+
+        if (fr.depth < drawDepth && top + 2 <= (int)(sizeof(stk)/sizeof(stk[0])) - 2) {
+            // Child apex via screen-CCW rotation of top-edge vector by alpha.
+            // Top-edge vector = (ex, ey) (parallel to base edge).
+            // Screen-CCW in galvo y-down: R(v) = (vx*cosA + vy*sinA, -vx*sinA + vy*cosA)
             const float rx   = ex * cosA + ey * sinA;
             const float ry   = -ex * sinA + ey * cosA;
-            // Normalise to left-child width = w * cosA.
-            const float len  = sqrtf(rx * rx + ry * ry);   // = w
+            const float len  = sqrtf(rx * rx + ry * ry);
             const float wL   = w * cosA;
             const float apLx = tlx + rx / len * wL;
             const float apLy = tly + ry / len * wL;
 
-            stk[top++] = { tlx, tly, apLx, apLy, fr.depth + 1 };  // left child
-            stk[top++] = { apLx, apLy, trx, try_, fr.depth + 1 }; // right child
+            stk[top++] = { tlx, tly, apLx, apLy, fr.depth + 1 };
+            stk[top++] = { apLx, apLy, trx, try_, fr.depth + 1 };
         }
     }
 
