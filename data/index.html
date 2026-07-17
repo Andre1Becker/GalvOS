@@ -387,6 +387,15 @@
       <div id="temp-current-row" style="display:flex;flex-wrap:wrap;gap:10px;margin-top:10px;justify-content:flex-start"></div>
     </div>
 
+    <!-- Galvo Output Rate History — full-width card -->
+    <div class="card" style="grid-column:1/-1">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+        <h2 style="margin:0">&#9889; Galvo Output Rate</h2>
+        <div style="font-size:11px;color:var(--dim)">Last 5 min &nbsp;&mdash;&nbsp; kpps</div>
+      </div>
+      <canvas id="kpps-chart" style="width:100%;height:120px;background:#000;border-radius:4px;border:1px solid var(--border)"></canvas>
+    </div>
+
     <div class="card">
       <h2>⚙ System</h2>
       <div class="stat-row"><span>Firmware</span><span id="dash-fw-ver" class="val" style="font-family:monospace">--</span></div>
@@ -1958,6 +1967,12 @@ function handleStateUpdate(s) {
   setText('v-pps', s.points_per_sec != null ? s.points_per_sec.toLocaleString() + ' pps' : '--');
   const ppsPct = Math.min(100, ((s.points_per_sec || 0) / 50000) * 100);
   const ppsBar = document.getElementById('pps-bar-fill'); if (ppsBar) ppsBar.style.width = ppsPct + '%';
+  if (s.points_per_sec != null) {
+    KPPS_HISTORY.push({ ts: Date.now(), kpps: s.points_per_sec / 1000 });
+    const kppsCutoff = Date.now() - HISTORY_SECS * 1000;
+    while (KPPS_HISTORY.length > 0 && KPPS_HISTORY[0].ts < kppsCutoff) KPPS_HISTORY.shift();
+    drawKppsChart();
+  }
   setText('v-buf', s.buffer_fill != null ? s.buffer_fill + ' %' : '--');
   setText('v-lastdmx', s.last_dmx_age_ms === null ? 'never' : s.last_dmx_age_ms + ' ms');
 
@@ -2945,6 +2960,7 @@ let SENSOR_FOUND  = 0;  // Number of actually detected sensors
 const SENSOR_COLORS = ['#ff3060','#ff8c00','#ffd700','#4caf50','#4af'];
 const TEMP_HISTORY  = [];   // [{ts, temps:[5]}, ...]
 const HISTORY_SECS  = 300;  // 5 Minutes
+const KPPS_HISTORY  = [];   // [{ts, kpps}, ...]
 
 // Default thresholds if none received from server yet
 let thresholdData = [
@@ -3136,6 +3152,61 @@ function drawTempChart() {
     });
     ctx.stroke();
   });
+}
+
+function drawKppsChart() {
+  const canvas = document.getElementById('kpps-chart');
+  if (!canvas) return;
+  const W = canvas.offsetWidth, H = canvas.offsetHeight;
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
+
+  if (KPPS_HISTORY.length < 2) return;
+
+  const now = KPPS_HISTORY[KPPS_HISTORY.length - 1].ts;
+  const oldest = now - HISTORY_SECS * 1000;
+  const recent = KPPS_HISTORY.filter(p => p.ts >= oldest);
+  if (recent.length < 2) return;
+
+  const yMin = 0, yMax = 60;
+  const mapY = v => H - ((v - yMin) / (yMax - yMin)) * H;
+  const mapX = ts => ((ts - oldest) / (HISTORY_SECS * 1000)) * W;
+
+  // Grid
+  ctx.strokeStyle = '#1a1a1a'; ctx.lineWidth = 1;
+  [15, 30, 45, 60].forEach(v => {
+    const y = mapY(v);
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+    ctx.fillStyle = '#333'; ctx.font = '9px monospace';
+    ctx.fillText(v + 'k', 2, y - 2);
+  });
+
+  // Fill area under curve
+  ctx.beginPath();
+  recent.forEach((pt, idx) => {
+    const x = mapX(pt.ts), y = mapY(pt.kpps);
+    idx === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  });
+  ctx.lineTo(mapX(recent[recent.length - 1].ts), H);
+  ctx.lineTo(mapX(recent[0].ts), H);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(0,200,255,0.08)';
+  ctx.fill();
+
+  // Line
+  ctx.strokeStyle = '#00c8ff'; ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  recent.forEach((pt, idx) => {
+    const x = mapX(pt.ts), y = mapY(pt.kpps);
+    idx === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+
+  // Current value label
+  const last = recent[recent.length - 1].kpps;
+  ctx.fillStyle = '#00c8ff'; ctx.font = 'bold 11px monospace';
+  ctx.fillText(last.toFixed(1) + ' kpps', W - 70, 14);
 }
 
 // Current temperature badge colors matching chart legend
