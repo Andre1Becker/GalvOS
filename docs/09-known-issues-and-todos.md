@@ -98,6 +98,11 @@ The following patterns are planned but not yet implemented:
 **Status:** Open
 **Symptom:** Trail Length is not working.
 
+### Auto-Rotation
+
+**Status:** Open
+**Symptom:** Some Presets Auto-Rotation doesn't work on Z-Axis.
+
 ---
 
 ## Calibration Issues
