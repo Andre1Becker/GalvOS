@@ -1296,12 +1296,33 @@ void task(void*) {
             // Publish the affine (Z-rot) part for the optimizer. rot_z takes
             // precedence over the static `rotation` degrees control, matching
             // the legacy if/else-if order.
+            // Particle-class presets (Starfield, RandomPoints, BouncingPoints,
+            // etc.) write LaserPoints directly without calling optimizer::optimize(),
+            // so gLiveTransform is never consumed. For those we publish identity
+            // and apply Z-rotation as a manual post-generate point pass instead.
             float zRad = rotZActive ? rotZAngle
                        : (fabsf(rotationDeg) > 0.5f ? rotationDeg * (float)(M_PI/180.) : 0.f);
-            { LOCK_STATE(); optimizer::gLiveTransform = optimizer::makeTransform(zRad, 0.f, 0.f); }
+            const bool isParticle = (presets::presetClassOf(
+                                         static_cast<presets::Preset>(s_preset_idx))
+                                     == presets::PresetClass::Particles);
+            { LOCK_STATE();
+              optimizer::gLiveTransform = isParticle
+                  ? optimizer::makeTransform(0.f, 0.f, 0.f)  // identity; Z applied post-generate
+                  : optimizer::makeTransform(zRad, 0.f, 0.f); }
 
             size_t n = presets::generate(static_cast<uint8_t>(s_preset_idx), s_frame,
                                          PATTERN_POINTS_MAX, phase, speed, sz);
+
+            // For Particle presets: apply Z-rotation as a post-generate point pass
+            // (optimizer never ran, so gLiveTransform was not applied above).
+            if (isParticle && fabsf(zRad) > 0.001f) {
+                float cz = cosf(zRad), sz2 = sinf(zRad);
+                for (size_t i = 0; i < n; i++) {
+                    int16_t nx = (int16_t)(s_frame[i].x * cz - s_frame[i].y * sz2);
+                    int16_t ny = (int16_t)(s_frame[i].x * sz2 + s_frame[i].y * cz);
+                    s_frame[i].x = nx; s_frame[i].y = ny;
+                }
+            }
 
             // Continuous collapse toward a single point through Auto-Scaling's
             // low end (both directions). ssc() floors at 0.25, so sz alone

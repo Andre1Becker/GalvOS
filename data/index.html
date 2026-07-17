@@ -3640,6 +3640,9 @@ async function activatePreset(idx) {
         renderAllPresetGrids();
         updatePresetHint(idx);
         toast(`Preset: ${p ? p.name : idx}`);
+        // Push live controls (speed, size, auto-rotation, mirror, …) so
+        // animation starts immediately without requiring a slider interaction.
+        sendLiveControls();
     }
 }
 
