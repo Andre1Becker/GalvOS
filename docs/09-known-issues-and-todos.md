@@ -67,6 +67,7 @@ The following patterns are planned but not yet implemented:
 - Endless Spiral
 - Endless Tunnel
 - Point-to-multipoint spread
+- milkyway galaxy animation (max 60 dots)
 
 ---
 
@@ -97,11 +98,6 @@ The following patterns are planned but not yet implemented:
 
 **Status:** Open
 **Symptom:** Trail Length is not working.
-
-### Auto-Rotation
-
-**Status:** Open
-**Symptom:** Some Presets Auto-Rotation doesn't work on Z-Axis.
 
 ---
 
