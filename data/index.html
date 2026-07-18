@@ -521,6 +521,50 @@
             <input type="range" id="lv-bp-dur" min="1" max="90" step="1" value="30" oninput="liveSlider()">
           </div>
         </div>
+        <div id="lv-spiral-row" style="display:none;margin-bottom:8px">
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:3px">
+            <span>Arms</span><span id="lv-spiral-arms-val" style="color:var(--accent);font-family:monospace">2</span>
+          </div>
+          <input type="range" id="lv-spiral-arms" min="1" max="6" step="1" value="2" oninput="liveSlider()">
+        </div>
+        <div id="lv-tunnel-row" style="display:none;margin-bottom:8px">
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:3px">
+            <span>Rings</span><span id="lv-tunnel-rings-val" style="color:var(--accent);font-family:monospace">6</span>
+          </div>
+          <input type="range" id="lv-tunnel-rings" min="3" max="12" step="1" value="6" oninput="liveSlider()">
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin:6px 0 3px">
+            <span>Sides</span><span id="lv-tunnel-sides-val" style="color:var(--accent);font-family:monospace">4</span>
+          </div>
+          <input type="range" id="lv-tunnel-sides" min="3" max="10" step="1" value="4" oninput="liveSlider()">
+        </div>
+        <div id="lv-explosion-row" style="display:none;margin-bottom:8px">
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:3px">
+            <span>Rays</span><span id="lv-explosion-rays-val" style="color:var(--accent);font-family:monospace">16</span>
+          </div>
+          <input type="range" id="lv-explosion-rays" min="4" max="40" step="1" value="16" oninput="liveSlider()">
+        </div>
+        <div id="lv-fireworks-row" style="display:none;margin-bottom:8px">
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:3px">
+            <span>Max Shells</span><span id="lv-fw-shells-val" style="color:var(--accent);font-family:monospace">2</span>
+          </div>
+          <input type="range" id="lv-fw-shells" min="1" max="3" step="1" value="2" oninput="liveSlider()">
+          <div style="display:flex;gap:8px;margin-top:6px;align-items:center">
+            <label class="toggle">
+              <input type="checkbox" id="lv-fw-glitter" checked onchange="liveSlider()">
+              <span class="slider"></span><span style="font-size:11px">Glitter</span>
+            </label>
+          </div>
+        </div>
+        <div id="lv-milkyway-row" style="display:none;margin-bottom:8px">
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:3px">
+            <span>Dots</span><span id="lv-mw-dots-val" style="color:var(--accent);font-family:monospace">60</span>
+          </div>
+          <input type="range" id="lv-mw-dots" min="10" max="60" step="1" value="60" oninput="liveSlider()">
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin:6px 0 3px">
+            <span>Tilt</span><span id="lv-mw-tilt-val" style="color:var(--accent);font-family:monospace">60%</span>
+          </div>
+          <input type="range" id="lv-mw-tilt" min="20" max="80" step="1" value="60" oninput="liveSlider()">
+        </div>
         <div style="margin-bottom:8px">
           <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:3px">
             <span>Rotation (Z)</span><span id="lv-rot-val" style="color:var(--accent);font-family:monospace">0°</span>
@@ -3771,6 +3815,16 @@ const PRESET_PARAM_HINTS = {
           hint: '✨ Random Points — Speed controls how fast points appear/disappear. Size sets the max simultaneous points (1–14) -- the actual count flickers randomly below that. Duration sets how long each point stays fully lit.' },
     73:  { sp: 'Ball Speed', sz: 'Ball Count',
           hint: '🏓 Bouncing Points — Balls bounce off the scan-area edges (ping-pong style). Speed sets velocity. Size sets ball count (1–8). Trail sets ghost length. Use Endless or set a Duration (0–90 s).' },
+    76:  { sp: 'Flow Speed', sz: 'Scale',
+          hint: '🌀 Endless Spiral — Arms flow continuously outward from the centre. Speed sets the flow/rotation rate. Size scales the figure. Arms sets the number of spiral arms (1–6).' },
+    77:  { sp: 'Travel Speed', sz: 'Scale',
+          hint: '🕳 Endless Tunnel — Concentric rings rush toward a vanishing point (flying through a tunnel). Speed sets travel rate. Size scales it. Rings sets ring count (3–12); Sides sets the polygon shape (3–10).' },
+    78:  { sp: 'Blast Speed', sz: 'Radius',
+          hint: '💥 Explosion Spread — Rays fire out from the centre, then reset and repeat. Speed sets the cycle rate. Size sets max radius. Rays sets the number of tracers (4–40); angles jitter each cycle.' },
+    79:  { sp: 'Launch Tempo', sz: 'Spread',
+          hint: '🎆 Fireworks — Rocket dots rise, then burst into colour-shifting sparks. Speed sets launch tempo. Size sets spark spread. Max Shells (1–3) run concurrently; Glitter adds a twinkle overlay. Each launch differs (angle, height, colour).' },
+    80:  { sp: 'Rotation Speed', sz: 'Scale',
+          hint: '🌌 Milky Way — Stars on a slowly rotating spiral disc, shown in an oblique top-down view (pseudo-3D). Speed sets rotation. Size scales the disc. Dots sets star count (10–60); Tilt sets the view slant (20–80 %).' },
 };
 
 function updatePresetHint(idx) {
@@ -3793,6 +3847,16 @@ function updatePresetHint(idx) {
     if (randomPtsRow) randomPtsRow.style.display = (idx === 104) ? 'block' : 'none';
     var bouncingRow = document.getElementById('lv-bouncing-row');
     if (bouncingRow) { bouncingRow.style.display = (idx === 73) ? 'block' : 'none'; }
+    var spiralRow = document.getElementById('lv-spiral-row');
+    if (spiralRow) spiralRow.style.display = (idx === 76) ? 'block' : 'none';
+    var tunnelRow = document.getElementById('lv-tunnel-row');
+    if (tunnelRow) tunnelRow.style.display = (idx === 77) ? 'block' : 'none';
+    var explosionRow = document.getElementById('lv-explosion-row');
+    if (explosionRow) explosionRow.style.display = (idx === 78) ? 'block' : 'none';
+    var fireworksRow = document.getElementById('lv-fireworks-row');
+    if (fireworksRow) fireworksRow.style.display = (idx === 79) ? 'block' : 'none';
+    var milkywayRow = document.getElementById('lv-milkyway-row');
+    if (milkywayRow) milkywayRow.style.display = (idx === 80) ? 'block' : 'none';
     var bpEndless = document.getElementById('lv-bp-endless');
     if (bpEndless && !bpEndless._bpListenerAdded) {
         bpEndless._bpListenerAdded = true;
@@ -3859,6 +3923,13 @@ function liveSlider() {
     document.getElementById('lv-randompts-val').textContent = document.getElementById('lv-randompts').value + 'ms';
     document.getElementById('lv-bp-trail-val').textContent = document.getElementById('lv-bp-trail').value;
     document.getElementById('lv-bp-dur-val').textContent   = document.getElementById('lv-bp-dur').value + 's';
+    document.getElementById('lv-spiral-arms-val').textContent   = document.getElementById('lv-spiral-arms').value;
+    document.getElementById('lv-tunnel-rings-val').textContent  = document.getElementById('lv-tunnel-rings').value;
+    document.getElementById('lv-tunnel-sides-val').textContent  = document.getElementById('lv-tunnel-sides').value;
+    document.getElementById('lv-explosion-rays-val').textContent= document.getElementById('lv-explosion-rays').value;
+    document.getElementById('lv-fw-shells-val').textContent     = document.getElementById('lv-fw-shells').value;
+    document.getElementById('lv-mw-dots-val').textContent       = document.getElementById('lv-mw-dots').value;
+    document.getElementById('lv-mw-tilt-val').textContent       = document.getElementById('lv-mw-tilt').value + '%';
     // Color Preview
     const r=document.getElementById('lv-r').value,g=document.getElementById('lv-g').value,b=document.getElementById('lv-b').value;
     document.getElementById('lv-col-preview').style.background = `rgb(${r},${g},${b})`;
@@ -4257,6 +4328,14 @@ async function sendLiveControls() {
         bp_trail_len:        +document.getElementById('lv-bp-trail').value,
         bp_endless:          document.getElementById('lv-bp-endless').checked,
         bp_duration_sec:     +document.getElementById('lv-bp-dur').value,
+        spiral_arms:         +document.getElementById('lv-spiral-arms').value,
+        tunnel_rings:        +document.getElementById('lv-tunnel-rings').value,
+        tunnel_sides:        +document.getElementById('lv-tunnel-sides').value,
+        explosion_rays:      +document.getElementById('lv-explosion-rays').value,
+        fw_max_shells:       +document.getElementById('lv-fw-shells').value,
+        fw_glitter:          document.getElementById('lv-fw-glitter').checked,
+        mw_dots:             +document.getElementById('lv-mw-dots').value,
+        mw_tilt:             +document.getElementById('lv-mw-tilt').value,
     });
 }
 
@@ -4283,6 +4362,14 @@ function resetLiveControls() {
     document.getElementById('lv-bp-trail').value = 6;
     document.getElementById('lv-bp-endless').checked = true;
     document.getElementById('lv-bp-dur').value = 30;
+    document.getElementById('lv-spiral-arms').value = 2;
+    document.getElementById('lv-tunnel-rings').value = 6;
+    document.getElementById('lv-tunnel-sides').value = 4;
+    document.getElementById('lv-explosion-rays').value = 16;
+    document.getElementById('lv-fw-shells').value = 2;
+    document.getElementById('lv-fw-glitter').checked = true;
+    document.getElementById('lv-mw-dots').value = 60;
+    document.getElementById('lv-mw-tilt').value = 60;
     var bpDurRow = document.getElementById('lv-bp-dur-row'); if (bpDurRow) bpDurRow.style.display = 'none';
     document.getElementById('lv-col-on').checked = false;
     document.getElementById('lv-r').value = 255;

@@ -831,6 +831,14 @@ void init() {
             if (doc["bp_trail_len"].is<int>())    gLivePreset.bp_trail_len    = (uint8_t)constrain((int)doc["bp_trail_len"], 0, 12);
             if (doc["bp_endless"].is<bool>())     gLivePreset.bp_endless      = doc["bp_endless"];
             if (doc["bp_duration_sec"].is<int>()) gLivePreset.bp_duration_sec = (uint16_t)constrain((int)doc["bp_duration_sec"], 1, 90);
+            if (doc["spiral_arms"].is<int>())     gLivePreset.spiral_arms     = (uint8_t)constrain((int)doc["spiral_arms"], 1, 6);
+            if (doc["tunnel_rings"].is<int>())    gLivePreset.tunnel_rings    = (uint8_t)constrain((int)doc["tunnel_rings"], 3, 12);
+            if (doc["tunnel_sides"].is<int>())    gLivePreset.tunnel_sides    = (uint8_t)constrain((int)doc["tunnel_sides"], 3, 10);
+            if (doc["explosion_rays"].is<int>())  gLivePreset.explosion_rays  = (uint8_t)constrain((int)doc["explosion_rays"], 4, 40);
+            if (doc["fw_max_shells"].is<int>())   gLivePreset.fw_max_shells   = (uint8_t)constrain((int)doc["fw_max_shells"], 1, 3);
+            if (doc["fw_glitter"].is<bool>())     gLivePreset.fw_glitter      = doc["fw_glitter"];
+            if (doc["mw_dots"].is<int>())         gLivePreset.mw_dots         = (uint8_t)constrain((int)doc["mw_dots"], 10, 60);
+            if (doc["mw_tilt"].is<int>())         gLivePreset.mw_tilt         = (uint8_t)constrain((int)doc["mw_tilt"], 20, 80);
             req->send(200, "text/plain", "OK");
         });
 

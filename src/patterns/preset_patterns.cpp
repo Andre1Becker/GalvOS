@@ -39,7 +39,7 @@ static inline float csweep(uint32_t ph, uint8_t sp, int i, int N) {
 }
 static inline bool isContinuous(uint8_t idx) {
     switch (idx) {
-        case 0: case 22: case 23: case 24: case 26: case 27: case 100: return true;
+        case 0: case 22: case 23: case 24: case 26: case 27: case 100: case 76: return true;
         default: return false;
     }
 }
@@ -2188,6 +2188,264 @@ static size_t p_shooting(LaserPoint* o, size_t m, uint32_t ph, uint8_t sp, uint8
 }
 #undef SS_MAX
 #undef SS_TRAIL
+
+// ─── NEW SCENE PRESETS ───────────────────────────────────────
+
+// Shared deterministic hash: seed -> [0,1). Same fract(sin) trick used by
+// the other random presets, so it needs no PRNG state.
+static inline float sHash(uint32_t s) {
+    float x = sinf((float)s * 127.1f + 1.f) * 43758.5453f;
+    return x - floorf(x);
+}
+
+// p_endless_spiral -- Endless Spiral. One (or several) Archimedean arms whose
+// radius grows outward while the whole figure rotates continuously; points
+// fade from centre (dim) to rim (bright) so it reads as flowing outward.
+// Continuous-sweep style (registered in isContinuous) -> no seam jump.
+//   sp = rotation/flow speed
+//   sz = overall scale
+//   gLivePreset.spiral_arms = arm count 1..6
+static size_t p_endless_spiral(LaserPoint* o, size_t m, uint32_t ph, uint8_t sp, uint8_t sz) {
+    size_t n = 0;
+    const float sc   = SC * ssc(sz) * 0.95f;
+    const float flow = aang(ph, sp);                 // continuous outward flow
+    uint8_t arms = gLivePreset.spiral_arms; if (arms < 1) arms = 1; if (arms > 6) arms = 6;
+    const int perArm = adaptN(sz, 150, 40, 300);
+    const float turns = 4.0f;                         // radial turns per arm
+
+    for (int a = 0; a < arms && n < m; a++) {
+        const float armPhase = PI2 * (float)a / (float)arms;
+        for (int i = 0; i < perArm && n < m; i++) {
+            const float t   = (float)i / (float)(perArm - 1);   // 0..1 centre->rim
+            const float ang = armPhase + flow + t * turns * PI2;
+            const float rad = t * sc;
+            const float x   = cosf(ang) * rad;
+            const float y   = sinf(ang) * rad;
+            const uint8_t v = (uint8_t)(40 + 215 * t);          // dim centre -> bright rim
+            ap(o, n, m, x, y, v, 0, (uint8_t)(255 - v), i == 0 ? 1 : 0);
+        }
+    }
+    return n;
+}
+
+// p_endless_tunnel -- Endless Tunnel. Concentric rings (polygon or circle)
+// scaled around a vanishing point that is offset toward a corner for a
+// pseudo-perspective look. Each ring's scale cycles inward continuously so it
+// feels like flying through a tunnel; a ring reaching the centre wraps back to
+// the outer edge. Brightness increases with ring size (near rings brighter).
+//   sp = travel speed
+//   sz = tunnel scale
+//   gLivePreset.tunnel_rings = ring count 3..12
+//   gLivePreset.tunnel_sides = polygon sides 3..10
+static size_t p_endless_tunnel(LaserPoint* o, size_t m, uint32_t ph, uint8_t sp, uint8_t sz) {
+    size_t n = 0;
+    const float sc = SC * ssc(sz) * 0.98f;
+    uint8_t rings = gLivePreset.tunnel_rings; if (rings < 3) rings = 3; if (rings > 12) rings = 12;
+    uint8_t sides = gLivePreset.tunnel_sides; if (sides < 3) sides = 3; if (sides > 10) sides = 10;
+
+    // Vanishing point slightly off-centre -> perspective tunnel
+    const float vpx = sc * 0.12f, vpy = -sc * 0.10f;
+    // Continuous inward travel phase (0..1), sp-controlled
+    const float travel = (sp == 0) ? 0.f : fmodf(ph * (sp / 9000.0f), 1.0f);
+
+    const optimizer::OptimizerConfig cfg = liveOptimizerConfig();
+
+    for (int rIdx = 0; rIdx < rings && n < m; rIdx++) {
+        // depth 0..1: 0 = far (small, near vanishing pt), 1 = near (full size)
+        float depth = (float)rIdx / (float)rings + travel / (float)rings;
+        depth = depth - floorf(depth);                  // wrap 0..1
+        const float scale = 0.04f + depth * depth;      // quadratic -> perspective accel
+        const float rad   = scale * sc;
+        const uint8_t v   = (uint8_t)(30 + 225 * depth);
+        const float cx = vpx * (1.f - depth);
+        const float cy = vpy * (1.f - depth);
+
+        optimizer::PathVertex verts[10];
+        for (int s = 0; s < sides; s++) {
+            const float aa = PI2 * (float)s / (float)sides - (float)M_PI / 2.f;
+            verts[s] = optimizer::PathVertex(cx + cosf(aa) * rad,
+                                             cy + sinf(aa) * rad,
+                                             v, (uint8_t)(v / 2), 255, s == 0);
+        }
+        optimizer::PathSegment seg(verts, sides, /*closed=*/true);
+        n += optimizer::optimize(&seg, 1, o + n, m - n, cfg);
+    }
+    return n;
+}
+
+// p_explosion -- Point-to-multipoint spread. Rays fire out from the centre;
+// each ray is a short lit segment whose length grows over a cycle, then the
+// whole burst resets (fades) and repeats -- reads as a repeating explosion.
+//   sp = explosion speed (cycle rate)
+//   sz = max radius
+//   gLivePreset.explosion_rays = ray count 4..40
+static size_t p_explosion(LaserPoint* o, size_t m, uint32_t ph, uint8_t sp, uint8_t sz) {
+    (void)ph;   // millis()-driven
+    size_t n = 0;
+    const float sc = SC * ssc(sz) * 0.95f;
+    uint8_t rays = gLivePreset.explosion_rays; if (rays < 4) rays = 4; if (rays > 40) rays = 40;
+
+    const uint16_t cycleMs = (uint16_t)(1600.f - (sp / 255.f) * 1400.f);  // 1600..200 ms
+    const uint32_t nowMs   = millis();
+    const uint32_t cycleId = nowMs / cycleMs;
+    const float    prog    = (float)(nowMs % cycleMs) / (float)cycleMs;    // 0..1
+    // Ease-out so the shell shoots fast then decelerates
+    const float ease  = 1.f - (1.f - prog) * (1.f - prog);
+    const float fade  = (prog < 0.7f) ? 1.f : (1.f - (prog - 0.7f) / 0.3f); // tail fade
+
+    const optimizer::OptimizerConfig cfg = liveOptimizerConfig();
+
+    for (int i = 0; i < rays && n < m; i++) {
+        // Angle jitter re-rolled per cycle so each explosion differs
+        const float baseA = PI2 * (float)i / (float)rays;
+        const float jit   = (sHash(cycleId * 131u + i * 17u) - 0.5f) * (PI2 / rays);
+        const float ang   = baseA + jit;
+        const float rOuter = ease * sc;
+        const float rInner = rOuter * 0.55f;            // lit segment (tracer)
+        const uint8_t hueI = (uint8_t)(i * 255 / rays);
+        const uint8_t r = (uint8_t)(fabsf(sinf(hueI / 40.f)) * 255) ;
+        const uint8_t g = (uint8_t)(fabsf(sinf(hueI / 40.f + 2.094f)) * 255);
+        const uint8_t b = (uint8_t)(fabsf(sinf(hueI / 40.f + 4.189f)) * 255);
+        const uint8_t vr = (uint8_t)(r * fade), vg = (uint8_t)(g * fade), vb = (uint8_t)(b * fade);
+
+        const float ix = cosf(ang) * rInner, iy = sinf(ang) * rInner;
+        const float ox = cosf(ang) * rOuter, oy = sinf(ang) * rOuter;
+        optimizer::emitBlankTo(o, n, m, ix, iy, cfg);
+        ap(o, n, m, ix, iy, vr, vg, vb, 0);
+        ap(o, n, m, ox, oy, vr, vg, vb, 0);
+    }
+    return n;
+}
+
+// p_fireworks -- New Year's Fireworks. Each shell: two rocket dots rise from
+// the bottom, then burst into radial sparks with a glitter (twinkle) overlay.
+// Angle, burst height and colour are re-rolled per shell instance, so every
+// launch differs. Up to fw_max_shells run concurrently, phase-staggered.
+//   sp = launch tempo
+//   sz = spark spread radius
+//   gLivePreset.fw_max_shells = 1..3 concurrent shells
+//   gLivePreset.fw_glitter    = sparkle overlay on/off
+static size_t p_fireworks(LaserPoint* o, size_t m, uint32_t ph, uint8_t sp, uint8_t sz) {
+    (void)ph;   // millis()-driven
+    size_t n = 0;
+    const float sc = SC * ssc(sz) * 0.9f;
+    uint8_t shells = gLivePreset.fw_max_shells; if (shells < 1) shells = 1; if (shells > 3) shells = 3;
+    const bool glitter = gLivePreset.fw_glitter;
+
+    const uint16_t riseMs  = (uint16_t)(900.f - (sp / 255.f) * 600.f);  // 900..300 ms
+    const uint16_t burstMs = 1100;                                       // spark lifetime
+    const uint32_t lifeMs  = (uint32_t)riseMs + burstMs;
+    const uint32_t periodMs = lifeMs + 400;                              // + gap before relaunch
+    const uint32_t nowMs   = millis();
+
+    const optimizer::OptimizerConfig cfg = liveOptimizerConfig();
+    uint16_t kpps = gProjection.galvo_kpps; if (kpps < 12) kpps = 12; if (kpps > 60) kpps = 60;
+    const float tick_us = 1000000.f / ((float)kpps * 1000.f);
+    int dwell = (int)ceilf(120.f / tick_us); if (dwell < 2) dwell = 2;
+
+    for (int s = 0; s < shells && n < m; s++) {
+        const uint32_t off   = (uint32_t)(sHash(s * 733u + 3u) * periodMs);
+        const uint32_t t     = (nowMs + off) % periodMs;
+        const uint32_t cycle = (nowMs + off) / periodMs;
+        if (t >= lifeMs) continue;                       // in the idle gap
+
+        // Per-launch randomised parameters
+        const uint32_t seed = s * 10007u + cycle * 997u;
+        const float launchX = (sHash(seed + 1u) * 1.6f - 0.8f) * sc;         // -0.8..0.8
+        const float burstY  = (-0.15f - sHash(seed + 2u) * 0.55f) * sc;      // upper area
+        const float hue     = sHash(seed + 3u) * PI2;
+        const float startY  = sc * 0.95f;                                    // bottom
+
+        if (t < riseMs) {
+            // ── Rising: two rocket dots climbing ──
+            const float rp = (float)t / (float)riseMs;
+            const float ry = L(startY, burstY, rp);
+            const uint8_t rv = (uint8_t)(180 + 75 * sinf(rp * (float)M_PI));
+            for (int d = 0; d < 2; d++) {
+                const float rx = launchX + (d == 0 ? -sc * 0.015f : sc * 0.015f);
+                optimizer::emitBlankTo(o, n, m, rx, ry, cfg);
+                for (int k = 0; k < dwell && n < m; k++) ap(o, n, m, rx, ry, rv, rv, 255, 0);
+            }
+        } else {
+            // ── Burst: radial sparks + colour shift + glitter ──
+            const float bp = (float)(t - riseMs) / (float)burstMs;           // 0..1
+            const float ease = 1.f - (1.f - bp) * (1.f - bp);
+            const float fade = (bp < 0.6f) ? 1.f : (1.f - (bp - 0.6f) / 0.4f);
+            const int   sparks = 20;
+            const float rad = ease * sc * 0.42f;
+            // colour shifts over the burst (hue -> hue+PI)
+            const float h = hue + bp * (float)M_PI;
+            for (int i = 0; i < sparks && n < m; i++) {
+                const float a = PI2 * (float)i / (float)sparks
+                              + (sHash(seed + 40u + i) - 0.5f) * 0.3f;
+                float gl = 1.f;
+                if (glitter) {
+                    // twinkle: per-spark on/off flicker driven by time
+                    const float tw = sHash((uint32_t)(nowMs / 60u) * 31u + i * 7u + seed);
+                    gl = 0.35f + 0.65f * (tw > 0.5f ? 1.f : 0.25f);
+                }
+                const float px = launchX + cosf(a) * rad;
+                const float py = burstY  + sinf(a) * rad;
+                const uint8_t r = (uint8_t)((128 + 127 * sinf(h))          * fade * gl);
+                const uint8_t g = (uint8_t)((128 + 127 * sinf(h + 2.094f)) * fade * gl);
+                const uint8_t b = (uint8_t)((128 + 127 * sinf(h + 4.189f)) * fade * gl);
+                optimizer::emitBlankTo(o, n, m, px, py, cfg);
+                for (int k = 0; k < dwell && n < m; k++) ap(o, n, m, px, py, r, g, b, 0);
+            }
+        }
+    }
+    return n;
+}
+
+// p_milkyway -- Milky Way galaxy. Up to mw_dots stars laid out on a slowly
+// rotating spiral disc, projected in an oblique top-down view (the y-axis is
+// compressed by mw_tilt so the disc looks slanted -> pseudo-3D). Star
+// brightness varies by radius (bright core -> dim rim) plus a subtle twinkle.
+//   sp = disc rotation speed
+//   sz = disc scale
+//   gLivePreset.mw_dots = star count 10..60
+//   gLivePreset.mw_tilt = view tilt 20..80 % (y compression)
+static size_t p_milkyway(LaserPoint* o, size_t m, uint32_t ph, uint8_t sp, uint8_t sz) {
+    size_t n = 0;
+    const float sc  = SC * ssc(sz) * 0.92f;
+    uint8_t dots = gLivePreset.mw_dots; if (dots < 10) dots = 10; if (dots > 60) dots = 60;
+    uint8_t tiltPct = gLivePreset.mw_tilt; if (tiltPct < 20) tiltPct = 20; if (tiltPct > 80) tiltPct = 80;
+    const float yScale = tiltPct / 100.f;                 // oblique projection compression
+    const float rot    = aang(ph, sp);                    // slow disc rotation
+
+    const optimizer::OptimizerConfig cfg = liveOptimizerConfig();
+    uint16_t kpps = gProjection.galvo_kpps; if (kpps < 12) kpps = 12; if (kpps > 60) kpps = 60;
+    const float tick_us = 1000000.f / ((float)kpps * 1000.f);
+    int dwell = (int)ceilf(120.f / tick_us); if (dwell < 2) dwell = 2;
+
+    // Two-arm logarithmic spiral distribution (fixed seed -> stable star field)
+    const float armTurns = 2.4f;
+    for (int i = 0; i < dots && n < m; i++) {
+        const float t    = (float)i / (float)(dots - 1);          // 0..1 core->rim
+        const int   arm  = i & 1;
+        const float armA = (float)arm * (float)M_PI;
+        // radius: denser toward core
+        const float rad  = powf(t, 0.7f) * sc;
+        const float jit  = (sHash(i * 53u + 7u) - 0.5f) * 0.35f;  // scatter off the arm
+        const float ang  = armA + rot + t * armTurns * PI2 + jit;
+        const float x    = cosf(ang) * rad;
+        const float y    = sinf(ang) * rad * yScale;              // oblique squash
+
+        // brightness: bright core, dim rim, + gentle twinkle
+        const float coreB = 1.f - 0.6f * t;
+        const float tw    = 0.8f + 0.2f * sHash((uint32_t)(ph / 4u) * 17u + i * 3u);
+        const uint8_t v   = (uint8_t)(constrain(255.f * coreB * tw, 20.f, 255.f));
+        // colour: bluish-white core -> faint blue rim
+        const uint8_t r = (uint8_t)(v * (0.85f - 0.35f * t));
+        const uint8_t g = (uint8_t)(v * (0.9f  - 0.2f  * t));
+        const uint8_t b = v;
+
+        optimizer::emitBlankTo(o, n, m, x, y, cfg);
+        for (int d = 0; d < dwell && n < m; d++) ap(o, n, m, x, y, r, g, b, 0);
+    }
+    return n;
+}
+
 // ─── DISPATCH ────────────────────────────────────────────────
 
 // presetClassOf() -- maps a Preset to its optimizer profile index.
@@ -2213,6 +2471,7 @@ PresetClass presetClassOf(Preset p)
         // ── Smooth: continuous closed curves ──────────────────────────
         // No true corners -- quality is set by interior density alone.
         // Corner dwell here only wastes frame budget.
+        case P::EndlessSpiral:
         case P::ArchimedeanSpiral: case P::DoubleSpiral:
         case P::Lissajous1To2: case P::Lissajous2To3: case P::Lissajous3To4:
         case P::Lissajous3To5: case P::Lissajous5To6:
@@ -2247,11 +2506,13 @@ PresetClass presetClassOf(Preset p)
         case P::DiscoBall: case P::LaserDiamond:
         case P::Starburst: case P::StarburstParty: case P::Hibiscus:
         case P::ChaosBouncer: case P::CountdownTimer:
+        case P::EndlessTunnel:
             return presets::PresetClass::MultiObject;
 
         // ── Particles: isolated dots, no connecting geometry ──────────
         case P::Starfield: case P::RandomPoints: case P::PointSpread:
         case P::ConfettiBurst: case P::BouncingPoints:
+        case P::ExplosionSpread: case P::Fireworks: case P::MilkyWay:
             return presets::PresetClass::Particles;
 
         // ── Trails: moving dots with connected fade tails ─────────────
@@ -2455,6 +2716,11 @@ const PresetInfo PRESETS[PRESET_COUNT] = {
     {"Bouncing Points","Scenes"},
     {"Shooting Stars","Scenes"},
     {"Pythagoras Tree","Scenes"},
+    {"Endless Spiral","Scenes"},
+    {"Endless Tunnel","Scenes"},
+    {"Explosion Spread","Scenes"},
+    {"Fireworks","Scenes"},
+    {"Milky Way","Scenes"},
 };
 
 static const PFn DISPATCH[PRESET_COUNT] = {
@@ -2477,6 +2743,11 @@ static const PFn DISPATCH[PRESET_COUNT] = {
     p_bouncing,
     p_shooting,
     p_pythagoras_tree,
+    p_endless_spiral,
+    p_endless_tunnel,
+    p_explosion,
+    p_fireworks,
+    p_milkyway,
 };
 
 // ─── STATIC-PRESET CACHE (Phase 2) ───────────────────────────

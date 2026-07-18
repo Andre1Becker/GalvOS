@@ -525,6 +525,19 @@ struct LivePresetControls {
     volatile uint8_t  bp_trail_len     = 6;     // 0=off, 1..12 trail ghost steps
     volatile bool     bp_endless        = true;  // true=loop forever, false=time-limited
     volatile uint16_t bp_duration_sec   = 30;   // 1..90 s, ignored when bp_endless=true
+    // Endless Spiral preset (preset_patterns.cpp::p_endless_spiral)
+    volatile uint8_t  spiral_arms        = 2;    // 1..6 spiral arms
+    // Endless Tunnel preset (preset_patterns.cpp::p_endless_tunnel)
+    volatile uint8_t  tunnel_rings       = 6;    // 3..12 concentric rings
+    volatile uint8_t  tunnel_sides       = 4;    // 3..10 polygon sides (0-ish maps to circle)
+    // Explosion Spread preset (preset_patterns.cpp::p_explosion)
+    volatile uint8_t  explosion_rays     = 16;   // 4..40 rays
+    // Fireworks preset (preset_patterns.cpp::p_fireworks)
+    volatile uint8_t  fw_max_shells      = 2;    // 1..3 concurrent shells
+    volatile bool     fw_glitter         = true; // sparkle overlay on/off
+    // Milky Way preset (preset_patterns.cpp::p_milkyway)
+    volatile uint8_t  mw_dots            = 60;   // 10..60 star dots
+    volatile uint8_t  mw_tilt            = 60;   // 20..80 % projection tilt (top-down slant)
     // Kaleidoscope effect (global toggle, Preset + Curve mode)
     volatile bool     kaleido_enabled   = false;
     volatile uint8_t  kaleido_segments  = 6;      // 2..KALEIDO_SEGMENTS_MAX
