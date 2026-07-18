@@ -60,7 +60,8 @@ GalvOS ships as a Progressive Web App (PWA). This means you can install it on yo
 
 The UI is divided into a **tab bar** at the top and a **content area** below. All tabs are accessible at any time — switching tabs does not stop the laser or change the active pattern.
 
-[SCREENSHOT: Full WebUI overview — tab bar and content area]
+<img width="1563" height="52" alt="image" src="https://github.com/user-attachments/assets/17b74a56-2283-45db-89fb-828af40485f2" />
+
 
 ---
 
@@ -68,7 +69,8 @@ The UI is divided into a **tab bar** at the top and a **content area** below. Al
 
 The Dashboard is the home screen and the first thing you see on load. It gives you a live status overview of the entire system.
 
-[SCREENSHOT: Dashboard tab — full view]
+<img width="1304" height="1118" alt="image" src="https://github.com/user-attachments/assets/5e84f797-35c8-4a98-b1e0-97ddb4a8adcc" />
+
 
 ### Safety Status Card
 
@@ -98,7 +100,8 @@ A scrolling 60-second graph of both core loads:
 - **Core 1 (orange)** — runs the galvo ISR and pattern engine. Typically ~100% — this is normal and expected. The ISR is time-sliced.
 - Warning lines at 70% (yellow dashed) and 90% (red dashed) mark potential overload on Core 0.
 
-[SCREENSHOT: Dashboard — CPU load graph]
+<img width="872" height="271" alt="image" src="https://github.com/user-attachments/assets/988a1e92-5a48-4759-8e04-07ae93b75604" />
+
 
 ### Temperature History Chart
 
@@ -128,7 +131,9 @@ The Presets tab is the main performance control surface. It is split into two ar
 
 A 5-column card that applies to every active preset in real time. Changes take effect immediately without reloading the pattern.
 
-[SCREENSHOT: Presets tab — Global Controls card]
+<img width="1310" height="730" alt="image" src="https://github.com/user-attachments/assets/2659232d-327a-49f4-aaca-9511a75bcc4f" />
+<img width="1301" height="1160" alt="image" src="https://github.com/user-attachments/assets/dc8df1f4-79b4-4d41-8c01-b3532cc1a67c" />
+
 
 **Column 1 — Speed / Size / Rotation:**
 - **Speed** — pattern animation speed (0–255). Meaning varies by preset: step increment, phase advance, or oscillation rate.
@@ -174,7 +179,8 @@ Converts any preset into a dot-cloud: instead of drawing connected lines, the op
 
 The main preset library, fetched from `/api/presets` on tab load. Each preset is shown as a tile with an SVG thumbnail and name.
 
-[SCREENSHOT: Presets tab — preset grid with category filters]
+<img width="1304" height="258" alt="image" src="https://github.com/user-attachments/assets/4afebe03-7820-4669-a687-2322651f0d84" />
+
 
 - **Category filters** — buttons above the grid filter by category (Geometry, Waves, 3D, Scenes, etc.). Click to toggle. Multiple categories can be active simultaneously.
 - **Click a preset** — activates it immediately. The active preset name is shown in the Global Controls header.
@@ -205,7 +211,8 @@ A standalone utility embedded in the Presets tab. Set hours/minutes/seconds, the
 
 Provides a software DMX console — 25 sliders corresponding to GalvOS's 25 DMX channels.
 
-[SCREENSHOT: DMX Live tab]
+<img width="1313" height="1016" alt="image" src="https://github.com/user-attachments/assets/8ca62261-cdfc-4d50-8f34-71b45346b862" />
+
 
 - **WebUI override toggle** — when enabled, the slider values are sent directly to the pattern engine, overriding any incoming hardware DMX signal. When disabled, the sliders display the last received DMX values (read-only view).
 - **Reset all channels** — returns all sliders to their off/default state.
@@ -219,7 +226,8 @@ Full channel map: see [Chapter 3 — Build & Configuration → RuntimeConfig →
 
 Projects laser text. Text mode overrides any active preset and DMX input while active.
 
-[SCREENSHOT: Text tab]
+<img width="1305" height="480" alt="image" src="https://github.com/user-attachments/assets/3e7c9616-82c7-43da-99e5-a91b2d1a3ea0" />
+
 
 - **Text input** — supports uppercase A–Z, digits 0–9, and `.,:!?-+`. Maximum 127 characters. Up to 16 characters display statically; longer text scrolls automatically.
 - **Font** — Simple (thin strokes, fastest), Bold (thick strokes), Outline (double-line).
@@ -236,7 +244,8 @@ Projects laser text. Text mode overrides any active preset and DMX input while a
 
 A freehand drawing canvas that projects directly onto the laser.
 
-[SCREENSHOT: Paint tab — canvas with drawn strokes]
+<img width="1316" height="1022" alt="image" src="https://github.com/user-attachments/assets/dd4a19df-7960-4434-afc9-cc2dbc7c8945" />
+
 
 - **Draw mode** — finger or mouse draws freehand strokes on the canvas.
 - **Shape tools** — add rectangles, triangles, or circles as closed polygons.
@@ -253,7 +262,8 @@ A freehand drawing canvas that projects directly onto the laser.
 
 ILDA file playback from an SD card.
 
-[SCREENSHOT: ILDA/SD tab]
+<img width="1055" height="524" alt="image" src="https://github.com/user-attachments/assets/5fa75f64-acd0-4362-b1ea-95e8ef679064" />
+
 
 > ⚠️ **Known issue:** SD card insertion currently causes galvo malfunction. See [Known Issues](09-known-issues-and-todos.md). This tab is non-functional until that issue is resolved.
 
@@ -269,7 +279,8 @@ ILDA file playback from an SD card.
 
 The calibration workflow covers four areas: color/gamma calibration, galvo geometry calibration, projection zone setup, and the ILDA standard test pattern.
 
-[SCREENSHOT: Calibration tab — full view]
+<img width="2504" height="1074" alt="image" src="https://github.com/user-attachments/assets/368000d7-7b14-4474-a666-080c26126583" />
+
 
 ### Color & Gamma Calibration (left card)
 
@@ -322,7 +333,8 @@ Toggles perceptual brightness correction. When enabled (default), the firmware a
 
 An interactive canvas for defining a clipping polygon — the area the laser is allowed to scan. Lit points outside the polygon are blanked (laser off, mirror position retained).
 
-[SCREENSHOT: Calibration tab — Projection Zone canvas]
+<img width="620" height="977" alt="image" src="https://github.com/user-attachments/assets/940cb0d2-f7c0-4804-afe7-5ef76690e92a" />
+
 
 - **Drag vertices** to shape the zone.
 - **Tap an edge** to add a new vertex.
@@ -335,7 +347,8 @@ An interactive canvas for defining a clipping polygon — the area the laser is 
 
 The official 1995 ILDA Technical Committee test pattern for galvo driver calibration.
 
-[SCREENSHOT: Calibration — ILDA standard test pattern projected]
+<img width="1257" height="273" alt="image" src="https://github.com/user-attachments/assets/551db37a-f992-46a3-aec2-193603163664" />
+
 
 Use this pattern to tune the galvo driver board's damping and servo gain trim pots. The tab includes a step-by-step tuning procedure:
 
@@ -355,7 +368,8 @@ Use this pattern to tune the galvo driver board's damping and servo gain trim po
 
 Per-preset-class optimizer profile management. See [Chapter 5 — The Optimizer](05-optimizer.md) for a full explanation of what each parameter does.
 
-[SCREENSHOT: Optimizer tab — profile selector and sliders]
+<img width="2508" height="1084" alt="image" src="https://github.com/user-attachments/assets/534e0bcc-c2ad-4c37-aa22-41e773d20d50" />
+
 
 ### Profile Selector
 
@@ -388,7 +402,8 @@ See [Chapter 5 — The Optimizer → Parameter Reference](05-optimizer.md#parame
 
 Hardware configuration for the galvo scanner and laser module.
 
-[SCREENSHOT: Projection tab — Galvo Sample Rate card]
+<img width="1311" height="1109" alt="image" src="https://github.com/user-attachments/assets/396dcec9-74e1-4c56-8e8f-acdc333a6e62" />
+
 
 ### Galvo Sample Rate Card
 
