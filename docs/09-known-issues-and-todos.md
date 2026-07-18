@@ -3,6 +3,7 @@
 > This is an honest list. Every project has rough edges — GalvOS more than most, because it is a one-person hardware/firmware/UI project that started as a dimmer fix and grew considerably beyond that. Nothing here is hidden. If you run into one of these, you are not doing it wrong.
 
 ## Table of Contents
+
 - [Critical Issues](#critical-issues)
 - [Hardware Issues](#hardware-issues)
 - [Pattern Issues](#pattern-issues)
@@ -65,8 +66,8 @@ These affect core functionality and should be resolved before relying on those f
 The following patterns are planned but not yet implemented:
 
 - Endless Spiral
-- Endless Tunnel
-- Point-to-multipoint spread
+- Endless Tunnel effekt
+- Point-to-multipoint spread (like a explosion)
 - milkyway galaxy animation (max 60 dots)
 
 ---

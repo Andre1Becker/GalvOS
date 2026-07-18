@@ -3948,6 +3948,7 @@ function resetOptimizerDefaults() {
     document.getElementById('opt-minsp').value = 2;
     document.getElementById('opt-blank').value = 40;
     document.getElementById('opt-maxppf').value= 310;
+    { const fe=document.getElementById('opt-fps'); if(fe){fe.value=23;} const fv=document.getElementById('opt-fps-val'); if(fv)fv.textContent=23; }
     document.getElementById('opt-minbl').value = 8;
     document.getElementById('opt-blppu').value = 100;
     document.getElementById('opt-minip').value = 6;
@@ -3969,14 +3970,19 @@ function resetOptimizerDefaults() {
 // values regardless of which profile was open, which silently flattened the
 // six profiles back into one.
 const OPT_PROFILE_BASE = [
-    // cad, mincp, maxcp, ppu, blank, minbl, s1tgt, blppu, minip, maxppf
-    { cad: 30, mincp: 2, maxcp: 8, ppu:  9.0, blank: 16, minbl: 6, s1tgt: 12, blppu:  8.0, minip: 8, maxppf: 1300 }, // 0 Vector
-    { cad: 60, mincp: 2, maxcp: 3, ppu: 11.0, blank: 16, minbl: 6, s1tgt: 12, blppu:  8.0, minip: 8, maxppf: 1300 }, // 1 Smooth
-    { cad: 35, mincp: 2, maxcp: 6, ppu:  8.0, blank: 16, minbl: 6, s1tgt: 12, blppu:  8.0, minip: 8, maxppf: 1300 }, // 2 Waves
-    { cad: 25, mincp: 2, maxcp: 8, ppu:  6.0, blank: 12, minbl: 6, s1tgt: 10, blppu: 10.0, minip: 6, maxppf: 1300 }, // 3 Wireframe
-    { cad: 25, mincp: 2, maxcp: 6, ppu:  5.0, blank: 12, minbl: 6, s1tgt: 10, blppu: 10.0, minip: 6, maxppf: 1300 }, // 4 Multi-Object
-    { cad: 25, mincp: 2, maxcp: 4, ppu:  6.0, blank: 10, minbl: 6, s1tgt:  8, blppu: 12.0, minip: 4, maxppf: 1300 }, // 5 Particles
-    { cad: 60, mincp: 3, maxcp: 3, ppu: 11.0, blank: 16, minbl: 6, s1tgt: 12, blppu:  8.0, minip: 8, maxppf:  880 }, // 6 Trails
+    // cad, mincp, maxcp, ppu, blank, minbl, s1tgt, blppu, minip, fps
+    // fps = target refresh rate. Smart defaults turns it into a point budget:
+    //   max_pts_per_frame = round(output_kpps * 1000 / fps)
+    // so the budget tracks the real scanner speed instead of a fixed count.
+    // 23 Hz sits just above flicker fusion for detailed geometry; Trails uses
+    // 34 Hz because a meteor animation wants smooth motion over dense detail.
+    { cad: 30, mincp: 2, maxcp: 8, ppu:  9.0, blank: 16, minbl: 6, s1tgt: 12, blppu:  8.0, minip: 8, fps: 23 }, // 0 Vector
+    { cad: 60, mincp: 2, maxcp: 3, ppu: 11.0, blank: 16, minbl: 6, s1tgt: 12, blppu:  8.0, minip: 8, fps: 23 }, // 1 Smooth
+    { cad: 35, mincp: 2, maxcp: 6, ppu:  8.0, blank: 16, minbl: 6, s1tgt: 12, blppu:  8.0, minip: 8, fps: 23 }, // 2 Waves
+    { cad: 25, mincp: 2, maxcp: 8, ppu:  6.0, blank: 12, minbl: 6, s1tgt: 10, blppu: 10.0, minip: 6, fps: 23 }, // 3 Wireframe
+    { cad: 25, mincp: 2, maxcp: 6, ppu:  5.0, blank: 12, minbl: 6, s1tgt: 10, blppu: 10.0, minip: 6, fps: 23 }, // 4 Multi-Object
+    { cad: 25, mincp: 2, maxcp: 4, ppu:  6.0, blank: 10, minbl: 6, s1tgt:  8, blppu: 12.0, minip: 4, fps: 23 }, // 5 Particles
+    { cad: 60, mincp: 3, maxcp: 3, ppu: 11.0, blank: 16, minbl: 6, s1tgt: 12, blppu:  8.0, minip: 8, fps: 34 }, // 6 Trails
 ];
 
 function applyOptimizerSmartDefaults() {
@@ -3985,10 +3991,15 @@ function applyOptimizerSmartDefaults() {
     const r        = (rated > 0 && output > 0) ? rated / output : 1;
     // Baseline for the profile currently being edited, not a global constant.
     const base     = OPT_PROFILE_BASE[g_activeOptimizerProfile] || OPT_PROFILE_BASE[0];
-    // Frame budget comes from the profile baseline (Trails is 880, the rest
-    // 1300), not the current slider -- otherwise switching to Trails and
-    // hitting Smart defaults would keep the previous profile's 1300.
-    const maxPpf   = base.maxppf || 1300;
+    // Frame budget = target refresh rate x scanner speed. The target fps comes
+    // from the dedicated slider if the user has set one, otherwise the
+    // profile's baseline fps. This is the only place that writes the budget
+    // slider -- outside Smart defaults the budget is entirely the user's.
+    const fpsEl    = document.getElementById('opt-fps');
+    const targetFps= (fpsEl && +fpsEl.value) ? +fpsEl.value : (base.fps || 23);
+    const outHz    = output * 1000;                      // points/sec at output kpps
+    let   maxPpf   = Math.round(outHz / targetFps);
+    maxPpf = Math.min(2048, Math.max(60, maxPpf));       // clamp to slider range
     // Point density scales inversely with speed ratio (applyPpsScaling: ∝ 1/r)
     const ppu      = Math.round(base.ppu / r * 10);      // slider ×10 encoding
     // Step/accel: derive from frame budget and speed ratio
@@ -4111,6 +4122,13 @@ function loadOptimizerConfig(cfg) {
     setVal('opt-blppu', Math.round(p.opt_blank_pts_per_1000_units*10));
     setVal('opt-minip', p.opt_min_interior_pts_per_segment);
     setVal('opt-s1tgt', p.opt_stage1_blank_target);
+    // Target-fps slider follows the active profile's baseline (display only;
+    // does not alter the stored budget). If the stored budget implies a
+    // different fps at the current scanner speed, the slider still shows the
+    // profile intent -- Smart defaults is what reconciles them on demand.
+    { const fb = (OPT_PROFILE_BASE[activeIdx] || OPT_PROFILE_BASE[0]).fps || 23;
+      setVal('opt-fps', fb);
+      const fe=document.getElementById('opt-fps-val'); if(fe) fe.textContent=fb; }
     setCheck('opt-rs-en', !!p.opt_resample_enabled);
     setVal('opt-rssp', Math.round(p.opt_resample_spacing_units));
     setCheck('opt-ring-en', !!p.opt_ringing_comp_enabled);
@@ -6960,8 +6978,13 @@ document.addEventListener('DOMContentLoaded', initParamPreviews);
 
       <div class="opt-col-block">
       <div class="opt-group-label">Frame budget</div>
+      <label>Target framerate <code style="font-size:10px;color:var(--dim)">(smart defaults)</code> <span id="opt-fps-val" style="color:var(--accent);font-family:monospace">23</span> Hz
+        <span class="help-icon" title="Desired refresh rate. Smart defaults turns it into a point budget: max_pts_per_frame = output_kpps x 1000 / fps. Higher fps = smoother motion but fewer points per frame (less geometric detail). ~23 Hz is the flicker-fusion floor for line art; raise it for fast-moving content. Does not change the budget on its own -- press Smart defaults to apply.">?</span>
+      </label>
+      <input type="range" id="opt-fps" min="15" max="45" step="1" value="23" oninput="document.getElementById('opt-fps-val').textContent=this.value;">
+
       <label>Max points / frame (flicker budget) <code style="font-size:10px;color:var(--dim)">(max_pts_per_frame)</code> <span id="opt-maxppf-val" style="color:var(--accent);font-family:monospace">310</span>
-        <span class="help-icon" title="Hard cap on total points per frame. If corner/interior/blank settings above would exceed it, the frame gets throttled instead of dropping geometry.">?</span>
+        <span class="help-icon" title="Hard cap on total points per frame. If corner/interior/blank settings above would exceed it, the frame gets throttled instead of dropping geometry. Set directly, or let Smart defaults compute it from Target framerate.">?</span>
       </label>
       <input type="range" id="opt-maxppf" min="50" max="2048" step="1" value="310" oninput="optimizerSlider()">
       </div>
