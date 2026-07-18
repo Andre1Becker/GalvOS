@@ -2322,7 +2322,7 @@ static size_t p_fireworks(LaserPoint* o, size_t m, uint32_t ph, uint8_t sp, uint
     uint8_t shells = gLivePreset.fw_max_shells; if (shells < 1) shells = 1; if (shells > 3) shells = 3;
     const bool glitter = gLivePreset.fw_glitter;
 
-    const uint16_t riseMs  = (uint16_t)(900.f - (sp / 255.f) * 600.f);  // 900..300 ms
+    const uint16_t riseMs  = (uint16_t)(1800.f - (sp / 255.f) * 1500.f); // 1800..300 ms
     const uint16_t burstMs = 1100;                                       // spark lifetime
     const uint32_t lifeMs  = (uint32_t)riseMs + burstMs;
     const uint32_t periodMs = lifeMs + 400;                              // + gap before relaunch
@@ -2345,14 +2345,20 @@ static size_t p_fireworks(LaserPoint* o, size_t m, uint32_t ph, uint8_t sp, uint
         const float burstY  = (-0.15f - sHash(seed + 2u) * 0.55f) * sc;      // upper area
         const float hue     = sHash(seed + 3u) * PI2;
         const float startY  = sc * 0.95f;                                    // bottom
+        // Slight diagonal drift + mid-flight bow, so shells don't all rise
+        // in a perfectly straight vertical line.
+        const float driftX  = (sHash(seed + 5u) - 0.5f) * 0.35f * sc;        // end-point sideways drift
+        const float curveX  = (sHash(seed + 6u) - 0.5f) * 0.18f * sc;        // mid-flight bow, gone by burst
+        const float finalX  = launchX + driftX;                              // trajectory endpoint = burst X
 
         if (t < riseMs) {
-            // ── Rising: two rocket dots climbing ──
+            // ── Rising: two rocket dots climbing (slightly curved/diagonal path) ──
             const float rp = (float)t / (float)riseMs;
             const float ry = L(startY, burstY, rp);
+            const float rxc = launchX + driftX * rp + curveX * sinf(rp * (float)M_PI);
             const uint8_t rv = (uint8_t)(180 + 75 * sinf(rp * (float)M_PI));
             for (int d = 0; d < 2; d++) {
-                const float rx = launchX + (d == 0 ? -sc * 0.015f : sc * 0.015f);
+                const float rx = rxc + (d == 0 ? -sc * 0.015f : sc * 0.015f);
                 optimizer::emitBlankTo(o, n, m, rx, ry, cfg);
                 for (int k = 0; k < dwell && n < m; k++) ap(o, n, m, rx, ry, rv, rv, 255, 0);
             }
@@ -2374,8 +2380,8 @@ static size_t p_fireworks(LaserPoint* o, size_t m, uint32_t ph, uint8_t sp, uint
                     const float tw = sHash((uint32_t)(nowMs / 60u) * 31u + i * 7u + seed);
                     gl = 0.35f + 0.65f * (tw > 0.5f ? 1.f : 0.25f);
                 }
-                const float px = launchX + cosf(a) * rad;
-                const float py = burstY  + sinf(a) * rad;
+                const float px = finalX + cosf(a) * rad;
+                const float py = burstY + sinf(a) * rad;
                 const uint8_t r = (uint8_t)((128 + 127 * sinf(h))          * fade * gl);
                 const uint8_t g = (uint8_t)((128 + 127 * sinf(h + 2.094f)) * fade * gl);
                 const uint8_t b = (uint8_t)((128 + 127 * sinf(h + 4.189f)) * fade * gl);
