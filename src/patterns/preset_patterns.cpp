@@ -360,11 +360,17 @@ template<typename F>
 static size_t curve(LaserPoint*o,size_t mx,int N,bool closed,F fn){
     if(N<2) return 0;
     const int vb=vertexBudget();
-    if(N>vb) N=vb;
+    if(N>vb) N=vb;                 // clamp BEFORE sampling
+    // fn receives (i, N, ...) so it maps its parameter (angle, t, x) across the
+    // ACTUAL emitted count. Passing i/N with the pre-clamp N truncated the
+    // shape: a circle requested at N=576 but emitted at N=375 covered only
+    // 375/576 = 65% of the sweep -- the "only upper half visible" bug. Any
+    // closed curve whose adaptN() exceeded vertexBudget() at large size was
+    // affected, not just the circle.
     optimizer::PathVertex v[CURVE_MAX_PTS];
     for(int i=0;i<N;i++){
         float x=0,y=0; uint8_t r=255,g=255,b=255;
-        fn(i,x,y,r,g,b);
+        fn(i,N,x,y,r,g,b);
         v[i]=optimizer::PathVertex(x,y,r,g,b,false);
     }
     return curveEmit(o,mx,v,N,closed);
@@ -465,7 +471,7 @@ static size_t p00(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     // contDelta, so vertex[N-1] -> vertex[0] must NOT be re-drawn as a closing
     // edge. Sampling stays at adaptN() (shape fidelity); the optimizer
     // re-spaces to the galvo rate and enforces max_pts_per_frame.
-    return curve(o,m,N,false,[&](int i,float&x,float&y,uint8_t&r,uint8_t&g,uint8_t&b){
+    return curve(o,m,N,false,[&](int i,int N,float&x,float&y,uint8_t&r,uint8_t&g,uint8_t&b){
         float t=csweep(ph,sp,i,N);
         x=cosf(t)*sc; y=sinf(t)*sc; r=255; g=255; b=255;
     });
@@ -505,7 +511,7 @@ static size_t p14(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
 // Parametric curves — not migrated (no discrete vertices).
 static size_t p15(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     float sc=SC*ssc(sz)*.9f,off=aang(ph,sp);const int N=adaptN(sz,200,30,400);
-    return curve(o,m,N,false,[&](int i,float&x,float&y,uint8_t&r,uint8_t&g,uint8_t&b){
+    return curve(o,m,N,false,[&](int i,int N,float&x,float&y,uint8_t&r,uint8_t&g,uint8_t&b){
         float t=(float)i/N,a=t*PI2*3.5f+off,rr=t*sc;
         x=cosf(a)*rr; y=sinf(a)*rr;
         r=(uint8_t)(t*255); g=(uint8_t)((1-t)*255); b=128;
@@ -526,7 +532,7 @@ static size_t p16(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     // binding constraint, so every surplus input vertex steals budget from
     // chord walking and RAISES the galvo's per-tick step.
     const int N=112;
-    return curve(o,m,N,true,[&](int i,float&x,float&y,uint8_t&rr,uint8_t&gg,uint8_t&bb){
+    return curve(o,m,N,true,[&](int i,int N,float&x,float&y,uint8_t&rr,uint8_t&gg,uint8_t&bb){
         float t=PI2*i/(float)N;
         x=cosf(t+off)*sc; y=sinf(2*t+M_PI/4.f)*sc;
         rr=0; gg=255; bb=255;
@@ -544,7 +550,7 @@ static size_t p17(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     // binding constraint, so every surplus input vertex steals budget from
     // chord walking and RAISES the galvo's per-tick step.
     const int N=176;
-    return curve(o,m,N,true,[&](int i,float&x,float&y,uint8_t&rr,uint8_t&gg,uint8_t&bb){
+    return curve(o,m,N,true,[&](int i,int N,float&x,float&y,uint8_t&rr,uint8_t&gg,uint8_t&bb){
         float t=PI2*i/(float)N;
         x=cosf(2*t+off)*sc; y=sinf(3*t+M_PI/4.f)*sc;
         rr=0; gg=255; bb=255;
@@ -562,7 +568,7 @@ static size_t p18(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     // binding constraint, so every surplus input vertex steals budget from
     // chord walking and RAISES the galvo's per-tick step.
     const int N=240;
-    return curve(o,m,N,true,[&](int i,float&x,float&y,uint8_t&rr,uint8_t&gg,uint8_t&bb){
+    return curve(o,m,N,true,[&](int i,int N,float&x,float&y,uint8_t&rr,uint8_t&gg,uint8_t&bb){
         float t=PI2*i/(float)N;
         x=cosf(3*t+off)*sc; y=sinf(4*t+M_PI/3.f)*sc;
         rr=0; gg=255; bb=255;
@@ -580,7 +586,7 @@ static size_t p19(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     // binding constraint, so every surplus input vertex steals budget from
     // chord walking and RAISES the galvo's per-tick step.
     const int N=288;
-    return curve(o,m,N,true,[&](int i,float&x,float&y,uint8_t&rr,uint8_t&gg,uint8_t&bb){
+    return curve(o,m,N,true,[&](int i,int N,float&x,float&y,uint8_t&rr,uint8_t&gg,uint8_t&bb){
         float t=PI2*i/(float)N;
         x=cosf(3*t+off)*sc; y=sinf(5*t+M_PI/6.f)*sc;
         rr=0; gg=0; bb=255;
@@ -598,7 +604,7 @@ static size_t p20(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     // binding constraint, so every surplus input vertex steals budget from
     // chord walking and RAISES the galvo's per-tick step.
     const int N=352;
-    return curve(o,m,N,true,[&](int i,float&x,float&y,uint8_t&rr,uint8_t&gg,uint8_t&bb){
+    return curve(o,m,N,true,[&](int i,int N,float&x,float&y,uint8_t&rr,uint8_t&gg,uint8_t&bb){
         float t=PI2*i/(float)N;
         x=cosf(5*t+off)*sc; y=sinf(6*t+PI2/5.f)*sc;
         rr=255; gg=255; bb=0;
@@ -624,7 +630,7 @@ static size_t p22(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     float sc=SC*ssc(sz)*.9f;const int N=200;
     // closed=false: csweep() (#2) already guarantees frame-to-frame position
     // continuity; a closing edge would cut a chord across the rose.
-    return curve(o,m,N,false,[&](int i,float&x,float&y,uint8_t&rr,uint8_t&gg,uint8_t&bb){
+    return curve(o,m,N,false,[&](int i,int N,float&x,float&y,uint8_t&rr,uint8_t&gg,uint8_t&bb){
         float t=csweep(ph,sp,i,N),rad=sc*cosf(3*t);
         x=rad*cosf(t); y=rad*sinf(t);
         rr=255; gg=100; bb=0;
@@ -637,7 +643,7 @@ static size_t p23(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     float sc=SC*ssc(sz)*.9f;const int N=200;
     // closed=false: csweep() (#2) already guarantees frame-to-frame position
     // continuity; a closing edge would cut a chord across the rose.
-    return curve(o,m,N,false,[&](int i,float&x,float&y,uint8_t&rr,uint8_t&gg,uint8_t&bb){
+    return curve(o,m,N,false,[&](int i,int N,float&x,float&y,uint8_t&rr,uint8_t&gg,uint8_t&bb){
         float t=csweep(ph,sp,i,N),rad=sc*cosf(4*t);
         x=rad*cosf(t); y=rad*sinf(t);
         rr=255; gg=50; bb=150;
@@ -646,7 +652,7 @@ static size_t p23(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
 static size_t p25(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     float sc=SC*ssc(sz)*.045f,a=aang(ph,sp);const int N=adaptN(sz,200,20,300);
     const float ca=cosf(a),sa=sinf(a);
-    return curve(o,m,N,true,[&](int i,float&x,float&y,uint8_t&r,uint8_t&g,uint8_t&b){
+    return curve(o,m,N,true,[&](int i,int N,float&x,float&y,uint8_t&r,uint8_t&g,uint8_t&b){
         float t=PI2*i/(float)N;
         float hx=sc*16*powf(sinf(t),3);
         float hy=sc*(13*cosf(t)-5*cosf(2*t)-2*cosf(3*t)-cosf(4*t));
@@ -657,7 +663,7 @@ static size_t p25(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
 static size_t p26(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     float sc=SC*ssc(sz)*.9f;const int N=adaptN(sz,500,60,800);
     // closed=false -- csweep (#2) continuity, see p00.
-    return curve(o,m,N,false,[&](int i,float&x,float&y,uint8_t&r,uint8_t&g,uint8_t&b){
+    return curve(o,m,N,false,[&](int i,int N,float&x,float&y,uint8_t&r,uint8_t&g,uint8_t&b){
         float t=csweep(ph,sp,i,N),d=1+sinf(t)*sinf(t);
         x=sc*cosf(t)/d; y=sc*sinf(t)*cosf(t)/d;
         r=0; g=200; b=255;
@@ -667,7 +673,7 @@ static size_t p27(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     float sc=SC*ssc(sz)*.9f;const int N=200;
     // The astroid's 4 cusps are true corners -- cornerPointCount() now dwells
     // there instead of the old uniform sampling rounding them off.
-    return curve(o,m,N,false,[&](int i,float&x,float&y,uint8_t&r,uint8_t&g,uint8_t&b){
+    return curve(o,m,N,false,[&](int i,int N,float&x,float&y,uint8_t&r,uint8_t&g,uint8_t&b){
         float t=csweep(ph,sp,i,N);
         x=sc*powf(cosf(t),3); y=sc*powf(sinf(t),3);
         r=200; g=255; b=50;
@@ -677,7 +683,7 @@ static size_t p28(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     const float R=3,r=1,d=2.5f,peakNorm=1.f/(R+r+d);
     float sc=SC*ssc(sz)*.9f*peakNorm,off=aang(ph,sp);
     const int N=384;   // shape fidelity only; optimizer sets output density
-    return curve(o,m,N,true,[&](int i,float&x,float&y,uint8_t&rr,uint8_t&gg,uint8_t&bb){
+    return curve(o,m,N,true,[&](int i,int N,float&x,float&y,uint8_t&rr,uint8_t&gg,uint8_t&bb){
         float t=PI2*i/(float)N+off;
         x=sc*((R+r)*cosf(t)-d*cosf((R+r)*t/r));
         y=sc*((R+r)*sinf(t)-d*sinf((R+r)*t/r));
@@ -740,8 +746,8 @@ static size_t p38(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     const float wa=gLivePreset.wave_amp,wf=gLivePreset.wave_freq;
     const int N=120;
     // Migrated to optimizer: sampled polyline -> one open PathSegment.
-    return curve(o,m,N+1,false,[&](int i,float&x,float&y,uint8_t&r,uint8_t&g,uint8_t&b){
-        float xx=L(-1.f,1.f,i/(float)N);
+    return curve(o,m,N+1,false,[&](int i,int N,float&x,float&y,uint8_t&r,uint8_t&g,uint8_t&b){
+        float xx=L(-1.f,1.f,i/(float)(N-1));
         x=xx*sc;
         y=wa*(.3f*sinf(4*wf*xx*(float)M_PI+t)
              +.15f*sinf(8*wf*xx*(float)M_PI+t*1.7f)
@@ -757,8 +763,8 @@ static size_t p39(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     // PathSegment (lift on v0 -> eased blank jump in, Pillar 2). The old
     // fixed N is kept as a shape-fidelity count; the optimizer resamples
     // to the galvo rate and enforces the frame budget.
-    return curve(o,m,N+1,false,[&](int i,float&x,float&y,uint8_t&rr,uint8_t&gg,uint8_t&bb){
-        float xx=L(-1.f,1.f,i/(float)N);
+    return curve(o,m,N+1,false,[&](int i,int N,float&x,float&y,uint8_t&rr,uint8_t&gg,uint8_t&bb){
+        float xx=L(-1.f,1.f,i/(float)(N-1));
 
         x=xx*sc; y=(wa*.45f*(sinf(5*wf*xx*M_PI+t)+sinf(7*wf*xx*M_PI-t))*.5f)*sc;
         rr=255; gg=255; bb=0;
@@ -772,8 +778,8 @@ static size_t p40(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     // PathSegment (lift on v0 -> eased blank jump in, Pillar 2). The old
     // fixed N is kept as a shape-fidelity count; the optimizer resamples
     // to the galvo rate and enforces the frame budget.
-    return curve(o,m,N+1,false,[&](int i,float&x,float&y,uint8_t&rr,uint8_t&gg,uint8_t&bb){
-        float xx=L(-1.f,1.f,i/(float)N);
+    return curve(o,m,N+1,false,[&](int i,int N,float&x,float&y,uint8_t&rr,uint8_t&gg,uint8_t&bb){
+        float xx=L(-1.f,1.f,i/(float)(N-1));
         float ph2=fmodf((xx*2.f*wf+t/(float)M_PI),2.f);
         x=xx*sc; y=(wa*.6f*(ph2<1?ph2:ph2-2))*sc;
         rr=255; gg=0; bb=0;
@@ -815,8 +821,8 @@ static size_t p42(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     // PathSegment (lift on v0 -> eased blank jump in, Pillar 2). The old
     // fixed N is kept as a shape-fidelity count; the optimizer resamples
     // to the galvo rate and enforces the frame budget.
-    return curve(o,m,N+1,false,[&](int i,float&x,float&y,uint8_t&rr,uint8_t&gg,uint8_t&bb){
-        float xx=L(-1.f,1.f,i/(float)N);
+    return curve(o,m,N+1,false,[&](int i,int N,float&x,float&y,uint8_t&rr,uint8_t&gg,uint8_t&bb){
+        float xx=L(-1.f,1.f,i/(float)(N-1));
         float env=expf(-12*xx*xx);
         x=xx*sc; y=(env*wa*sinf(8*wf*xx*M_PI+t)*.8f)*sc;
         rr=0; gg=255; bb=0;
@@ -830,8 +836,8 @@ static size_t p43(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     // PathSegment (lift on v0 -> eased blank jump in, Pillar 2). The old
     // fixed N is kept as a shape-fidelity count; the optimizer resamples
     // to the galvo rate and enforces the frame budget.
-    return curve(o,m,N+1,false,[&](int i,float&x,float&y,uint8_t&rr,uint8_t&gg,uint8_t&bb){
-        float xx=L(-1.f,1.f,i/(float)N);
+    return curve(o,m,N+1,false,[&](int i,int N,float&x,float&y,uint8_t&rr,uint8_t&gg,uint8_t&bb){
+        float xx=L(-1.f,1.f,i/(float)(N-1));
 
         x=xx*sc; y=(.5f*wa*(sinf(10*wf*xx*M_PI+t)+sinf(11*wf*xx*M_PI+t)))*sc;
         rr=255; gg=255; bb=0;
@@ -866,8 +872,8 @@ static size_t p45(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     // PathSegment (lift on v0 -> eased blank jump in, Pillar 2). The old
     // fixed N is kept as a shape-fidelity count; the optimizer resamples
     // to the galvo rate and enforces the frame budget.
-    return curve(o,m,N+1,false,[&](int i,float&x,float&y,uint8_t&rr,uint8_t&gg,uint8_t&bb){
-        float xx=L(-1.f,1.f,i/(float)N);
+    return curve(o,m,N+1,false,[&](int i,int N,float&x,float&y,uint8_t&rr,uint8_t&gg,uint8_t&bb){
+        float xx=L(-1.f,1.f,i/(float)(N-1));
 
         x=xx*sc; y=(.5f*wa*sinf(6*wf*xx*PI2+4*sinf(wf*xx*PI2*2+t)))*sc;
         rr=0; gg=255; bb=255;
@@ -880,7 +886,7 @@ static size_t p46(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     // Migrated to optimizer: sampled polyline -> one open PathSegment.
     // N is now shape fidelity only; the optimizer owns output density,
     // blank-jump easing and the frame budget.
-    return curve(o,m,N,false,[&](int i,float&x,float&y,uint8_t&rr,uint8_t&gg,uint8_t&bb){
+    return curve(o,m,N,false,[&](int i,int N,float&x,float&y,uint8_t&rr,uint8_t&gg,uint8_t&bb){
         float t=i/(float)N,a=t*PI2*4*wf+off,r=sc*(1-t*.8f),w=.08f*wa*sinf(a*8);
         x=cosf(a)*(r+w*sc); y=sinf(a)*(r+w*sc);
         rr=(uint8_t)(t*255); gg=(uint8_t)((1-t)*200); bb=200;
@@ -893,8 +899,8 @@ static size_t p47(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     // Migrated to optimizer: sampled polyline -> one open PathSegment.
     // N is now shape fidelity only; the optimizer owns output density,
     // blank-jump easing and the frame budget.
-    return curve(o,m,N+1,false,[&](int i,float&x,float&y,uint8_t&r,uint8_t&g,uint8_t&b){
-        float u=L(-1.f,1.f,i/(float)N),a=u*PI2*3*wf+t;
+    return curve(o,m,N+1,false,[&](int i,int N,float&x,float&y,uint8_t&r,uint8_t&g,uint8_t&b){
+        float u=L(-1.f,1.f,i/(float)(N-1)),a=u*PI2*3*wf+t;
         x=u*sc; y=wa*sinf(a)*sc*.5f;
         r=0; g=(uint8_t)(128+127*cosf(a)); b=(uint8_t)(128+127*sinf(a));
     });
@@ -926,8 +932,8 @@ static size_t p49(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     // Migrated to optimizer: sampled polyline -> one open PathSegment.
     // N is now shape fidelity only; the optimizer owns output density,
     // blank-jump easing and the frame budget.
-    return curve(o,m,N+1,false,[&](int i,float&x,float&y,uint8_t&r,uint8_t&g,uint8_t&b){
-        float xx=L(-1.f,1.f,i/(float)N);float yy=0;
+    return curve(o,m,N+1,false,[&](int i,int N,float&x,float&y,uint8_t&r,uint8_t&g,uint8_t&b){
+        float xx=L(-1.f,1.f,i/(float)(N-1));float yy=0;
         for(int k=1;k<=5;k+=2) yy+=sinf(k*xx*PI2*1.5f*wf+t)/k;
         x=xx*sc; y=yy*wa*.5f*sc;
         r=0; g=255; b=0;
@@ -940,8 +946,8 @@ static size_t p50(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     // Migrated to optimizer: sampled polyline -> one open PathSegment.
     // N is now shape fidelity only; the optimizer owns output density,
     // blank-jump easing and the frame budget.
-    return curve(o,m,N+1,false,[&](int i,float&x,float&y,uint8_t&r,uint8_t&g,uint8_t&b){
-        float xx=L(-1.f,1.f,i/(float)N),decay=expf(-2*fabsf(xx));
+    return curve(o,m,N+1,false,[&](int i,int N,float&x,float&y,uint8_t&r,uint8_t&g,uint8_t&b){
+        float xx=L(-1.f,1.f,i/(float)(N-1)),decay=expf(-2*fabsf(xx));
         x=xx*sc; y=decay*wa*sinf(10*wf*xx*(float)M_PI+t)*(.4f+.4f*fabsf(xx))*sc;
         r=255; g=0; b=255;
     });
@@ -953,8 +959,8 @@ static size_t p51(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     // Migrated to optimizer: sampled polyline -> one open PathSegment.
     // N is now shape fidelity only; the optimizer owns output density,
     // blank-jump easing and the frame budget.
-    return curve(o,m,N+1,false,[&](int i,float&x,float&y,uint8_t&r,uint8_t&g,uint8_t&b){
-        float xx=L(-1.f,1.f,i/(float)N),build=.5f+.5f*xx;
+    return curve(o,m,N+1,false,[&](int i,int N,float&x,float&y,uint8_t&r,uint8_t&g,uint8_t&b){
+        float xx=L(-1.f,1.f,i/(float)(N-1)),build=.5f+.5f*xx;
         x=xx*sc; y=build*.5f*wa*sinf(PI2*(xx*2*wf-t*.3f))*.7f*sc;
         r=0; g=255; b=255;
     });
@@ -966,8 +972,8 @@ static size_t p52(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     // Migrated to optimizer: sampled polyline -> one open PathSegment.
     // N is now shape fidelity only; the optimizer owns output density,
     // blank-jump easing and the frame budget.
-    return curve(o,m,N+1,false,[&](int i,float&x,float&y,uint8_t&r,uint8_t&g,uint8_t&b){
-        float xx=L(-1.f,1.f,i/(float)N);float yy=0;
+    return curve(o,m,N+1,false,[&](int i,int N,float&x,float&y,uint8_t&r,uint8_t&g,uint8_t&b){
+        float xx=L(-1.f,1.f,i/(float)(N-1));float yy=0;
         static const int ks[5]={1,2,3,4,5};
         for(int j=0;j<5;j++) yy+=sinf(ks[j]*wf*xx*PI2+t*(j*.5f+.5f))*.2f/ks[j];
         x=xx*sc; y=yy*wa*sc;
@@ -988,7 +994,7 @@ static size_t p53(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     float sc=SC*ssc(sz)*.9f*peakNorm,off=aang(ph,sp);
     const int N=384;
     // 6pi sweep: start and end do not coincide -> open segment, lift on v0.
-    return curve(o,m,N,false,[&](int i,float&x,float&y,uint8_t&rr,uint8_t&gg,uint8_t&bb){
+    return curve(o,m,N,false,[&](int i,int N,float&x,float&y,uint8_t&rr,uint8_t&gg,uint8_t&bb){
         float t=6.f*(float)M_PI*i/(float)N+off;
         x=sc*((R-r)*cosf(t)+d*cosf((R-r)*t/r));
         y=sc*((R-r)*sinf(t)-d*sinf((R-r)*t/r));
@@ -998,7 +1004,7 @@ static size_t p53(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
 static size_t p54(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     float sc=SC*ssc(sz)*.38f,off=aang(ph,sp);
     const int N=200;
-    return curve(o,m,N,true,[&](int i,float&x,float&y,uint8_t&r,uint8_t&g,uint8_t&b){
+    return curve(o,m,N,true,[&](int i,int N,float&x,float&y,uint8_t&r,uint8_t&g,uint8_t&b){
         float t=PI2*i/(float)N;
         float e=expf(cosf(t))-2*cosf(4*t)-powf(sinf(t/12.f),5);
         x=sc*e*sinf(t+off); y=sc*e*cosf(t+off);
@@ -1019,7 +1025,7 @@ static size_t p55(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     const int N=288;
     const float co=cosf(off),so=sinf(off);
     // 6pi sweep -> start != end -> open segment.
-    return curve(o,m,N,false,[&](int i,float&ox,float&oy,uint8_t&rr,uint8_t&gg,uint8_t&bb){
+    return curve(o,m,N,false,[&](int i,int N,float&ox,float&oy,uint8_t&rr,uint8_t&gg,uint8_t&bb){
         float t=6.f*(float)M_PI*i/(float)N;
         float x=(R-r)*cosf(t)+d*cosf((R-r)/r*t);
         float y=(R-r)*sinf(t)-d*sinf((R-r)/r*t);
@@ -1079,7 +1085,7 @@ static size_t p58(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     // plain circle for the galvo to track the wiggles without a closing gap.
     float sc=SC*ssc(sz)*.9f,pulse=sc*(.5f+.5f*fabsf(sinf(aang(ph,sp,3)))),rot=aang(ph,sp,.2f);
     const int N=256;
-    return curve(o,m,N,true,[&](int i,float&x,float&y,uint8_t&r,uint8_t&g,uint8_t&b){
+    return curve(o,m,N,true,[&](int i,int N,float&x,float&y,uint8_t&r,uint8_t&g,uint8_t&b){
         float a=PI2*i/(float)N+rot,wave=1+.15f*sinf(8*a),r2=pulse*wave;
         x=cosf(a)*r2; y=sinf(a)*r2;
         r=(uint8_t)(200+55*sinf(a)); g=0; b=(uint8_t)(200+55*cosf(a));
@@ -1123,7 +1129,7 @@ static size_t p60(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     float sc=SC*ssc(sz)*.9f;
     const float dph=aang(ph,sp,.5f);          // animated relative phase
     const int N=256;
-    return curve(o,m,N,true,[&](int i,float&x,float&y,uint8_t&r,uint8_t&g,uint8_t&b){
+    return curve(o,m,N,true,[&](int i,int N,float&x,float&y,uint8_t&r,uint8_t&g,uint8_t&b){
         float t=PI2*i/(float)N;
         x=sc*sinf(3.f*t+dph); y=sc*sinf(2.f*t);
         r=(uint8_t)(128+127*sinf(t*2+dph));
