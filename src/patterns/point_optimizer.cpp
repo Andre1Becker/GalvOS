@@ -804,13 +804,26 @@ size_t optimize(const PathSegment* segments, size_t segment_count,
     //     emitted out[0..n-1] that inserts intermediate points where the
     //     per-tick position (velocity) or its delta (acceleration) exceeds the
     //     galvo limit. Implemented in clampScannerLimits(), called below.
-    size_t n = emitAllSegments(segments, segment_count, cfg, out, max_out);
+    // Emit bounded by effective_cap, NOT max_out. Stage 2 computes a single
+    // global scale factor, but edgeInteriorCount() then lroundf()s each edge
+    // independently -- with many edges those round-ups accumulate and the
+    // emitted total can exceed the plan, and therefore max_pts_per_frame.
+    // Measured on a 480-vertex circle at cap=1300: 1464 points, 12.6% over.
+    // The overshoot grows with edge count, so it stayed invisible on the
+    // low-vertex shapes (ngon/star, ~24 vertices) that were migrated first and
+    // only appeared once dense sampled curves started using the optimizer.
+    //
+    // Passing effective_cap here makes max_pts_per_frame the hard guarantee it
+    // is documented to be: emitAllSegments() already stops writing at its
+    // max_out argument, so the cap is enforced by construction rather than by
+    // hoping the plan was exact.
+    size_t n = emitAllSegments(segments, segment_count, cfg, out, effective_cap);
 
     // Final scanner-protection stage. No-op (byte-identical) unless
     // cfg.vel_clamp_enabled / cfg.accel_clamp_enabled are set -- see
     // clampScannerLimits(). Runs on the fully emitted stream so it sees the
-    // true per-tick motion; may grow n up to max_out.
-    n = clampScannerLimits(out, n, cfg, max_out);
+    // true per-tick motion; may grow n, bounded by the same effective cap.
+    n = clampScannerLimits(out, n, cfg, effective_cap);
     return n;
 }
 

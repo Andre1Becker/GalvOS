@@ -91,22 +91,27 @@ static void loadConfig() {
     };
     for (auto& pm : PROF_MAP) {
         OptimizerLiveConfig& p = gOptimizerProfiles[pm.idx];
+        // Per-profile tuned fallbacks (see OPT_PROFILE_DEFAULTS in config.h).
+        // Stored NVS values still win; this only changes what an UNSET profile
+        // parameter falls back to, so the six profiles no longer all boot
+        // from the same generic OPT_DEFAULT_* values.
+        const OptimizerProfileDefaults& pd = OPT_PROFILE_DEFAULTS[pm.idx];
         char k[16];
         #define LOAD_F(b,f,d)  snprintf(k,sizeof(k),"%s%s",b,pm.sfx); p.f=s_prefs.getFloat(k,d)
         #define LOAD_U(b,f,d)  snprintf(k,sizeof(k),"%s%s",b,pm.sfx); p.f=s_prefs.getUChar(k,d)
         #define LOAD_S(b,f,d)  snprintf(k,sizeof(k),"%s%s",b,pm.sfx); p.f=s_prefs.getUShort(k,d)
         #define LOAD_B(b,f,d)  snprintf(k,sizeof(k),"%s%s",b,pm.sfx); p.f=s_prefs.getBool(k,d)
-        LOAD_F("opt_cad",   corner_angle_deg,             OPT_DEFAULT_CORNER_ANGLE_DEG);
-        LOAD_U("opt_mincp", min_corner_pts,               OPT_DEFAULT_MIN_CORNER_PTS);
-        LOAD_U("opt_maxcp", max_corner_pts,               OPT_DEFAULT_MAX_CORNER_PTS);
-        LOAD_F("opt_ppu",   pts_per_1000_units,           OPT_DEFAULT_PTS_PER_1000_UNITS);
+        LOAD_F("opt_cad",   corner_angle_deg,             pd.corner_angle_deg);
+        LOAD_U("opt_mincp", min_corner_pts,               pd.min_corner_pts);
+        LOAD_U("opt_maxcp", max_corner_pts,               pd.max_corner_pts);
+        LOAD_F("opt_ppu",   pts_per_1000_units,           pd.pts_per_1000_units);
         LOAD_U("opt_minsp", min_segment_pts,              OPT_DEFAULT_MIN_SEGMENT_PTS);
-        LOAD_U("opt_blank", blank_samples,                OPT_DEFAULT_BLANK_SAMPLES);
+        LOAD_U("opt_blank", blank_samples,                pd.blank_samples);
         LOAD_S("opt_maxppf",max_pts_per_frame,            OPT_DEFAULT_MAX_PTS_PER_FRAME);
-        LOAD_U("opt_minbl", min_blank_samples,            OPT_DEFAULT_MIN_BLANK_SAMPLES);
-        LOAD_F("opt_blppu", blank_pts_per_1000_units,     OPT_DEFAULT_BLANK_PTS_PER_1000_UNITS);
-        LOAD_U("opt_minip", min_interior_pts_per_segment, OPT_DEFAULT_MIN_INTERIOR_PTS_PER_SEG);
-        LOAD_U("opt_s1tgt", stage1_blank_target,          OPT_DEFAULT_STAGE1_BLANK_TARGET);
+        LOAD_U("opt_minbl", min_blank_samples,            pd.min_blank_samples);
+        LOAD_F("opt_blppu", blank_pts_per_1000_units,     pd.blank_pts_per_1000_units);
+        LOAD_U("opt_minip", min_interior_pts_per_segment, pd.min_interior_pts_per_segment);
+        LOAD_U("opt_s1tgt", stage1_blank_target,          pd.stage1_blank_target);
         LOAD_B("opt_rsen",  resample_enabled,             OPT_DEFAULT_RESAMPLE_ENABLED);
         LOAD_F("opt_rssp",  resample_spacing_units,       OPT_DEFAULT_RESAMPLE_SPACING_UNITS);
         LOAD_B("opt_rngen", ringing_comp_enabled,         OPT_DEFAULT_RINGING_COMP_ENABLED);

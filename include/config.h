@@ -136,6 +136,53 @@ constexpr uint8_t OPT_PROFILE_WIREFRAME   = 3;
 constexpr uint8_t OPT_PROFILE_MULTIOBJECT = 4;
 constexpr uint8_t OPT_PROFILE_PARTICLES   = 5;
 
+// ── PER-PROFILE TUNED DEFAULTS ──────────────────────────────────────────────
+// The OPT_DEFAULT_* macros above are the GENERIC fallback (and the reset
+// target for a single parameter). The table below is the per-profile tuning:
+// every profile used to boot from the same generic defaults, which made the
+// six-profile split inert -- Smooth and Particles ran identical parameters
+// despite having opposite bottlenecks.
+//
+// Derived by sweeping the real optimizer against each class's actual geometry
+// at a 1300-point frame budget (~23 Hz at 30 kpps), scoring worst-case lit
+// step size (the galvo-velocity proxy) subject to every class member fitting
+// the budget. Key findings encoded here:
+//
+//   Smooth      no true corners -> max_corner_pts down to 3, budget spent on
+//               interior density instead. Worst-case step 146 -> 89 units.
+//   Vector      Star 8 is the binding member; p/1k=9 puts it at ~1284.
+//   Wireframe/  budget-bound, NOT density-bound: interior density is scaled
+//   MultiObject back by the optimizer's Stage 2 regardless of what is asked
+//               for, so the real lever is blanking. Lower blank_samples and
+//               stage1_blank_target return points to lit geometry.
+//   Particles   lit count is fixed (one dwell per dot); >90% of the frame is
+//               blanking, so only the blank parameters matter.
+//
+// PROFILE_DEFAULTS is indexed by OPT_PROFILE_* and consumed by loadConfig()
+// as the NVS fallback, so a user's stored per-profile values still win.
+struct OptimizerProfileDefaults {
+    float    corner_angle_deg;
+    uint8_t  min_corner_pts;
+    uint8_t  max_corner_pts;
+    float    pts_per_1000_units;
+    uint8_t  blank_samples;
+    uint8_t  min_blank_samples;
+    uint8_t  stage1_blank_target;
+    float    blank_pts_per_1000_units;
+    uint8_t  min_interior_pts_per_segment;
+};
+
+// Order MUST match OPT_PROFILE_* indices.
+static const OptimizerProfileDefaults OPT_PROFILE_DEFAULTS[OPT_PROFILE_COUNT] = {
+    // cad, mincp, maxcp, p/1k, blank, minbl, s1tgt, blppu, minip
+    {  30.f,   2,     8,    9.f,   16,    6,    12,    8.f,    8 },  // 0 Vector
+    {  60.f,   2,     3,   11.f,   16,    6,    12,    8.f,    8 },  // 1 Smooth
+    {  35.f,   2,     6,    8.f,   16,    6,    12,    8.f,    8 },  // 2 Waves
+    {  25.f,   2,     8,    6.f,   12,    6,    10,   10.f,    6 },  // 3 Wireframe
+    {  25.f,   2,     6,    5.f,   12,    6,    10,   10.f,    6 },  // 4 MultiObject
+    {  25.f,   2,     4,    6.f,   10,    6,     8,   12.f,    4 },  // 5 Particles
+};
+
 extern OptimizerLiveConfig gOptimizerProfiles[OPT_PROFILE_COUNT];
 extern OptimizerLiveConfig gOptimizerConfig;   // live copy of active profile
 extern volatile uint8_t    gActiveOptimizerProfile;

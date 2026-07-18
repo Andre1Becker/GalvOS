@@ -259,15 +259,156 @@ static void line(LaserPoint*o,size_t&n,size_t mx,
     n += written;
 }
 
-// sinewave() -- parametric continuous curve, no discrete vertices.
-// Not migrated to optimizer (see design doc Section 9.2).
-static size_t sinewave(LaserPoint*o,size_t mx,float A,float f,float ph_off,float sc,uint8_t r,uint8_t g,uint8_t b,int N=120){
-    size_t n=0;
+// ─── PARAMETRIC CURVE -> OPTIMIZER BRIDGE ────────────────────
+// Design doc Section 9.2 previously excluded parametric curves from the
+// optimizer on the grounds that they have "no discrete corners". That is
+// true of the MATH, but not of the emitted point stream: every ap() loop
+// already discretises the curve into a fixed vertex list at a hardcoded N.
+// Feeding that same vertex list to optimize() as a PathSegment costs nothing
+// and buys the whole pipeline -- length-proportional resampling, the frame
+// budget clamp (max_pts_per_frame), eased blank jumps, and the velocity /
+// acceleration clamps. The generator's N becomes a SHAPE-FIDELITY hint
+// (enough vertices to describe the curve) rather than a scanner-rate
+// decision; the optimizer then re-spaces points to the galvo's real limits.
+//
+// Corner detection is harmless here: a smoothly sampled curve has near-zero
+// exterior angle at every vertex, so cornerPointCount() returns
+// min_corner_pts throughout. The Smooth profile sets max_corner_pts low so
+// no budget is wasted looking for corners that do not exist.
+//
+// CURVE_MAX_PTS caps the stack vertex buffer. Generators sampling above this
+// are clamped -- the optimizer resamples to the budget anyway, so a higher
+// input count only costs stack and CPU without reaching the DAC.
+static const int CURVE_MAX_PTS = 512;
+
+// curveEmit() -- feed a caller-filled PathVertex list to the optimizer as one
+// segment. `closed` mirrors PathSegment semantics (implicit final edge back
+// to vertex 0). Returns points written into o[].
+static size_t curveEmit(LaserPoint*o,size_t mx,const optimizer::PathVertex*v,int count,bool closed){
+    if(count<2||!v) return 0;
+    optimizer::PathSegment seg(v,(size_t)count,closed);
+    return optimizer::optimize(&seg,1,o,mx,liveOptimizerConfig());
+}
+
+// vertexBudget() -- the largest input vertex count the optimizer can still
+// bring under the frame budget for the ACTIVE profile.
+//
+// This exists because of a hard floor inside optimize(): Stage 2 scales only
+// the interior (length-proportional) points down to fit the budget. Corner
+// points are explicitly treated as FIXED overhead and are never scaled, and
+// every vertex is charged corner points -- cornerPointCount() runs at each
+// one and returns somewhere in [min_corner_pts, max_corner_pts] according to
+// the exterior angle. So:
+//
+//     output_points >= corner_cost * N + blank_overhead
+//
+// no matter how far pts_per_1000_units is scaled down. Feeding N above that
+// bound yields a frame the optimizer physically cannot fit; it silently
+// overruns max_pts_per_frame.
+//
+// The trap is that corner_cost is NOT min_corner_pts for a sampled curve. On
+// a circle sampled at N the exterior angle per vertex is 2*pi/N: large N is
+// safe (angle -> 0 -> min_corner_pts), but MODERATE N scores above the
+// threshold and charges up to max_corner_pts per vertex. Measured on a plain
+// circle under the Smooth profile (cad=60, mincp=2, maxcp=3, cap=1300):
+//
+//     N=482 -> 1467 points = 3.04/vertex  (max_corner_pts, 13% over budget)
+//     N=576 -> 1174 points = 2.04/vertex  (min_corner_pts, fits)
+//
+// Note this is non-monotonic in N -- which is exactly why it survived until a
+// size-slider sweep caught it. Budget against the WORST case, max_corner_pts.
+//
+// seg_count is the number of PathSegments the caller will emit; the blank
+// reserve is derived from the config the same way optimize() computes it
+// (blank_samples + min_blank_samples per segment, plus one closing blank)
+// rather than from a guessed percentage -- a fixed fudge factor was measured
+// too small for the Smooth profile (reserved 195 pts, actual cost 227) and
+// left ~2% overruns on Hypotrochoid/Epitrochoid.
+//
+// A margin is still applied on top because emitBlankJump() scales the
+// movement run with jump distance and Stage 1 may shrink blank_samples, so
+// the reserve is an upper bound rather than exact.
+static int vertexBudget(size_t seg_count = 1) {
+    const optimizer::OptimizerConfig cfg = liveOptimizerConfig();
+    uint8_t worst_corner_cost = cfg.max_corner_pts;
+    if (worst_corner_cost < cfg.min_corner_pts) worst_corner_cost = cfg.min_corner_pts;
+    if (worst_corner_cost < 1) worst_corner_cost = 1;
+    // Mirror of optimize()'s blank_overhead: one jump per segment + closing.
+    uint32_t blank_reserve =
+        (uint32_t)(cfg.blank_samples + cfg.min_blank_samples) * (uint32_t)(seg_count + 1);
+    // Leave room for the interior points too: a curve reduced to nothing but
+    // corner dots is not a curve. Reserve a further 10% of the frame for them.
+    uint32_t interior_reserve = (uint32_t)((float)cfg.max_pts_per_frame * 0.10f);
+    int32_t avail = (int32_t)cfg.max_pts_per_frame
+                  - (int32_t)blank_reserve - (int32_t)interior_reserve;
+    if (avail < 8) avail = 8;
+    int budget = avail / (int)worst_corner_cost;
+    if (budget < 8) budget = 8;
+    if (budget > CURVE_MAX_PTS) budget = CURVE_MAX_PTS;
+    return budget;
+}
+
+// curve() -- samples a parametric function into vertices, then hands the list
+// to the optimizer. fn(i, x, y, r, g, b) fills one sample. This is the single
+// migration path for every former "for(i..N) ap(...)" curve generator.
+//
+// N is clamped to vertexBudget(): oversampling is not merely wasteful, it
+// breaks the frame budget outright (see vertexBudget above). Clamping here
+// rather than at each call site means every migrated generator inherits the
+// guard, including ones using adaptN() whose N grows with the size slider.
+template<typename F>
+static size_t curve(LaserPoint*o,size_t mx,int N,bool closed,F fn){
+    if(N<2) return 0;
+    const int vb=vertexBudget();
+    if(N>vb) N=vb;
+    optimizer::PathVertex v[CURVE_MAX_PTS];
+    for(int i=0;i<N;i++){
+        float x=0,y=0; uint8_t r=255,g=255,b=255;
+        fn(i,x,y,r,g,b);
+        v[i]=optimizer::PathVertex(x,y,r,g,b,false);
+    }
+    return curveEmit(o,mx,v,N,closed);
+}
+
+// sinewave() -- migrated: samples the wave into a vertex list and lets the
+// optimizer own point placement. The former 40-point fixed blank run at the
+// start is gone: `lift=true` on vertex 0 makes emitBlankJump() produce a
+// distance-proportional, smoothstep-eased jump instead (Pillar 2).
+// budget_share: when >0, caps this call's slice of the frame budget. Callers
+// that invoke sinewave() more than once per frame (p37 Multi Wave) MUST pass
+// it: optimize() clamps to min(max_out, cfg.max_pts_per_frame), so shrinking
+// only max_out leaves max_pts_per_frame at the full-frame value and each call
+// independently plans a whole frame's worth of points -- 3 calls then emit ~3x
+// the budget. Lowering max_pts_per_frame per call is what actually binds.
+static size_t sinewave(LaserPoint*o,size_t mx,float A,float f,float ph_off,float sc,uint8_t r,uint8_t g,uint8_t b,int N=120,uint16_t budget_share=0){
     const float effA=A*gLivePreset.wave_amp, effF=f*gLivePreset.wave_freq;
-    float sx=-1.f*sc, sy=effA*sinf(effF*-1.f*PI2+ph_off)*sc;
-    for(int k=0;k<40 && n<mx;k++) ap(o,n,mx,sx,sy,0,0,0,1);
-    for(int i=0;i<=N;i++){float x=L(-1.f,1.f,i/float(N));ap(o,n,mx,x*sc,effA*sinf(effF*x*PI2+ph_off)*sc,r,g,b,0);}
-    return n;
+    if(N<2) return 0;
+    optimizer::OptimizerConfig cfg=liveOptimizerConfig();
+    if(budget_share>0 && budget_share<cfg.max_pts_per_frame)
+        cfg.max_pts_per_frame=budget_share;
+    // Vertex cap against THIS call's (possibly reduced) budget -- see
+    // vertexBudget(). Multi-wave callers shrink the budget, which shrinks the
+    // affordable vertex count with it.
+    {
+        uint8_t wc=cfg.max_corner_pts;
+        if(wc<cfg.min_corner_pts) wc=cfg.min_corner_pts;
+        if(wc<1) wc=1;
+        uint32_t blank_reserve=(uint32_t)(cfg.blank_samples+cfg.min_blank_samples)*2u;
+        uint32_t interior_reserve=(uint32_t)((float)cfg.max_pts_per_frame*0.10f);
+        int32_t avail=(int32_t)cfg.max_pts_per_frame-(int32_t)blank_reserve-(int32_t)interior_reserve;
+        if(avail<8) avail=8;
+        int vb=avail/(int)wc;
+        if(vb<8) vb=8;
+        if(vb>CURVE_MAX_PTS-1) vb=CURVE_MAX_PTS-1;
+        if(N>vb) N=vb;
+    }
+    optimizer::PathVertex v[CURVE_MAX_PTS];
+    for(int i=0;i<=N;i++){
+        float x=L(-1.f,1.f,i/float(N));
+        v[i]=optimizer::PathVertex(x*sc,effA*sinf(effF*x*PI2+ph_off)*sc,r,g,b,i==0);
+    }
+    optimizer::PathSegment seg(v,(size_t)(N+1),false);
+    return optimizer::optimize(&seg,1,o,mx,cfg);
 }
 
 // circ_draw() -- GalvOS v5.3: migrated to optimizer via ngon().
@@ -318,9 +459,16 @@ static size_t p00(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     // into the ring every frame -- static (span==2pi exactly) it sits at a
     // fixed angle and is imperceptible; rotating (span!=2pi) it advances
     // frame to frame and is seen as a travelling "Delle" (dent).
-    size_t n=0;float sc=SC*ssc(sz)*.9f;int N=adaptN(sz,360,60,900);
-    for(int i=0;i<=N;i++){float t=csweep(ph,sp,i,N);ap(o,n,m,cosf(t)*sc,sinf(t)*sc,255,255,255,0);}
-    return n;
+    float sc=SC*ssc(sz)*.9f;int N=adaptN(sz,360,60,900);
+    // Migrated to optimizer via curve(). closed=false preserves the #2
+    // continuous-sweep contract: csweep() already spans exactly one loop plus
+    // contDelta, so vertex[N-1] -> vertex[0] must NOT be re-drawn as a closing
+    // edge. Sampling stays at adaptN() (shape fidelity); the optimizer
+    // re-spaces to the galvo rate and enforces max_pts_per_frame.
+    return curve(o,m,N,false,[&](int i,float&x,float&y,uint8_t&r,uint8_t&g,uint8_t&b){
+        float t=csweep(ph,sp,i,N);
+        x=cosf(t)*sc; y=sinf(t)*sc; r=255; g=255; b=255;
+    });
 }
 static size_t p01(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){return ngon(o,m,4,SC*ssc(sz)*.9f,aang(ph,sp),255,255,0);}
 static size_t p02(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){return ngon(o,m,3,SC*ssc(sz)*.9f,aang(ph,sp),0,255,255);}
@@ -339,30 +487,203 @@ static size_t p09(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){float
 static size_t p10(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){size_t n=0;float s=SC*ssc(sz)*.9f;line(o,n,m,-s,0,s,0,255,0,0,50);line(o,n,m,0,-s,0,s,0,255,0,50);return n;}
 static size_t p11(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){size_t n=0;float s=SC*ssc(sz)*.65f;line(o,n,m,-s,-s,s,s,0,255,255,50);line(o,n,m,s,-s,-s,s,255,0,255,50);return n;}
 static size_t p12(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){size_t n=0;float s=SC*ssc(sz)*.9f,st=s*2.f/3.f;for(int i=0;i<=3;i++){float x=-s+i*st;line(o,n,m,x,-s,x,s,0,255,255,20);}for(int i=0;i<=3;i++){float y=-s+i*st;line(o,n,m,-s,y,s,y,0,255,255,20);}return n;}
-static size_t p13(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){size_t n=0;float s=SC*ssc(sz)*.9f,off=(aang(ph,sp)/PI2*2.f-1.f)*s;for(int i=0;i<=60;i++)ap(o,n,m,L(-s,s,i/60.f),off,255,255,0,i==0?1:0);return n;}
-static size_t p14(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){size_t n=0;float s=SC*ssc(sz)*.9f,a=aang(ph,sp);for(int i=0;i<=60;i++)ap(o,n,m,L(-s,s,i/60.f)*cosf(a),L(-s,s,i/60.f)*sinf(a),255,0,255,i==0?1:0);return n;}
+static size_t p13(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
+    // Straight stroke -> line() (already optimizer-backed). The old fixed
+    // 60-sample loop is exactly what edgeInteriorCount() derives from length.
+    size_t n=0;float s=SC*ssc(sz)*.9f,off=(aang(ph,sp)/PI2*2.f-1.f)*s;
+    line(o,n,m,-s,off,s,off,255,255,0);
+    return n;
+}
+static size_t p14(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
+    size_t n=0;float s=SC*ssc(sz)*.9f,a=aang(ph,sp);
+    const float ca=cosf(a),sa=sinf(a);
+    line(o,n,m,-s*ca,-s*sa, s*ca, s*sa, 255,0,255);
+    return n;
+}
 
 // ─── spirals 15-22 ──────────────────────────────────────────
 // Parametric curves — not migrated (no discrete vertices).
-static size_t p15(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){size_t n=0;float sc=SC*ssc(sz)*.9f,off=aang(ph,sp);const int N=adaptN(sz,200,30,400);for(int i=0;i<N;i++){float t=(float)i/N,a=t*PI2*3.5f+off,r=t*sc;ap(o,n,m,cosf(a)*r,sinf(a)*r,(uint8_t)(t*255),(uint8_t)((1-t)*255),128,i==0?1:0);}return n;}
+static size_t p15(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
+    float sc=SC*ssc(sz)*.9f,off=aang(ph,sp);const int N=adaptN(sz,200,30,400);
+    return curve(o,m,N,false,[&](int i,float&x,float&y,uint8_t&r,uint8_t&g,uint8_t&b){
+        float t=(float)i/N,a=t*PI2*3.5f+off,rr=t*sc;
+        x=cosf(a)*rr; y=sinf(a)*rr;
+        r=(uint8_t)(t*255); g=(uint8_t)((1-t)*255); b=128;
+    });
+}
 // Point counts raised (2.5-3x, scaled to combined frequency = curve
 // complexity) -- galvo (15kpps rated, driven at 30kpps) needs tighter
 // per-step spacing on high-curvature Lissajous paths to close cleanly.
-static size_t p16(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){size_t n=0;float sc=SC*ssc(sz)*.9f,off=aang(ph,sp);for(int i=0;i<=500;i++){float t=PI2*i/500.f;ap(o,n,m,cosf(t+off)*sc,sinf(2*t+M_PI/4.f)*sc,0,255,255,i==0?1:0);}return n;}
-static size_t p17(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){size_t n=0;float sc=SC*ssc(sz)*.9f,off=aang(ph,sp);for(int i=0;i<=700;i++){float t=PI2*i/700.f;ap(o,n,m,cosf(2*t+off)*sc,sinf(3*t+M_PI/4.f)*sc,0,255,255,i==0?1:0);}return n;}
-static size_t p18(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){size_t n=0;float sc=SC*ssc(sz)*.9f,off=aang(ph,sp);for(int i=0;i<=900;i++){float t=PI2*i/900.f;ap(o,n,m,cosf(3*t+off)*sc,sinf(4*t+M_PI/3.f)*sc,0,255,255,i==0?1:0);}return n;}
-static size_t p19(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){size_t n=0;float sc=SC*ssc(sz)*.9f,off=aang(ph,sp);for(int i=0;i<=1100;i++){float t=PI2*i/1100.f;ap(o,n,m,cosf(3*t+off)*sc,sinf(5*t+M_PI/6.f)*sc,0,0,255,i==0?1:0);}return n;}
-static size_t p20(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){size_t n=0;float sc=SC*ssc(sz)*.9f,off=aang(ph,sp);for(int i=0;i<=1300;i++){float t=PI2*i/1300.f;ap(o,n,m,cosf(5*t+off)*sc,sinf(6*t+PI2/5.f)*sc,255,255,0,i==0?1:0);}return n;}
-static size_t p21(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){size_t n=0;float sc=SC*ssc(sz)*.9f,off=aang(ph,sp);for(int i=0;i<150;i++){float t=i/150.f,a=t*PI2*3.f+off,r=t*sc;ap(o,n,m,cosf(a)*r,sinf(a)*r,255,80,0,i==0?1:0);}for(int i=0;i<150;i++){float t=i/150.f,a=t*PI2*3.f+off+M_PI,r=t*sc;ap(o,n,m,cosf(a)*r,sinf(a)*r,0,80,255,i==0?1:0);}return n;}
-static size_t p22(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){size_t n=0;float sc=SC*ssc(sz)*.9f;const int N=200;for(int i=0;i<=N;i++){float t=csweep(ph,sp,i,N),r=sc*cosf(3*t);ap(o,n,m,r*cosf(t),r*sinf(t),255,100,0,0);}return n;}
+static size_t p16(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
+    float sc=SC*ssc(sz)*.9f,off=aang(ph,sp);
+    // closed=true: the Lissajous ratio makes vertex[N-1] adjacent to vertex[0];
+    // the optimizer draws that final edge instead of the old duplicate sample.
+    // N is a SHAPE-FIDELITY count, not a point-rate knob: it is the smallest
+    // value whose chord sagitta (max deviation of the true curve from the
+    // straight chord the optimizer interpolates along) stays <= 40 DAC units
+    // -- 0.12% of half-scale, well under the projected spot size, measured at
+    // size=255. Oversampling here is actively harmful: the frame budget is the
+    // binding constraint, so every surplus input vertex steals budget from
+    // chord walking and RAISES the galvo's per-tick step.
+    const int N=112;
+    return curve(o,m,N,true,[&](int i,float&x,float&y,uint8_t&rr,uint8_t&gg,uint8_t&bb){
+        float t=PI2*i/(float)N;
+        x=cosf(t+off)*sc; y=sinf(2*t+M_PI/4.f)*sc;
+        rr=0; gg=255; bb=255;
+    });
+}
+static size_t p17(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
+    float sc=SC*ssc(sz)*.9f,off=aang(ph,sp);
+    // closed=true: the Lissajous ratio makes vertex[N-1] adjacent to vertex[0];
+    // the optimizer draws that final edge instead of the old duplicate sample.
+    // N is a SHAPE-FIDELITY count, not a point-rate knob: it is the smallest
+    // value whose chord sagitta (max deviation of the true curve from the
+    // straight chord the optimizer interpolates along) stays <= 40 DAC units
+    // -- 0.12% of half-scale, well under the projected spot size, measured at
+    // size=255. Oversampling here is actively harmful: the frame budget is the
+    // binding constraint, so every surplus input vertex steals budget from
+    // chord walking and RAISES the galvo's per-tick step.
+    const int N=176;
+    return curve(o,m,N,true,[&](int i,float&x,float&y,uint8_t&rr,uint8_t&gg,uint8_t&bb){
+        float t=PI2*i/(float)N;
+        x=cosf(2*t+off)*sc; y=sinf(3*t+M_PI/4.f)*sc;
+        rr=0; gg=255; bb=255;
+    });
+}
+static size_t p18(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
+    float sc=SC*ssc(sz)*.9f,off=aang(ph,sp);
+    // closed=true: the Lissajous ratio makes vertex[N-1] adjacent to vertex[0];
+    // the optimizer draws that final edge instead of the old duplicate sample.
+    // N is a SHAPE-FIDELITY count, not a point-rate knob: it is the smallest
+    // value whose chord sagitta (max deviation of the true curve from the
+    // straight chord the optimizer interpolates along) stays <= 40 DAC units
+    // -- 0.12% of half-scale, well under the projected spot size, measured at
+    // size=255. Oversampling here is actively harmful: the frame budget is the
+    // binding constraint, so every surplus input vertex steals budget from
+    // chord walking and RAISES the galvo's per-tick step.
+    const int N=240;
+    return curve(o,m,N,true,[&](int i,float&x,float&y,uint8_t&rr,uint8_t&gg,uint8_t&bb){
+        float t=PI2*i/(float)N;
+        x=cosf(3*t+off)*sc; y=sinf(4*t+M_PI/3.f)*sc;
+        rr=0; gg=255; bb=255;
+    });
+}
+static size_t p19(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
+    float sc=SC*ssc(sz)*.9f,off=aang(ph,sp);
+    // closed=true: the Lissajous ratio makes vertex[N-1] adjacent to vertex[0];
+    // the optimizer draws that final edge instead of the old duplicate sample.
+    // N is a SHAPE-FIDELITY count, not a point-rate knob: it is the smallest
+    // value whose chord sagitta (max deviation of the true curve from the
+    // straight chord the optimizer interpolates along) stays <= 40 DAC units
+    // -- 0.12% of half-scale, well under the projected spot size, measured at
+    // size=255. Oversampling here is actively harmful: the frame budget is the
+    // binding constraint, so every surplus input vertex steals budget from
+    // chord walking and RAISES the galvo's per-tick step.
+    const int N=288;
+    return curve(o,m,N,true,[&](int i,float&x,float&y,uint8_t&rr,uint8_t&gg,uint8_t&bb){
+        float t=PI2*i/(float)N;
+        x=cosf(3*t+off)*sc; y=sinf(5*t+M_PI/6.f)*sc;
+        rr=0; gg=0; bb=255;
+    });
+}
+static size_t p20(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
+    float sc=SC*ssc(sz)*.9f,off=aang(ph,sp);
+    // closed=true: the Lissajous ratio makes vertex[N-1] adjacent to vertex[0];
+    // the optimizer draws that final edge instead of the old duplicate sample.
+    // N is a SHAPE-FIDELITY count, not a point-rate knob: it is the smallest
+    // value whose chord sagitta (max deviation of the true curve from the
+    // straight chord the optimizer interpolates along) stays <= 40 DAC units
+    // -- 0.12% of half-scale, well under the projected spot size, measured at
+    // size=255. Oversampling here is actively harmful: the frame budget is the
+    // binding constraint, so every surplus input vertex steals budget from
+    // chord walking and RAISES the galvo's per-tick step.
+    const int N=352;
+    return curve(o,m,N,true,[&](int i,float&x,float&y,uint8_t&rr,uint8_t&gg,uint8_t&bb){
+        float t=PI2*i/(float)N;
+        x=cosf(5*t+off)*sc; y=sinf(6*t+PI2/5.f)*sc;
+        rr=255; gg=255; bb=0;
+    });
+}
+static size_t p21(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
+    float sc=SC*ssc(sz)*.9f,off=aang(ph,sp);
+    // Two arms = two open segments in ONE optimize() call, so the blank jump
+    // between them is planned inside the shared frame budget rather than
+    // emitted blind by the old second loop.
+    const int N=150;
+    optimizer::PathVertex v[2*N];
+    for(int i=0;i<N;i++){float t=i/(float)N,a=t*PI2*3.f+off,r=t*sc;
+        v[i]=optimizer::PathVertex(cosf(a)*r,sinf(a)*r,255,80,0,i==0);}
+    for(int i=0;i<N;i++){float t=i/(float)N,a=t*PI2*3.f+off+(float)M_PI,r=t*sc;
+        v[N+i]=optimizer::PathVertex(cosf(a)*r,sinf(a)*r,0,80,255,i==0);}
+    optimizer::PathSegment segs[2]={
+        optimizer::PathSegment(v,N,false),
+        optimizer::PathSegment(v+N,N,false)};
+    return optimizer::optimize(segs,2,o,m,liveOptimizerConfig());
+}
+static size_t p22(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
+    float sc=SC*ssc(sz)*.9f;const int N=200;
+    // closed=false: csweep() (#2) already guarantees frame-to-frame position
+    // continuity; a closing edge would cut a chord across the rose.
+    return curve(o,m,N,false,[&](int i,float&x,float&y,uint8_t&rr,uint8_t&gg,uint8_t&bb){
+        float t=csweep(ph,sp,i,N),rad=sc*cosf(3*t);
+        x=rad*cosf(t); y=rad*sinf(t);
+        rr=255; gg=100; bb=0;
+    });
+}
 
 // ─── Curves 23-28 ────────────────────────────────────────────
 // Parametric curves — not migrated.
-static size_t p23(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){size_t n=0;float sc=SC*ssc(sz)*.9f;const int N=200;for(int i=0;i<=N;i++){float t=csweep(ph,sp,i,N),r=sc*cosf(4*t);ap(o,n,m,r*cosf(t),r*sinf(t),255,50,150,0);}return n;}
-static size_t p25(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){size_t n=0;float sc=SC*ssc(sz)*.045f,a=aang(ph,sp);const int N=adaptN(sz,200,20,300);for(int i=0;i<=N;i++){float t=PI2*i/N,x=sc*16*powf(sinf(t),3),y=sc*(13*cosf(t)-5*cosf(2*t)-2*cosf(3*t)-cosf(4*t));ap(o,n,m,x*cosf(a)-y*sinf(a),x*sinf(a)+y*cosf(a),255,0,80,i==0?1:0);}return n;}
-static size_t p26(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){size_t n=0;float sc=SC*ssc(sz)*.9f;const int N=adaptN(sz,500,60,800);for(int i=0;i<=N;i++){float t=csweep(ph,sp,i,N),d=1+sinf(t)*sinf(t);ap(o,n,m,sc*cosf(t)/d,sc*sinf(t)*cosf(t)/d,0,200,255,0);}return n;}
-static size_t p27(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){size_t n=0;float sc=SC*ssc(sz)*.9f;const int N=200;for(int i=0;i<=N;i++){float t=csweep(ph,sp,i,N);ap(o,n,m,sc*powf(cosf(t),3),sc*powf(sinf(t),3),200,255,50,0);}return n;}
-static size_t p28(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){size_t n=0;const float R=3,r=1,d=2.5f,peakNorm=1.f/(R+r+d);float sc=SC*ssc(sz)*.9f*peakNorm,off=aang(ph,sp);for(int i=0;i<=800;i++){float t=PI2*i/800.f+off;ap(o,n,m,sc*((R+r)*cosf(t)-d*cosf((R+r)*t/r)),sc*((R+r)*sinf(t)-d*sinf((R+r)*t/r)),0,255,100,i==0?1:0);}return n;}
+static size_t p23(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
+    float sc=SC*ssc(sz)*.9f;const int N=200;
+    // closed=false: csweep() (#2) already guarantees frame-to-frame position
+    // continuity; a closing edge would cut a chord across the rose.
+    return curve(o,m,N,false,[&](int i,float&x,float&y,uint8_t&rr,uint8_t&gg,uint8_t&bb){
+        float t=csweep(ph,sp,i,N),rad=sc*cosf(4*t);
+        x=rad*cosf(t); y=rad*sinf(t);
+        rr=255; gg=50; bb=150;
+    });
+}
+static size_t p25(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
+    float sc=SC*ssc(sz)*.045f,a=aang(ph,sp);const int N=adaptN(sz,200,20,300);
+    const float ca=cosf(a),sa=sinf(a);
+    return curve(o,m,N,true,[&](int i,float&x,float&y,uint8_t&r,uint8_t&g,uint8_t&b){
+        float t=PI2*i/(float)N;
+        float hx=sc*16*powf(sinf(t),3);
+        float hy=sc*(13*cosf(t)-5*cosf(2*t)-2*cosf(3*t)-cosf(4*t));
+        x=hx*ca-hy*sa; y=hx*sa+hy*ca;
+        r=255; g=0; b=80;
+    });
+}
+static size_t p26(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
+    float sc=SC*ssc(sz)*.9f;const int N=adaptN(sz,500,60,800);
+    // closed=false -- csweep (#2) continuity, see p00.
+    return curve(o,m,N,false,[&](int i,float&x,float&y,uint8_t&r,uint8_t&g,uint8_t&b){
+        float t=csweep(ph,sp,i,N),d=1+sinf(t)*sinf(t);
+        x=sc*cosf(t)/d; y=sc*sinf(t)*cosf(t)/d;
+        r=0; g=200; b=255;
+    });
+}
+static size_t p27(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
+    float sc=SC*ssc(sz)*.9f;const int N=200;
+    // The astroid's 4 cusps are true corners -- cornerPointCount() now dwells
+    // there instead of the old uniform sampling rounding them off.
+    return curve(o,m,N,false,[&](int i,float&x,float&y,uint8_t&r,uint8_t&g,uint8_t&b){
+        float t=csweep(ph,sp,i,N);
+        x=sc*powf(cosf(t),3); y=sc*powf(sinf(t),3);
+        r=200; g=255; b=50;
+    });
+}
+static size_t p28(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
+    const float R=3,r=1,d=2.5f,peakNorm=1.f/(R+r+d);
+    float sc=SC*ssc(sz)*.9f*peakNorm,off=aang(ph,sp);
+    const int N=384;   // shape fidelity only; optimizer sets output density
+    return curve(o,m,N,true,[&](int i,float&x,float&y,uint8_t&rr,uint8_t&gg,uint8_t&bb){
+        float t=PI2*i/(float)N+off;
+        x=sc*((R+r)*cosf(t)-d*cosf((R+r)*t/r));
+        y=sc*((R+r)*sinf(t)-d*sinf((R+r)*t/r));
+        rr=0; gg=255; bb=100;
+    });
+}
 
 // ─── 3D 29-34 ────────────────────────────────────────────────
 static size_t p29(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){return wf(o,m,CV,8,CE,12,aang(ph,sp,1),aang(ph,sp,.4f),SC*ssc(sz)*.65f,0,255,255);}
@@ -405,114 +726,253 @@ static size_t p35(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){retur
 static size_t p36(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){float A=fabsf(sinf(aang(ph,sp)))*.8f+.1f;return sinewave(o,m,A,2,0,SC*ssc(sz)*.9f,0,255,0);}
 static size_t p37(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     size_t n=0;float sc=SC*ssc(sz)*.9f,t=aang(ph,sp);
-    n+=sinewave(o,m,.3f,1,t,sc,255,0,0);
-    n+=sinewave(o+n,m-n,.2f,2,t*1.5f,sc,0,255,0);
-    n+=sinewave(o+n,m-n,.15f,3,t*2.f,sc,0,0,255);
+    // Three independent optimize() calls: each must be told its share of the
+    // frame budget explicitly (see sinewave()'s budget_share note), otherwise
+    // all three plan a full frame each and the preset emits ~3x the budget.
+    const uint16_t share=(uint16_t)(gOptimizerConfig.max_pts_per_frame/3);
+    n+=sinewave(o,   m,        .3f, 1,t,      sc,255,0,0,  120,share);
+    n+=sinewave(o+n, m>n?m-n:0,.2f, 2,t*1.5f, sc,0,255,0,  120,share);
+    n+=sinewave(o+n, m>n?m-n:0,.15f,3,t*2.f,  sc,0,0,255,  120,share);
     return n;
 }
 static size_t p38(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
-    size_t n=0;float sc=SC*ssc(sz)*.9f,t=aang(ph,sp);
+    float sc=SC*ssc(sz)*.9f,t=aang(ph,sp);
     const float wa=gLivePreset.wave_amp,wf=gLivePreset.wave_freq;
-    for(int i=0;i<=120;i++){float x=L(-1.f,1.f,i/120.f),y=wa*(.3f*sinf(4*wf*x*M_PI+t)+.15f*sinf(8*wf*x*M_PI+t*1.7f)+.08f*sinf(16*wf*x*M_PI+t*2.3f));ap(o,n,m,x*sc,y*sc,0,0,255,i==0?1:0);}
-    return n;
+    const int N=120;
+    // Migrated to optimizer: sampled polyline -> one open PathSegment.
+    return curve(o,m,N+1,false,[&](int i,float&x,float&y,uint8_t&r,uint8_t&g,uint8_t&b){
+        float xx=L(-1.f,1.f,i/(float)N);
+        x=xx*sc;
+        y=wa*(.3f*sinf(4*wf*xx*(float)M_PI+t)
+             +.15f*sinf(8*wf*xx*(float)M_PI+t*1.7f)
+             +.08f*sinf(16*wf*xx*(float)M_PI+t*2.3f))*sc;
+        r=0; g=0; b=255;
+    });
 }
 static size_t p39(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
-    size_t n=0;float sc=SC*ssc(sz)*.9f,t=aang(ph,sp);
+    float sc=SC*ssc(sz)*.9f,t=aang(ph,sp);
     const float wa=gLivePreset.wave_amp,wf=gLivePreset.wave_freq;
-    for(int i=0;i<=120;i++){float x=L(-1.f,1.f,i/120.f),y=wa*.45f*(sinf(5*wf*x*M_PI+t)+sinf(7*wf*x*M_PI-t))*.5f;ap(o,n,m,x*sc,y*sc,255,255,0,i==0?1:0);}
-    return n;
+    const int N=120;
+    // Migrated to optimizer: the sampled polyline becomes one open
+    // PathSegment (lift on v0 -> eased blank jump in, Pillar 2). The old
+    // fixed N is kept as a shape-fidelity count; the optimizer resamples
+    // to the galvo rate and enforces the frame budget.
+    return curve(o,m,N+1,false,[&](int i,float&x,float&y,uint8_t&rr,uint8_t&gg,uint8_t&bb){
+        float xx=L(-1.f,1.f,i/(float)N);
+
+        x=xx*sc; y=(wa*.45f*(sinf(5*wf*xx*M_PI+t)+sinf(7*wf*xx*M_PI-t))*.5f)*sc;
+        rr=255; gg=255; bb=0;
+    });
 }
 static size_t p40(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
-    size_t n=0;float sc=SC*ssc(sz)*.9f,t=aang(ph,sp);
+    float sc=SC*ssc(sz)*.9f,t=aang(ph,sp);
     const float wa=gLivePreset.wave_amp,wf=gLivePreset.wave_freq;
-    for(int i=0;i<=120;i++){float x=L(-1.f,1.f,i/120.f),ph2=fmodf((x*2.f*wf+t/M_PI),2.f),y=wa*.6f*(ph2<1?ph2:ph2-2);ap(o,n,m,x*sc,y*sc,255,0,0,i==0?1:0);}
-    return n;
+    const int N=120;
+    // Migrated to optimizer: the sampled polyline becomes one open
+    // PathSegment (lift on v0 -> eased blank jump in, Pillar 2). The old
+    // fixed N is kept as a shape-fidelity count; the optimizer resamples
+    // to the galvo rate and enforces the frame budget.
+    return curve(o,m,N+1,false,[&](int i,float&x,float&y,uint8_t&rr,uint8_t&gg,uint8_t&bb){
+        float xx=L(-1.f,1.f,i/(float)N);
+        float ph2=fmodf((xx*2.f*wf+t/(float)M_PI),2.f);
+        x=xx*sc; y=(wa*.6f*(ph2<1?ph2:ph2-2))*sc;
+        rr=255; gg=0; bb=0;
+    });
 }
 static size_t p41(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
-    size_t n=0;float sc=SC*ssc(sz)*.9f,t=aang(ph,sp);
+    float sc=SC*ssc(sz)*.9f,t=aang(ph,sp);
     const float wa=gLivePreset.wave_amp,wf=gLivePreset.wave_freq;
     // True square wave: explicit horizontal plateaus joined by vertical edges.
-    // Previous version sampled sign(sin) at 200 evenly-spaced x -> the galvo
-    // sloped diagonally through each transition instead of snapping vertically.
+    // Migrated to optimizer -- this is the single biggest win in the Waves
+    // block: every plateau/edge junction is a 90 deg corner, which is exactly
+    // what cornerPointCount() exists for. The old code emitted ONE raw point
+    // per corner, so the galvo rounded each transition; the optimizer now
+    // dwells there and eases the approach (shapeEdgeT).
     const int cycles=(int)fmaxf(1.f,roundf(3*wf));      // whole cycles across width
     const int steps=cycles*2;                           // half-periods (plateaus)
     const float amp=wa*.55f*sc,phi=fmodf(t,PI2)/PI2;    // phase shifts plateaus
+    // Worst case 2 vertices per step (vertical edge + plateau end) + start.
+    const int maxv=2*(steps+1)+2;
+    if(maxv>CURVE_MAX_PTS) return 0;
+    optimizer::PathVertex v[CURVE_MAX_PTS];
+    int nv=0;
     float px=-sc,py=((sinf(phi*PI2)>0)?1.f:-1.f)*amp;
-    ap(o,n,m,px,py,0,0,255,1);                      // start
-    for(int s=0;s<=steps;s++){
+    v[nv++]=optimizer::PathVertex(px,py,0,0,255,true);   // lift -> eased jump in
+    for(int s=0;s<=steps && nv+2<=CURVE_MAX_PTS;s++){
         float x=L(-1.f,1.f,(float)s/steps)*sc;
         float lvl=(sinf(((float)s/steps+phi)*PI2*cycles)>0?1.f:-1.f)*amp;
-        if(lvl!=py){ap(o,n,m,px,lvl,0,0,255,0);py=lvl;} // vertical edge
-        ap(o,n,m,x,py,0,0,255,0);                   // horizontal plateau
+        if(lvl!=py){ v[nv++]=optimizer::PathVertex(px,lvl,0,0,255,false); py=lvl; } // vertical edge
+        v[nv++]=optimizer::PathVertex(x,py,0,0,255,false);                          // plateau
         px=x;
     }
-    return n;
+    return curveEmit(o,m,v,nv,false);
 }
 static size_t p42(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
-    size_t n=0;float sc=SC*ssc(sz)*.9f,t=aang(ph,sp);
+    float sc=SC*ssc(sz)*.9f,t=aang(ph,sp);
     const float wa=gLivePreset.wave_amp,wf=gLivePreset.wave_freq;
-    for(int i=0;i<=120;i++){float x=L(-1.f,1.f,i/120.f),env=expf(-12*x*x),y=env*wa*sinf(8*wf*x*M_PI+t)*.8f;ap(o,n,m,x*sc,y*sc,0,255,0,i==0?1:0);}
-    return n;
+    const int N=120;
+    // Migrated to optimizer: the sampled polyline becomes one open
+    // PathSegment (lift on v0 -> eased blank jump in, Pillar 2). The old
+    // fixed N is kept as a shape-fidelity count; the optimizer resamples
+    // to the galvo rate and enforces the frame budget.
+    return curve(o,m,N+1,false,[&](int i,float&x,float&y,uint8_t&rr,uint8_t&gg,uint8_t&bb){
+        float xx=L(-1.f,1.f,i/(float)N);
+        float env=expf(-12*xx*xx);
+        x=xx*sc; y=(env*wa*sinf(8*wf*xx*M_PI+t)*.8f)*sc;
+        rr=0; gg=255; bb=0;
+    });
 }
 static size_t p43(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
-    size_t n=0;float sc=SC*ssc(sz)*.9f,t=aang(ph,sp);
+    float sc=SC*ssc(sz)*.9f,t=aang(ph,sp);
     const float wa=gLivePreset.wave_amp,wf=gLivePreset.wave_freq;
-    for(int i=0;i<=120;i++){float x=L(-1.f,1.f,i/120.f),y=.5f*wa*(sinf(10*wf*x*M_PI+t)+sinf(11*wf*x*M_PI+t));ap(o,n,m,x*sc,y*sc,255,255,0,i==0?1:0);}
-    return n;
+    const int N=120;
+    // Migrated to optimizer: the sampled polyline becomes one open
+    // PathSegment (lift on v0 -> eased blank jump in, Pillar 2). The old
+    // fixed N is kept as a shape-fidelity count; the optimizer resamples
+    // to the galvo rate and enforces the frame budget.
+    return curve(o,m,N+1,false,[&](int i,float&x,float&y,uint8_t&rr,uint8_t&gg,uint8_t&bb){
+        float xx=L(-1.f,1.f,i/(float)N);
+
+        x=xx*sc; y=(.5f*wa*(sinf(10*wf*xx*M_PI+t)+sinf(11*wf*xx*M_PI+t)))*sc;
+        rr=255; gg=255; bb=0;
+    });
 }
 static size_t p44(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
-    size_t n=0;float sc=SC*ssc(sz)*.9f,t=aang(ph,sp);
+    float sc=SC*ssc(sz)*.9f,t=aang(ph,sp);
     const float wa=gLivePreset.wave_amp,wf=gLivePreset.wave_freq;
-    for(int ring=1;ring<=4;ring++){float r=ring/4.f,R=r*sc;for(int i=0;i<=80;i++){float a=PI2*i/80.f,rad=R*(1+.12f*wa*sinf(8*wf*a+r*8*wf-t));ap(o,n,m,cosf(a)*rad,sinf(a)*rad,0,(uint8_t)(100+155*r),255,i==0?1:0);}}
-    return n;
+    // 4 closed rings in ONE optimize() call: the inter-ring blank jumps are
+    // now planned against the shared frame budget (MultiObject profile) rather
+    // than emitted per-ring with a hardcoded sample count.
+    const int NR=4, NA=80;
+    optimizer::PathVertex v[NR*NA];
+    optimizer::PathSegment segs[NR];
+    for(int ring=1;ring<=NR;ring++){
+        float r=ring/(float)NR,R=r*sc;
+        optimizer::PathVertex* vr=v+(ring-1)*NA;
+        for(int i=0;i<NA;i++){
+            float a=PI2*i/(float)NA,rad=R*(1+.12f*wa*sinf(8*wf*a+r*8*wf-t));
+            vr[i]=optimizer::PathVertex(cosf(a)*rad,sinf(a)*rad,
+                                        0,(uint8_t)(100+155*r),255,i==0);
+        }
+        segs[ring-1]=optimizer::PathSegment(vr,NA,true);
+    }
+    return optimizer::optimize(segs,NR,o,m,liveOptimizerConfig());
 }
 static size_t p45(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
-    size_t n=0;float sc=SC*ssc(sz)*.9f,t=aang(ph,sp);
+    float sc=SC*ssc(sz)*.9f,t=aang(ph,sp);
     const float wa=gLivePreset.wave_amp,wf=gLivePreset.wave_freq;
-    for(int i=0;i<=120;i++){float x=L(-1.f,1.f,i/120.f),y=.5f*wa*sinf(6*wf*x*PI2+4*sinf(wf*x*PI2*2+t));ap(o,n,m,x*sc,y*sc,0,255,255,i==0?1:0);}
-    return n;
+    const int N=120;
+    // Migrated to optimizer: the sampled polyline becomes one open
+    // PathSegment (lift on v0 -> eased blank jump in, Pillar 2). The old
+    // fixed N is kept as a shape-fidelity count; the optimizer resamples
+    // to the galvo rate and enforces the frame budget.
+    return curve(o,m,N+1,false,[&](int i,float&x,float&y,uint8_t&rr,uint8_t&gg,uint8_t&bb){
+        float xx=L(-1.f,1.f,i/(float)N);
+
+        x=xx*sc; y=(.5f*wa*sinf(6*wf*xx*PI2+4*sinf(wf*xx*PI2*2+t)))*sc;
+        rr=0; gg=255; bb=255;
+    });
 }
 static size_t p46(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
-    size_t n=0;float sc=SC*ssc(sz)*.9f,off=aang(ph,sp);
+    float sc=SC*ssc(sz)*.9f,off=aang(ph,sp);
     const float wa=gLivePreset.wave_amp,wf=gLivePreset.wave_freq;
-    for(int i=0;i<200;i++){float t=i/200.f,a=t*PI2*4*wf+off,r=sc*(1-t*.8f),w=.08f*wa*sinf(a*8);ap(o,n,m,cosf(a)*(r+w*sc),sinf(a)*(r+w*sc),(uint8_t)(t*255),(uint8_t)((1-t)*200),200,i==0?1:0);}
-    return n;
+    const int N=200;
+    // Migrated to optimizer: sampled polyline -> one open PathSegment.
+    // N is now shape fidelity only; the optimizer owns output density,
+    // blank-jump easing and the frame budget.
+    return curve(o,m,N,false,[&](int i,float&x,float&y,uint8_t&rr,uint8_t&gg,uint8_t&bb){
+        float t=i/(float)N,a=t*PI2*4*wf+off,r=sc*(1-t*.8f),w=.08f*wa*sinf(a*8);
+        x=cosf(a)*(r+w*sc); y=sinf(a)*(r+w*sc);
+        rr=(uint8_t)(t*255); gg=(uint8_t)((1-t)*200); bb=200;
+    });
 }
 static size_t p47(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
-    size_t n=0;float sc=SC*ssc(sz)*.9f,t=aang(ph,sp);
+    float sc=SC*ssc(sz)*.9f,t=aang(ph,sp);
     const float wa=gLivePreset.wave_amp,wf=gLivePreset.wave_freq;
-    for(int i=0;i<=200;i++){float u=L(-1.f,1.f,i/200.f),a=u*PI2*3*wf+t;ap(o,n,m,u*sc,wa*sinf(a)*sc*.5f,0,(uint8_t)(128+127*cosf(a)),(uint8_t)(128+127*sinf(a)),i==0?1:0);}
-    return n;
+    const int N=200;
+    // Migrated to optimizer: sampled polyline -> one open PathSegment.
+    // N is now shape fidelity only; the optimizer owns output density,
+    // blank-jump easing and the frame budget.
+    return curve(o,m,N+1,false,[&](int i,float&x,float&y,uint8_t&r,uint8_t&g,uint8_t&b){
+        float u=L(-1.f,1.f,i/(float)N),a=u*PI2*3*wf+t;
+        x=u*sc; y=wa*sinf(a)*sc*.5f;
+        r=0; g=(uint8_t)(128+127*cosf(a)); b=(uint8_t)(128+127*sinf(a));
+    });
 }
 static size_t p48(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
-    size_t n=0;float sc=SC*ssc(sz)*.9f,t=aang(ph,sp);
+    float sc=SC*ssc(sz)*.9f,t=aang(ph,sp);
     const float wa=gLivePreset.wave_amp,wf=gLivePreset.wave_freq;
-    for(int row=-2;row<=2;row++){float y0=row*.36f;for(int i=0;i<=60;i++){float x=L(-1.f,1.f,i/60.f),y=y0+.12f*wa*sinf(x*PI2*3*wf+t+row*.7f);ap(o,n,m,x*sc,y*sc,0,(uint8_t)(128+127*sinf(row+t)),200,i==0?1:0);}}
-    return n;
+    // 5 rows as 5 open segments in one optimize() call -- shared budget,
+    // eased row-to-row blank jumps.
+    const int NROW=5, NX=61;
+    optimizer::PathVertex v[NROW*NX];
+    optimizer::PathSegment segs[NROW];
+    for(int r0=0;r0<NROW;r0++){
+        int row=r0-2; float y0=row*.36f;
+        optimizer::PathVertex* vr=v+r0*NX;
+        for(int i=0;i<NX;i++){
+            float x=L(-1.f,1.f,i/(float)(NX-1));
+            float y=y0+.12f*wa*sinf(x*PI2*3*wf+t+row*.7f);
+            vr[i]=optimizer::PathVertex(x*sc,y*sc,0,(uint8_t)(128+127*sinf(row+t)),200,i==0);
+        }
+        segs[r0]=optimizer::PathSegment(vr,NX,false);
+    }
+    return optimizer::optimize(segs,NROW,o,m,liveOptimizerConfig());
 }
 static size_t p49(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
-    size_t n=0;float sc=SC*ssc(sz)*.9f,t=aang(ph,sp);
+    float sc=SC*ssc(sz)*.9f,t=aang(ph,sp);
     const float wa=gLivePreset.wave_amp,wf=gLivePreset.wave_freq;
-    for(int i=0;i<=120;i++){float x=L(-1.f,1.f,i/120.f);float y=0;for(int k=1;k<=5;k+=2)y+=sinf(k*x*PI2*1.5f*wf+t)/k;ap(o,n,m,x*sc,y*wa*.5f*sc,0,255,0,i==0?1:0);}
-    return n;
+    const int N=120;
+    // Migrated to optimizer: sampled polyline -> one open PathSegment.
+    // N is now shape fidelity only; the optimizer owns output density,
+    // blank-jump easing and the frame budget.
+    return curve(o,m,N+1,false,[&](int i,float&x,float&y,uint8_t&r,uint8_t&g,uint8_t&b){
+        float xx=L(-1.f,1.f,i/(float)N);float yy=0;
+        for(int k=1;k<=5;k+=2) yy+=sinf(k*xx*PI2*1.5f*wf+t)/k;
+        x=xx*sc; y=yy*wa*.5f*sc;
+        r=0; g=255; b=0;
+    });
 }
 static size_t p50(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
-    size_t n=0;float sc=SC*ssc(sz)*.9f,t=aang(ph,sp);
+    float sc=SC*ssc(sz)*.9f,t=aang(ph,sp);
     const float wa=gLivePreset.wave_amp,wf=gLivePreset.wave_freq;
-    for(int i=0;i<=120;i++){float x=L(-1.f,1.f,i/120.f),decay=expf(-2*fabsf(x)),y=decay*wa*sinf(10*wf*x*M_PI+t)*(.4f+.4f*fabsf(x));ap(o,n,m,x*sc,y*sc,255,0,255,i==0?1:0);}
-    return n;
+    const int N=120;
+    // Migrated to optimizer: sampled polyline -> one open PathSegment.
+    // N is now shape fidelity only; the optimizer owns output density,
+    // blank-jump easing and the frame budget.
+    return curve(o,m,N+1,false,[&](int i,float&x,float&y,uint8_t&r,uint8_t&g,uint8_t&b){
+        float xx=L(-1.f,1.f,i/(float)N),decay=expf(-2*fabsf(xx));
+        x=xx*sc; y=decay*wa*sinf(10*wf*xx*(float)M_PI+t)*(.4f+.4f*fabsf(xx))*sc;
+        r=255; g=0; b=255;
+    });
 }
 static size_t p51(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
-    size_t n=0;float sc=SC*ssc(sz)*.9f,t=aang(ph,sp);
+    float sc=SC*ssc(sz)*.9f,t=aang(ph,sp);
     const float wa=gLivePreset.wave_amp,wf=gLivePreset.wave_freq;
-    for(int i=0;i<=120;i++){float x=L(-1.f,1.f,i/120.f),build=.5f+.5f*x,y=build*.5f*wa*sinf(PI2*(x*2*wf-t*.3f))*.7f;ap(o,n,m,x*sc,y*sc,0,255,255,i==0?1:0);}
-    return n;
+    const int N=120;
+    // Migrated to optimizer: sampled polyline -> one open PathSegment.
+    // N is now shape fidelity only; the optimizer owns output density,
+    // blank-jump easing and the frame budget.
+    return curve(o,m,N+1,false,[&](int i,float&x,float&y,uint8_t&r,uint8_t&g,uint8_t&b){
+        float xx=L(-1.f,1.f,i/(float)N),build=.5f+.5f*xx;
+        x=xx*sc; y=build*.5f*wa*sinf(PI2*(xx*2*wf-t*.3f))*.7f*sc;
+        r=0; g=255; b=255;
+    });
 }
 static size_t p52(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
-    size_t n=0;float sc=SC*ssc(sz)*.9f,t=aang(ph,sp);
+    float sc=SC*ssc(sz)*.9f,t=aang(ph,sp);
     const float wa=gLivePreset.wave_amp,wf=gLivePreset.wave_freq;
-    for(int i=0;i<=120;i++){float x=L(-1.f,1.f,i/120.f);float y=0;int ks[]={1,2,3,4,5};for(int j=0;j<5;j++)y+=sinf(ks[j]*wf*x*PI2+t*(j*.5f+.5f))*.2f/ks[j];ap(o,n,m,x*sc,y*wa*sc,255,200,50,i==0?1:0);}
-    return n;
+    const int N=120;
+    // Migrated to optimizer: sampled polyline -> one open PathSegment.
+    // N is now shape fidelity only; the optimizer owns output density,
+    // blank-jump easing and the frame budget.
+    return curve(o,m,N+1,false,[&](int i,float&x,float&y,uint8_t&r,uint8_t&g,uint8_t&b){
+        float xx=L(-1.f,1.f,i/(float)N);float yy=0;
+        static const int ks[5]={1,2,3,4,5};
+        for(int j=0;j<5;j++) yy+=sinf(ks[j]*wf*xx*PI2+t*(j*.5f+.5f))*.2f/ks[j];
+        x=xx*sc; y=yy*wa*sc;
+        r=255; g=200; b=50;
+    });
 }
 
 // ─── KOMPLEX 53-58 ───────────────────────────────────────────
@@ -524,16 +984,27 @@ static size_t p52(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
 // (R-r)+d = 7), rendering far larger than sibling Complex presets.
 // Both fixed, matching the p55 normalisation pattern below.
 static size_t p53(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
-    size_t n=0;const float R=5,r=3,d=5,peakNorm=1.f/((R-r)+d);
+    const float R=5,r=3,d=5,peakNorm=1.f/((R-r)+d);
     float sc=SC*ssc(sz)*.9f*peakNorm,off=aang(ph,sp);
-    const int N=600;
-    for(int i=0;i<=N;i++){
-        float t=6.f*(float)M_PI*i/N+off;
-        ap(o,n,m,sc*((R-r)*cosf(t)+d*cosf((R-r)*t/r)),sc*((R-r)*sinf(t)-d*sinf((R-r)*t/r)),255,0,255,i==0?1:0);
-    }
-    return n;
+    const int N=384;
+    // 6pi sweep: start and end do not coincide -> open segment, lift on v0.
+    return curve(o,m,N,false,[&](int i,float&x,float&y,uint8_t&rr,uint8_t&gg,uint8_t&bb){
+        float t=6.f*(float)M_PI*i/(float)N+off;
+        x=sc*((R-r)*cosf(t)+d*cosf((R-r)*t/r));
+        y=sc*((R-r)*sinf(t)-d*sinf((R-r)*t/r));
+        rr=255; gg=0; bb=255;
+    });
 }
-static size_t p54(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){size_t n=0;float sc=SC*ssc(sz)*.38f,off=aang(ph,sp);for(int i=0;i<=200;i++){float t=PI2*i/200.f,e=expf(cosf(t))-2*cosf(4*t)-powf(sinf(t/12.f),5);ap(o,n,m,sc*e*sinf(t+off),sc*e*cosf(t+off),255,255,0,i==0?1:0);}return n;}
+static size_t p54(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
+    float sc=SC*ssc(sz)*.38f,off=aang(ph,sp);
+    const int N=200;
+    return curve(o,m,N,true,[&](int i,float&x,float&y,uint8_t&r,uint8_t&g,uint8_t&b){
+        float t=PI2*i/(float)N;
+        float e=expf(cosf(t))-2*cosf(4*t)-powf(sinf(t/12.f),5);
+        x=sc*e*sinf(t+off); y=sc*e*cosf(t+off);
+        r=255; g=255; b=0;
+    });
+}
 // p55 Spirograph 5/3 -- hypotrochoid, fixed radii R=5, r=3. Curve closes
 // after 3 revolutions of the outer parameter (t in [0,6*PI]); the previous
 // [0,10*PI] sweep overshot the true period and retraced 2/3 of the curve
@@ -542,17 +1013,19 @@ static size_t p54(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){size_
 // d < r now gives the proper looping rosette. Peak radius (R-r)+d is
 // normalised so the figure fills the frame. off animates rotation.
 static size_t p55(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
-    size_t n=0;float off=aang(ph,sp);
+    float off=aang(ph,sp);
     const float R=5.f,r=3.f,d=1.5f,peakNorm=1.f/((R-r)+d);
     float sc=SC*ssc(sz)*.9f*peakNorm;
-    const int N=360;
-    for(int i=0;i<=N;i++){
-        float t=6.f*(float)M_PI*i/N;
+    const int N=288;
+    const float co=cosf(off),so=sinf(off);
+    // 6pi sweep -> start != end -> open segment.
+    return curve(o,m,N,false,[&](int i,float&ox,float&oy,uint8_t&rr,uint8_t&gg,uint8_t&bb){
+        float t=6.f*(float)M_PI*i/(float)N;
         float x=(R-r)*cosf(t)+d*cosf((R-r)/r*t);
         float y=(R-r)*sinf(t)-d*sinf((R-r)/r*t);
-        ap(o,n,m,sc*(x*cosf(off)-y*sinf(off)),sc*(x*sinf(off)+y*cosf(off)),0,255,255,i==0?1:0);
-    }
-    return n;
+        ox=sc*(x*co-y*so); oy=sc*(x*so+y*co);
+        rr=0; gg=255; bb=255;
+    });
 }
 
 // p56 Concentric Rings -- GalvOS v5.3: migrated to optimizer via ngon().
@@ -604,9 +1077,13 @@ static size_t p57(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
 static size_t p58(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     // 3x point count -- 8-lobe wave modulation needs finer sampling than a
     // plain circle for the galvo to track the wiggles without a closing gap.
-    size_t n=0;float sc=SC*ssc(sz)*.9f,pulse=sc*(.5f+.5f*fabsf(sinf(aang(ph,sp,3)))),rot=aang(ph,sp,.2f);
-    for(int i=0;i<=384;i++){float a=PI2*i/384.f+rot,wave=1+.15f*sinf(8*a),r2=pulse*wave;ap(o,n,m,cosf(a)*r2,sinf(a)*r2,(uint8_t)(200+55*sinf(a)),0,(uint8_t)(200+55*cosf(a)),i==0?1:0);}
-    return n;
+    float sc=SC*ssc(sz)*.9f,pulse=sc*(.5f+.5f*fabsf(sinf(aang(ph,sp,3)))),rot=aang(ph,sp,.2f);
+    const int N=256;
+    return curve(o,m,N,true,[&](int i,float&x,float&y,uint8_t&r,uint8_t&g,uint8_t&b){
+        float a=PI2*i/(float)N+rot,wave=1+.15f*sinf(8*a),r2=pulse*wave;
+        x=cosf(a)*r2; y=sinf(a)*r2;
+        r=(uint8_t)(200+55*sinf(a)); g=0; b=(uint8_t)(200+55*cosf(a));
+    });
 }
 
 // ─── KOMBI 59-63 ─────────────────────────────────────────────
@@ -643,18 +1120,16 @@ static size_t p59(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
 // integer harmonics (fx=3, fy=2) with a slowly drifting phase (dph) so the
 // figure morphs but always closes: at i=0 and i=N the sample is identical.
 static size_t p60(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
-    size_t n=0;float sc=SC*ssc(sz)*.9f;
+    float sc=SC*ssc(sz)*.9f;
     const float dph=aang(ph,sp,.5f);          // animated relative phase
     const int N=256;
-    for(int i=0;i<=N;i++){
-        float t=PI2*i/N;
-        float x=sinf(3.f*t+dph),y=sinf(2.f*t);
-        ap(o,n,m,sc*x,sc*y,
-           (uint8_t)(128+127*sinf(t*2+dph)),
-           (uint8_t)(128+127*sinf(t*3+1)),
-           (uint8_t)(128+127*cosf(t*1.5f)),i==0?1:0);
-    }
-    return n;
+    return curve(o,m,N,true,[&](int i,float&x,float&y,uint8_t&r,uint8_t&g,uint8_t&b){
+        float t=PI2*i/(float)N;
+        x=sc*sinf(3.f*t+dph); y=sc*sinf(2.f*t);
+        r=(uint8_t)(128+127*sinf(t*2+dph));
+        g=(uint8_t)(128+127*sinf(t*3+1));
+        b=(uint8_t)(128+127*cosf(t*1.5f));
+    });
 }
 
 // p61 Laser Diamond -- GalvOS v5.3: migrated to optimizer.
@@ -705,20 +1180,34 @@ static size_t p61(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
 // small rotating quad, blank-jumped to. `t` (0..1) is the burst progress
 // derived from a looping phase so the burst repeats.
 static size_t p63(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
-    size_t n=0;float sc=SC*ssc(sz)*.9f;
+    float sc=SC*ssc(sz)*.9f;
     float burst=fmodf(aang(ph,sp,.5f)/PI2,1.f);        // 0..1 loop
-    const int NP=18;
+    // 18 confetti pieces as 18 closed quads in ONE optimize() call. The old
+    // code emitted a SINGLE blank point as the travel between pieces -- i.e.
+    // it commanded the galvo across up to the full field in one tick, which it
+    // physically cannot do; the mirror smears through the move and the laser
+    // is already back on when it arrives. optimize() replaces that with a
+    // distance-proportional, smoothstep-eased blank jump (Pillar 2) and plans
+    // all 18 against the shared frame budget.
+    const int NP=18, NV=4;
+    optimizer::PathVertex v[NP*NV];
+    optimizer::PathSegment segs[NP];
     for(int p=0;p<NP;p++){
-        float ang=PI2*p/NP+ (p*0.37f);                  // fixed launch direction
+        float ang=PI2*p/NP+(p*0.37f);                   // fixed launch direction
         float r=burst*(0.35f+0.65f*fmodf(p*0.191f,1.f))*sc;
         float cx=cosf(ang)*r,cy=sinf(ang)*r;
         float spin=ang*3.f+burst*PI2*2.f,pr=0.05f*sc;
-        uint8_t cr=(uint8_t)(128+127*sinf(ang)),cg=(uint8_t)(128+127*sinf(ang+2.1f)),cb=(uint8_t)(128+127*sinf(ang+4.2f));
-        ap(o,n,m,cx+cosf(spin)*pr,cy+sinf(spin)*pr,0,0,0,1); // blank travel
-        for(int i=0;i<=4;i++){float a=spin+PI2*i/4.f;ap(o,n,m,cx+cosf(a)*pr,cy+sinf(a)*pr*.6f,cr,cg,cb,0);}
+        uint8_t cr=(uint8_t)(128+127*sinf(ang));
+        uint8_t cg=(uint8_t)(128+127*sinf(ang+2.1f));
+        uint8_t cb=(uint8_t)(128+127*sinf(ang+4.2f));
+        optimizer::PathVertex* vp=v+p*NV;
+        for(int i=0;i<NV;i++){
+            float a=spin+PI2*i/(float)NV;
+            vp[i]=optimizer::PathVertex(cx+cosf(a)*pr,cy+sinf(a)*pr*.6f,cr,cg,cb,i==0);
+        }
+        segs[p]=optimizer::PathSegment(vp,NV,true);
     }
-    if(n>0)ap(o,n,m,o[n-1].x,o[n-1].y,0,0,0,1);
-    return n;
+    return optimizer::optimize(segs,NP,o,m,liveOptimizerConfig());
 }
 
 // p101 Disco Ball 2 (6th Combo preset)
@@ -768,10 +1257,36 @@ static size_t p101(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
 }
 
 static size_t p86(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){ // Hibiskus
-    size_t n=0;float sc=SC*ssc(sz)*.9f,rot=aang(ph,sp,.2f);
-    for(int p=0;p<5;p++){float base=PI2*p/5.f+rot;for(int i=0;i<=30;i++){float t=i/30.f,spread=sinf(t*M_PI),a=base+spread*.4f,r=L(.15f,.65f,t);ap(o,n,m,cosf(a)*r*sc,sinf(a)*r*sc,255,(uint8_t)(50+t*100),(uint8_t)(100-t*100),i==0?1:0);}for(int i=30;i>=0;i--){float t=i/30.f,spread=sinf(t*M_PI),a=base-spread*.4f,r=L(.15f,.65f,t);ap(o,n,m,cosf(a)*r*sc,sinf(a)*r*sc,255,(uint8_t)(50+t*100),0,0);}}
-    for(int i=0;i<=12;i++){float a=PI2*i/12.f+rot*2;ap(o,n,m,cosf(a)*.12f*sc,sinf(a)*.12f*sc,255,255,0,i==0?1:0);}
-    return n;
+    float sc=SC*ssc(sz)*.9f,rot=aang(ph,sp,.2f);
+    // 5 petals + 1 centre ring = 6 segments in ONE optimize() call, so the
+    // petal-to-petal blank jumps are planned against the shared frame budget
+    // (MultiObject profile) instead of being emitted per-petal.
+    // Each petal is one closed loop: out along +spread, back along -spread.
+    const int NP=5, NT=31, PETAL=NT*2, NC=12;
+    optimizer::PathVertex v[NP*PETAL+NC];
+    optimizer::PathSegment segs[NP+1];
+    for(int p=0;p<NP;p++){
+        float base=PI2*p/(float)NP+rot;
+        optimizer::PathVertex* vp=v+p*PETAL;
+        for(int i=0;i<NT;i++){
+            float t=i/(float)(NT-1),spread=sinf(t*(float)M_PI),a=base+spread*.4f,r=L(.15f,.65f,t);
+            vp[i]=optimizer::PathVertex(cosf(a)*r*sc,sinf(a)*r*sc,
+                    255,(uint8_t)(50+t*100),(uint8_t)(100-t*100),i==0);
+        }
+        for(int i=0;i<NT;i++){
+            float t=(NT-1-i)/(float)(NT-1),spread=sinf(t*(float)M_PI),a=base-spread*.4f,r=L(.15f,.65f,t);
+            vp[NT+i]=optimizer::PathVertex(cosf(a)*r*sc,sinf(a)*r*sc,
+                    255,(uint8_t)(50+t*100),0,false);
+        }
+        segs[p]=optimizer::PathSegment(vp,PETAL,true);
+    }
+    optimizer::PathVertex* vc=v+NP*PETAL;
+    for(int i=0;i<NC;i++){
+        float a=PI2*i/(float)NC+rot*2;
+        vc[i]=optimizer::PathVertex(cosf(a)*.12f*sc,sinf(a)*.12f*sc,255,255,0,i==0);
+    }
+    segs[NP]=optimizer::PathSegment(vc,NC,true);
+    return optimizer::optimize(segs,NP+1,o,m,liveOptimizerConfig());
 }
 static size_t p88(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){ // Starburst (Kombi)
     size_t n=0;float sc=SC*ssc(sz)*.9f,off=aang(ph,sp);
@@ -985,11 +1500,12 @@ static size_t p100(LaserPoint*o, size_t m, uint32_t ph, uint8_t sp, uint8_t sz) 
     float total_w = show_h ? (dw*2+gap)*3 + gap*2 : (dw*2+gap)*2 + gap;
     float ox = -total_w * 0.5f + dw + gap * 0.5f;
 
+    // Colon pips: each is a short horizontal stroke -> line() (optimizer
+    // backed), so the jump between pips is eased/distance-scaled instead of
+    // the old single blank point.
     auto colon = [&](float cx) {
-        ap(o,n,m, cx-cdot*0.5f, dh*0.28f, cr,cg,cb, 1);
-        ap(o,n,m, cx+cdot*0.5f, dh*0.28f, cr,cg,cb, 0);
-        ap(o,n,m, cx-cdot*0.5f, -dh*0.28f, cr,cg,cb, 1);
-        ap(o,n,m, cx+cdot*0.5f, -dh*0.28f, cr,cg,cb, 0);
+        line(o,n,m, cx-cdot*0.5f,  dh*0.28f, cx+cdot*0.5f,  dh*0.28f, cr,cg,cb);
+        line(o,n,m, cx-cdot*0.5f, -dh*0.28f, cx+cdot*0.5f, -dh*0.28f, cr,cg,cb);
     };
 
     if (show_h) {
@@ -1009,8 +1525,7 @@ static size_t p100(LaserPoint*o, size_t m, uint32_t ph, uint8_t sp, uint8_t sz) 
         bool blink = (ph % 30) < 15;
         if (blink) {
             float dot_y = -dh * 0.6f;
-            ap(o,n,m, -SC*0.04f*sc2, dot_y, cr,cg,cb, 1);
-            ap(o,n,m,  SC*0.04f*sc2, dot_y, cr,cg,cb, 0);
+            line(o,n,m, -SC*0.04f*sc2, dot_y, SC*0.04f*sc2, dot_y, cr,cg,cb);
         }
     }
     return n;
@@ -1091,27 +1606,43 @@ static size_t p104(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
 // disc. Every emitted point now passes through one rotation by `off`. Each
 // sub-shape is blank-jumped so no stray connecting lines appear.
 static size_t p105(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
-    size_t n=0;
     float R=SC*ssc(sz)*.85f, off=aang(ph,sp);
     const float c=cosf(off),s=sinf(off);
-    auto rot=[&](float x,float y,uint8_t r,uint8_t g,uint8_t b,uint8_t bl){
-        ap(o,n,m,x*c-y*s,x*s+y*c,r,g,b,bl);};
-    // Outer circle
-    const int NC=64;
-    for(int i=0;i<=NC;i++){float a=PI2*i/NC;rot(R*cosf(a),R*sinf(a),255,255,255,i==0?1:0);}
-    // S-divider: upper half-circle (centre 0,+R/2) then lower (centre 0,-R/2),
-    // meeting at the origin to form one continuous S along the local y-axis.
-    const int NS=32;
+    // 4 segments in one optimize() call: outer circle (closed), the S-divider
+    // as ONE open chain (the two half-circles meet at the origin, so they are
+    // a single continuous stroke -- emitting them separately forced a blank
+    // jump through a point the beam was already sitting on), and the 2 eyes.
+    const int NC=64, NS=32, ND=20;
+    const int SN=2*NS+1;                  // S-chain: both halves, shared origin
+    optimizer::PathVertex v[NC+SN+2*ND];
+    optimizer::PathSegment segs[4];
+    auto rot=[&](float x,float y)->optimizer::PathVertex{
+        optimizer::PathVertex pv; pv.x=x*c-y*s; pv.y=x*s+y*c; return pv; };
+    optimizer::PathVertex* vo=v;
+    for(int i=0;i<NC;i++){float a=PI2*i/(float)NC;
+        vo[i]=rot(R*cosf(a),R*sinf(a));
+        vo[i].r=255;vo[i].g=255;vo[i].b=255;vo[i].lift=(i==0);}
+    segs[0]=optimizer::PathSegment(vo,NC,true);
+    optimizer::PathVertex* vs=v+NC; int k=0;
     for(int i=0;i<=NS;i++){float a=-(float)(M_PI/2)+(float)M_PI*i/NS;
-        rot((R*.5f)*cosf(a),(R*.5f)+(R*.5f)*sinf(a),255,255,255,i==0?1:0);}
-    for(int i=0;i<=NS;i++){float a=(float)(M_PI/2)+(float)M_PI*i/NS;
-        rot((R*.5f)*cosf(a),-(R*.5f)+(R*.5f)*sinf(a),255,255,255,i==0?1:0);}
-    // Eye dots
-    const int ND=20; float rd=R*.14f;
-    for(int i=0;i<=ND;i++){float a=PI2*i/ND;rot(rd*cosf(a),(R*.5f)+rd*sinf(a),255,0,0,i==0?1:0);}
-    for(int i=0;i<=ND;i++){float a=PI2*i/ND;rot(rd*cosf(a),-(R*.5f)+rd*sinf(a),0,255,255,i==0?1:0);}
-    if(n>0)ap(o,n,m,o[n-1].x,o[n-1].y,0,0,0,1);
-    return n;
+        vs[k]=rot((R*.5f)*cosf(a),(R*.5f)+(R*.5f)*sinf(a));
+        vs[k].r=255;vs[k].g=255;vs[k].b=255;vs[k].lift=(k==0);k++;}
+    for(int i=1;i<=NS;i++){float a=(float)(M_PI/2)+(float)M_PI*i/NS;
+        vs[k]=rot((R*.5f)*cosf(a),-(R*.5f)+(R*.5f)*sinf(a));
+        vs[k].r=255;vs[k].g=255;vs[k].b=255;vs[k].lift=false;k++;}
+    segs[1]=optimizer::PathSegment(vs,(size_t)k,false);
+    float rd=R*.14f;
+    optimizer::PathVertex* ve1=v+NC+SN;
+    for(int i=0;i<ND;i++){float a=PI2*i/(float)ND;
+        ve1[i]=rot(rd*cosf(a),(R*.5f)+rd*sinf(a));
+        ve1[i].r=255;ve1[i].g=0;ve1[i].b=0;ve1[i].lift=(i==0);}
+    segs[2]=optimizer::PathSegment(ve1,ND,true);
+    optimizer::PathVertex* ve2=v+NC+SN+ND;
+    for(int i=0;i<ND;i++){float a=PI2*i/(float)ND;
+        ve2[i]=rot(rd*cosf(a),-(R*.5f)+rd*sinf(a));
+        ve2[i].r=0;ve2[i].g=255;ve2[i].b=255;ve2[i].lift=(i==0);}
+    segs[3]=optimizer::PathSegment(ve2,ND,true);
+    return optimizer::optimize(segs,4,o,m,liveOptimizerConfig());
 }
 
 // ─── SZENEN 106 ────────────────────────────────────────────

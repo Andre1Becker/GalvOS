@@ -3863,28 +3863,44 @@ function resetOptimizerDefaults() {
     optimizerSlider();
 }
 
+// Per-profile tuned baselines. MUST mirror OPT_PROFILE_DEFAULTS in config.h
+// (index = OPT_PROFILE_*). Smart defaults previously wrote one generic set of
+// values regardless of which profile was open, which silently flattened the
+// six profiles back into one.
+const OPT_PROFILE_BASE = [
+    // cad, mincp, maxcp, ppu, blank, minbl, s1tgt, blppu, minip
+    { cad: 30, mincp: 2, maxcp: 8, ppu:  9.0, blank: 16, minbl: 6, s1tgt: 12, blppu:  8.0, minip: 8 }, // 0 Vector
+    { cad: 60, mincp: 2, maxcp: 3, ppu: 11.0, blank: 16, minbl: 6, s1tgt: 12, blppu:  8.0, minip: 8 }, // 1 Smooth
+    { cad: 35, mincp: 2, maxcp: 6, ppu:  8.0, blank: 16, minbl: 6, s1tgt: 12, blppu:  8.0, minip: 8 }, // 2 Waves
+    { cad: 25, mincp: 2, maxcp: 8, ppu:  6.0, blank: 12, minbl: 6, s1tgt: 10, blppu: 10.0, minip: 6 }, // 3 Wireframe
+    { cad: 25, mincp: 2, maxcp: 6, ppu:  5.0, blank: 12, minbl: 6, s1tgt: 10, blppu: 10.0, minip: 6 }, // 4 Multi-Object
+    { cad: 25, mincp: 2, maxcp: 4, ppu:  6.0, blank: 10, minbl: 6, s1tgt:  8, blppu: 12.0, minip: 4 }, // 5 Particles
+];
+
 function applyOptimizerSmartDefaults() {
     const maxPpf   = +document.getElementById('opt-maxppf').value || 1300;
     const output   = g_proj ? g_proj.kpps : 30;
     const rated    = s_galvoRatedKpps || 15;
     const r        = (rated > 0 && output > 0) ? rated / output : 1;
-    // Point density scales inversely with speed ratio
-    const ppu      = Math.round(6.0 / r * 10);           // slider ×10 encoding
+    // Baseline for the profile currently being edited, not a global constant.
+    const base     = OPT_PROFILE_BASE[g_activeOptimizerProfile] || OPT_PROFILE_BASE[0];
+    // Point density scales inversely with speed ratio (applyPpsScaling: ∝ 1/r)
+    const ppu      = Math.round(base.ppu / r * 10);      // slider ×10 encoding
     // Step/accel: derive from frame budget and speed ratio
     const stepBase = Math.min(4000, Math.max(10, Math.round(65535 / maxPpf * 4 / r)));
     const accelBase= Math.min(4000, Math.max(10, Math.round(stepBase * 4)));
 
-    document.getElementById('opt-cad').value   = 25;
-    document.getElementById('opt-mincp').value = 2;
-    document.getElementById('opt-maxcp').value = 8;
+    document.getElementById('opt-cad').value   = base.cad;
+    document.getElementById('opt-mincp').value = base.mincp;
+    document.getElementById('opt-maxcp').value = base.maxcp;
     document.getElementById('opt-ppu').value   = ppu;
     document.getElementById('opt-minsp').value = 2;
-    document.getElementById('opt-blank').value = 18;
+    document.getElementById('opt-blank').value = base.blank;
     document.getElementById('opt-maxppf').value= maxPpf;
-    document.getElementById('opt-minbl').value = 6;
-    document.getElementById('opt-blppu').value = 80;   // 8.0 ×10
-    document.getElementById('opt-minip').value = 8;
-    document.getElementById('opt-s1tgt').value = 18;
+    document.getElementById('opt-minbl').value = base.minbl;
+    document.getElementById('opt-blppu').value = Math.round(base.blppu * 10);
+    document.getElementById('opt-minip').value = base.minip;
+    document.getElementById('opt-s1tgt').value = base.s1tgt;
     document.getElementById('opt-rs-en').checked = false;
     document.getElementById('opt-rssp').value  = 160;
     document.getElementById('opt-ring-en').checked = false;
