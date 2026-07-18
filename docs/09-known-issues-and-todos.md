@@ -61,15 +61,6 @@ These affect core functionality and should be resolved before relying on those f
 **Status:** Open  
 **Detail:** When Point-Only mode is active, it is not defined which optimizer profile is applied. This may lead to unexpected point density or blanking behaviour depending on the currently active preset class.
 
-### Missing Patterns (Planned)
-
-The following patterns are planned but not yet implemented:
-
-- Endless Spiral
-- Endless Tunnel effekt
-- Point-to-multipoint spread (like a explosion)
-- milkyway galaxy animation (max 60 dots)
-
 ---
 
 ## Text Mode Issues

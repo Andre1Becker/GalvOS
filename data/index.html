@@ -119,8 +119,15 @@
   @media (max-width: 900px) { .opt-layout { grid-template-columns:1fr; } }
   .opt-members { position:sticky; top:12px; }
   .opt-member-item { font-size:11px; font-family:monospace; color:var(--dim);
-    padding:3px 0; border-bottom:1px solid var(--border); }
+    padding:3px 6px; border-bottom:1px solid var(--border); cursor:pointer;
+    border-radius:4px; transition:background 0.12s, color 0.12s;
+    display:flex; gap:6px; align-items:baseline; }
   .opt-member-item:last-child { border-bottom:0; }
+  .opt-member-item:hover { background:rgba(255,255,255,0.06); color:#e8e8e8; }
+  .opt-member-item.active { color:var(--accent); background:rgba(255,48,96,.14); }
+  .opt-member-item .idx { color:rgba(255,255,255,0.35); font-size:10px; }
+  .opt-member-item.unknown { cursor:default; opacity:0.5; }
+  .opt-member-item.unknown:hover { background:none; color:var(--dim); }
   .opt-member-empty { font-size:11px; color:var(--dim); font-style:italic; }
   /* Each parameter group is one visually enclosed cell. */
   .opt-group-label {
@@ -3729,6 +3736,11 @@ function renderAllPresetGrids() {
     renderPresets();
     renderPresetCategoryGrid('waves-preset-grid', 'Waves');
     renderPresetCategoryGrid('td-preset-grid', '3D');
+    // Optimizer member list mirrors the same active-preset highlight; refresh
+    // it here so selecting a preset anywhere updates it too. Guarded inside
+    // renderOptimizerMembers via element lookups.
+    if (typeof renderOptimizerMembers === 'function')
+        renderOptimizerMembers(g_activeOptimizerProfile);
 }
 
 async function activatePreset(idx) {
@@ -4076,8 +4088,21 @@ function renderOptimizerMembers(activeIdx) {
     setText('opt-members-desc',  prof ? prof.desc : '');
     const box = document.getElementById('opt-members-list');
     if (!box) return;
+    // Firmware sends member NAMES only (presetClassOf order); map each to its
+    // idx via the live PRESET_DEFS so the row can activate the preset. Preset
+    // names are unique (checked against PRESETS[]), so name->idx is
+    // unambiguous. A name missing from PRESET_DEFS (device unreachable, static
+    // fallback stale) renders as a non-clickable label rather than a dead link.
+    const idxByName = new Map((PRESET_DEFS || []).map(p => [p.name, p.idx]));
     box.innerHTML = list.length
-        ? list.map(n => `<div class="opt-member-item">${n}</div>`).join('')
+        ? list.map(n => {
+            const idx = idxByName.get(n);
+            if (idx == null) return `<div class="opt-member-item unknown">${n}</div>`;
+            const active = idx === s_activePresetIdx ? ' active' : '';
+            return `<div class="opt-member-item${active}" onclick="activatePreset(${idx})"
+                         title="Select #${String(idx).padStart(2,'0')} ${n}">`
+                 + `<span class="idx">#${String(idx).padStart(2,'0')}</span><span>${n}</span></div>`;
+          }).join('')
         : '<div class="opt-member-empty">No patterns assigned</div>';
 }
 
