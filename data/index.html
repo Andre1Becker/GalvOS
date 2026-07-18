@@ -285,6 +285,7 @@
     <span title="Primary temperature sensor">🌡 <span id="sb-temp" style="color:var(--text)">--</span> °C</span>
     <span title="Free heap (RAM)">🧠 <span id="sb-heap" style="color:var(--text)">--</span> KB</span>
     <span title="Free PSRAM">📦 <span id="sb-psram" style="color:var(--text)">--</span> KB</span>
+    <span title="Points per frame: total (n) / lit / blank">◈ <span id="sb-frame-n" style="color:var(--text)">--</span> pts (<span id="sb-frame-lit" style="color:#4f4">--</span> lit / <span id="sb-frame-blank" style="color:var(--dim)">--</span> blank)</span>
   </div>
 </header>
 <div id="safety-override-banner" style="display:none;background:var(--bad);color:#000;font-weight:700;text-align:center;padding:6px;font-size:13px">
@@ -421,6 +422,19 @@
         <div style="font-size:11px;color:var(--dim)">Last 5 min &nbsp;&mdash;&nbsp; kpps</div>
       </div>
       <canvas id="kpps-chart" style="width:100%;height:120px;background:#000;border-radius:4px;border:1px solid var(--border)"></canvas>
+    </div>
+
+    <!-- Frame Composition — cols 2-3 -->
+    <div class="card" style="grid-column:2/4">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+        <h2 style="margin:0">&#9654; Frame Composition</h2>
+        <div style="font-size:11px;color:var(--dim)">
+          <span style="color:#4caf50">&#9644;</span> Lit (lit) &nbsp;
+          <span style="color:#ff8c00">&#9644;</span> Blank (blank) &nbsp;
+          <span style="color:#444">&#9644;</span> Total (n)
+        </div>
+      </div>
+      <canvas id="frame-chart" style="width:100%;height:120px;background:#000;border-radius:4px;border:1px solid var(--border)"></canvas>
     </div>
 
   </div>
@@ -2132,6 +2146,18 @@ function handleStateUpdate(s) {
     var sbPsram = document.getElementById('sb-psram');
     if (sbPsram) sbPsram.textContent = psramKbSb;
   }
+  if (s.frame_n !== undefined) {
+    var sbFn  = document.getElementById('sb-frame-n');
+    var sbFl  = document.getElementById('sb-frame-lit');
+    var sbFb  = document.getElementById('sb-frame-blank');
+    if (sbFn)  sbFn.textContent  = s.frame_n;
+    if (sbFl)  sbFl.textContent  = s.frame_lit;
+    if (sbFb)  sbFb.textContent  = s.frame_blank;
+    var cutoff = Date.now() - HISTORY_SECS * 1000;
+    FRAME_HISTORY.push({ ts: Date.now(), n: s.frame_n, lit: s.frame_lit, blank: s.frame_blank });
+    while (FRAME_HISTORY.length > 0 && FRAME_HISTORY[0].ts < cutoff) FRAME_HISTORY.shift();
+    drawFrameChart();
+  }
   } catch(e) { console.error('handleStateUpdate CRASH line ~' + (e.stack||'').match(/:(\d+):/)?.[1] + ':', e.message); }
 }
 
@@ -2963,6 +2989,7 @@ const SENSOR_COLORS = ['#ff3060','#ff8c00','#ffd700','#4caf50','#4af'];
 const TEMP_HISTORY  = [];   // [{ts, temps:[5]}, ...]
 const HISTORY_SECS  = 300;  // 5 Minutes
 const KPPS_HISTORY  = [];   // [{ts, kpps}, ...]
+const FRAME_HISTORY = [];   // [{ts, n, lit, blank}, ...]
 
 // Default thresholds if none received from server yet
 let thresholdData = [
@@ -3209,6 +3236,80 @@ function drawKppsChart() {
   const last = recent[recent.length - 1].kpps;
   ctx.fillStyle = '#00c8ff'; ctx.font = 'bold 11px monospace';
   ctx.fillText(last.toFixed(1) + ' kpps', W - 70, 14);
+}
+
+function drawFrameChart() {
+  const canvas = document.getElementById('frame-chart');
+  if (!canvas) return;
+  const W = canvas.offsetWidth, H = canvas.offsetHeight;
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
+
+  if (FRAME_HISTORY.length < 2) return;
+
+  const now    = FRAME_HISTORY[FRAME_HISTORY.length - 1].ts;
+  const oldest = now - HISTORY_SECS * 1000;
+  const recent = FRAME_HISTORY.filter(p => p.ts >= oldest);
+  if (recent.length < 2) return;
+
+  const yMax  = Math.max(...recent.map(p => p.n), 100);
+  const mapY  = v => H - (v / yMax) * H;
+  const mapX  = ts => ((ts - oldest) / (HISTORY_SECS * 1000)) * W;
+
+  // Grid lines at 25/50/75/100%
+  ctx.strokeStyle = '#1a1a1a'; ctx.lineWidth = 1;
+  [0.25, 0.5, 0.75, 1.0].forEach(f => {
+    const y = mapY(yMax * f);
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+    ctx.fillStyle = '#333'; ctx.font = '9px monospace';
+    ctx.fillText(Math.round(yMax * f), 2, y - 2);
+  });
+
+  // Filled area: total n (dark grey background)
+  ctx.beginPath();
+  recent.forEach((p, i) => { const x = mapX(p.ts), y = mapY(p.n); i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); });
+  ctx.lineTo(mapX(recent[recent.length - 1].ts), H);
+  ctx.lineTo(mapX(recent[0].ts), H);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(80,80,80,0.25)';
+  ctx.fill();
+
+  // Filled area: lit (green)
+  ctx.beginPath();
+  recent.forEach((p, i) => { const x = mapX(p.ts), y = mapY(p.lit); i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); });
+  ctx.lineTo(mapX(recent[recent.length - 1].ts), H);
+  ctx.lineTo(mapX(recent[0].ts), H);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(76,175,80,0.20)';
+  ctx.fill();
+
+  // Line: total n (dim grey)
+  ctx.strokeStyle = '#555'; ctx.lineWidth = 1;
+  ctx.beginPath();
+  recent.forEach((p, i) => { const x = mapX(p.ts), y = mapY(p.n); i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); });
+  ctx.stroke();
+
+  // Line: lit (green)
+  ctx.strokeStyle = '#4caf50'; ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  recent.forEach((p, i) => { const x = mapX(p.ts), y = mapY(p.lit); i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); });
+  ctx.stroke();
+
+  // Line: blank (orange)
+  ctx.strokeStyle = '#ff8c00'; ctx.lineWidth = 1;
+  ctx.setLineDash([3, 3]);
+  ctx.beginPath();
+  recent.forEach((p, i) => { const x = mapX(p.ts), y = mapY(p.blank); i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); });
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Current value labels (top-right)
+  const last = recent[recent.length - 1];
+  ctx.font = 'bold 10px monospace';
+  ctx.fillStyle = '#888';   ctx.fillText('n='     + last.n,     W - 130, 14);
+  ctx.fillStyle = '#4caf50'; ctx.fillText('lit='  + last.lit,   W - 85,  14);
+  ctx.fillStyle = '#ff8c00'; ctx.fillText('blank=' + last.blank, W - 40,  14);
 }
 
 // Current temperature badge colors matching chart legend

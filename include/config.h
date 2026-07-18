@@ -376,6 +376,9 @@ struct RuntimeState {
     std::atomic<uint8_t>  thermal_power_scale {255};  // 255=100%; set by temp::task() via gSafety.temp_reduce_c
     std::atomic<uint32_t> points_per_sec    {0};
     std::atomic<uint32_t> fps               {0};      // drawn frames/sec, see galvo::fps()
+    std::atomic<uint32_t> frame_n           {0};      // total points in last rendered frame
+    std::atomic<uint32_t> frame_lit         {0};      // lit (non-blank) points in last frame
+    std::atomic<uint32_t> frame_blank       {0};      // blank points in last frame
     std::atomic<uint32_t> dmx_frame_count   {0};
     std::atomic<uint32_t> last_dmx_ms       {0};
     // UI Override: WebUI takes priority over DMX/Art-Net when active

@@ -1383,20 +1383,12 @@ void task(void*) {
             applyPointsOnlyMode(n);
             if (n == 0) { static LaserPoint blank_pt={0,0,0,0,0,1}; galvo::pushFrame(&blank_pt,1); vTaskDelay(pdMS_TO_TICKS(40)); continue; }  // guard: points mode emptied frame
             {
-                // TEMP DEBUG: log point count (total/lit/blank) per frame,
-                // rate-limited to ~1x/2s. Covers ALL presets (ngon/star/wf/
-                // curves), since every preset path reaches this point
-                // before pushFrame(). Remove once point_optimizer density
-                // is validated across all migrated presets.
-                static uint32_t s_lastLogMs = 0;
-                uint32_t nowMs = millis();
-                if (nowMs - s_lastLogMs > 2000) {
-                    s_lastLogMs = nowMs;
-                    size_t litCount = 0;
-                    for (size_t i = 0; i < n; i++) if (!s_frame[i].blank) litCount++;
-                    LOG_I(logbuf::CAT_GALVO, "Preset frame: n=%u lit=%u blank=%u",
-                          (unsigned)n, (unsigned)litCount, (unsigned)(n - litCount));
-                }
+                // Update per-frame point composition stats (visible in dashboard chart + status bar)
+                size_t litCount = 0;
+                for (size_t i = 0; i < n; i++) if (!s_frame[i].blank) litCount++;
+                gState.frame_n.store((uint32_t)n);
+                gState.frame_lit.store((uint32_t)litCount);
+                gState.frame_blank.store((uint32_t)(n - litCount));
             }
             applyTransform(s_frame, n, v, phase);
             applyCalibration(s_frame, n);
