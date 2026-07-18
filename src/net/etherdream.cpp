@@ -129,6 +129,15 @@ static void sendBeacon() {
         return;
     }
 
+    // A large static HTTP response (e.g. index.html.gz on a browser hard
+    // reload) is actively streaming and pressuring the shared internal
+    // heap -- skip this cycle rather than add another allocation to it.
+    // Fail-streak state is left untouched: this only pauses attempts, it
+    // doesn't mask a starvation that was already in progress beforehand.
+    if (millis() < gState.heavy_io_until_ms.load()) {
+        return;
+    }
+
     DACBroadcast bc{};
     uint64_t mac = ESP.getEfuseMac();
     memcpy(bc.mac, &mac, 6);

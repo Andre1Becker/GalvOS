@@ -69,6 +69,63 @@ static void sendJsonPsram(AsyncWebServerRequest* req, const JsonDocument& doc) {
         });
     req->send(resp);
 }
+
+// ── PSRAM-cached index.html.gz ────────────────────────────────────────────────
+// serveStatic's LittleFS-backed AsyncFileResponse re-reads the ~103 KB gzipped
+// bundle from flash into internal-heap chunks on every request. Under normal
+// browsing this only happens once (Cache-Control: max-age=3600 keeps repeat
+// loads out of the device entirely), but a browser hard-reload sends
+// Cache-Control: no-cache and skips its own cache validation, forcing a fresh
+// fetch every time -- that cold-load DRAM spike is what pushed `largest` to
+// 1524 B in a HEAP_CRITICAL failsafe reboot. Loading the file into PSRAM once
+// at boot and streaming straight from there removes the repeated flash-read +
+// internal-heap churn; only the small per-connection TCP framing buffer
+// (ESPAsyncWebServer's own ASYNC_RESPONCE_BUFF_SIZE) still touches internal RAM.
+static std::shared_ptr<uint8_t> s_index_gz_buf;
+static size_t                   s_index_gz_len = 0;
+
+static void loadIndexGzToPsram() {
+    File f = LittleFS.open("/index.html.gz", "r");
+    if (!f) { ESP_LOGE(TAG, "index.html.gz not found on LittleFS"); return; }
+    size_t len = f.size();
+    uint8_t* buf = (uint8_t*)heap_caps_malloc(len, MALLOC_CAP_SPIRAM);
+    if (!buf) {
+        ESP_LOGE(TAG, "PSRAM alloc failed for index.html.gz (%u B)", (unsigned)len);
+        f.close();
+        return;
+    }
+    size_t got = f.read(buf, len);
+    f.close();
+    if (got != len) {
+        ESP_LOGE(TAG, "index.html.gz short read %u/%u", (unsigned)got, (unsigned)len);
+        heap_caps_free(buf);
+        return;
+    }
+    s_index_gz_buf.reset(buf, [](uint8_t* p) { heap_caps_free(p); });
+    s_index_gz_len = len;
+    ESP_LOGI(TAG, "index.html.gz cached in PSRAM (%u B)", (unsigned)len);
+}
+
+static void serveIndexGz(AsyncWebServerRequest* req) {
+    if (!s_index_gz_buf) { req->send(500, "text/plain", "index unavailable"); return; }
+    std::shared_ptr<uint8_t> buf = s_index_gz_buf;  // keep alive for the response's lifetime
+    size_t len = s_index_gz_len;
+    AsyncWebServerResponse* resp = req->beginChunkedResponse(
+        "text/html",
+        [buf, len](uint8_t* out, size_t maxLen, size_t index) -> size_t {
+            if (index >= len) return 0;
+            // Heavy-IO window: lets etherdream's beacon skip sends while this
+            // transfer is actively pressuring the shared internal heap.
+            gState.heavy_io_until_ms.store(millis() + 3000);
+            size_t n = std::min(maxLen, len - index);
+            memcpy(out, buf.get() + index, n);
+            return n;
+        });
+    resp->addHeader("Content-Encoding", "gzip");
+    resp->addHeader("Cache-Control", "max-age=3600");
+    req->send(resp);
+}
+
 // ── Session Auth Token ────────────────────────────────────────────────────────
 static char s_auth_token[17] = {0};
 
@@ -417,9 +474,16 @@ void init() {
 
     if (!LittleFS.begin(true))
         ESP_LOGE(TAG, "LittleFS mount failed");
+    else
+        loadIndexGzToPsram();
 
     // ---- Statische SPA ----
-    // register serveStatic at end -- API routes take precedence
+    // "/" and "/index.html" are served from the PSRAM cache (see
+    // serveIndexGz above); serveStatic below only handles the small
+    // remaining assets (favicon, logo). register serveStatic at end --
+    // API routes take precedence
+    s_server.on("/", HTTP_GET, serveIndexGz);
+    s_server.on("/index.html", HTTP_GET, serveIndexGz);
     // (called further below, directly before s_server.begin())
 
     // ---- GET /api/state ----

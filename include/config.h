@@ -392,6 +392,13 @@ struct RuntimeState {
     // ui_master_dimmer is always applied; ui_override also blocks DMX source
     std::atomic<bool>     ui_override       {false};  // true = ignore DMX, use WebUI
     std::atomic<uint8_t>  ui_master_dimmer  {0};      // 0 = follow DMX CH1, 1-255 = forced
+    // Refreshed (millis() + margin) on every chunk of a large static HTTP
+    // response (e.g. index.html.gz on a hard reload) -- see web_ui.cpp's
+    // serveIndexGz. Lets other internal-DRAM-sensitive subsystems (the
+    // EtherDream discovery beacon) skip non-essential allocations while a
+    // transfer is actively pressuring the shared lwIP pool, without
+    // touching the safety-critical HEAP_CRITICAL failsafe itself.
+    std::atomic<uint32_t> heavy_io_until_ms {0};
     // calibration pattern mode (less time-critical, volatile is sufficient)
     volatile bool         calib_active      = false;
     volatile uint8_t      calib_idx         = 0;
