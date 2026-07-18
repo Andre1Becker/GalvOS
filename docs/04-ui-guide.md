@@ -224,8 +224,7 @@ Full channel map: see [Chapter 3 — Build & Configuration → RuntimeConfig →
 
 Projects laser text. Text mode overrides any active preset and DMX input while active.
 
-<img width="1305" height="480" alt="image" src="https://github.com/user-attachments/assets/3e7c9616-82c7-43da-99e5-a91b2d1a3ea0" />
-
+<img width="1304" height="481" alt="image" src="https://github.com/user-attachments/assets/f97eaf84-a390-4475-aa8a-0ad86cde2ad2" />
 
 - **Text input** — supports uppercase A–Z, digits 0–9, and `.,:!?-+`. Maximum 127 characters. Up to 16 characters display statically; longer text scrolls automatically.
 - **Font** — Simple (thin strokes, fastest), Bold (thick strokes), Outline (double-line).
@@ -243,7 +242,6 @@ Projects laser text. Text mode overrides any active preset and DMX input while a
 A freehand drawing canvas that projects directly onto the laser.
 
 <img width="1316" height="1022" alt="image" src="https://github.com/user-attachments/assets/dd4a19df-7960-4434-afc9-cc2dbc7c8945" />
-
 
 - **Draw mode** — finger or mouse draws freehand strokes on the canvas.
 - **Shape tools** — add rectangles, triangles, or circles as closed polygons.
