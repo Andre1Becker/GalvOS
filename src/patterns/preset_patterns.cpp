@@ -2307,8 +2307,8 @@ static size_t p_explosion(LaserPoint* o, size_t m, uint32_t ph, uint8_t sp, uint
     return n;
 }
 
-// p_fireworks -- New Year's Fireworks. Each shell: two rocket dots rise from
-// the bottom, then burst into radial sparks with a glitter (twinkle) overlay.
+// p_fireworks -- New Year's Fireworks. Each shell: a rocket dot rises from
+// the bottom, then bursts into radial sparks with a glitter (twinkle) overlay.
 // Angle, burst height and colour are re-rolled per shell instance, so every
 // launch differs. Up to fw_max_shells run concurrently, phase-staggered.
 //   sp = launch tempo
@@ -2352,16 +2352,13 @@ static size_t p_fireworks(LaserPoint* o, size_t m, uint32_t ph, uint8_t sp, uint
         const float finalX  = launchX + driftX;                              // trajectory endpoint = burst X
 
         if (t < riseMs) {
-            // ── Rising: two rocket dots climbing (slightly curved/diagonal path) ──
+            // ── Rising: single rocket dot climbing (slightly curved/diagonal path) ──
             const float rp = (float)t / (float)riseMs;
             const float ry = L(startY, burstY, rp);
-            const float rxc = launchX + driftX * rp + curveX * sinf(rp * (float)M_PI);
+            const float rx = launchX + driftX * rp + curveX * sinf(rp * (float)M_PI);
             const uint8_t rv = (uint8_t)(180 + 75 * sinf(rp * (float)M_PI));
-            for (int d = 0; d < 2; d++) {
-                const float rx = rxc + (d == 0 ? -sc * 0.015f : sc * 0.015f);
-                optimizer::emitBlankTo(o, n, m, rx, ry, cfg);
-                for (int k = 0; k < dwell && n < m; k++) ap(o, n, m, rx, ry, rv, rv, 255, 0);
-            }
+            optimizer::emitBlankTo(o, n, m, rx, ry, cfg);
+            for (int k = 0; k < dwell * 2 && n < m; k++) ap(o, n, m, rx, ry, rv, rv, 255, 0);
         } else {
             // ── Burst: radial sparks + colour shift + glitter ──
             const float bp = (float)(t - riseMs) / (float)burstMs;           // 0..1
