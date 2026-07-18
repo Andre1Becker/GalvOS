@@ -392,22 +392,12 @@ static size_t sinewave(LaserPoint*o,size_t mx,float A,float f,float ph_off,float
     optimizer::OptimizerConfig cfg=liveOptimizerConfig();
     if(budget_share>0 && budget_share<cfg.max_pts_per_frame)
         cfg.max_pts_per_frame=budget_share;
-    // Vertex cap against THIS call's (possibly reduced) budget -- see
-    // vertexBudget(). Multi-wave callers shrink the budget, which shrinks the
-    // affordable vertex count with it.
-    {
-        uint8_t wc=cfg.max_corner_pts;
-        if(wc<cfg.min_corner_pts) wc=cfg.min_corner_pts;
-        if(wc<1) wc=1;
-        uint32_t blank_reserve=(uint32_t)(cfg.blank_samples+cfg.min_blank_samples)*2u;
-        uint32_t interior_reserve=(uint32_t)((float)cfg.max_pts_per_frame*0.10f);
-        int32_t avail=(int32_t)cfg.max_pts_per_frame-(int32_t)blank_reserve-(int32_t)interior_reserve;
-        if(avail<8) avail=8;
-        int vb=avail/(int)wc;
-        if(vb<8) vb=8;
-        if(vb>CURVE_MAX_PTS-1) vb=CURVE_MAX_PTS-1;
-        if(N>vb) N=vb;
-    }
+    // Sine waves are smooth curves with no corners, so the corner-dwell-based
+    // vertex budget formula (avail/max_corner_pts) would artificially cap N
+    // far below what the optimizer can actually spend. Skip it: the optimizer
+    // enforces cfg.max_pts_per_frame on output, which is already set to
+    // budget_share above. Just guard against the array limit.
+    if(N>CURVE_MAX_PTS-1) N=CURVE_MAX_PTS-1;
     optimizer::PathVertex v[CURVE_MAX_PTS];
     for(int i=0;i<=N;i++){
         float x=L(-1.f,1.f,i/float(N));

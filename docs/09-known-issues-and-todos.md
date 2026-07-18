@@ -86,11 +86,6 @@ These affect core functionality and should be resolved before relying on those f
 **Symptom 1:** The scroll direction is incorrect (text moves in the wrong direction).  
 **Symptom 2:** The text renders as dots only instead of the expected vector strokes.
 
-### Bouncing Balls
-
-**Status:** Open
-**Symptom:** Trail Length is not working.
-
 ---
 
 ## Calibration Issues
