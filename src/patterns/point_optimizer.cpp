@@ -407,10 +407,21 @@ static void emitSegment(const PathSegment& seg, const OptimizerConfig& cfg,
 
     // Final vertex of an open path needs its own corner point(s) --
     // closed paths already covered the last vertex as the "a" of the
-    // wrap-around edge above.
+    // wrap-around edge above. Must match planSegment(), which budgets
+    // cornerPtsAtVertex() (up to max_corner_pts, since an open endpoint
+    // is always worst-case severity) for this vertex too -- emitting
+    // only one point here starved the far end of every open line
+    // (line() calls, open PathSegment strokes) of its planned dwell,
+    // most visible on short segments where that endpoint dwell is a
+    // large share of the total lit points (e.g. DNA-helix rungs near
+    // the strand crossings): the line looked cut short/dim instead of
+    // fully drawn.
     if (!seg.closed) {
         const PathVertex& vlast = seg.vertices[seg.count - 1];
-        emit(out, n, max, vlast.x, vlast.y, vlast.r, vlast.g, vlast.b, 0);
+        uint8_t cpts = cornerPtsAtVertex(seg, cfg, seg.count - 1);
+        for (uint8_t k = 0; k < cpts; k++) {
+            emit(out, n, max, vlast.x, vlast.y, vlast.r, vlast.g, vlast.b, 0);
+        }
     } else {
         // Closed path: the wrap-around edge's interior points approach
         // vertex 0 but never land on it. A single closing point wasn't
