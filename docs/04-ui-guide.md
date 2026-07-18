@@ -440,6 +440,9 @@ Build and manage playlists of ILDA files for automated sequential playback.
 
 > ⚠️ Requires SD card — see [Known Issues](09-known-issues-and-todos.md) for the SD card / galvo bug.
 
+<img width="911" height="296" alt="image" src="https://github.com/user-attachments/assets/68b61cc0-4d2a-426c-b36b-42209341612a" />
+
+
 - Add ILDA files to the playlist, set loop count and pause duration per entry.
 - Loop All toggle — loops the entire playlist indefinitely.
 - Play / Stop controls.
@@ -450,7 +453,7 @@ Build and manage playlists of ILDA files for automated sequential playback.
 
 Fan and temperature management.
 
-[SCREENSHOT: Thermal tab]
+<img width="1313" height="486" alt="image" src="https://github.com/user-attachments/assets/a2ea8b82-212e-47c1-b504-8b3687200946" />
 
 - **Temperature thresholds** — configure warn, reduce, and shutdown temperatures (`temp_warn_c`, `temp_reduce_c`, `temp_shutdown_c`).
 - **Fan control** — Auto mode (temperature-driven) or manual PWM override per fan.
@@ -463,7 +466,8 @@ Fan and temperature management.
 
 Live firmware log output, streamed from the ESP32 over the WebSocket. Auto-refreshes only when this tab is active.
 
-[SCREENSHOT: Log tab]
+<img width="1304" height="299" alt="image" src="https://github.com/user-attachments/assets/ab6f4f1e-f2f9-4ef4-b8c3-3c9f06cc3673" />
+
 
 - Log entries are colour-coded by severity: INFO (dim), WARN (orange), ERROR (red).
 - Use this tab to diagnose startup issues, track DMX frame counts, or watch for ring buffer overflow warnings.
@@ -475,7 +479,8 @@ Live firmware log output, streamed from the ESP32 over the WebSocket. Auto-refre
 
 Network, DMX, safety, IP, and debug settings.
 
-[SCREENSHOT: Configuration tab]
+<img width="1312" height="777" alt="image" src="https://github.com/user-attachments/assets/5f74cd78-1b68-41fe-b561-f5f8da29db6b" />
+
 
 ### DMX and Art-Net
 - **DMX Start Address** (1–512) — first DMX channel GalvOS responds to.
@@ -496,6 +501,9 @@ Network, DMX, safety, IP, and debug settings.
 - **⚠ Factory Reset** — clears all NVS config and restarts. Wi-Fi credentials are lost; AP mode restarts.
 
 ### Debug
+
+<img width="661" height="1067" alt="image" src="https://github.com/user-attachments/assets/53e0ca32-2101-4cd9-b27e-b74267066ddf" />
+
 - **No-HW Mode** — skips SPI/DAC init at boot. Use only for firmware development without hardware connected. Disable before normal operation.
 - **DAC Debug Log** — logs DAC8562 register writes to serial and the Log tab (rate-limited). For low-level DAC debugging only.
 - **OTA Update** — firmware update via HTTP at `http://laser/update` (admin / your password).
