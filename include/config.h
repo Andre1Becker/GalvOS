@@ -124,17 +124,19 @@ struct OptimizerLiveConfig {
 //   Index 3 = Wireframe    3D edge chains (corner dwell + short jumps)
 //   Index 4 = MultiObject  several closed objects (long blank jumps)
 //   Index 5 = Particles    isolated dots (blank jumps only)
+//   Index 6 = Trails       moving dots with fade tails (reduced budget)
 //
 // NVS key suffixes are pinned per index so existing stored parameters
 // migrate onto the renamed profile rather than resetting to defaults.
 
-constexpr uint8_t OPT_PROFILE_COUNT       = 6;
+constexpr uint8_t OPT_PROFILE_COUNT       = 7;
 constexpr uint8_t OPT_PROFILE_VECTOR      = 0;
 constexpr uint8_t OPT_PROFILE_SMOOTH      = 1;
 constexpr uint8_t OPT_PROFILE_WAVES       = 2;
 constexpr uint8_t OPT_PROFILE_WIREFRAME   = 3;
 constexpr uint8_t OPT_PROFILE_MULTIOBJECT = 4;
 constexpr uint8_t OPT_PROFILE_PARTICLES   = 5;
+constexpr uint8_t OPT_PROFILE_TRAILS      = 6;
 
 // ── PER-PROFILE TUNED DEFAULTS ──────────────────────────────────────────────
 // The OPT_DEFAULT_* macros above are the GENERIC fallback (and the reset
@@ -170,17 +172,22 @@ struct OptimizerProfileDefaults {
     uint8_t  stage1_blank_target;
     float    blank_pts_per_1000_units;
     uint8_t  min_interior_pts_per_segment;
+    uint16_t max_pts_per_frame;   // per-profile frame budget (was a single
+                                  // global default). Trails needs a smaller
+                                  // budget than the rest so blank overhead
+                                  // does not starve later meteors.
 };
 
 // Order MUST match OPT_PROFILE_* indices.
 static const OptimizerProfileDefaults OPT_PROFILE_DEFAULTS[OPT_PROFILE_COUNT] = {
-    // cad, mincp, maxcp, p/1k, blank, minbl, s1tgt, blppu, minip
-    {  30.f,   2,     8,    9.f,   16,    6,    12,    8.f,    8 },  // 0 Vector
-    {  60.f,   2,     3,   11.f,   16,    6,    12,    8.f,    8 },  // 1 Smooth
-    {  35.f,   2,     6,    8.f,   16,    6,    12,    8.f,    8 },  // 2 Waves
-    {  25.f,   2,     8,    6.f,   12,    6,    10,   10.f,    6 },  // 3 Wireframe
-    {  25.f,   2,     6,    5.f,   12,    6,    10,   10.f,    6 },  // 4 MultiObject
-    {  25.f,   2,     4,    6.f,   10,    6,     8,   12.f,    4 },  // 5 Particles
+    // cad, mincp, maxcp, p/1k, blank, minbl, s1tgt, blppu, minip, maxppf
+    {  30.f,   2,     8,    9.f,   16,    6,    12,    8.f,    8,   1300 },  // 0 Vector
+    {  60.f,   2,     3,   11.f,   16,    6,    12,    8.f,    8,   1300 },  // 1 Smooth
+    {  35.f,   2,     6,    8.f,   16,    6,    12,    8.f,    8,   1300 },  // 2 Waves
+    {  25.f,   2,     8,    6.f,   12,    6,    10,   10.f,    6,   1300 },  // 3 Wireframe
+    {  25.f,   2,     6,    5.f,   12,    6,    10,   10.f,    6,   1300 },  // 4 MultiObject
+    {  25.f,   2,     4,    6.f,   10,    6,     8,   12.f,    4,   1300 },  // 5 Particles
+    {  60.f,   3,     3,   11.f,   16,    6,    12,    8.f,    8,    880 },  // 6 Trails
 };
 
 extern OptimizerLiveConfig gOptimizerProfiles[OPT_PROFILE_COUNT];

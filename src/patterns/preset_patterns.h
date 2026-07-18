@@ -73,6 +73,13 @@ Preset presetFromIndex(int raw);
 //   Wireframe   3D edge chains -> corner dwell + short blank jumps
 //   MultiObject several separate closed objects -> long blank jumps
 //   Particles   isolated dots, no geometry -> blank jumps dominate
+//   Trails      moving dots with connected fade tails (meteors) -> like
+//               Particles but the tails are short continuous chains, so a
+//               reduced per-frame budget keeps every meteor drawable instead
+//               of the blank overhead starving later ones. Split from
+//               Particles because the two want opposite budgets: hardware
+//               testing showed the pure-dot presets look correct at a high
+//               blank length that truncates the trail-based ones.
 enum class PresetClass : uint8_t {
     Vector      = 0,
     Smooth      = 1,
@@ -80,6 +87,7 @@ enum class PresetClass : uint8_t {
     Wireframe   = 3,
     MultiObject = 4,
     Particles   = 5,
+    Trails      = 6,
 };
 PresetClass presetClassOf(Preset p);
 

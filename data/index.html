@@ -187,7 +187,7 @@
   }
   .toggle input:checked ~ .slider { background: var(--accent); }
   .toggle input:checked ~ .slider::after { transform: translateX(16px); }
-  
+
   /* Modal */
   .modal-bg {
     position: fixed; inset: 0; background: rgba(0,0,0,0.7);
@@ -1753,7 +1753,7 @@
       <button class="btn" style="margin-top:16px" onclick="saveThresholds()">Save</button>
     </div>
 
-    
+
 
   </div>
 </section>
@@ -3969,22 +3969,26 @@ function resetOptimizerDefaults() {
 // values regardless of which profile was open, which silently flattened the
 // six profiles back into one.
 const OPT_PROFILE_BASE = [
-    // cad, mincp, maxcp, ppu, blank, minbl, s1tgt, blppu, minip
-    { cad: 30, mincp: 2, maxcp: 8, ppu:  9.0, blank: 16, minbl: 6, s1tgt: 12, blppu:  8.0, minip: 8 }, // 0 Vector
-    { cad: 60, mincp: 2, maxcp: 3, ppu: 11.0, blank: 16, minbl: 6, s1tgt: 12, blppu:  8.0, minip: 8 }, // 1 Smooth
-    { cad: 35, mincp: 2, maxcp: 6, ppu:  8.0, blank: 16, minbl: 6, s1tgt: 12, blppu:  8.0, minip: 8 }, // 2 Waves
-    { cad: 25, mincp: 2, maxcp: 8, ppu:  6.0, blank: 12, minbl: 6, s1tgt: 10, blppu: 10.0, minip: 6 }, // 3 Wireframe
-    { cad: 25, mincp: 2, maxcp: 6, ppu:  5.0, blank: 12, minbl: 6, s1tgt: 10, blppu: 10.0, minip: 6 }, // 4 Multi-Object
-    { cad: 25, mincp: 2, maxcp: 4, ppu:  6.0, blank: 10, minbl: 6, s1tgt:  8, blppu: 12.0, minip: 4 }, // 5 Particles
+    // cad, mincp, maxcp, ppu, blank, minbl, s1tgt, blppu, minip, maxppf
+    { cad: 30, mincp: 2, maxcp: 8, ppu:  9.0, blank: 16, minbl: 6, s1tgt: 12, blppu:  8.0, minip: 8, maxppf: 1300 }, // 0 Vector
+    { cad: 60, mincp: 2, maxcp: 3, ppu: 11.0, blank: 16, minbl: 6, s1tgt: 12, blppu:  8.0, minip: 8, maxppf: 1300 }, // 1 Smooth
+    { cad: 35, mincp: 2, maxcp: 6, ppu:  8.0, blank: 16, minbl: 6, s1tgt: 12, blppu:  8.0, minip: 8, maxppf: 1300 }, // 2 Waves
+    { cad: 25, mincp: 2, maxcp: 8, ppu:  6.0, blank: 12, minbl: 6, s1tgt: 10, blppu: 10.0, minip: 6, maxppf: 1300 }, // 3 Wireframe
+    { cad: 25, mincp: 2, maxcp: 6, ppu:  5.0, blank: 12, minbl: 6, s1tgt: 10, blppu: 10.0, minip: 6, maxppf: 1300 }, // 4 Multi-Object
+    { cad: 25, mincp: 2, maxcp: 4, ppu:  6.0, blank: 10, minbl: 6, s1tgt:  8, blppu: 12.0, minip: 4, maxppf: 1300 }, // 5 Particles
+    { cad: 60, mincp: 3, maxcp: 3, ppu: 11.0, blank: 16, minbl: 6, s1tgt: 12, blppu:  8.0, minip: 8, maxppf:  880 }, // 6 Trails
 ];
 
 function applyOptimizerSmartDefaults() {
-    const maxPpf   = +document.getElementById('opt-maxppf').value || 1300;
     const output   = g_proj ? g_proj.kpps : 30;
     const rated    = s_galvoRatedKpps || 15;
     const r        = (rated > 0 && output > 0) ? rated / output : 1;
     // Baseline for the profile currently being edited, not a global constant.
     const base     = OPT_PROFILE_BASE[g_activeOptimizerProfile] || OPT_PROFILE_BASE[0];
+    // Frame budget comes from the profile baseline (Trails is 880, the rest
+    // 1300), not the current slider -- otherwise switching to Trails and
+    // hitting Smart defaults would keep the previous profile's 1300.
+    const maxPpf   = base.maxppf || 1300;
     // Point density scales inversely with speed ratio (applyPpsScaling: ∝ 1/r)
     const ppu      = Math.round(base.ppu / r * 10);      // slider ×10 encoding
     // Step/accel: derive from frame budget and speed ratio
@@ -4037,6 +4041,8 @@ const OPT_PROFILES = [
       desc: 'Several separate closed objects. Long blank jumps dominate.' },
     { icon: '\u2726', name: 'Particles',
       desc: 'Isolated dots without connecting geometry. Blank jumps only.' },
+    { icon: '\u2604', name: 'Trails',
+      desc: 'Moving dots with fade tails (meteors). Reduced budget so blank overhead does not truncate later tails.' },
 ];
 
 // Member names per profile, filled from /api/config.
@@ -6916,7 +6922,7 @@ document.addEventListener('DOMContentLoaded', initParamPreviews);
 <div class="opt-columns">
       <div class="opt-col-block">
       <div class="opt-group-label">Corner handling</div>
-      
+
       <label>Corner angle threshold (°) <code style="font-size:10px;color:var(--dim)">(corner_angle_deg)</code> <span id="opt-cad-val" style="color:var(--accent);font-family:monospace">25.0</span>
         <span class="help-icon" title="Vertex angle below which a point counts as a sharp corner (0°=straight through, 180°=full U-turn). Detected corners get extra dwell points from Min/Max corner points below.">?</span>
       </label>
@@ -6935,7 +6941,7 @@ document.addEventListener('DOMContentLoaded', initParamPreviews);
 
       <div class="opt-col-block">
       <div class="opt-group-label">Interior density</div>
-      
+
       <label>Interior density (pts / 1000 units) <code style="font-size:10px;color:var(--dim)">(pts_per_1000_units)</code> <span id="opt-ppu-val" style="color:var(--accent);font-family:monospace">4.0</span>
         <span class="help-icon" title="Point density along straight/curved edges between corners. Low value gives visible faceting. Works together with Min segment points and Min interior pts/segment.">?</span>
       </label>
@@ -6962,7 +6968,7 @@ document.addEventListener('DOMContentLoaded', initParamPreviews);
 
       <div class="opt-col-block">
       <div class="opt-group-label">Blank jumps (laser off)</div>
-      
+
       <label>Blank samples (max) <code style="font-size:10px;color:var(--dim)">(blank_samples)</code> <span id="opt-blank-val" style="color:var(--accent);font-family:monospace">40</span>
         <span class="help-icon" title="Max points inserted into a blanked jump between shapes. Higher gives a smoother galvo move but costs more of the frame budget. Related to Min blank samples and Stage1 blank target.">?</span>
       </label>

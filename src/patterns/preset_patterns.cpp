@@ -2251,8 +2251,17 @@ PresetClass presetClassOf(Preset p)
 
         // ── Particles: isolated dots, no connecting geometry ──────────
         case P::Starfield: case P::RandomPoints: case P::PointSpread:
-        case P::ConfettiBurst: case P::BouncingPoints: case P::ShootingStars:
+        case P::ConfettiBurst: case P::BouncingPoints:
             return presets::PresetClass::Particles;
+
+        // ── Trails: moving dots with connected fade tails ─────────────
+        // Same blank-dominated workload as Particles, but the tails are short
+        // continuous chains. The pure-dot presets are tuned (on hardware) with
+        // a high blank length that looks correct for isolated points but eats
+        // enough of the frame to truncate a meteor's tail here, so Trails runs
+        // a reduced budget (880) with the Smooth-style density instead.
+        case P::ShootingStars:
+            return presets::PresetClass::Trails;
 
         // ── Animated geometric structures ──────────────────────────────────
         case P::PythagorasTree:

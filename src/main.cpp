@@ -88,6 +88,7 @@ static void loadConfig() {
         { "_3",   OPT_PROFILE_WIREFRAME   },  // was ThreeD
         { "_sol", OPT_PROFILE_MULTIOBJECT },  // was Solar
         { "_sc",  OPT_PROFILE_PARTICLES   },  // was Scenes
+        { "_tr",  OPT_PROFILE_TRAILS      },  // new: Shooting Stars et al.
     };
     for (auto& pm : PROF_MAP) {
         OptimizerLiveConfig& p = gOptimizerProfiles[pm.idx];
@@ -107,7 +108,7 @@ static void loadConfig() {
         LOAD_F("opt_ppu",   pts_per_1000_units,           pd.pts_per_1000_units);
         LOAD_U("opt_minsp", min_segment_pts,              OPT_DEFAULT_MIN_SEGMENT_PTS);
         LOAD_U("opt_blank", blank_samples,                pd.blank_samples);
-        LOAD_S("opt_maxppf",max_pts_per_frame,            OPT_DEFAULT_MAX_PTS_PER_FRAME);
+        LOAD_S("opt_maxppf",max_pts_per_frame,            pd.max_pts_per_frame);
         LOAD_U("opt_minbl", min_blank_samples,            pd.min_blank_samples);
         LOAD_F("opt_blppu", blank_pts_per_1000_units,     pd.blank_pts_per_1000_units);
         LOAD_U("opt_minip", min_interior_pts_per_segment, pd.min_interior_pts_per_segment);
@@ -141,7 +142,7 @@ static void loadConfig() {
     s_prefs.getString("mask", gConfig.wifi_mask,  sizeof(gConfig.wifi_mask));
     s_prefs.getString("dns",  gConfig.wifi_dns,   sizeof(gConfig.wifi_dns));
     s_prefs.getString("auth_hash", gConfig.auth_hash, sizeof(gConfig.auth_hash));
-    
+
     // Generate unique hostname from last 3 MAC bytes if none stored in NVS
     if (strlen(gConfig.hostname) == 0) {
         uint8_t mac[6];
