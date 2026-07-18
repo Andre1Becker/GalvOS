@@ -2336,8 +2336,9 @@ static size_t p_pythagoras_tree(LaserPoint* o, size_t m,
     const float baseW = SC * (0.55f + (sz / 255.0f) * 0.35f) * zoomScale;
 
     struct Frame { float x0, y0, x1, y1; int depth; };
-    // Stack sized for (PT_DEPTH+1) levels to accommodate the extra fade-in level.
-    Frame stk[512];
+    // DFS stack: max depth = PT_DEPTH+1 levels * 2 branches = 20 entries max.
+    // stk[512] (10 KB) crashed the pattern task (12 KB stack). Fixed to 20.
+    Frame stk[20];
     int top = 0;
 
     // Root base: horizontal, centred, anchored near screen bottom.
@@ -2396,7 +2397,7 @@ static size_t p_pythagoras_tree(LaserPoint* o, size_t m,
         vIdx     += 2;
         segCount += 1;
 
-        if (fr.depth < drawDepth && top + 2 <= (int)(sizeof(stk)/sizeof(stk[0])) - 2) {
+        if (fr.depth < drawDepth && top + 2 <= 18) {  // 18 = stk[20] - 2 guard
             // Child apex via screen-CCW rotation of top-edge vector by alpha.
             // Top-edge vector = (ex, ey) (parallel to base edge).
             // Screen-CCW in galvo y-down: R(v) = (vx*cosA + vy*sinA, -vx*sinA + vy*cosA)
