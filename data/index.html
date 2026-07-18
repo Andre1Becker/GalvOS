@@ -6816,17 +6816,17 @@ document.addEventListener('DOMContentLoaded', initParamPreviews);
       <div class="opt-col-block">
       <div class="opt-group-label">Corner handling</div>
       
-      <label>Corner angle threshold (°) <span id="opt-cad-val" style="color:var(--accent);font-family:monospace">25.0</span>
+      <label>Corner angle threshold (°) <code style="font-size:10px;color:var(--dim)">(corner_angle_deg)</code> <span id="opt-cad-val" style="color:var(--accent);font-family:monospace">25.0</span>
         <span class="help-icon" title="Vertex angle below which a point counts as a sharp corner (0°=straight through, 180°=full U-turn). Detected corners get extra dwell points from Min/Max corner points below.">?</span>
       </label>
       <input type="range" id="opt-cad" min="0" max="180" step="1" value="25" oninput="optimizerSlider()">
 
-      <label>Min corner points <span id="opt-mincp-val" style="color:var(--accent);font-family:monospace">1</span>
+      <label>Min corner points <code style="font-size:10px;color:var(--dim)">(min_corner_pts)</code> <span id="opt-mincp-val" style="color:var(--accent);font-family:monospace">1</span>
         <span class="help-icon" title="Minimum dwell points placed at every detected corner. Too low causes mechanical overshoot/rounding. Paired with Max corner points.">?</span>
       </label>
       <input type="range" id="opt-mincp" min="1" max="20" step="1" value="1" oninput="optimizerSlider()">
 
-      <label>Max corner points <span id="opt-maxcp-val" style="color:var(--accent);font-family:monospace">6</span>
+      <label>Max corner points <code style="font-size:10px;color:var(--dim)">(max_corner_pts)</code> <span id="opt-maxcp-val" style="color:var(--accent);font-family:monospace">6</span>
         <span class="help-icon" title="Upper cap on dwell points per corner. Higher gives a sharper corner but eats into the Max points/frame budget.">?</span>
       </label>
       <input type="range" id="opt-maxcp" min="1" max="20" step="1" value="6" oninput="optimizerSlider()">
@@ -6835,17 +6835,17 @@ document.addEventListener('DOMContentLoaded', initParamPreviews);
       <div class="opt-col-block">
       <div class="opt-group-label">Interior density</div>
       
-      <label>Interior density (pts / 1000 units) <span id="opt-ppu-val" style="color:var(--accent);font-family:monospace">4.0</span>
+      <label>Interior density (pts / 1000 units) <code style="font-size:10px;color:var(--dim)">(pts_per_1000_units)</code> <span id="opt-ppu-val" style="color:var(--accent);font-family:monospace">4.0</span>
         <span class="help-icon" title="Point density along straight/curved edges between corners. Low value gives visible faceting. Works together with Min segment points and Min interior pts/segment.">?</span>
       </label>
       <input type="range" id="opt-ppu" min="1" max="500" step="1" value="40" oninput="optimizerSlider()">
 
-      <label>Min segment points <span id="opt-minsp-val" style="color:var(--accent);font-family:monospace">2</span>
+      <label>Min segment points <code style="font-size:10px;color:var(--dim)">(min_segment_pts)</code> <span id="opt-minsp-val" style="color:var(--accent);font-family:monospace">2</span>
         <span class="help-icon" title="Floor on total points per edge segment, regardless of Interior density. Keeps very short edges from getting only 1-2 points.">?</span>
       </label>
       <input type="range" id="opt-minsp" min="2" max="20" step="1" value="2" oninput="optimizerSlider()">
 
-      <label>Min interior pts / segment <span id="opt-minip-val" style="color:var(--accent);font-family:monospace">6</span>
+      <label>Min interior pts / segment <code style="font-size:10px;color:var(--dim)">(min_interior_pts_per_segment)</code> <span id="opt-minip-val" style="color:var(--accent);font-family:monospace">6</span>
         <span class="help-icon" title="Minimum points inside a segment's interior, not counting its corner dwell points. Prevents overly sparse long straight lines even at low Interior density.">?</span>
       </label>
       <input type="range" id="opt-minip" min="0" max="50" step="1" value="6" oninput="optimizerSlider()">
@@ -6853,7 +6853,7 @@ document.addEventListener('DOMContentLoaded', initParamPreviews);
 
       <div class="opt-col-block">
       <div class="opt-group-label">Frame budget</div>
-      <label>Max points / frame (flicker budget) <span id="opt-maxppf-val" style="color:var(--accent);font-family:monospace">310</span>
+      <label>Max points / frame (flicker budget) <code style="font-size:10px;color:var(--dim)">(max_pts_per_frame)</code> <span id="opt-maxppf-val" style="color:var(--accent);font-family:monospace">310</span>
         <span class="help-icon" title="Hard cap on total points per frame. If corner/interior/blank settings above would exceed it, the frame gets throttled instead of dropping geometry.">?</span>
       </label>
       <input type="range" id="opt-maxppf" min="50" max="2048" step="1" value="310" oninput="optimizerSlider()">
@@ -6862,22 +6862,22 @@ document.addEventListener('DOMContentLoaded', initParamPreviews);
       <div class="opt-col-block">
       <div class="opt-group-label">Blank jumps (laser off)</div>
       
-      <label>Blank samples (max) <span id="opt-blank-val" style="color:var(--accent);font-family:monospace">40</span>
+      <label>Blank samples (max) <code style="font-size:10px;color:var(--dim)">(blank_samples)</code> <span id="opt-blank-val" style="color:var(--accent);font-family:monospace">40</span>
         <span class="help-icon" title="Max points inserted into a blanked jump between shapes. Higher gives a smoother galvo move but costs more of the frame budget. Related to Min blank samples and Stage1 blank target.">?</span>
       </label>
       <input type="range" id="opt-blank" min="1" max="100" step="1" value="40" oninput="optimizerSlider()">
 
-      <label>Min blank samples (floor) <span id="opt-minbl-val" style="color:var(--accent);font-family:monospace">8</span>
+      <label>Min blank samples (floor) <code style="font-size:10px;color:var(--dim)">(min_blank_samples)</code> <span id="opt-minbl-val" style="color:var(--accent);font-family:monospace">8</span>
         <span class="help-icon" title="Minimum points for even the shortest blank jump, so short jumps aren't rushed into a visible flash.">?</span>
       </label>
       <input type="range" id="opt-minbl" min="1" max="100" step="1" value="8" oninput="optimizerSlider()">
 
-      <label>Blank jump density (pts / 1000 units) <span id="opt-blppu-val" style="color:var(--accent);font-family:monospace">10.0</span>
+      <label>Blank jump density (pts / 1000 units) <code style="font-size:10px;color:var(--dim)">(blank_pts_per_1000_units)</code> <span id="opt-blppu-val" style="color:var(--accent);font-family:monospace">10.0</span>
         <span class="help-icon" title="Point density for long blank jumps — the blanked equivalent of Interior density. Too low can leave a faint streak on long jumps.">?</span>
       </label>
       <input type="range" id="opt-blppu" min="1" max="500" step="1" value="100" oninput="optimizerSlider()">
 
-      <label>Stage1 blank target <span id="opt-s1tgt-val" style="color:var(--accent);font-family:monospace">20</span>
+      <label>Stage1 blank target <code style="font-size:10px;color:var(--dim)">(stage1_blank_target)</code> <span id="opt-s1tgt-val" style="color:var(--accent);font-family:monospace">20</span>
         <span class="help-icon" title="Target point count for the first deceleration stage of a blank jump's S-curve ease. Shapes the ease-in/ease-out together with Blank samples.">?</span>
       </label>
       <input type="range" id="opt-s1tgt" min="1" max="100" step="1" value="20" oninput="optimizerSlider()">
@@ -6887,7 +6887,7 @@ document.addEventListener('DOMContentLoaded', initParamPreviews);
       <div class="opt-group-label">Resample (Phase 2)</div>
       <label class="toggle"><input type="checkbox" id="opt-rs-en" onchange="optimizerSlider()"><span class="slider"></span>Enable constant spacing</label>
 
-      <label>Point spacing (units) <span id="opt-rssp-val" style="color:var(--accent);font-family:monospace">160</span>
+      <label>Point spacing (units) <code style="font-size:10px;color:var(--dim)">(resample_spacing_units)</code> <span id="opt-rssp-val" style="color:var(--accent);font-family:monospace">160</span>
         <span class="help-icon" title="Target distance between interior points when constant spacing is enabled. Interior points per edge = length / spacing. Smaller = denser, more uniform galvo velocity. Overrides Pts per 1000 units while enabled.">?</span>
       </label>
       <input type="range" id="opt-rssp" min="10" max="2000" step="1" value="160" oninput="optimizerSlider()">
@@ -6897,12 +6897,12 @@ document.addEventListener('DOMContentLoaded', initParamPreviews);
       <div class="opt-group-label">Ringing compensation (Pillar 3)</div>
       <label class="toggle"><input type="checkbox" id="opt-ring-en" onchange="optimizerSlider()"><span class="slider"></span>Enable ringing compensation</label>
 
-      <label>Ring frequency (Hz) <span id="opt-rngfq-val" style="color:var(--accent);font-family:monospace">200.0</span>
+      <label>Ring frequency (Hz) <code style="font-size:10px;color:var(--dim)">(ring_freq_hz)</code> <span id="opt-rngfq-val" style="color:var(--accent);font-family:monospace">200.0</span>
         <span class="help-icon" title="Measured galvo mechanical resonance frequency (step-response capture on scope). Wrong value can make ringing worse -- measure before enabling.">?</span>
       </label>
       <input type="range" id="opt-rngfq" min="10" max="2000" step="1" value="200" oninput="optimizerSlider()">
 
-      <label>Ring damping ratio <span id="opt-rngdr-val" style="color:var(--accent);font-family:monospace">0.15</span>
+      <label>Ring damping ratio <code style="font-size:10px;color:var(--dim)">(ring_damping_ratio)</code> <span id="opt-rngdr-val" style="color:var(--accent);font-family:monospace">0.15</span>
         <span class="help-icon" title="Measured damping ratio (zeta) of the galvo ringing decay. 0 = undamped, close to 1 = barely oscillates.">?</span>
       </label>
       <input type="range" id="opt-rngdr" min="0" max="90" step="1" value="15" oninput="optimizerSlider()">
@@ -6912,7 +6912,7 @@ document.addEventListener('DOMContentLoaded', initParamPreviews);
       <div class="opt-group-label">Scanner protection (Phase 4)</div>
       <label class="toggle"><input type="checkbox" id="opt-vc-en" onchange="optimizerSlider()"><span class="slider"></span>Enable velocity clamp</label>
 
-      <label>Max step (units/tick) <span id="opt-vcstp-val" style="color:var(--accent);font-family:monospace">2000</span>
+      <label>Max step (units/tick) <code style="font-size:10px;color:var(--dim)">(max_step_units)</code> <span id="opt-vcstp-val" style="color:var(--accent);font-family:monospace">2000</span>
         <span class="help-icon" title="Ceiling on per-sample galvo travel. Lit steps longer than this are subdivided so the mirror never lags a single large jump. Galvo-specific -- tune on hardware. Off = byte-identical output.">?</span>
       </label>
       <input type="range" id="opt-vcstp" min="10" max="4000" step="10" value="200" oninput="optimizerSlider()">
@@ -6920,7 +6920,7 @@ document.addEventListener('DOMContentLoaded', initParamPreviews);
 
       <label class="toggle"><input type="checkbox" id="opt-ac-en" onchange="optimizerSlider()"><span class="slider"></span>Enable acceleration clamp</label>
 
-      <label>Max accel (units/tick&sup2;) <span id="opt-acmax-val" style="color:var(--accent);font-family:monospace">800</span>
+      <label>Max accel (units/tick&sup2;) <code style="font-size:10px;color:var(--dim)">(max_accel_units)</code> <span id="opt-acmax-val" style="color:var(--accent);font-family:monospace">800</span>
         <span class="help-icon" title="Ceiling on how fast the beam may speed up between samples. Where the step size grows harder than this (typically ramping out of a corner) a midpoint is inserted. Requires velocity clamp reasoning -- tune on hardware.">?</span>
       </label>
       <input type="range" id="opt-acmax" min="10" max="4000" step="10" value="800" oninput="optimizerSlider()">
