@@ -125,15 +125,13 @@ Static system information: firmware version, hostname, IP address, Wi-Fi signal 
 
 The Presets tab is the main performance control surface. It is split into two areas: **Global Controls** (always visible at the top) and the **Preset Grid** below.
 
-[SCREENSHOT: Presets tab — full view]
+<img width="1301" height="1160" alt="image" src="https://github.com/user-attachments/assets/dc8df1f4-79b4-4d41-8c01-b3532cc1a67c" />
 
 ### Global Controls
 
 A 5-column card that applies to every active preset in real time. Changes take effect immediately without reloading the pattern.
 
 <img width="1310" height="730" alt="image" src="https://github.com/user-attachments/assets/2659232d-327a-49f4-aaca-9511a75bcc4f" />
-<img width="1301" height="1160" alt="image" src="https://github.com/user-attachments/assets/dc8df1f4-79b4-4d41-8c01-b3532cc1a67c" />
-
 
 **Column 1 — Speed / Size / Rotation:**
 - **Speed** — pattern animation speed (0–255). Meaning varies by preset: step increment, phase advance, or oscillation rate.
