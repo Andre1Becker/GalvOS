@@ -15,6 +15,7 @@
 #include "config.h"
 #include "output/galvo_out.h"
 #include "safety/safety.h"
+
 #include <Arduino.h>
 #include <WiFi.h>
 #include <WiFiUdp.h>
@@ -90,6 +91,13 @@ static bool     s_prepared    = false;
 static uint32_t s_total_pts   = 0;
 static uint32_t s_last_beacon = 0;
 static uint32_t s_beacon_fail_count = 0;
+static uint32_t s_beacon_fail_since_ms = 0;  // 0 = currently healthy
+
+// If the beacon UDP send keeps failing (lwIP ENOMEM etc.) for this long,
+// the socket-rebuild-after-3 below isn't recovering it -- the shared lwIP
+// pool is starved and the WebUI/WS goes unreachable with it. Reboot rather
+// than let it dangle indefinitely.
+static const uint32_t BEACON_FAIL_REBOOT_MS = 30000;
 
 // response buffer
 static uint8_t  s_resp[64];
@@ -115,7 +123,11 @@ static void sendBeacon() {
     // Only send when WiFi is actually up — avoids filling lwIP socket
     // buffers with failed broadcasts (ENOMEM / error 118), which would
     // exhaust the shared lwIP pool and starve AsyncTCP / WebSocket.
-    if (WiFi.status() != WL_CONNECTED) { s_beacon_fail_count = 0; return; }
+    if (WiFi.status() != WL_CONNECTED) {
+        s_beacon_fail_count = 0;
+        s_beacon_fail_since_ms = 0;
+        return;
+    }
 
     DACBroadcast bc{};
     uint64_t mac = ESP.getEfuseMac();
@@ -134,7 +146,16 @@ static void sendBeacon() {
         // every miss is itself an lwIP allocation -- exactly the wrong
         // move while the pool is tight. Only rebuild after repeated misses.
         s_beacon_fail_count++;
+        if (s_beacon_fail_since_ms == 0) s_beacon_fail_since_ms = millis();
         ESP_LOGD(TAG, "Beacon: endPacket failed (%u consecutive)", s_beacon_fail_count);
+
+        if (millis() - s_beacon_fail_since_ms >= BEACON_FAIL_REBOOT_MS) {
+            // Rebuild attempts below haven't helped for 30s straight --
+            // this is the "[E][WiFiUdp.cpp] endPacket(): could not send
+            // data: 12" spiral that leaves the WebUI unreachable. Reboot.
+            safety::failsafeReboot("UDP_ENOMEM");
+        }
+
         if (s_beacon_fail_count >= 3) {
             s_udp.stop();
             vTaskDelay(pdMS_TO_TICKS(10));
@@ -143,6 +164,7 @@ static void sendBeacon() {
         }
     } else {
         s_beacon_fail_count = 0;
+        s_beacon_fail_since_ms = 0;
     }
 }
 

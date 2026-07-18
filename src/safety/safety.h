@@ -33,6 +33,7 @@ void requestArm(bool); // User-Wunsch ARM/DISARM
 void heartbeat();
 void subsystemHeartbeat(int sys);  // call each loop iteration
 void emergencyStop(); // immediate shutdown (E-stop from network/OTA)
+void failsafeReboot(const char* reason); // laser off, log reason (RTC), esp_restart()
 
 // ── ARM diagnostics ────────────────────────────────────────────────────
 // Individual condition checks for /api/state — lets the UI show *why*

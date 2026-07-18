@@ -87,7 +87,7 @@ const char* lastFailsafeReason() {
     return (s_failsafe_magic == FAILSAFE_MAGIC) ? s_failsafe_reason : "";
 }
 
-static void failsafeReboot(const char* reason) {
+void failsafeReboot(const char* reason) {
     strncpy(s_failsafe_reason, reason, sizeof(s_failsafe_reason) - 1);
     s_failsafe_reason[sizeof(s_failsafe_reason) - 1] = '\0';
     s_failsafe_magic = FAILSAFE_MAGIC;
