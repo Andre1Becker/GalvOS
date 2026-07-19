@@ -60,19 +60,21 @@ GalvOS ships as a Progressive Web App (PWA). This means you can install it on yo
 
 The UI is divided into a **tab bar** at the top and a **content area** below. All tabs are accessible at any time — switching tabs does not stop the laser or change the active pattern.
 
-<img width="1563" height="52" alt="image" src="https://github.com/user-attachments/assets/17b74a56-2283-45db-89fb-828af40485f2" />
+<img width="1579" height="35" alt="image" src="https://github.com/user-attachments/assets/1e7bc92c-47c4-4468-b76f-f58ed10284c9" />
 
-
+(The TAB Bar)
 ---
 
 ## Tab: Dashboard
 
 The Dashboard is the home screen and the first thing you see on load. It gives you a live status overview of the entire system.
 
-<img width="1304" height="1118" alt="image" src="https://github.com/user-attachments/assets/5e84f797-35c8-4a98-b1e0-97ddb4a8adcc" />
-
+<img width="2539" height="1278" alt="image" src="https://github.com/user-attachments/assets/5490970f-a53d-4f47-8756-c692017cd025" />
+(The Dashboard)
 
 ### Safety Status Card
+
+<img width="465" height="297" alt="image" src="https://github.com/user-attachments/assets/962a2f9d-639f-4f64-b385-68ec8f451048" />
 
 Shows the state of the hardware safety interlocks:
 
@@ -82,6 +84,8 @@ Shows the state of the hardware safety interlocks:
 - **ARM / DISARM buttons** — ARM requests the safety system to enable the laser power rail (all hardware conditions must also be satisfied). DISARM immediately cuts the laser rail regardless of pattern state.
 
 ### Telemetry Card
+
+<img width="461" height="298" alt="image" src="https://github.com/user-attachments/assets/90748c64-b019-4bf6-affb-b3eba0d22666" />
 
 Live readouts updated every second:
 
@@ -100,10 +104,12 @@ A scrolling 60-second graph of both core loads:
 - **Core 1 (orange)** — runs the galvo ISR and pattern engine. Typically ~100% — this is normal and expected. The ISR is time-sliced.
 - Warning lines at 70% (yellow dashed) and 90% (red dashed) mark potential overload on Core 0.
 
-<img width="872" height="271" alt="image" src="https://github.com/user-attachments/assets/988a1e92-5a48-4759-8e04-07ae93b75604" />
-
+<img width="928" height="328" alt="image" src="https://github.com/user-attachments/assets/b63964c4-c831-4cce-bd46-acb43038e4c7" />
+(CPU Load Graph)
 
 ### Temperature History Chart
+
+<img width="926" height="307" alt="image" src="https://github.com/user-attachments/assets/00505427-0399-4bdc-aec4-55b00c07f8c1" />
 
 A colour-coded scrolling chart of all DS18B20 sensor readings:
 
@@ -115,7 +121,17 @@ A colour-coded scrolling chart of all DS18B20 sensor readings:
 
 Current temperatures are shown as a row of badges below the chart.
 
+### Galvo Output Rate
+<img width="926" height="271" alt="image" src="https://github.com/user-attachments/assets/84b9d150-e11d-481e-bdef-509baf854fed" />
+
+### Frame Composition Chart
+
+<img width="911" height="248" alt="image" src="https://github.com/user-attachments/assets/c3b981cc-6659-4481-a8ff-fffa2757283b" />
+
+
 ### System Card
+
+<img width="466" height="680" alt="image" src="https://github.com/user-attachments/assets/5fb46a5a-7133-42c1-8408-ee04425ddb80" />
 
 Static system information: firmware version, hostname, IP address, Wi-Fi signal strength (RSSI), uptime, free heap (internal DRAM), free PSRAM, NTP time, DAC/galvo status, SD card status, and the current API auth token (click to copy).
 
@@ -125,13 +141,12 @@ Static system information: firmware version, hostname, IP address, Wi-Fi signal 
 
 The Presets tab is the main performance control surface. It is split into two areas: **Global Controls** (always visible at the top) and the **Preset Grid** below.
 
-<img width="1301" height="1160" alt="image" src="https://github.com/user-attachments/assets/dc8df1f4-79b4-4d41-8c01-b3532cc1a67c" />
-
 ### Global Controls
 
 A 5-column card that applies to every active preset in real time. Changes take effect immediately without reloading the pattern.
 
-<img width="1310" height="730" alt="image" src="https://github.com/user-attachments/assets/2659232d-327a-49f4-aaca-9511a75bcc4f" />
+<img width="1400" height="699" alt="image" src="https://github.com/user-attachments/assets/ee1b1d09-49d1-4fe8-9067-cf5ebe6ecc95" />
+(Global Controls)
 
 **Column 1 — Speed / Size / Rotation:**
 - **Speed** — pattern animation speed (0–255). Meaning varies by preset: step increment, phase advance, or oscillation rate.
@@ -177,8 +192,8 @@ Converts any preset into a dot-cloud: instead of drawing connected lines, the op
 
 The main preset library, fetched from `/api/presets` on tab load. Each preset is shown as a tile with an SVG thumbnail and name.
 
-<img width="1304" height="258" alt="image" src="https://github.com/user-attachments/assets/4afebe03-7820-4669-a687-2322651f0d84" />
-
+<img width="1394" height="1170" alt="image" src="https://github.com/user-attachments/assets/48c361fb-c441-4e64-9ef4-f27be0febf44" />
+(Presets)
 
 - **Category filters** — buttons above the grid filter by category (Geometry, Waves, 3D, Scenes, etc.). Click to toggle. Multiple categories can be active simultaneously.
 - **Click a preset** — activates it immediately. The active preset name is shown in the Global Controls header.
