@@ -79,7 +79,8 @@ bool allOk() {
            s_user_arm_request;
 }
 
-static RTC_NOINIT_ATTR char     s_failsafe_reason[24];
+// Sized to hold "reason heap=NNNNN/NNNNN min=NNNNN" -- see failsafeReboot().
+static RTC_NOINIT_ATTR char     s_failsafe_reason[64];
 static RTC_NOINIT_ATTR uint32_t s_failsafe_magic;
 constexpr uint32_t FAILSAFE_MAGIC = 0x46534652;  // "FSFR"
 
@@ -88,18 +89,29 @@ const char* lastFailsafeReason() {
 }
 
 void failsafeReboot(const char* reason) {
-    strncpy(s_failsafe_reason, reason, sizeof(s_failsafe_reason) - 1);
-    s_failsafe_reason[sizeof(s_failsafe_reason) - 1] = '\0';
-    s_failsafe_magic = FAILSAFE_MAGIC;
     digitalWrite(PIN_LASER_ENABLE, LOW);
     gState.laser_armed.store(false);
     size_t free_int    = heap_caps_get_free_size(MALLOC_CAP_INTERNAL);
     size_t largest_int = heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL);
-    ESP_LOGE(TAG, "FAILSAFE REBOOT: %s | int_free=%u largest=%u limit=%u",
-             reason, (unsigned)free_int, (unsigned)largest_int,
+    // Lifetime low-water mark since boot -- catches dips that happened
+    // between the ~2.5s periodic samples in task() below and already
+    // recovered by the time free_int/largest_int above were read. If this
+    // is far below heap_critical_bytes while free_int/largest_int aren't,
+    // that's evidence the threshold itself is too low to have caught the
+    // real dip; if it tracks free_int/largest_int closely, the heap was
+    // never actually under pressure and the reboot cause lies elsewhere.
+    size_t min_ever = heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL);
+
+    snprintf(s_failsafe_reason, sizeof(s_failsafe_reason),
+             "%s heap=%u/%u min=%u", reason,
+             (unsigned)free_int, (unsigned)largest_int, (unsigned)min_ever);
+    s_failsafe_magic = FAILSAFE_MAGIC;
+
+    ESP_LOGE(TAG, "FAILSAFE REBOOT: %s | int_free=%u largest=%u min_ever=%u limit=%u",
+             reason, (unsigned)free_int, (unsigned)largest_int, (unsigned)min_ever,
              (unsigned)gConfig.heap_critical_bytes);
-    LOG_E(logbuf::CAT_SAFETY, "Failsafe %s int_free=%u largest=%u",
-          reason, (unsigned)free_int, (unsigned)largest_int);
+    LOG_E(logbuf::CAT_SAFETY, "Failsafe %s int_free=%u largest=%u min_ever=%u",
+          reason, (unsigned)free_int, (unsigned)largest_int, (unsigned)min_ever);
     delay(200);  // let log/WS flush
     esp_restart();
 }
@@ -159,8 +171,11 @@ void task(void*) {
             heap_check_ctr = 0;
             size_t largest = heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL);
             size_t free_int = heap_caps_get_free_size(MALLOC_CAP_INTERNAL);
-            ESP_LOGI(TAG, "[heap] int_free=%u largest=%u limit=%u",
-                     (unsigned)free_int, (unsigned)largest,
+            // Lifetime low-water mark -- reveals dips this 2.5s sampling
+            // interval would otherwise miss between two ticks.
+            size_t min_ever = heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL);
+            ESP_LOGI(TAG, "[heap] int_free=%u largest=%u min_ever=%u limit=%u",
+                     (unsigned)free_int, (unsigned)largest, (unsigned)min_ever,
                      (unsigned)gConfig.heap_critical_bytes);
             if (largest < gConfig.heap_critical_bytes) {
                 failsafeReboot("HEAP_CRITICAL");

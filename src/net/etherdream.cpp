@@ -15,12 +15,15 @@
 #include "config.h"
 #include "output/galvo_out.h"
 #include "safety/safety.h"
+#include "util/log_buffer.h"
 
 #include <Arduino.h>
 #include <WiFi.h>
 #include <WiFiUdp.h>
 #include <esp_log.h>
+#include <esp_heap_caps.h>
 #include <string.h>
+#include <errno.h>
 
 namespace etherdream {
 
@@ -121,8 +124,9 @@ static void sendResponse(uint8_t cmd, uint8_t response, const DACStatus* st) {
 // ── send beacon ───────────────────────────────────────────────
 static void sendBeacon() {
     // Only send when WiFi is actually up — avoids filling lwIP socket
-    // buffers with failed broadcasts (ENOMEM / error 118), which would
-    // exhaust the shared lwIP pool and starve AsyncTCP / WebSocket.
+    // buffers with failed broadcasts (errno ENOMEM/ENOBUFS, or a wedged
+    // stack reporting EHOSTUNREACH/ENETUNREACH), which would starve
+    // AsyncTCP / WebSocket the same way regardless of which errno it is.
     if (WiFi.status() != WL_CONNECTED) {
         s_beacon_fail_count = 0;
         s_beacon_fail_since_ms = 0;
@@ -150,19 +154,44 @@ static void sendBeacon() {
     }
     s_udp.write((uint8_t*)&bc, sizeof(bc));
     if (s_udp.endPacket() == 0) {
+        // WiFiUDP::endPacket() already logged errno via log_e() -- sendto()
+        // hasn't been called again since, so errno still reflects its result.
+        int send_errno = errno;
+
         // Single miss is usually transient lwIP pressure (e.g. a WS client
         // mid-handshake) that clears on its own. Resetting the socket on
         // every miss is itself an lwIP allocation -- exactly the wrong
         // move while the pool is tight. Only rebuild after repeated misses.
         s_beacon_fail_count++;
         if (s_beacon_fail_since_ms == 0) s_beacon_fail_since_ms = millis();
-        ESP_LOGD(TAG, "Beacon: endPacket failed (%u consecutive)", s_beacon_fail_count);
 
+        // Ground truth at the exact moment of failure -- the safety task's
+        // periodic heap sample (every ~2.5s) can miss a dip that already
+        // recovered by the time it samples. Also log RSSI: if these
+        // failures line up with a weak/dropping signal, that confirms a
+        // WiFi-layer wedge (matching EHOSTUNREACH) rather than a heap issue.
+        size_t free_int    = heap_caps_get_free_size(MALLOC_CAP_INTERNAL);
+        size_t largest_int = heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL);
+        int8_t rssi = WiFi.RSSI();
+        ESP_LOGW(TAG, "Beacon: endPacket failed (%u consecutive, errno=%d) heap=%u/%u rssi=%d",
+                 s_beacon_fail_count, send_errno,
+                 (unsigned)free_int, (unsigned)largest_int, (int)rssi);
+        LOG_W(logbuf::CAT_WIFI, "Beacon fail #%u errno=%d heap=%u/%u rssi=%d",
+              s_beacon_fail_count, send_errno,
+              (unsigned)free_int, (unsigned)largest_int, (int)rssi);
+        bool mem_pressure = (send_errno == ENOMEM || send_errno == ENOBUFS);
+
+        // send_errno is often EHOSTUNREACH/ENETUNREACH (118/114), not
+        // ENOMEM/ENOBUFS -- the lwIP/WiFi stack is wedged, not the heap.
+        // Empirically this state does NOT self-recover and leaves the
+        // WebUI permanently unreachable, so the reboot stays unconditional
+        // regardless of which errno caused it. Only the failsafe reason
+        // label is corrected to not falsely claim OOM.
         if (millis() - s_beacon_fail_since_ms >= BEACON_FAIL_REBOOT_MS) {
             // Rebuild attempts below haven't helped for 30s straight --
-            // this is the "[E][WiFiUdp.cpp] endPacket(): could not send
-            // data: 12" spiral that leaves the WebUI unreachable. Reboot.
-            safety::failsafeReboot("UDP_ENOMEM");
+            // this is the WiFiUdp.cpp "could not send data" spiral that
+            // leaves the WebUI unreachable. Reboot regardless of errno.
+            safety::failsafeReboot(mem_pressure ? "UDP_ENOMEM" : "UDP_SEND_FAIL");
         }
 
         if (s_beacon_fail_count >= 3) {

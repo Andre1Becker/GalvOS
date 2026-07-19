@@ -204,6 +204,36 @@ static bool startTask(TaskFunction_t fn, const char* name,
     return true;
 }
 
+// ── WiFi event diagnostics ─────────────────────────────────────────────
+// Logs disconnect/reconnect events with reason code + RSSI so they can be
+// correlated (by timestamp) with etherdream.cpp's endPacket() failures.
+// If a run of UDP send failures lines up with a disconnect/reassociation
+// here, that confirms a WiFi-layer wedge (matching an EHOSTUNREACH errno)
+// rather than a heap issue -- see safety::failsafeReboot() for the heap
+// snapshot taken at the same moment.
+static void onWiFiEvent(WiFiEvent_t event, WiFiEventInfo_t info) {
+    switch (event) {
+        case ARDUINO_EVENT_WIFI_STA_DISCONNECTED:
+            ESP_LOGW("wifi_evt", "STA disconnected: reason=%u rssi=%d",
+                     info.wifi_sta_disconnected.reason, info.wifi_sta_disconnected.rssi);
+            LOG_W(logbuf::CAT_WIFI, "STA disconnected reason=%u rssi=%d",
+                  info.wifi_sta_disconnected.reason, info.wifi_sta_disconnected.rssi);
+            break;
+        case ARDUINO_EVENT_WIFI_STA_CONNECTED:
+            ESP_LOGI("wifi_evt", "STA connected (assoc)");
+            LOG_I(logbuf::CAT_WIFI, "STA connected (assoc)");
+            break;
+        case ARDUINO_EVENT_WIFI_STA_GOT_IP:
+            ESP_LOGI("wifi_evt", "STA got IP: %s rssi=%d",
+                     WiFi.localIP().toString().c_str(), WiFi.RSSI());
+            LOG_I(logbuf::CAT_WIFI, "STA got IP: %s rssi=%d",
+                  WiFi.localIP().toString().c_str(), WiFi.RSSI());
+            break;
+        default:
+            break;
+    }
+}
+
 // ── WiFi watchdog — reconnects and starts services after late connection ──────
 static bool s_wifi_services_started = false;
 static bool s_services_created = false;  // init()/tasks run once per boot only
@@ -312,6 +342,7 @@ void setup() {
     temp::init();   // DS18B20 + Fan-PWM
 
     // network
+    WiFi.onEvent(onWiFiEvent);
     WiFi.mode(WIFI_STA);
     WiFi.setHostname(gConfig.hostname);
     if (strlen(gConfig.wifi_ssid) > 0) {
