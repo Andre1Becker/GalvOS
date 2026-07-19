@@ -127,7 +127,7 @@ The full netlist with all resistor values, capacitor values, and wiring is in th
 The ESP32-S3 N16R8 provides:
 - **16 MB SPI Flash** — partitioned into firmware (4 MB) and LittleFS (8 MB, holds the WebUI)
 - **8 MB OPI PSRAM** — used for large pattern buffers, JSON serialization, and the pattern cache. All allocations above ~16 KB must use `ps_malloc()` or `heap_caps_malloc(MALLOC_CAP_SPIRAM)`.
-- **~76 KB free internal DRAM** (post-boot, post-optimization) — scarce; used only for time-critical ISR data and small buffers.
+- **~31 KB free internal DRAM** (post-boot, post-optimization) — scarce; used only for time-critical ISR data and small buffers.
 
 ---
 
