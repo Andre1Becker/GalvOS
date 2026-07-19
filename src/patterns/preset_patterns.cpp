@@ -2308,9 +2308,11 @@ static size_t p_explosion(LaserPoint* o, size_t m, uint32_t ph, uint8_t sp, uint
 }
 
 // p_fireworks -- New Year's Fireworks. Each shell: a rocket dot rises from
-// the bottom, then bursts into radial sparks with a glitter (twinkle) overlay.
-// Angle, burst height and colour are re-rolled per shell instance, so every
-// launch differs. Up to fw_max_shells run concurrently, phase-staggered.
+// the bottom, then detonates with a central white flash followed by radial
+// sparks with a glitter (twinkle) overlay. The burst shape is re-rolled per
+// shell instance (small circle / large circle / ellipse / golden-rain
+// willow), along with angle, burst height and colour, so every launch
+// differs. Up to fw_max_shells run concurrently, phase-staggered.
 //   sp = launch tempo
 //   sz = spark spread radius
 //   gLivePreset.fw_max_shells = 1..3 concurrent shells
@@ -2360,14 +2362,26 @@ static size_t p_fireworks(LaserPoint* o, size_t m, uint32_t ph, uint8_t sp, uint
             optimizer::emitBlankTo(o, n, m, rx, ry, cfg);
             for (int k = 0; k < dwell * 2 && n < m; k++) ap(o, n, m, rx, ry, rv, rv, 255, 0);
         } else {
-            // ── Burst: radial sparks + colour shift + glitter ──
+            // ── Burst: white detonation flash + radial sparks (shape varies) + glitter ──
             const float bp = (float)(t - riseMs) / (float)burstMs;           // 0..1
             const float ease = 1.f - (1.f - bp) * (1.f - bp);
             const float fade = (bp < 0.6f) ? 1.f : (1.f - (bp - 0.6f) / 0.4f);
-            const int   sparks = 20;
-            const float rad = ease * sc * 0.42f;
+
+            // Central white flash at the instant of detonation, fading fast.
+            if (bp < 0.12f) {
+                const uint8_t fv = (uint8_t)(255 * (1.f - bp / 0.12f));
+                optimizer::emitBlankTo(o, n, m, finalX, burstY, cfg);
+                for (int k = 0; k < dwell * 2 && n < m; k++) ap(o, n, m, finalX, burstY, fv, fv, fv, 0);
+            }
+
+            // Burst shape re-rolled per shell instance for variety.
+            const int variant = (int)(sHash(seed + 60u) * 4.f) & 3;
+            // 0 = small circle, 1 = large circle, 2 = ellipse, 3 = golden-rain willow
+            const int   sparks  = (variant == 3) ? 26 : (variant == 1) ? 24 : 18;
+            const float radBase = ease * sc * 0.42f;
             // colour shifts over the burst (hue -> hue+PI)
             const float h = hue + bp * (float)M_PI;
+
             for (int i = 0; i < sparks && n < m; i++) {
                 const float a = PI2 * (float)i / (float)sparks
                               + (sHash(seed + 40u + i) - 0.5f) * 0.3f;
@@ -2377,11 +2391,50 @@ static size_t p_fireworks(LaserPoint* o, size_t m, uint32_t ph, uint8_t sp, uint
                     const float tw = sHash((uint32_t)(nowMs / 60u) * 31u + i * 7u + seed);
                     gl = 0.35f + 0.65f * (tw > 0.5f ? 1.f : 0.25f);
                 }
-                const float px = finalX + cosf(a) * rad;
-                const float py = burstY + sinf(a) * rad;
-                const uint8_t r = (uint8_t)((128 + 127 * sinf(h))          * fade * gl);
-                const uint8_t g = (uint8_t)((128 + 127 * sinf(h + 2.094f)) * fade * gl);
-                const uint8_t b = (uint8_t)((128 + 127 * sinf(h + 4.189f)) * fade * gl);
+
+                float px, py;
+                switch (variant) {
+                    case 0: {   // small, tight circle
+                        const float rad = radBase * 0.55f;
+                        px = finalX + cosf(a) * rad;
+                        py = burstY + sinf(a) * rad;
+                        break;
+                    }
+                    case 1: {   // large, wide circle
+                        const float rad = radBase * 1.35f;
+                        px = finalX + cosf(a) * rad;
+                        py = burstY + sinf(a) * rad;
+                        break;
+                    }
+                    case 2: {   // ellipse, random aspect + rotation
+                        const float radX = radBase * (0.9f + sHash(seed + 61u) * 0.5f);
+                        const float radY = radX * (0.35f + sHash(seed + 62u) * 0.35f);
+                        const float rot  = sHash(seed + 63u) * PI2;
+                        const float lx = cosf(a) * radX, ly = sinf(a) * radY;
+                        px = finalX + lx * cosf(rot) - ly * sinf(rot);
+                        py = burstY + lx * sinf(rot) + ly * cosf(rot);
+                        break;
+                    }
+                    default: {  // "Goldregen": embers drift out, then fall under gravity
+                        const float outRad = radBase * 0.5f;
+                        const float fall   = bp * bp * sc * 0.5f;
+                        px = finalX + cosf(a) * outRad;
+                        py = burstY + sinf(a) * outRad * 0.4f + fall;
+                        break;
+                    }
+                }
+
+                uint8_t r, g, b;
+                if (variant == 3) {
+                    // fixed golden-rain colour, independent of the shell's random hue
+                    r = (uint8_t)(255 * fade * gl);
+                    g = (uint8_t)(190 * fade * gl);
+                    b = (uint8_t)(40  * fade * gl);
+                } else {
+                    r = (uint8_t)((128 + 127 * sinf(h))          * fade * gl);
+                    g = (uint8_t)((128 + 127 * sinf(h + 2.094f)) * fade * gl);
+                    b = (uint8_t)((128 + 127 * sinf(h + 4.189f)) * fade * gl);
+                }
                 optimizer::emitBlankTo(o, n, m, px, py, cfg);
                 for (int k = 0; k < dwell && n < m; k++) ap(o, n, m, px, py, r, g, b, 0);
             }
