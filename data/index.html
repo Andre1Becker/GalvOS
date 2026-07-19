@@ -482,7 +482,7 @@
   #telemetry-bar #sb-psram { color: var(--accent) !important; }
 
   /* ── Canvas backgrounds ── */
-  #cpu-canvas { background: #000 !important; border: 1px solid var(--border) !important; }
+  #cpu-canvas { background: #000 !important; border: 1px solid #2D1B4E !important; box-shadow: 0 0 16px rgba(0,255,255,0.08); }
   #temp-chart, #kpps-chart, #frame-chart {
     border: 1px solid var(--border) !important;
     box-shadow: inset 0 0 20px rgba(0,255,255,0.03);
@@ -688,8 +688,8 @@
           <span id="cpu-cur-1" style="display:none"></span>
         </div>
       </div>
-      <canvas id="cpu-canvas" height="110"
-              style="width:100%;display:block;border-radius:4px;background:rgba(0,0,0,0.5);cursor:crosshair"></canvas>
+      <canvas id="cpu-canvas" height="160"
+              style="width:100%;display:block;border:1px solid #2D1B4E;background:#000;cursor:crosshair;box-shadow:0 0 16px rgba(0,255,255,0.08)"></canvas>
       <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--dim);margin-top:4px">
         <span>60 s ago</span>
         <span id="cpu-hover-info" style="color:var(--accent)"></span>
@@ -723,7 +723,7 @@
           &#128308;&nbsp;Laser &nbsp;&#128992;&nbsp;Driver &nbsp;&#128993;&nbsp;Galvo &nbsp;&#128994;&nbsp;PSU &nbsp;&#128309;&nbsp;Ambient
         </div>
       </div>
-      <canvas id="temp-chart" style="width:100%;height:180px;background:#000;border-radius:4px;border:1px solid var(--border)"></canvas>
+      <canvas id="temp-chart" style="width:100%;height:160px;background:#000;border:1px solid #2D1B4E;box-shadow:0 0 16px rgba(0,255,255,0.08)"></canvas>
       <!-- Current temperatures below chart -->
       <div id="temp-current-row" style="display:flex;flex-wrap:wrap;gap:10px;margin-top:10px;justify-content:flex-start"></div>
     </div>
@@ -734,7 +734,7 @@
         <h2 style="margin:0">&#9889; Galvo Output Rate</h2>
         <div style="font-size:11px;color:var(--dim)">Last 5 min &nbsp;&mdash;&nbsp; kpps</div>
       </div>
-      <canvas id="kpps-chart" style="width:100%;height:120px;background:#000;border-radius:4px;border:1px solid var(--border)"></canvas>
+      <canvas id="kpps-chart" style="width:100%;height:160px;background:#000;border:1px solid #2D1B4E;box-shadow:0 0 16px rgba(255,0,255,0.08)"></canvas>
     </div>
 
     <!-- Frame Composition — cols 2-3 -->
@@ -747,7 +747,7 @@
           <span style="color:#444">&#9644;</span> Total (n)
         </div>
       </div>
-      <canvas id="frame-chart" style="width:100%;height:120px;background:#000;border-radius:4px;border:1px solid var(--border)"></canvas>
+      <canvas id="frame-chart" style="width:100%;height:160px;background:#000;border:1px solid #2D1B4E;box-shadow:0 0 16px rgba(255,153,0,0.08)"></canvas>
     </div>
 
   </div>
@@ -3505,7 +3505,12 @@ function drawTempChart() {
   const W = canvas.offsetWidth, H = canvas.offsetHeight;
   canvas.width = W; canvas.height = H;
   const ctx = canvas.getContext('2d');
-  ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
+
+  // Background gradient
+  const bgGrad = ctx.createLinearGradient(0, 0, 0, H);
+  bgGrad.addColorStop(0, '#0a0020'); bgGrad.addColorStop(1, '#000008');
+  ctx.fillStyle = bgGrad; ctx.fillRect(0, 0, W, H);
+  for (let y = 0; y < H; y += 4) { ctx.fillStyle = 'rgba(0,0,0,0.18)'; ctx.fillRect(0, y, W, 2); }
 
   if (TEMP_HISTORY.length < 2) return;
 
@@ -3514,28 +3519,31 @@ function drawTempChart() {
   const recent = TEMP_HISTORY.filter(p => p.ts >= oldest);
   if (recent.length < 2) return;
 
-  // Y-Axis: 0..90°C
+  const PL = 36, PR = 8, PT = 8, PB = 8;
+  const gW = W - PL - PR, gH = H - PT - PB;
   const yMin = 0, yMax = 90;
-  const mapY = t => H - ((t - yMin) / (yMax - yMin)) * H;
-  const mapX = ts => ((ts - oldest) / (HISTORY_SECS * 1000)) * W;
+  const mapY = t => PT + gH - ((t - yMin) / (yMax - yMin)) * gH;
+  const mapX = ts => PL + ((ts - oldest) / (HISTORY_SECS * 1000)) * gW;
 
   // Grid
-  ctx.strokeStyle = '#1a1a1a'; ctx.lineWidth = 1;
+  ctx.strokeStyle = 'rgba(45,27,78,0.5)'; ctx.lineWidth = 0.5;
   [20,40,60,80].forEach(t => {
     const y = mapY(t);
-    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
-    ctx.fillStyle = '#333'; ctx.font = '9px monospace';
-    ctx.fillText(t+'°', 2, y - 2);
+    ctx.beginPath(); ctx.moveTo(PL, y); ctx.lineTo(W - PR, y); ctx.stroke();
+    ctx.fillStyle = '#7a6a9a'; ctx.font = '11px "Share Tech Mono", monospace'; ctx.textAlign = 'right';
+    ctx.fillText(t+'°', PL - 4, y + 4);
   });
+  ctx.strokeStyle = 'rgba(0,255,255,0.3)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(PL, PT); ctx.lineTo(PL, PT + gH); ctx.stroke();
 
-  // Lines
+  // Lines with glow
   SENSOR_COLORS.forEach((color, i) => {
-    ctx.strokeStyle = color; ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    recent.forEach((pt, idx) => {
-      const x = mapX(pt.ts), y = mapY(pt.temps[i] || 0);
-      idx === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-    });
+    ctx.strokeStyle = color.replace(')', ',0.2)').replace('#', 'rgba(').replace(/rgba\(([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2}),/, (m, r, g, b) => `rgba(${parseInt(r,16)},${parseInt(g,16)},${parseInt(b,16)},`);
+    ctx.lineWidth = 4; ctx.beginPath();
+    recent.forEach((pt, idx) => { const x = mapX(pt.ts), y = mapY(pt.temps[i] || 0); idx === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); });
+    ctx.stroke();
+    ctx.strokeStyle = color; ctx.lineWidth = 1.5; ctx.beginPath();
+    recent.forEach((pt, idx) => { const x = mapX(pt.ts), y = mapY(pt.temps[i] || 0); idx === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); });
     ctx.stroke();
   });
 }
@@ -3546,7 +3554,11 @@ function drawKppsChart() {
   const W = canvas.offsetWidth, H = canvas.offsetHeight;
   canvas.width = W; canvas.height = H;
   const ctx = canvas.getContext('2d');
-  ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
+
+  const bgGrad = ctx.createLinearGradient(0, 0, 0, H);
+  bgGrad.addColorStop(0, '#0a0020'); bgGrad.addColorStop(1, '#000008');
+  ctx.fillStyle = bgGrad; ctx.fillRect(0, 0, W, H);
+  for (let y = 0; y < H; y += 4) { ctx.fillStyle = 'rgba(0,0,0,0.18)'; ctx.fillRect(0, y, W, 2); }
 
   if (KPPS_HISTORY.length < 2) return;
 
@@ -3555,44 +3567,48 @@ function drawKppsChart() {
   const recent = KPPS_HISTORY.filter(p => p.ts >= oldest);
   if (recent.length < 2) return;
 
+  const PL = 36, PR = 8, PT = 10, PB = 8;
+  const gW = W - PL - PR, gH = H - PT - PB;
   const yMin = 0, yMax = 60;
-  const mapY = v => H - ((v - yMin) / (yMax - yMin)) * H;
-  const mapX = ts => ((ts - oldest) / (HISTORY_SECS * 1000)) * W;
+  const mapY = v => PT + gH - ((v - yMin) / (yMax - yMin)) * gH;
+  const mapX = ts => PL + ((ts - oldest) / (HISTORY_SECS * 1000)) * gW;
 
   // Grid
-  ctx.strokeStyle = '#1a1a1a'; ctx.lineWidth = 1;
+  ctx.strokeStyle = 'rgba(45,27,78,0.5)'; ctx.lineWidth = 0.5;
   [15, 30, 45, 60].forEach(v => {
     const y = mapY(v);
-    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
-    ctx.fillStyle = '#333'; ctx.font = '9px monospace';
-    ctx.fillText(v + 'k', 2, y - 2);
+    ctx.beginPath(); ctx.moveTo(PL, y); ctx.lineTo(W - PR, y); ctx.stroke();
+    ctx.fillStyle = '#7a6a9a'; ctx.font = '11px "Share Tech Mono", monospace'; ctx.textAlign = 'right';
+    ctx.fillText(v + 'k', PL - 4, y + 4);
   });
+  ctx.strokeStyle = 'rgba(255,0,255,0.3)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(PL, PT); ctx.lineTo(PL, PT + gH); ctx.stroke();
 
-  // Fill area under curve
+  // Fill area — magenta gradient
   ctx.beginPath();
-  recent.forEach((pt, idx) => {
-    const x = mapX(pt.ts), y = mapY(pt.kpps);
-    idx === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-  });
-  ctx.lineTo(mapX(recent[recent.length - 1].ts), H);
-  ctx.lineTo(mapX(recent[0].ts), H);
+  recent.forEach((pt, idx) => { const x = mapX(pt.ts), y = mapY(pt.kpps); idx === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); });
+  ctx.lineTo(mapX(recent[recent.length - 1].ts), PT + gH);
+  ctx.lineTo(mapX(recent[0].ts), PT + gH);
   ctx.closePath();
-  ctx.fillStyle = 'rgba(0,200,255,0.08)';
-  ctx.fill();
+  const fillG = ctx.createLinearGradient(0, PT, 0, PT + gH);
+  fillG.addColorStop(0, 'rgba(255,0,255,0.25)');
+  fillG.addColorStop(1, 'rgba(255,0,255,0)');
+  ctx.fillStyle = fillG; ctx.fill();
 
-  // Line
-  ctx.strokeStyle = '#00c8ff'; ctx.lineWidth = 1.5;
+  // Glow line
   ctx.beginPath();
-  recent.forEach((pt, idx) => {
-    const x = mapX(pt.ts), y = mapY(pt.kpps);
-    idx === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-  });
-  ctx.stroke();
+  recent.forEach((pt, idx) => { const x = mapX(pt.ts), y = mapY(pt.kpps); idx === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); });
+  ctx.strokeStyle = 'rgba(255,0,255,0.2)'; ctx.lineWidth = 5; ctx.stroke();
+  // Sharp line
+  ctx.beginPath();
+  recent.forEach((pt, idx) => { const x = mapX(pt.ts), y = mapY(pt.kpps); idx === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); });
+  ctx.strokeStyle = '#FF00FF'; ctx.lineWidth = 1.8; ctx.stroke();
 
   // Current value label
   const last = recent[recent.length - 1].kpps;
-  ctx.fillStyle = '#00c8ff'; ctx.font = 'bold 11px monospace';
-  ctx.fillText(last.toFixed(1) + ' kpps', W - 70, 14);
+  ctx.font = 'bold 13px "Share Tech Mono", monospace'; ctx.textAlign = 'right';
+  ctx.fillStyle = 'rgba(255,0,255,0.3)'; ctx.fillText(last.toFixed(1) + ' kpps', W - PR + 2, PT + 14);
+  ctx.fillStyle = '#FF00FF'; ctx.fillText(last.toFixed(1) + ' kpps', W - PR, PT + 13);
 }
 
 function drawFrameChart() {
@@ -3601,7 +3617,11 @@ function drawFrameChart() {
   const W = canvas.offsetWidth, H = canvas.offsetHeight;
   canvas.width = W; canvas.height = H;
   const ctx = canvas.getContext('2d');
-  ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
+
+  const bgGrad = ctx.createLinearGradient(0, 0, 0, H);
+  bgGrad.addColorStop(0, '#0a0020'); bgGrad.addColorStop(1, '#000008');
+  ctx.fillStyle = bgGrad; ctx.fillRect(0, 0, W, H);
+  for (let y = 0; y < H; y += 4) { ctx.fillStyle = 'rgba(0,0,0,0.18)'; ctx.fillRect(0, y, W, 2); }
 
   if (FRAME_HISTORY.length < 2) return;
 
@@ -3610,63 +3630,64 @@ function drawFrameChart() {
   const recent = FRAME_HISTORY.filter(p => p.ts >= oldest);
   if (recent.length < 2) return;
 
-  const yMax  = Math.max(...recent.map(p => p.n), 100);
-  const mapY  = v => H - (v / yMax) * H;
-  const mapX  = ts => ((ts - oldest) / (HISTORY_SECS * 1000)) * W;
+  const PL = 46, PR = 8, PT = 10, PB = 8;
+  const gW = W - PL - PR, gH = H - PT - PB;
+  const yMax = Math.max(...recent.map(p => p.n), 100);
+  const mapY = v => PT + gH - (v / yMax) * gH;
+  const mapX = ts => PL + ((ts - oldest) / (HISTORY_SECS * 1000)) * gW;
 
-  // Grid lines at 25/50/75/100%
-  ctx.strokeStyle = '#1a1a1a'; ctx.lineWidth = 1;
+  // Grid lines
+  ctx.strokeStyle = 'rgba(45,27,78,0.5)'; ctx.lineWidth = 0.5;
   [0.25, 0.5, 0.75, 1.0].forEach(f => {
     const y = mapY(yMax * f);
-    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
-    ctx.fillStyle = '#333'; ctx.font = '9px monospace';
-    ctx.fillText(Math.round(yMax * f), 2, y - 2);
+    ctx.beginPath(); ctx.moveTo(PL, y); ctx.lineTo(W - PR, y); ctx.stroke();
+    ctx.fillStyle = '#7a6a9a'; ctx.font = '11px "Share Tech Mono", monospace'; ctx.textAlign = 'right';
+    ctx.fillText(Math.round(yMax * f), PL - 4, y + 4);
   });
+  ctx.strokeStyle = 'rgba(255,153,0,0.3)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(PL, PT); ctx.lineTo(PL, PT + gH); ctx.stroke();
 
-  // Filled area: total n (dark grey background)
+  // Fill: total n (dim purple)
   ctx.beginPath();
   recent.forEach((p, i) => { const x = mapX(p.ts), y = mapY(p.n); i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); });
-  ctx.lineTo(mapX(recent[recent.length - 1].ts), H);
-  ctx.lineTo(mapX(recent[0].ts), H);
-  ctx.closePath();
-  ctx.fillStyle = 'rgba(80,80,80,0.25)';
-  ctx.fill();
+  ctx.lineTo(mapX(recent[recent.length-1].ts), PT+gH); ctx.lineTo(mapX(recent[0].ts), PT+gH); ctx.closePath();
+  ctx.fillStyle = 'rgba(100,50,150,0.15)'; ctx.fill();
 
-  // Filled area: lit (green)
+  // Fill: lit (cyan)
   ctx.beginPath();
   recent.forEach((p, i) => { const x = mapX(p.ts), y = mapY(p.lit); i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); });
-  ctx.lineTo(mapX(recent[recent.length - 1].ts), H);
-  ctx.lineTo(mapX(recent[0].ts), H);
-  ctx.closePath();
-  ctx.fillStyle = 'rgba(76,175,80,0.20)';
-  ctx.fill();
+  ctx.lineTo(mapX(recent[recent.length-1].ts), PT+gH); ctx.lineTo(mapX(recent[0].ts), PT+gH); ctx.closePath();
+  const litG = ctx.createLinearGradient(0, PT, 0, PT+gH);
+  litG.addColorStop(0, 'rgba(0,255,136,0.25)'); litG.addColorStop(1, 'rgba(0,255,136,0)');
+  ctx.fillStyle = litG; ctx.fill();
 
-  // Line: total n (dim grey)
-  ctx.strokeStyle = '#555'; ctx.lineWidth = 1;
+  // Line: total n (dim, dashed)
+  ctx.strokeStyle = 'rgba(150,100,200,0.5)'; ctx.lineWidth = 1; ctx.setLineDash([4,4]);
   ctx.beginPath();
   recent.forEach((p, i) => { const x = mapX(p.ts), y = mapY(p.n); i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); });
-  ctx.stroke();
+  ctx.stroke(); ctx.setLineDash([]);
 
-  // Line: lit (green)
-  ctx.strokeStyle = '#4caf50'; ctx.lineWidth = 1.5;
+  // Line: lit (neon green, glow)
   ctx.beginPath();
   recent.forEach((p, i) => { const x = mapX(p.ts), y = mapY(p.lit); i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); });
-  ctx.stroke();
+  ctx.strokeStyle = 'rgba(0,255,136,0.2)'; ctx.lineWidth = 5; ctx.stroke();
+  ctx.beginPath();
+  recent.forEach((p, i) => { const x = mapX(p.ts), y = mapY(p.lit); i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); });
+  ctx.strokeStyle = '#00FF88'; ctx.lineWidth = 1.8; ctx.stroke();
 
-  // Line: blank (orange)
-  ctx.strokeStyle = '#ff8c00'; ctx.lineWidth = 1;
-  ctx.setLineDash([3, 3]);
+  // Line: blank (orange, dashed)
+  ctx.setLineDash([4, 3]);
   ctx.beginPath();
   recent.forEach((p, i) => { const x = mapX(p.ts), y = mapY(p.blank); i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); });
-  ctx.stroke();
+  ctx.strokeStyle = '#FF9900'; ctx.lineWidth = 1.2; ctx.stroke();
   ctx.setLineDash([]);
 
-  // Current value labels (top-right)
+  // Labels top-right
   const last = recent[recent.length - 1];
-  ctx.font = 'bold 10px monospace';
-  ctx.fillStyle = '#888';   ctx.fillText('n='     + last.n,     W - 130, 14);
-  ctx.fillStyle = '#4caf50'; ctx.fillText('lit='  + last.lit,   W - 85,  14);
-  ctx.fillStyle = '#ff8c00'; ctx.fillText('blank=' + last.blank, W - 40,  14);
+  ctx.font = 'bold 12px "Share Tech Mono", monospace'; ctx.textAlign = 'left';
+  ctx.fillStyle = 'rgba(150,100,200,0.7)'; ctx.fillText('n=' + last.n,       PL + 4, PT + 14);
+  ctx.fillStyle = '#00FF88';               ctx.fillText('lit=' + last.lit,   PL + 4 + (W-PL-PR)*0.35, PT + 14);
+  ctx.fillStyle = '#FF9900';               ctx.fillText('blank=' + last.blank, PL + 4 + (W-PL-PR)*0.65, PT + 14);
 }
 
 // Current temperature badge colors matching chart legend
@@ -5450,37 +5471,49 @@ function renderCpuGraph() {
   const canvas = document.getElementById('cpu-canvas');
   if (!canvas) return;
   const W = (canvas.offsetWidth > 0 ? canvas.offsetWidth : canvas.parentElement?.offsetWidth) || 600;
-  const H = 110;
+  const H = 160;
   if (canvas.width !== W) canvas.width = W;
   canvas.height = H;
   const ctx = canvas.getContext('2d');
-  const PL = 34, PR = 6, PT = 6, PB = 6;
+  const PL = 42, PR = 8, PT = 10, PB = 8;
   const gW = W - PL - PR, gH = H - PT - PB;
 
   ctx.clearRect(0, 0, W, H);
-  ctx.fillStyle = '#050510';
+
+  // Background gradient
+  const bgGrad = ctx.createLinearGradient(0, 0, 0, H);
+  bgGrad.addColorStop(0, '#0a0020');
+  bgGrad.addColorStop(1, '#000008');
+  ctx.fillStyle = bgGrad;
   ctx.fillRect(0, 0, W, H);
 
-  // Grid + Y labels
+  // Subtle scanlines
+  for (let y = 0; y < H; y += 4) {
+    ctx.fillStyle = 'rgba(0,0,0,0.18)';
+    ctx.fillRect(0, y, W, 2);
+  }
+
+  // Grid lines + Y labels
   [0, 25, 50, 75, 100].forEach(pct => {
     const y = PT + gH - (pct / 100) * gH;
-    ctx.strokeStyle = '#1c1c2e'; ctx.lineWidth = 1;
+    ctx.strokeStyle = pct === 0 ? '#2D1B4E' : 'rgba(45,27,78,0.6)';
+    ctx.lineWidth = pct === 0 ? 1 : 0.5;
     ctx.beginPath(); ctx.moveTo(PL, y); ctx.lineTo(W - PR, y); ctx.stroke();
-    ctx.fillStyle = '#44445a'; ctx.font = '9px monospace'; ctx.textAlign = 'right';
-    ctx.fillText(pct + '%', PL - 3, y + 3);
+    ctx.fillStyle = '#7a6a9a'; ctx.font = '11px "Share Tech Mono", monospace'; ctx.textAlign = 'right';
+    ctx.fillText(pct + '%', PL - 5, y + 4);
   });
 
-  // Threshold lines
-  [[CPU_WARN, 'rgba(255,200,0,0.55)'], [CPU_CRIT, 'rgba(255,60,60,0.65)']].forEach(([pct, col]) => {
+  // Threshold lines (warn/crit) — neon dashed
+  [[CPU_WARN, 'rgba(255,153,0,0.7)'], [CPU_CRIT, 'rgba(255,34,68,0.8)']].forEach(([pct, col]) => {
     const y = PT + gH - (pct / 100) * gH;
-    ctx.strokeStyle = col; ctx.setLineDash([4, 3]); ctx.lineWidth = 1;
+    ctx.strokeStyle = col; ctx.setLineDash([5, 4]); ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(PL, y); ctx.lineTo(W - PR, y); ctx.stroke();
   });
   ctx.setLineDash([]);
 
-  function drawSeries(data, lineCol, fillA) {
+  function drawSeries(data, lineCol, glowCol, fillA) {
     const N = data.length;
-    // Filled area
+    // Filled area with gradient
     ctx.beginPath();
     let open = false;
     data.forEach((v, i) => {
@@ -5494,10 +5527,10 @@ function renderCpuGraph() {
       if (data[i] !== null) { ctx.lineTo(PL + (i/(N-1))*gW, PT+gH); break; }
     }
     const g = ctx.createLinearGradient(0, PT, 0, PT + gH);
-    g.addColorStop(0, lineCol.replace(')', ',' + fillA + ')').replace('rgb(','rgba('));
+    g.addColorStop(0, glowCol.replace(')', ',' + fillA + ')').replace('rgb(','rgba('));
     g.addColorStop(1, 'rgba(0,0,0,0)');
     ctx.fillStyle = g; ctx.fill();
-    // Line
+    // Glow line (wider, dimmer)
     ctx.beginPath(); open = false;
     data.forEach((v, i) => {
       if (v === null) { open = false; return; }
@@ -5505,16 +5538,30 @@ function renderCpuGraph() {
       const y = PT + gH - (Math.min(v, 100) / 100) * gH;
       if (!open) { ctx.moveTo(x, y); open = true; } else ctx.lineTo(x, y);
     });
-    ctx.strokeStyle = lineCol; ctx.lineWidth = 1.6; ctx.stroke();
+    ctx.strokeStyle = glowCol.replace(')', ',0.25)').replace('rgb(','rgba(');
+    ctx.lineWidth = 4; ctx.stroke();
+    // Sharp line on top
+    ctx.beginPath(); open = false;
+    data.forEach((v, i) => {
+      if (v === null) { open = false; return; }
+      const x = PL + (i / (N - 1)) * gW;
+      const y = PT + gH - (Math.min(v, 100) / 100) * gH;
+      if (!open) { ctx.moveTo(x, y); open = true; } else ctx.lineTo(x, y);
+    });
+    ctx.strokeStyle = lineCol; ctx.lineWidth = 1.8; ctx.stroke();
   }
 
-  drawSeries(sCpuData.c1, 'rgb(255,153,0)', 0.12);
-  drawSeries(sCpuData.c0, 'rgb(0,204,255)', 0.15);
+  drawSeries(sCpuData.c1, '#FF9900', 'rgb(255,153,0)', 0.15);
+  drawSeries(sCpuData.c0, '#00FFFF', 'rgb(0,255,255)', 0.12);
+
+  // Left border accent line
+  ctx.strokeStyle = 'rgba(0,255,255,0.3)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(PL, PT); ctx.lineTo(PL, PT + gH); ctx.stroke();
 
   // Hover crosshair
   if (sCpuHoverIdx >= 0 && sCpuHoverIdx < CPU_HISTORY) {
     const x = PL + (sCpuHoverIdx / (CPU_HISTORY - 1)) * gW;
-    ctx.strokeStyle = 'rgba(255,255,255,0.22)'; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+    ctx.strokeStyle = 'rgba(255,0,255,0.4)'; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
     ctx.beginPath(); ctx.moveTo(x, PT); ctx.lineTo(x, PT+gH); ctx.stroke();
     ctx.setLineDash([]);
     const v0 = sCpuData.c0[sCpuHoverIdx], v1 = sCpuData.c1[sCpuHoverIdx];
@@ -5525,15 +5572,18 @@ function renderCpuGraph() {
     }
   }
 
-  // Current value badges
+  // Current value badges (top-right corner)
   const last0 = sCpuData.c0[sCpuData.c0.length - 1];
   const last1 = sCpuData.c1[sCpuData.c1.length - 1];
   if (last0 !== null) {
-    const col0 = last0 >= CPU_CRIT ? 'var(--bad)' : last0 >= CPU_WARN ? 'var(--warn)' : 'var(--ok)';
+    const col0 = last0 >= CPU_CRIT ? '#FF2244' : last0 >= CPU_WARN ? '#FF9900' : '#00FF88';
     const el0 = document.getElementById('cpu-cur-0');
     const el1 = document.getElementById('cpu-cur-1');
     if (el0) { el0.textContent = 'C0: ' + last0 + '%'; el0.style.color = col0; }
     if (el1)   el1.textContent = 'C1: ' + last1 + '%';
+    ctx.font = 'bold 11px "Share Tech Mono", monospace'; ctx.textAlign = 'right';
+    ctx.fillStyle = '#00FFFF'; ctx.fillText('C0 ' + last0 + '%', W - PR - 70, PT + 13);
+    ctx.fillStyle = '#FF9900'; ctx.fillText('C1 ' + last1 + '%', W - PR, PT + 13);
   }
 }
 
