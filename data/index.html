@@ -238,18 +238,23 @@
 
   /* DMX sliders */
   .channel-row {
-    display: grid; grid-template-columns: 40px 1fr 60px 50px;
-    gap: 12px; align-items: center; padding: 6px 0;
+    display: grid; grid-template-columns: 170px minmax(70px, 140px) 55px;
+    gap: 10px; align-items: center; padding: 6px 0;
     border-bottom: 1px solid var(--border);
   }
   .channel-row:last-child { border: 0; }
-  .channel-row .ch { font-family: var(--font-mono); color: var(--cyan); font-weight: 700; text-shadow: var(--glow-cyan); }
-  .channel-row .name { font-size: 12px; color: var(--dim); display: flex; align-items: center; gap: 5px; font-family: var(--font-mono); }
-  .channel-row .fn-name { font-family: var(--font-mono); font-size: 9px; color: #3a2a5a; margin-top: 1px; }
+  .channel-row > div:first-child { overflow: hidden; }
+  .channel-row .ch { font-family: var(--font-mono); color: var(--cyan); font-weight: 700; text-shadow: var(--glow-cyan); white-space: nowrap; }
+  .channel-row .name {
+    font-size: 12px; color: var(--dim); display: flex; align-items: center; gap: 6px;
+    font-family: var(--font-mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .channel-row .name > span:first-child { overflow: hidden; text-overflow: ellipsis; }
+  .channel-row .fn-name { font-family: var(--font-mono); font-size: 10px; font-weight: 700; color: var(--dim); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   /* Help-Icon (?) -- Tooltip via title-Attribut + custom Styling */
   .help-icon {
     display: inline-flex; align-items: center; justify-content: center;
-    width: 14px; height: 14px; border-radius: 0;
+    width: 14px; height: 14px; min-width: 14px; border-radius: 0;
     background: transparent; border: 1px solid var(--dim); color: var(--dim);
     font-size: 9px; font-family: var(--font-mono); font-weight: 700; cursor: help;
     flex-shrink: 0; user-select: none; transition: all .15s;
@@ -446,7 +451,7 @@
     .card { padding: 12px; }
     header { padding: 10px 12px; }
     header h1 { font-size: 14px; letter-spacing: 0.06em; }
-    .channel-row { grid-template-columns: 36px 1fr 50px; gap: 8px; }
+    .channel-row { grid-template-columns: 100px minmax(60px, 110px) 55px; gap: 8px; }
     .channel-row .name { display: none; }
     nav button { padding: 10px 12px; font-size: 10px; }
   }
@@ -2969,14 +2974,14 @@ function buildDmxSliders() {
     row.innerHTML = `
       <div>
         <div class="ch">CH${c.ch}</div>
-        <div class="name">${c.name}
+        <div class="name">
+          <span>${c.name}</span>
           <span class="help-icon" title="${c.help.replace(/"/g,'&quot;')}">?</span>
         </div>
         <div class="fn-name">${c.fn}</div>
       </div>
       <input type="range" min="0" max="255" value="0" data-ch="${idx}">
       <input type="number" min="0" max="255" value="0" class="num-input" data-ch-n="${idx}">
-      <div></div>
     `;
     root.appendChild(row);
   });
