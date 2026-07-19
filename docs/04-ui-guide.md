@@ -58,7 +58,7 @@ GalvOS ships as a Progressive Web App (PWA). This means you can install it on yo
 
 ## General Layout
 
-<img width="2502" height="1173" alt="image" src="https://github.com/user-attachments/assets/2397c2d3-09e4-456b-9648-87b0f7281b3d" />
+<img width="1583" height="52" alt="image" src="https://github.com/user-attachments/assets/3a9fd575-9a98-4934-baa0-ceb1394cbb9c" />
 
 The UI is divided into a **tab bar** at the top and a **content area** below. All tabs are accessible at any time — switching tabs does not stop the laser or change the active pattern.
 
@@ -68,7 +68,7 @@ The UI is divided into a **tab bar** at the top and a **content area** below. Al
 
 The Dashboard is the home screen and the first thing you see on load. It gives you a live status overview of the entire system.
 
-<img width="2539" height="1278" alt="image" src="https://github.com/user-attachments/assets/5490970f-a53d-4f47-8756-c692017cd025" />
+<img width="2502" height="1173" alt="image" src="https://github.com/user-attachments/assets/2397c2d3-09e4-456b-9648-87b0f7281b3d" />
 (The Dashboard)
 
 ### Safety Status Card
