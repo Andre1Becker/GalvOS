@@ -6,7 +6,6 @@
 [![Hardware License: CERN-OHL-S](https://img.shields.io/badge/HW_License-CERN--OHL--S-orange.svg)](https://ohwr.org/cern_ohl_s_v2.txt)
 [![Platform: ESP32-S3](https://img.shields.io/badge/Platform-ESP32--S3-red.svg)](https://www.espressif.com/en/products/socs/esp32-s3)
 [![Framework: Arduino](https://img.shields.io/badge/Framework-Arduino-teal.svg)](https://www.arduino.cc/)
-[![Version](https://img.shields.io/badge/Firmware-v5.77.4-green.svg)](docs/03-build-and-config.md)
 
 ---
 
