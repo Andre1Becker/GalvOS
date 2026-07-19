@@ -66,7 +66,7 @@
   body {
     font-family: var(--font-mono);
     margin: 0; background: var(--bg); color: var(--text);
-    font-size: 14px; line-height: 1.4;
+    font-size: 16px; line-height: 1.4;
     position: relative;
   }
   header {
@@ -79,7 +79,7 @@
     backdrop-filter: blur(12px);
   }
   header h1 {
-    margin: 0; font-size: 18px;
+    margin: 0; font-size: 20px;
     font-family: var(--font-head);
     font-weight: 900; text-transform: uppercase; letter-spacing: 0.12em;
     background: linear-gradient(90deg, var(--orange), var(--accent), var(--cyan));
@@ -87,12 +87,12 @@
     text-shadow: none;
     filter: drop-shadow(0 0 8px rgba(255,0,255,0.6));
   }
-  header .status { display: flex; gap: 12px; align-items: center; font-size: 13px; }
+  header .status { display: flex; gap: 12px; align-items: center; font-size: 15px; }
   .pill {
     padding: 3px 10px; border-radius: 0;
     background: transparent;
     border: 1px solid var(--border);
-    font-family: var(--font-mono); font-weight: 600; font-size: 11px;
+    font-family: var(--font-mono); font-weight: 600; font-size: 13px;
     text-transform: uppercase; letter-spacing: 0.08em;
   }
   .pill.armed {
@@ -117,7 +117,7 @@
   nav button {
     background: transparent; border: 0; color: var(--dim);
     padding: 11px 18px;
-    cursor: pointer; font-size: 12px;
+    cursor: pointer; font-size: 14px;
     font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 0.06em;
     border-bottom: 2px solid transparent;
     white-space: nowrap;
@@ -150,14 +150,14 @@
     background: linear-gradient(180deg, var(--cyan), transparent 60%);
   }
   .card h2 {
-    margin: 0 0 12px 0; font-size: 13px;
+    margin: 0 0 12px 0; font-size: 15px;
     font-family: var(--font-head); font-weight: 700;
     text-transform: uppercase; letter-spacing: 0.1em;
     color: var(--cyan);
     text-shadow: var(--glow-cyan);
   }
   .card h3 {
-    margin: 12px 0 8px 0; font-size: 11px;
+    margin: 12px 0 8px 0; font-size: 13px;
     font-family: var(--font-mono);
     color: var(--dim); text-transform: uppercase; letter-spacing: 0.06em;
     border-bottom: 1px solid var(--border); padding-bottom: 4px;
@@ -167,7 +167,7 @@
   .grid.cols-3 { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
 
   /* Status table */
-  .stat-row { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid rgba(45,27,78,0.5); font-size: 13px; }
+  .stat-row { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid rgba(45,27,78,0.5); font-size: 15px; }
   .stat-row:last-child { border: 0; }
   .stat-row .label { color: var(--dim); }
   .stat-row .val { font-family: var(--font-mono); color: var(--cyan); }
@@ -187,7 +187,7 @@
     border: 2px solid var(--accent);
     border-radius: 0;
     cursor: pointer; font-weight: 700;
-    font-family: var(--font-mono); font-size: 12px;
+    font-family: var(--font-mono); font-size: 14px;
     text-transform: uppercase; letter-spacing: 0.08em;
     transform: skewX(-8deg);
     transition: all 0.15s ease-linear;
@@ -218,7 +218,7 @@
     color: var(--cyan);
     border: none; border-bottom: 1px solid var(--border);
     border-radius: 0;
-    font-size: 13px; font-family: var(--font-mono);
+    font-size: 15px; font-family: var(--font-mono);
     transition: border-color 0.15s, box-shadow 0.15s;
   }
   input:not([type=range]):not([type=checkbox]):focus,
@@ -232,7 +232,7 @@
   select option { background: #0a0018; color: var(--text); }
   label {
     display: block; color: var(--dim); margin: 10px 0 4px;
-    font-size: 10px; font-family: var(--font-mono);
+    font-size: 12px; font-family: var(--font-mono);
     text-transform: uppercase; letter-spacing: 0.08em;
   }
 
@@ -246,17 +246,17 @@
   .channel-row > div:first-child { overflow: hidden; }
   .channel-row .ch { font-family: var(--font-mono); color: var(--cyan); font-weight: 700; text-shadow: var(--glow-cyan); white-space: nowrap; }
   .channel-row .name {
-    font-size: 12px; color: var(--dim); display: flex; align-items: center; gap: 6px;
+    font-size: 14px; color: var(--dim); display: flex; align-items: center; gap: 6px;
     font-family: var(--font-mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
   .channel-row .name > span:first-child { overflow: hidden; text-overflow: ellipsis; }
-  .channel-row .fn-name { font-family: var(--font-mono); font-size: 10px; font-weight: 700; color: var(--dim); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .channel-row .fn-name { font-family: var(--font-mono); font-size: 12px; font-weight: 700; color: var(--dim); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   /* Help-Icon (?) -- Tooltip via title-Attribut + custom Styling */
   .help-icon {
     display: inline-flex; align-items: center; justify-content: center;
     width: 14px; height: 14px; min-width: 14px; border-radius: 0;
     background: transparent; border: 1px solid var(--dim); color: var(--dim);
-    font-size: 9px; font-family: var(--font-mono); font-weight: 700; cursor: help;
+    font-size: 11px; font-family: var(--font-mono); font-weight: 700; cursor: help;
     flex-shrink: 0; user-select: none; transition: all .15s;
   }
   .help-icon:hover { border-color: var(--cyan); color: var(--cyan); box-shadow: var(--glow-cyan); }
@@ -265,7 +265,7 @@
   .opt-profile-btn {
     padding:5px 12px; border-radius:0; border:1px solid var(--border);
     background:transparent; color:var(--dim); cursor:pointer;
-    font-size:11px; font-family:var(--font-mono); text-transform:uppercase; letter-spacing:0.06em;
+    font-size:13px; font-family:var(--font-mono); text-transform:uppercase; letter-spacing:0.06em;
     transition:all .15s;
   }
   .opt-profile-btn:hover { border-color:var(--cyan); color:var(--cyan); }
@@ -279,20 +279,20 @@
   @media (max-width: 900px) { .opt-layout { grid-template-columns:1fr; } }
   .opt-members { position:sticky; top:12px; }
   .opt-member-item {
-    font-size:11px; font-family:var(--font-mono); color:var(--dim);
+    font-size:13px; font-family:var(--font-mono); color:var(--dim);
     padding:3px 6px; border-bottom:1px solid rgba(45,27,78,0.4); cursor:pointer;
     border-radius:0; transition:background 0.12s, color 0.12s;
     display:flex; gap:6px; align-items:baseline; }
   .opt-member-item:last-child { border-bottom:0; }
   .opt-member-item:hover { background:rgba(0,255,255,0.06); color:var(--cyan); }
   .opt-member-item.active { color:var(--accent); background:rgba(255,0,255,0.1); text-shadow: 0 0 6px rgba(255,0,255,0.5); }
-  .opt-member-item .idx { color:rgba(255,255,255,0.25); font-size:10px; }
+  .opt-member-item .idx { color:rgba(255,255,255,0.25); font-size:12px; }
   .opt-member-item.unknown { cursor:default; opacity:0.4; }
   .opt-member-item.unknown:hover { background:none; color:var(--dim); }
-  .opt-member-empty { font-size:11px; color:var(--dim); font-style:italic; }
+  .opt-member-empty { font-size:13px; color:var(--dim); font-style:italic; }
   /* Each parameter group is one visually enclosed cell. */
   .opt-group-label {
-    font-size: 11px; font-weight: 700;
+    font-size: 13px; font-weight: 700;
     font-family: var(--font-mono);
     color: var(--cyan);
     text-transform: uppercase; letter-spacing: .06em;
@@ -356,7 +356,7 @@
   .channel-row input[type=range] { width: 100%; }
   .channel-row .val-num { font-family: monospace; color: var(--text); text-align: right; }
   .channel-row .num-input {
-    width: 50px; padding: 3px 6px; font-size: 12px; text-align: center;
+    width: 50px; padding: 3px 6px; font-size: 14px; text-align: center;
   }
 
   /* Override toggle — vaporwave */
@@ -410,7 +410,7 @@
   .modal { position: relative; }
   .modal h2 {
     margin: 0 0 16px 0;
-    font-family: var(--font-head); font-size: 14px;
+    font-family: var(--font-head); font-size: 16px;
     text-transform: uppercase; letter-spacing: 0.1em;
     color: var(--accent); text-shadow: var(--glow-magenta);
   }
@@ -422,7 +422,7 @@
     border: 1px solid var(--cyan);
     border-radius: 0;
     padding: 10px 20px;
-    font-family: var(--font-mono); font-size: 12px;
+    font-family: var(--font-mono); font-size: 14px;
     letter-spacing: 0.06em;
     color: var(--cyan);
     opacity: 0; transition: opacity 0.25s; pointer-events: none;
@@ -433,7 +433,7 @@
   #toast.error { border-color: var(--bad); color: var(--bad); box-shadow: var(--glow-bad); }
 
   /* Tooltip / fault reason */
-  .fault-reason { color: var(--bad); font-size: 11px; margin-top: 8px; font-family: var(--font-mono); text-shadow: var(--glow-bad); }
+  .fault-reason { color: var(--bad); font-size: 13px; margin-top: 8px; font-family: var(--font-mono); text-shadow: var(--glow-bad); }
   .pps-bar {
     width: 100%; height: 4px; background: var(--border); border-radius: 0;
     overflow: hidden; margin-top: 4px;
@@ -450,10 +450,10 @@
     main { padding: 10px; }
     .card { padding: 12px; }
     header { padding: 10px 12px; }
-    header h1 { font-size: 14px; letter-spacing: 0.06em; }
+    header h1 { font-size: 16px; letter-spacing: 0.06em; }
     .channel-row { grid-template-columns: 100px minmax(60px, 110px) 55px; gap: 8px; }
     .channel-row .name { display: none; }
-    nav button { padding: 10px 12px; font-size: 10px; }
+    nav button { padding: 10px 12px; font-size: 12px; }
   }
   @media (max-width: 900px) {
     #tab-presets > div[style*="grid-template-columns"] {
@@ -476,7 +476,7 @@
   #vp-grid svg { width: 100%; height: 100%; }
 
   /* ── Telemetry bar values ── */
-  #telemetry-bar { font-family: var(--font-mono) !important; font-size: 11px !important; }
+  #telemetry-bar { font-family: var(--font-mono) !important; font-size: 13px !important; }
   #telemetry-bar span { letter-spacing: 0.04em; }
   #telemetry-bar #sb-fw { color: var(--cyan) !important; }
   #telemetry-bar #sb-kpps,
@@ -569,16 +569,16 @@
     <span id="ui-override-pill" class="pill" style="display:none;background:var(--accent);color:#fff">🖥 UI</span>
   </div>
   <div style="display:flex;align-items:center;gap:10px;margin-top:6px;flex-wrap:wrap">
-    <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;white-space:nowrap">
+    <label style="display:flex;align-items:center;gap:6px;font-size:14px;cursor:pointer;white-space:nowrap">
       <input type="checkbox" id="ui-override-toggle" onchange="uiControlUpdate()"
              style="width:15px;height:15px;cursor:pointer">
       <span style="color:var(--dim)">UI Override</span>
     </label>
-    <label style="font-size:12px;color:var(--dim);white-space:nowrap">Master Dimmer</label>
+    <label style="font-size:14px;color:var(--dim);white-space:nowrap">Master Dimmer</label>
     <input type="range" id="ui-master-dimmer" min="0" max="255" value="0"
            style="flex:1;min-width:100px;max-width:200px"
            oninput="document.getElementById('ui-master-dimmer-val').textContent=this.value; uiControlUpdate()">
-    <span id="ui-master-dimmer-val" style="font-family:monospace;font-size:12px;min-width:28px;color:var(--text)">0</span>
+    <span id="ui-master-dimmer-val" style="font-family:monospace;font-size:14px;min-width:28px;color:var(--text)">0</span>
   </div>
   <!-- ── Telemetry Status Bar (part of sticky header -> always visible) ── -->
   <div id="telemetry-bar" style="
@@ -589,7 +589,7 @@
     display:flex;
     align-items:center;
     gap:20px;
-    font-size:11px;
+    font-size:13px;
     font-family:monospace;
     color:var(--dim);
     flex-wrap:wrap;
@@ -606,7 +606,7 @@
     <span title="Points per frame: total (n) / lit / blank">◈ <span id="sb-frame-n" style="color:var(--text)">--</span> pts (<span id="sb-frame-lit" style="color:#4f4">--</span> lit / <span id="sb-frame-blank" style="color:var(--dim)">--</span> blank)</span>
   </div>
 </header>
-<div id="safety-override-banner" style="display:none;background:transparent;border:2px solid var(--bad);color:var(--bad);font-weight:700;text-align:center;padding:6px;font-size:12px;font-family:var(--font-mono);text-transform:uppercase;letter-spacing:0.1em;box-shadow:var(--glow-bad);">
+<div id="safety-override-banner" style="display:none;background:transparent;border:2px solid var(--bad);color:var(--bad);font-weight:700;text-align:center;padding:6px;font-size:14px;font-family:var(--font-mono);text-transform:uppercase;letter-spacing:0.1em;box-shadow:var(--glow-bad);">
   ⚠ SAFETY OVERRIDE ACTIVE — Scan-Fail and E-Stop checks bypassed
 </div>
 
@@ -650,13 +650,13 @@
       <div class="stat-row"><span>SD Free</span><span id="v-sd-free" class="val">--</span></div>
       <div class="stat-row"><span>SD Files</span><span id="v-sd-files" class="val">--</span></div>
       <div style="display:flex;gap:8px;margin-top:6px">
-        <button class="btn" id="btn-sd-remount" onclick="sdRemount()" style="flex:1;font-size:12px;padding:5px 8px">⟳ Mount</button>
-        <button class="btn" id="btn-sd-eject"   onclick="sdEject()"   style="flex:1;font-size:12px;padding:5px 8px;background:var(--warn);color:#000">⏏ Eject</button>
+        <button class="btn" id="btn-sd-remount" onclick="sdRemount()" style="flex:1;font-size:14px;padding:5px 8px">⟳ Mount</button>
+        <button class="btn" id="btn-sd-eject"   onclick="sdEject()"   style="flex:1;font-size:14px;padding:5px 8px;background:var(--warn);color:#000">⏏ Eject</button>
       </div>
-      <div id="v-sd-status" style="font-size:11px;color:var(--dim);min-height:14px;margin-top:4px"></div>
+      <div id="v-sd-status" style="font-size:13px;color:var(--dim);min-height:14px;margin-top:4px"></div>
       <div class="stat-row"><span>HTTP-OTA Pass</span><span id="dash-ota-pass" class="val" style="font-family:monospace;color:var(--warn)">--</span></div>
-      <div class="stat-row"><span>API Token</span><span id="dash-auth-token" class="val" style="font-family:monospace;font-size:11px;color:var(--dim);cursor:pointer" title="Click to copy" onclick="navigator.clipboard?.writeText(this.textContent);this.style.color='var(--ok)';setTimeout(()=>this.style.color='',1200)">--</span></div>
-      <div style="font-size:11px;color:var(--dim);margin-top:4px">OTA: <code>http://laser/update</code> · User: <code>admin</code><br>API write access requires <code>X-Auth: &lt;token&gt;</code> header</div>
+      <div class="stat-row"><span>API Token</span><span id="dash-auth-token" class="val" style="font-family:monospace;font-size:13px;color:var(--dim);cursor:pointer" title="Click to copy" onclick="navigator.clipboard?.writeText(this.textContent);this.style.color='var(--ok)';setTimeout(()=>this.style.color='',1200)">--</span></div>
+      <div style="font-size:13px;color:var(--dim);margin-top:4px">OTA: <code>http://laser/update</code> · User: <code>admin</code><br>API write access requires <code>X-Auth: &lt;token&gt;</code> header</div>
     </div>
 
     <div class="card" style="grid-column:2">
@@ -686,7 +686,7 @@
     <div class="card" style="grid-column:2/4">
       <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px;flex-wrap:wrap;gap:8px">
         <h2 style="margin:0">&#9099; CPU Load</h2>
-        <div style="display:flex;gap:16px;font-size:12px;flex-wrap:wrap">
+        <div style="display:flex;gap:16px;font-size:14px;flex-wrap:wrap">
           <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#0cf;margin-right:4px"></span>Core 0 (Net/DMX/UI)</span>
           <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#f90;margin-right:4px"></span>Core 1 (Galvo)</span>
           <span id="cpu-cur-0" style="display:none"></span>
@@ -695,7 +695,7 @@
       </div>
       <canvas id="cpu-canvas" height="160"
               style="width:100%;display:block;border:1px solid #2D1B4E;background:#000;cursor:crosshair;box-shadow:0 0 16px rgba(0,255,255,0.08)"></canvas>
-      <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--dim);margin-top:4px">
+      <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--dim);margin-top:4px">
         <span>60 s ago</span>
         <span id="cpu-hover-info" style="color:var(--accent)"></span>
         <span>now</span>
@@ -704,15 +704,15 @@
       <div style="display:flex;gap:24px;align-items:center;margin-top:10px;flex-wrap:wrap">
         <div style="display:flex;align-items:center;gap:8px">
           <span style="width:10px;height:10px;border-radius:2px;background:#0cf;display:inline-block"></span>
-          <span style="font-size:13px;color:var(--dim)">Core 0</span>
+          <span style="font-size:15px;color:var(--dim)">Core 0</span>
           <span id="cpu-load-0" style="font-family:monospace;font-size:20px;color:#0cf;min-width:52px;text-align:right">-- %</span>
         </div>
         <div style="display:flex;align-items:center;gap:8px">
           <span style="width:10px;height:10px;border-radius:2px;background:#f90;display:inline-block"></span>
-          <span style="font-size:13px;color:var(--dim)">Core 1</span>
+          <span style="font-size:15px;color:var(--dim)">Core 1</span>
           <span id="cpu-load-1" style="font-family:monospace;font-size:20px;color:#f90;min-width:52px;text-align:right">-- %</span>
         </div>
-        <div style="margin-left:auto;display:flex;gap:16px;font-size:11px;color:var(--dim);align-items:center;flex-wrap:wrap">
+        <div style="margin-left:auto;display:flex;gap:16px;font-size:13px;color:var(--dim);align-items:center;flex-wrap:wrap">
           <span style="display:flex;align-items:center;gap:5px"><span style="width:18px;border-bottom:1.5px dashed #fc0"></span>Warn &ge;70%</span>
           <span style="display:flex;align-items:center;gap:5px"><span style="width:18px;border-bottom:1.5px dashed #f44"></span>Critical &ge;90%</span>
           <span style="font-style:italic">Core 1 &asymp;100% normal</span>
@@ -724,7 +724,7 @@
     <div class="card" style="grid-column:2/4">
       <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px;flex-wrap:wrap;gap:8px">
         <h2 style="margin:0">&#127777; Temperature History</h2>
-        <div style="font-size:11px;color:var(--dim)">
+        <div style="font-size:13px;color:var(--dim)">
           &#128308;&nbsp;Laser &nbsp;&#128992;&nbsp;Driver &nbsp;&#128993;&nbsp;Galvo &nbsp;&#128994;&nbsp;PSU &nbsp;&#128309;&nbsp;Ambient
         </div>
       </div>
@@ -737,7 +737,7 @@
     <div class="card" style="grid-column:2/4">
       <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px;flex-wrap:wrap;gap:8px">
         <h2 style="margin:0">&#9889; Galvo Output Rate</h2>
-        <div style="font-size:11px;color:var(--dim)">Last 5 min &nbsp;&mdash;&nbsp; kpps</div>
+        <div style="font-size:13px;color:var(--dim)">Last 5 min &nbsp;&mdash;&nbsp; kpps</div>
       </div>
       <canvas id="kpps-chart" style="width:100%;height:160px;background:#000;border:1px solid #2D1B4E;box-shadow:0 0 16px rgba(255,0,255,0.08)"></canvas>
     </div>
@@ -746,7 +746,7 @@
     <div class="card" style="grid-column:2/4">
       <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px;flex-wrap:wrap;gap:8px">
         <h2 style="margin:0">&#9654; Frame Composition</h2>
-        <div style="font-size:11px;color:var(--dim)">
+        <div style="font-size:13px;color:var(--dim)">
           <span style="color:#4caf50">&#9644;</span> Lit (lit) &nbsp;
           <span style="color:#ff8c00">&#9644;</span> Blank (blank) &nbsp;
           <span style="color:#444">&#9644;</span> Total (n)
@@ -767,10 +767,10 @@
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
       <h2 style="margin:0">🎛 Global Controls</h2>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-        <span style="font-size:12px;color:var(--dim)">Active:</span>
-        <span id="preset-active-name" style="color:var(--blue);font-weight:600;font-size:12px">-- none --</span>
-        <button class="btn secondary" onclick="deactivatePreset()" style="padding:4px 10px;font-size:11px">⏹ Off</button>
-        <button class="btn secondary" onclick="resetLiveControls()" style="padding:4px 10px;font-size:11px">↺ Reset all</button>
+        <span style="font-size:14px;color:var(--dim)">Active:</span>
+        <span id="preset-active-name" style="color:var(--blue);font-weight:600;font-size:14px">-- none --</span>
+        <button class="btn secondary" onclick="deactivatePreset()" style="padding:4px 10px;font-size:13px">⏹ Off</button>
+        <button class="btn secondary" onclick="resetLiveControls()" style="padding:4px 10px;font-size:13px">↺ Reset all</button>
       </div>
     </div>
 
@@ -779,25 +779,25 @@
       <!-- Col 1: Speed / Size / Rotation Z -->
       <div style="padding:10px;background:rgba(0,0,0,0.5);border:1px solid var(--border);border-top:1px solid rgba(0,255,255,0.2)">
         <div style="margin-bottom:8px">
-          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:3px">
+          <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:3px">
             <span id="lv-sp-label">Speed</span><span id="lv-sp-val" style="color:var(--accent);font-family:monospace">80</span>
           </div>
           <input type="range" id="lv-sp" min="0" max="255" value="80" oninput="liveSlider()">
         </div>
         <div id="lv-spmul-row" style="display:none;margin-bottom:8px">
-          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:3px">
+          <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:3px">
             <span>Speed Multiplier</span><span id="lv-spmul-val" style="color:var(--accent);font-family:monospace">1×</span>
           </div>
           <input type="range" id="lv-spmul" min="1" max="10" value="1" oninput="liveSlider()">
         </div>
         <div style="margin-bottom:8px">
-          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:3px">
+          <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:3px">
             <span id="lv-sz-label">Size</span><span id="lv-sz-val" style="color:var(--accent);font-family:monospace">128</span>
           </div>
           <input type="range" id="lv-sz" min="10" max="255" value="128" oninput="liveSlider()">
         </div>
         <div style="margin-bottom:8px">
-          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:3px">
+          <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:3px">
             <span>Auto-Scaling speed</span><span id="lv-ascale-val" style="color:var(--accent);font-family:monospace">0%</span>
           </div>
           <input type="range" id="lv-ascale" min="0" max="100" value="0" oninput="liveSlider()">
@@ -807,77 +807,77 @@
             <option value="2">Big → Small</option>
           </select>
         </div>
-        <div id="lv-preset-hint" style="display:none;margin:0 0 8px;padding:8px;background:#050514;border:1px solid var(--border);border-radius:5px;font-size:11px;color:var(--dim);line-height:1.5"></div>
+        <div id="lv-preset-hint" style="display:none;margin:0 0 8px;padding:8px;background:#050514;border:1px solid var(--border);border-radius:5px;font-size:13px;color:var(--dim);line-height:1.5"></div>
         <div id="lv-randompts-row" style="display:none;margin-bottom:8px">
-          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:3px">
+          <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:3px">
             <span>Duration</span><span id="lv-randompts-val" style="color:var(--accent);font-family:monospace">500ms</span>
           </div>
           <input type="range" id="lv-randompts" min="50" max="5000" step="50" value="500" oninput="liveSlider()">
         </div>
         <div id="lv-bouncing-row" style="display:none;margin-bottom:8px">
-          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:3px">
+          <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:3px">
             <span>Trail Length</span><span id="lv-bp-trail-val" style="color:var(--accent);font-family:monospace">6</span>
           </div>
           <input type="range" id="lv-bp-trail" min="0" max="12" step="1" value="6" oninput="liveSlider()">
           <div style="display:flex;gap:8px;margin-top:6px;align-items:center">
             <label class="toggle">
               <input type="checkbox" id="lv-bp-endless" checked onchange="liveSlider()">
-              <span class="slider"></span><span style="font-size:11px">Endless</span>
+              <span class="slider"></span><span style="font-size:13px">Endless</span>
             </label>
           </div>
           <div id="lv-bp-dur-row" style="display:none;margin-top:6px">
-            <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:3px">
+            <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:3px">
               <span>Duration</span><span id="lv-bp-dur-val" style="color:var(--accent);font-family:monospace">30s</span>
             </div>
             <input type="range" id="lv-bp-dur" min="1" max="90" step="1" value="30" oninput="liveSlider()">
           </div>
         </div>
         <div id="lv-spiral-row" style="display:none;margin-bottom:8px">
-          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:3px">
+          <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:3px">
             <span>Arms</span><span id="lv-spiral-arms-val" style="color:var(--accent);font-family:monospace">2</span>
           </div>
           <input type="range" id="lv-spiral-arms" min="1" max="6" step="1" value="2" oninput="liveSlider()">
         </div>
         <div id="lv-tunnel-row" style="display:none;margin-bottom:8px">
-          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:3px">
+          <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:3px">
             <span>Rings</span><span id="lv-tunnel-rings-val" style="color:var(--accent);font-family:monospace">6</span>
           </div>
           <input type="range" id="lv-tunnel-rings" min="3" max="12" step="1" value="6" oninput="liveSlider()">
-          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin:6px 0 3px">
+          <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin:6px 0 3px">
             <span>Sides</span><span id="lv-tunnel-sides-val" style="color:var(--accent);font-family:monospace">4</span>
           </div>
           <input type="range" id="lv-tunnel-sides" min="3" max="10" step="1" value="4" oninput="liveSlider()">
         </div>
         <div id="lv-explosion-row" style="display:none;margin-bottom:8px">
-          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:3px">
+          <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:3px">
             <span>Rays</span><span id="lv-explosion-rays-val" style="color:var(--accent);font-family:monospace">16</span>
           </div>
           <input type="range" id="lv-explosion-rays" min="4" max="40" step="1" value="16" oninput="liveSlider()">
         </div>
         <div id="lv-fireworks-row" style="display:none;margin-bottom:8px">
-          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:3px">
+          <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:3px">
             <span>Max Shells</span><span id="lv-fw-shells-val" style="color:var(--accent);font-family:monospace">2</span>
           </div>
           <input type="range" id="lv-fw-shells" min="1" max="3" step="1" value="2" oninput="liveSlider()">
           <div style="display:flex;gap:8px;margin-top:6px;align-items:center">
             <label class="toggle">
               <input type="checkbox" id="lv-fw-glitter" checked onchange="liveSlider()">
-              <span class="slider"></span><span style="font-size:11px">Glitter</span>
+              <span class="slider"></span><span style="font-size:13px">Glitter</span>
             </label>
           </div>
         </div>
         <div id="lv-milkyway-row" style="display:none;margin-bottom:8px">
-          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:3px">
+          <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:3px">
             <span>Dots</span><span id="lv-mw-dots-val" style="color:var(--accent);font-family:monospace">60</span>
           </div>
           <input type="range" id="lv-mw-dots" min="10" max="60" step="1" value="60" oninput="liveSlider()">
-          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin:6px 0 3px">
+          <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin:6px 0 3px">
             <span>Tilt</span><span id="lv-mw-tilt-val" style="color:var(--accent);font-family:monospace">60%</span>
           </div>
           <input type="range" id="lv-mw-tilt" min="20" max="80" step="1" value="60" oninput="liveSlider()">
         </div>
         <div style="margin-bottom:8px">
-          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:3px">
+          <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:3px">
             <span>Rotation (Z)</span><span id="lv-rot-val" style="color:var(--accent);font-family:monospace">0°</span>
           </div>
           <input type="range" id="lv-rot" min="-180" max="180" value="0" oninput="liveSlider()">
@@ -886,35 +886,35 @@
 
       <!-- Col 2: Auto-Rotation -->
       <div style="padding:10px;background:rgba(0,0,0,0.5);border:1px solid var(--border);border-radius:6px">
-        <div style="font-family:monospace;font-size:10px;color:var(--accent);margin-bottom:8px">AUTO-ROTATION</div>
+        <div style="font-family:monospace;font-size:12px;color:var(--accent);margin-bottom:8px">AUTO-ROTATION</div>
         <label class="toggle" style="margin-bottom:8px">
           <input type="checkbox" id="lv-autorot" onchange="toggleAutoRed(this.checked)">
-          <span class="slider"></span><span style="font-size:12px">Continuous rotation</span>
+          <span class="slider"></span><span style="font-size:14px">Continuous rotation</span>
         </label>
         <div style="display:flex;flex-direction:column;gap:6px">
           <div>
-            <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:2px">
+            <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:2px">
               <span>Z axis</span><span id="lv-rspd-z-val" style="color:var(--accent);font-family:monospace">20</span>
             </div>
             <input type="range" id="lv-rot-z" min="0" max="100" value="20"
               oninput="document.getElementById('lv-rspd-z-val').textContent=this.value;sendLiveControls()">
           </div>
           <div>
-            <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:2px">
+            <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:2px">
               <span>Y axis (tilt)</span><span id="lv-rspd-y-val" style="color:var(--accent);font-family:monospace">0</span>
             </div>
             <input type="range" id="lv-rot-y" min="0" max="100" value="0"
               oninput="document.getElementById('lv-rspd-y-val').textContent=this.value;sendLiveControls()">
           </div>
           <div>
-            <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:2px">
+            <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:2px">
               <span>X axis (pitch)</span><span id="lv-rspd-x-val" style="color:var(--accent);font-family:monospace">0</span>
             </div>
             <input type="range" id="lv-rot-x" min="0" max="100" value="0"
               oninput="document.getElementById('lv-rspd-x-val').textContent=this.value;sendLiveControls()">
           </div>
           <div>
-            <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:2px">
+            <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:2px">
               <span>Master speed</span><span id="lv-rspd-val" style="color:var(--accent);font-family:monospace">20</span>
             </div>
             <input type="range" id="lv-rspd" min="1" max="100" value="20"
@@ -927,11 +927,11 @@
       <div style="display:flex;flex-direction:column;gap:8px">
         <div style="padding:10px;background:rgba(0,0,0,0.5);border:1px solid var(--border);border-radius:6px">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-          <span style="font-size:10px;color:var(--dim);font-family:monospace">COLOR</span>
+          <span style="font-size:12px;color:var(--dim);font-family:monospace">COLOR</span>
           <label class="toggle" style="margin:0">
             <input type="checkbox" id="lv-col-on" onchange="liveSlider()">
             <span class="slider"></span>
-            <span style="font-size:12px">Override</span>
+            <span style="font-size:14px">Override</span>
           </label>
         </div>
         <div style="display:flex;gap:14px;align-items:flex-start;margin-bottom:10px">
@@ -947,15 +947,15 @@
               left:60px;top:60px"></div>
           </div>
           <div style="display:flex;flex-direction:column;gap:8px;justify-content:center">
-            <div style="font-size:11px;color:var(--dim)">Brightness</div>
+            <div style="font-size:13px;color:var(--dim)">Brightness</div>
             <input type="range" id="lv-brightness" min="0" max="255" value="255"
               style="writing-mode:vertical-lr;direction:rtl;height:80px;width:28px"
               oninput="colorWheelBrightness(this.value)">
             <div id="lv-col-preview" style="width:40px;height:24px;border-radius:5px;border:1px solid var(--border);background:rgb(255,255,255)"></div>
             <div style="display:flex;align-items:center;gap:4px">
-              <span style="font-family:monospace;font-size:9px;color:var(--dim)">#</span>
+              <span style="font-family:monospace;font-size:11px;color:var(--dim)">#</span>
               <input type="text" id="lv-col-hex" value="ffc96e" maxlength="6"
-                style="font-family:monospace;font-size:10px;width:52px;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:3px;padding:2px 4px;outline:none"
+                style="font-family:monospace;font-size:12px;width:52px;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:3px;padding:2px 4px;outline:none"
                 oninput="hexInputChanged(this.value)">
             </div>
           </div>
@@ -984,13 +984,13 @@
         <div style="padding:10px;background:rgba(0,0,0,0.5);border:1px solid var(--border);border-radius:6px">
         <h2 style="margin:0 0 10px">🎬 Color Animations</h2>
         <div style="display:flex;gap:3px;flex-wrap:wrap;margin-bottom:8px" id="anim-type-btns">
-          <button onclick="setAnimType('gradient')" id="anim-btn-gradient" class="btn secondary" style="flex:1;font-size:10px;padding:4px 2px;min-width:0">Gradient</button>
-          <button onclick="setAnimType('chase')"    id="anim-btn-chase"    class="btn secondary" style="flex:1;font-size:10px;padding:4px 2px;min-width:0">Chase</button>
-          <button onclick="setAnimType('strobe')"   id="anim-btn-strobe"   class="btn secondary" style="flex:1;font-size:10px;padding:4px 2px;min-width:0">Strobe</button>
-          <button onclick="setAnimType('pulse')"    id="anim-btn-pulse"    class="btn secondary" style="flex:1;font-size:10px;padding:4px 2px;min-width:0">Pulse</button>
-          <button onclick="setAnimType('twinkle')"  id="anim-btn-twinkle"  class="btn secondary" style="flex:1;font-size:10px;padding:4px 2px;min-width:0">Twinkle</button>
-          <button onclick="setAnimType('colorflip')"id="anim-btn-colorflip"class="btn secondary" style="flex:1;font-size:10px;padding:4px 2px;min-width:0">Flip</button>
-          <button onclick="setAnimType('segment')"  id="anim-btn-segment"  class="btn secondary" style="flex:1;font-size:10px;padding:4px 2px;min-width:0">Seg</button>
+          <button onclick="setAnimType('gradient')" id="anim-btn-gradient" class="btn secondary" style="flex:1;font-size:12px;padding:4px 2px;min-width:0">Gradient</button>
+          <button onclick="setAnimType('chase')"    id="anim-btn-chase"    class="btn secondary" style="flex:1;font-size:12px;padding:4px 2px;min-width:0">Chase</button>
+          <button onclick="setAnimType('strobe')"   id="anim-btn-strobe"   class="btn secondary" style="flex:1;font-size:12px;padding:4px 2px;min-width:0">Strobe</button>
+          <button onclick="setAnimType('pulse')"    id="anim-btn-pulse"    class="btn secondary" style="flex:1;font-size:12px;padding:4px 2px;min-width:0">Pulse</button>
+          <button onclick="setAnimType('twinkle')"  id="anim-btn-twinkle"  class="btn secondary" style="flex:1;font-size:12px;padding:4px 2px;min-width:0">Twinkle</button>
+          <button onclick="setAnimType('colorflip')"id="anim-btn-colorflip"class="btn secondary" style="flex:1;font-size:12px;padding:4px 2px;min-width:0">Flip</button>
+          <button onclick="setAnimType('segment')"  id="anim-btn-segment"  class="btn secondary" style="flex:1;font-size:12px;padding:4px 2px;min-width:0">Seg</button>
         </div>
 
         <div id="anim-panel-gradient">
@@ -998,12 +998,12 @@
         </div>
 
         <div id="anim-panel-chase" style="display:none">
-          <div style="font-size:10px;color:var(--dim);margin-bottom:5px">Color sequence for Chase</div>
+          <div style="font-size:12px;color:var(--dim);margin-bottom:5px">Color sequence for Chase</div>
           <div id="chase-seq-grid" style="display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-bottom:8px"></div>
         </div>
 
         <div id="anim-panel-strobe" style="display:none">
-          <div style="font-size:10px;color:var(--dim);margin-bottom:5px">Strobe color</div>
+          <div style="font-size:12px;color:var(--dim);margin-bottom:5px">Strobe color</div>
           <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px">
             <div onclick="setStrobeColor(255,201,110)" style="width:28px;height:22px;background:#ffc96e;border-radius:3px;cursor:pointer;border:2px solid transparent" id="sc-w"></div>
             <div onclick="setStrobeColor(255,0,0)"     style="width:28px;height:22px;background:#f00;border-radius:3px;cursor:pointer;border:2px solid transparent" id="sc-r"></div>
@@ -1016,7 +1016,7 @@
         </div>
 
         <div id="anim-panel-pulse" style="display:none">
-          <div style="font-size:10px;color:var(--dim);margin-bottom:5px">Pulse color</div>
+          <div style="font-size:12px;color:var(--dim);margin-bottom:5px">Pulse color</div>
           <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px">
             <div onclick="setPulseColor(255,201,110)" style="width:28px;height:22px;background:#ffc96e;border-radius:3px;cursor:pointer;border:2px solid transparent" id="pc-w"></div>
             <div onclick="setPulseColor(255,0,0)"     style="width:28px;height:22px;background:#f00;border-radius:3px;cursor:pointer;border:2px solid transparent" id="pc-r"></div>
@@ -1029,16 +1029,16 @@
         </div>
 
         <div id="anim-panel-twinkle"   style="display:none">
-          <div style="font-size:10px;color:var(--dim);margin-bottom:8px">Random brightness spikes on current color — simulates spark/glitter effect.</div>
+          <div style="font-size:12px;color:var(--dim);margin-bottom:8px">Random brightness spikes on current color — simulates spark/glitter effect.</div>
         </div>
         <div id="anim-panel-colorflip" style="display:none">
-          <div style="font-size:10px;color:var(--dim);margin-bottom:8px">Hard cuts between R, G, B, W at the set speed.</div>
+          <div style="font-size:12px;color:var(--dim);margin-bottom:8px">Hard cuts between R, G, B, W at the set speed.</div>
         </div>
         <div id="anim-panel-segment" style="display:none">
-          <div style="font-size:10px;color:var(--dim);margin-bottom:5px">Color palette for segments</div>
+          <div style="font-size:12px;color:var(--dim);margin-bottom:5px">Color palette for segments</div>
           <div id="seg-seq-grid" style="display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-bottom:8px"></div>
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-            <span style="font-size:11px;color:var(--dim);white-space:nowrap">Segments</span>
+            <span style="font-size:13px;color:var(--dim);white-space:nowrap">Segments</span>
             <input type="range" id="seg-count-slider" min="1" max="10" value="4"
               oninput="document.getElementById('seg-count-val').textContent=this.value;applyGradient()">
             <span id="seg-count-val" style="color:var(--accent);font-family:monospace;min-width:16px">4</span>
@@ -1046,19 +1046,19 @@
         </div>
 
         <div style="margin-bottom:6px">
-          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:3px">
+          <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:3px">
             <span>Speed</span><span id="grad-speed-val" style="color:var(--accent);font-family:monospace">50</span>
           </div>
           <input type="range" id="grad-speed" min="0" max="255" value="60"
             oninput="document.getElementById('grad-speed-val').textContent=this.value;applyGradient()">
         </div>
         <div style="display:flex;gap:10px;margin-bottom:8px" id="anim-dir-row">
-          <label style="font-size:11px;cursor:pointer"><input type="radio" name="grad-dir" value="1"  checked onchange="applyGradient()"> → Fwd</label>
-          <label style="font-size:11px;cursor:pointer"><input type="radio" name="grad-dir" value="-1"        onchange="applyGradient()"> ← Rev</label>
+          <label style="font-size:13px;cursor:pointer"><input type="radio" name="grad-dir" value="1"  checked onchange="applyGradient()"> → Fwd</label>
+          <label style="font-size:13px;cursor:pointer"><input type="radio" name="grad-dir" value="-1"        onchange="applyGradient()"> ← Rev</label>
         </div>
         <div style="display:flex;gap:6px">
-          <button class="btn secondary" onclick="stopGradient()" style="flex:1;font-size:11px;padding:5px">⏹ Stop Animation</button>
-          <button class="btn secondary" onclick="resetColorOverride()" style="flex:1;font-size:11px;padding:5px">↺ Reset Colors</button>
+          <button class="btn secondary" onclick="stopGradient()" style="flex:1;font-size:13px;padding:5px">⏹ Stop Animation</button>
+          <button class="btn secondary" onclick="resetColorOverride()" style="flex:1;font-size:13px;padding:5px">↺ Reset Colors</button>
         </div>
         </div>
       </div>
@@ -1067,11 +1067,11 @@
       <div style="padding:10px;background:rgba(0,0,0,0.5);border:1px solid var(--border);border-radius:6px">
         <label class="toggle" style="margin-bottom:8px">
           <input type="checkbox" id="lv-pm-on" onchange="liveSlider()">
-          <span class="slider"></span><span style="font-size:12px">Points-Only Mode</span>
+          <span class="slider"></span><span style="font-size:14px">Points-Only Mode</span>
         </label>
         <div style="display:flex;flex-direction:column;gap:6px">
           <div>
-            <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:2px">
+            <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:2px">
               <span>Point count</span><span id="lv-pm-count-val" style="color:var(--accent);font-family:monospace">24</span>
             </div>
             <input type="range" id="lv-pm-count" min="2" max="80" value="24" oninput="liveSlider()">
@@ -1080,7 +1080,7 @@
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px">
               <label class="toggle" style="margin:0">
                 <input type="checkbox" id="lv-pm-fadein-on" checked onchange="liveSlider()">
-                <span class="slider"></span><span style="font-size:11px;color:var(--dim)">Fade-in</span>
+                <span class="slider"></span><span style="font-size:13px;color:var(--dim)">Fade-in</span>
               </label>
               <span id="lv-pm-fadein-val" style="color:var(--accent);font-family:monospace">400</span>
             </div>
@@ -1090,14 +1090,14 @@
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px">
               <label class="toggle" style="margin:0">
                 <input type="checkbox" id="lv-pm-fadeout-on" checked onchange="liveSlider()">
-                <span class="slider"></span><span style="font-size:11px;color:var(--dim)">Fade-out</span>
+                <span class="slider"></span><span style="font-size:13px;color:var(--dim)">Fade-out</span>
               </label>
               <span id="lv-pm-fadeout-val" style="color:var(--accent);font-family:monospace">400</span>
             </div>
             <input type="range" id="lv-pm-fadeout" min="0" max="5000" value="400" oninput="liveSlider()">
           </div>
           <div>
-            <div style="font-size:11px;color:var(--dim);margin-bottom:2px">Fade direction</div>
+            <div style="font-size:13px;color:var(--dim);margin-bottom:2px">Fade direction</div>
             <select id="lv-pm-dir" onchange="liveSlider()" style="width:100%;background:#0a0a18;color:var(--fg);border:1px solid var(--border);border-radius:4px;padding:4px">
               <option value="0">Inside → Outside</option>
               <option value="1">Outside → Inside</option>
@@ -1109,7 +1109,7 @@
           </div>
           <label class="toggle">
             <input type="checkbox" id="lv-pm-static-on" onchange="liveSlider()">
-            <span class="slider"></span><span style="font-size:12px">Static Mode (no fade, full brightness)</span>
+            <span class="slider"></span><span style="font-size:14px">Static Mode (no fade, full brightness)</span>
           </label>
         </div>
       </div>
@@ -1120,29 +1120,29 @@
         <div style="padding:10px;background:rgba(0,0,0,0.5);border:1px solid var(--border);border-radius:6px">
           <label class="toggle" style="margin-bottom:6px">
             <input type="checkbox" id="lv-kal-on" onchange="liveSlider()">
-            <span class="slider"></span><span style="font-size:12px">Kaleidoscope</span>
+            <span class="slider"></span><span style="font-size:14px">Kaleidoscope</span>
           </label>
           <div style="display:flex;flex-direction:column;gap:5px">
             <div>
-              <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:2px">
+              <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:2px">
                 <span>Segments</span><span id="lv-kal-segs-val" style="color:var(--accent);font-family:monospace">6</span>
               </div>
               <input type="range" id="lv-kal-segs" min="2" max="16" value="6" oninput="liveSlider()">
             </div>
             <div style="display:flex;gap:10px">
-              <label class="toggle"><input type="checkbox" id="lv-kal-mh" onchange="liveSlider()"><span class="slider"></span><span style="font-size:11px">Mirror H</span></label>
-              <label class="toggle"><input type="checkbox" id="lv-kal-mv" onchange="liveSlider()"><span class="slider"></span><span style="font-size:11px">Mirror V</span></label>
+              <label class="toggle"><input type="checkbox" id="lv-kal-mh" onchange="liveSlider()"><span class="slider"></span><span style="font-size:13px">Mirror H</span></label>
+              <label class="toggle"><input type="checkbox" id="lv-kal-mv" onchange="liveSlider()"><span class="slider"></span><span style="font-size:13px">Mirror V</span></label>
             </div>
           </div>
         </div>
         <!-- Mirror -->
         <div style="padding:10px;background:rgba(0,0,0,0.5);border:1px solid var(--border);border-radius:6px">
-          <div style="font-size:12px;margin-bottom:6px">Mirror</div>
+          <div style="font-size:14px;margin-bottom:6px">Mirror</div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px" id="lv-mirror-btns">
-            <button class="btn secondary" id="lv-mirror-off"     onclick="setLiveMirror(0)" style="font-size:11px;padding:4px 6px">Off</button>
-            <button class="btn secondary" id="lv-mirror-x"       onclick="setLiveMirror(1)" style="font-size:11px;padding:4px 6px">↔ X</button>
-            <button class="btn secondary" id="lv-mirror-y"       onclick="setLiveMirror(2)" style="font-size:11px;padding:4px 6px">↕ Y</button>
-            <button class="btn secondary" id="lv-mirror-radial4" onclick="setLiveMirror(3)" style="font-size:11px;padding:4px 6px">✳ Radial4</button>
+            <button class="btn secondary" id="lv-mirror-off"     onclick="setLiveMirror(0)" style="font-size:13px;padding:4px 6px">Off</button>
+            <button class="btn secondary" id="lv-mirror-x"       onclick="setLiveMirror(1)" style="font-size:13px;padding:4px 6px">↔ X</button>
+            <button class="btn secondary" id="lv-mirror-y"       onclick="setLiveMirror(2)" style="font-size:13px;padding:4px 6px">↕ Y</button>
+            <button class="btn secondary" id="lv-mirror-radial4" onclick="setLiveMirror(3)" style="font-size:13px;padding:4px 6px">✳ Radial4</button>
           </div>
         </div>
       </div>
@@ -1167,15 +1167,15 @@
       <h2 style="margin:0 0 10px">〰 Waves</h2>
       <div id="waves-preset-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:6px;max-height:260px;overflow-y:auto;margin-bottom:10px"></div>
       <div style="padding:10px;background:rgba(0,0,0,0.5);border:1px solid var(--border);border-radius:6px">
-        <div style="font-family:monospace;font-size:10px;color:var(--accent);margin-bottom:8px">WAVE PARAMETERS</div>
+        <div style="font-family:monospace;font-size:12px;color:var(--accent);margin-bottom:8px">WAVE PARAMETERS</div>
         <div>
-          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:2px">
+          <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:2px">
             <span>Amplitude</span><span id="lv-amp-val" style="color:var(--accent);font-family:monospace">1.00</span>
           </div>
           <input type="range" id="lv-amp" min="10" max="200" value="100" oninput="liveSlider()">
         </div>
         <div style="margin-top:6px">
-          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:2px">
+          <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:2px">
             <span>Frequency ×</span><span id="lv-freq-val" style="color:var(--accent);font-family:monospace">1.00</span>
           </div>
           <input type="range" id="lv-freq" min="25" max="400" value="100" oninput="liveSlider()">
@@ -1187,7 +1187,7 @@
     <div class="card" style="padding:14px">
       <h2 style="margin:0 0 10px">◆ 3D Presets</h2>
       <div id="td-preset-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:6px;max-height:260px;overflow-y:auto"></div>
-      <div style="margin-top:8px;font-size:11px;color:var(--dim)">Rotation is controlled by Auto-Rotation above.</div>
+      <div style="margin-top:8px;font-size:13px;color:var(--dim)">Rotation is controlled by Auto-Rotation above.</div>
     </div>
 
     <!-- Mathematical Curves -->
@@ -1195,23 +1195,23 @@
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px">
         <h2 style="margin:0">∿ Curves</h2>
         <div style="display:flex;gap:8px;align-items:center">
-          <span id="curve-active-name" style="color:var(--accent);font-weight:600;font-size:12px">-- none --</span>
-          <button class="btn secondary" onclick="selectCurve(-1)" style="padding:4px 10px;font-size:11px">⏹ Off</button>
+          <span id="curve-active-name" style="color:var(--accent);font-weight:600;font-size:14px">-- none --</span>
+          <button class="btn secondary" onclick="selectCurve(-1)" style="padding:4px 10px;font-size:13px">⏹ Off</button>
         </div>
       </div>
       <div id="curve-btn-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:6px;margin-bottom:10px;max-height:200px;overflow-y:auto"></div>
       <div id="curve-param-panel" style="display:none">
         <hr style="border:0;border-top:1px solid var(--border);margin:0 0 10px">
-        <p id="curve-desc" style="color:var(--dim);font-size:12px;margin:0 0 10px;font-style:italic"></p>
+        <p id="curve-desc" style="color:var(--dim);font-size:14px;margin:0 0 10px;font-style:italic"></p>
         <div id="curve-sliders" style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px"></div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
-          <span style="font-size:11px;color:var(--dim)">Color:</span>
-          <label style="font-size:11px">R <input type="range" min="0" max="255" id="curve-col-r" style="width:60px;vertical-align:middle" oninput="updateCurveColor()"></label>
-          <label style="font-size:11px">G <input type="range" min="0" max="255" id="curve-col-g" style="width:60px;vertical-align:middle" oninput="updateCurveColor()"></label>
-          <label style="font-size:11px">B <input type="range" min="0" max="255" id="curve-col-b" style="width:60px;vertical-align:middle" oninput="updateCurveColor()"></label>
+          <span style="font-size:13px;color:var(--dim)">Color:</span>
+          <label style="font-size:13px">R <input type="range" min="0" max="255" id="curve-col-r" style="width:60px;vertical-align:middle" oninput="updateCurveColor()"></label>
+          <label style="font-size:13px">G <input type="range" min="0" max="255" id="curve-col-g" style="width:60px;vertical-align:middle" oninput="updateCurveColor()"></label>
+          <label style="font-size:13px">B <input type="range" min="0" max="255" id="curve-col-b" style="width:60px;vertical-align:middle" oninput="updateCurveColor()"></label>
           <div id="curve-col-swatch" style="width:26px;height:18px;border-radius:3px;border:1px solid var(--border)"></div>
         </div>
-        <button class="btn ok" onclick="resetCurveParams()" style="padding:4px 10px;font-size:11px">↺ Reset</button>
+        <button class="btn ok" onclick="resetCurveParams()" style="padding:4px 10px;font-size:13px">↺ Reset</button>
       </div>
     </div>
 
@@ -1224,31 +1224,31 @@
       </div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
         <div style="flex:1;min-width:60px">
-          <div style="font-size:10px;color:var(--dim);margin-bottom:3px">Hours</div>
+          <div style="font-size:12px;color:var(--dim);margin-bottom:3px">Hours</div>
           <input type="number" id="timer-h" min="0" max="99" value="0" style="width:100%" oninput="updateTimerPreview()">
         </div>
         <div style="flex:1;min-width:60px">
-          <div style="font-size:10px;color:var(--dim);margin-bottom:3px">Minutes</div>
+          <div style="font-size:12px;color:var(--dim);margin-bottom:3px">Minutes</div>
           <input type="number" id="timer-m" min="0" max="59" value="5" style="width:100%" oninput="updateTimerPreview()">
         </div>
         <div style="flex:1;min-width:60px">
-          <div style="font-size:10px;color:var(--dim);margin-bottom:3px">Seconds</div>
+          <div style="font-size:12px;color:var(--dim);margin-bottom:3px">Seconds</div>
           <input type="number" id="timer-s" min="0" max="59" value="0" style="width:100%" oninput="updateTimerPreview()">
         </div>
       </div>
       <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px">
-        <button class="btn ok"        onclick="timerSet()"   style="flex:1;font-size:11px;padding:5px 4px">⏲ Set</button>
-        <button class="btn ok"        onclick="timerStart()" style="flex:1;font-size:11px;padding:5px 4px">▶ Start</button>
-        <button class="btn secondary" onclick="timerPause()" style="flex:1;font-size:11px;padding:5px 4px">⏸ Pause</button>
-        <button class="btn danger"    onclick="timerStop()"  style="flex:1;font-size:11px;padding:5px 4px">■ Stop</button>
-        <button class="btn secondary" onclick="timerReset()" style="flex:1;font-size:11px;padding:5px 4px">↺</button>
+        <button class="btn ok"        onclick="timerSet()"   style="flex:1;font-size:13px;padding:5px 4px">⏲ Set</button>
+        <button class="btn ok"        onclick="timerStart()" style="flex:1;font-size:13px;padding:5px 4px">▶ Start</button>
+        <button class="btn secondary" onclick="timerPause()" style="flex:1;font-size:13px;padding:5px 4px">⏸ Pause</button>
+        <button class="btn danger"    onclick="timerStop()"  style="flex:1;font-size:13px;padding:5px 4px">■ Stop</button>
+        <button class="btn secondary" onclick="timerReset()" style="flex:1;font-size:13px;padding:5px 4px">↺</button>
       </div>
       <div style="padding:8px;background:rgba(0,0,0,0.5);border:1px solid var(--border);border-radius:5px">
-        <div style="font-family:monospace;font-size:10px;color:var(--accent);margin-bottom:6px">ON EXPIRE</div>
+        <div style="font-family:monospace;font-size:12px;color:var(--accent);margin-bottom:6px">ON EXPIRE</div>
         <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:5px">
-          <label style="font-size:11px;cursor:pointer"><input type="radio" name="timer-expire" value="none" checked> Nothing</label>
-          <label style="font-size:11px;cursor:pointer"><input type="radio" name="timer-expire" value="text"> Text</label>
-          <label style="font-size:11px;cursor:pointer"><input type="radio" name="timer-expire" value="ilda"> ILDA</label>
+          <label style="font-size:13px;cursor:pointer"><input type="radio" name="timer-expire" value="none" checked> Nothing</label>
+          <label style="font-size:13px;cursor:pointer"><input type="radio" name="timer-expire" value="text"> Text</label>
+          <label style="font-size:13px;cursor:pointer"><input type="radio" name="timer-expire" value="ilda"> ILDA</label>
         </div>
         <div id="timer-expire-text" style="display:none;margin-top:4px">
           <input type="text" id="timer-text-msg" placeholder="Time's up!" style="width:100%">
@@ -1289,14 +1289,14 @@
 
     <div class="card">
       <h2>✏️ Text Mode</h2>
-      <p style="color:var(--dim);font-size:12px;margin-bottom:12px">
+      <p style="color:var(--dim);font-size:14px;margin-bottom:12px">
         Text overrides presets and DMX. Only uppercase A-Z, 0-9 and .,:!?-+<br>
         Up to 16 characters show statically; longer text scrolls automatically.
       </p>
       <label>Enter text</label>
       <input id="tx-text" type="text" maxlength="127" placeholder="HELLO WORLD"
              oninput="textLive()"
-             style="font-size:16px;font-family:monospace;letter-spacing:0.1em">
+             style="font-size:18px;font-family:monospace;letter-spacing:0.1em">
 
       <label>Font</label>
       <select id="tx-font" onchange="textLive()">
@@ -1353,7 +1353,7 @@
         <span class="slider"></span>↕ Flip Y
       </label>
 
-      <div style="margin-top:16px;padding:12px;background:#000;border:1px solid var(--border);border-radius:4px;font-family:monospace;font-size:11px;color:var(--dim)">
+      <div style="margin-top:16px;padding:12px;background:#000;border:1px solid var(--border);border-radius:4px;font-family:monospace;font-size:13px;color:var(--dim)">
         API: <span style="color:var(--accent)">POST /api/text</span><br>
         {text, font, anim, speed, size, col_r/g/b, rainbow, flip_x, flip_y, active}
       </div>
@@ -1371,16 +1371,16 @@
       <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
         <label class="toggle" style="margin:0">
           <input type="checkbox" id="pt-live" checked>
-          <span class="slider"></span><span style="font-size:12px">Live</span>
+          <span class="slider"></span><span style="font-size:14px">Live</span>
         </label>
-        <button class="btn ok"       onclick="paintProject()" style="padding:4px 10px;font-size:11px">🖨 Project</button>
-        <button class="btn secondary" onclick="paintOff()"     style="padding:4px 10px;font-size:11px">⏹ Off</button>
+        <button class="btn ok"       onclick="paintProject()" style="padding:4px 10px;font-size:13px">🖨 Project</button>
+        <button class="btn secondary" onclick="paintOff()"     style="padding:4px 10px;font-size:13px">⏹ Off</button>
       </div>
     </div>
 
     <!-- Color -->
     <div style="margin-bottom:12px">
-      <div style="font-size:10px;color:var(--dim);font-family:monospace;margin-bottom:6px">DRAW COLOR</div>
+      <div style="font-size:12px;color:var(--dim);font-family:monospace;margin-bottom:6px">DRAW COLOR</div>
       <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
         <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;flex:1;min-width:180px">
           <div onclick="paintSetColor(255,0,0)"     title="Red"     style="height:24px;border-radius:4px;background:#f00;cursor:pointer;border:1px solid #333"></div>
@@ -1402,26 +1402,26 @@
     <div style="padding:10px;background:rgba(0,0,0,0.5);border:1px solid var(--border);border-radius:6px">
       <label class="toggle" style="margin-bottom:8px">
         <input type="checkbox" id="pt-seg-on" onchange="paintToggleSegment(this.checked)">
-        <span class="slider"></span><span style="font-size:12px">🎬 Segment Color Animation</span>
+        <span class="slider"></span><span style="font-size:14px">🎬 Segment Color Animation</span>
       </label>
       <div id="pt-seg-panel" style="display:none">
         <div id="pt-seg-grid" style="display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-bottom:8px"></div>
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-          <span style="font-size:11px;color:var(--dim);white-space:nowrap">Segments</span>
+          <span style="font-size:13px;color:var(--dim);white-space:nowrap">Segments</span>
           <input type="range" id="pt-seg-count" min="1" max="10" value="4"
             oninput="document.getElementById('pt-seg-count-val').textContent=this.value;paintSendSegment()">
           <span id="pt-seg-count-val" style="color:var(--accent);font-family:monospace;min-width:16px">4</span>
         </div>
         <div style="margin-bottom:6px">
-          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:2px">
+          <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:2px">
             <span>Speed</span><span id="pt-seg-speed-val" style="color:var(--accent);font-family:monospace">60</span>
           </div>
           <input type="range" id="pt-seg-speed" min="0" max="255" value="60"
             oninput="document.getElementById('pt-seg-speed-val').textContent=this.value;paintSendSegment()">
         </div>
         <div style="display:flex;gap:10px">
-          <label style="font-size:11px;cursor:pointer"><input type="radio" name="pt-seg-dir" value="1"  checked onchange="paintSendSegment()"> → Fwd</label>
-          <label style="font-size:11px;cursor:pointer"><input type="radio" name="pt-seg-dir" value="-1"         onchange="paintSendSegment()"> ← Rev</label>
+          <label style="font-size:13px;cursor:pointer"><input type="radio" name="pt-seg-dir" value="1"  checked onchange="paintSendSegment()"> → Fwd</label>
+          <label style="font-size:13px;cursor:pointer"><input type="radio" name="pt-seg-dir" value="-1"         onchange="paintSendSegment()"> ← Rev</label>
         </div>
       </div>
     </div>
@@ -1433,43 +1433,43 @@
     <div class="card" style="padding:14px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px">
         <div style="display:flex;gap:4px;flex-wrap:wrap" id="pt-tool-btns">
-          <button class="btn secondary" id="pt-tool-select"   onclick="paintSetTool('select')"   style="font-size:11px;padding:5px 8px">⬚ Select</button>
-          <button class="btn secondary" id="pt-tool-pen"      onclick="paintSetTool('pen')"      style="font-size:11px;padding:5px 8px">✏️ Pen</button>
-          <button class="btn secondary" id="pt-tool-rect"     onclick="paintSetTool('rect')"     style="font-size:11px;padding:5px 8px">▭ Rect</button>
-          <button class="btn secondary" id="pt-tool-triangle" onclick="paintSetTool('triangle')" style="font-size:11px;padding:5px 8px">△ Triangle</button>
-          <button class="btn secondary" id="pt-tool-circle"   onclick="paintSetTool('circle')"   style="font-size:11px;padding:5px 8px">○ Circle</button>
-          <button class="btn secondary" id="pt-tool-line"     onclick="paintSetTool('line')"     style="font-size:11px;padding:5px 8px">／ Line</button>
+          <button class="btn secondary" id="pt-tool-select"   onclick="paintSetTool('select')"   style="font-size:13px;padding:5px 8px">⬚ Select</button>
+          <button class="btn secondary" id="pt-tool-pen"      onclick="paintSetTool('pen')"      style="font-size:13px;padding:5px 8px">✏️ Pen</button>
+          <button class="btn secondary" id="pt-tool-rect"     onclick="paintSetTool('rect')"     style="font-size:13px;padding:5px 8px">▭ Rect</button>
+          <button class="btn secondary" id="pt-tool-triangle" onclick="paintSetTool('triangle')" style="font-size:13px;padding:5px 8px">△ Triangle</button>
+          <button class="btn secondary" id="pt-tool-circle"   onclick="paintSetTool('circle')"   style="font-size:13px;padding:5px 8px">○ Circle</button>
+          <button class="btn secondary" id="pt-tool-line"     onclick="paintSetTool('line')"     style="font-size:13px;padding:5px 8px">／ Line</button>
         </div>
         <div style="display:flex;gap:4px">
-          <button class="btn secondary" onclick="paintDeleteSelected()" style="font-size:11px;padding:5px 8px">🗑 Delete</button>
-          <button class="btn secondary" onclick="paintUndo()"           style="font-size:11px;padding:5px 8px">↺ Undo</button>
-          <button class="btn secondary" onclick="paintRedo()"           style="font-size:11px;padding:5px 8px">↷ Redo</button>
-          <button class="btn danger"    onclick="paintClear()"          style="font-size:11px;padding:5px 8px">🧹 Clear</button>
+          <button class="btn secondary" onclick="paintDeleteSelected()" style="font-size:13px;padding:5px 8px">🗑 Delete</button>
+          <button class="btn secondary" onclick="paintUndo()"           style="font-size:13px;padding:5px 8px">↺ Undo</button>
+          <button class="btn secondary" onclick="paintRedo()"           style="font-size:13px;padding:5px 8px">↷ Redo</button>
+          <button class="btn danger"    onclick="paintClear()"          style="font-size:13px;padding:5px 8px">🧹 Clear</button>
         </div>
       </div>
       <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;flex-wrap:wrap;gap:8px">
         <div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap" id="pt-mirror-btns">
-          <span style="font-size:10px;color:var(--dim);font-family:monospace">MIRROR</span>
-          <button class="btn secondary" id="pt-mirror-off"     onclick="paintSetMirror('off')"     style="font-size:11px;padding:5px 8px">Off</button>
-          <button class="btn secondary" id="pt-mirror-x"       onclick="paintSetMirror('x')"       style="font-size:11px;padding:5px 8px">↔ X</button>
-          <button class="btn secondary" id="pt-mirror-y"       onclick="paintSetMirror('y')"       style="font-size:11px;padding:5px 8px">↕ Y</button>
-          <button class="btn secondary" id="pt-mirror-radial4" onclick="paintSetMirror('radial4')" style="font-size:11px;padding:5px 8px">✳ Radial4</button>
+          <span style="font-size:12px;color:var(--dim);font-family:monospace">MIRROR</span>
+          <button class="btn secondary" id="pt-mirror-off"     onclick="paintSetMirror('off')"     style="font-size:13px;padding:5px 8px">Off</button>
+          <button class="btn secondary" id="pt-mirror-x"       onclick="paintSetMirror('x')"       style="font-size:13px;padding:5px 8px">↔ X</button>
+          <button class="btn secondary" id="pt-mirror-y"       onclick="paintSetMirror('y')"       style="font-size:13px;padding:5px 8px">↕ Y</button>
+          <button class="btn secondary" id="pt-mirror-radial4" onclick="paintSetMirror('radial4')" style="font-size:13px;padding:5px 8px">✳ Radial4</button>
         </div>
         <label class="toggle" style="margin:0">
           <input type="checkbox" id="pt-snap" onchange="paintToggleSnap(this.checked)">
-          <span class="slider"></span><span style="font-size:12px">🧲 Snap</span>
+          <span class="slider"></span><span style="font-size:14px">🧲 Snap</span>
         </label>
       </div>
       <div style="display:flex;align-items:center;gap:6px;margin-top:8px;flex-wrap:wrap">
-        <span style="font-size:10px;color:var(--dim);font-family:monospace">TEXT</span>
+        <span style="font-size:12px;color:var(--dim);font-family:monospace">TEXT</span>
         <input type="text" id="pt-text-input" placeholder="TEXT" maxlength="24"
-          style="flex:1;min-width:100px;padding:4px 8px;font-size:12px;background:rgba(0,0,0,0.5);border:1px solid var(--border);border-radius:4px;color:inherit">
+          style="flex:1;min-width:100px;padding:4px 8px;font-size:14px;background:rgba(0,0,0,0.5);border:1px solid var(--border);border-radius:4px;color:inherit">
         <input type="range" id="pt-text-size" min="0" max="255" value="128" style="width:80px" title="Size">
-        <button class="btn secondary" onclick="paintInsertText()" style="font-size:11px;padding:5px 8px">➕ Insert</button>
+        <button class="btn secondary" onclick="paintInsertText()" style="font-size:13px;padding:5px 8px">➕ Insert</button>
       </div>
       <canvas id="pt-canvas" width="700" height="700"
         style="width:100%;aspect-ratio:1/1;background:#000;border-radius:6px;border:1px solid var(--border);touch-action:none;cursor:crosshair;display:block"></canvas>
-      <div style="margin-top:8px;font-size:11px;color:var(--dim);display:flex;justify-content:space-between;flex-wrap:wrap;gap:4px">
+      <div style="margin-top:8px;font-size:13px;color:var(--dim);display:flex;justify-content:space-between;flex-wrap:wrap;gap:4px">
         <span id="pt-status">0 shapes · 0 points</span>
         <span>drag body = move · drag handles = resize</span>
       </div>
@@ -1477,42 +1477,42 @@
 
     <!-- Auto-Rotation -->
     <div class="card" style="padding:14px">
-      <div style="font-family:monospace;font-size:10px;color:var(--accent);margin-bottom:8px">AUTO-ROTATION</div>
+      <div style="font-family:monospace;font-size:12px;color:var(--accent);margin-bottom:8px">AUTO-ROTATION</div>
       <label class="toggle" style="margin-bottom:8px">
         <input type="checkbox" id="pt-autorot" onchange="paintSendRotation()">
-        <span class="slider"></span><span style="font-size:12px">Continuous rotation</span>
+        <span class="slider"></span><span style="font-size:14px">Continuous rotation</span>
       </label>
       <div style="display:flex;flex-direction:column;gap:6px">
         <div>
-          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:2px">
+          <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:2px">
             <span>Z axis</span><span id="pt-rot-z-val" style="color:var(--accent);font-family:monospace">20</span>
           </div>
           <input type="range" id="pt-rot-z" min="0" max="100" value="20"
             oninput="document.getElementById('pt-rot-z-val').textContent=this.value;paintSendRotation()">
         </div>
         <div>
-          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:2px">
+          <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:2px">
             <span>Y axis (tilt)</span><span id="pt-rot-y-val" style="color:var(--accent);font-family:monospace">0</span>
           </div>
           <input type="range" id="pt-rot-y" min="0" max="100" value="0"
             oninput="document.getElementById('pt-rot-y-val').textContent=this.value;paintSendRotation()">
         </div>
         <div>
-          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:2px">
+          <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:2px">
             <span>X axis (pitch)</span><span id="pt-rot-x-val" style="color:var(--accent);font-family:monospace">0</span>
           </div>
           <input type="range" id="pt-rot-x" min="0" max="100" value="0"
             oninput="document.getElementById('pt-rot-x-val').textContent=this.value;paintSendRotation()">
         </div>
         <div>
-          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:2px">
+          <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:2px">
             <span>Master speed</span><span id="pt-rspd-val" style="color:var(--accent);font-family:monospace">20</span>
           </div>
           <input type="range" id="pt-rspd" min="1" max="100" value="20"
             oninput="document.getElementById('pt-rspd-val').textContent=this.value;paintSendRotation()">
         </div>
       </div>
-      <div style="margin-top:16px;padding:10px;background:rgba(0,0,0,0.5);border:1px solid var(--border);border-radius:6px;font-size:11px;color:var(--dim);line-height:1.6">
+      <div style="margin-top:16px;padding:10px;background:rgba(0,0,0,0.5);border:1px solid var(--border);border-radius:6px;font-size:13px;color:var(--dim);line-height:1.6">
         <b style="color:var(--accent)">Tips</b><br>
         Pen = freehand draw.<br>
         Shape tools = drag on canvas to size &amp; place.<br>
@@ -1531,7 +1531,7 @@
   <div class="card">
     <h2>System Log</h2>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
-      <span id="log-stats" style="color:var(--dim);font-size:12px">--</span>
+      <span id="log-stats" style="color:var(--dim);font-size:14px">--</span>
       <div style="flex:1"></div>
       <!-- Filter -->
       <select id="log-filter-lvl" onchange="applyLogFilter()" style="width:120px">
@@ -1561,7 +1561,7 @@
     <div id="log-container" style="
       height:520px; overflow-y:auto; background:#000;
       border:1px solid var(--border); border-radius:6px;
-      font-family:'SF Mono',Menlo,Consolas,monospace; font-size:11px;
+      font-family:'SF Mono',Menlo,Consolas,monospace; font-size:13px;
       padding:8px; color:#ccc; line-height:1.5;
     "></div>
   </div>
@@ -1596,7 +1596,7 @@
         </select>
         <button class="btn secondary" onclick="startWifiScan()" style="padding:8px 12px">🔍</button>
       </div>
-      <div id="scan-status" style="font-size:11px;color:var(--dim);margin-top:4px"></div>
+      <div id="scan-status" style="font-size:13px;color:var(--dim);margin-top:4px"></div>
 
       <label style="margin-top:12px">SSID (manual / confirm)</label>
       <input id="cfg-ssid" type="text" maxlength="32" placeholder="Network SSID">
@@ -1608,17 +1608,17 @@
       <input id="cfg-host" type="text" maxlength="31">
 
       <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">
-        <div style="font-family:monospace;font-size:10px;color:var(--accent);margin-bottom:8px">NTP TIME SYNC</div>
+        <div style="font-family:monospace;font-size:12px;color:var(--accent);margin-bottom:8px">NTP TIME SYNC</div>
         <label style="display:block;margin-bottom:6px">NTP Server
           <input id="cfg-ntp-server" type="text" placeholder="pool.ntp.org" style="width:100%;margin-top:4px">
         </label>
         <label style="display:block;margin-bottom:6px">Timezone (POSIX TZ string)
           <input id="cfg-ntp-tz" type="text" placeholder="UTC0" style="width:100%;margin-top:4px">
-          <span style="font-size:10px;color:var(--dim)">e.g. CET-1CEST,M3.5.0,M10.5.0/3 for Germany</span>
+          <span style="font-size:12px;color:var(--dim)">e.g. CET-1CEST,M3.5.0,M10.5.0/3 for Germany</span>
         </label>
         <div style="display:flex;gap:8px;align-items:center">
           <button class="btn secondary" onclick="saveNtpConfig()" style="flex:1">Save NTP</button>
-          <span id="cfg-ntp-status" style="font-size:11px;color:var(--dim)">--</span>
+          <span id="cfg-ntp-status" style="font-size:13px;color:var(--dim)">--</span>
         </div>
       </div>
 
@@ -1647,7 +1647,7 @@
         <input id="cfg-dns"  type="text" maxlength="15" placeholder="8.8.8.8">
         <button class="btn" style="margin-top:12px" onclick="saveStaticIp()">Save Static IP</button>
       </div>
-      <div id="dhcp-info" style="color:var(--dim);font-size:13px;padding:8px 0">
+      <div id="dhcp-info" style="color:var(--dim);font-size:15px;padding:8px 0">
         DHCP active -- IP is assigned automatically.
         <div style="margin-top:4px">Current IP: <span id="v-current-ip" class="val">--</span></div>
       </div>
@@ -1655,7 +1655,7 @@
 
     <div class="card">
       <h2>🛡 Safety Configuration</h2>
-      <p style="color:var(--dim);font-size:12px;margin-bottom:14px">
+      <p style="color:var(--dim);font-size:14px;margin-bottom:14px">
         Safety override allows temporary bypass for testing.
         <strong style="color:var(--warn)">Only use with laser disarmed and no audience present.</strong>
       </p>
@@ -1666,7 +1666,7 @@
           <span class="slider"></span>
           <span id="cfg-safety-lbl"><strong>Safety Override OFF</strong></span>
         </label>
-        <div id="cfg-safety-status" style="font-size:12px;color:var(--dim);padding:8px 12px;background:#0a0a14;border-radius:4px;border:1px solid var(--border)">
+        <div id="cfg-safety-status" style="font-size:14px;color:var(--dim);padding:8px 12px;background:#0a0a14;border-radius:4px;border:1px solid var(--border)">
           Normal safety logic active — e-stop and scan-fail are enforced.
         </div>
       </div>
@@ -1679,7 +1679,7 @@
     <!-- Debug / NoHW -->
     <div class="card" style="border-color:#555">
       <h2 style="color:var(--warn)">🔧 Debug</h2>
-      <p style="color:var(--dim);font-size:12px;margin-bottom:14px">
+      <p style="color:var(--dim);font-size:14px;margin-bottom:14px">
         <strong>No-HW Mode:</strong> SPI/DAC are skipped at boot — for firmware testing without hardware.<br>
         Change takes effect after reboot. <strong style="color:var(--warn)">Disable before normal operation.</strong>
       </p>
@@ -1689,13 +1689,13 @@
           <span class="slider"></span>
           <span id="nohw-label"><strong>No-HW Mode OFF</strong></span>
         </label>
-        <div id="nohw-status" style="font-size:12px;color:var(--dim);padding:8px 12px;background:#0a0a14;border-radius:4px;border:1px solid var(--border)">
+        <div id="nohw-status" style="font-size:14px;color:var(--dim);padding:8px 12px;background:#0a0a14;border-radius:4px;border:1px solid var(--border)">
           Normal mode — SPI/DAC active after boot.
         </div>
       </div>
 
       <hr style="border-color:var(--border);margin:14px 0">
-      <p style="color:var(--dim);font-size:12px;margin-bottom:10px">
+      <p style="color:var(--dim);font-size:14px;margin-bottom:10px">
         <strong>DAC Debug Log:</strong> logs DAC8562 hex writes (X/Y channel, 16-bit code) to
         Serial and the UI log, rate-limited to ~2 Hz. Useful for diagnosing SPI/galvo issues.
       </p>
@@ -1706,7 +1706,7 @@
       </label>
 
       <hr style="border-color:var(--border);margin:14px 0">
-      <p style="color:var(--dim);font-size:12px;margin-bottom:10px">
+      <p style="color:var(--dim);font-size:14px;margin-bottom:10px">
         <strong>DAC Low-Level Commands:</strong> direct DAC8562 register access for
         troubleshooting without external hardware. Requires laser ARMED (or No-HW Mode).
         Hold commands block briefly while holding the value — use a multimeter on
@@ -1739,11 +1739,11 @@
         <input type="number" id="dac-hold-secs" min="1" max="60" value="5"
                style="width:60px;background:#0a0a14;border:1px solid var(--border);color:var(--text);padding:3px 6px;border-radius:4px;font-family:monospace">
       </div>
-<div id="dac-cmd-status" style="font-size:12px;color:var(--dim);padding:8px 12px;background:#0a0a14;border-radius:4px;border:1px solid var(--border);min-height:18px"></div>
+<div id="dac-cmd-status" style="font-size:14px;color:var(--dim);padding:8px 12px;background:#0a0a14;border-radius:4px;border:1px solid var(--border);min-height:18px"></div>
     </div>
 <div class="card">
       <h2>🛠 Hardware Test (direct galvo / laser)</h2>
-      <p style="color:var(--dim);font-size:12px;margin:0 0 12px">
+      <p style="color:var(--dim);font-size:14px;margin:0 0 12px">
         Direct XY position and per-color drive, bypassing the pattern engine.
         Requires laser ARMED (or No-HW Mode). Use for galvo travel checks and
         per-color TTL verification. Range ±2048 (DAC code around mid-scale).
@@ -1771,7 +1771,7 @@
       </div>
 
       <hr style="border-color:var(--border);margin:14px 0">
-      <h3 style="font-size:13px;margin-bottom:8px">Laser drive (TTL)</h3>
+      <h3 style="font-size:15px;margin-bottom:8px">Laser drive (TTL)</h3>
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
         <div>
           <label>R <span id="dbg-r-val" style="color:#ff8080;font-family:monospace">0</span></label>
@@ -1800,7 +1800,7 @@
         <button class="btn danger" onclick="hwDebugCmd('exit')">⏏ Exit debug</button>
       </div>
 
-      <div id="hw-debug-status" style="font-size:12px;color:var(--dim);padding:8px 12px;background:#0a0a14;border-radius:4px;border:1px solid var(--border);min-height:18px;font-family:monospace"></div>
+      <div id="hw-debug-status" style="font-size:14px;color:var(--dim);padding:8px 12px;background:#0a0a14;border-radius:4px;border:1px solid var(--border);min-height:18px;font-family:monospace"></div>
     </div>
 
   </div>
@@ -1813,7 +1813,7 @@
     <!-- Galvo Rate -->
     <div class="card">
       <h2>⚡ Galvo Sample Rate</h2>
-      <p style="color:var(--dim);font-size:12px;margin-bottom:14px">
+      <p style="color:var(--dim);font-size:14px;margin-bottom:14px">
         Your galvos are rated at <strong style="color:var(--text)">15 kpps</strong>
         at ±8° optical (ILDA standard). Higher rates reduce positioning accuracy
         at wide angles. Lower rates give sharper corners but fewer points per frame.
@@ -1821,55 +1821,55 @@
 
       <!-- Galvo spec input — basis for all calculations -->
       <div style="padding:10px;background:rgba(0,0,0,0.5);border:1px solid var(--border);border-radius:6px;margin-bottom:14px">
-        <div style="font-family:monospace;font-size:10px;color:var(--accent);margin-bottom:8px">GALVO SPECIFICATION</div>
-        <label style="font-size:11px;color:var(--dim);display:block;margin-bottom:4px">
+        <div style="font-family:monospace;font-size:12px;color:var(--accent);margin-bottom:8px">GALVO SPECIFICATION</div>
+        <label style="font-size:13px;color:var(--dim);display:block;margin-bottom:4px">
           Galvo rated speed (kpps) — from datasheet
-          <span style="font-size:10px">(basis for all calculations)</span>
+          <span style="font-size:12px">(basis for all calculations)</span>
         </label>
         <div style="display:flex;gap:8px;align-items:center">
           <input type="number" id="galvo-rated-kpps" min="1" max="100" value="15"
             style="width:80px;font-family:monospace" oninput="onGalvoRatedKppsChange(this.value)">
-          <span style="font-size:12px;color:var(--dim)">kpps</span>
-          <span id="galvo-rated-note" style="font-size:11px;color:var(--dim)">— currently: 15 kpps (GALVO-15K)</span>
+          <span style="font-size:14px;color:var(--dim)">kpps</span>
+          <span id="galvo-rated-note" style="font-size:13px;color:var(--dim)">— currently: 15 kpps (GALVO-15K)</span>
         </div>
-        <div style="font-size:10px;color:var(--dim);margin-top:6px">
+        <div style="font-size:12px;color:var(--dim);margin-top:6px">
           Presets: 
-          <button class="btn secondary" style="padding:2px 8px;font-size:10px" onclick="setGalvoKpps(15)">15 kpps</button>
-          <button class="btn secondary" style="padding:2px 8px;font-size:10px" onclick="setGalvoKpps(30)">30 kpps</button>
-          <button class="btn secondary" style="padding:2px 8px;font-size:10px" onclick="setGalvoKpps(45)">45 kpps</button>
-          <button class="btn secondary" style="padding:2px 8px;font-size:10px" onclick="setGalvoKpps(60)">60 kpps</button>
+          <button class="btn secondary" style="padding:2px 8px;font-size:12px" onclick="setGalvoKpps(15)">15 kpps</button>
+          <button class="btn secondary" style="padding:2px 8px;font-size:12px" onclick="setGalvoKpps(30)">30 kpps</button>
+          <button class="btn secondary" style="padding:2px 8px;font-size:12px" onclick="setGalvoKpps(45)">45 kpps</button>
+          <button class="btn secondary" style="padding:2px 8px;font-size:12px" onclick="setGalvoKpps(60)">60 kpps</button>
         </div>
       </div>
 
       <label class="lbl" id="proj-kpps-lbl">Output Sample Rate
         <span id="proj-kpps-v" style="color:var(--accent);font-family:monospace">30 kpps</span>
-        <span id="proj-kpps-pct" style="font-size:10px;color:var(--dim)"></span>
+        <span id="proj-kpps-pct" style="font-size:12px;color:var(--dim)"></span>
       </label>
       <input type="range" id="proj-kpps" min="12" max="60" step="1" value="30"
              oninput="onKppsChange(this.value)">
-      <div style="display:flex;justify-content:space-between;font-size:10px;color:#555;margin-top:2px">
+      <div style="display:flex;justify-content:space-between;font-size:12px;color:#555;margin-top:2px">
         <span>12 kpps (sharp)</span><span>30 kpps</span><span>60 kpps (fast)</span>
       </div>
 
       <!-- Warning box -->
       <div id="proj-kpps-warn" style="display:none;margin-top:12px;padding:10px;
            background:rgba(255,165,0,.08);border:1px solid var(--warn);border-radius:6px;
-           font-size:12px;color:var(--warn)"></div>
+           font-size:14px;color:var(--warn)"></div>
 
       <!-- NE555 status -->
       <div id="proj-ne555-warn" style="display:none;margin-top:8px;padding:8px 10px;
            background:rgba(204,51,51,.08);border:1px solid var(--bad);border-radius:6px;
-           font-size:12px;color:var(--bad)"></div>
+           font-size:14px;color:var(--bad)"></div>
 
-      <div style="margin-top:14px;font-size:11px;color:var(--dim);line-height:2;font-family:monospace">
+      <div style="margin-top:14px;font-size:13px;color:var(--dim);line-height:2;font-family:monospace">
         <div>Period: <span id="proj-period" style="color:var(--blue)">33 µs</span></div>
         <div>Max safe kpps for current angle: <span id="proj-maxsafe" style="color:var(--ok)">-- kpps</span></div>
       </div>
 
       <!-- Sample-Rate Autotune -->
       <div style="padding:10px;background:rgba(0,0,0,0.5);border:1px solid var(--border);border-radius:6px;margin-top:14px">
-        <div style="font-family:monospace;font-size:10px;color:var(--accent);margin-bottom:8px">AUTOTUNE</div>
-        <p style="color:var(--dim);font-size:11px;margin-bottom:8px">
+        <div style="font-family:monospace;font-size:12px;color:var(--accent);margin-bottom:8px">AUTOTUNE</div>
+        <p style="color:var(--dim);font-size:13px;margin-bottom:8px">
           Finds the highest kpps that runs without "Ring buffer overflow" by
           testing against whatever is currently playing — start a real
           pattern/show first for a meaningful result.
@@ -1878,7 +1878,7 @@
           <button class="btn secondary" id="autotune-btn" onclick="startAutotune()">🎯 Autotune</button>
           <button class="btn danger" id="autotune-abort-btn" style="display:none" onclick="abortAutotune()">✕ Abort</button>
         </div>
-        <div id="autotune-status" style="display:none;margin-top:10px;font-size:12px;color:var(--dim)"></div>
+        <div id="autotune-status" style="display:none;margin-top:10px;font-size:14px;color:var(--dim)"></div>
       </div>
 
       <div class="btns" style="margin-top:14px">
@@ -1892,63 +1892,63 @@
       <h2>📐 Angular Configuration</h2>
 
       <label class="lbl">Galvo Mechanical Half-Angle (±°)
-        <br><span style="color:var(--dim);font-size:11px;font-style:italic">Note: Maximum mechanical deflection of your galvo mirrors. Typical: ±20° mech = ±40° optical.</span>
+        <br><span style="color:var(--dim);font-size:13px;font-style:italic">Note: Maximum mechanical deflection of your galvo mirrors. Typical: ±20° mech = ±40° optical.</span>
         <span id="proj-scan-v" style="color:var(--accent);font-family:monospace;float:right">20.0°</span>
       </label>
       <input type="range" id="proj-scan" min="5" max="40" step="0.5" value="20"
              oninput="document.getElementById('proj-scan-v').textContent=parseFloat(this.value).toFixed(1)+'°'; calcProjection()">
 
       <label class="lbl" style="margin-top:10px">Housing Exit Half-Angle (±°)
-        <br><span style="color:var(--dim);font-size:11px;font-style:italic">Note: The actual beam exit angle limited by your enclosure aperture. Usually smaller than the galvo angle.</span>
+        <br><span style="color:var(--dim);font-size:13px;font-style:italic">Note: The actual beam exit angle limited by your enclosure aperture. Usually smaller than the galvo angle.</span>
         <span id="proj-exit-v" style="color:var(--accent);font-family:monospace;float:right">15.0°</span>
       </label>
       <input type="range" id="proj-exit" min="2" max="35" step="0.5" value="15"
              oninput="document.getElementById('proj-exit-v').textContent=parseFloat(this.value).toFixed(1)+'°'; calcProjection()">
 
       <label class="lbl" style="margin-top:10px">ILDA Rating Half-Angle (±°)
-        <br><span style="color:var(--dim);font-size:11px;font-style:italic">Note: The angle at which the galvo kpps rating applies. ILDA standard = ±8° optical. Do not change unless your galvo spec says otherwise.</span>
+        <br><span style="color:var(--dim);font-size:13px;font-style:italic">Note: The angle at which the galvo kpps rating applies. ILDA standard = ±8° optical. Do not change unless your galvo spec says otherwise.</span>
         <span id="proj-ilda-v" style="color:var(--dim);font-family:monospace;float:right">8.0°</span>
       </label>
       <input type="range" id="proj-ilda" min="4" max="15" step="0.5" value="8"
              oninput="document.getElementById('proj-ilda-v').textContent=parseFloat(this.value).toFixed(1)+'°'; calcProjection()">
 
       <hr style="border:0;border-top:1px solid var(--border);margin:14px 0">
-      <h3 style="font-size:12px;color:var(--dim);margin-bottom:10px">Laser Module Power</h3>
+      <h3 style="font-size:14px;color:var(--dim);margin-bottom:10px">Laser Module Power</h3>
 
-      <label class="lbl">🔴 Red (638 nm) &nbsp;<br><span style="color:var(--dim);font-size:11px;font-style:italic">Note: Red diode power. V(638)=0.235 — moderate eye sensitivity.</span>
+      <label class="lbl">🔴 Red (638 nm) &nbsp;<br><span style="color:var(--dim);font-size:13px;font-style:italic">Note: Red diode power. V(638)=0.235 — moderate eye sensitivity.</span>
         <span id="proj-pwr-r-v" style="color:#f66;font-family:monospace;float:right">1000 mW</span>
       </label>
       <div style="display:flex;gap:8px;align-items:center">
         <input type="range" id="proj-pwr-r" min="0" max="10000" step="50" value="1000" style="flex:1"
                oninput="syncPwr('r',this.value)">
         <input type="number" id="proj-pwr-r-n" min="0" max="10000" step="50" value="1000"
-               style="width:75px;text-align:right;font-family:monospace;font-size:12px;background:#111;border:1px solid var(--border);color:var(--text);padding:3px 6px;border-radius:4px"
+               style="width:75px;text-align:right;font-family:monospace;font-size:14px;background:#111;border:1px solid var(--border);color:var(--text);padding:3px 6px;border-radius:4px"
                oninput="syncPwr('r',this.value)">
       </div>
 
-      <label class="lbl" style="margin-top:8px">🟢 Green (520 nm) &nbsp;<br><span style="color:var(--dim);font-size:11px;font-style:italic">Note: Green diode power. V(520)=0.710 — highest eye sensitivity!</span>
+      <label class="lbl" style="margin-top:8px">🟢 Green (520 nm) &nbsp;<br><span style="color:var(--dim);font-size:13px;font-style:italic">Note: Green diode power. V(520)=0.710 — highest eye sensitivity!</span>
         <span id="proj-pwr-g-v" style="color:#6f6;font-family:monospace;float:right">1000 mW</span>
       </label>
       <div style="display:flex;gap:8px;align-items:center">
         <input type="range" id="proj-pwr-g" min="0" max="10000" step="50" value="1000" style="flex:1"
                oninput="syncPwr('g',this.value)">
         <input type="number" id="proj-pwr-g-n" min="0" max="10000" step="50" value="1000"
-               style="width:75px;text-align:right;font-family:monospace;font-size:12px;background:#111;border:1px solid var(--border);color:var(--text);padding:3px 6px;border-radius:4px"
+               style="width:75px;text-align:right;font-family:monospace;font-size:14px;background:#111;border:1px solid var(--border);color:var(--text);padding:3px 6px;border-radius:4px"
                oninput="syncPwr('g',this.value)">
       </div>
 
-      <label class="lbl" style="margin-top:8px">🔵 Blue (445 nm) &nbsp;<br><span style="color:var(--dim);font-size:11px;font-style:italic">Note: Blue diode power. V(445)=0.040 but B(445)=0.220 — highest photochemical hazard!</span>
+      <label class="lbl" style="margin-top:8px">🔵 Blue (445 nm) &nbsp;<br><span style="color:var(--dim);font-size:13px;font-style:italic">Note: Blue diode power. V(445)=0.040 but B(445)=0.220 — highest photochemical hazard!</span>
         <span id="proj-pwr-b-v" style="color:#88f;font-family:monospace;float:right">3000 mW</span>
       </label>
       <div style="display:flex;gap:8px;align-items:center">
         <input type="range" id="proj-pwr-b" min="0" max="10000" step="50" value="3000" style="flex:1"
                oninput="syncPwr('b',this.value)">
         <input type="number" id="proj-pwr-b-n" min="0" max="10000" step="50" value="3000"
-               style="width:75px;text-align:right;font-family:monospace;font-size:12px;background:#111;border:1px solid var(--border);color:var(--text);padding:3px 6px;border-radius:4px"
+               style="width:75px;text-align:right;font-family:monospace;font-size:14px;background:#111;border:1px solid var(--border);color:var(--text);padding:3px 6px;border-radius:4px"
                oninput="syncPwr('b',this.value)">
       </div>
 
-      <div style="margin-top:10px;background:#0a0a14;border:1px solid var(--border);border-radius:6px;padding:10px;font-size:11px;font-family:monospace;line-height:2">
+      <div style="margin-top:10px;background:#0a0a14;border:1px solid var(--border);border-radius:6px;padding:10px;font-size:13px;font-family:monospace;line-height:2">
         <div style="display:flex;justify-content:space-between">
           <span style="color:var(--dim)">Total</span><span id="proj-total-mw" style="color:var(--text)">5000 mW</span>
         </div>
@@ -1972,7 +1972,7 @@
              oninput="document.getElementById('proj-dist-v').textContent=parseFloat(this.value).toFixed(1)+' m'; calcProjection()">
 
       <div style="margin-top:16px;background:#0a0a14;border:1px solid var(--border);border-radius:6px;padding:14px">
-        <div style="font-family:monospace;font-size:12px;line-height:2.4">
+        <div style="font-family:monospace;font-size:14px;line-height:2.4">
           <div style="display:flex;justify-content:space-between">
             <span style="color:var(--dim)">Image width</span>
             <span id="calc-w" style="color:var(--blue)">-- cm</span>
@@ -2001,12 +2001,12 @@
     <!-- Safety card -->
     <div class="card">
       <h2>🛡 Safety Assessment</h2>
-      <p style="color:var(--dim);font-size:11px;margin-bottom:12px">
+      <p style="color:var(--dim);font-size:13px;margin-bottom:12px">
         Simplified irradiance estimate based on configured power and scan angle.
       </p>
 
       <div id="safety-box" style="background:#0a0a14;border-radius:6px;
-           border:1px solid var(--border);padding:12px;font-size:12px;
+           border:1px solid var(--border);padding:12px;font-size:14px;
            font-family:monospace;line-height:2.2">
         <div style="display:flex;justify-content:space-between">
           <span style="color:var(--dim)">Laser class</span>
@@ -2040,7 +2040,7 @@
       </div>
 
       <div style="margin-top:12px;padding:10px;background:#0a0a0a;border-radius:4px;
-           font-size:10px;color:#555;line-height:1.7">
+           font-size:12px;color:#555;line-height:1.7">
         ⚠ This device is a <strong style="color:#888">laser</strong>.<br>
         All figures are estimates based on configured values. Consult your local
         laser safety regulations and verify with calibrated measurement equipment.
@@ -2061,7 +2061,7 @@
 
       <!-- Sensor-Namen Editor -->
       <div style="margin-top:12px;padding:10px;background:rgba(0,0,0,0.5);border:1px solid var(--border);border-radius:6px">
-        <div style="font-family:monospace;font-size:10px;color:var(--accent);margin-bottom:8px">
+        <div style="font-family:monospace;font-size:12px;color:var(--accent);margin-bottom:8px">
           SENSOR NAMES &nbsp;<span id="sensor-found-info" style="color:var(--dim)"></span>
         </div>
         <div id="sensor-name-list" style="display:flex;flex-direction:column;gap:6px"></div>
@@ -2072,7 +2072,7 @@
     <!-- Sensor Calibration Offsets -->
     <div class="card">
       <h2>&#128295; Sensor Offsets</h2>
-      <p style="font-size:11px;color:var(--dim);margin-bottom:12px">
+      <p style="font-size:13px;color:var(--dim);margin-bottom:12px">
         Calibration offset added to each raw reading (+/- 20°C). Applied before threshold checks.
       </p>
       <div id="temp-offset-rows" style="display:flex;flex-direction:column;gap:8px"></div>
@@ -2083,7 +2083,7 @@
 
     <div class="card">
       <h2>Fan Control</h2>
-      <p style="color:var(--dim);font-size:12px;">
+      <p style="color:var(--dim);font-size:14px;">
         Automatic: proportional to the highest temperature.<br>
         Override: manually fixed, 0% = off (recommended only when laser ARM disarmed).
       </p>
@@ -2108,7 +2108,7 @@
 
     <div class="card">
       <h2>Thresholds (°C)</h2>
-      <p style="color:var(--dim);font-size:12px;">
+      <p style="color:var(--dim);font-size:14px;">
         Warn = Fan 100% - Alert = ARM disarmed - Crit = Emergency shutdown
       </p>
       <div id="temp-thresholds"></div>
@@ -2181,7 +2181,7 @@ function showHelpPopup(text) {
       'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);' +
       'max-width:90%;width:380px;background:var(--panel2);color:var(--text);' +
       'border:1px solid var(--accent);border-radius:8px;padding:14px 16px;' +
-      'font-size:13px;line-height:1.5;z-index:9999;box-shadow:0 8px 32px rgba(0,0,0,.6);' +
+      'font-size:15px;line-height:1.5;z-index:9999;box-shadow:0 8px 32px rgba(0,0,0,.6);' +
       'cursor:pointer';
     pop.onclick = () => pop.remove();
     document.body.appendChild(pop);
@@ -2189,7 +2189,7 @@ function showHelpPopup(text) {
   pop.innerHTML = '<div style="display:flex;gap:10px;align-items:flex-start">' +
     '<span style="color:var(--accent);font-weight:700;flex-shrink:0">?</span>' +
     '<span>' + text + '</span></div>' +
-    '<div style="font-size:10px;color:var(--dim);margin-top:8px;text-align:right">Tap to close</div>';
+    '<div style="font-size:12px;color:var(--dim);margin-top:8px;text-align:right">Tap to close</div>';
   clearTimeout(window._helpTimer);
   window._helpTimer = setTimeout(() => { if (pop) pop.remove(); }, 8000);
 }
@@ -2582,7 +2582,7 @@ function buildCurveBtns() {
     btn.id = 'curve-btn-' + i;
     btn.style.cssText =
       'padding:10px 6px;border-radius:6px;border:1px solid var(--border);' +
-      'background:var(--panel2);color:var(--text);cursor:pointer;font-size:13px;' +
+      'background:var(--panel2);color:var(--text);cursor:pointer;font-size:15px;' +
       'text-align:left;transition:all .15s';
     btn.innerHTML =
       '<span style="display:block;font-weight:600;color:' + CURVE_COLORS[i] + '">' +
@@ -2656,12 +2656,12 @@ function buildCurveParamPanel(idx) {
     const row = document.createElement('div');
     row.style.cssText = 'display:flex;align-items:center;gap:8px;flex-wrap:wrap';
     row.innerHTML =
-      '<span style="font-size:12px;color:var(--dim);min-width:110px">' + pd.label + '</span>' +
+      '<span style="font-size:14px;color:var(--dim);min-width:110px">' + pd.label + '</span>' +
       '<input type="range" id="cp-' + pi + '" min="' + pd.min + '" max="' + pd.max + '"' +
         ' step="' + pd.step + '" value="' + val.toFixed(4) + '"' +
         ' style="flex:1;min-width:100px"' +
         ' oninput="onCurveSlider(' + idx + ',' + pi + ',this.value)">' +
-      '<span id="cp-val-' + pi + '" style="font-size:11px;color:var(--accent);' +
+      '<span id="cp-val-' + pi + '" style="font-size:13px;color:var(--accent);' +
         'font-family:monospace;min-width:44px;text-align:right">' + val.toFixed(2) + '</span>';
     sc.appendChild(row);
   });
@@ -3374,13 +3374,13 @@ function buildSensorNameEditor() {
     const row = document.createElement('div');
     row.style.cssText = 'display:flex;align-items:center;gap:6px';
     row.innerHTML =
-      '<span style="font-size:10px;color:var(--dim);width:14px">' + i + '</span>' +
+      '<span style="font-size:12px;color:var(--dim);width:14px">' + i + '</span>' +
       '<input id="sname-' + i + '" value="' + name.replace(/"/g,'&quot;') + '" ' +
         'style="flex:1;background:#0a0a14;border:1px solid var(--border);color:var(--text);' +
-               'padding:3px 8px;border-radius:4px;font-size:12px;font-family:monospace">' +
-      '<span style="font-size:12px">' + dot + '</span>' +
+               'padding:3px 8px;border-radius:4px;font-size:14px;font-family:monospace">' +
+      '<span style="font-size:14px">' + dot + '</span>' +
       '<button onclick="saveSensorName(' + i + ')" ' +
-        'style="padding:3px 10px;font-size:11px;background:var(--accent);color:#000;' +
+        'style="padding:3px 10px;font-size:13px;background:var(--accent);color:#000;' +
                'border:none;border-radius:4px;cursor:pointer">OK</button>';
     container.appendChild(row);
   });
@@ -3411,7 +3411,7 @@ function buildTempSensors() {
       </span>
       <span>
         <span id="temp-val-${i}" class="val">--</span>
-        <span id="temp-badge-${i}" style="margin-left:6px;font-size:11px;padding:2px 6px;border-radius:10px;display:none"></span>
+        <span id="temp-badge-${i}" style="margin-left:6px;font-size:13px;padding:2px 6px;border-radius:10px;display:none"></span>
       </span>`;
     root.appendChild(row);
   });
@@ -3425,15 +3425,15 @@ function buildThresholdInputs() {
     const t = thresholdData[i];
     root.innerHTML += `
       <div style="display:grid;grid-template-columns:1fr 60px 60px 60px;gap:6px;align-items:center;padding:6px 0;border-bottom:1px solid var(--border)">
-        <span style="font-size:12px;color:var(--dim)">${name}</span>
-        <input type="number" id="thr-warn-${i}" value="${t.warn}" style="padding:4px;font-size:11px" placeholder="Warn">
-        <input type="number" id="thr-alert-${i}" value="${t.alert}" style="padding:4px;font-size:11px" placeholder="Alert">
-        <input type="number" id="thr-crit-${i}" value="${t.crit}" style="padding:4px;font-size:11px" placeholder="Crit">
+        <span style="font-size:14px;color:var(--dim)">${name}</span>
+        <input type="number" id="thr-warn-${i}" value="${t.warn}" style="padding:4px;font-size:13px" placeholder="Warn">
+        <input type="number" id="thr-alert-${i}" value="${t.alert}" style="padding:4px;font-size:13px" placeholder="Alert">
+        <input type="number" id="thr-crit-${i}" value="${t.crit}" style="padding:4px;font-size:13px" placeholder="Crit">
       </div>`;
   });
   // Header
   root.insertAdjacentHTML('afterbegin',`
-    <div style="display:grid;grid-template-columns:1fr 60px 60px 60px;gap:6px;font-size:10px;color:var(--dim);padding-bottom:4px">
+    <div style="display:grid;grid-template-columns:1fr 60px 60px 60px;gap:6px;font-size:12px;color:var(--dim);padding-bottom:4px">
       <span>Sensor</span><span>Warn °C</span><span>Alert °C</span><span>Crit °C</span>
     </div>`);
 }
@@ -3707,9 +3707,9 @@ function updateTempCurrentRow(temps, names, ok) {
     const name  = (names && names[i]) ? names[i] : ('Sensor ' + (i+1));
     const t     = (ok && ok[i] && temps[i] != null) ? temps[i].toFixed(1) + '°C' : '--';
     const badge = document.createElement('div');
-    badge.style.cssText = 'display:flex;align-items:center;gap:5px;padding:4px 8px;border-radius:4px;border:1px solid '+color+'22;background:'+color+'11;font-size:12px;min-width:90px';
+    badge.style.cssText = 'display:flex;align-items:center;gap:5px;padding:4px 8px;border-radius:4px;border:1px solid '+color+'22;background:'+color+'11;font-size:14px;min-width:90px';
     badge.innerHTML = '<span style="width:8px;height:8px;border-radius:50%;background:'+color+';flex-shrink:0"></span>'
-      + '<span style="color:var(--dim);font-size:11px">'+name+'</span>'
+      + '<span style="color:var(--dim);font-size:13px">'+name+'</span>'
       + '<span style="font-family:monospace;font-weight:600;color:'+color+';margin-left:auto">'+t+'</span>';
     row.appendChild(badge);
   }
@@ -4057,12 +4057,12 @@ function buildCatFilters() {
         .filter(cat => cat !== 'Waves' && cat !== '3D');
     const root = document.getElementById('cat-filters');
     root.innerHTML = `<button class="btn ${s_activeCat===''?'':'secondary'}"
-      style="padding:6px 12px;font-size:12px" onclick="filterCat('')">All</button>`;
+      style="padding:6px 12px;font-size:14px" onclick="filterCat('')">All</button>`;
     cats.forEach(cat => {
         const bg = CAT_COLORS_PRESET[cat] || '#333';
         const active = s_activeCat === cat;
         root.innerHTML += `<button onclick="filterCat('${cat}')"
-          style="padding:6px 12px;font-size:12px;background:${bg};color:#fff;
+          style="padding:6px 12px;font-size:14px;background:${bg};color:#fff;
                  border:2px solid ${active?'var(--accent)':'transparent'};
                  border-radius:6px;cursor:pointer;opacity:${active?'1':'0.7'}">${cat}</button>`;
     });
@@ -4107,9 +4107,9 @@ function presetTileHtml(p, bg) {
       onmouseout="this.querySelectorAll('animate,animateTransform').forEach(a=>a.endElement())">
       <div style="pointer-events:none;line-height:0">${p.svg}</div>
       <div style="padding:5px 4px 6px;position:relative">
-        <div style="font-size:9px;color:rgba(255,255,255,0.45);margin-bottom:2px">
+        <div style="font-size:11px;color:rgba(255,255,255,0.45);margin-bottom:2px">
           #${String(p.idx).padStart(2,'0')}</div>
-        <div style="font-weight:600;font-size:11px;color:${active?'var(--accent)':'#e8e8e8'};
+        <div style="font-weight:600;font-size:13px;color:${active?'var(--accent)':'#e8e8e8'};
                     white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
                     padding:0 4px">${p.name}</div>
       </div>
@@ -5978,7 +5978,7 @@ function selectSegSeq(i)       { window._selectSegSeq      && window._selectSegS
         'height:26px;border-radius:4px;cursor:pointer;'+
         'background:linear-gradient(90deg,'+cs+');'+
         'border:2px solid '+(active?'var(--accent)':'transparent')+'">' +
-        '<div style="font-size:8px;color:rgba(255,255,255,.85);text-align:center;'+
+        '<div style="font-size:10px;color:rgba(255,255,255,.85);text-align:center;'+
         'line-height:24px;text-shadow:0 0 3px #000">'+s.name+'</div></div>';
     }).join('');
   }
@@ -6122,12 +6122,12 @@ function buildTempOffsetRows(offsets) {
     var row = document.createElement('div');
     row.style.cssText = 'display:flex;align-items:center;gap:10px';
     row.innerHTML =
-      '<span style="min-width:70px;font-size:12px;color:var(--dim)">' + names[i] + '</span>' +
+      '<span style="min-width:70px;font-size:14px;color:var(--dim)">' + names[i] + '</span>' +
       '<input type="number" id="temp-off-' + i + '" value="' + off.toFixed(1) + '" ' +
         'step="0.1" min="-20" max="20" style="width:75px;font-family:monospace" ' +
         'oninput="previewOffset(' + i + ',this.value)"> ' +
-      '<span style="font-size:11px;color:var(--dim)">°C offset</span>' +
-      '<span id="temp-off-preview-' + i + '" style="font-size:11px;color:var(--accent);min-width:60px"></span>';
+      '<span style="font-size:13px;color:var(--dim)">°C offset</span>' +
+      '<span id="temp-off-preview-' + i + '" style="font-size:13px;color:var(--accent);min-width:60px"></span>';
     container.appendChild(row);
   });
 }
@@ -6318,7 +6318,7 @@ function renderIldaFileList(files) {
   el.innerHTML = files.map(f =>
     '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;border-bottom:1px solid var(--border)">' +
       '<span style="font-family:monospace">' + f.name + '</span>' +
-      '<span style="color:var(--dim);font-size:11px">DMX ' + f.dmx + '</span>' +
+      '<span style="color:var(--dim);font-size:13px">DMX ' + f.dmx + '</span>' +
     '</div>'
   ).join('');
 }
@@ -6347,7 +6347,7 @@ async function loadSdStatus() {
     const barCol  = usedPct > 90 ? 'var(--bad)' : usedPct > 75 ? 'var(--warn)' : 'var(--ok)';
     el.innerHTML =
       '<div style="color:var(--ok);margin-bottom:8px">✓ Card ready — ' + d.fs_type + '</div>' +
-      '<div style="display:flex;gap:16px;font-size:11px;flex-wrap:wrap">' +
+      '<div style="display:flex;gap:16px;font-size:13px;flex-wrap:wrap">' +
         '<span>Total: <strong>' + totalMB + ' MB</strong></span>' +
         '<span>Free: <strong>' + freeMB + ' MB</strong></span>' +
         '<span>Used: <strong>' + usedPct + '%</strong></span>' +
@@ -6359,7 +6359,7 @@ async function loadSdStatus() {
   } else {
     el.innerHTML =
       '<div style="color:var(--bad)">✗ ' + (d.error || 'SD card not available') + '</div>' +
-      '<div style="font-size:11px;color:var(--dim);margin-top:4px">' +
+      '<div style="font-size:13px;color:var(--dim);margin-top:4px">' +
         'Check card insertion and SPI wiring (SCK=12 MOSI=11 MISO=GPIO2 CS=' + (d.cs_pin||'9') + ')' +
       '</div>';
   }
@@ -6392,7 +6392,7 @@ async function saveNtpConfig() {
 
     <div class="card">
       <h2>💿 SD Card</h2>
-      <div id="sd-status" style="font-family:monospace;font-size:12px;color:var(--dim);margin-bottom:14px">
+      <div id="sd-status" style="font-family:monospace;font-size:14px;color:var(--dim);margin-bottom:14px">
         Loading status...
       </div>
       <div class="btns">
@@ -6400,15 +6400,15 @@ async function saveNtpConfig() {
         <button class="btn secondary" onclick="loadSdStatus()">↺ Refresh</button>
       </div>
       <hr style="border-color:var(--border);margin:14px 0">
-      <h3 style="font-size:13px;margin-bottom:10px">ILDA Files on SD</h3>
-      <div id="ilda-file-list" style="max-height:340px;overflow-y:auto;font-size:12px">
+      <h3 style="font-size:15px;margin-bottom:10px">ILDA Files on SD</h3>
+      <div id="ilda-file-list" style="max-height:340px;overflow-y:auto;font-size:14px">
         <div style="color:var(--dim)">No files or SD not ready</div>
       </div>
     </div>
 
     <div class="card">
       <h2>▶ ILDA-Player</h2>
-      <div id="ilda-now-playing" style="font-family:monospace;font-size:12px;color:var(--accent);margin-bottom:12px;min-height:20px">
+      <div id="ilda-now-playing" style="font-family:monospace;font-size:14px;color:var(--accent);margin-bottom:12px;min-height:20px">
         No ILDA active
       </div>
 
@@ -6436,8 +6436,8 @@ async function saveNtpConfig() {
       </div>
 
       <hr style="border-color:var(--border);margin:16px 0">
-      <h3 style="font-size:13px;margin-bottom:10px">DMX Channel Assignment</h3>
-      <div id="dmx-channel-table" style="font-family:monospace;font-size:11px;color:var(--dim);line-height:2">
+      <h3 style="font-size:15px;margin-bottom:10px">DMX Channel Assignment</h3>
+      <div id="dmx-channel-table" style="font-family:monospace;font-size:13px;color:var(--dim);line-height:2">
         Loading...
       </div>
     </div>
@@ -6451,11 +6451,11 @@ async function saveNtpConfig() {
   <div class="grid cols-2">
     <div class="card">
       <h2>⊹ Color &amp; Gamma Calibration</h2>
-      <div id="calib-status" style="font-family:monospace;font-size:12px;color:var(--dim);margin-bottom:12px">
+      <div id="calib-status" style="font-family:monospace;font-size:14px;color:var(--dim);margin-bottom:12px">
         No calibration pattern active
       </div>
 
-      <h3 style="font-size:13px;margin-bottom:10px">Select pattern</h3>
+      <h3 style="font-size:15px;margin-bottom:10px">Select pattern</h3>
       <div id="calib-pattern-list" style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px">
         <!-- filled by JS -->
       </div>
@@ -6466,7 +6466,7 @@ async function saveNtpConfig() {
     </div>
 <div class="card">
       <h2>⚙ Galvo Calibration (live)</h2>
-      <p style="color:var(--dim);font-size:12px;margin:0 0 12px">
+      <p style="color:var(--dim);font-size:14px;margin:0 0 12px">
         Offset / gain / invert / swap and per-color gain applied live to the galvo
         output. Use the DAC Range Box pattern (Calibration list, idx 13) when setting
         the DAC scan limits. Changes are sent live; press Save to persist to flash.
@@ -6494,7 +6494,7 @@ async function saveNtpConfig() {
       <div style="display:flex;gap:8px;align-items:center;margin:10px 0">
         <button class="btn secondary" id="gain-link-btn" onclick="gainLinkToggle()"
           style="border:1px solid var(--accent);color:var(--accent)">Linked</button>
-        <span style="font-size:11px;color:var(--dim)">X/Y gain link — keep inscribed circle round</span>
+        <span style="font-size:13px;color:var(--dim)">X/Y gain link — keep inscribed circle round</span>
       </div>
 
       <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:10px">
@@ -6504,7 +6504,7 @@ async function saveNtpConfig() {
       </div>
 
       <hr style="border-color:var(--border);margin:14px 0">
-      <h3 style="font-size:13px;margin-bottom:8px">DAC scan limits</h3>
+      <h3 style="font-size:15px;margin-bottom:8px">DAC scan limits</h3>
       <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px">
         <div>
           <label>DAC limit min <span id="v-dac-lim-min" style="color:var(--accent);font-family:monospace">0x0000</span></label>
@@ -6515,7 +6515,7 @@ async function saveNtpConfig() {
           <input type="range" id="cal-dac-lim-max" min="0" max="65535" step="1" value="65535">
         </div>
       </div>
-      <div id="dac-lim-status" style="font-size:11px;color:var(--danger);margin-top:6px;min-height:14px"></div>
+      <div id="dac-lim-status" style="font-size:13px;color:var(--danger);margin-top:6px;min-height:14px"></div>
 
       <div class="btns" style="margin-top:14px">
         <button class="btn ok" onclick="saveCalibration()">💾 Save calibration</button>
@@ -6524,8 +6524,8 @@ async function saveNtpConfig() {
     <div class="card">
       <h2>Parameter</h2>
 
-      <h3 style="font-size:13px;margin-bottom:8px">Visibility threshold (Basiswert)</h3>
-      <p style="color:var(--dim);font-size:11px;margin:0 0 10px">
+      <h3 style="font-size:15px;margin-bottom:8px">Visibility threshold (Basiswert)</h3>
+      <p style="color:var(--dim);font-size:13px;margin:0 0 10px">
         Start the test beam, then lower each slider until that color just
         goes dark — that value is the base value. The test beam ignores
         gain, gamma and the Master Dimmer, so the sliders alone control
@@ -6554,8 +6554,8 @@ async function saveNtpConfig() {
       </div>
 
       <hr style="border-color:var(--border);margin:14px 0">
-      <h3 style="font-size:13px;margin-bottom:8px">Color channel brightness matching</h3>
-      <p style="color:var(--dim);font-size:11px;margin:0 0 10px">
+      <h3 style="font-size:15px;margin-bottom:8px">Color channel brightness matching</h3>
+      <p style="color:var(--dim);font-size:13px;margin:0 0 10px">
         Start the Three Circle Pattern — one solid R/G/B circle side by
         side — then adjust Gain R/G/B until all three circles look
         equally bright.
@@ -6578,10 +6578,10 @@ async function saveNtpConfig() {
           <input type="range" id="cal-b" min="0" max="255" step="1" value="255">
         </div>
       </div>
-      <div id="awb-hint" style="font-size:11px;color:var(--dim);margin-top:8px"></div>
+      <div id="awb-hint" style="font-size:13px;color:var(--dim);margin-top:8px"></div>
       <hr style="border-color:var(--border);margin:14px 0">
-      <h3 style="font-size:13px;margin-bottom:8px">CIE 1931 Gamma</h3>
-      <p style="color:var(--dim);font-size:11px;margin:0 0 10px">
+      <h3 style="font-size:15px;margin-bottom:8px">CIE 1931 Gamma</h3>
+      <p style="color:var(--dim);font-size:13px;margin:0 0 10px">
         Perceptual brightness correction (γ≈2.2). Disable to send linear
         0–255 values directly to the laser driver.
       </p>
@@ -6595,7 +6595,7 @@ async function saveNtpConfig() {
     </div>
     <div class="card">
   <h2>Projection Zone</h2>
-  <p style="color:var(--dim);font-size:13px;margin:0 0 12px">
+  <p style="color:var(--dim);font-size:15px;margin:0 0 12px">
     Define the area the laser is allowed to scan. Drag points to shape the zone.
     Tap an edge to add a point, double-tap a point to remove it (min. 3 points).
     Enable clipping to blank the laser outside this area.
@@ -6620,7 +6620,7 @@ async function saveNtpConfig() {
         <button class="btn ok" id="zone-save-btn">Save Zone</button>
         <button class="btn secondary" id="zone-reset-btn">Reset to Rectangle</button>
       </div>
-      <p style="color:var(--warn);font-size:12px;margin-top:12px">
+      <p style="color:var(--warn);font-size:14px;margin-top:12px">
         ⚠ Class 4 device. Verify the projected outline covers only safe surfaces
         before enabling clipping.
       </p>
@@ -6632,7 +6632,7 @@ async function saveNtpConfig() {
   <!-- ── ILDA Standard Test Pattern ─────────────────────────────── -->
   <div class="card" style="margin-top:16px">
     <h2>📐 ILDA Standard Test Pattern</h2>
-    <p style="font-size:11px;color:var(--dim);margin:0 0 12px 0">
+    <p style="font-size:13px;color:var(--dim);margin:0 0 12px 0">
       Official ILDA Technical Committee test pattern (Rev.002, 1995) for galvo scanner
       alignment. Use this pattern to calibrate damping, servo gain, DC offset and
       blanking of the Jolooyo JY-15K-BL galvo system.
@@ -6641,7 +6641,7 @@ async function saveNtpConfig() {
     <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
       <button class="btn" onclick="ildaTestPlay()" id="btn-ilda-play">▶ Start</button>
       <button class="btn danger" onclick="ildaTestStop()">⏹ Stop</button>
-      <span id="ilda-status" style="font-family:monospace;font-size:11px;color:var(--dim)">
+      <span id="ilda-status" style="font-family:monospace;font-size:13px;color:var(--dim)">
         Pattern inactive
       </span>
     </div>
@@ -6649,7 +6649,7 @@ async function saveNtpConfig() {
     <label>
       Scan Size (A5)
       <span id="ilda-size-v" style="color:var(--accent);font-family:monospace">128</span>
-      <span style="font-size:10px;color:var(--dim);margin-left:6px">
+      <span style="font-size:12px;color:var(--dim);margin-left:6px">
         — reduce until circle distorts, then +10%
       </span>
     </label>
@@ -6658,11 +6658,11 @@ async function saveNtpConfig() {
 
     <hr style="border-color:var(--border);margin:14px 0">
 
-    <h3 style="font-size:12px;margin-bottom:10px;color:var(--accent)">📋 Tuning Procedure</h3>
-    <div style="font-family:monospace;font-size:10px;color:var(--dim);line-height:1.8;
+    <h3 style="font-size:14px;margin-bottom:10px;color:var(--accent)">📋 Tuning Procedure</h3>
+    <div style="font-family:monospace;font-size:12px;color:var(--dim);line-height:1.8;
                 background:rgba(0,0,0,.25);padding:10px;border-radius:4px">
 
-      <div style="color:var(--text);font-size:11px;margin-bottom:6px">
+      <div style="color:var(--text);font-size:13px;margin-bottom:6px">
         ① Set scan size — reduce until circle begins to distort, then back 10%
       </div>
       <div style="margin-left:12px;margin-bottom:8px">
@@ -6670,7 +6670,7 @@ async function saveNtpConfig() {
         <b style="color:#aaa">30K mode:</b> max ~8° optical (ILDA rated)
       </div>
 
-      <div style="color:var(--text);font-size:11px;margin-bottom:4px">
+      <div style="color:var(--text);font-size:13px;margin-bottom:4px">
         ② Check axis polarity (A4)
       </div>
       <div style="margin-left:12px;margin-bottom:8px">
@@ -6679,7 +6679,7 @@ async function saveNtpConfig() {
         In GalvOS: Config → Calibration → Invert X / Invert Y.
       </div>
 
-      <div style="color:var(--text);font-size:11px;margin-bottom:4px">
+      <div style="color:var(--text);font-size:13px;margin-bottom:4px">
         ③ Adjust Y damping (A2 — lower-right corner of inner square)
       </div>
       <div style="margin-left:12px;margin-bottom:8px">
@@ -6690,7 +6690,7 @@ async function saveNtpConfig() {
         ⚠ Undershoot (corner gap) is harder to detect — avoid going too far.
       </div>
 
-      <div style="color:var(--text);font-size:11px;margin-bottom:4px">
+      <div style="color:var(--text);font-size:13px;margin-bottom:4px">
         ④ Adjust Y servo gain (A1 — circle vs. inner square top/bottom)
       </div>
       <div style="margin-left:12px;margin-bottom:8px">
@@ -6699,7 +6699,7 @@ async function saveNtpConfig() {
         Too large → decrease gain, repeat ③.
       </div>
 
-      <div style="color:var(--text);font-size:11px;margin-bottom:4px">
+      <div style="color:var(--text);font-size:13px;margin-bottom:4px">
         ⑤ Adjust X damping (A2 — upper-right corner of inner square)
       </div>
       <div style="margin-left:12px;margin-bottom:8px">
@@ -6707,7 +6707,7 @@ async function saveNtpConfig() {
         Do NOT re-adjust Y axis after this step.
       </div>
 
-      <div style="color:var(--text);font-size:11px;margin-bottom:4px">
+      <div style="color:var(--text);font-size:13px;margin-bottom:4px">
         ⑥ Adjust X servo gain (circle vs. inner square left/right)
       </div>
       <div style="margin-left:12px;margin-bottom:8px">
@@ -6716,7 +6716,7 @@ async function saveNtpConfig() {
         If not round → iterate ⑤/⑥ carefully, then re-verify ③/④.
       </div>
 
-      <div style="color:var(--text);font-size:11px;margin-bottom:4px">
+      <div style="color:var(--text);font-size:13px;margin-bottom:4px">
         ⑦ Adjust image size (A5)
       </div>
       <div style="margin-left:12px;margin-bottom:8px">
@@ -6725,7 +6725,7 @@ async function saveNtpConfig() {
         In GalvOS: Config → Calibration → X Gain / Y Gain sliders.
       </div>
 
-      <div style="color:var(--text);font-size:11px;margin-bottom:4px">
+      <div style="color:var(--text);font-size:13px;margin-bottom:4px">
         ⑧ Adjust DC offset (A6 — center cross must be at screen center)
       </div>
       <div style="margin-left:12px;margin-bottom:8px">
@@ -6734,7 +6734,7 @@ async function saveNtpConfig() {
         In GalvOS: Config → Calibration → X Offset / Y Offset.
       </div>
 
-      <div style="color:var(--text);font-size:11px;margin-bottom:4px">
+      <div style="color:var(--text);font-size:13px;margin-bottom:4px">
         ⑨ Blanking test (B1/B2 — two horizontal lines with center gap)
       </div>
       <div style="margin-left:12px;margin-bottom:4px">
@@ -6744,7 +6744,7 @@ async function saveNtpConfig() {
         at the tick when extrapolated.
       </div>
 
-      <div style="color:var(--text);font-size:11px;margin-bottom:4px">
+      <div style="color:var(--text);font-size:13px;margin-bottom:4px">
         ⑩ Speed dots (B3/B4 — row of 6 dots, decreasing brightness)
       </div>
       <div style="margin-left:12px">
@@ -6757,7 +6757,7 @@ async function saveNtpConfig() {
     </div>
 
     <hr style="border-color:var(--border);margin:14px 0">
-    <div style="font-size:10px;color:var(--dim);line-height:1.7">
+    <div style="font-size:12px;color:var(--dim);line-height:1.7">
       <b style="color:#aaa">Expected result:</b>
       Circle perfectly round, touching inner square at top, bottom, left, right.
       Corners of inner square sharp (no overshoot or undershoot).
@@ -6770,7 +6770,7 @@ async function saveNtpConfig() {
 
 <script>
 const CALIB_PREVIEW=['<svg viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg"><rect width="128" height="128" fill="#000"/><circle cx="64" cy="64" r="52" fill="none" stroke="#fff" stroke-width="7" stroke-dasharray="22 12"/></svg>','<svg viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg"><rect width="128" height="128" fill="#000"/><rect x="20" y="20" width="88" height="88" fill="none" stroke="#f00" stroke-width="2"/><circle cx="64" cy="64" r="44" fill="none" stroke="#0f0" stroke-width="2"/></svg>','<svg viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg"><rect width="128" height="128" fill="#000"/><rect x="8" y="8" width="112" height="112" fill="none" stroke="#f00" stroke-width="2"/><rect x="32" y="32" width="64" height="64" fill="none" stroke="#00f" stroke-width="2"/><circle cx="64" cy="64" r="32" fill="none" stroke="#00f" stroke-width="2"/><line x1="8" y1="64" x2="120" y2="64" stroke="#0f0" stroke-width="1"/><line x1="64" y1="8" x2="64" y2="120" stroke="#0f0" stroke-width="1"/></svg>','<svg viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg"><rect width="128" height="128" fill="#000"/><rect x="5" y="5" width="118" height="118" fill="none" stroke="#ff0" stroke-width="2"/><rect x="32" y="32" width="64" height="64" fill="none" stroke="#333" stroke-width="1" stroke-dasharray="4 3"/><circle cx="64" cy="64" r="59" fill="none" stroke="#0f0" stroke-width="2"/></svg>','<svg viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg"><rect width="128" height="128" fill="#000"/><polygon points="64,16 110,48 94,104 34,104 18,48" fill="none" stroke="#f00" stroke-width="2"/><circle cx="64" cy="16" r="4" fill="#0f0"/><circle cx="110" cy="48" r="4" fill="#0f0"/><circle cx="94" cy="104" r="4" fill="#0f0"/><circle cx="34" cy="104" r="4" fill="#0f0"/><circle cx="18" cy="48" r="4" fill="#0f0"/></svg>','<svg viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg"><rect width="128" height="128" fill="#000"/><rect x="16" y="16" width="96" height="96" fill="none" stroke="#333" stroke-width="1"/><circle cx="16" cy="16" r="10" fill="#f00"/><circle cx="112" cy="16" r="10" fill="#0f0"/><circle cx="112" cy="112" r="10" fill="#00f"/><circle cx="16" cy="112" r="10" fill="#fff"/></svg>','<svg viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg"><rect width="128" height="128" fill="#000"/><circle cx="26" cy="64" r="20" fill="none" stroke="#f00" stroke-width="3"/><circle cx="64" cy="64" r="20" fill="none" stroke="#0f0" stroke-width="3"/><circle cx="102" cy="64" r="20" fill="none" stroke="#00f" stroke-width="3"/></svg>','<svg viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg"><rect width="128" height="128" fill="#000"/><polyline points="2.0,84 8.0,82.5 14.0,84" fill="none" stroke="hsl(0,100%,55%)" stroke-width="1.5" stroke-linejoin="round"/><polyline points="18.1,84 24.0,80.2 29.9,84" fill="none" stroke="hsl(45,100%,55%)" stroke-width="1.5" stroke-linejoin="round"/><polyline points="34.3,84 40.0,77.4 45.7,84" fill="none" stroke="hsl(90,100%,55%)" stroke-width="1.5" stroke-linejoin="round"/><polyline points="50.7,84 56.0,73.8 61.3,84" fill="none" stroke="hsl(135,100%,55%)" stroke-width="1.5" stroke-linejoin="round"/><polyline points="67.4,84 72.0,69.9 76.6,84" fill="none" stroke="hsl(180,100%,55%)" stroke-width="1.5" stroke-linejoin="round"/><polyline points="84.6,84 88.0,66.0 91.4,84" fill="none" stroke="hsl(225,100%,55%)" stroke-width="1.5" stroke-linejoin="round"/><polyline points="102.2,84 104.0,63.0 105.8,84" fill="none" stroke="hsl(270,100%,55%)" stroke-width="1.5" stroke-linejoin="round"/><polyline points="119.7,84 120.0,62.0 120.3,84" fill="none" stroke="hsl(315,100%,55%)" stroke-width="1.5" stroke-linejoin="round"/></svg>','<svg viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg"><rect width="128" height="128" fill="#000"/><line x1="59" y1="20" x2="68" y2="20" stroke="hsl(0,100%,55%)" stroke-width="2.5"/><line x1="46" y1="42" x2="82" y2="42" stroke="hsl(72,100%,55%)" stroke-width="2.5"/><line x1="32" y1="64" x2="95" y2="64" stroke="hsl(144,100%,55%)" stroke-width="2.5"/><line x1="19" y1="86" x2="108" y2="86" stroke="hsl(216,100%,55%)" stroke-width="2.5"/><line x1="6" y1="108" x2="121" y2="108" stroke="hsl(288,100%,55%)" stroke-width="2.5"/></svg>','<svg viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg"><rect width="128" height="128" fill="#000"/><circle cx="8" cy="64" r="7" fill="none" stroke="hsl(0,100%,55%)" stroke-width="2"/><circle cx="25" cy="64" r="7" fill="none" stroke="hsl(72,100%,55%)" stroke-width="2"/><circle cx="66" cy="64" r="7" fill="none" stroke="hsl(144,100%,55%)" stroke-width="2"/><circle cx="129" cy="64" r="7" fill="none" stroke="hsl(216,100%,55%)" stroke-width="2"/><circle cx="215" cy="64" r="7" fill="none" stroke="hsl(288,100%,55%)" stroke-width="2"/><line x1="15" y1="64" x2="18" y2="64" stroke="#333" stroke-width="1" stroke-dasharray="3 2"/><line x1="32" y1="64" x2="58" y2="64" stroke="#333" stroke-width="1" stroke-dasharray="3 2"/><line x1="72" y1="64" x2="122" y2="64" stroke="#333" stroke-width="1" stroke-dasharray="3 2"/><line x1="136" y1="64" x2="208" y2="64" stroke="#333" stroke-width="1" stroke-dasharray="3 2"/></svg>','<svg viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg"><rect width="128" height="128" fill="#000"/><line x1="8" y1="8" x2="120" y2="120" stroke="#fff" stroke-width="2"/><polygon points="64.0,14.0 66.0,60.5 107.3,39.0 68.0,64.0 107.3,89.0 66.0,67.5 64.0,114.0 62.0,67.5 20.7,89.0 60.0,64.0 20.7,39.0 62.0,60.5" fill="none" stroke="#f80" stroke-width="1.5" stroke-linejoin="round"/></svg>'];
-async function loadCalibPatterns(){const res=await apiCall('GET','/api/calib-pattern/list');if(!res||!res.patterns)return;const list=document.getElementById('calib-pattern-list');list.innerHTML=res.patterns.map(p=>'<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;border:1px solid var(--border);border-radius:4px;cursor:pointer" id="calib-btn-'+p.idx+'" onclick="calibPlay('+p.idx+')"><span style="font-family:monospace;font-size:11px;color:var(--accent);min-width:20px">'+(res.active&&res.idx===p.idx?'▶':'○')+'</span><span style="flex:1"><div style="font-size:12px;color:var(--text)">'+p.name+'</div><div style="font-size:10px;color:var(--dim)">'+p.desc+'</div>'+(p.check?'<div style="font-size:10px;color:var(--accent);margin-top:2px">💡 '+p.check+'</div>':'')+'</span><span style="flex:0 0 128px;width:128px;height:128px;border:1px solid var(--border);border-radius:4px;overflow:hidden;background:#000" title="Expected output">'+(CALIB_PREVIEW[p.idx]||'')+'</span></div>').join('');}
+async function loadCalibPatterns(){const res=await apiCall('GET','/api/calib-pattern/list');if(!res||!res.patterns)return;const list=document.getElementById('calib-pattern-list');list.innerHTML=res.patterns.map(p=>'<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;border:1px solid var(--border);border-radius:4px;cursor:pointer" id="calib-btn-'+p.idx+'" onclick="calibPlay('+p.idx+')"><span style="font-family:monospace;font-size:13px;color:var(--accent);min-width:20px">'+(res.active&&res.idx===p.idx?'▶':'○')+'</span><span style="flex:1"><div style="font-size:14px;color:var(--text)">'+p.name+'</div><div style="font-size:12px;color:var(--dim)">'+p.desc+'</div>'+(p.check?'<div style="font-size:12px;color:var(--accent);margin-top:2px">💡 '+p.check+'</div>':'')+'</span><span style="flex:0 0 128px;width:128px;height:128px;border:1px solid var(--border);border-radius:4px;overflow:hidden;background:#000" title="Expected output">'+(CALIB_PREVIEW[p.idx]||'')+'</span></div>').join('');}
 let calibActiveIdx=-1,calibPatterns=[];
 async function calibPlay(idx){calibActiveIdx=idx;calibPatterns=calibPatterns||[];await calibSend();document.getElementById('calib-status').textContent='▶ Pattern '+idx;loadCalibPatterns();}
 async function calibSend(){await apiCall('POST','/api/calib-pattern',{active:calibActiveIdx>=0,idx:Math.max(0,calibActiveIdx)});}
@@ -7028,7 +7028,7 @@ function enhanceSliders(root) {
     num.max  = slider.max;
     num.step = slider.step || '1';
     num.value = slider.value;
-    num.style.cssText = 'width:60px;margin-left:8px;font-family:monospace;font-size:12px;'
+    num.style.cssText = 'width:60px;margin-left:8px;font-family:monospace;font-size:14px;'
       + 'background:#0a0a14;color:var(--text);border:1px solid var(--border);'
       + 'border-radius:4px;padding:2px 4px;vertical-align:middle';
 
@@ -7400,7 +7400,7 @@ document.addEventListener('DOMContentLoaded', initParamPreviews);
   <div class="card" style="margin-bottom:12px">
     <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:10px">
       <h2 style="margin:0">&#128208; Optimizer Profiles</h2>
-      <span style="font-size:11px;color:var(--dim)">
+      <span style="font-size:13px;color:var(--dim)">
         Grouped by scanner workload. The active profile switches automatically
         with the selected preset or calibration pattern.
       </span>
@@ -7413,26 +7413,26 @@ document.addEventListener('DOMContentLoaded', initParamPreviews);
     <div class="card">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
         <h2 style="margin:0">Optimizer Settings</h2>
-        <span id="opt-active-profile-label" style="font-size:11px;padding:2px 8px;border-radius:10px;background:var(--accent);color:#000;font-weight:600"></span>
+        <span id="opt-active-profile-label" style="font-size:13px;padding:2px 8px;border-radius:10px;background:var(--accent);color:#000;font-weight:600"></span>
       </div>
-      <p style="color:var(--dim);font-size:12px;margin-bottom:12px">
+      <p style="color:var(--dim);font-size:14px;margin-bottom:12px">
         Changes apply live to the selected profile. Save to persist across reboots.
       </p>
 <div class="opt-columns">
       <div class="opt-col-block">
       <div class="opt-group-label">Corner handling</div>
 
-      <label>Corner angle threshold (°) <code style="font-size:10px;color:var(--dim)">(corner_angle_deg)</code> <span id="opt-cad-val" style="color:var(--accent);font-family:monospace">25.0</span>
+      <label>Corner angle threshold (°) <code style="font-size:12px;color:var(--dim)">(corner_angle_deg)</code> <span id="opt-cad-val" style="color:var(--accent);font-family:monospace">25.0</span>
         <span class="help-icon" title="Vertex angle below which a point counts as a sharp corner (0°=straight through, 180°=full U-turn). Detected corners get extra dwell points from Min/Max corner points below.">?</span>
       </label>
       <input type="range" id="opt-cad" min="0" max="180" step="1" value="25" oninput="optimizerSlider()">
 
-      <label>Min corner points <code style="font-size:10px;color:var(--dim)">(min_corner_pts)</code> <span id="opt-mincp-val" style="color:var(--accent);font-family:monospace">1</span>
+      <label>Min corner points <code style="font-size:12px;color:var(--dim)">(min_corner_pts)</code> <span id="opt-mincp-val" style="color:var(--accent);font-family:monospace">1</span>
         <span class="help-icon" title="Minimum dwell points placed at every detected corner. Too low causes mechanical overshoot/rounding. Paired with Max corner points.">?</span>
       </label>
       <input type="range" id="opt-mincp" min="1" max="20" step="1" value="1" oninput="optimizerSlider()">
 
-      <label>Max corner points <code style="font-size:10px;color:var(--dim)">(max_corner_pts)</code> <span id="opt-maxcp-val" style="color:var(--accent);font-family:monospace">6</span>
+      <label>Max corner points <code style="font-size:12px;color:var(--dim)">(max_corner_pts)</code> <span id="opt-maxcp-val" style="color:var(--accent);font-family:monospace">6</span>
         <span class="help-icon" title="Upper cap on dwell points per corner. Higher gives a sharper corner but eats into the Max points/frame budget.">?</span>
       </label>
       <input type="range" id="opt-maxcp" min="1" max="20" step="1" value="6" oninput="optimizerSlider()">
@@ -7441,17 +7441,17 @@ document.addEventListener('DOMContentLoaded', initParamPreviews);
       <div class="opt-col-block">
       <div class="opt-group-label">Interior density</div>
 
-      <label>Interior density (pts / 1000 units) <code style="font-size:10px;color:var(--dim)">(pts_per_1000_units)</code> <span id="opt-ppu-val" style="color:var(--accent);font-family:monospace">4.0</span>
+      <label>Interior density (pts / 1000 units) <code style="font-size:12px;color:var(--dim)">(pts_per_1000_units)</code> <span id="opt-ppu-val" style="color:var(--accent);font-family:monospace">4.0</span>
         <span class="help-icon" title="Point density along straight/curved edges between corners. Low value gives visible faceting. Works together with Min segment points and Min interior pts/segment.">?</span>
       </label>
       <input type="range" id="opt-ppu" min="1" max="500" step="1" value="40" oninput="optimizerSlider()">
 
-      <label>Min segment points <code style="font-size:10px;color:var(--dim)">(min_segment_pts)</code> <span id="opt-minsp-val" style="color:var(--accent);font-family:monospace">2</span>
+      <label>Min segment points <code style="font-size:12px;color:var(--dim)">(min_segment_pts)</code> <span id="opt-minsp-val" style="color:var(--accent);font-family:monospace">2</span>
         <span class="help-icon" title="Floor on total points per edge segment, regardless of Interior density. Keeps very short edges from getting only 1-2 points.">?</span>
       </label>
       <input type="range" id="opt-minsp" min="2" max="20" step="1" value="2" oninput="optimizerSlider()">
 
-      <label>Min interior pts / segment <code style="font-size:10px;color:var(--dim)">(min_interior_pts_per_segment)</code> <span id="opt-minip-val" style="color:var(--accent);font-family:monospace">6</span>
+      <label>Min interior pts / segment <code style="font-size:12px;color:var(--dim)">(min_interior_pts_per_segment)</code> <span id="opt-minip-val" style="color:var(--accent);font-family:monospace">6</span>
         <span class="help-icon" title="Minimum points inside a segment's interior, not counting its corner dwell points. Prevents overly sparse long straight lines even at low Interior density.">?</span>
       </label>
       <input type="range" id="opt-minip" min="0" max="50" step="1" value="6" oninput="optimizerSlider()">
@@ -7459,12 +7459,12 @@ document.addEventListener('DOMContentLoaded', initParamPreviews);
 
       <div class="opt-col-block">
       <div class="opt-group-label">Frame budget</div>
-      <label>Target framerate <code style="font-size:10px;color:var(--dim)">(smart defaults)</code> <span id="opt-fps-val" style="color:var(--accent);font-family:monospace">23</span> Hz
+      <label>Target framerate <code style="font-size:12px;color:var(--dim)">(smart defaults)</code> <span id="opt-fps-val" style="color:var(--accent);font-family:monospace">23</span> Hz
         <span class="help-icon" title="Desired refresh rate. Smart defaults turns it into a point budget: max_pts_per_frame = output_kpps x 1000 / fps. Higher fps = smoother motion but fewer points per frame (less geometric detail). ~23 Hz is the flicker-fusion floor for line art; raise it for fast-moving content. Does not change the budget on its own -- press Smart defaults to apply.">?</span>
       </label>
       <input type="range" id="opt-fps" min="15" max="45" step="1" value="23" oninput="document.getElementById('opt-fps-val').textContent=this.value;">
 
-      <label>Max points / frame (flicker budget) <code style="font-size:10px;color:var(--dim)">(max_pts_per_frame)</code> <span id="opt-maxppf-val" style="color:var(--accent);font-family:monospace">310</span>
+      <label>Max points / frame (flicker budget) <code style="font-size:12px;color:var(--dim)">(max_pts_per_frame)</code> <span id="opt-maxppf-val" style="color:var(--accent);font-family:monospace">310</span>
         <span class="help-icon" title="Hard cap on total points per frame. If corner/interior/blank settings above would exceed it, the frame gets throttled instead of dropping geometry. Set directly, or let Smart defaults compute it from Target framerate.">?</span>
       </label>
       <input type="range" id="opt-maxppf" min="50" max="2048" step="1" value="310" oninput="optimizerSlider()">
@@ -7473,22 +7473,22 @@ document.addEventListener('DOMContentLoaded', initParamPreviews);
       <div class="opt-col-block">
       <div class="opt-group-label">Blank jumps (laser off)</div>
 
-      <label>Blank samples (max) <code style="font-size:10px;color:var(--dim)">(blank_samples)</code> <span id="opt-blank-val" style="color:var(--accent);font-family:monospace">40</span>
+      <label>Blank samples (max) <code style="font-size:12px;color:var(--dim)">(blank_samples)</code> <span id="opt-blank-val" style="color:var(--accent);font-family:monospace">40</span>
         <span class="help-icon" title="Max points inserted into a blanked jump between shapes. Higher gives a smoother galvo move but costs more of the frame budget. Related to Min blank samples and Stage1 blank target.">?</span>
       </label>
       <input type="range" id="opt-blank" min="1" max="100" step="1" value="40" oninput="optimizerSlider()">
 
-      <label>Min blank samples (floor) <code style="font-size:10px;color:var(--dim)">(min_blank_samples)</code> <span id="opt-minbl-val" style="color:var(--accent);font-family:monospace">8</span>
+      <label>Min blank samples (floor) <code style="font-size:12px;color:var(--dim)">(min_blank_samples)</code> <span id="opt-minbl-val" style="color:var(--accent);font-family:monospace">8</span>
         <span class="help-icon" title="Minimum points for even the shortest blank jump, so short jumps aren't rushed into a visible flash.">?</span>
       </label>
       <input type="range" id="opt-minbl" min="1" max="100" step="1" value="8" oninput="optimizerSlider()">
 
-      <label>Blank jump density (pts / 1000 units) <code style="font-size:10px;color:var(--dim)">(blank_pts_per_1000_units)</code> <span id="opt-blppu-val" style="color:var(--accent);font-family:monospace">10.0</span>
+      <label>Blank jump density (pts / 1000 units) <code style="font-size:12px;color:var(--dim)">(blank_pts_per_1000_units)</code> <span id="opt-blppu-val" style="color:var(--accent);font-family:monospace">10.0</span>
         <span class="help-icon" title="Point density for long blank jumps — the blanked equivalent of Interior density. Too low can leave a faint streak on long jumps.">?</span>
       </label>
       <input type="range" id="opt-blppu" min="1" max="500" step="1" value="100" oninput="optimizerSlider()">
 
-      <label>Stage1 blank target <code style="font-size:10px;color:var(--dim)">(stage1_blank_target)</code> <span id="opt-s1tgt-val" style="color:var(--accent);font-family:monospace">20</span>
+      <label>Stage1 blank target <code style="font-size:12px;color:var(--dim)">(stage1_blank_target)</code> <span id="opt-s1tgt-val" style="color:var(--accent);font-family:monospace">20</span>
         <span class="help-icon" title="Target point count for the first deceleration stage of a blank jump's S-curve ease. Shapes the ease-in/ease-out together with Blank samples.">?</span>
       </label>
       <input type="range" id="opt-s1tgt" min="1" max="100" step="1" value="20" oninput="optimizerSlider()">
@@ -7498,7 +7498,7 @@ document.addEventListener('DOMContentLoaded', initParamPreviews);
       <div class="opt-group-label">Resample (Phase 2)</div>
       <label class="toggle"><input type="checkbox" id="opt-rs-en" onchange="optimizerSlider()"><span class="slider"></span>Enable constant spacing</label>
 
-      <label>Point spacing (units) <code style="font-size:10px;color:var(--dim)">(resample_spacing_units)</code> <span id="opt-rssp-val" style="color:var(--accent);font-family:monospace">160</span>
+      <label>Point spacing (units) <code style="font-size:12px;color:var(--dim)">(resample_spacing_units)</code> <span id="opt-rssp-val" style="color:var(--accent);font-family:monospace">160</span>
         <span class="help-icon" title="Target distance between interior points when constant spacing is enabled. Interior points per edge = length / spacing. Smaller = denser, more uniform galvo velocity. Overrides Pts per 1000 units while enabled.">?</span>
       </label>
       <input type="range" id="opt-rssp" min="10" max="2000" step="1" value="160" oninput="optimizerSlider()">
@@ -7508,12 +7508,12 @@ document.addEventListener('DOMContentLoaded', initParamPreviews);
       <div class="opt-group-label">Ringing compensation (Pillar 3)</div>
       <label class="toggle"><input type="checkbox" id="opt-ring-en" onchange="optimizerSlider()"><span class="slider"></span>Enable ringing compensation</label>
 
-      <label>Ring frequency (Hz) <code style="font-size:10px;color:var(--dim)">(ring_freq_hz)</code> <span id="opt-rngfq-val" style="color:var(--accent);font-family:monospace">200.0</span>
+      <label>Ring frequency (Hz) <code style="font-size:12px;color:var(--dim)">(ring_freq_hz)</code> <span id="opt-rngfq-val" style="color:var(--accent);font-family:monospace">200.0</span>
         <span class="help-icon" title="Measured galvo mechanical resonance frequency (step-response capture on scope). Wrong value can make ringing worse -- measure before enabling.">?</span>
       </label>
       <input type="range" id="opt-rngfq" min="10" max="2000" step="1" value="200" oninput="optimizerSlider()">
 
-      <label>Ring damping ratio <code style="font-size:10px;color:var(--dim)">(ring_damping_ratio)</code> <span id="opt-rngdr-val" style="color:var(--accent);font-family:monospace">0.15</span>
+      <label>Ring damping ratio <code style="font-size:12px;color:var(--dim)">(ring_damping_ratio)</code> <span id="opt-rngdr-val" style="color:var(--accent);font-family:monospace">0.15</span>
         <span class="help-icon" title="Measured damping ratio (zeta) of the galvo ringing decay. 0 = undamped, close to 1 = barely oscillates.">?</span>
       </label>
       <input type="range" id="opt-rngdr" min="0" max="90" step="1" value="15" oninput="optimizerSlider()">
@@ -7523,20 +7523,20 @@ document.addEventListener('DOMContentLoaded', initParamPreviews);
       <div class="opt-group-label">Scanner protection (Phase 4)</div>
       <label class="toggle"><input type="checkbox" id="opt-vc-en" onchange="optimizerSlider()"><span class="slider"></span>Enable velocity clamp</label>
 
-      <label>Max step (units/tick) <code style="font-size:10px;color:var(--dim)">(max_step_units)</code> <span id="opt-vcstp-val" style="color:var(--accent);font-family:monospace">2000</span>
+      <label>Max step (units/tick) <code style="font-size:12px;color:var(--dim)">(max_step_units)</code> <span id="opt-vcstp-val" style="color:var(--accent);font-family:monospace">2000</span>
         <span class="help-icon" title="Ceiling on per-sample galvo travel. Lit steps longer than this are subdivided so the mirror never lags a single large jump. Galvo-specific -- tune on hardware. Off = byte-identical output.">?</span>
       </label>
       <input type="range" id="opt-vcstp" min="10" max="4000" step="10" value="200" oninput="optimizerSlider()">
-      <div id="opt-vcstp-eff" style="font-size:10px;color:var(--dim);margin-top:2px">Effective at current PPS: --</div>
+      <div id="opt-vcstp-eff" style="font-size:12px;color:var(--dim);margin-top:2px">Effective at current PPS: --</div>
 
       <label class="toggle"><input type="checkbox" id="opt-ac-en" onchange="optimizerSlider()"><span class="slider"></span>Enable acceleration clamp</label>
 
-      <label>Max accel (units/tick&sup2;) <code style="font-size:10px;color:var(--dim)">(max_accel_units)</code> <span id="opt-acmax-val" style="color:var(--accent);font-family:monospace">800</span>
+      <label>Max accel (units/tick&sup2;) <code style="font-size:12px;color:var(--dim)">(max_accel_units)</code> <span id="opt-acmax-val" style="color:var(--accent);font-family:monospace">800</span>
         <span class="help-icon" title="Ceiling on how fast the beam may speed up between samples. Where the step size grows harder than this (typically ramping out of a corner) a midpoint is inserted. Requires velocity clamp reasoning -- tune on hardware.">?</span>
       </label>
       <input type="range" id="opt-acmax" min="10" max="4000" step="10" value="800" oninput="optimizerSlider()">
-      <div id="opt-acmax-eff" style="font-size:10px;color:var(--dim);margin-top:2px">Effective at current PPS: --</div>
-      <div style="font-size:10px;color:var(--dim);margin-top:4px;font-style:italic">
+      <div id="opt-acmax-eff" style="font-size:12px;color:var(--dim);margin-top:2px">Effective at current PPS: --</div>
+      <div style="font-size:12px;color:var(--dim);margin-top:4px;font-style:italic">
         The values above are the tuned reference (apply exactly when output rate == galvo rated speed).
         Effective values scale with the ratio of Galvo rated speed to Output Sample Rate (Projection tab) --
         they will differ at 20k / 30k / 40k PPS even though the slider number itself doesn't move.
@@ -7549,13 +7549,13 @@ document.addEventListener('DOMContentLoaded', initParamPreviews);
         <button class="btn secondary" onclick="applyOptimizerSmartDefaults()">⚙ Smart defaults</button>
         <button class="btn secondary" onclick="resetOptimizerDefaults()">↺ Reset defaults</button>
       </div>
-      <div id="opt-save-status" style="font-size:12px;color:var(--dim);margin-top:8px"></div>
+      <div id="opt-save-status" style="font-size:14px;color:var(--dim);margin-top:8px"></div>
     </div><!-- /slider card -->
 
     <!-- Member column -->
     <aside class="card opt-members">
-      <h3 style="margin:0 0 4px;font-size:14px" id="opt-members-title">Patterns</h3>
-      <p style="font-size:11px;color:var(--dim);margin:0 0 10px" id="opt-members-desc"></p>
+      <h3 style="margin:0 0 4px;font-size:16px" id="opt-members-title">Patterns</h3>
+      <p style="font-size:13px;color:var(--dim);margin:0 0 10px" id="opt-members-desc"></p>
       <div id="opt-members-list"></div>
     </aside>
   </div><!-- /opt-layout -->
@@ -7565,28 +7565,28 @@ document.addEventListener('DOMContentLoaded', initParamPreviews);
   <div class="grid cols-2">
     <div class="card">
       <h2>▶ Show-Playlist</h2>
-      <div id="pl-status" style="font-family:monospace;font-size:12px;color:var(--dim);margin-bottom:12px">Not active</div>
+      <div id="pl-status" style="font-family:monospace;font-size:14px;color:var(--dim);margin-bottom:12px">Not active</div>
       <div class="btns">
         <button class="btn ok"     onclick="plStart()">▶ Start</button>
         <button class="btn danger" onclick="plStop()">⏹ Stop</button>
         <button class="btn secondary" onclick="plReload()">🔄 Reload SD</button>
       </div>
       <hr style="border-color:var(--border);margin:14px 0">
-      <h3 style="font-size:13px;margin-bottom:8px">entries (<span id="pl-count">0</span>)</h3>
-      <div id="pl-list" style="font-family:monospace;font-size:11px;color:var(--dim);max-height:300px;overflow-y:auto"></div>
+      <h3 style="font-size:15px;margin-bottom:8px">entries (<span id="pl-count">0</span>)</h3>
+      <div id="pl-list" style="font-family:monospace;font-size:13px;color:var(--dim);max-height:300px;overflow-y:auto"></div>
       <hr style="border-color:var(--border);margin:14px 0">
-      <div style="font-family:monospace;font-size:10px;color:var(--dim)">
+      <div style="font-family:monospace;font-size:12px;color:var(--dim)">
         SD: <code>/playlist.json</code><br>
         Format: <code>[{"file":0,"loop":2,"pause_ms":500},...]</code>
       </div>
     </div>
     <div class="card">
       <h2>📤 ILDA Upload</h2>
-      <div style="margin-bottom:12px;font-family:monospace;font-size:11px;color:var(--dim)">
+      <div style="margin-bottom:12px;font-family:monospace;font-size:13px;color:var(--dim)">
         Upload .ild file directly to SD card (max. 40 files)
       </div>
       <button class="btn ok" onclick="uploadILDA()">⬆ Upload</button>
-      <div id="upload-progress" style="margin-top:10px;font-family:monospace;font-size:11px;color:var(--dim)"></div>
+      <div id="upload-progress" style="margin-top:10px;font-family:monospace;font-size:13px;color:var(--dim)"></div>
     </div>
   </div>
 </section>
