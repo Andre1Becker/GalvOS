@@ -3,92 +3,238 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+
 <title id="page-title">GalvOS — Laser Controller</title>
 <link rel="icon" type="image/svg+xml" href="galvos-logo.svg">
 <link rel="icon" type="image/png" href="favicon.png" sizes="32x32">
 <style>
   :root {
-    --bg: #0a0a0a; --panel: #161616; --panel2: #1f1f1f;
-    --border: #2a2a2a; --text: #e8e8e8; --dim: #888;
-    --accent: #ff3060; --ok: #3c3; --bad: #c33; --warn: #fa3;
-    --blue: #4af; --danger: #c33;
+    /* ── Vaporwave / Outrun Design System ── */
+    --bg: #090014;
+    --panel: rgba(26,16,60,0.85);
+    --panel2: rgba(20,10,48,0.9);
+    --border: #2D1B4E;
+    --text: #E0E0E0;
+    --dim: #7a6a9a;
+    --accent: #FF00FF;   /* magenta primary */
+    --cyan: #00FFFF;     /* secondary */
+    --orange: #FF9900;   /* accent */
+    --ok: #00FF88;
+    --bad: #FF2244;
+    --warn: #FF9900;
+    --blue: #00FFFF;
+    --danger: #FF2244;
     --param-preview-size: 80px; /* config.h: UI_PARAM_PREVIEW_SIZE */
+
+    /* ── Glow shadows ── */
+    --glow-magenta: 0 0 8px #FF00FF, 0 0 20px rgba(255,0,255,0.4);
+    --glow-cyan:    0 0 8px #00FFFF, 0 0 20px rgba(0,255,255,0.4);
+    --glow-orange:  0 0 8px #FF9900, 0 0 20px rgba(255,153,0,0.4);
+    --glow-ok:      0 0 8px #00FF88, 0 0 16px rgba(0,255,136,0.3);
+    --glow-bad:     0 0 8px #FF2244, 0 0 16px rgba(255,34,68,0.3);
+
+    /* ── Typography ── */
+    --font-head: 'Orbitron', sans-serif;
+    --font-mono: 'Share Tech Mono', 'Courier New', monospace;
   }
   * { box-sizing: border-box; }
+
+  /* ── CRT scanlines + grid overlay ── */
+  body::before {
+    content: '';
+    position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    background:
+      repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(0,0,0,0.18) 2px,
+        rgba(0,0,0,0.18) 4px
+      );
+  }
+  body::after {
+    content: '';
+    position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    background:
+      radial-gradient(ellipse 80% 50% at 50% 100%, rgba(255,0,255,0.12) 0%, transparent 70%),
+      radial-gradient(ellipse 60% 40% at 80% 20%, rgba(0,255,255,0.07) 0%, transparent 60%);
+  }
+
   body {
-    font-family: system-ui, -apple-system, sans-serif;
+    font-family: var(--font-mono);
     margin: 0; background: var(--bg); color: var(--text);
     font-size: 14px; line-height: 1.4;
+    position: relative;
   }
   header {
-    background: var(--panel); padding: 12px 20px; border-bottom: 1px solid var(--border);
+    background: rgba(9,0,20,0.95);
+    padding: 12px 20px;
+    border-bottom: 2px solid var(--accent);
+    box-shadow: 0 2px 20px rgba(255,0,255,0.3), 0 0 40px rgba(255,0,255,0.08);
     display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;
-    position: sticky; top: 0; z-index: 10;
+    position: sticky; top: 0; z-index: 100;
+    backdrop-filter: blur(12px);
   }
-  header h1 { margin: 0; font-size: 18px; color: var(--accent); }
+  header h1 {
+    margin: 0; font-size: 18px;
+    font-family: var(--font-head);
+    font-weight: 900; text-transform: uppercase; letter-spacing: 0.12em;
+    background: linear-gradient(90deg, var(--orange), var(--accent), var(--cyan));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    text-shadow: none;
+    filter: drop-shadow(0 0 8px rgba(255,0,255,0.6));
+  }
   header .status { display: flex; gap: 12px; align-items: center; font-size: 13px; }
-  .pill { padding: 4px 10px; border-radius: 12px; background: var(--panel2); font-weight: 600; }
-  .pill.armed { background: var(--accent); color: #fff; animation: pulse 1.2s infinite; }
-  .pill.disarmed { background: #333; color: var(--dim); }
-  .pill.conn-ok { background: var(--ok); color: #fff; }
-  .pill.conn-bad { background: var(--bad); color: #fff; }
-  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
-
-  nav { background: var(--panel); border-bottom: 1px solid var(--border); display: flex; overflow-x: auto; }
-  nav button {
-    background: transparent; border: 0; color: var(--dim); padding: 12px 20px;
-    cursor: pointer; font-size: 14px; border-bottom: 3px solid transparent;
-    white-space: nowrap;
+  .pill {
+    padding: 3px 10px; border-radius: 0;
+    background: transparent;
+    border: 1px solid var(--border);
+    font-family: var(--font-mono); font-weight: 600; font-size: 11px;
+    text-transform: uppercase; letter-spacing: 0.08em;
   }
-  nav button.active { color: var(--text); border-bottom-color: var(--accent); }
-  nav button:hover { color: var(--text); }
+  .pill.armed {
+    border-color: var(--accent); color: var(--accent);
+    box-shadow: var(--glow-magenta);
+    animation: pulse 1.2s infinite;
+  }
+  .pill.disarmed { border-color: var(--border); color: var(--dim); }
+  .pill.conn-ok  { border-color: var(--ok); color: var(--ok); box-shadow: var(--glow-ok); }
+  .pill.conn-bad { border-color: var(--bad); color: var(--bad); box-shadow: var(--glow-bad); }
+  @keyframes pulse { 0%, 100% { opacity: 1; box-shadow: var(--glow-magenta); } 50% { opacity: 0.7; box-shadow: 0 0 4px rgba(255,0,255,0.2); } }
 
-  main { padding: 16px; max-width: 1200px; margin: 0 auto; }
+  nav {
+    background: rgba(9,0,20,0.9);
+    border-bottom: 1px solid var(--border);
+    display: flex; overflow-x: auto;
+    backdrop-filter: blur(8px);
+  }
+  nav::-webkit-scrollbar { height: 2px; }
+  nav::-webkit-scrollbar-track { background: var(--bg); }
+  nav::-webkit-scrollbar-thumb { background: var(--accent); }
+  nav button {
+    background: transparent; border: 0; color: var(--dim);
+    padding: 11px 18px;
+    cursor: pointer; font-size: 12px;
+    font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 0.06em;
+    border-bottom: 2px solid transparent;
+    white-space: nowrap;
+    transition: color 0.15s, border-color 0.15s, text-shadow 0.15s;
+  }
+  nav button.active {
+    color: var(--cyan);
+    border-bottom-color: var(--cyan);
+    text-shadow: var(--glow-cyan);
+  }
+  nav button:hover { color: var(--text); text-shadow: 0 0 8px rgba(255,255,255,0.4); }
+
+  main { padding: 16px; max-width: 1280px; margin: 0 auto; position: relative; z-index: 1; }
   .tab { display: none; }
   .tab.active { display: block; }
 
   .card {
-    background: var(--panel); border: 1px solid var(--border);
-    border-radius: 8px; padding: 16px; margin-bottom: 16px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-top: 2px solid var(--cyan);
+    border-radius: 0;
+    padding: 16px; margin-bottom: 16px;
+    backdrop-filter: blur(6px);
+    box-shadow: 0 0 20px rgba(0,255,255,0.06), inset 0 0 40px rgba(255,0,255,0.02);
+    position: relative;
   }
-  .card h2 { margin: 0 0 12px 0; font-size: 16px; color: var(--accent); }
-  .card h3 { margin: 12px 0 8px 0; font-size: 14px; color: var(--dim); text-transform: uppercase; letter-spacing: 0.05em; }
+  .card::before {
+    content: '';
+    position: absolute; top: 0; left: 0; bottom: 0; width: 2px;
+    background: linear-gradient(180deg, var(--cyan), transparent 60%);
+  }
+  .card h2 {
+    margin: 0 0 12px 0; font-size: 13px;
+    font-family: var(--font-head); font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.1em;
+    color: var(--cyan);
+    text-shadow: var(--glow-cyan);
+  }
+  .card h3 {
+    margin: 12px 0 8px 0; font-size: 11px;
+    font-family: var(--font-mono);
+    color: var(--dim); text-transform: uppercase; letter-spacing: 0.06em;
+    border-bottom: 1px solid var(--border); padding-bottom: 4px;
+  }
   .grid { display: grid; gap: 16px; }
   .grid.cols-2 { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
   .grid.cols-3 { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
 
   /* Status table */
-  .stat-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--border); }
+  .stat-row { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid rgba(45,27,78,0.5); font-size: 13px; }
   .stat-row:last-child { border: 0; }
   .stat-row .label { color: var(--dim); }
-  .stat-row .val { font-family: 'SF Mono', Menlo, Consolas, monospace; color: var(--blue); }
+  .stat-row .val { font-family: var(--font-mono); color: var(--cyan); }
   .led {
-    display: inline-block; width: 10px; height: 10px; border-radius: 50%;
+    display: inline-block; width: 8px; height: 8px; border-radius: 0;
     background: #333; margin-right: 8px; vertical-align: middle;
+    transform: rotate(45deg);
   }
-  .led.ok { background: var(--ok); box-shadow: 0 0 6px var(--ok); }
-  .led.bad { background: var(--bad); box-shadow: 0 0 6px var(--bad); }
+  .led.ok  { background: var(--ok);  box-shadow: var(--glow-ok); }
+  .led.bad { background: var(--bad); box-shadow: var(--glow-bad); }
 
   /* Buttons */
   button.btn {
-    padding: 10px 18px; background: var(--accent); color: #fff;
-    border: 0; border-radius: 6px; cursor: pointer; font-weight: 600;
-    font-size: 14px; transition: opacity 0.15s;
+    padding: 8px 18px;
+    background: transparent;
+    color: var(--accent);
+    border: 2px solid var(--accent);
+    border-radius: 0;
+    cursor: pointer; font-weight: 700;
+    font-family: var(--font-mono); font-size: 12px;
+    text-transform: uppercase; letter-spacing: 0.08em;
+    transform: skewX(-8deg);
+    transition: all 0.15s ease-linear;
+    box-shadow: 0 0 10px rgba(255,0,255,0.2);
   }
-  button.btn:hover { opacity: 0.85; }
-  button.btn:disabled { opacity: 0.4; cursor: not-allowed; }
-  button.btn.secondary { background: #333; color: var(--text); }
-  button.btn.danger { background: var(--bad); }
-  button.btn.ok { background: var(--ok); color: #000; }
+  button.btn > * { display: inline-block; transform: skewX(8deg); }
+  button.btn:hover {
+    background: var(--accent); color: #000;
+    transform: skewX(0deg) scale(1.03);
+    box-shadow: var(--glow-magenta);
+  }
+  button.btn:active { transform: skewX(0deg) scale(0.98); }
+  button.btn:disabled { opacity: 0.3; cursor: not-allowed; transform: skewX(-8deg); box-shadow: none; }
+  button.btn.secondary {
+    color: var(--cyan); border-color: var(--cyan);
+    box-shadow: 0 0 10px rgba(0,255,255,0.15);
+  }
+  button.btn.secondary:hover { background: var(--cyan); color: #000; box-shadow: var(--glow-cyan); }
+  button.btn.danger  { color: var(--bad); border-color: var(--bad); box-shadow: 0 0 10px rgba(255,34,68,0.2); }
+  button.btn.danger:hover  { background: var(--bad); color: #fff; box-shadow: var(--glow-bad); }
+  button.btn.ok      { color: var(--ok); border-color: var(--ok); box-shadow: 0 0 10px rgba(0,255,136,0.2); }
+  button.btn.ok:hover { background: var(--ok); color: #000; box-shadow: var(--glow-ok); }
 
   /* Inputs */
-  input, select {
-    width: 100%; padding: 8px 10px; background: var(--bg);
-    color: var(--text); border: 1px solid var(--border); border-radius: 4px;
-    font-size: 14px; font-family: inherit;
+  input:not([type=range]):not([type=checkbox]), select {
+    width: 100%; padding: 7px 10px;
+    background: #000;
+    color: var(--cyan);
+    border: none; border-bottom: 1px solid var(--border);
+    border-radius: 0;
+    font-size: 13px; font-family: var(--font-mono);
+    transition: border-color 0.15s, box-shadow 0.15s;
   }
-  input:focus, select:focus { outline: 0; border-color: var(--accent); }
-  label { display: block; color: var(--dim); margin: 10px 0 4px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; }
+  input:not([type=range]):not([type=checkbox]):focus,
+  select:focus {
+    outline: 0;
+    border-bottom-color: var(--cyan);
+    box-shadow: 0 2px 0 var(--cyan), 0 4px 12px rgba(0,255,255,0.2);
+  }
+  input:not([type=range]):not([type=checkbox])::placeholder { color: rgba(255,0,255,0.5); }
+  select { cursor: pointer; }
+  select option { background: #0a0018; color: var(--text); }
+  label {
+    display: block; color: var(--dim); margin: 10px 0 4px;
+    font-size: 10px; font-family: var(--font-mono);
+    text-transform: uppercase; letter-spacing: 0.08em;
+  }
 
   /* DMX sliders */
   .channel-row {
@@ -97,43 +243,57 @@
     border-bottom: 1px solid var(--border);
   }
   .channel-row:last-child { border: 0; }
-  .channel-row .ch { font-family: monospace; color: var(--blue); font-weight: 600; }
-  .channel-row .name { font-size: 12px; color: var(--dim); display: flex; align-items: center; gap: 5px; }
-  .channel-row .fn-name { font-family: monospace; font-size: 9px; color: #4a4a5a; margin-top: 1px; }
+  .channel-row .ch { font-family: var(--font-mono); color: var(--cyan); font-weight: 700; text-shadow: var(--glow-cyan); }
+  .channel-row .name { font-size: 12px; color: var(--dim); display: flex; align-items: center; gap: 5px; font-family: var(--font-mono); }
+  .channel-row .fn-name { font-family: var(--font-mono); font-size: 9px; color: #3a2a5a; margin-top: 1px; }
   /* Help-Icon (?) -- Tooltip via title-Attribut + custom Styling */
   .help-icon {
     display: inline-flex; align-items: center; justify-content: center;
-    width: 14px; height: 14px; border-radius: 50%;
-    background: var(--border); color: var(--dim);
-    font-size: 10px; font-weight: 700; cursor: help;
+    width: 14px; height: 14px; border-radius: 0;
+    background: transparent; border: 1px solid var(--dim); color: var(--dim);
+    font-size: 9px; font-family: var(--font-mono); font-weight: 700; cursor: help;
     flex-shrink: 0; user-select: none; transition: all .15s;
   }
-  .help-icon:hover { background: var(--accent); color: #000; }
+  .help-icon:hover { border-color: var(--cyan); color: var(--cyan); box-shadow: var(--glow-cyan); }
   /* Optimizer profile selector */
   .opt-profile-bar { display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap; }
-  .opt-profile-btn { padding:6px 14px; border-radius:4px; border:1px solid var(--border);
-    background:var(--card); color:var(--dim); cursor:pointer; font-size:12px; transition:all .15s; }
-  .opt-profile-btn.active { background:var(--accent); color:#000; border-color:var(--accent); font-weight:600; }
+  .opt-profile-btn {
+    padding:5px 12px; border-radius:0; border:1px solid var(--border);
+    background:transparent; color:var(--dim); cursor:pointer;
+    font-size:11px; font-family:var(--font-mono); text-transform:uppercase; letter-spacing:0.06em;
+    transition:all .15s;
+  }
+  .opt-profile-btn:hover { border-color:var(--cyan); color:var(--cyan); }
+  .opt-profile-btn.active {
+    background:rgba(255,0,255,0.15); color:var(--accent);
+    border-color:var(--accent); font-weight:700;
+    box-shadow: var(--glow-magenta);
+  }
   /* Optimizer tab: sliders left, profile member list right */
   .opt-layout { display:grid; grid-template-columns:1fr 240px; gap:16px; align-items:start; }
   @media (max-width: 900px) { .opt-layout { grid-template-columns:1fr; } }
   .opt-members { position:sticky; top:12px; }
-  .opt-member-item { font-size:11px; font-family:monospace; color:var(--dim);
-    padding:3px 6px; border-bottom:1px solid var(--border); cursor:pointer;
-    border-radius:4px; transition:background 0.12s, color 0.12s;
+  .opt-member-item {
+    font-size:11px; font-family:var(--font-mono); color:var(--dim);
+    padding:3px 6px; border-bottom:1px solid rgba(45,27,78,0.4); cursor:pointer;
+    border-radius:0; transition:background 0.12s, color 0.12s;
     display:flex; gap:6px; align-items:baseline; }
   .opt-member-item:last-child { border-bottom:0; }
-  .opt-member-item:hover { background:rgba(255,255,255,0.06); color:#e8e8e8; }
-  .opt-member-item.active { color:var(--accent); background:rgba(255,48,96,.14); }
-  .opt-member-item .idx { color:rgba(255,255,255,0.35); font-size:10px; }
-  .opt-member-item.unknown { cursor:default; opacity:0.5; }
+  .opt-member-item:hover { background:rgba(0,255,255,0.06); color:var(--cyan); }
+  .opt-member-item.active { color:var(--accent); background:rgba(255,0,255,0.1); text-shadow: 0 0 6px rgba(255,0,255,0.5); }
+  .opt-member-item .idx { color:rgba(255,255,255,0.25); font-size:10px; }
+  .opt-member-item.unknown { cursor:default; opacity:0.4; }
   .opt-member-item.unknown:hover { background:none; color:var(--dim); }
   .opt-member-empty { font-size:11px; color:var(--dim); font-style:italic; }
   /* Each parameter group is one visually enclosed cell. */
   .opt-group-label {
-    font-size: 12px; font-weight: 700; color: var(--blue);
-    text-transform: uppercase; letter-spacing: .03em;
-    margin: 0 0 10px; padding: 0 0 6px; border-bottom: 1px solid var(--border);
+    font-size: 11px; font-weight: 700;
+    font-family: var(--font-mono);
+    color: var(--cyan);
+    text-transform: uppercase; letter-spacing: .06em;
+    margin: 0 0 10px; padding: 0 0 6px;
+    border-bottom: 1px solid var(--border);
+    text-shadow: var(--glow-cyan);
   }
     /* Output-parameter preview: small looping animation next to every
      control that affects laser output. Purely illustrative -- the mini
@@ -156,83 +316,139 @@
   .param-preview .pp-fx-bad  { opacity: 0.25; }
   .param-preview .pp-fx-good { opacity: 1; } 40%, 60% { opacity: 0; } 85%, 100% { opacity: 1; } } 40%, 60% { opacity: 1; } 85%, 100% { opacity: 0; } }
   .opt-columns { column-count: 2; column-gap: 16px; }
-  .opt-col-block { break-inside: avoid; -webkit-column-break-inside: avoid;
-    background: rgba(0,0,0,.22); border: 1px solid var(--border);
-    border-radius: 8px; padding: 12px 14px; margin: 0 0 16px; }
+  .opt-col-block {
+    break-inside: avoid; -webkit-column-break-inside: avoid;
+    background: rgba(0,0,0,.3);
+    border: 1px solid var(--border);
+    border-top: 1px solid var(--cyan);
+    border-radius: 0;
+    padding: 12px 14px; margin: 0 0 16px;
+  }
   @media (min-width: 1400px) { .opt-columns { column-count: 3; } }
   @media (max-width: 620px) { .opt-columns { column-count: 1; } }
-  .channel-row input[type=range] { width: 100%; -webkit-appearance: none; appearance: none; background: transparent; }
-  .channel-row input[type=range]::-webkit-slider-runnable-track {
-    height: 4px; background: var(--border); border-radius: 2px;
+  /* Global range input styling */
+  input[type=range] { -webkit-appearance: none; appearance: none; background: transparent; width: 100%; }
+  input[type=range]::-webkit-slider-runnable-track {
+    height: 3px;
+    background: linear-gradient(90deg, var(--accent), var(--cyan));
+    border-radius: 0;
   }
-  .channel-row input[type=range]::-webkit-slider-thumb {
-    -webkit-appearance: none; width: 16px; height: 16px;
-    background: var(--accent); border-radius: 50%; margin-top: -6px;
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 14px; height: 14px;
+    background: var(--accent);
+    border-radius: 0; transform: rotate(45deg);
+    margin-top: -5.5px;
+    box-shadow: var(--glow-magenta);
+    transition: background 0.15s, box-shadow 0.15s;
   }
-  .channel-row input[type=range]::-moz-range-track { height: 4px; background: var(--border); border-radius: 2px; }
-  .channel-row input[type=range]::-moz-range-thumb { width: 16px; height: 16px; background: var(--accent); border: 0; border-radius: 50%; }
+  input[type=range]:hover::-webkit-slider-thumb {
+    background: var(--cyan); box-shadow: var(--glow-cyan);
+  }
+  input[type=range]::-moz-range-track { height: 3px; background: linear-gradient(90deg, var(--accent), var(--cyan)); }
+  input[type=range]::-moz-range-thumb {
+    width: 12px; height: 12px; background: var(--accent); border: 0; border-radius: 0;
+  }
+  .channel-row input[type=range] { width: 100%; }
   .channel-row .val-num { font-family: monospace; color: var(--text); text-align: right; }
   .channel-row .num-input {
     width: 50px; padding: 3px 6px; font-size: 12px; text-align: center;
   }
 
-  /* Override toggle */
+  /* Override toggle — vaporwave */
   .toggle {
     display: inline-flex; align-items: center; gap: 8px; cursor: pointer;
-    padding: 8px 14px; background: var(--panel2); border-radius: 6px;
+    padding: 6px 12px;
+    background: rgba(0,0,0,0.5);
     border: 1px solid var(--border);
+    border-radius: 0;
+    transition: border-color 0.15s;
   }
+  .toggle:hover { border-color: var(--accent); }
   .toggle input { display: none; }
   .toggle .slider {
-    width: 36px; height: 20px; background: #333; border-radius: 10px;
-    position: relative; transition: background 0.2s;
+    width: 32px; height: 16px; background: var(--border);
+    border-radius: 0; position: relative; transition: background 0.2s;
+    border: 1px solid var(--dim);
   }
   .toggle .slider::after {
     content: ''; position: absolute; top: 2px; left: 2px;
-    width: 16px; height: 16px; background: #fff; border-radius: 50%;
-    transition: transform 0.2s;
+    width: 10px; height: 10px; background: var(--dim); border-radius: 0;
+    transition: transform 0.2s, background 0.2s;
   }
-  .toggle input:checked ~ .slider { background: var(--accent); }
-  .toggle input:checked ~ .slider::after { transform: translateX(16px); }
+  .toggle input:checked ~ .slider {
+    background: rgba(255,0,255,0.2); border-color: var(--accent);
+  }
+  .toggle input:checked ~ .slider::after {
+    transform: translateX(16px); background: var(--accent);
+    box-shadow: var(--glow-magenta);
+  }
 
   /* Modal */
   .modal-bg {
-    position: fixed; inset: 0; background: rgba(0,0,0,0.7);
-    display: none; align-items: center; justify-content: center; z-index: 100;
+    position: fixed; inset: 0; background: rgba(9,0,20,0.85);
+    display: none; align-items: center; justify-content: center; z-index: 1000;
+    backdrop-filter: blur(8px);
   }
   .modal-bg.show { display: flex; }
   .modal {
-    background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+    background: rgba(20,10,48,0.97);
+    border: 1px solid var(--border);
+    border-top: 2px solid var(--accent);
+    border-radius: 0;
     padding: 24px; max-width: 360px; width: 90%;
+    box-shadow: var(--glow-magenta), 0 20px 60px rgba(0,0,0,0.8);
   }
-  .modal h2 { margin: 0 0 16px 0; color: var(--accent); }
+  .modal::before {
+    content: ''; position: absolute; top: 0; left: 0; bottom: 0; width: 2px;
+    background: linear-gradient(180deg, var(--accent), transparent);
+  }
+  .modal { position: relative; }
+  .modal h2 {
+    margin: 0 0 16px 0;
+    font-family: var(--font-head); font-size: 14px;
+    text-transform: uppercase; letter-spacing: 0.1em;
+    color: var(--accent); text-shadow: var(--glow-magenta);
+  }
 
   /* Toast */
   #toast {
     position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
-    background: var(--panel2); border: 1px solid var(--border); padding: 10px 16px;
-    border-radius: 6px; opacity: 0; transition: opacity 0.3s; pointer-events: none;
-    z-index: 200; max-width: 90%;
+    background: rgba(9,0,20,0.95);
+    border: 1px solid var(--cyan);
+    border-radius: 0;
+    padding: 10px 20px;
+    font-family: var(--font-mono); font-size: 12px;
+    letter-spacing: 0.06em;
+    color: var(--cyan);
+    opacity: 0; transition: opacity 0.25s; pointer-events: none;
+    z-index: 9999; max-width: 90%;
+    box-shadow: var(--glow-cyan);
   }
   #toast.show { opacity: 1; }
-  #toast.error { border-color: var(--bad); color: var(--bad); }
+  #toast.error { border-color: var(--bad); color: var(--bad); box-shadow: var(--glow-bad); }
 
   /* Tooltip / fault reason */
-  .fault-reason { color: var(--bad); font-size: 12px; margin-top: 8px; font-style: italic; }
+  .fault-reason { color: var(--bad); font-size: 11px; margin-top: 8px; font-family: var(--font-mono); text-shadow: var(--glow-bad); }
   .pps-bar {
-    width: 100%; height: 6px; background: var(--border); border-radius: 3px;
+    width: 100%; height: 4px; background: var(--border); border-radius: 0;
     overflow: hidden; margin-top: 4px;
   }
-  .pps-bar > div { height: 100%; background: var(--ok); transition: width 0.3s; }
+  .pps-bar > div {
+    height: 100%;
+    background: linear-gradient(90deg, var(--orange), var(--accent));
+    box-shadow: 0 0 8px rgba(255,0,255,0.5);
+    transition: width 0.3s;
+  }
 
   /* Mobile */
   @media (max-width: 600px) {
     main { padding: 10px; }
     .card { padding: 12px; }
     header { padding: 10px 12px; }
-    header h1 { font-size: 15px; }
+    header h1 { font-size: 14px; letter-spacing: 0.06em; }
     .channel-row { grid-template-columns: 36px 1fr 50px; gap: 8px; }
     .channel-row .name { display: none; }
+    nav button { padding: 10px 12px; font-size: 10px; }
   }
   @media (max-width: 900px) {
     #tab-presets > div[style*="grid-template-columns"] {
@@ -245,9 +461,99 @@
     }
   }
 </style>
+<style>
+  /* ── Vaporwave grid horizon ── */
+  #vp-grid {
+    position: fixed; bottom: 0; left: 0; right: 0; height: 35vh;
+    z-index: 0; pointer-events: none; overflow: hidden;
+    opacity: 0.18;
+  }
+  #vp-grid svg { width: 100%; height: 100%; }
+
+  /* ── Telemetry bar values ── */
+  #telemetry-bar { font-family: var(--font-mono) !important; font-size: 11px !important; }
+  #telemetry-bar span { letter-spacing: 0.04em; }
+  #telemetry-bar #sb-fw { color: var(--cyan) !important; }
+  #telemetry-bar #sb-kpps,
+  #telemetry-bar #sb-fps,
+  #telemetry-bar #sb-buf,
+  #telemetry-bar #sb-temp { color: var(--orange) !important; }
+  #telemetry-bar #sb-heap,
+  #telemetry-bar #sb-psram { color: var(--accent) !important; }
+
+  /* ── Canvas backgrounds ── */
+  #cpu-canvas { background: #000 !important; border: 1px solid var(--border) !important; }
+  #temp-chart, #kpps-chart, #frame-chart {
+    border: 1px solid var(--border) !important;
+    box-shadow: inset 0 0 20px rgba(0,255,255,0.03);
+  }
+
+  /* ── Scrollbars ── */
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); }
+  ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
+  /* ── Preset grid cards (from JS-rendered grid) ── */
+  .preset-cell {
+    border-radius: 0 !important;
+    border-color: var(--border) !important;
+  }
+  .preset-cell:hover {
+    border-color: var(--cyan) !important;
+    box-shadow: 0 0 12px rgba(0,255,255,0.2) !important;
+  }
+
+  /* ── Code / pre blocks ── */
+  pre, code {
+    font-family: var(--font-mono);
+    background: rgba(0,0,0,0.5);
+    border: 1px solid var(--border);
+    color: var(--cyan);
+    padding: 2px 6px;
+    border-radius: 0;
+  }
+
+  /* ── Section headings inside tabs ── */
+  h2, h3 {
+    font-family: var(--font-head);
+  }
+
+  /* ── Ensure all z-index layering above grid ── */
+  header, nav, main, #toast, .modal-bg { position: relative; z-index: 1; }
+  header, nav { z-index: 100; }
+</style>
 </head>
 <body>
 
+<div id="vp-grid" aria-hidden="true">
+<svg viewBox="0 0 100 50" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="gridFade" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FF00FF" stop-opacity="0"/>
+      <stop offset="60%" stop-color="#FF00FF" stop-opacity="0.8"/>
+      <stop offset="100%" stop-color="#00FFFF" stop-opacity="1"/>
+    </linearGradient>
+  </defs>
+  <!-- Horizontal lines (perspective) -->
+  <line x1="0" y1="12" x2="100" y2="12" stroke="url(#gridFade)" stroke-width="0.3"/>
+  <line x1="0" y1="20" x2="100" y2="20" stroke="url(#gridFade)" stroke-width="0.4"/>
+  <line x1="0" y1="28" x2="100" y2="28" stroke="url(#gridFade)" stroke-width="0.5"/>
+  <line x1="0" y1="36" x2="100" y2="36" stroke="url(#gridFade)" stroke-width="0.7"/>
+  <line x1="0" y1="44" x2="100" y2="44" stroke="url(#gridFade)" stroke-width="1"/>
+  <line x1="0" y1="50" x2="100" y2="50" stroke="url(#gridFade)" stroke-width="1.5"/>
+  <!-- Vertical lines (converge to horizon) -->
+  <line x1="50" y1="0" x2="0" y2="50"  stroke="url(#gridFade)" stroke-width="0.3"/>
+  <line x1="50" y1="0" x2="12" y2="50" stroke="url(#gridFade)" stroke-width="0.3"/>
+  <line x1="50" y1="0" x2="25" y2="50" stroke="url(#gridFade)" stroke-width="0.3"/>
+  <line x1="50" y1="0" x2="37" y2="50" stroke="url(#gridFade)" stroke-width="0.3"/>
+  <line x1="50" y1="0" x2="50" y2="50" stroke="url(#gridFade)" stroke-width="0.4"/>
+  <line x1="50" y1="0" x2="63" y2="50" stroke="url(#gridFade)" stroke-width="0.3"/>
+  <line x1="50" y1="0" x2="75" y2="50" stroke="url(#gridFade)" stroke-width="0.3"/>
+  <line x1="50" y1="0" x2="88" y2="50" stroke="url(#gridFade)" stroke-width="0.3"/>
+  <line x1="50" y1="0" x2="100" y2="50" stroke="url(#gridFade)" stroke-width="0.3"/>
+</svg>
+</div>
 <header>
   <h1>GalvOS Laser Controller</h1>
   <div class="status">
@@ -295,7 +601,7 @@
     <span title="Points per frame: total (n) / lit / blank">◈ <span id="sb-frame-n" style="color:var(--text)">--</span> pts (<span id="sb-frame-lit" style="color:#4f4">--</span> lit / <span id="sb-frame-blank" style="color:var(--dim)">--</span> blank)</span>
   </div>
 </header>
-<div id="safety-override-banner" style="display:none;background:var(--bad);color:#000;font-weight:700;text-align:center;padding:6px;font-size:13px">
+<div id="safety-override-banner" style="display:none;background:transparent;border:2px solid var(--bad);color:var(--bad);font-weight:700;text-align:center;padding:6px;font-size:12px;font-family:var(--font-mono);text-transform:uppercase;letter-spacing:0.1em;box-shadow:var(--glow-bad);">
   ⚠ SAFETY OVERRIDE ACTIVE — Scan-Fail and E-Stop checks bypassed
 </div>
 
@@ -383,7 +689,7 @@
         </div>
       </div>
       <canvas id="cpu-canvas" height="110"
-              style="width:100%;display:block;border-radius:4px;background:#050510;cursor:crosshair"></canvas>
+              style="width:100%;display:block;border-radius:4px;background:rgba(0,0,0,0.5);cursor:crosshair"></canvas>
       <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--dim);margin-top:4px">
         <span>60 s ago</span>
         <span id="cpu-hover-info" style="color:var(--accent)"></span>
@@ -466,7 +772,7 @@
     <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;align-items:start">
 
       <!-- Col 1: Speed / Size / Rotation Z -->
-      <div style="padding:10px;background:#050510;border:1px solid var(--border);border-radius:6px">
+      <div style="padding:10px;background:rgba(0,0,0,0.5);border:1px solid var(--border);border-top:1px solid rgba(0,255,255,0.2)">
         <div style="margin-bottom:8px">
           <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:3px">
             <span id="lv-sp-label">Speed</span><span id="lv-sp-val" style="color:var(--accent);font-family:monospace">80</span>
@@ -574,7 +880,7 @@
       </div>
 
       <!-- Col 2: Auto-Rotation -->
-      <div style="padding:10px;background:#050510;border:1px solid var(--border);border-radius:6px">
+      <div style="padding:10px;background:rgba(0,0,0,0.5);border:1px solid var(--border);border-radius:6px">
         <div style="font-family:monospace;font-size:10px;color:var(--accent);margin-bottom:8px">AUTO-ROTATION</div>
         <label class="toggle" style="margin-bottom:8px">
           <input type="checkbox" id="lv-autorot" onchange="toggleAutoRed(this.checked)">
@@ -614,7 +920,7 @@
 
       <!-- Col 3: Color + Color Animations -->
       <div style="display:flex;flex-direction:column;gap:8px">
-        <div style="padding:10px;background:#050510;border:1px solid var(--border);border-radius:6px">
+        <div style="padding:10px;background:rgba(0,0,0,0.5);border:1px solid var(--border);border-radius:6px">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
           <span style="font-size:10px;color:var(--dim);font-family:monospace">COLOR</span>
           <label class="toggle" style="margin:0">
@@ -670,7 +976,7 @@
         <span id="lv-b-val" style="display:none">255</span>
       </div>
         <!-- Color Animations (embedded) -->
-        <div style="padding:10px;background:#050510;border:1px solid var(--border);border-radius:6px">
+        <div style="padding:10px;background:rgba(0,0,0,0.5);border:1px solid var(--border);border-radius:6px">
         <h2 style="margin:0 0 10px">🎬 Color Animations</h2>
         <div style="display:flex;gap:3px;flex-wrap:wrap;margin-bottom:8px" id="anim-type-btns">
           <button onclick="setAnimType('gradient')" id="anim-btn-gradient" class="btn secondary" style="flex:1;font-size:10px;padding:4px 2px;min-width:0">Gradient</button>
@@ -753,7 +1059,7 @@
       </div>
 
       <!-- Col 4: Points-Only Mode -->
-      <div style="padding:10px;background:#050510;border:1px solid var(--border);border-radius:6px">
+      <div style="padding:10px;background:rgba(0,0,0,0.5);border:1px solid var(--border);border-radius:6px">
         <label class="toggle" style="margin-bottom:8px">
           <input type="checkbox" id="lv-pm-on" onchange="liveSlider()">
           <span class="slider"></span><span style="font-size:12px">Points-Only Mode</span>
@@ -806,7 +1112,7 @@
       <!-- Col 5: Kaleidoscope + Mirror stacked -->
       <div style="display:flex;flex-direction:column;gap:8px">
         <!-- Kaleidoscope -->
-        <div style="padding:10px;background:#050510;border:1px solid var(--border);border-radius:6px">
+        <div style="padding:10px;background:rgba(0,0,0,0.5);border:1px solid var(--border);border-radius:6px">
           <label class="toggle" style="margin-bottom:6px">
             <input type="checkbox" id="lv-kal-on" onchange="liveSlider()">
             <span class="slider"></span><span style="font-size:12px">Kaleidoscope</span>
@@ -825,7 +1131,7 @@
           </div>
         </div>
         <!-- Mirror -->
-        <div style="padding:10px;background:#050510;border:1px solid var(--border);border-radius:6px">
+        <div style="padding:10px;background:rgba(0,0,0,0.5);border:1px solid var(--border);border-radius:6px">
           <div style="font-size:12px;margin-bottom:6px">Mirror</div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px" id="lv-mirror-btns">
             <button class="btn secondary" id="lv-mirror-off"     onclick="setLiveMirror(0)" style="font-size:11px;padding:4px 6px">Off</button>
@@ -855,7 +1161,7 @@
     <div class="card" style="padding:14px">
       <h2 style="margin:0 0 10px">〰 Waves</h2>
       <div id="waves-preset-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:6px;max-height:260px;overflow-y:auto;margin-bottom:10px"></div>
-      <div style="padding:10px;background:#050510;border:1px solid var(--border);border-radius:6px">
+      <div style="padding:10px;background:rgba(0,0,0,0.5);border:1px solid var(--border);border-radius:6px">
         <div style="font-family:monospace;font-size:10px;color:var(--accent);margin-bottom:8px">WAVE PARAMETERS</div>
         <div>
           <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:2px">
@@ -932,7 +1238,7 @@
         <button class="btn danger"    onclick="timerStop()"  style="flex:1;font-size:11px;padding:5px 4px">■ Stop</button>
         <button class="btn secondary" onclick="timerReset()" style="flex:1;font-size:11px;padding:5px 4px">↺</button>
       </div>
-      <div style="padding:8px;background:#050510;border:1px solid var(--border);border-radius:5px">
+      <div style="padding:8px;background:rgba(0,0,0,0.5);border:1px solid var(--border);border-radius:5px">
         <div style="font-family:monospace;font-size:10px;color:var(--accent);margin-bottom:6px">ON EXPIRE</div>
         <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:5px">
           <label style="font-size:11px;cursor:pointer"><input type="radio" name="timer-expire" value="none" checked> Nothing</label>
@@ -1088,7 +1394,7 @@
     </div>
 
     <!-- Color Animation: Segment -->
-    <div style="padding:10px;background:#050510;border:1px solid var(--border);border-radius:6px">
+    <div style="padding:10px;background:rgba(0,0,0,0.5);border:1px solid var(--border);border-radius:6px">
       <label class="toggle" style="margin-bottom:8px">
         <input type="checkbox" id="pt-seg-on" onchange="paintToggleSegment(this.checked)">
         <span class="slider"></span><span style="font-size:12px">🎬 Segment Color Animation</span>
@@ -1152,7 +1458,7 @@
       <div style="display:flex;align-items:center;gap:6px;margin-top:8px;flex-wrap:wrap">
         <span style="font-size:10px;color:var(--dim);font-family:monospace">TEXT</span>
         <input type="text" id="pt-text-input" placeholder="TEXT" maxlength="24"
-          style="flex:1;min-width:100px;padding:4px 8px;font-size:12px;background:#050510;border:1px solid var(--border);border-radius:4px;color:inherit">
+          style="flex:1;min-width:100px;padding:4px 8px;font-size:12px;background:rgba(0,0,0,0.5);border:1px solid var(--border);border-radius:4px;color:inherit">
         <input type="range" id="pt-text-size" min="0" max="255" value="128" style="width:80px" title="Size">
         <button class="btn secondary" onclick="paintInsertText()" style="font-size:11px;padding:5px 8px">➕ Insert</button>
       </div>
@@ -1201,7 +1507,7 @@
             oninput="document.getElementById('pt-rspd-val').textContent=this.value;paintSendRotation()">
         </div>
       </div>
-      <div style="margin-top:16px;padding:10px;background:#050510;border:1px solid var(--border);border-radius:6px;font-size:11px;color:var(--dim);line-height:1.6">
+      <div style="margin-top:16px;padding:10px;background:rgba(0,0,0,0.5);border:1px solid var(--border);border-radius:6px;font-size:11px;color:var(--dim);line-height:1.6">
         <b style="color:var(--accent)">Tips</b><br>
         Pen = freehand draw.<br>
         Shape tools = drag on canvas to size &amp; place.<br>
@@ -1509,7 +1815,7 @@
       </p>
 
       <!-- Galvo spec input — basis for all calculations -->
-      <div style="padding:10px;background:#050510;border:1px solid var(--border);border-radius:6px;margin-bottom:14px">
+      <div style="padding:10px;background:rgba(0,0,0,0.5);border:1px solid var(--border);border-radius:6px;margin-bottom:14px">
         <div style="font-family:monospace;font-size:10px;color:var(--accent);margin-bottom:8px">GALVO SPECIFICATION</div>
         <label style="font-size:11px;color:var(--dim);display:block;margin-bottom:4px">
           Galvo rated speed (kpps) — from datasheet
@@ -1556,7 +1862,7 @@
       </div>
 
       <!-- Sample-Rate Autotune -->
-      <div style="padding:10px;background:#050510;border:1px solid var(--border);border-radius:6px;margin-top:14px">
+      <div style="padding:10px;background:rgba(0,0,0,0.5);border:1px solid var(--border);border-radius:6px;margin-top:14px">
         <div style="font-family:monospace;font-size:10px;color:var(--accent);margin-bottom:8px">AUTOTUNE</div>
         <p style="color:var(--dim);font-size:11px;margin-bottom:8px">
           Finds the highest kpps that runs without "Ring buffer overflow" by
@@ -1749,7 +2055,7 @@
       <div id="temp-sensors"></div>
 
       <!-- Sensor-Namen Editor -->
-      <div style="margin-top:12px;padding:10px;background:#050510;border:1px solid var(--border);border-radius:6px">
+      <div style="margin-top:12px;padding:10px;background:rgba(0,0,0,0.5);border:1px solid var(--border);border-radius:6px">
         <div style="font-family:monospace;font-size:10px;color:var(--accent);margin-bottom:8px">
           SENSOR NAMES &nbsp;<span id="sensor-found-info" style="color:var(--dim)"></span>
         </div>
