@@ -122,9 +122,13 @@ Current temperatures are shown as a row of badges below the chart.
 ### Galvo Output Rate
 <img width="926" height="271" alt="image" src="https://github.com/user-attachments/assets/84b9d150-e11d-481e-bdef-509baf854fed" />
 
+A scrolling 5-minute history of the actual DAC output rate in kpps (points-per-second). This is the real-time equivalent of the "Galvo Rate" bar in the Telemetry card, plotted over time so you can spot dips or instability instead of just the instantaneous value. Compare against the configured `galvo_kpps` (Tab: Projection) to confirm the output stays at the expected rate under load.
+
 ### Frame Composition Chart
 
 <img width="911" height="248" alt="image" src="https://github.com/user-attachments/assets/c3b981cc-6659-4481-a8ff-fffa2757283b" />
+
+Shows how each rendered frame's points split between **Lit** (green) and **Blank** (orange) against the **Total** point count (grey) over the same 5-minute window. A high blank-to-lit ratio usually means the optimizer is spending a lot of the frame budget on travel/jump moves between shapes rather than visible content — useful when tuning optimizer profiles (Tab: Optimizer) or diagnosing why a complex pattern looks dim or flickery.
 
 ### System Card
 
