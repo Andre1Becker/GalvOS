@@ -58,11 +58,10 @@ GalvOS ships as a Progressive Web App (PWA). This means you can install it on yo
 
 ## General Layout
 
-The UI is divided into a **tab bar** at the top and a **content area** below. All tabs are accessible at any time — switching tabs does not stop the laser or change the active pattern.
-
 <img width="1579" height="35" alt="image" src="https://github.com/user-attachments/assets/1e7bc92c-47c4-4468-b76f-f58ed10284c9" />
 
-(The TAB Bar)
+The UI is divided into a **tab bar** at the top and a **content area** below. All tabs are accessible at any time — switching tabs does not stop the laser or change the active pattern.
+
 ---
 
 ## Tab: Dashboard
@@ -100,12 +99,11 @@ Live readouts updated every second:
 
 A scrolling 60-second graph of both core loads:
 
+<img width="928" height="328" alt="image" src="https://github.com/user-attachments/assets/b63964c4-c831-4cce-bd46-acb43038e4c7" />
+
 - **Core 0 (cyan)** — handles Wi-Fi, WebUI HTTP, Art-Net, DMX, safety. Typically 10–40% under normal use.
 - **Core 1 (orange)** — runs the galvo ISR and pattern engine. Typically ~100% — this is normal and expected. The ISR is time-sliced.
 - Warning lines at 70% (yellow dashed) and 90% (red dashed) mark potential overload on Core 0.
-
-<img width="928" height="328" alt="image" src="https://github.com/user-attachments/assets/b63964c4-c831-4cce-bd46-acb43038e4c7" />
-(CPU Load Graph)
 
 ### Temperature History Chart
 
@@ -127,7 +125,6 @@ Current temperatures are shown as a row of badges below the chart.
 ### Frame Composition Chart
 
 <img width="911" height="248" alt="image" src="https://github.com/user-attachments/assets/c3b981cc-6659-4481-a8ff-fffa2757283b" />
-
 
 ### System Card
 
@@ -224,8 +221,7 @@ A standalone utility embedded in the Presets tab. Set hours/minutes/seconds, the
 
 Provides a software DMX console — 25 sliders corresponding to GalvOS's 25 DMX channels.
 
-<img width="1313" height="1016" alt="image" src="https://github.com/user-attachments/assets/8ca62261-cdfc-4d50-8f34-71b45346b862" />
-
+<img width="1405" height="713" alt="image" src="https://github.com/user-attachments/assets/3ebeb424-8c1c-4d86-9912-e120e34c03fa" />
 
 - **WebUI override toggle** — when enabled, the slider values are sent directly to the pattern engine, overriding any incoming hardware DMX signal. When disabled, the sliders display the last received DMX values (read-only view).
 - **Reset all channels** — returns all sliders to their off/default state.
@@ -239,7 +235,7 @@ Full channel map: see [Chapter 3 — Build & Configuration → RuntimeConfig →
 
 Projects laser text. Text mode overrides any active preset and DMX input while active.
 
-<img width="1304" height="481" alt="image" src="https://github.com/user-attachments/assets/f97eaf84-a390-4475-aa8a-0ad86cde2ad2" />
+<img width="1398" height="442" alt="image" src="https://github.com/user-attachments/assets/31cd9710-edae-48d9-b849-fac9ee304e98" />
 
 - **Text input** — supports uppercase A–Z, digits 0–9, and `.,:!?-+`. Maximum 127 characters. Up to 16 characters display statically; longer text scrolls automatically.
 - **Font** — Simple (thin strokes, fastest), Bold (thick strokes), Outline (double-line).
