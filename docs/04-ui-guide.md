@@ -58,7 +58,7 @@ GalvOS ships as a Progressive Web App (PWA). This means you can install it on yo
 
 ## General Layout
 
-<img width="1579" height="35" alt="image" src="https://github.com/user-attachments/assets/1e7bc92c-47c4-4468-b76f-f58ed10284c9" />
+<img width="2502" height="1173" alt="image" src="https://github.com/user-attachments/assets/2397c2d3-09e4-456b-9648-87b0f7281b3d" />
 
 The UI is divided into a **tab bar** at the top and a **content area** below. All tabs are accessible at any time — switching tabs does not stop the laser or change the active pattern.
 
