@@ -100,7 +100,7 @@ Live readouts updated every second:
 
 A scrolling 60-second graph of both core loads:
 
-<img width="928" height="328" alt="image" src="https://github.com/user-attachments/assets/b63964c4-c831-4cce-bd46-acb43038e4c7" />
+<img width="928" height="333" alt="image" src="https://github.com/user-attachments/assets/aa07298f-a40f-40e9-975b-54d2114b34cb" />
 
 - **Core 0 (cyan)** — handles Wi-Fi, WebUI HTTP, Art-Net, DMX, safety. Typically 10–40% under normal use.
 - **Core 1 (orange)** — runs the galvo ISR and pattern engine. Typically ~100% — this is normal and expected. The ISR is time-sliced.
@@ -108,7 +108,7 @@ A scrolling 60-second graph of both core loads:
 
 ### Temperature History Chart
 
-<img width="926" height="307" alt="image" src="https://github.com/user-attachments/assets/00505427-0399-4bdc-aec4-55b00c07f8c1" />
+<img width="926" height="329" alt="image" src="https://github.com/user-attachments/assets/32cea48e-ee32-42c1-b313-92f4367a69f6" />
 
 A colour-coded scrolling chart of all DS18B20 sensor readings:
 
@@ -121,13 +121,15 @@ A colour-coded scrolling chart of all DS18B20 sensor readings:
 Current temperatures are shown as a row of badges below the chart.
 
 ### Galvo Output Rate
-<img width="926" height="271" alt="image" src="https://github.com/user-attachments/assets/84b9d150-e11d-481e-bdef-509baf854fed" />
+
+<img width="925" height="292" alt="image" src="https://github.com/user-attachments/assets/34f1a469-45fc-42c1-b111-49ecdebbcf97" />
+
 
 A scrolling 5-minute history of the actual DAC output rate in kpps (points-per-second). This is the real-time equivalent of the "Galvo Rate" bar in the Telemetry card, plotted over time so you can spot dips or instability instead of just the instantaneous value. Compare against the configured `galvo_kpps` (Tab: Projection) to confirm the output stays at the expected rate under load.
 
 ### Frame Composition Chart
 
-<img width="911" height="248" alt="image" src="https://github.com/user-attachments/assets/c3b981cc-6659-4481-a8ff-fffa2757283b" />
+<img width="925" height="289" alt="image" src="https://github.com/user-attachments/assets/b89fc610-9433-4dbf-8638-7932fce04447" />
 
 Shows how each rendered frame's points split between **Lit** (green) and **Blank** (orange) against the **Total** point count (grey) over the same 5-minute window. A high blank-to-lit ratio usually means the optimizer is spending a lot of the frame budget on travel/jump moves between shapes rather than visible content — useful when tuning optimizer profiles (Tab: Optimizer) or diagnosing why a complex pattern looks dim or flickery.
 
