@@ -68,13 +68,15 @@
     font-size: 16px; line-height: 1.4;
     position: relative;
   }
+  #app-topbar {
+    position: sticky; top: 0; z-index: 100;
+  }
   header {
     background: rgba(9,0,20,0.95);
     padding: 12px 20px;
     border-bottom: 2px solid var(--accent);
     box-shadow: 0 2px 20px rgba(255,0,255,0.3), 0 0 40px rgba(255,0,255,0.08);
     display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;
-    position: sticky; top: 0; z-index: 100;
     backdrop-filter: blur(12px);
   }
   header h1 {
@@ -529,7 +531,7 @@
 
   /* ── Ensure all z-index layering above grid ── */
   header, nav, main, #toast, .modal-bg { position: relative; z-index: 1; }
-  header, nav { z-index: 100; }
+  #app-topbar, header, nav { z-index: 100; }
 </style>
 </head>
 <body>
@@ -562,6 +564,7 @@
   <line x1="50" y1="0" x2="100" y2="50" stroke="url(#gridFade)" stroke-width="0.3"/>
 </svg>
 </div>
+<div id="app-topbar">
 <header>
   <h1>GalvOS Laser Controller</h1>
   <div class="status">
@@ -628,6 +631,7 @@
   <button data-tab="log">📋 Log</button>
   <button data-tab="config">⚙ Configuration</button>
 </nav>
+</div>
 
 <main>
 
