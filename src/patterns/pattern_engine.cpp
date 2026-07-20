@@ -12,6 +12,7 @@
 #include "output/galvo_out.h"
 #include "safety/safety.h"
 #include "util/log_buffer.h"
+#include "util/mem_registry.h"
 #include "net/web_ui.h"
 #include <Arduino.h>
 #include <math.h>
@@ -343,15 +344,19 @@ void init() {
     // internal DRAM only if PSRAM is unavailable, so rendering never runs on a
     // null pointer.
     s_frame = (LaserPoint*)ps_malloc(PATTERN_POINTS_MAX * sizeof(LaserPoint));
+    bool frame_in_psram = s_frame != nullptr;
     if (!s_frame) {
         ESP_LOGE(TAG, "PSRAM alloc failed for s_frame -- falling back to internal DRAM");
         s_frame = (LaserPoint*)heap_caps_malloc(PATTERN_POINTS_MAX * sizeof(LaserPoint),
                                                 MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
     }
+    if (s_frame) memreg::track("Pattern Frame Buffer", PATTERN_POINTS_MAX * sizeof(LaserPoint), frame_in_psram);
     s_pm_lit = (LaserPoint*)ps_malloc(PATTERN_POINTS_MAX * sizeof(LaserPoint));
     if (!s_pm_lit) ESP_LOGE(TAG, "PSRAM alloc failed for points-only buffer");
+    else memreg::track("Pattern Lit-Points Buffer", PATTERN_POINTS_MAX * sizeof(LaserPoint), true);
     s_pm_kaleido = (LaserPoint*)ps_malloc(PATTERN_POINTS_MAX * sizeof(LaserPoint));
     if (!s_pm_kaleido) ESP_LOGE(TAG, "PSRAM alloc failed for kaleidoscope buffer");
+    else memreg::track("Pattern Kaleido Buffer", PATTERN_POINTS_MAX * sizeof(LaserPoint), true);
 }
 void setManualMode(bool, uint8_t) {}
 

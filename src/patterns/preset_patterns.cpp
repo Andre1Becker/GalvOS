@@ -1,6 +1,7 @@
 #include "preset_patterns.h"
 #include "countdown_timer.h"
 #include "point_optimizer.h"
+#include "util/mem_registry.h"
 #include <math.h>
 #include <string.h>
 #include <Arduino.h>
@@ -2845,6 +2846,7 @@ static uint32_t    s_cacheGen   = 0xFFFFFFFF;
 static bool ensureCacheBuf() {
     if (s_cacheBuf) return true;
     s_cacheBuf = (LaserPoint*)ps_malloc(PATTERN_POINTS_MAX * sizeof(LaserPoint));
+    if (s_cacheBuf) memreg::track("Preset Cache Buffer", PATTERN_POINTS_MAX * sizeof(LaserPoint), true);
     return s_cacheBuf != nullptr;
 }
 

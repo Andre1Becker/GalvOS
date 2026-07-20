@@ -3,6 +3,7 @@
 // Each curve: p[0..2] = shape params, p[3] = speed, p[4] = zoom
 
 #include "curve_patterns.h"
+#include "../util/mem_registry.h"
 #include <math.h>
 #include <string.h>
 #include <algorithm>
@@ -33,6 +34,7 @@ static bool curveScratch(float*& xs, float*& ys) {
         if (!s_curveXs) s_curveXs = (float*)ps_malloc(CURVE_SCRATCH_N * sizeof(float));
         if (!s_curveYs) s_curveYs = (float*)ps_malloc(CURVE_SCRATCH_N * sizeof(float));
         if (!s_curveXs || !s_curveYs) return false;
+        memreg::track("Curve Scratch Buffers", 2 * CURVE_SCRATCH_N * sizeof(float), true);
     }
     xs = s_curveXs; ys = s_curveYs;
     return true;

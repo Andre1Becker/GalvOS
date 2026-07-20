@@ -1,5 +1,6 @@
 #include "log_buffer.h"
 #include "../net/ntp_client.h"
+#include "mem_registry.h"
 #include <Arduino.h>
 #include <stdio.h>
 #include <stdarg.h>
@@ -25,6 +26,7 @@ void init() {
         ESP_LOGE("logbuf", "PSRAM alloc failed for Log-Buffer");
         return;
     }
+    memreg::track("Log Buffer", LOG_CAPACITY * sizeof(LogEntry), true);
     memset(s_ring, 0, LOG_CAPACITY * sizeof(LogEntry));
     // Ersten entry direkt schreiben
     log(LVL_INFO, CAT_SYSTEM, "Log buffer initialized (%u entries, PSRAM)",

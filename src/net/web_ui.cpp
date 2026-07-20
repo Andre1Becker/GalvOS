@@ -19,6 +19,7 @@
 #include "util/log_buffer.h"
 #include "util/cpu_monitor.h"
 #include "util/stack_mon.h"
+#include "util/mem_registry.h"
 #include "net/ntp_client.h"
 #include "patterns/preset_patterns.h"
 #include "patterns/countdown_timer.h"
@@ -35,6 +36,7 @@
 #include <Preferences.h>
 #include <WiFi.h>
 #include <esp_log.h>
+#include <esp_heap_caps.h>
 
 AsyncWebServer s_server(80);  // file-scope: ota_update sieht es
 
@@ -103,6 +105,7 @@ static void loadIndexGzToPsram() {
     }
     s_index_gz_buf.reset(buf, [](uint8_t* p) { heap_caps_free(p); });
     s_index_gz_len = len;
+    memreg::track("WebUI Bundle Cache", len, true);
     ESP_LOGI(TAG, "index.html.gz cached in PSRAM (%u B)", (unsigned)len);
 }
 
@@ -472,6 +475,7 @@ void init() {
 
     s_paint_body = (char*)ps_malloc(PAINT_BODY_CAP);
     if (!s_paint_body) ESP_LOGE(TAG, "PSRAM alloc failed for paint body buffer");
+    else memreg::track("Paint Body Buffer", PAINT_BODY_CAP, true);
 
     if (!LittleFS.begin(true))
         ESP_LOGE(TAG, "LittleFS mount failed");
@@ -1705,6 +1709,31 @@ void init() {
                  (unsigned)logbuf::LOG_CAPACITY,
                  logbuf::isFull() ? "true" : "false");
         req->send(200, "application/json", buf);
+    });
+
+    // ---- GET /api/meminfo (Log tab memory viewer) ----
+    s_server.on("/api/meminfo", HTTP_GET, [](AsyncWebServerRequest* req) {
+        JsonDocument doc(&jsonAllocator());
+        JsonObject heap = doc["heap"].to<JsonObject>();
+        heap["total"]    = ESP.getHeapSize();
+        heap["free"]     = ESP.getFreeHeap();
+        heap["largest"]  = ESP.getMaxAllocHeap();
+        heap["min_ever"] = ESP.getMinFreeHeap();
+        heap["critical"] = gConfig.heap_critical_bytes;
+        JsonObject psram = doc["psram"].to<JsonObject>();
+        psram["total"]    = ESP.getPsramSize();
+        psram["free"]     = ESP.getFreePsram();
+        psram["largest"]  = ESP.getMaxAllocPsram();
+        psram["min_ever"] = ESP.getMinFreePsram();
+        JsonArray owners = doc["owners"].to<JsonArray>();
+        for (size_t i = 0; i < memreg::count(); i++) {
+            const memreg::Owner& o = memreg::get(i);
+            JsonObject e = owners.add<JsonObject>();
+            e["name"]  = o.name;
+            e["bytes"] = o.bytes;
+            e["psram"] = o.psram;
+        }
+        sendJsonPsram(req, doc);
     });
 
     // ---- POST /api/factory-reset ----

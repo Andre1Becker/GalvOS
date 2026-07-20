@@ -170,6 +170,30 @@
   .stat-row:last-child { border: 0; }
   .stat-row .label { color: var(--dim); }
   .stat-row .val { font-family: var(--font-mono); color: var(--cyan); }
+
+  /* Memory Viewer (Log tab) — composition bars for Heap/PSRAM */
+  .mem-bar {
+    position: relative; display: flex; height: 30px;
+    border-radius: 4px; overflow: hidden;
+    background: #000; border: 1px solid var(--border);
+    margin-bottom: 10px;
+  }
+  .mem-seg { height: 100%; box-sizing: border-box; border-right: 2px solid #000; transition: width .4s; }
+  .mem-seg:last-child { border-right: 0; }
+  .mem-seg.free { background: rgba(255,255,255,0.05); }
+  .mem-tick {
+    position: absolute; top: 0; bottom: 0; width: 2px;
+    background: var(--warn); box-shadow: 0 0 6px var(--warn); z-index: 2;
+  }
+  .mem-owner-row {
+    display: flex; align-items: center; gap: 8px; padding: 4px 0;
+    border-bottom: 1px solid rgba(45,27,78,0.35); font-size: 13px;
+  }
+  .mem-owner-row:last-child { border-bottom: 0; }
+  .mem-owner-row .swatch { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+  .mem-owner-row .name { flex: 1; color: var(--text); }
+  .mem-owner-row .bytes { color: var(--cyan); font-family: var(--font-mono); }
+  .mem-owner-row .pct { color: var(--dim); width: 46px; text-align: right; }
   .led {
     display: inline-block; width: 8px; height: 8px; border-radius: 0;
     background: #333; margin-right: 8px; vertical-align: middle;
@@ -1549,6 +1573,33 @@
       font-family:'SF Mono',Menlo,Consolas,monospace; font-size:13px;
       padding:8px; color:#ccc; line-height:1.5;
     "></div>
+  </div>
+
+  <div class="card">
+    <h2>Memory Viewer</h2>
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:4px">
+      <span style="color:var(--dim);font-size:13px">Who holds the RAM — static/long-lived buffers only, refreshes every 3s while this tab is open</span>
+      <div style="flex:1"></div>
+      <button class="btn secondary" onclick="loadMemInfo()" style="padding:6px 10px">🔄 Refresh</button>
+    </div>
+
+    <h3>Internal SRAM (Heap)</h3>
+    <div id="mem-heap-bar" class="mem-bar"></div>
+    <div class="stat-row"><span class="label">Total</span><span id="mem-heap-total" class="val">--</span></div>
+    <div class="stat-row"><span class="label">Free now</span><span id="mem-heap-free" class="val">--</span></div>
+    <div class="stat-row"><span class="label">Largest free block</span><span id="mem-heap-largest" class="val">--</span></div>
+    <div class="stat-row"><span class="label">Lowest free ever (since boot)</span><span id="mem-heap-min" class="val">--</span></div>
+    <div class="stat-row"><span class="label">Failsafe reboot limit</span><span id="mem-heap-crit" class="val">--</span></div>
+
+    <h3>PSRAM</h3>
+    <div id="mem-psram-bar" class="mem-bar"></div>
+    <div class="stat-row"><span class="label">Total</span><span id="mem-psram-total" class="val">--</span></div>
+    <div class="stat-row"><span class="label">Free now</span><span id="mem-psram-free" class="val">--</span></div>
+    <div class="stat-row"><span class="label">Largest free block</span><span id="mem-psram-largest" class="val">--</span></div>
+    <div class="stat-row"><span class="label">Lowest free ever (since boot)</span><span id="mem-psram-min" class="val">--</span></div>
+
+    <h3>Tracked Owners</h3>
+    <div id="mem-owners-list" style="color:var(--dim);font-size:13px">Loading…</div>
   </div>
 </section>
 
@@ -3983,6 +4034,104 @@ function startLogRefresh() {
 }
 
 // ============================================================
+// Memory Viewer (Log tab) — heap/PSRAM composition bars
+// ============================================================
+let s_memTimer = null;
+
+// Fixed categorical order (never reassigned/cycled per-owner — a given name
+// always gets the same color across refreshes as long as it stays in-range).
+const MEM_OWNER_COLORS = ['#00FFFF','#FF00FF','#FF9900','#00FF88','#4C8DFF','#FFE066','#FF5577','#B266FF'];
+const MEM_OTHER_COLOR  = 'rgba(255,255,255,0.18)';
+
+function fmtBytes(n) {
+    if (n == null) return '--';
+    if (n >= 1024*1024) return (n/1024/1024).toFixed(2) + ' MB';
+    if (n >= 1024)      return (n/1024).toFixed(1) + ' KB';
+    return n + ' B';
+}
+
+// Renders a composition bar: tracked owners (in fixed color order) + an
+// "Other" segment for used-but-untracked bytes + a free segment. `minEver`
+// draws a tick marking the lowest free level seen since boot.
+function renderMemBar(barId, total, freeNow, owners, minEver) {
+    const bar = document.getElementById(barId);
+    if (!bar || !total) return;
+    let html = '';
+    let usedTracked = 0;
+    owners.forEach((o, i) => {
+        const pct = (o.bytes / total) * 100;
+        usedTracked += o.bytes;
+        const color = MEM_OWNER_COLORS[i % MEM_OWNER_COLORS.length];
+        html += `<div class="mem-seg" style="width:${pct}%;background:${color}" title="${o.name}: ${fmtBytes(o.bytes)}"></div>`;
+    });
+    const otherBytes = Math.max(0, total - freeNow - usedTracked);
+    if (otherBytes > 0) {
+        const pct = (otherBytes / total) * 100;
+        html += `<div class="mem-seg" style="width:${pct}%;background:${MEM_OTHER_COLOR}" title="Other (untracked): ${fmtBytes(otherBytes)}"></div>`;
+    }
+    const freePct = (freeNow / total) * 100;
+    html += `<div class="mem-seg free" style="width:${freePct}%" title="Free: ${fmtBytes(freeNow)}"></div>`;
+    if (minEver != null) {
+        const tickPct = Math.min(100, Math.max(0, ((total - minEver) / total) * 100));
+        html += `<div class="mem-tick" style="left:${tickPct}%" title="Lowest free ever: ${fmtBytes(minEver)}"></div>`;
+    }
+    bar.innerHTML = html;
+}
+
+function renderMemOwnersList(owners) {
+    const el = document.getElementById('mem-owners-list');
+    if (!el) return;
+    if (!owners.length) { el.textContent = 'No tracked buffers yet.'; return; }
+    const sorted = [...owners].sort((a, b) => b.bytes - a.bytes);
+    const total = owners.reduce((s, o) => s + o.bytes, 0) || 1;
+    el.innerHTML = sorted.map((o, i) => {
+        const color = MEM_OWNER_COLORS[i % MEM_OWNER_COLORS.length];
+        const pct = ((o.bytes / total) * 100).toFixed(0);
+        return `<div class="mem-owner-row">` +
+            `<span class="swatch" style="background:${color}"></span>` +
+            `<span class="name">${o.name}${o.psram ? '' : ' <span style="color:var(--warn)">(DRAM)</span>'}</span>` +
+            `<span class="bytes">${fmtBytes(o.bytes)}</span>` +
+            `<span class="pct">${pct}%</span>` +
+            `</div>`;
+    }).join('');
+}
+
+async function loadMemInfo() {
+    try {
+        const r = await fetch('/api/meminfo');
+        if (!r.ok) return;
+        const d = await r.json();
+        const owners = d.owners || [];
+
+        setText('mem-heap-total',   fmtBytes(d.heap?.total));
+        setText('mem-heap-free',    fmtBytes(d.heap?.free));
+        setText('mem-heap-largest', fmtBytes(d.heap?.largest));
+        setText('mem-heap-min',     fmtBytes(d.heap?.min_ever));
+        setText('mem-heap-crit',    fmtBytes(d.heap?.critical));
+        renderMemBar('mem-heap-bar', d.heap?.total, d.heap?.free,
+            owners.filter(o => !o.psram), d.heap?.min_ever);
+
+        setText('mem-psram-total',   fmtBytes(d.psram?.total));
+        setText('mem-psram-free',    fmtBytes(d.psram?.free));
+        setText('mem-psram-largest', fmtBytes(d.psram?.largest));
+        setText('mem-psram-min',     fmtBytes(d.psram?.min_ever));
+        renderMemBar('mem-psram-bar', d.psram?.total, d.psram?.free,
+            owners.filter(o => o.psram), d.psram?.min_ever);
+
+        renderMemOwnersList(owners);
+    } catch(e) {}
+}
+
+// Auto-refresh only while the Log tab is active
+function startMemRefresh() {
+    if (s_memTimer) clearInterval(s_memTimer);
+    s_memTimer = setInterval(() => {
+        const logTab = document.getElementById('tab-log');
+        if (logTab && logTab.classList.contains('active')) loadMemInfo();
+    }, 3000);
+}
+
+// ============================================================
 // Presets — with inline SVG mini-previews
 // ============================================================
 const STATIC_PRESET_DEFS = [
@@ -5505,6 +5654,8 @@ initFrameGraph();
     setInterval(refreshWifiStatus, 10000);
     await loadLog(true);
     startLogRefresh();
+    await loadMemInfo();
+    startMemRefresh();
     await loadPresets();
 })();
 
@@ -6864,6 +7015,7 @@ document.querySelectorAll('[data-tab]').forEach(btn=>{btn.addEventListener('clic
   if(tab==='calib') loadCalibPatterns();
   if(tab==='ilda') loadSdStatus();
   if(tab==='dashboard') requestAnimationFrame(()=>renderCpuGraph());
+  if(tab==='log') loadMemInfo();
 });});
 
 

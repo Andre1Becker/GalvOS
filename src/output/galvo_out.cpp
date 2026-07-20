@@ -5,6 +5,7 @@
 #include <SPI.h>
 #include <esp_log.h>
 #include "../util/log_buffer.h"
+#include "../util/mem_registry.h"
 #include <esp_timer.h>
 #include <driver/spi_master.h>
 #include <driver/gpio.h>
@@ -684,6 +685,7 @@ static void IRAM_ATTR galvoTask(void*) {
 void init() {
     rebuildGammaLut(0.0f); // CIE 1931 LUT is compile-time const; argument ignored
     // ALWAYS allocate Ring-Buffer
+    bool any_dram_fallback = false;
     for (size_t i = 0; i < RING_FRAMES; i++) {
         if (!s_ring[i]) {
             const size_t slot_bytes = PATTERN_POINTS_MAX * sizeof(LaserPoint);
@@ -691,12 +693,14 @@ void init() {
             s_ring[i] = (LaserPoint*)ps_malloc(slot_bytes);
             if (!s_ring[i]) {
                 s_ring[i] = (LaserPoint*)malloc(slot_bytes);
-                if (s_ring[i]) ESP_LOGW(TAG, "Ring slot %u: DRAM Fallback (no PSRAM)", i);
+                if (s_ring[i]) { ESP_LOGW(TAG, "Ring slot %u: DRAM Fallback (no PSRAM)", i); any_dram_fallback = true; }
                 else           ESP_LOGE(TAG, "Ring slot %u: ALLOC FAILED - no RAM", i);
             }
             s_ring_sizes[i] = 0;
         }
     }
+    memreg::track("Galvo Ring Buffer", RING_FRAMES * PATTERN_POINTS_MAX * sizeof(LaserPoint),
+                  !any_dram_fallback);
     if (gDebugNoHW) {
         ESP_LOGW(TAG, "galvo::init() NoHW: ring buffer OK, SPI skipped");
         for(int p:{PIN_LASER_R,PIN_LASER_G,PIN_LASER_B}){

@@ -26,6 +26,7 @@
 #include "storage/sd_card.h"
 #include "mutex.h"
 #include "output/galvo_out.h"
+#include "util/mem_registry.h"
 #include <Arduino.h>
 #include <SD.h>
 #include <string.h>
@@ -88,8 +89,8 @@ static inline int16_t  bei16(uint8_t* p) { return (int16_t)be16(p); }
 // ── load file and all frames into PSRAM buffer ─────────────────
 static bool loadILDA(const char* path) {
     // free previous allocation
-    if (s_frames)    { heap_caps_free(s_frames); s_frames = nullptr; }
-    if (s_point_pool){ heap_caps_free(s_point_pool); s_point_pool = nullptr; }
+    if (s_frames)    { heap_caps_free(s_frames); s_frames = nullptr; memreg::untrack("ILDA Frames"); }
+    if (s_point_pool){ heap_caps_free(s_point_pool); s_point_pool = nullptr; memreg::untrack("ILDA Point Pool"); }
     s_frame_count = 0;
 
     LOCK_SD();
@@ -147,6 +148,8 @@ static bool loadILDA(const char* path) {
         f.close();
         return false;
     }
+    memreg::track("ILDA Frames", total_frames * sizeof(ILDAFrame), true);
+    memreg::track("ILDA Point Pool", total_points * sizeof(LaserPoint), true);
 
     // ── Pass 2: read data ─────────────────────────────────────────
     f.seek(0);

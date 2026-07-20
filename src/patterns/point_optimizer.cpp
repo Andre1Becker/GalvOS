@@ -3,13 +3,16 @@
 #include <algorithm>
 #if defined(ESP_PLATFORM) || defined(ARDUINO)
 #include <esp_heap_caps.h>
+#include "util/mem_registry.h"
 #else
 // Host-side unit test build (g++ + cfg_stub.h): no ESP heap API. Fall back to
 // plain malloc so clampScannerLimits() is testable off-target. MALLOC_CAP_*
-// is ignored here.
+// is ignored here. mem_registry.cpp isn't part of this build, so stub track()
+// out too.
 #include <cstdlib>
 #define MALLOC_CAP_SPIRAM 0
 static inline void* heap_caps_malloc(size_t sz, uint32_t) { return malloc(sz); }
+namespace memreg { static inline void track(const char*, size_t, bool) {} }
 #endif
 
 namespace optimizer {
@@ -559,6 +562,7 @@ static size_t clampScannerLimits(LaserPoint* out, size_t n,
         s_clamp_scratch = (LaserPoint*)heap_caps_malloc(
             sizeof(LaserPoint) * PATTERN_POINTS_MAX, MALLOC_CAP_SPIRAM);
         if (!s_clamp_scratch) return n;   // no PSRAM -> skip clamp, never crash
+        memreg::track("Point Optimizer Scratch", sizeof(LaserPoint) * PATTERN_POINTS_MAX, true);
     }
     LaserPoint* buf = s_clamp_scratch;
     const size_t cap = std::min(max_out, (size_t)PATTERN_POINTS_MAX);
