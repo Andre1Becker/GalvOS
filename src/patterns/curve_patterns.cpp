@@ -4,6 +4,7 @@
 
 #include "curve_patterns.h"
 #include "../util/mem_registry.h"
+#include "../../include/config.h"
 #include <math.h>
 #include <string.h>
 #include <algorithm>
@@ -300,25 +301,32 @@ static size_t gen_phyllotaxis(const CurveParams& p, uint32_t phase,
     float angle_rad = angle_deg * (CURVE_PI / 180.0f);
     float rot_anim  = phase * speed * 0.002f;
 
-    // Per-dot budget: RAMP blanked travel steps + DWELL lit copies. galvo_out
-    // writes samples straight to the DAC with no interpolation of its own, so
-    // jumping directly to blankPt(x,y) commands an instant step -- the mirror
-    // physically can't get there in one 50 kHz tick and instead slews across
-    // during the following *lit* samples, painting a streak from the previous
-    // dot to this one instead of a clean point (the actual "wrong spiral
-    // arrangement" bug: consecutive golden-angle dots are always far apart,
-    // so this fired on every single dot). RAMP interpolates the blanked move
-    // over several samples so the beam has arrived before DWELL lights it.
-    const int RAMP  = 4;
+    // kppsScale: how many 50 kHz samples map to a full-frame (dist=2.0) move.
+    // At 30 kpps a full diagonal takes ~3 ms = 150 samples → scale = 75.
+    // Clamped to [12..60] kpps range matching the UI limits.
+    uint16_t kpps    = gProjection.galvo_kpps;
+    if (kpps < 12) kpps = 12;
+    if (kpps > 60) kpps = 60;
+    // samples per unit distance: (kpps * 1000) / (kpps * 2) → 500 samples for
+    // dist=1 at any rate; multiply by measured settling ratio ~0.15 → ~75/kpps.
+    // Empirical: at 30 kpps RAMP=6 for dist≈0.4 (typical golden-angle step).
+    const float kppsScale = (float)kpps * 2.5f;   // samples / unit
+
+    // DWELL: hold lit dot long enough for persistence (≥2 samples).
     const int DWELL = 3;
-    const int perDot = RAMP + DWELL;
+
+    // Conservative per-dot worst-case: full-frame diagonal ramp + dwell.
+    // Actual RAMP is computed per-dot from real distance, so this is only
+    // used to cap N (dot count) conservatively before the loop.
+    const int maxRamp   = 16;
+    const int perDotMax = maxRamp + DWELL;
     int N = (int)(density * 400);
     if (N < 20)  N = 20;
-    if (N > (int)max / perDot) N = (int)max / perDot;
+    if (N > (int)max / perDotMax) N = (int)max / perDotMax;
 
     size_t n = 0;
     float px = 0.f, py = 0.f;                      // previous dot (ramp start)
-    for (int i = 0; i < N && n + perDot <= max; i++) {
+    for (int i = 0; i < N; i++) {
         float theta = i * angle_rad + rot_anim;
         // r_ in [0,1]: sqrt(i/N) already spans the unit disc, so it fills the
         // frame without the previous double /(spread+.01) division that
@@ -327,11 +335,21 @@ static size_t gen_phyllotaxis(const CurveParams& p, uint32_t phase,
         float x  = r_ * cosf(theta);
         float y  = r_ * sinf(theta);
 
-        uint8_t r,g,b;
+        // Distance-adaptive RAMP: mirrors settle proportional to travel distance.
+        // Multiply by 0.5 because typical galvo settles in half the slew time.
+        float dx   = x - px, dy = y - py;
+        float dist = sqrtf(dx * dx + dy * dy);     // [0 .. ~1.4]
+        int   ramp = (int)(dist * kppsScale * 0.5f) + 2;
+        if (ramp > maxRamp) ramp = maxRamp;
+        if (ramp < 2)       ramp = 2;
+
+        if (n + ramp + DWELL > max) break;
+
+        uint8_t r, g, b;
         hue2rgb((float)i / N, r, g, b, p.r, p.g, p.b, 0.5f);
 
-        for (int s = 1; s <= RAMP; s++) {
-            float f = (float)s / RAMP;
+        for (int s = 1; s <= ramp; s++) {
+            float f = (float)s / ramp;
             buf[n++] = blankPt(px + (x - px) * f, py + (y - py) * f, zoom);
         }
         for (int d = 0; d < DWELL; d++)
