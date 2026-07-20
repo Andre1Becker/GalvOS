@@ -300,16 +300,24 @@ static size_t gen_phyllotaxis(const CurveParams& p, uint32_t phase,
     float angle_rad = angle_deg * (CURVE_PI / 180.0f);
     float rot_anim  = phase * speed * 0.002f;
 
-    // Per-dot budget: blank + DWELL lit copies + trailing blank. A single lit
-    // sample at 30 kpps is far too brief to register, so hold each dot for a
-    // few ticks (this was the "bad output" -- dots were invisible/faint).
+    // Per-dot budget: RAMP blanked travel steps + DWELL lit copies. galvo_out
+    // writes samples straight to the DAC with no interpolation of its own, so
+    // jumping directly to blankPt(x,y) commands an instant step -- the mirror
+    // physically can't get there in one 50 kHz tick and instead slews across
+    // during the following *lit* samples, painting a streak from the previous
+    // dot to this one instead of a clean point (the actual "wrong spiral
+    // arrangement" bug: consecutive golden-angle dots are always far apart,
+    // so this fired on every single dot). RAMP interpolates the blanked move
+    // over several samples so the beam has arrived before DWELL lights it.
+    const int RAMP  = 4;
     const int DWELL = 3;
-    const int perDot = 2 + DWELL;
+    const int perDot = RAMP + DWELL;
     int N = (int)(density * 400);
     if (N < 20)  N = 20;
     if (N > (int)max / perDot) N = (int)max / perDot;
 
     size_t n = 0;
+    float px = 0.f, py = 0.f;                      // previous dot (ramp start)
     for (int i = 0; i < N && n + perDot <= max; i++) {
         float theta = i * angle_rad + rot_anim;
         // r_ in [0,1]: sqrt(i/N) already spans the unit disc, so it fills the
@@ -322,10 +330,13 @@ static size_t gen_phyllotaxis(const CurveParams& p, uint32_t phase,
         uint8_t r,g,b;
         hue2rgb((float)i / N, r, g, b, p.r, p.g, p.b, 0.5f);
 
-        buf[n++] = blankPt(x, y, zoom);            // move to dot (dark)
+        for (int s = 1; s <= RAMP; s++) {
+            float f = (float)s / RAMP;
+            buf[n++] = blankPt(px + (x - px) * f, py + (y - py) * f, zoom);
+        }
         for (int d = 0; d < DWELL; d++)
             buf[n++] = pt(x, y, r, g, b, zoom);    // hold lit dot
-        buf[n++] = blankPt(x, y, zoom);            // blank before next jump
+        px = x; py = y;
     }
     return n;
 }

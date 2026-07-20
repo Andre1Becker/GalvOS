@@ -399,9 +399,6 @@ A quick-reference index of open issues documented in [Chapter 9](09-known-issues
 | Issue | Impact | Workaround |
 |-------|--------|-----------|
 | SD card causes galvo malfunction | ILDA playback non-functional | Remove SD card |
-| Phyllotaxis pattern incorrect | Cosmetic | Use a different pattern |
-| Chaos Bouncer renders as Lissajous | Cosmetic | Use a different pattern |
-| Hypotrochoid renders as Star | Cosmetic | Use a different pattern |
 | Text: Bounce has no effect | Minor | Use Scroll or Static |
 | Text: Typewriter runs once only | Minor | — |
 | Text: Star Wars Scroll direction wrong | Minor | Use Scroll Left/Right |

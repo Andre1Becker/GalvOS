@@ -974,19 +974,20 @@ static size_t p52(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
 
 // ─── KOMPLEX 53-58 ───────────────────────────────────────────
 // p53-p55, p58: parametric curves — not migrated.
-// p53 Hypotrochoid -- R=5, r=3, d=5. Curve closes after 3 revolutions of
-// the outer parameter (t in [0,6*PI]); previous version swept only
-// [0,2*PI], drawing an incomplete, lopsided single lobe instead of the
-// full 3-lobed flower. Also lacked peak-radius normalisation (peak
-// (R-r)+d = 7), rendering far larger than sibling Complex presets.
-// Both fixed, matching the p55 normalisation pattern below.
+// p53 Hypotrochoid -- R=6, r=1, d=3: rolling-circle radius 1 with pen offset
+// 3 traces a clean 6-petal rounded rosette (a "flower", no loops crossing
+// through the center). The earlier R=5/r=3/d=5 combo is Wikipedia's
+// canonical hypotrochoid example and is mathematically valid, but it reads
+// as a 3-pointed pretzel/star -- visually a near-duplicate of the
+// Spirograph 5/3 preset below -- rather than a distinct flower shape.
+// gcd(R-r, r) = 1 here, so the curve closes after a single 2*PI sweep
+// (no 6*PI multi-revolution sweep needed).
 static size_t p53(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
-    const float R=5,r=3,d=5,peakNorm=1.f/((R-r)+d);
+    const float R=6,r=1,d=3,peakNorm=1.f/((R-r)+d);
     float sc=SC*ssc(sz)*.9f*peakNorm,off=aang(ph,sp);
     const int N=384;
-    // 6pi sweep: start and end do not coincide -> open segment, lift on v0.
-    return curve(o,m,N,false,[&](int i,int N,float&x,float&y,uint8_t&rr,uint8_t&gg,uint8_t&bb){
-        float t=6.f*(float)M_PI*i/(float)N+off;
+    return curve(o,m,N,true,[&](int i,int N,float&x,float&y,uint8_t&rr,uint8_t&gg,uint8_t&bb){
+        float t=PI2*i/(float)N+off;
         x=sc*((R-r)*cosf(t)+d*cosf((R-r)*t/r));
         y=sc*((R-r)*sinf(t)-d*sinf((R-r)*t/r));
         rr=255; gg=0; bb=255;
@@ -1111,18 +1112,25 @@ static size_t p59(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     return optimizer::optimize(segs,nspokes,o,m,liveOptimizerConfig());
 }
 
-// p60 Chaos Bouncer -- a closed Lissajous knot. Previous version multiplied
-// incommensurate frequencies (3.1, .7, 2.1, 1.3) so the path never returned
-// to its start over one 2*PI sweep -> a lit jump every frame. Now uses
-// integer harmonics (fx=3, fy=2) with a slowly drifting phase (dph) so the
-// figure morphs but always closes: at i=0 and i=N the sample is identical.
+// p60 Chaos Bouncer -- billiard-style bounce trajectory: triangle waves
+// (asinf(sinf(u)) folds a ramp back and forth like a ball bouncing off
+// walls) driven by two incommensurate frequencies weave a dense,
+// non-repeating trajectory instead of a smooth curve. A prior version used
+// integer harmonics (fx=3, fy=2) so the path would close every frame --
+// but that turned it into a plain Lissajous oval, not a chaotic bounce.
+// The actual bug that forced that compromise was drawing the return-to-
+// start jump lit; passing closed=false here makes the optimizer blank that
+// jump instead, so the frequencies are free to stay incommensurate and the
+// path never has to repeat.
+static inline float triWave(float u) { return (2.f/(float)M_PI) * asinf(sinf(u)); }
 static size_t p60(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     float sc=SC*ssc(sz)*.9f;
-    const float dph=aang(ph,sp,.5f);          // animated relative phase
-    const int N=256;
-    return curve(o,m,N,true,[&](int i,int N,float&x,float&y,uint8_t&r,uint8_t&g,uint8_t&b){
-        float t=PI2*i/(float)N;
-        x=sc*sinf(3.f*t+dph); y=sc*sinf(2.f*t);
+    const float dph=aang(ph,sp,.3f);          // animated phase drift
+    const float fx=4.3f, fy=2.9f, cycles=4.f;
+    const int N=320;
+    return curve(o,m,N,false,[&](int i,int N,float&x,float&y,uint8_t&r,uint8_t&g,uint8_t&b){
+        float t=PI2*cycles*i/(float)(N-1);
+        x=sc*triWave(fx*t+dph); y=sc*triWave(fy*t);
         r=(uint8_t)(128+127*sinf(t*2+dph));
         g=(uint8_t)(128+127*sinf(t*3+1));
         b=(uint8_t)(128+127*cosf(t*1.5f));

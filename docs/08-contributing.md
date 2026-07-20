@@ -3,6 +3,7 @@
 GalvOS is a one-person project that grew considerably beyond its original scope. Community contributions are genuinely welcome — there are known bugs to fix, patterns to add, animations to repair, and features that need a second pair of hands. This chapter explains how the codebase is structured, what the code standards are, and the exact workflow for submitting changes.
 
 ## Table of Contents
+
 - [Where to Start](#where-to-start)
 - [Repository Structure](#repository-structure)
 - [Code Standards](#code-standards)
@@ -21,7 +22,7 @@ GalvOS is a one-person project that grew considerably beyond its original scope.
 
 Browse [Chapter 9 — Known Issues & Todos](09-known-issues-and-todos.md) for a current list of open bugs and planned features. Pick something that matches your skills and interests:
 
-- **C++ firmware bugs** — pattern fixes (Chaos Bouncer, Hypotrochoid, Phyllotaxis), text animations (Bounce, Typewriter, Star Wars)
+- **C++ firmware bugs** — text animations (Bounce, Typewriter, Star Wars)
 - **C++ new features** — SD card SPI bus fix, new patterns, auto-tuning
 - **JavaScript/HTML** — WebUI improvements, Paint canvas sizing, point limit in status bar
 - **Documentation** — screenshot capture, diagram creation, corrections
@@ -32,7 +33,8 @@ Open an issue or a discussion on GitHub before starting larger changes — it av
 
 ## Repository Structure
 
-```
+```text
+
 GalvOS/
 ├── src/
 │   ├── main.cpp                    # Entry point, global init, FreeRTOS task creation
@@ -165,6 +167,7 @@ PresetClass presetClassOf(Preset p) {
 ```
 
 Profile assignment guide:
+
 - Closed polygons, straight edges → `Vector`
 - Continuous smooth curves → `Smooth`
 - Open polylines, wave shapes → `Waves`
@@ -231,11 +234,13 @@ Register the new pattern in the calibration pattern list (returned by `/api/cali
 All endpoints are registered in `src/net/web_ui.cpp` inside the `webui::init()` function.
 
 **Route registration rules:**
+
 1. Register specific routes **before** any prefix-matching wildcard handler that would capture the same path. Failure to do this results in 404 on the specific route.
 2. The two known order-sensitive cases are `/api/calib-pattern/stop` (before `/api/calib-pattern`) and `/api/text/vertices` (before `/api/text`).
 3. Always place `serveStatic()` last.
 
 **Memory rules for handlers:**
+
 - Use `JsonDocument doc(&jsonAllocator())` for all JSON parsing and generation.
 - Use `sendJsonPsram(req, doc)` for JSON responses, not `req->send()` with a serialized String.
 - For small fixed-format responses, `snprintf` into a local `char buf[N]` is acceptable and avoids allocator overhead.
@@ -348,7 +353,7 @@ English, imperative mood ("Add", "Fix", "Refactor", "Remove" — not "Added", "F
 
 **Format:**
 
-```
+```text
 <type>: <short summary (50 chars max)>
 
 <body — what changed and why, wrapped at 72 chars>
@@ -360,7 +365,7 @@ English, imperative mood ("Add", "Fix", "Refactor", "Remove" — not "Added", "F
 
 **Examples:**
 
-```
+```text
 fix: correct Hypotrochoid parameter mapping
 
 The parameter mapping in p_hypotrochoid() applied the outer radius
@@ -368,7 +373,7 @@ to the inner slot, producing a star shape instead of the intended
 curve. Swapped R and r parameters to match the mathematical definition.
 ```
 
-```
+```text
 feat: add Shooting Star preset
 
 Implements a single bright point moving on a randomized parabolic
@@ -376,7 +381,7 @@ arc with a 4-point fading trail. Uses Particles optimizer profile.
 Adds SVG thumbnail at preset index 75. Bumps PRESET_COUNT to 75.
 ```
 
-```
+```text
 fix: register /api/calib-pattern/stop before prefix handler
 
 ESPAsyncWebServer matches routes in registration order. The stop
@@ -386,6 +391,7 @@ Resolves: "POST /api/calib-pattern/stop returns 404"
 ```
 
 **Version bump rule:**
+
 - Single isolated bug fix → patch bump (x.x.N)
 - New feature, new preset, new API endpoint → minor bump (x.N.0)
 - Broad refactor touching many call sites → minor bump even if technically a fix
@@ -411,6 +417,7 @@ g++ -std=gnu++11 -I include -D UNIT_TEST \
 A `cfg_stub.h` shim replaces ESP32-specific headers (`config.h`, `pinmap.h`, Arduino types) with host-compatible stubs. This allows the optimizer's geometry logic to be tested on a regular Linux/macOS machine.
 
 **On-hardware testing:**
+
 1. Flash with `pio run --target upload_all`.
 2. Open the WebUI and exercise the changed feature.
 3. Open the serial monitor and verify no panics, overflow messages, or unexpected errors.
@@ -449,21 +456,21 @@ curl -X POST http://galvOS.local/api/preset \
 Roughly in priority order:
 
 **Bug fixes (firmware):**
+
 - SD card / galvo SPI bus contention — root cause investigation and fix
-- Chaos Bouncer renders as Lissajous — fix parameter mapping in `preset_patterns.cpp`
-- Hypotrochoid renders as star — fix parameter mapping in `preset_patterns.cpp`
-- Phyllotaxis incorrect output — fix point placement algorithm
 - Text: Bounce animation has no effect
 - Text: Typewriter runs once only — add loop logic
 - Text: Star Wars Scroll direction and rendering
 
 **New patterns (firmware):**
+
 - Endless Spiral
 - Endless Tunnel
 - Mandelbrot Animation
 - Shooting Star
 
 **UI improvements (JavaScript/HTML):**
+
 - Point limit display in the status/telemetry bar
 - Paint canvas scaled to match the full projection area
 - Point and stroke count shown under the Paint canvas
@@ -471,11 +478,13 @@ Roughly in priority order:
 - kpps history graph on the Dashboard
 
 **Calibration (firmware + UI):**
+
 - Fix calibration channel selector
 - Fix ILDA Standard Test Pattern output
 - Fix remaining broken calibration patterns
 
 **Infrastructure:**
+
 - Host-compile test harness (`cfg_stub.h`) — improve coverage
 - Automated JS syntax check in CI
 - OTA update reliability improvements
