@@ -4984,7 +4984,7 @@ async function stopText(silent = false) {
 // ============================================================
 // Paint by Finger
 // ============================================================
-const PAINT_RANGE       = 20000;  // galvo units mapped to canvas edges (±)
+const PAINT_RANGE       = 32767;  // galvo units mapped to canvas edges (±), full DAC range
 const PAINT_MAX_VERTS   = 96;     // must match PAINT_VERTS_PER_STROKE (config.h)
 const PAINT_STROKES_MAX = 12;     // must match PAINT_STROKES_MAX (config.h)
 const PAINT_HANDLE_PX   = 9;      // handle hit-radius, canvas px
@@ -5375,9 +5375,15 @@ function paintRender() {
     }
     if (paintDrag && paintDrag.mode === 'rubberband') paintDrawRubberBand(ctx);
 
-    document.getElementById('pt-status').textContent =
-        paintStrokes.length + ' shapes · ' + totalPts + ' points' +
+    const maxTotalPts = PAINT_STROKES_MAX * PAINT_MAX_VERTS;
+    const statusEl = document.getElementById('pt-status');
+    statusEl.textContent =
+        paintStrokes.length + '/' + PAINT_STROKES_MAX + ' shapes · ' +
+        totalPts + '/' + maxTotalPts + ' points' +
         (paintSelected.length > 1 ? ` · ${paintSelected.length} selected` : '');
+    statusEl.style.color =
+        (paintStrokes.length >= PAINT_STROKES_MAX || totalPts >= maxTotalPts * 0.9)
+            ? 'var(--danger)' : '';
 }
 
 function paintDrawHandles(ctx, s) {
