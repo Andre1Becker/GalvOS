@@ -41,25 +41,7 @@ These affect core functionality and should be resolved before relying on those f
 
 ## Pattern Issues
 
-### Phyllotaxis — Incorrect Output
-
-**Status:** Open  
-**Symptom:** The Phyllotaxis pattern does not produce the expected spiral arrangement of points.
-
-### Chaos Bouncer — Outputs as Lissajous
-
-**Status:** Open  
-**Symptom:** The Chaos Bouncer preset renders as a Lissajous figure instead of its intended chaotic bouncing trajectory.
-
-### Hypotrochoid — Outputs as Star
-
-**Status:** Open  
-**Symptom:** The Hypotrochoid preset renders as a star shape instead of the correct hypotrochoid curve.
-
-### Point-Only Mode — Optimizer Profile Unclear
-
-**Status:** Open  
-**Detail:** When Point-Only mode is active, it is not defined which optimizer profile is applied. This may lead to unexpected point density or blanking behaviour depending on the currently active preset class.
+None atm :-)
 
 ---
 
@@ -108,21 +90,6 @@ These affect core functionality and should be resolved before relying on those f
 ---
 
 ## UI Issues
-
-### Point Limit Not Shown in Status Bar
-
-**Status:** Planned  
-**Detail:** The current `opt_max_pts_per_frame` (effective point budget) is not displayed in the status/telemetry bar. This makes it harder to see at a glance whether the optimizer is hitting its ceiling.
-
-### Paint Canvas Smaller Than Projection Space
-
-**Status:** Known limitation  
-**Detail:** The Paint-by-Finger canvas in the WebUI does not fill the full projected area. Points drawn near the edges of the canvas may not map to the physical edges of the projection.
-
-### Paint Canvas — Point/Shape Count Not Shown
-
-**Status:** Planned  
-**Detail:** The Paint tab does not currently display the current number of points and strokes relative to the maximum (`PAINT_STROKES_MAX` / `PAINT_VERTS_PER_STROKE`). Users have no visual feedback when approaching the limit.
 
 ### Features Not Toggleable via UI
 
