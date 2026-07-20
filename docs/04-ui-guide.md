@@ -70,8 +70,6 @@ The Dashboard is the home screen and the first thing you see on load. It gives y
 
 <img width="1760" height="1194" alt="image" src="https://github.com/user-attachments/assets/8cd5b835-76dd-4c52-abb8-f7ebc45a33d6" />
 
-(The Dashboard)
-
 ### Safety Status Card
 
 <img width="465" height="297" alt="image" src="https://github.com/user-attachments/assets/962a2f9d-639f-4f64-b385-68ec8f451048" />
@@ -103,7 +101,6 @@ A scrolling 60-second graph of both core loads:
 <img width="928" height="333" alt="image" src="https://github.com/user-attachments/assets/aa07298f-a40f-40e9-975b-54d2114b34cb" />
 
 - **Core 0 (cyan)** — handles Wi-Fi, WebUI HTTP, Art-Net, DMX, safety. Typically 10–40% under normal use.
-- **Core 1 (orange)** — runs the galvo ISR and pattern engine. Typically ~100% — this is normal and expected. The ISR is time-sliced.
 - Warning lines at 70% (yellow dashed) and 90% (red dashed) mark potential overload on Core 0.
 
 ### Temperature History Chart
@@ -123,7 +120,6 @@ Current temperatures are shown as a row of badges below the chart.
 ### Galvo Output Rate
 
 <img width="925" height="292" alt="image" src="https://github.com/user-attachments/assets/34f1a469-45fc-42c1-b111-49ecdebbcf97" />
-
 
 A scrolling 5-minute history of the actual DAC output rate in kpps (points-per-second). This is the real-time equivalent of the "Galvo Rate" bar in the Telemetry card, plotted over time so you can spot dips or instability instead of just the instantaneous value. Compare against the configured `galvo_kpps` (Tab: Projection) to confirm the output stays at the expected rate under load.
 
