@@ -27,7 +27,6 @@
     --warn: #FF9900;
     --blue: #00FFFF;
     --danger: #FF2244;
-    --param-preview-size: 80px; /* config.h: UI_PARAM_PREVIEW_SIZE */
 
     /* ── Glow shadows ── */
     --glow-magenta: 0 0 8px #FF00FF, 0 0 20px rgba(255,0,255,0.4);
@@ -300,26 +299,9 @@
     border-bottom: 1px solid var(--border);
     text-shadow: var(--glow-cyan);
   }
-    /* Output-parameter preview: small looping animation next to every
-     control that affects laser output. Purely illustrative -- the mini
-     slider below the shape is NOT wired to the real control, it just
-     loops on its own so the direction (small->big, left->right) reads
-     the same as the real slider (low->high). */
-  .param-preview { width: var(--param-preview-size); height: var(--param-preview-size); margin: 6px 0 12px; }
-  .param-preview .pp-stage { position: relative; height: 62%; display: flex; align-items: center; justify-content: center; }
-  .param-preview .pp-frame { position: absolute; inset: 3px; border: 1px dashed var(--border); border-radius: 6px; }
-  .param-preview .pp-dot { width: 22%; height: 22%; border-radius: 50%; background: var(--accent); opacity: .85; }
-  .param-preview.toggle .pp-dot { width: 30%; height: 30%; }
-  .param-preview .pp-track { position: relative; height: 18%; margin-top: 8%; }
-  .param-preview .pp-track::before { content: ''; position: absolute; top: 50%; left: 6%; right: 6%; height: 2px; background: var(--border); transform: translateY(-50%); }
-  .param-preview .pp-thumb { position: absolute; top: 50%; left: 6%; width: 16%; aspect-ratio: 1; border-radius: 50%; background: var(--accent); transform: translateY(-50%); } 50% { transform: scale(1.55); } } 55%, 100% { opacity: .9; transform: scale(1.1); } } 50% { left: 78%; } }
-
   /* Splits a long single-column parameter card into two balanced columns.
      Each .opt-col-block is one logical group (label + visuals + sliders)
      and never gets split across the column break. */
-  .param-preview .pp-fx { width: 100%; height: 100%; display: block; }
-  .param-preview .pp-fx-bad  { opacity: 0.25; }
-  .param-preview .pp-fx-good { opacity: 1; } 40%, 60% { opacity: 0; } 85%, 100% { opacity: 1; } } 40%, 60% { opacity: 1; } 85%, 100% { opacity: 0; } }
   .opt-columns { column-count: 2; column-gap: 16px; }
   .opt-col-block {
     break-inside: avoid; -webkit-column-break-inside: avoid;
@@ -7144,125 +7126,6 @@ document.addEventListener('wheel', (e) => {
   slider.dispatchEvent(new Event('input',  { bubbles: true }));
   slider.dispatchEvent(new Event('change', { bubbles: true }));
 }, { passive: false });
-// ============================================================
-// Output-parameter preview widgets (static SVG, no animation).
-// ============================================================
-const PARAM_PREVIEWS = [
-  // Point Optimizer
-  // Point Optimizer -- family = which real-effect bad/good pair to crossfade
-  { id: 'opt-cad',    type: 'range',  family: 'corner'   },
-  { id: 'opt-mincp',  type: 'range',  family: 'corner'   },
-  { id: 'opt-maxcp',  type: 'range',  family: 'corner'   },
-  { id: 'opt-ppu',    type: 'range',  family: 'density'  },
-  { id: 'opt-minsp',  type: 'range',  family: 'density'  },
-  { id: 'opt-minip',  type: 'range',  family: 'density'  },
-  { id: 'opt-maxppf', type: 'range',  family: 'flicker'  },
-  { id: 'opt-blank',  type: 'range',  family: 'blank'    },
-  { id: 'opt-minbl',  type: 'range',  family: 'blank'    },
-  { id: 'opt-blppu',  type: 'range',  family: 'blank'    },
-  { id: 'opt-s1tgt',  type: 'range',  family: 'blank'    },
-  { id: 'opt-ring-en',type: 'toggle', family: 'ringing'  },
-  { id: 'opt-rngfq',  type: 'range',  family: 'ringing'  },
-  { id: 'opt-rngdr',  type: 'range',  family: 'ringing'  },
-  { id: 'opt-vc-en',  type: 'toggle', family: 'scanner'  },
-  { id: 'opt-vcstp',  type: 'range',  family: 'scanner'  },
-  { id: 'opt-ac-en',  type: 'toggle', family: 'scanner'  },
-  { id: 'opt-acmax',  type: 'range',  family: 'scanner'  },
-  // Galvo Calibration (live)
-  { id: 'cal-xoff',        type: 'range',  family: 'offset'    },
-  { id: 'cal-yoff',        type: 'range',  family: 'offset'    },
-  { id: 'cal-xgain',       type: 'range',  family: 'gain'      },
-  { id: 'cal-ygain',       type: 'range',  family: 'gain'      },
-  { id: 'cal-swap',        type: 'toggle', family: 'swap'      },
-  { id: 'cal-invx',        type: 'toggle', family: 'invert'    },
-  { id: 'cal-invy',        type: 'toggle', family: 'invert'    },
-  { id: 'cal-r',           type: 'range'  },
-  { id: 'cal-g',           type: 'range'  },
-  { id: 'cal-b',           type: 'range'  },
-  { id: 'cal-dac-lim-min', type: 'range',  family: 'dac-limit' },
-  { id: 'cal-dac-lim-max', type: 'range',  family: 'dac-limit' },
-  // Pattern Parameters (Global Controls + Wave Parameters)
-  { id: 'lv-rspd',          type: 'range',  family: 'speed' },
-];
-
-// Real-effect bad/good SVG pairs for parameters where the actual output
-// effect can be drawn directly (currently Point Optimizer). Crossfaded via
-// CSS (.pp-fx-bad / .pp-fx-good, see keyframes above) instead of morphing
-// path data, so each state can be a normal hand-drawn path. Params without
-// a family fall back to the generic grow/slide preview.
-const PP_FAMILIES = {
-  corner: {
-    bad:  '<path d="M25,125 L70,80 Q95,55 70,30 L115,25" stroke="var(--bad)" stroke-width="3" fill="none" stroke-linecap="round"/><circle cx="70" cy="80" r="3" fill="var(--bad)"/><circle cx="70" cy="30" r="3" fill="var(--bad)"/>',
-    good: '<path d="M25,125 L75,55 L125,25" stroke="var(--ok)" stroke-width="3" fill="none" stroke-linecap="round"/><circle cx="68" cy="63" r="2.5" fill="var(--ok)"/><circle cx="75" cy="55" r="2.5" fill="var(--ok)"/><circle cx="82" cy="47" r="2.5" fill="var(--ok)"/>'
-  },
-  density: {
-    bad:  '<polyline points="20,130 55,70 90,95 125,20" stroke="var(--bad)" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/><circle cx="20" cy="130" r="3" fill="var(--bad)"/><circle cx="55" cy="70" r="3" fill="var(--bad)"/><circle cx="90" cy="95" r="3" fill="var(--bad)"/><circle cx="125" cy="20" r="3" fill="var(--bad)"/>',
-    good: '<path d="M20,130 Q45,50 55,70 Q75,105 90,95 Q115,80 125,20" stroke="var(--ok)" stroke-width="3" fill="none" stroke-linecap="round"/><circle cx="20" cy="130" r="1.8" fill="var(--ok)"/><circle cx="33" cy="98" r="1.8" fill="var(--ok)"/><circle cx="45" cy="78" r="1.8" fill="var(--ok)"/><circle cx="55" cy="70" r="1.8" fill="var(--ok)"/><circle cx="68" cy="80" r="1.8" fill="var(--ok)"/><circle cx="80" cy="92" r="1.8" fill="var(--ok)"/><circle cx="90" cy="95" r="1.8" fill="var(--ok)"/><circle cx="103" cy="70" r="1.8" fill="var(--ok)"/><circle cx="115" cy="45" r="1.8" fill="var(--ok)"/><circle cx="125" cy="20" r="1.8" fill="var(--ok)"/>'
-  },
-  flicker: {
-    bad:  '<path d="M40,110 L75,25 L110,110 Z" stroke="var(--bad)" stroke-width="3" fill="none" stroke-linejoin="round" stroke-dasharray="6 5"/>',
-    good: '<path d="M40,110 L75,25 L110,110 Z" stroke="var(--ok)" stroke-width="3" fill="none" stroke-linejoin="round"/>'
-  },
-  blank: {
-    bad:  '<rect x="20" y="20" width="30" height="30" fill="none" stroke="var(--dim)" stroke-width="2"/><circle cx="115" cy="115" r="18" fill="none" stroke="var(--dim)" stroke-width="2"/><line x1="50" y1="45" x2="105" y2="105" stroke="var(--bad)" stroke-width="2"/>',
-    good: '<rect x="20" y="20" width="30" height="30" fill="none" stroke="var(--dim)" stroke-width="2"/><circle cx="115" cy="115" r="18" fill="none" stroke="var(--dim)" stroke-width="2"/><path d="M50,45 L58,53 M63,58 L71,66 M76,71 L84,79 M89,84 L97,92" stroke="var(--ok)" stroke-width="1.5" opacity="0.35"/>'
-  },
-  ringing: {
-    bad:  '<path d="M20,115 L75,115 Q88,115 90,100 Q95,85 82,80 Q70,75 75,63 Q80,50 100,55 L135,25" stroke="var(--bad)" stroke-width="3" fill="none" stroke-linecap="round"/>',
-    good: '<path d="M20,115 L82,115 Q100,115 108,95 L135,25" stroke="var(--ok)" stroke-width="3" fill="none" stroke-linecap="round"/>'
-  },
-  offset: {
-    bad:  '<rect x="20" y="20" width="110" height="110" fill="none" stroke="var(--dim)" stroke-width="2" stroke-dasharray="5 4"/><circle cx="45" cy="45" r="7" fill="var(--bad)"/>',
-    good: '<rect x="20" y="20" width="110" height="110" fill="none" stroke="var(--dim)" stroke-width="2" stroke-dasharray="5 4"/><circle cx="75" cy="75" r="7" fill="var(--ok)"/>'
-  },
-  gain: {
-    bad:  '<ellipse cx="75" cy="75" rx="55" ry="30" fill="none" stroke="var(--bad)" stroke-width="3"/>',
-    good: '<circle cx="75" cy="75" r="42" fill="none" stroke="var(--ok)" stroke-width="3"/>'
-  },
-  swap: {
-    bad:  '<rect x="30" y="55" width="90" height="40" rx="4" fill="none" stroke="var(--dim)" stroke-width="3"/>',
-    good: '<rect x="55" y="30" width="40" height="90" rx="4" fill="none" stroke="var(--accent)" stroke-width="3"/>'
-  },
-  invert: {
-    bad:  '<path d="M25,75 L110,75 M85,50 L110,75 L85,100" stroke="var(--dim)" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>',
-    good: '<path d="M125,75 L40,75 M65,50 L40,75 L65,100" stroke="var(--accent)" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>'
-  },
-  'dac-limit': {
-    bad:  '<rect x="25" y="25" width="100" height="100" fill="none" stroke="var(--dim)" stroke-width="2"/><path d="M15,40 L135,40 M15,75 L135,75 M15,110 L135,110" stroke="var(--bad)" stroke-width="2.5" stroke-linecap="round"/>',
-    good: '<rect x="25" y="25" width="100" height="100" fill="none" stroke="var(--dim)" stroke-width="2"/><path d="M30,40 L120,40 M30,75 L120,75 M30,110 L120,110" stroke="var(--ok)" stroke-width="2.5" stroke-linecap="round"/>'
-  }
-
-};
-
-function paramPreviewMarkup(type, family) {
-  const fx = family && PP_FAMILIES[family];
-  const stage = fx
-    ? '<svg viewBox="0 0 150 150" class="pp-fx"><g class="pp-fx-bad">' + fx.bad + '</g><g class="pp-fx-good">' + fx.good + '</g></svg>'
-    : '<div class="pp-frame"></div><div class="pp-dot"></div>';
-  return '<div class="param-preview ' + type + '" aria-hidden="true">'
-       +   '<div class="pp-stage">' + stage + '</div>'
-       +   '<div class="pp-track"><div class="pp-thumb"></div></div>'
-       + '</div>';
-}
-
-// Range sliders get the synced number field inserted right after them by
-// enhanceSliders() -- anchor on that so the preview lands after it instead
-// of wedging between slider and number field. Toggles anchor on their
-// wrapping <label class="toggle">.
-function paramPreviewAnchor(ctrl) {
-  if (ctrl.type === 'checkbox') return ctrl.closest('label') || ctrl;
-  const next = ctrl.nextElementSibling;
-  return (next && next.matches('input[type="number"]')) ? next : ctrl;
-}
-
-function initParamPreviews() {
-  PARAM_PREVIEWS.forEach(p => {
-    const ctrl = document.getElementById(p.id);
-    if (!ctrl) return;
-    paramPreviewAnchor(ctrl).insertAdjacentHTML('afterend', paramPreviewMarkup(p.type, p.family));
-  });
-}
-document.addEventListener('DOMContentLoaded', initParamPreviews);
 /* ============================================================
  * Projection Zone Editor
  * Canvas 420x420 px maps to galvo +-32767. Screen Y is inverted.

@@ -179,12 +179,6 @@ These constants are defined in `include/config.h` and require a firmware rebuild
 | `ZONE_POINTS_MAX` | `16` | Maximum vertices in the projection zone polygon. |
 | `ILDA_MAX_FILES` | `40` | Maximum `.ild` files indexed from the SD card. |
 
-### UI Layout
-
-| Constant | Default | Description |
-|----------|---------|-------------|
-| `UI_PARAM_PREVIEW_SIZE` | `80` | Size in pixels of the parameter preview animation square in the Optimizer tab. Mirrored in `data/index.html` as `--param-preview-size`. If you change this, update both locations. |
-
 ---
 
 ## RuntimeConfig — User Parameters

@@ -25,12 +25,6 @@ constexpr uint8_t  RANDOM_PTS_MAX_COUNT = 14;   // UI slider ceiling ("Amount")
 // Kaleidoscope effect (pattern_engine.cpp::applyKaleidoscope)
 constexpr uint8_t  KALEIDO_SEGMENTS_MAX = 16;  // UI slider ceiling
 
-// WebUI output-parameter preview animation (Point Optimizer, Galvo
-// Calibration live, Pattern Parameters tabs). Static UI layout constant --
-// mirrored by hand in data/index.html as --param-preview-size, same
-// convention as the POINTS_MODE_* constants above (no live API sync).
-constexpr uint8_t  UI_PARAM_PREVIEW_SIZE = 80;  // px, square
-
 // GalvOS v5 Point Optimizer (Pillar 1) -- runtime-tunable via WebUI slider.
 // Mirrors optimizer::OptimizerConfig field-for-field; kept as a separate
 // struct here (rather than including point_optimizer.h) to avoid pulling

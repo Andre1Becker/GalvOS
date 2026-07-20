@@ -275,8 +275,6 @@ grep -c "</div>" data/index.html
 
 These counts must match. A single unclosed `<div>` can break entire tab sections silently.
 
-**The `UI_PARAM_PREVIEW_SIZE` constant** is defined in `include/config.h` as `80` and mirrored in `data/index.html` as `--param-preview-size: 80px`. If you change it, update both.
-
 ---
 
 ## Patch Workflow
