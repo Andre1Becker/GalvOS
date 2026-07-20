@@ -461,7 +461,7 @@ Fan and temperature management.
 
 Live firmware log output, streamed from the ESP32 over the WebSocket. Auto-refreshes only when this tab is active.
 
-<img width="1304" height="299" alt="image" src="https://github.com/user-attachments/assets/ab6f4f1e-f2f9-4ef4-b8c3-3c9f06cc3673" />
+<img width="1400" height="421" alt="image" src="https://github.com/user-attachments/assets/220d7d13-0bbf-44be-8aa6-39b473627996" />
 
 - Log entries are colour-coded by severity: INFO (dim), WARN (orange), ERROR (red).
 - Use this tab to diagnose startup issues, track DMX frame counts, or watch for ring buffer overflow warnings.
@@ -469,11 +469,18 @@ Live firmware log output, streamed from the ESP32 over the WebSocket. Auto-refre
 
 ---
 
+## Memory Viewer
+
+<img width="1400" height="947" alt="image" src="https://github.com/user-attachments/assets/37902513-bd62-45e8-9b83-600e51b5f362" />
+
+
+---
+
 ## Tab: Configuration
 
 Network, DMX, safety, IP, and debug settings.
 
-<img width="1312" height="777" alt="image" src="https://github.com/user-attachments/assets/5f74cd78-1b68-41fe-b561-f5f8da29db6b" />
+<img width="1403" height="1129" alt="image" src="https://github.com/user-attachments/assets/58809d0a-b41b-4414-b056-ee5b051500c0" />
 
 ### DMX and Art-Net
 - **DMX Start Address** (1–512) — first DMX channel GalvOS responds to.
@@ -495,7 +502,7 @@ Network, DMX, safety, IP, and debug settings.
 
 ### Debug
 
-<img width="661" height="1067" alt="image" src="https://github.com/user-attachments/assets/53e0ca32-2101-4cd9-b27e-b74267066ddf" />
+<img width="704" height="1109" alt="image" src="https://github.com/user-attachments/assets/bbddf485-a012-42cf-a48d-3574f4e96f5f" />
 
 - **No-HW Mode** — skips SPI/DAC init at boot. Use only for firmware development without hardware connected. Disable before normal operation.
 - **DAC Debug Log** — logs DAC8562 register writes to serial and the Log tab (rate-limited). For low-level DAC debugging only.
