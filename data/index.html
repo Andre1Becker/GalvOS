@@ -430,8 +430,9 @@
     font-family: var(--font-mono); font-size: 14px;
     letter-spacing: 0.06em;
     color: var(--cyan);
+    text-align: center;
     opacity: 0; transition: opacity 0.25s; pointer-events: none;
-    z-index: 9999; max-width: 90%;
+    z-index: 9999; width: max-content; max-width: 90%;
     box-shadow: var(--glow-cyan);
   }
   #toast.show { opacity: 1; }
