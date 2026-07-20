@@ -1,6 +1,7 @@
 #include "stack_mon.h"
 #include <esp_log.h>
 #include "util/log_buffer.h"
+#include "util/mem_registry.h"
 
 namespace stackMon {
 
@@ -16,10 +17,13 @@ struct Entry {
 
 static Entry  sTasks[MAX_TASKS];
 static size_t sCount = 0;
+static size_t sStackBytesTotal = 0;
 
-void watch(TaskHandle_t h, const char* name) {
+void watch(TaskHandle_t h, const char* name, size_t stackBytes) {
     if (!h || sCount >= MAX_TASKS) return;
     sTasks[sCount++] = { h, name, false };
+    sStackBytesTotal += stackBytes;
+    memreg::track("Task Stacks (est.)", sStackBytesTotal, false);
 }
 
 void update() {

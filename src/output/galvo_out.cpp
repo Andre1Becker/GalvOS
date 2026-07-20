@@ -6,6 +6,7 @@
 #include <esp_log.h>
 #include "../util/log_buffer.h"
 #include "../util/mem_registry.h"
+#include "../util/stack_mon.h"
 #include <esp_timer.h>
 #include <driver/spi_master.h>
 #include <driver/gpio.h>
@@ -814,6 +815,7 @@ void start() {
     // rgbUpdateTask removed -- LEDC-PWM is ISR-safe, no task needed
     xTaskCreatePinnedToCore(galvoTask, "galvo", 4096, nullptr,
                             configMAX_PRIORITIES - 1, &s_task_handle, 1);
+    stackMon::watch(s_task_handle, "galvo", 4096);
     ESP_LOGI(TAG, "Galvo streaming started @ %u kpps (period=%u µs)",
              (unsigned)gProjection.galvo_kpps,
              (unsigned)(1000000UL/((uint32_t)gProjection.galvo_kpps*1000UL)));

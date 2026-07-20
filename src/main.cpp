@@ -201,7 +201,7 @@ static bool startTask(TaskFunction_t fn, const char* name,
         return false;
     }
     ESP_LOGI("main", "Task OK: %-10s p=%u c=%d s=%u", name, prio, core, stack);
-    stackMon::watch(h, name);
+    stackMon::watch(h, name, stack);
     return true;
 }
 

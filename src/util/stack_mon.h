@@ -9,7 +9,10 @@
 namespace stackMon {
 
 // Register a task for monitoring. Call once, right after task creation.
-void watch(TaskHandle_t h, const char* name);
+// stackBytes is the size passed to xTaskCreate(...) -- also fed into
+// mem_registry as a running "Task Stacks (est.)" total, since FreeRTOS
+// task stacks otherwise show up as unattributed internal-heap usage.
+void watch(TaskHandle_t h, const char* name, size_t stackBytes);
 
 // Call periodically (~1s) from any task.
 void update();
