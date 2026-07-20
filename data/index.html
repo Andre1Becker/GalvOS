@@ -4390,6 +4390,7 @@ const OPT_PROFILE_BASE = [
     { cad: 25, mincp: 2, maxcp: 6, ppu:  5.0, blank: 12, minbl: 6, s1tgt: 10, blppu: 10.0, minip: 6, fps: 23 }, // 4 Multi-Object
     { cad: 25, mincp: 2, maxcp: 4, ppu:  6.0, blank: 10, minbl: 6, s1tgt:  8, blppu: 12.0, minip: 4, fps: 23 }, // 5 Particles
     { cad: 60, mincp: 3, maxcp: 3, ppu: 11.0, blank: 16, minbl: 6, s1tgt: 12, blppu:  8.0, minip: 8, fps: 34 }, // 6 Trails
+    { cad: 28, mincp: 2, maxcp: 5, ppu:  6.0, blank: 10, minbl: 4, s1tgt:  7, blppu:  9.0, minip: 1, fps: 23 }, // 7 Text
 ];
 
 function applyOptimizerSmartDefaults() {
@@ -4461,6 +4462,8 @@ const OPT_PROFILES = [
       desc: 'Isolated dots without connecting geometry. Blank jumps only.' },
     { icon: '\u2604', name: 'Trails',
       desc: 'Moving dots with fade tails (meteors). Reduced budget so blank overhead does not truncate later tails.' },
+    { icon: '\u2733', name: 'Text',
+      desc: 'Vector text (Text tool). Many short disconnected glyph strokes -- blank jumps between strokes and letters dominate, like Particles.' },
 ];
 
 // Member names per profile, filled from /api/config.

@@ -89,6 +89,7 @@ static void loadConfig() {
         { "_sol", OPT_PROFILE_MULTIOBJECT },  // was Solar
         { "_sc",  OPT_PROFILE_PARTICLES   },  // was Scenes
         { "_tr",  OPT_PROFILE_TRAILS      },  // new: Shooting Stars et al.
+        { "_txt", OPT_PROFILE_TEXT        },  // new: Text renderer
     };
     for (auto& pm : PROF_MAP) {
         OptimizerLiveConfig& p = gOptimizerProfiles[pm.idx];

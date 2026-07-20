@@ -207,6 +207,7 @@ static void persistConfig() {
         {"_s",  OPT_PROFILE_VECTOR},      {"_c",   OPT_PROFILE_SMOOTH},
         {"_w",  OPT_PROFILE_WAVES},       {"_3",   OPT_PROFILE_WIREFRAME},
         {"_sol",OPT_PROFILE_MULTIOBJECT}, {"_sc",  OPT_PROFILE_PARTICLES},
+        {"_tr", OPT_PROFILE_TRAILS},      {"_txt", OPT_PROFILE_TEXT},
     };
     for (auto& pm : PMAP) {
         const OptimizerLiveConfig& p = gOptimizerProfiles[pm.idx];
@@ -1011,6 +1012,16 @@ void init() {
                 if (doc["flip_x"].is<bool>())        gTextConfig.flip_x    = doc["flip_x"];
                 if (doc["flip_y"].is<bool>())        gTextConfig.flip_y    = doc["flip_y"];
                 if (doc["active"].is<bool>())        gTextConfig.active    = doc["active"];
+                // Text has its own optimizer profile (blank-jump-dominated,
+                // many short glyph strokes -- see OPT_PROFILE_TEXT in
+                // config.h), mirroring how setPreset() switches profile to
+                // match presetClassOf(). Text mode sits outside the preset
+                // system, so it has to switch here instead.
+                if (gTextConfig.active && gActiveOptimizerProfile != OPT_PROFILE_TEXT) {
+                    gActiveOptimizerProfile = OPT_PROFILE_TEXT;
+                    syncOptimizerConfig();
+                    gPatternCacheGen++;
+                }
             }
             req->send(200, "text/plain", "OK");
         });

@@ -876,7 +876,13 @@ uint32_t fps() {
 uint32_t bufferFillLevel() {
     int32_t fill = (int32_t)s_ring_head - (int32_t)s_ring_tail;
     if (fill < 0) fill += RING_FRAMES;
-    return (uint32_t)(fill * 100 / RING_FRAMES);
+    // RING_FRAMES-1, not RING_FRAMES: pushFrame() flags overflow once
+    // next_head==s_ring_tail, i.e. once RING_FRAMES-1 slots are occupied
+    // (one slot is sacrificed to distinguish full from empty). Dividing by
+    // RING_FRAMES would peak at (RING_FRAMES-1)*100/RING_FRAMES -- e.g. 87%
+    // for RING_FRAMES=8 -- exactly at the overflow point, making the UI look
+    // like there was still headroom when the ring was actually already full.
+    return (uint32_t)(fill * 100 / (RING_FRAMES - 1));
 }
 
 uint32_t overflowCount() { return s_overflow_count; }

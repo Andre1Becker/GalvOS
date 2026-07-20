@@ -111,8 +111,8 @@ struct OptimizerLiveConfig {
 };
 
 // ── OPTIMIZER PROFILES ──────────────────────────────────────────────────────
-// Six independent OptimizerLiveConfig profiles, one per PresetClass.
-// gOptimizerConfig is always a live copy of the active profile; call
+// Eight independent OptimizerLiveConfig profiles, one per PresetClass plus
+// Text. gOptimizerConfig is always a live copy of the active profile; call
 // syncOptimizerConfig() after writing to gOptimizerProfiles[n].
 //
 // Profiles are grouped by scanner workload, not by display category --
@@ -125,11 +125,15 @@ struct OptimizerLiveConfig {
 //   Index 4 = MultiObject  several closed objects (long blank jumps)
 //   Index 5 = Particles    isolated dots (blank jumps only)
 //   Index 6 = Trails       moving dots with fade tails (reduced budget)
+//   Index 7 = Text         many short disconnected glyph strokes (blank
+//                          jumps between strokes/letters dominate; not a
+//                          PresetClass member, selected by text_renderer's
+//                          caller instead of presetClassOf())
 //
 // NVS key suffixes are pinned per index so existing stored parameters
 // migrate onto the renamed profile rather than resetting to defaults.
 
-constexpr uint8_t OPT_PROFILE_COUNT       = 7;
+constexpr uint8_t OPT_PROFILE_COUNT       = 8;
 constexpr uint8_t OPT_PROFILE_VECTOR      = 0;
 constexpr uint8_t OPT_PROFILE_SMOOTH      = 1;
 constexpr uint8_t OPT_PROFILE_WAVES       = 2;
@@ -137,6 +141,7 @@ constexpr uint8_t OPT_PROFILE_WIREFRAME   = 3;
 constexpr uint8_t OPT_PROFILE_MULTIOBJECT = 4;
 constexpr uint8_t OPT_PROFILE_PARTICLES   = 5;
 constexpr uint8_t OPT_PROFILE_TRAILS      = 6;
+constexpr uint8_t OPT_PROFILE_TEXT        = 7;
 
 // ── PER-PROFILE TUNED DEFAULTS ──────────────────────────────────────────────
 // The OPT_DEFAULT_* macros above are the GENERIC fallback (and the reset
@@ -159,6 +164,21 @@ constexpr uint8_t OPT_PROFILE_TRAILS      = 6;
 //               stage1_blank_target return points to lit geometry.
 //   Particles   lit count is fixed (one dwell per dot); >90% of the frame is
 //               blanking, so only the blank parameters matter.
+//   Text        every glyph is a handful of short pen-up/pen-down strokes
+//               (a "G" is one stroke, an "A" is two, ...), so -- like
+//               Particles -- the frame is blank-dominated rather than
+//               density-dominated. Unlike Particles, jumps are not all the
+//               same length (short intra-glyph lifts vs. longer letter-to-
+//               letter advances), so blank_samples keeps a modest ceiling
+//               instead of Particles' aggressive 10. text_renderer.cpp
+//               additionally hard-floors min_segment_pts>=3 and
+//               min_interior_pts_per_segment>=1 itself (the "serif fix") so
+//               short strokes like a crossbar never collapse to one point;
+//               the low profile default here just avoids reserving MORE
+//               than that floor needs. corner_angle_deg/max_corner_pts stay
+//               close to Vector since glyphs (M, W, K, Z, ...) have real
+//               sharp corners, just smaller and more numerous than Vector's
+//               shapes, so fewer points per corner are needed.
 //
 // PROFILE_DEFAULTS is indexed by OPT_PROFILE_* and consumed by loadConfig()
 // as the NVS fallback, so a user's stored per-profile values still win.
@@ -188,6 +208,7 @@ static const OptimizerProfileDefaults OPT_PROFILE_DEFAULTS[OPT_PROFILE_COUNT] = 
     {  25.f,   2,     6,    5.f,   12,    6,    10,   10.f,    6,   1300 },  // 4 MultiObject
     {  25.f,   2,     4,    6.f,   10,    6,     8,   12.f,    4,   1300 },  // 5 Particles
     {  60.f,   3,     3,   11.f,   16,    6,    12,    8.f,    8,    880 },  // 6 Trails
+    {  28.f,   2,     5,    6.f,   10,    4,     7,    9.f,    1,   1300 },  // 7 Text
 };
 
 extern OptimizerLiveConfig gOptimizerProfiles[OPT_PROFILE_COUNT];
