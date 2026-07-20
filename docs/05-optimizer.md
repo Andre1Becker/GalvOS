@@ -284,23 +284,49 @@ The WebUI Optimizer tab shows the **effective values** (`opt_eff_*`) after scali
 
 ## Optimizer Profiles
 
-GalvOS maintains six independent optimizer profiles, one per preset class. The active profile switches automatically when a preset is activated, based on `presetClassOf()`:
+GalvOS maintains **eight** independent optimizer profiles. The first six map 1:1 to `PresetClass` and switch automatically when a preset is activated, based on `presetClassOf()`. Two more are selected outside the preset system: **Trails** for meteor/comet-style presets whose fade tails need a smaller frame budget than plain Particles, and **Text** for the text renderer (many short, disconnected glyph strokes — not a `PresetClass` member; selected directly by the text renderer / calibration/Points-Only callers instead of `presetClassOf()`).
 
-| Profile | Index | Preset class | Primary workload |
-|---------|-------|-------------|-----------------|
-| Vector | 0 | Closed polygons, stars, geometric shapes | Corner dwell |
-| Smooth | 1 | Continuous closed curves, spirals | Interior density |
-| Waves | 2 | Open polylines, wave patterns | Velocity clamp |
-| Wireframe | 3 | 3D edge chains, wireframe models | Corner dwell + short blank jumps |
-| MultiObject | 4 | Several separate closed objects | Long blank jumps |
-| Particles | 5 | Isolated dots, starfields | Blank jumps only |
+| Profile | Index | Preset class | Primary workload | NVS suffix |
+| --- | --- | --- | --- | --- |
+| Vector | 0 | Closed polygons, stars, geometric shapes | Corner dwell | `_s` |
+| Smooth | 1 | Continuous closed curves, spirals | Interior density | `_c` |
+| Waves | 2 | Open polylines, wave patterns | Velocity clamp | `_w` |
+| Wireframe | 3 | 3D edge chains, wireframe models | Corner dwell + short blank jumps | `_3` |
+| MultiObject | 4 | Several separate closed objects | Long blank jumps | `_sol` |
+| Particles | 5 | Isolated dots, starfields | Blank jumps only | `_sc` |
+| Trails | 6 | Moving dots with fade tails (meteors, comets) | Blank jumps, reduced frame budget | `_tr` |
+| Text | 7 | Text renderer (not a preset class) | Blank jumps between short glyph strokes | `_txt` |
 
 Each profile is independently tunable via the Optimizer tab. The profiles share the same parameter set (`OptimizerLiveConfig`) but can have completely different values. For example:
 
 - A Vector profile might have high `max_corner_pts` (clean polygon corners) and moderate `blank_samples` (few objects, short jumps).
 - A Particles profile might disable corner dwell entirely (dots have no corners) and optimize entirely for fast, accurate blank jumps.
 
-Profiles are stored in NVS keyed by a per-profile suffix (`_s`, `_c`, `_w`, `_3`, `_sol`, `_sc`). The suffix is pinned to the profile index, not the profile name, so renaming a profile does not reset its stored values.
+The suffix is pinned to the profile index, not the profile name, so renaming a profile does not reset its stored values. A user's stored NVS value for a profile always wins over the tuned default below.
+
+### Per-Profile Tuned Defaults
+
+Unlike earlier firmware versions (where every profile booted from the same generic defaults), each profile now ships with its own tuned starting point, derived by sweeping the optimizer against each class's actual geometry at a 1300-point frame budget (~23 Hz at 30 kpps) and scoring worst-case lit step size. Only the parameters below vary by profile — every other `OptimizerLiveConfig` field (resample, ringing compensation, velocity/acceleration clamp, `min_segment_pts`) uses the single generic default from the [Parameter Reference](#parameter-reference) table for all eight profiles.
+
+| Profile | `corner_angle_deg` | `min_corner_pts` | `max_corner_pts` | `pts_per_1000_units` | `blank_samples` | `min_blank_samples` | `stage1_blank_target` | `blank_pts_per_1000_units` | `min_interior_pts_per_segment` | `max_pts_per_frame` |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Vector | 30° | 2 | 8 | 9.0 | 16 | 6 | 12 | 8.0 | 8 | 1300 |
+| Smooth | 60° | 2 | 3 | 11.0 | 16 | 6 | 12 | 8.0 | 8 | 1300 |
+| Waves | 35° | 2 | 6 | 8.0 | 16 | 6 | 12 | 8.0 | 8 | 1300 |
+| Wireframe | 25° | 2 | 8 | 6.0 | 12 | 6 | 10 | 10.0 | 6 | 1300 |
+| MultiObject | 25° | 2 | 6 | 5.0 | 12 | 6 | 10 | 10.0 | 6 | 1300 |
+| Particles | 25° | 2 | 4 | 6.0 | 10 | 6 | 8 | 12.0 | 4 | 1300 |
+| Trails | 60° | 3 | 3 | 11.0 | 16 | 6 | 12 | 8.0 | 8 | **880** |
+| Text | 28° | 2 | 5 | 6.0 | 10 | 4 | 7 | 9.0 | 1 | 1300 |
+
+Key findings behind the tuning (see `OPT_PROFILE_DEFAULTS` in `config.h` for the full derivation notes):
+
+- **Smooth** has no true corners, so `max_corner_pts` is pulled down to 3 and the freed budget goes to interior density instead.
+- **Vector**'s binding case is an 8-point star; `pts_per_1000_units = 9` keeps it near the ~1300-point effective ceiling.
+- **Wireframe** and **MultiObject** are budget-bound, not density-bound — Stage 2 scales interior density back regardless of what's asked for, so the real lever is blanking (`blank_samples`, `stage1_blank_target` both lowered to return points to lit geometry).
+- **Particles** has a fixed lit-point count (one dwell per dot); over 90% of the frame is blanking, so only the blank parameters matter — corner dwell is minimized (`max_corner_pts = 4`).
+- **Trails** reuses Smooth's shape tuning but caps `max_pts_per_frame` at 880 so blank overhead doesn't starve later meteors in a multi-object trail sequence.
+- **Text** is blank-dominated like Particles, but jump lengths vary (short intra-glyph lifts vs. longer letter-to-letter advances) so `blank_samples` keeps a modest ceiling rather than Particles' aggressive 10. `min_interior_pts_per_segment` is set to the bare floor (1) because `text_renderer.cpp` hard-floors `min_segment_pts >= 3` itself (the "serif fix") so short strokes like a crossbar never collapse to one point.
 
 ---
 
