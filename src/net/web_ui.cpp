@@ -889,6 +889,15 @@ void init() {
             if (doc["wave_amp"].is<float>())  gLivePreset.wave_amp  = constrain((float)doc["wave_amp"],  0.1f, 2.0f);
             if (doc["wave_freq"].is<float>()) gLivePreset.wave_freq = constrain((float)doc["wave_freq"], 0.25f, 4.0f);
             if (doc["points_mode_enabled"].is<bool>()) gLivePreset.points_mode_enabled = doc["points_mode_enabled"];
+            // Points-Only mode renders dwelling dots, not lines -- run it
+            // through the Particles profile (no corner dwell, tuned for
+            // fast/accurate blank jumps) regardless of the active preset's
+            // own class, mirroring how Text mode forces OPT_PROFILE_TEXT.
+            if (gLivePreset.points_mode_enabled && gActiveOptimizerProfile != OPT_PROFILE_PARTICLES) {
+                gActiveOptimizerProfile = OPT_PROFILE_PARTICLES;
+                syncOptimizerConfig();
+                gPatternCacheGen++;
+            }
             if (doc["points_count"].is<int>())  gLivePreset.points_count  = (uint8_t)constrain((int)doc["points_count"], 2, POINTS_MODE_MAX_DOTS);
             if (doc["points_fade_in_on"].is<bool>())  gLivePreset.points_fade_in_on  = doc["points_fade_in_on"];
             if (doc["points_fade_out_on"].is<bool>()) gLivePreset.points_fade_out_on = doc["points_fade_out_on"];
