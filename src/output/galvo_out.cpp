@@ -58,6 +58,16 @@ static volatile uint32_t s_overflow_count = 0;   // cumulative, see pushFrame() 
 // DAC move happen in the same tick, causing a short lit hook at every corner.
 static constexpr uint8_t LASER_OFF_HOLD_TICKS = 2;
 static uint8_t          s_laser_off_hold = 0;
+// Laser-on latency compensation: symmetric to LASER_OFF_HOLD_TICKS.
+// LEDC turn-on latency (up to 2 PWM periods = 40us) means rgbWrite() fires
+// while the galvo is still settling at the end of a blank jump. The DAC
+// reaches the target position before LEDC fully enables, so the first 1-2
+// lit ticks are emitted with the beam already lit but the mirror still moving
+// -- visible as a short bright stroke at segment start (e.g. multi-wave,
+// multi-segment presets). Holding the DAC at the blank-jump destination for
+// LASER_ON_HOLD_TICKS before emitting the first lit point eliminates this.
+static constexpr uint8_t LASER_ON_HOLD_TICKS = 2;
+static uint8_t          s_laser_on_hold = 0;
 static uint16_t         s_last_dac_x     = 0x8000;
 static uint16_t         s_last_dac_y     = 0x8000;
 
@@ -628,6 +638,7 @@ static void IRAM_ATTR galvoTask(void*) {
                 (s_snap.zone.enabled && !s_snap.zone.contains(p.x, p.y));
             if (zone_blank) {
                     rgbOff();
+                    s_laser_on_hold = LASER_ON_HOLD_TICKS;  // arm on-hold for next lit point
                     if (s_laser_off_hold > 0) {
                         // Still within hold window: keep DAC parked at the
                         // last lit position while LEDC/6N137 finish turning off.
@@ -659,7 +670,14 @@ static void IRAM_ATTR galvoTask(void*) {
                     // floor so that mapVisibleRange() does not mask gain changes
                     // (even a tiny logical value would otherwise be lifted to
                     // ~thresh, making all gains look equally bright).
-                    if (gState.calib_no_thresh) {
+                    if (s_laser_on_hold > 0) {
+                        // Still within on-hold window: DAC already at target,
+                        // keep laser off until LEDC has fully enabled and the
+                        // galvo mirror has settled. Prevents a bright stroke at
+                        // segment start caused by LEDC turn-on latency (~40us).
+                        rgbOff();
+                        s_laser_on_hold--;
+                    } else if (gState.calib_no_thresh) {
                         rgbWrite(r, g, b, 0, 0, 0);
                     } else {
                         rgbWrite(r, g, b, s_snap.thresh_r, s_snap.thresh_g, s_snap.thresh_b);
