@@ -135,7 +135,7 @@ Shows how each rendered frame's points split between **Lit** (green) and **Blank
 
 ### System Card
 
-<img width="466" height="680" alt="image" src="https://github.com/user-attachments/assets/5fb46a5a-7133-42c1-8408-ee04425ddb80" />
+<img width="460" height="608" alt="image" src="https://github.com/user-attachments/assets/06d69469-fd72-4210-bd7e-4626f60f170a" />
 
 Static system information: firmware version, hostname, IP address, Wi-Fi signal strength (RSSI), uptime, free heap (internal DRAM), free PSRAM, NTP time, DAC/galvo status, SD card status, and the current API auth token (click to copy).
 
