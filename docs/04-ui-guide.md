@@ -137,7 +137,7 @@ Shows how each rendered frame's points split between **Lit** (green) and **Blank
 
 <img width="460" height="608" alt="image" src="https://github.com/user-attachments/assets/06d69469-fd72-4210-bd7e-4626f60f170a" />
 
-Static system information: firmware version, hostname, IP address, Wi-Fi signal strength (RSSI), uptime, free heap (internal DRAM), free PSRAM, NTP time, DAC/galvo status, SD card status, and the current API auth token (click to copy).
+Static system information: firmware version, hostname, IP address, Wi-Fi signal strength (RSSI), uptime, free heap (internal DRAM), free PSRAM, NTP time, DAC/galvo status, and SD card status. The API auth token moved to the **Access Credentials** card on the Configuration tab.
 
 ---
 
@@ -467,12 +467,16 @@ Live firmware log output, streamed from the ESP32 over the WebSocket. Auto-refre
 - Use this tab to diagnose startup issues, track DMX frame counts, or watch for ring buffer overflow warnings.
 - The log buffer is limited in size — older entries are overwritten.
 
----
-
-## Memory Viewer
+### Memory Viewer
 
 <img width="1400" height="947" alt="image" src="https://github.com/user-attachments/assets/37902513-bd62-45e8-9b83-600e51b5f362" />
 
+A second card below the log console, showing who holds the RAM — static/long-lived buffers only, sourced from `/api/meminfo` and refreshed every 3 s while the Log tab is open.
+
+- **Internal SRAM (Heap)** — composition bar plus total, free now, largest free block, and lowest free ever since boot (the value the failsafe reboot threshold is compared against), and the failsafe reboot limit itself.
+- **PSRAM** — composition bar plus total, free now, largest free block, and lowest free ever since boot.
+- **Tracked Owners** — per-subsystem breakdown of registered static/long-lived allocations (see `mem_registry.h`), so a slow leak or an oversized buffer can be attributed to a specific module.
+- **🔄 Refresh** — manual refresh outside the 3 s auto-cycle.
 
 ---
 
@@ -498,7 +502,13 @@ Network, DMX, safety, IP, and debug settings.
 
 ### Safety Configuration
 - **Safety Override** — bypasses E-Stop and scan-fail checks. Only use with the laser disarmed and no audience. Red warning state clearly shown.
+- **⟳ System Reboot** — restarts the ESP32 immediately (confirmation prompt). Use after a config or firmware change that requires a reboot, without needing physical access to the device.
 - **⚠ Factory Reset** — clears all NVS config and restarts. Wi-Fi credentials are lost; AP mode restarts.
+
+### Access Credentials
+
+- **HTTP-OTA Pass** — password for the `/update` OTA endpoint (user `admin`). Masked; hover to reveal.
+- **API Token** — current `X-Auth` token required for write access to the HTTP API. Masked; hover to reveal, click to copy. (Moved here from the Dashboard System Card.)
 
 ### Debug
 
