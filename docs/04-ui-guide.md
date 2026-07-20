@@ -68,7 +68,8 @@ The UI is divided into a **tab bar** at the top and a **content area** below. Al
 
 The Dashboard is the home screen and the first thing you see on load. It gives you a live status overview of the entire system.
 
-<img width="2502" height="1173" alt="image" src="https://github.com/user-attachments/assets/2397c2d3-09e4-456b-9648-87b0f7281b3d" />
+<img width="1760" height="1194" alt="image" src="https://github.com/user-attachments/assets/8cd5b835-76dd-4c52-abb8-f7ebc45a33d6" />
+
 (The Dashboard)
 
 ### Safety Status Card
