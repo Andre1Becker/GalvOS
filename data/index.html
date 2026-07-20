@@ -685,9 +685,6 @@
         <h2 style="margin:0">&#9099; CPU Load</h2>
         <div style="display:flex;gap:16px;font-size:14px;flex-wrap:wrap">
           <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#0cf;margin-right:4px"></span>Core 0 (Net/DMX/UI)</span>
-          <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#f90;margin-right:4px"></span>Core 1 (Galvo)</span>
-          <span id="cpu-cur-0" style="display:none"></span>
-          <span id="cpu-cur-1" style="display:none"></span>
         </div>
       </div>
       <canvas id="cpu-canvas" height="160"
@@ -704,15 +701,9 @@
           <span style="font-size:15px;color:var(--dim)">Core 0</span>
           <span id="cpu-load-0" style="font-family:monospace;font-size:20px;color:#0cf;min-width:52px;text-align:right">-- %</span>
         </div>
-        <div style="display:flex;align-items:center;gap:8px">
-          <span style="width:10px;height:10px;border-radius:2px;background:#f90;display:inline-block"></span>
-          <span style="font-size:15px;color:var(--dim)">Core 1</span>
-          <span id="cpu-load-1" style="font-family:monospace;font-size:20px;color:#f90;min-width:52px;text-align:right">-- %</span>
-        </div>
         <div style="margin-left:auto;display:flex;gap:16px;font-size:13px;color:var(--dim);align-items:center;flex-wrap:wrap">
           <span style="display:flex;align-items:center;gap:5px"><span style="width:18px;border-bottom:1.5px dashed #fc0"></span>Warn &ge;70%</span>
           <span style="display:flex;align-items:center;gap:5px"><span style="width:18px;border-bottom:1.5px dashed #f44"></span>Critical &ge;90%</span>
-          <span style="font-style:italic">Core 1 &asymp;100% normal</span>
         </div>
       </div>
     </div>
@@ -725,7 +716,13 @@
           &#128308;&nbsp;Laser &nbsp;&#128992;&nbsp;Driver &nbsp;&#128993;&nbsp;Galvo &nbsp;&#128994;&nbsp;PSU &nbsp;&#128309;&nbsp;Ambient
         </div>
       </div>
-      <canvas id="temp-chart" style="width:100%;height:160px;background:#000;border:1px solid #2D1B4E;box-shadow:0 0 16px rgba(0,255,255,0.08)"></canvas>
+      <canvas id="temp-chart"
+              style="width:100%;height:160px;display:block;background:#000;border:1px solid #2D1B4E;cursor:crosshair;box-shadow:0 0 16px rgba(0,255,255,0.08)"></canvas>
+      <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--dim);margin-top:4px">
+        <span>5 min ago</span>
+        <span id="temp-hover-info" style="color:var(--accent)"></span>
+        <span>now</span>
+      </div>
       <!-- Current temperatures below chart -->
       <div id="temp-current-row" style="display:flex;flex-wrap:wrap;gap:10px;margin-top:10px;justify-content:flex-start"></div>
     </div>
@@ -734,9 +731,15 @@
     <div class="card" style="grid-column:2/4">
       <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px;flex-wrap:wrap;gap:8px">
         <h2 style="margin:0">&#9889; Galvo Output Rate</h2>
-        <div style="font-size:13px;color:var(--dim)">Last 5 min &nbsp;&mdash;&nbsp; kpps</div>
+        <div style="font-size:13px;color:var(--dim)">kpps</div>
       </div>
-      <canvas id="kpps-chart" style="width:100%;height:160px;background:#000;border:1px solid #2D1B4E;box-shadow:0 0 16px rgba(255,0,255,0.08)"></canvas>
+      <canvas id="kpps-chart"
+              style="width:100%;height:160px;display:block;background:#000;border:1px solid #2D1B4E;cursor:crosshair;box-shadow:0 0 16px rgba(255,0,255,0.08)"></canvas>
+      <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--dim);margin-top:4px">
+        <span>5 min ago</span>
+        <span id="kpps-hover-info" style="color:var(--accent)"></span>
+        <span>now</span>
+      </div>
     </div>
 
     <!-- Frame Composition — cols 2-3 -->
@@ -749,7 +752,13 @@
           <span style="color:#444">&#9644;</span> Total (n)
         </div>
       </div>
-      <canvas id="frame-chart" style="width:100%;height:160px;background:#000;border:1px solid #2D1B4E;box-shadow:0 0 16px rgba(255,153,0,0.08)"></canvas>
+      <canvas id="frame-chart"
+              style="width:100%;height:160px;display:block;background:#000;border:1px solid #2D1B4E;cursor:crosshair;box-shadow:0 0 16px rgba(255,153,0,0.08)"></canvas>
+      <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--dim);margin-top:4px">
+        <span>5 min ago</span>
+        <span id="frame-hover-info" style="color:var(--accent)"></span>
+        <span>now</span>
+      </div>
     </div>
 
   </div>
@@ -3337,6 +3346,11 @@ const HISTORY_SECS  = 300;  // 5 Minutes
 const KPPS_HISTORY  = [];   // [{ts, kpps}, ...]
 const FRAME_HISTORY = [];   // [{ts, n, lit, blank}, ...]
 
+// Hover crosshair state (fraction 0..1 across graph width, -1 = no hover)
+let sTempHoverFrac  = -1;
+let sKppsHoverFrac  = -1;
+let sFrameHoverFrac = -1;
+
 // Default thresholds if none received from server yet
 let thresholdData = [
   {warn:38,alert:45,crit:52},
@@ -3487,6 +3501,28 @@ async function saveThresholds() {
   if (r !== null) { thresholdData = thresholds; toast('Schwellwerte saved'); }
 }
 
+// Shared hover-crosshair renderer for the timestamped history charts
+// (temp/kpps/frame). `hoverFrac` is 0..1 across the graph width, -1 = none.
+function drawHoverCrosshair(ctx, PL, PT, gW, gH, oldest, recent, hoverFrac, infoElId, formatFn) {
+  const infoEl = document.getElementById(infoElId);
+  if (hoverFrac < 0 || recent.length < 2) {
+    if (infoEl) infoEl.textContent = '';
+    return;
+  }
+  const hoveredTs = oldest + hoverFrac * HISTORY_SECS * 1000;
+  let nearest = recent[0];
+  for (const p of recent) {
+    if (Math.abs(p.ts - hoveredTs) < Math.abs(nearest.ts - hoveredTs)) nearest = p;
+  }
+  const x = PL + ((nearest.ts - oldest) / (HISTORY_SECS * 1000)) * gW;
+  ctx.strokeStyle = 'rgba(255,0,255,0.4)'; ctx.lineWidth = 1; ctx.setLineDash([3, 3]);
+  ctx.beginPath(); ctx.moveTo(x, PT); ctx.lineTo(x, PT + gH); ctx.stroke();
+  ctx.setLineDash([]);
+  const now = recent[recent.length - 1].ts;
+  const ago = ((now - nearest.ts) / 1000).toFixed(1);
+  if (infoEl) infoEl.textContent = ago + 's ago  ' + formatFn(nearest);
+}
+
 // Mini history chart (canvas, no framework)
 function drawTempChart() {
   const canvas = document.getElementById('temp-chart');
@@ -3501,12 +3537,20 @@ function drawTempChart() {
   ctx.fillStyle = bgGrad; ctx.fillRect(0, 0, W, H);
   for (let y = 0; y < H; y += 4) { ctx.fillStyle = 'rgba(0,0,0,0.18)'; ctx.fillRect(0, y, W, 2); }
 
-  if (TEMP_HISTORY.length < 2) return;
+  if (TEMP_HISTORY.length < 2) {
+    const infoEl = document.getElementById('temp-hover-info');
+    if (infoEl) infoEl.textContent = '';
+    return;
+  }
 
   const now = TEMP_HISTORY[TEMP_HISTORY.length-1].ts;
   const oldest = now - HISTORY_SECS * 1000;
   const recent = TEMP_HISTORY.filter(p => p.ts >= oldest);
-  if (recent.length < 2) return;
+  if (recent.length < 2) {
+    const infoEl = document.getElementById('temp-hover-info');
+    if (infoEl) infoEl.textContent = '';
+    return;
+  }
 
   const PL = 36, PR = 8, PT = 8, PB = 8;
   const gW = W - PL - PR, gH = H - PT - PB;
@@ -3535,6 +3579,9 @@ function drawTempChart() {
     recent.forEach((pt, idx) => { const x = mapX(pt.ts), y = mapY(pt.temps[i] || 0); idx === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); });
     ctx.stroke();
   });
+
+  drawHoverCrosshair(ctx, PL, PT, gW, gH, oldest, recent, sTempHoverFrac, 'temp-hover-info',
+    pt => pt.temps.map((t, i) => (SENSOR_NAMES[i] || ('S' + i)) + ' ' + (t != null ? t.toFixed(1) : '--') + '°').join('  '));
 }
 
 function drawKppsChart() {
@@ -3549,12 +3596,20 @@ function drawKppsChart() {
   ctx.fillStyle = bgGrad; ctx.fillRect(0, 0, W, H);
   for (let y = 0; y < H; y += 4) { ctx.fillStyle = 'rgba(0,0,0,0.18)'; ctx.fillRect(0, y, W, 2); }
 
-  if (KPPS_HISTORY.length < 2) return;
+  if (KPPS_HISTORY.length < 2) {
+    const infoEl = document.getElementById('kpps-hover-info');
+    if (infoEl) infoEl.textContent = '';
+    return;
+  }
 
   const now = KPPS_HISTORY[KPPS_HISTORY.length - 1].ts;
   const oldest = now - HISTORY_SECS * 1000;
   const recent = KPPS_HISTORY.filter(p => p.ts >= oldest);
-  if (recent.length < 2) return;
+  if (recent.length < 2) {
+    const infoEl = document.getElementById('kpps-hover-info');
+    if (infoEl) infoEl.textContent = '';
+    return;
+  }
 
   const PL = 36, PR = 8, PT = 10, PB = 8;
   const gW = W - PL - PR, gH = H - PT - PB;
@@ -3598,6 +3653,9 @@ function drawKppsChart() {
   ctx.font = 'bold 13px "Share Tech Mono", monospace'; ctx.textAlign = 'right';
   ctx.fillStyle = 'rgba(255,0,255,0.3)'; ctx.fillText(last.toFixed(1) + ' kpps', W - PR + 2, PT + 14);
   ctx.fillStyle = '#FF00FF'; ctx.fillText(last.toFixed(1) + ' kpps', W - PR, PT + 13);
+
+  drawHoverCrosshair(ctx, PL, PT, gW, gH, oldest, recent, sKppsHoverFrac, 'kpps-hover-info',
+    pt => pt.kpps.toFixed(1) + ' kpps');
 }
 
 function drawFrameChart() {
@@ -3612,12 +3670,20 @@ function drawFrameChart() {
   ctx.fillStyle = bgGrad; ctx.fillRect(0, 0, W, H);
   for (let y = 0; y < H; y += 4) { ctx.fillStyle = 'rgba(0,0,0,0.18)'; ctx.fillRect(0, y, W, 2); }
 
-  if (FRAME_HISTORY.length < 2) return;
+  if (FRAME_HISTORY.length < 2) {
+    const infoEl = document.getElementById('frame-hover-info');
+    if (infoEl) infoEl.textContent = '';
+    return;
+  }
 
   const now    = FRAME_HISTORY[FRAME_HISTORY.length - 1].ts;
   const oldest = now - HISTORY_SECS * 1000;
   const recent = FRAME_HISTORY.filter(p => p.ts >= oldest);
-  if (recent.length < 2) return;
+  if (recent.length < 2) {
+    const infoEl = document.getElementById('frame-hover-info');
+    if (infoEl) infoEl.textContent = '';
+    return;
+  }
 
   const PL = 46, PR = 8, PT = 10, PB = 8;
   const gW = W - PL - PR, gH = H - PT - PB;
@@ -3677,6 +3743,9 @@ function drawFrameChart() {
   ctx.fillStyle = 'rgba(150,100,200,0.7)'; ctx.fillText('n=' + last.n,       PL + 4, PT + 14);
   ctx.fillStyle = '#00FF88';               ctx.fillText('lit=' + last.lit,   PL + 4 + (W-PL-PR)*0.35, PT + 14);
   ctx.fillStyle = '#FF9900';               ctx.fillText('blank=' + last.blank, PL + 4 + (W-PL-PR)*0.65, PT + 14);
+
+  drawHoverCrosshair(ctx, PL, PT, gW, gH, oldest, recent, sFrameHoverFrac, 'frame-hover-info',
+    p => 'n=' + p.n + '  lit=' + p.lit + '  blank=' + p.blank);
 }
 
 // Current temperature badge colors matching chart legend
@@ -5416,6 +5485,9 @@ buildSensorNameEditor();
 buildDmxSliders();
 document.addEventListener('DOMContentLoaded', setupCalibSliders);
 initCpuGraph();
+initTempGraph();
+initKppsGraph();
+initFrameGraph();
 
 // Sequential boot fetch -- staggered so a hard reload (Shift+F5) doesn't
 // fire ~7 concurrent HTTP/WS connections at once. That stampede starved
@@ -5446,14 +5518,12 @@ function pushCpu(c0, c1) {
   if (sCpuData.c0.length > CPU_HISTORY) sCpuData.c0.shift();
   sCpuData.c1.push(c1 != null ? +c1 : null);
   if (sCpuData.c1.length > CPU_HISTORY) sCpuData.c1.shift();
-  // Update large current-load readouts
+  // Update large current-load readout
   if (c0 != null) {
-    const v0 = +c0, v1 = +c1;
+    const v0 = +c0;
     const col0 = v0 >= CPU_CRIT ? 'var(--bad)' : v0 >= CPU_WARN ? 'var(--warn)' : '#0cf';
     const el0 = document.getElementById('cpu-load-0');
-    const el1 = document.getElementById('cpu-load-1');
     if (el0) { el0.textContent = v0 + ' %'; el0.style.color = col0; }
-    if (el1)   el1.textContent = v1 + ' %';
   }
   renderCpuGraph();
 }
@@ -5543,7 +5613,6 @@ function renderCpuGraph() {
     ctx.strokeStyle = lineCol; ctx.lineWidth = 1.8; ctx.stroke();
   }
 
-  drawSeries(sCpuData.c1, '#FF9900', 'rgb(255,153,0)', 0.15);
   drawSeries(sCpuData.c0, '#00FFFF', 'rgb(0,255,255)', 0.12);
 
   // Left border accent line
@@ -5556,26 +5625,12 @@ function renderCpuGraph() {
     ctx.strokeStyle = 'rgba(255,0,255,0.4)'; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
     ctx.beginPath(); ctx.moveTo(x, PT); ctx.lineTo(x, PT+gH); ctx.stroke();
     ctx.setLineDash([]);
-    const v0 = sCpuData.c0[sCpuHoverIdx], v1 = sCpuData.c1[sCpuHoverIdx];
+    const v0 = sCpuData.c0[sCpuHoverIdx];
     if (v0 !== null) {
       const ago = ((CPU_HISTORY - 1 - sCpuHoverIdx) * 0.5).toFixed(1);
       const hEl = document.getElementById('cpu-hover-info');
-      if (hEl) hEl.textContent = ago + 's ago  C0: ' + v0 + '%  C1: ' + v1 + '%';
+      if (hEl) hEl.textContent = ago + 's ago  C0: ' + v0 + '%';
     }
-  }
-
-  // Current value badges (top-right corner)
-  const last0 = sCpuData.c0[sCpuData.c0.length - 1];
-  const last1 = sCpuData.c1[sCpuData.c1.length - 1];
-  if (last0 !== null) {
-    const col0 = last0 >= CPU_CRIT ? '#FF2244' : last0 >= CPU_WARN ? '#FF9900' : '#00FF88';
-    const el0 = document.getElementById('cpu-cur-0');
-    const el1 = document.getElementById('cpu-cur-1');
-    if (el0) { el0.textContent = 'C0: ' + last0 + '%'; el0.style.color = col0; }
-    if (el1)   el1.textContent = 'C1: ' + last1 + '%';
-    ctx.font = 'bold 11px "Share Tech Mono", monospace'; ctx.textAlign = 'right';
-    ctx.fillStyle = '#00FFFF'; ctx.fillText('C0 ' + last0 + '%', W - PR - 70, PT + 13);
-    ctx.fillStyle = '#FF9900'; ctx.fillText('C1 ' + last1 + '%', W - PR, PT + 13);
   }
 }
 
@@ -5605,6 +5660,29 @@ function initCpuGraph() {
   // Initial render attempt (may be width=0 if tab is hidden, that's OK)
   requestAnimationFrame(renderCpuGraph);
 }
+
+// Shared hover/resize wiring for the timestamped history charts (temp/kpps/frame),
+// mirroring initCpuGraph's crosshair + auto-redraw behavior.
+function initHistoryChartHover(canvasId, PL, PR, setFrac, drawFn) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  canvas.addEventListener('mousemove', e => {
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left - PL;
+    setFrac(Math.max(0, Math.min(1, x / (rect.width - PL - PR))));
+    drawFn();
+  });
+  canvas.addEventListener('mouseleave', () => { setFrac(-1); drawFn(); });
+  window.addEventListener('resize', drawFn);
+  if (typeof ResizeObserver !== 'undefined') {
+    new ResizeObserver(() => { if (canvas.offsetWidth > 0) drawFn(); }).observe(canvas.parentElement || canvas);
+  }
+  requestAnimationFrame(drawFn);
+}
+
+function initTempGraph()  { initHistoryChartHover('temp-chart',  36, 8, f => sTempHoverFrac  = f, drawTempChart); }
+function initKppsGraph()  { initHistoryChartHover('kpps-chart',  36, 8, f => sKppsHoverFrac  = f, drawKppsChart); }
+function initFrameGraph() { initHistoryChartHover('frame-chart', 46, 8, f => sFrameHoverFrac = f, drawFrameChart); }
 
 
 // ============================================================
