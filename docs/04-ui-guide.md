@@ -228,7 +228,7 @@ A standalone utility embedded in the Presets tab. Set hours/minutes/seconds, the
 
 Provides a software DMX console — 25 sliders corresponding to GalvOS's 25 DMX channels.
 
-<img width="1405" height="713" alt="image" src="https://github.com/user-attachments/assets/3ebeb424-8c1c-4d86-9912-e120e34c03fa" />
+<img width="723" height="542" alt="image" src="https://github.com/user-attachments/assets/d7e5b338-9254-4030-9a02-e2022b34af75" />
 
 - **WebUI override toggle** — when enabled, the slider values are sent directly to the pattern engine, overriding any incoming hardware DMX signal. When disabled, the sliders display the last received DMX values (read-only view).
 - **Reset all channels** — returns all sliders to their off/default state.
@@ -259,7 +259,7 @@ Projects laser text. Text mode overrides any active preset and DMX input while a
 
 A freehand drawing canvas that projects directly onto the laser.
 
-<img width="1316" height="1022" alt="image" src="https://github.com/user-attachments/assets/dd4a19df-7960-4434-afc9-cc2dbc7c8945" />
+<img width="1398" height="949" alt="image" src="https://github.com/user-attachments/assets/bb0dd0fc-ba0b-4d5c-87bf-25ebfdfda5fd" />
 
 - **Draw mode** — finger or mouse draws freehand strokes on the canvas.
 - **Shape tools** — add rectangles, triangles, or circles as closed polygons.
@@ -276,8 +276,7 @@ A freehand drawing canvas that projects directly onto the laser.
 
 ILDA file playback from an SD card.
 
-<img width="1055" height="524" alt="image" src="https://github.com/user-attachments/assets/5fa75f64-acd0-4362-b1ea-95e8ef679064" />
-
+<img width="917" height="491" alt="image" src="https://github.com/user-attachments/assets/b11c18f6-d442-4fe2-a1ab-6a8d6dffa5f7" />
 
 > ⚠️ **Known issue:** SD card insertion currently causes galvo malfunction. See [Known Issues](09-known-issues-and-todos.md). This tab is non-functional until that issue is resolved.
 
@@ -293,8 +292,7 @@ ILDA file playback from an SD card.
 
 The calibration workflow covers four areas: color/gamma calibration, galvo geometry calibration, projection zone setup, and the ILDA standard test pattern.
 
-<img width="2504" height="1074" alt="image" src="https://github.com/user-attachments/assets/368000d7-7b14-4474-a666-080c26126583" />
-
+<img width="2547" height="1021" alt="image" src="https://github.com/user-attachments/assets/1dc6992a-2000-48a6-b7c6-f1061e815e0e" />
 
 ### Color & Gamma Calibration (left card)
 
@@ -347,8 +345,7 @@ Toggles perceptual brightness correction. When enabled (default), the firmware a
 
 An interactive canvas for defining a clipping polygon — the area the laser is allowed to scan. Lit points outside the polygon are blanked (laser off, mirror position retained).
 
-<img width="620" height="977" alt="image" src="https://github.com/user-attachments/assets/940cb0d2-f7c0-4804-afe7-5ef76690e92a" />
-
+<img width="619" height="1026" alt="image" src="https://github.com/user-attachments/assets/20ffae7f-44b3-46c3-a733-fe99ddfb4474" />
 
 - **Drag vertices** to shape the zone.
 - **Tap an edge** to add a new vertex.
@@ -356,23 +353,6 @@ An interactive canvas for defining a clipping polygon — the area the laser is 
 - **Project Outline** — projects the zone boundary onto the screen so you can verify it matches your safe scan area.
 - **⬛ Enable Clipping** — activates zone clipping. Only enable after verifying the outline is correct.
 - **Save Zone / Reset to Rectangle** — save or discard changes.
-
-### ILDA Standard Test Pattern
-
-The official 1995 ILDA Technical Committee test pattern for galvo driver calibration.
-
-<img width="1257" height="273" alt="image" src="https://github.com/user-attachments/assets/551db37a-f992-46a3-aec2-193603163664" />
-
-
-Use this pattern to tune the galvo driver board's damping and servo gain trim pots. The tab includes a step-by-step tuning procedure:
-
-1. Set scan size — reduce until the circle begins to distort, then back 10%.
-2. Verify axis polarity — "Y" label at top, "X" label at right. If reversed, use Invert X/Y.
-3. Adjust Y damping until a small overshoot appears at corners (≈2/3 of reference marker height), then minimize it with high-frequency damping.
-4. Adjust Y servo gain until the circle's top/bottom touches the inner square edges.
-5. Repeat for X axis.
-6. Verify DC offset — the pattern elements should be symmetric around the center.
-7. Verify blanking — dashed lines in the pattern should be clean and dark.
 
 > **Known issue:** The ILDA test pattern currently has incorrect output. See [Known Issues](09-known-issues-and-todos.md).
 
@@ -382,8 +362,7 @@ Use this pattern to tune the galvo driver board's damping and servo gain trim po
 
 Per-preset-class optimizer profile management. See [Chapter 5 — The Optimizer](05-optimizer.md) for a full explanation of what each parameter does.
 
-<img width="2508" height="1084" alt="image" src="https://github.com/user-attachments/assets/534e0bcc-c2ad-4c37-aa22-41e773d20d50" />
-
+<img width="2531" height="1095" alt="image" src="https://github.com/user-attachments/assets/e0ec3702-5c2c-4a64-a765-4990a6c862c6" />
 
 ### Profile Selector
 
@@ -416,8 +395,7 @@ See [Chapter 5 — The Optimizer → Parameter Reference](05-optimizer.md#parame
 
 Hardware configuration for the galvo scanner and laser module.
 
-<img width="1311" height="1109" alt="image" src="https://github.com/user-attachments/assets/396dcec9-74e1-4c56-8e8f-acdc333a6e62" />
-
+<img width="1401" height="1119" alt="image" src="https://github.com/user-attachments/assets/a35ea058-c503-4498-b061-f2411371b1d9" />
 
 ### Galvo Sample Rate Card
 
@@ -458,8 +436,7 @@ Build and manage playlists of ILDA files for automated sequential playback.
 
 > ⚠️ Requires SD card — see [Known Issues](09-known-issues-and-todos.md) for the SD card / galvo bug.
 
-<img width="911" height="296" alt="image" src="https://github.com/user-attachments/assets/68b61cc0-4d2a-426c-b36b-42209341612a" />
-
+<img width="924" height="298" alt="image" src="https://github.com/user-attachments/assets/bd9287c3-497c-4dbb-b504-e3c09c62a1ab" />
 
 - Add ILDA files to the playlist, set loop count and pause duration per entry.
 - Loop All toggle — loops the entire playlist indefinitely.
@@ -471,7 +448,7 @@ Build and manage playlists of ILDA files for automated sequential playback.
 
 Fan and temperature management.
 
-<img width="1313" height="486" alt="image" src="https://github.com/user-attachments/assets/a2ea8b82-212e-47c1-b504-8b3687200946" />
+<img width="1392" height="503" alt="image" src="https://github.com/user-attachments/assets/64483756-2c45-4b98-8624-70adffc3e471" />
 
 - **Temperature thresholds** — configure warn, reduce, and shutdown temperatures (`temp_warn_c`, `temp_reduce_c`, `temp_shutdown_c`).
 - **Fan control** — Auto mode (temperature-driven) or manual PWM override per fan.
@@ -486,7 +463,6 @@ Live firmware log output, streamed from the ESP32 over the WebSocket. Auto-refre
 
 <img width="1304" height="299" alt="image" src="https://github.com/user-attachments/assets/ab6f4f1e-f2f9-4ef4-b8c3-3c9f06cc3673" />
 
-
 - Log entries are colour-coded by severity: INFO (dim), WARN (orange), ERROR (red).
 - Use this tab to diagnose startup issues, track DMX frame counts, or watch for ring buffer overflow warnings.
 - The log buffer is limited in size — older entries are overwritten.
@@ -498,7 +474,6 @@ Live firmware log output, streamed from the ESP32 over the WebSocket. Auto-refre
 Network, DMX, safety, IP, and debug settings.
 
 <img width="1312" height="777" alt="image" src="https://github.com/user-attachments/assets/5f74cd78-1b68-41fe-b561-f5f8da29db6b" />
-
 
 ### DMX and Art-Net
 - **DMX Start Address** (1–512) — first DMX channel GalvOS responds to.
