@@ -74,6 +74,23 @@ Stages 3, 6, 7, and 8 are optional (disabled by default). When disabled, each st
 
 ---
 
+## The Three Pillars
+
+The optimizer's main features are described by three "pillars":
+
+**Pillar 1 — Adaptive Point Density**
+Corner-aware, length-proportional point density. Corners get extra dwell points scaled to their severity. Edges get interior points proportional to their length. This is always active and forms the foundation of the optimizer.
+
+**Pillar 2 — S-Curve Blanking**
+Distance-proportional, smoothstep-eased blank jumps. Short jumps are cheap, long jumps are smooth. Settle ticks are carved from the blank budget. Always active.
+
+**Pillar 3 — ZV Ringing Compensation**
+Zero-Vibration input shaping on blank jump trajectories. Requires measured hardware parameters. Disabled by default. Hardware-verified on the JY-15K-BL at 30 kpps.
+
+All three pillars are hardware-verified on the Jolooyo JY-15K-BL galvo set.
+
+---
+
 ## Stage 1 — Primitive Generation
 
 Each pattern generates its geometry as a list of **`PathSegment`** objects. A `PathSegment` is a sequence of `PathVertex` entries (x, y, r, g, b coordinates) connected by straight lines, with a flag indicating whether the path is closed (polygon) or open (polyline).
@@ -339,23 +356,6 @@ When a preset is activated that appears on the `isStaticPreset` allowlist, the o
 The cache is invalidated (and recomputed on the next frame) whenever `gPatternCacheGen` is incremented. This counter is bumped on any optimizer parameter change or `galvo_kpps` change — because both affect the optimizer output.
 
 **Size:** The cache holds one frame's worth of `LaserPoint[]` data in PSRAM. At `PATTERN_POINTS_MAX = 2048` points × 8 bytes each = 16 KB.
-
----
-
-## The Three Pillars
-
-The optimizer's main features are described by three "pillars":
-
-**Pillar 1 — Adaptive Point Density**
-Corner-aware, length-proportional point density. Corners get extra dwell points scaled to their severity. Edges get interior points proportional to their length. This is always active and forms the foundation of the optimizer.
-
-**Pillar 2 — S-Curve Blanking**
-Distance-proportional, smoothstep-eased blank jumps. Short jumps are cheap, long jumps are smooth. Settle ticks are carved from the blank budget. Always active.
-
-**Pillar 3 — ZV Ringing Compensation**
-Zero-Vibration input shaping on blank jump trajectories. Requires measured hardware parameters. Disabled by default. Hardware-verified on the JY-15K-BL at 30 kpps.
-
-All three pillars are hardware-verified on the Jolooyo JY-15K-BL galvo set.
 
 ---
 
