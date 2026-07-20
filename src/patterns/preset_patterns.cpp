@@ -2310,7 +2310,13 @@ static size_t p_explosion(LaserPoint* o, size_t m, uint32_t ph, uint8_t sp, uint
         const float ix = cosf(ang) * rInner, iy = sinf(ang) * rInner;
         const float ox = cosf(ang) * rOuter, oy = sinf(ang) * rOuter;
         optimizer::emitBlankTo(o, n, m, ix, iy, cfg);
-        ap(o, n, m, ix, iy, vr, vg, vb, 0);
+        // galvo_out.cpp holds the laser off for LASER_ON_HOLD_TICKS (=2) ticks
+        // after every blank jump to hide LEDC turn-on latency. This tracer is
+        // only 2 lit points long, so without padding those 2 ticks ARE the
+        // whole stroke and every ray comes out dark. Pad with extra dwell at
+        // the inner point (DAC already parked there from the blank jump) to
+        // absorb the hold before the real stroke is drawn.
+        for (int k = 0; k < 3 && n < m; k++) ap(o, n, m, ix, iy, vr, vg, vb, 0);
         ap(o, n, m, ox, oy, vr, vg, vb, 0);
     }
     return n;
