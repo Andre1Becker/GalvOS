@@ -633,9 +633,6 @@
         <button class="btn" id="btn-sd-eject"   onclick="sdEject()"   style="flex:1;font-size:14px;padding:5px 8px;background:var(--warn);color:#000">⏏ Eject</button>
       </div>
       <div id="v-sd-status" style="font-size:13px;color:var(--dim);min-height:14px;margin-top:4px"></div>
-      <div class="stat-row"><span>HTTP-OTA Pass</span><span id="dash-ota-pass" class="val" style="font-family:monospace;color:var(--warn)">--</span></div>
-      <div class="stat-row"><span>API Token</span><span id="dash-auth-token" class="val" style="font-family:monospace;font-size:13px;color:var(--dim);cursor:pointer" title="Click to copy" onclick="navigator.clipboard?.writeText(this.textContent);this.style.color='var(--ok)';setTimeout(()=>this.style.color='',1200)">--</span></div>
-      <div style="font-size:13px;color:var(--dim);margin-top:4px">OTA: <code>http://laser/update</code> · User: <code>admin</code><br>API write access requires <code>X-Auth: &lt;token&gt;</code> header</div>
     </div>
 
     <div class="card" style="grid-column:2">
@@ -1252,7 +1249,7 @@
 </section>
 
 <section id="tab-dmx" class="tab">
-  <div class="card">
+  <div class="card" style="max-width:640px">
     <h2>DMX Channels Live Control</h2>
     <p style="color: var(--dim); margin: 0 0 16px 0;">
       Override sends the slider values directly to the pattern engine and overrides the DMX input.
@@ -1659,9 +1656,20 @@
         </div>
       </div>
 
-      <div style="margin-top:16px">
+      <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn secondary" onclick="confirmSystemReboot()">⟳ System Reboot</button>
         <button class="btn danger" onclick="confirmFactoryReset()">⚠ Factory Reset</button>
       </div>
+    </div>
+
+    <div class="card">
+      <h2>🔑 Access Credentials</h2>
+      <p style="color:var(--dim);font-size:14px;margin-bottom:14px">
+        Hover a value to reveal it. Click the API Token to copy.
+      </p>
+      <div class="stat-row"><span>HTTP-OTA Pass</span><span id="cfg-ota-pass" class="val masked" style="font-family:monospace;color:var(--warn)">••••••••</span></div>
+      <div class="stat-row"><span>API Token</span><span id="cfg-auth-token" class="val masked" style="font-family:monospace;font-size:13px;color:var(--dim);cursor:pointer" title="Hover to reveal, click to copy" onclick="navigator.clipboard?.writeText(this.dataset.value||'');this.style.color='var(--ok)';setTimeout(()=>this.style.color='',1200)">••••••••</span></div>
+      <div style="font-size:13px;color:var(--dim);margin-top:8px">OTA: <code>http://laser/update</code> · User: <code>admin</code><br>API write access requires <code>X-Auth: &lt;token&gt;</code> header</div>
     </div>
 
     <!-- Debug / NoHW -->
@@ -2254,10 +2262,14 @@ function handleStateUpdate(s) {
   // FW-Version + OTA-Info
   const fwEl = document.getElementById('dash-fw-ver');
   if (fwEl && s.fw_version) fwEl.textContent = s.fw_version;
-  const otaEl = document.getElementById('dash-ota-pass');
-  if (otaEl && s.ota_pass) otaEl.textContent = s.ota_pass;
-  const tokenEl = document.getElementById('dash-auth-token');
-  if (tokenEl && s.auth_token) { tokenEl.textContent = s.auth_token; window._apiToken = s.auth_token; }
+  const otaEl = document.getElementById('cfg-ota-pass');
+  if (otaEl && s.ota_pass) { otaEl.dataset.value = s.ota_pass; if (!otaEl.matches(':hover')) otaEl.textContent = '••••••••'; }
+  const tokenEl = document.getElementById('cfg-auth-token');
+  if (tokenEl && s.auth_token) {
+    tokenEl.dataset.value = s.auth_token;
+    if (!tokenEl.matches(':hover')) tokenEl.textContent = '••••••••';
+    window._apiToken = s.auth_token;
+  }
 
   // Heap-Display
   const heapKB  = Math.round((s.free_heap  || 0) / 1024);
@@ -3316,6 +3328,16 @@ function confirmFactoryReset() {
   if (!confirm('Really reset to factory defaults? All configuration will be lost.')) return;
   apiCall('POST', '/api/factory-reset', {}).then(() => toast('Werks-Reset eingeleitet'));
 }
+function confirmSystemReboot() {
+  if (!confirm('Really reboot the system now?')) return;
+  apiCall('POST', '/api/reboot').then(() => toast('Rebooting…'));
+}
+
+// Reveal masked credentials (OTA pass / API token) on hover only
+document.querySelectorAll('.masked').forEach(el => {
+  el.addEventListener('mouseenter', () => { if (el.dataset.value) el.textContent = el.dataset.value; });
+  el.addEventListener('mouseleave', () => { el.textContent = '••••••••'; });
+});
 
 // ============================================================
 // Thermal
