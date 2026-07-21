@@ -743,7 +743,7 @@ void init() {
     spi_bus_initialize(SPI2_HOST, &buscfg, SPI_DMA_DISABLED);
 
     spi_device_interface_config_t devcfg = {};
-    devcfg.clock_speed_hz = 20 * 1000 * 1000;
+    devcfg.clock_speed_hz = 40 * 1000 * 1000;
     devcfg.mode           = 1;         // SPI Mode 1: CPOL=0, CPHA=1
     devcfg.spics_io_num   = -1;        // CS managed manually (GPIO W1TS/W1TC)
     devcfg.queue_size     = 4;
@@ -790,7 +790,7 @@ void init() {
     for (size_t i = 0; i < RING_FRAMES; i++) s_ring_sizes[i] = 0;
 
     dac8562Init();
-    ESP_LOGI(TAG, "Galvo init OK. DAC8562 16-Bit, SPI=20MHz, Rate=%d Hz", GALVO_RATE_HZ);
+    ESP_LOGI(TAG, "Galvo init OK. DAC8562 16-Bit, SPI=40MHz, Rate=%d Hz", GALVO_RATE_HZ);
 
     // ── DAC self-test: write three codes (min / mid / max) ────────────────
     // DAC8562 is write-only — no readback possible.
