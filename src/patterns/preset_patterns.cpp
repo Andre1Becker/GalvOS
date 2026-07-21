@@ -1305,12 +1305,12 @@ static size_t p88(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){ // S
 // (starting from last galvo position) to minimize total jump distance.
 // Each star: optimizer blank jump + manual dwell ticks (lit, same position).
 //
-// sp  = fall speed (0=slow, 255=fast)
-// sz  = star count (0=~20 stars, 255=~100 stars)
+// sp  = fall speed (0=stopped, 255=2x previous max speed)
+// sz  = star count (0=1 star, 255=150 stars) -- reflects actual star count
 static size_t p90(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     size_t n=0;
-    int nStars = 1 + (int)(sz / 255.f * 99.f);    // 1..100 stars
-    const float baseSpd = 1.0f + (sp / 255.f) * 19.0f;
+    int nStars = 1 + (int)(sz / 255.f * 149.f);   // 1..150 stars
+    const float baseSpd = (sp / 255.f) * 40.0f;   // 0..40 (was 1..20)
 
     // cfg first -- needed by both dwell calc and star-count cap.
     const optimizer::OptimizerConfig cfg = liveOptimizerConfig();
@@ -1340,9 +1340,9 @@ static size_t p90(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
 
     // Collect currently-visible stars.
     struct Star { float x, y; uint8_t r, g, b; bool used; };
-    static Star stars[128];
+    static Star stars[150];
     int ns = 0;
-    for (int i = 0; i < nStars && ns < 128; i++) {
+    for (int i = 0; i < nStars && ns < 150; i++) {
         const float xPos  = (fr(i * 7)  * 2.f - 1.f) * SC * 0.95f;
         const float iSpd  = baseSpd * (0.3f + fr(i * 3) * 1.4f);
         const float off   = fr(i * 5) * 2.2f;
@@ -1367,8 +1367,8 @@ static size_t p90(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     }
 
     // Greedy nearest-neighbor: start from last known galvo position,
-    // always pick the closest unvisited star next. O(n^2) -- fine for n<=100.
-    static Star sorted[128];
+    // always pick the closest unvisited star next. O(n^2) -- fine for n<=150.
+    static Star sorted[150];
     float cur_x = (n > 0) ? o[n-1].x : 0.f;
     float cur_y = (n > 0) ? o[n-1].y : 0.f;
     for (int s = 0; s < ns; s++) {
