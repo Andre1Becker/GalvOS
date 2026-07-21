@@ -1387,10 +1387,13 @@ static size_t p90(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     }
 
     // Emit: distanced-scaled blank jump (optimizer) + dwell (lit copies).
+    // dwell*2: survives galvo_out.cpp's LASER_ON_HOLD_TICKS hold-off after
+    // the blank jump -- plain dwell can be entirely swallowed by it at low
+    // galvo_kpps, leaving the star dark (see p_fireworks spark fix).
     for (int i = 0; i < ns && n < m; i++) {
         const Star& s = sorted[i];
         optimizer::emitBlankTo(o, n, m, s.x, s.y, cfg);
-        for (int d = 0; d < dwell && n < m; d++)
+        for (int d = 0; d < dwell * 2 && n < m; d++)
             ap(o, n, m, s.x, s.y, s.r, s.g, s.b, 0);
     }
     return n;
@@ -1711,7 +1714,10 @@ static size_t p106(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
 
         optimizer::emitBlankTo(o, n, m, px, py, cfg);
         const uint8_t vr = (uint8_t)(r * v), vg = (uint8_t)(g * v), vb = (uint8_t)(b * v);
-        for (int d = 0; d < dwell && n < m; d++) ap(o, n, m, px, py, vr, vg, vb, 0);
+        // dwell*2: survives the post-blank LASER_ON_HOLD_TICKS hold-off (see
+        // p_fireworks spark fix) -- plain dwell can be entirely swallowed by
+        // it at low galvo_kpps, leaving the dot dark.
+        for (int d = 0; d < dwell * 2 && n < m; d++) ap(o, n, m, px, py, vr, vg, vb, 0);
     }
     return n;
 }
@@ -1964,10 +1970,12 @@ static size_t p_bouncing(LaserPoint* o, size_t m, uint32_t ph, uint8_t sp, uint8
                     ap(o, n, m, b.trailX[t], b.trailY[t], tr_, tg_, tb_, 0);
             }
         }
-        // Head
+        // Head. dwell*2: survives the post-blank LASER_ON_HOLD_TICKS
+        // hold-off (see p_fireworks spark fix) -- plain dwell can be
+        // entirely swallowed by it at low galvo_kpps, leaving the head dark.
         if (n < m) {
             optimizer::emitBlankTo(o, n, m, b.x, b.y, cfg);
-            for (int d = 0; d < dwell && n < m; d++)
+            for (int d = 0; d < dwell * 2 && n < m; d++)
                 ap(o, n, m, b.x, b.y, br_, bg_, bb_, 0);
         }
     }
@@ -2451,7 +2459,13 @@ static size_t p_fireworks(LaserPoint* o, size_t m, uint32_t ph, uint8_t sp, uint
                     b = (uint8_t)((128 + 127 * sinf(h + 4.189f)) * fade * gl);
                 }
                 optimizer::emitBlankTo(o, n, m, px, py, cfg);
-                for (int k = 0; k < dwell && n < m; k++) ap(o, n, m, px, py, r, g, b, 0);
+                // galvo_out.cpp holds the laser off for LASER_ON_HOLD_TICKS (=2)
+                // ticks after every blank jump (LEDC turn-on latency). At low
+                // galvo_kpps, plain `dwell` is only 2 ticks -- the hold-off ate
+                // the entire spark, so every spark came out dark and only the
+                // rise/flash (which already use dwell*2) were visible. Match
+                // those so the hold-off leaves real lit ticks behind.
+                for (int k = 0; k < dwell * 2 && n < m; k++) ap(o, n, m, px, py, r, g, b, 0);
             }
         }
     }
@@ -2502,7 +2516,10 @@ static size_t p_milkyway(LaserPoint* o, size_t m, uint32_t ph, uint8_t sp, uint8
         const uint8_t b = v;
 
         optimizer::emitBlankTo(o, n, m, x, y, cfg);
-        for (int d = 0; d < dwell && n < m; d++) ap(o, n, m, x, y, r, g, b, 0);
+        // dwell*2: survives the post-blank LASER_ON_HOLD_TICKS hold-off (see
+        // p_fireworks spark fix) -- plain dwell can be entirely swallowed by
+        // it at low galvo_kpps, leaving the star dark.
+        for (int d = 0; d < dwell * 2 && n < m; d++) ap(o, n, m, x, y, r, g, b, 0);
     }
     return n;
 }
