@@ -335,8 +335,12 @@ void setup() {
     safety::init();
     galvo::init();
     ilda::init();
-    // NOTE: sd_card::init() is called AFTER galvo::start() below.
-    // SPIClass(FSPI).begin() must not run while SPI2 DAC self-test is active.
+    // NOTE: sd_card::init() is called AFTER galvo::start() below, on a
+    // short delay -- purely to let galvoTask reach steady state before
+    // more heap/task-creation activity happens on Core 0. SD now lives on
+    // its own independent SPI3 bus with dedicated GPIOs (see pinmap.h /
+    // sd_card.cpp), so unlike before, there is no longer a correctness
+    // requirement for this ordering -- it is boot-sequencing hygiene only.
     dmx_in::init();
     patterns::init();
     ESP_LOGI(TAG, "[heap] after patterns::init: %u B free", ESP.getFreeHeap());
@@ -457,9 +461,9 @@ void setup() {
     startTask(patterns::task, "pattern", 12288, 2, 0); // p=2: pattern calculation -- v5.20.0: bumped 8192->12288 after stack-canary crash, exact allocation unconfirmed, see stack_mon
     galvo::start();   // starts galvoTask on core 1 at highest priority
 
-    // SD card init runs in a separate one-shot task on Core 0.
-    // This prevents SPIClass(FSPI).begin() from conflicting with the
-    // galvoTask SPI2 transfers that start immediately after galvo::start().
+    // SD card init runs in a separate one-shot task on Core 0. SD is on
+    // its own independent SPI3 bus/GPIOs (see pinmap.h) -- this delay is
+    // just boot-sequencing hygiene, not a bus-conflict workaround.
     xTaskCreatePinnedToCore([](void*) {
         vTaskDelay(pdMS_TO_TICKS(500));  // wait for galvoTask steady-state
         if (sd_card::init()) {

@@ -22,11 +22,12 @@ These affect core functionality and should be resolved before relying on those f
 ### SD Card Causes Galvo Malfunction
 
 **Severity:** Critical  
-**Status:** Open  
+**Status:** Fixed in firmware v5.90.0 — **hardware rewire still pending**  
 **Symptom:** If an SD card is inserted, the galvos behave erratically — incorrect output, uncontrolled movement.  
-**Root cause:** Under investigation. The SD card shares SPI2 with the DAC8562 (SCK on GPIO12, MOSI on GPIO11). A timing or bus contention issue during SD card initialisation appears to corrupt DAC output. The current workaround is to not populate the SD card until this is resolved.  
-**Impact:** ILDA file playback from SD card is currently non-functional. ILDA files loaded via other means (Art-Net, Ether Dream) are unaffected.  
-**Workaround:** Leave the SD card slot empty. All other features (presets, WebUI, DMX, Art-Net) work normally.
+**Root cause:** Found. Not bus contention — the SD card was wired onto the DAC8562's SPI2 pins (SCK=GPIO12, MOSI=GPIO11, MISO=GPIO2, CS=GPIO9) under the assumption that Arduino's `SPIClass(HSPI)` attaches to SPI2_HOST on ESP32-S3. It does not: `HSPI` is bound to the independent SPI3 peripheral. Routing SPI3 onto SPI2's GPIOs meant two different peripherals both drove the same pins through the GPIO matrix, which only lets one peripheral own a pin's output at a time — `SPIClass::begin()` silently stole GPIO12/GPIO11 away from the DAC every time SD init ran, and real SD card traffic then appeared on the DAC's own clock/data lines, corrupting its output.  
+**Fix:** SD moved to fully independent GPIOs (SCK=GPIO5, MOSI=GPIO6, MISO=GPIO1, CS=GPIO42) on SPI3, with zero pin overlap with the DAC's SPI2 — see `include/pinmap.h` and `hardware/netlist.txt`. **The perfboard has not been rewired yet** — until the 4 SD wires are physically moved to GPIO5/6/1/42, `sd_card::init()` will simply fail to find a card (safe, but SD stays non-functional).  
+**Impact:** ILDA file playback from SD card is non-functional until the rewire is done. ILDA files loaded via other means (Art-Net, Ether Dream) are unaffected.  
+**Workaround (until rewired):** Leave the SD card slot empty. All other features (presets, WebUI, DMX, Art-Net) work normally.
 
 ---
 

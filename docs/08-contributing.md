@@ -66,7 +66,7 @@ GalvOS/
 │   ├── sensors/
 │   │   └── temp_monitor.{cpp,h}    # DS18B20 1-Wire + fan PWM control
 │   ├── storage/
-│   │   ├── sd_card.{cpp,h}         # SD card (FAT32, SPI2 shared with DAC)
+│   │   ├── sd_card.{cpp,h}         # SD card (FAT32, independent SPI3 bus)
 │   │   └── playlist.{cpp,h}        # ILDA playlist management
 │   └── util/
 │       ├── log_buffer.{cpp,h}      # Ring log buffer (WebUI log stream)

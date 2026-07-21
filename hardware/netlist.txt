@@ -58,15 +58,20 @@ U_6N_B Pin5 (GND)          -> GND
 SSR1 IN-                   -> GND
 AGND <-> GND               -> 0Ω star point (next to U2 DAC8562)
 
-── SPI BUS (DAC8562 + SD Card) ─────────────────────────────────────────────────
+── SPI BUS (DAC8562, SPI2 -- exclusive, no longer shared) ──────────────────────
 U1 ESP32-S3 J1-Pin18 GPIO12 -> U2 DAC8562 Pin7 (SCLK)
-U1 ESP32-S3 J1-Pin18 GPIO12 -> J_SD Pin3 (SCK)
 U1 ESP32-S3 J1-Pin17 GPIO11 -> U2 DAC8562 Pin8 (DIN)
-U1 ESP32-S3 J1-Pin17 GPIO11 -> J_SD Pin2 (MOSI)
 U1 ESP32-S3 J1-Pin16 GPIO10 -> U2 DAC8562 Pin6 /SYNC (CS)
-U1 ESP32-S3 J1-Pin15 GPIO9  -> J_SD Pin4 (CS)
-U1 ESP32-S3 J2-Pin5  GPIO2  -> J_SD Pin1 (MISO)
 U2 DAC8562 Pin4 (/LDAC)     -> AGND
+
+── SPI BUS (SD Card, SPI3 -- independent bus, own GPIOs) ───────────────────────
+-- REWIRE PENDING (fw v5.90.0): moved off GPIO12/11/2/9 (was silently stealing
+-- the DAC's SCLK/DIN pins via the GPIO matrix whenever SD.begin() ran -- root
+-- cause of "galvo goes erratic when a card is inserted"). Move these 4 wires:
+U1 ESP32-S3 J1-Pin5  GPIO5  -> J_SD Pin3 (SCK)
+U1 ESP32-S3 J1-Pin6  GPIO6  -> J_SD Pin2 (MOSI)
+U1 ESP32-S3 J2-Pin4  GPIO1  -> J_SD Pin1 (MISO)
+U1 ESP32-S3 J2-Pin6  GPIO42 -> J_SD Pin4 (CS)
 
 ── DAC8562 VREF + OPA4134 VREF BUFFER ──────────────────────────────────────────
 U2 DAC8562 Pin10 (VREFOUT)  -> C_vr 100nF [Ceramic] -> AGND

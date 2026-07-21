@@ -1,7 +1,7 @@
 #pragma once
 /**
  * sd_card.h -- SD card management
- * SPI2 bus (shared with DAC8562, own CS pin)
+ * SPI3 bus, fully independent from DAC8562's SPI2 (see pinmap.h)
  */
 #include <stdint.h>
 #include <stddef.h>

@@ -142,7 +142,7 @@ A technique for controlling power (brightness, speed) by rapidly switching a sig
 A measure of the radio signal power received by the Wi-Fi chip. Expressed in dBm in GalvOS. More negative = weaker signal. See dBm above.
 
 **SPI (Serial Peripheral Interface)**
-A synchronous serial communication protocol using four signals: SCK (clock), MOSI (data from master to slave), MISO (data from slave to master), and CS/SS (chip select, one per device). GalvOS uses SPI2 for the DAC8562 and SD card (shared bus, separate CS lines).
+A synchronous serial communication protocol using four signals: SCK (clock), MOSI (data from master to slave), MISO (data from slave to master), and CS/SS (chip select, one per device). GalvOS uses SPI2 for the DAC8562 and an independent SPI3 bus for the SD card — separate peripherals, separate GPIOs, no bus sharing.
 
 **TTL (Transistor-Transistor Logic)**
 A family of digital logic signals where a HIGH voltage (typically 3.3 V or 5 V) represents a logical 1 and LOW (0 V) represents a logical 0. In GalvOS, the laser control signals are called "TTL" to distinguish them from the analogue galvo drive signals, even though the actual signal levels are 0 V / 1.65 V after the voltage-divider network.

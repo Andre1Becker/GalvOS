@@ -84,13 +84,6 @@ void snapDebug(uint32_t& updates, uint8_t& gr, uint8_t& gg, uint8_t& gb,
 bool dacOk();
 bool noHwMode();
 
-// ── Shared SPI2 bus access ───────────────────────────────────────────────
-// Returns the SPI2_HOST handle after galvo::init() has run.
-// sd_card::init() uses this to add the SD card as a second SPI2 device
-// (CS=GPIO9) without reinitializing the bus.
-// Must NOT be called before galvo::init().
-spi_host_device_t getSpi2Host();
-
 // Logs the most recent DAC X/Y codes (~2Hz, called from a non-IRAM task)
 // when gConfig.dac_debug_log is enabled. Safe to call every ~500ms.
 // ── DAC low-level diagnostics ─────────────────────────────────────────────

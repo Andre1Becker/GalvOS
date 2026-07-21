@@ -1,22 +1,28 @@
 /**
- * sd_card.cpp -- SD card on SPI2_HOST (shared with DAC8562)
+ * sd_card.cpp -- SD card on its own independent SPI3 bus
  *
- * Architecture:
- *   - DAC8562 and SD card share SPI2_HOST (initialized by galvo::init())
- *   - galvo::init() configures SPI2 with MISO=GPIO2, DMA=AUTO
- *   - SD card added as second SPI2 device via spi_bus_add_device(CS=GPIO9)
- *   - galvo DAC uses CS=GPIO10, SD uses CS=GPIO9 — fully independent
- *   - Arduino SD library wraps the IDF device handle via SdSpiDriver
+ * FIX vX.Y.Z: previously wired onto GPIO12/11/2/9, reusing the DAC8562's
+ * SPI2 pins under the assumption that Arduino's SPIClass(HSPI) on
+ * ESP32-S3 attaches to SPI2_HOST. It does not -- HSPI is bound to the
+ * independent SPI3 peripheral (register base 0x60025000). Wiring it onto
+ * SPI2's GPIOs meant two different peripherals both tried to drive the
+ * same pins through the GPIO matrix, which only lets one peripheral own
+ * a pin's output at a time: SPIClass::begin() silently stole GPIO12/11
+ * away from the DAC every time it ran, and real SD traffic then showed
+ * up on the DAC's SCK/MOSI lines -- the root cause of "galvo goes
+ * erratic when a card is inserted".
  *
- * Pins (all on SPI2 bus):
- *   SCK  = GPIO12 (PIN_GALVO_SCK,  shared)
- *   MOSI = GPIO11 (PIN_GALVO_MOSI, shared)
- *   MISO = GPIO2  (PIN_SD_MISO,    SD only — DAC has no MISO)
- *   CS   = GPIO9  (PIN_SD_CS,      SD only)
- *   CS   = GPIO10 (PIN_GALVO_CS,   DAC only)
+ * Now SD uses fully dedicated GPIOs on SPI3 -- no pins, no registers,
+ * no bus in common with the DAC's SPI2 at all. Arduino's SD library
+ * drives the SPIClass object directly (esp32-hal-spi.c raw HAL), not
+ * the ESP-IDF spi_master driver -- unrelated to how galvo_out.cpp
+ * talks to SPI2.
  *
- * Note: GPIO39/41 are no longer used for SD. They remain freed from
- *       NE555/Encoder assignments but are currently unconnected.
+ * Pins (all on SPI3, independent from galvo's SPI2):
+ *   SCK  = GPIO5  (PIN_SD_SCK)
+ *   MOSI = GPIO6  (PIN_SD_MOSI)
+ *   MISO = GPIO1  (PIN_SD_MISO)
+ *   CS   = GPIO42 (PIN_SD_CS)
  */
 #include "sd_card.h"
 #include "mutex.h"
@@ -28,13 +34,11 @@
 #include <string.h>
 #include "util/log_buffer.h"
 #include <driver/gpio.h>
-#include <driver/spi_master.h>
-#include "output/galvo_out.h"
 
 static const char* TAG = "sd_card";
 
-// Arduino SPIClass wrapping SPI2_HOST — same bus as DAC, different CS
-static SPIClass s_sd_spi(HSPI);  // HSPI = SPI2_HOST on ESP32-S3
+// Arduino SPIClass on SPI3_HOST — independent peripheral from the DAC's SPI2
+static SPIClass s_sd_spi(HSPI);  // HSPI = SPI3_HOST on ESP32-S3
 
 static bool     s_ready      = false;
 static uint8_t  s_file_count = 0;
@@ -47,30 +51,26 @@ static char     s_names[ILDA_MAX_FILES][64];
 namespace sd_card {
 
 bool init() {
-    // SPI2 bus is already initialized by galvo::init() with:
-    //   MOSI=GPIO11, MISO=GPIO2, SCK=GPIO12, DMA=AUTO
-    // We add the SD card as a second device on the same bus (CS=GPIO9).
-    // The Arduino SD library uses SPIClass — attach it to SPI2 (HSPI)
-    // with the correct pins. SPIClass::begin() on an already-initialized
-    // IDF bus is safe: it calls spi_bus_add_device() internally when
-    // the bus was set up by the same Arduino SPI infrastructure.
-    //
-    // IMPORTANT: galvo uses the IDF low-level API directly (spi_device_polling_transmit).
-    // We must ensure SD transactions use SPI transactions (not polling) to avoid
-    // collisions. The Arduino SD library uses spi_device_transmit() which is
-    // properly queued.
+    // SD runs on SPI3 via Arduino's SPIClass(HSPI) -- a completely
+    // independent hardware peripheral from the DAC's SPI2, on its own
+    // dedicated GPIOs (see pinmap.h for why the two must never share
+    // pins). SPIClass drives it through esp32-hal-spi.c's raw register
+    // HAL, not the ESP-IDF spi_master driver -- fine, since it no longer
+    // touches anything galvo_out.cpp uses.
 
-    // GPIO2 strapping pin: ensure pull-up is active
+    // MISO idle pull-up: some cards tri-state DO while deselected: without
+    // a pull-up the line floats and can be misread as garbage during the
+    // idle-poll (0xFF) sequences below.
     gpio_reset_pin((gpio_num_t)PIN_SD_MISO);
     gpio_set_direction((gpio_num_t)PIN_SD_MISO, GPIO_MODE_INPUT);
     gpio_set_pull_mode((gpio_num_t)PIN_SD_MISO, GPIO_PULLUP_ONLY);
     vTaskDelay(pdMS_TO_TICKS(20));
 
-    // Attach SPIClass to SPI2 with the shared pins + SD CS
-    s_sd_spi.begin(PIN_GALVO_SCK, PIN_SD_MISO, PIN_GALVO_MOSI, PIN_SD_CS);
+    // Attach SPIClass to SD's dedicated SPI3 pins
+    s_sd_spi.begin(PIN_SD_SCK, PIN_SD_MISO, PIN_SD_MOSI, PIN_SD_CS);
 
-    ESP_LOGI(TAG, "SD on SPI2: SCK=%d MOSI=%d MISO=%d CS=%d",
-             PIN_GALVO_SCK, PIN_GALVO_MOSI, PIN_SD_MISO, PIN_SD_CS);
+    ESP_LOGI(TAG, "SD on SPI3 (independent): SCK=%d MOSI=%d MISO=%d CS=%d",
+             PIN_SD_SCK, PIN_SD_MOSI, PIN_SD_MISO, PIN_SD_CS);
 
     // SD spec: >=74 clock pulses with CS=HIGH before CMD0
     pinMode(PIN_SD_CS, OUTPUT);

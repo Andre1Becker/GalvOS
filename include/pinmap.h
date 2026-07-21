@@ -134,18 +134,29 @@
  */
 
 /* ============================================================
- * SPI 2 (FSPI) -- SD card (shares bus with DAC8562)
- * SCK + MOSI shared with DAC8562.
- * MISO added (DAC8562 has no MISO → no conflict).
+ * SPI 3 (HSPI = independent GPSPI3 peripheral on ESP32-S3) -- SD card
+ *
+ * FIX vX.Y.Z: previously routed onto GPIO12/11/2/9 -- the same GPIOs
+ * as the DAC8562's SPI2 bus. That was never a real "shared bus": on
+ * ESP32-S3, Arduino's SPIClass(HSPI) is bound to the SPI3 hardware
+ * peripheral (register base 0x60025000), NOT SPI2. Routing it onto
+ * SPI2's pins just meant two *different* peripherals were both trying
+ * to drive the same GPIOs via the GPIO matrix, which only lets ONE
+ * peripheral signal own a given pin's output at a time -- whichever
+ * side called SPIClass::begin() last silently stole GPIO12 (SCK) and
+ * GPIO11 (MOSI) away from SPI2, disconnecting the DAC8562 from its own
+ * clock/data lines. Whenever the SD card was actually transacting,
+ * its real SPI3 traffic ended up on the DAC's SCK/MOSI pins instead --
+ * root cause of "galvo goes erratic when a card is inserted".
+ *
+ * Fix: fully independent GPIOs, not just an independent peripheral.
+ * No pin overlap with SPI2 at all -- zero interaction with the DAC.
  * ============================================================ */
-#define PIN_SD_MISO       2   /* J2-Pin5  = GPIO2  */   /* SD card MISO (strapping pin, pull-up required) */
-#define PIN_SD_CS         9   /* J1-Pin15 = GPIO9  */   /* SD card CS — independent from DAC CS=GPIO10   */
-// SD card shares SPI2 bus with DAC8562:
-//   SCK  = PIN_GALVO_SCK  (GPIO12) — shared
-//   MOSI = PIN_GALVO_MOSI (GPIO11) — shared
-//   MISO = PIN_SD_MISO    (GPIO2)  — SD only (DAC has no MISO)
-//   CS   = PIN_SD_CS      (GPIO9)  — SD only
-// GPIO39 and GPIO41 are now free (unconnected, not used by SD anymore).
+#define PIN_SD_SCK         5   /* J1-Pin5  = GPIO5  */   /* SD card SCK  — dedicated SPI3 pin, no galvo overlap */
+#define PIN_SD_MOSI        6   /* J1-Pin6  = GPIO6  */   /* SD card MOSI — dedicated SPI3 pin, no galvo overlap */
+#define PIN_SD_MISO        1   /* J2-Pin4  = GPIO1  */   /* SD card MISO — dedicated SPI3 pin, no galvo overlap */
+#define PIN_SD_CS         42   /* J2-Pin6  = GPIO42 */   /* SD card CS   — dedicated SPI3 pin, no galvo overlap */
+// GPIO2 and GPIO9 (formerly SD MISO/CS) are now free.
 
 /* ILDA player config */
 #define ILDA_MAX_FILES   40   /* Maximum count of .ild files on SD */

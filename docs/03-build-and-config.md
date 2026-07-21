@@ -321,14 +321,15 @@ All GPIO assignments are defined in `include/pinmap.h`. The following table summ
 
 | GPIO | Assignment | Direction | Notes |
 |------|-----------|-----------|-------|
-| 2 | `PIN_SD_MISO` | Input | SD card MISO. Strapping pin — pull-up required. |
+| 1 | `PIN_SD_MISO` | Input | SD card MISO on SPI3 (independent from DAC's SPI2). Pull-up recommended. |
 | 4 | `PIN_DMX_RX` | Input | DMX-512 receive from MAX485 RO |
+| 5 | `PIN_SD_SCK` | Output | SD card SCK on SPI3 (independent from DAC's SPI2) |
+| 6 | `PIN_SD_MOSI` | Output | SD card MOSI on SPI3 (independent from DAC's SPI2) |
 | 7 | `PIN_LASER_R` | Output | Red laser TTL (via 6N137). Fail-safe pull-up R_FSR 10kΩ → +3.3V |
 | 8 | `PIN_LASER_G` | Output | Green laser TTL (via 6N137). Fail-safe pull-up R_FSG 10kΩ → +3.3V |
-| 9 | `PIN_SD_CS` | Output | SD card chip select |
 | 10 | `PIN_GALVO_CS` | Output | DAC8562 /SYNC (chip select) on SPI2 |
-| 11 | `PIN_GALVO_MOSI` | Output | SPI2 MOSI — shared with SD card |
-| 12 | `PIN_GALVO_SCK` | Output | SPI2 SCLK — shared with SD card |
+| 11 | `PIN_GALVO_MOSI` | Output | SPI2 MOSI — DAC8562 only, no longer shared |
+| 12 | `PIN_GALVO_SCK` | Output | SPI2 SCLK — DAC8562 only, no longer shared |
 | 13 | `PIN_DAC_CLR_N` | Output | DAC8562 /CLR — pulsed LOW at init, then HIGH |
 | 14 | `PIN_WATCHDOG_OUT` | Output | Hardware watchdog heartbeat to NE555 (U12) |
 | 16 | `PIN_FAN1_PWM` | Output | Fan 1 PWM (25 kHz, 8-bit) |
@@ -337,6 +338,7 @@ All GPIO assignments are defined in `include/pinmap.h`. The following table summ
 | 21 | `PIN_LASER_B` | Output | Blue laser TTL (via 6N137). Fail-safe pull-up R_FSB 10kΩ → +3.3V |
 | 38 | `PIN_LASER_ENABLE` | Output | Central laser enable → SSR1. HIGH only when all safety checks pass. |
 | 39 | `PIN_SCAN_FAIL_IN` | Input | NE555 scan-fail output (U11) |
+| 42 | `PIN_SD_CS` | Output | SD card chip select on SPI3 (independent from DAC's SPI2) |
 | 43 | `PIN_DEBUG_TX` | Output | UART0 TX / USB CDC TX |
 | 44 | `PIN_DEBUG_RX` | Input | UART0 RX / USB CDC RX |
 | 47 | `PIN_ESTOP` | Input | Emergency stop (active = pin HIGH via pull-up = E-stop not pressed) |

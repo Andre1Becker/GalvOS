@@ -181,9 +181,10 @@ static inline void IRAM_ATTR writeDAC8562XY(uint16_t x, uint16_t y) {
         GALVO_SPI2_USER  = u;
         GALVO_SPI2_USER1 = 0;
         GALVO_SPI2_USER2 = 0;
-        // Disable DMA-TX: SPI bus initialized with SPI_DMA_CH_AUTO for SD card,
-        // but W0 CPU-mode transfers require DMA_TX_ENA=0. SD access is blocked
-        // while galvoTask runs, so safe to hold this cleared permanently.
+        // Disable DMA-TX: required for W0 CPU-mode transfers. SPI2 is
+        // initialized with SPI_DMA_CH_DISABLED and is exclusively owned by
+        // the DAC (SD card is on its own independent SPI3 bus, see
+        // pinmap.h), so this is safe to hold cleared permanently.
         GALVO_SPI2_DMA_CONF &= ~GALVO_SPI2_DMA_TX_ENA;
         s_spi_user_configured = true;
     }
@@ -728,14 +729,18 @@ void init() {
         }
         return;
     }
+    // SPI2 is now exclusively owned by the DAC8562 -- the SD card lives on
+    // its own independent SPI3 bus with dedicated GPIOs (see pinmap.h /
+    // sd_card.cpp). No MISO needed (DAC8562 is write-only) and no DMA
+    // needed (24-bit polled/raw-register transfers only).
     spi_bus_config_t buscfg = {};
     buscfg.mosi_io_num    = PIN_GALVO_MOSI;
-    buscfg.miso_io_num    = PIN_SD_MISO;    // GPIO2: needed for SD card MISO
+    buscfg.miso_io_num    = -1;
     buscfg.sclk_io_num    = PIN_GALVO_SCK;
     buscfg.quadwp_io_num  = -1;
     buscfg.quadhd_io_num  = -1;
-    buscfg.max_transfer_sz = 4096;          // increased for SD block transfers
-    spi_bus_initialize(SPI2_HOST, &buscfg, SPI_DMA_CH_AUTO); // DMA for SD
+    buscfg.max_transfer_sz = 32;            // DAC frames are 3 bytes; small headroom
+    spi_bus_initialize(SPI2_HOST, &buscfg, SPI_DMA_DISABLED);
 
     spi_device_interface_config_t devcfg = {};
     devcfg.clock_speed_hz = 20 * 1000 * 1000;
@@ -1104,7 +1109,6 @@ void snapDebug(uint32_t& updates, uint8_t& gr, uint8_t& gg, uint8_t& gb,
 
 bool dacOk()    { return s_dac_ok; }
 bool noHwMode() { return gDebugNoHW; }
-spi_host_device_t getSpi2Host() { return SPI2_HOST; }
 
 // Internal worker -- only called from galvoTask (Core 1), which owns SPI2.
 static bool sendRawCommandImpl(uint8_t cmd3, uint8_t addr3, uint16_t data) {

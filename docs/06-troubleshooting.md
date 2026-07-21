@@ -104,8 +104,8 @@ If the ESP32 crashes with a Guru Meditation error, the serial monitor prints a b
 
 ### Galvos go crazy when SD card is inserted
 
-**Cause:** Known bug — SPI2 bus contention between DAC8562 and SD card during SD initialisation. The DAC receives corrupted data.  
-**Fix:** Do not insert the SD card. See [Known Issues](09-known-issues-and-todos.md).
+**Cause:** SD card wired onto the DAC8562's SPI2 pins; the GPIO matrix let SD's real SPI3 traffic overwrite the DAC's clock/data lines. Fixed in firmware v5.90.0, but requires a physical rewire (SD → GPIO5/6/1/42) — see [Known Issues](09-known-issues-and-todos.md).  
+**Fix (until rewired):** Do not insert the SD card.
 
 ### Output is mirrored horizontally
 
@@ -310,8 +310,8 @@ If the ESP32 crashes with a Guru Meditation error, the serial monitor prints a b
 
 ### SD card causes galvo malfunction
 
-**Cause:** Known critical bug — SPI2 bus contention during SD initialisation corrupts DAC8562 output.  
-**Fix:** Remove the SD card. All other features work normally without it. See [Known Issues](09-known-issues-and-todos.md).
+**Cause:** SD card wired onto the DAC8562's SPI2 pins; the GPIO matrix let SD's real SPI3 traffic overwrite the DAC's clock/data lines. Fixed in firmware v5.90.0, but requires a physical rewire (SD → GPIO5/6/1/42) — see [Known Issues](09-known-issues-and-todos.md).  
+**Fix (until rewired):** Remove the SD card. All other features work normally without it.
 
 ### ILDA files not listed in the ILDA tab
 
