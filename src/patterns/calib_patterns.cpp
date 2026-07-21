@@ -439,6 +439,12 @@ static size_t zone_outline(LaserPoint* o, size_t mx,
 // unambiguous:  Red = top-left, Green = top-right, Blue = bottom-right,
 // White = bottom-left. A dim frame connects the four dots as a reference.
 // DAC space here is +y = up, so top = +SC, bottom = -SC.
+//
+// NOTE: the optical path mirrors the image on X (DAC +x ends up on the
+// physical left, DAC -x on the physical right; Y is not mirrored). The
+// table below assigns colors to DAC coordinates so the *physical* result
+// matches the mapping above -- do not "simplify" this back to DAC-space
+// left/right without re-verifying on the actual projection.
 static size_t corner_color_map(LaserPoint* o, size_t mx,
                                 uint32_t phase, uint8_t bright, uint8_t ch) {
     size_t n = 0;
@@ -447,10 +453,10 @@ static size_t corner_color_map(LaserPoint* o, size_t mx,
     // corner position + its RGB colour (before gamma / white-balance)
     struct Corner { float x, y; uint8_t r, g, b; };
     const Corner corners[4] = {
-        { -S,  S, 255,   0,   0 },  // top-left    = Red
-        {  S,  S,   0, 255,   0 },  // top-right   = Green
-        {  S, -S,   0,   0, 255 },  // bottom-right= Blue
-        { -S, -S, 255, 255, 255 },  // bottom-left = White
+        { -S,  S,   0, 255,   0 },  // DAC top-left     -> physical top-right:    Green
+        {  S,  S, 255,   0,   0 },  // DAC top-right     -> physical top-left:    Red
+        {  S, -S, 255, 255, 255 },  // DAC bottom-right  -> physical bottom-left: White
+        { -S, -S,   0,   0, 255 },  // DAC bottom-left   -> physical bottom-right:Blue
     };
 
     // dim neutral frame joining the corners (spatial reference)
