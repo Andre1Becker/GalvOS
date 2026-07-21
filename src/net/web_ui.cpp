@@ -27,6 +27,7 @@
 #include <math.h>
 #include <string.h>
 #include <memory>
+#include <atomic>
 #include <ESPAsyncWebServer.h>
 #include <AsyncTCP.h>
 #include <ArduinoJson.h>
@@ -44,6 +45,19 @@ AsyncWebServer s_server(80);  // file-scope: ota_update sieht es
 namespace web_ui {
 
 static const char* TAG = "web";
+
+// ── Concurrent-request counter ────────────────────────────────────────────────
+// Diagnostic only: a browser hard-reload opens several parallel connections
+// (static assets) plus the SPA immediately firing off its full set of initial
+// /api/* GETs -- all sharing the single system-wide CONFIG_LWIP_MAX_SOCKETS=16
+// netconn pool (also used by AsyncTCP, etherdream's UDP+TCP sockets, artnet_in,
+// ntp_client). If that pool runs dry, unrelated lwIP calls elsewhere (e.g.
+// etherdream's UDP beacon sendto()) fail with ENOMEM despite a healthy general
+// heap. Logged by etherdream.cpp at the moment of a beacon send failure to
+// test that theory against hardware.
+static std::atomic<int> s_active_requests{0};
+
+int activeRequests() { return s_active_requests.load(); }
 
 // ── PSRAM-backed JSON response ────────────────────────────────────────────────
 // serializeJson() into an Arduino String allocates on the internal DRAM heap,
@@ -554,6 +568,14 @@ static void wifiScanTask(void*) {
 void init() {
     generateAuthToken();
     loadZone();
+
+    // Must run before any s_server.on(...) registration -- middleware wraps
+    // every request the server handles, including static assets and API GETs.
+    s_server.addMiddleware([](AsyncWebServerRequest* req, ArMiddlewareNext next) {
+        s_active_requests++;
+        req->onDisconnect([]() { s_active_requests--; });
+        next();
+    });
 
     s_paint_body = (char*)ps_malloc(PAINT_BODY_CAP);
     if (!s_paint_body) ESP_LOGE(TAG, "PSRAM alloc failed for paint body buffer");

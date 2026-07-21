@@ -87,6 +87,7 @@ None atm :-)
 
 **Status:** Open  
 **Symptom:** The ILDA standard test pattern (used to verify galvo linearity and speed) does not render correctly. This makes it unsuitable as a calibration reference until resolved.
+**Solution:** Remove completely as not needed
 
 ---
 
@@ -107,6 +108,8 @@ These are features that are designed and intended, but not yet implemented.
 
 The plan is to add an auto-tuning mode that uses a global-shutter camera input to capture the projected image and automatically calibrate galvo linearity, offset, gain, and potentially optimizer parameters. This would replace the current manual calibration workflow.
 
+**Optimize Heap Usage even more:** 117KBs to 121 KBs Untracked Heap Memory usage
+
 ---
 
 ## Contributing a Fix
@@ -115,7 +118,7 @@ If you fix one of the issues above, please see [Chapter 8 — Contributing](08-c
 
 When submitting a fix for a known issue, reference the issue name from this chapter in your commit message body:
 
-```
+```text
 Fix Typewriter animation looping
 
 Typewriter now restarts after completing one pass.

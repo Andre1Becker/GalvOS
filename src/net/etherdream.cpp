@@ -16,6 +16,7 @@
 #include "output/galvo_out.h"
 #include "safety/safety.h"
 #include "util/log_buffer.h"
+#include "net/web_ui.h"
 
 #include <Arduino.h>
 #include <WiFi.h>
@@ -173,12 +174,18 @@ static void sendBeacon() {
         size_t free_int    = heap_caps_get_free_size(MALLOC_CAP_INTERNAL);
         size_t largest_int = heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL);
         int8_t rssi = WiFi.RSSI();
-        ESP_LOGW(TAG, "Beacon: endPacket failed (%u consecutive, errno=%d) heap=%u/%u rssi=%d",
+        // Requests currently in flight through web_ui's AsyncWebServer --
+        // shares the system-wide CONFIG_LWIP_MAX_SOCKETS=16 netconn pool with
+        // this very socket. A spike here at fail time (e.g. during a browser
+        // hard-reload's burst of parallel asset + /api/* requests) would
+        // explain ENOMEM on a perfectly healthy general heap.
+        int http_inflight = web_ui::activeRequests();
+        ESP_LOGW(TAG, "Beacon: endPacket failed (%u consecutive, errno=%d) heap=%u/%u rssi=%d http_inflight=%d",
                  s_beacon_fail_count, send_errno,
-                 (unsigned)free_int, (unsigned)largest_int, (int)rssi);
-        LOG_W(logbuf::CAT_WIFI, "Beacon fail #%u errno=%d heap=%u/%u rssi=%d",
+                 (unsigned)free_int, (unsigned)largest_int, (int)rssi, http_inflight);
+        LOG_W(logbuf::CAT_WIFI, "Beacon fail #%u errno=%d heap=%u/%u rssi=%d http=%d",
               s_beacon_fail_count, send_errno,
-              (unsigned)free_int, (unsigned)largest_int, (int)rssi);
+              (unsigned)free_int, (unsigned)largest_int, (int)rssi, http_inflight);
         bool mem_pressure = (send_errno == ENOMEM || send_errno == ENOBUFS);
 
         // send_errno is often EHOSTUNREACH/ENETUNREACH (118/114), not
