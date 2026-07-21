@@ -165,6 +165,15 @@ static volatile int    s_scan_results = 0;
 static volatile bool   s_scan_error   = false;
 static volatile bool   s_scan_done    = false;  // true once a completed result is waiting to be picked up
 
+// Scan results are fetched straight from the IDF driver (esp_wifi_scan_get_ap_records)
+// instead of via WiFi.SSID(i)/RSSI(i) -- those read WiFiScanClass's own cache, which is
+// only populated by its SCAN_DONE event handler, an async hop through the arduino
+// event-queue task whose timing turned out to be unreliable under load. Own PSRAM
+// storage sidesteps that dependency entirely.
+struct ScanNetInfo { char ssid[33]; int8_t rssi; uint8_t channel; bool secure; };
+static const int    SCAN_MAX_NETS = 32;
+static ScanNetInfo* s_scan_nets   = nullptr;
+
 // ── /api/paint/set chunked-body buffer (fixed PSRAM, no per-request heap alloc) ──
 // Previous impl used `new String()` per request, freed only on the success
 // path. An aborted/dropped upload (never reaching index+len==total) leaked
@@ -497,22 +506,42 @@ static void wifiScanTask(void*) {
                  (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL));
     }
 
-    int n = -1;
-    if (err == ESP_OK) {
-        // The SCAN_DONE event (and Arduino's result caching) may lag the
-        // blocking call's return by a beat -- give it up to 500ms to land.
-        for (int i = 0; i < 25 && n < 0; i++) {
-            n = WiFi.scanComplete();
-            if (n < 0) vTaskDelay(pdMS_TO_TICKS(20));
+    // block=true already guarantees the scan is physically done by the time
+    // esp_wifi_scan_start() returns -- fetch results straight from the driver right
+    // now rather than waiting on WiFiScanClass's own SCAN_DONE bit (see comment at
+    // s_scan_nets: that async hop is what silently never resolved in the field).
+    int n = 0;
+    if (err == ESP_OK && s_scan_nets) {
+        uint16_t ap_count = 0;
+        esp_wifi_scan_get_ap_num(&ap_count);
+        if (ap_count > SCAN_MAX_NETS) ap_count = SCAN_MAX_NETS;
+        if (ap_count > 0) {
+            wifi_ap_record_t* records = (wifi_ap_record_t*)heap_caps_malloc(
+                sizeof(wifi_ap_record_t) * ap_count, MALLOC_CAP_SPIRAM);
+            if (records) {
+                esp_wifi_scan_get_ap_records(&ap_count, records);
+                for (uint16_t i = 0; i < ap_count; i++) {
+                    strlcpy(s_scan_nets[i].ssid, (const char*)records[i].ssid, sizeof(s_scan_nets[i].ssid));
+                    s_scan_nets[i].rssi    = records[i].rssi;
+                    s_scan_nets[i].channel = records[i].primary;
+                    s_scan_nets[i].secure  = (records[i].authmode != WIFI_AUTH_OPEN);
+                }
+                heap_caps_free(records);
+                n = ap_count;
+            } else {
+                ESP_LOGW(TAG, "WiFi-Scan: PSRAM alloc failed for %u AP records", ap_count);
+            }
         }
+    } else if (err != ESP_OK) {
+        n = -1;
     }
     s_scan_results = (n < 0) ? 0 : n;
     s_scan_error   = (n < 0);
     s_scan_done    = true;
     s_scan_running = false;
     if (n < 0) {
-        ESP_LOGW(TAG, "WiFi-Scan gave up after %d attempts (err=%s, poll=%d), AP_active=%d",
-                 kMaxAttempts, esp_err_to_name(err), n, WiFi.getMode() == WIFI_AP_STA);
+        ESP_LOGW(TAG, "WiFi-Scan gave up after %d attempts (err=%s), AP_active=%d",
+                 kMaxAttempts, esp_err_to_name(err), WiFi.getMode() == WIFI_AP_STA);
     } else {
         ESP_LOGI(TAG, "WiFi-Scan: %d networks found", s_scan_results);
     }
@@ -529,6 +558,10 @@ void init() {
     s_paint_body = (char*)ps_malloc(PAINT_BODY_CAP);
     if (!s_paint_body) ESP_LOGE(TAG, "PSRAM alloc failed for paint body buffer");
     else memreg::track("Paint Body Buffer", PAINT_BODY_CAP, true);
+
+    s_scan_nets = (ScanNetInfo*)ps_malloc(sizeof(ScanNetInfo) * SCAN_MAX_NETS);
+    if (!s_scan_nets) ESP_LOGE(TAG, "PSRAM alloc failed for WiFi scan buffer");
+    else memreg::track("WiFi Scan Buffer", sizeof(ScanNetInfo) * SCAN_MAX_NETS, true);
 
     if (!LittleFS.begin(true))
         ESP_LOGE(TAG, "LittleFS mount failed");
@@ -1672,16 +1705,19 @@ void init() {
             sendJsonPsram(req, doc);
             return;
         }
-        // Ergebnisse liefern
+        // Ergebnisse liefern -- from our own PSRAM buffer, not WiFi.SSID(i)/RSSI(i)
+        // (see s_scan_nets comment: those read a cache the scan task no longer fills)
         int n = s_scan_results;
         doc["status"] = "done";
         JsonArray arr = doc["networks"].to<JsonArray>();
-        for (int i = 0; i < n; i++) {
-            JsonObject net = arr.add<JsonObject>();
-            net["ssid"]    = WiFi.SSID(i);
-            net["rssi"]    = WiFi.RSSI(i);
-            net["secure"]  = (WiFi.encryptionType(i) != WIFI_AUTH_OPEN);
-            net["channel"] = WiFi.channel(i);
+        if (s_scan_nets) {
+            for (int i = 0; i < n && i < SCAN_MAX_NETS; i++) {
+                JsonObject net = arr.add<JsonObject>();
+                net["ssid"]    = s_scan_nets[i].ssid;
+                net["rssi"]    = s_scan_nets[i].rssi;
+                net["secure"]  = s_scan_nets[i].secure;
+                net["channel"] = s_scan_nets[i].channel;
+            }
         }
         WiFi.scanDelete();
         s_scan_results = 0;
