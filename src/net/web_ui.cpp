@@ -462,24 +462,32 @@ static void wifiScanTask(void*) {
     s_scan_running = true;
     s_scan_results = 0;
     s_scan_error   = false;
-    // Synchronous scan -- blocks ~2-3s, runs in its own task
-    int n = WiFi.scanNetworks(false, false);
-    if (n == WIFI_SCAN_RUNNING) {
-        // The IDF driver's internal scan-busy bit was already set (e.g. a previous
-        // scan got interrupted by a WiFi.mode() switch -- AP_STA->STA on reconnect --
-        // and never delivered its SCAN_DONE event, so the bit stuck forever). A plain
-        // retry always returns -1 again; force-clear the stuck state first.
-        ESP_LOGW(TAG, "WiFi-Scan stuck (WIFI_SCAN_RUNNING) -- forcing esp_wifi_scan_stop() and retrying");
-        esp_wifi_scan_stop();
-        vTaskDelay(pdMS_TO_TICKS(200));
+
+    // WIFI_SCAN_RUNNING (-1): the IDF driver's internal scan-busy bit was already
+    // set, e.g. a previous scan got interrupted by a WiFi.mode() switch (AP_STA->STA
+    // on reconnect) and never delivered its SCAN_DONE event, leaving the bit stuck.
+    // WIFI_SCAN_FAILED (-2): esp_wifi_scan_start() itself failed (radio busy/STA
+    // mid-(re)connect), or the scan started but never signalled completion within
+    // the wrapper's 10s wait. Both are worth a retry after clearing scan state.
+    int n = WIFI_SCAN_FAILED;
+    const int kMaxAttempts = 3;
+    for (int attempt = 1; attempt <= kMaxAttempts; attempt++) {
+        if (attempt > 1) {
+            esp_wifi_scan_stop();
+            vTaskDelay(pdMS_TO_TICKS(300 * attempt));
+        }
         n = WiFi.scanNetworks(false, false);
+        if (n >= 0) break;
+        ESP_LOGW(TAG, "WiFi-Scan attempt %d/%d failed (code %d), wifi_status=%d mode=%d",
+                 attempt, kMaxAttempts, n, (int)WiFi.status(), (int)WiFi.getMode());
     }
     s_scan_results = (n < 0) ? 0 : n;
     s_scan_error   = (n < 0);
     s_scan_done    = true;
     s_scan_running = false;
     if (n < 0) {
-        ESP_LOGW(TAG, "WiFi-Scan failed (code %d), AP_active=%d", n, WiFi.getMode() == WIFI_AP_STA);
+        ESP_LOGW(TAG, "WiFi-Scan gave up after %d attempts (code %d), AP_active=%d",
+                 kMaxAttempts, n, WiFi.getMode() == WIFI_AP_STA);
     } else {
         ESP_LOGI(TAG, "WiFi-Scan: %d networks found", s_scan_results);
     }
