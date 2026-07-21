@@ -462,7 +462,14 @@ static void wifiScanTask(void*) {
     int n = WiFi.scanNetworks(false, false);
     s_scan_results = (n < 0) ? 0 : n;
     s_scan_running = false;
-    ESP_LOGI(TAG, "WiFi-Scan: %d networks found", s_scan_results);
+    if (n < 0) {
+        // Negative = WIFI_SCAN_FAILED/-RUNNING, not "0 found" -- most common cause is
+        // a station already associated to our own fallback SoftAP: ESP-IDF then locks
+        // the radio to the AP's channel and can't hop for a full-channel STA scan.
+        ESP_LOGW(TAG, "WiFi-Scan failed (code %d), AP_active=%d", n, WiFi.getMode() == WIFI_AP_STA);
+    } else {
+        ESP_LOGI(TAG, "WiFi-Scan: %d networks found", s_scan_results);
+    }
     vTaskDelete(nullptr);
 }
 
@@ -1647,6 +1654,7 @@ void init() {
         doc["ip"]        = WiFi.localIP().toString();
         doc["rssi"]      = WiFi.RSSI();
         doc["mode"]      = gConfig.wifi_static ? "static" : "dhcp";
+        doc["ap_active"] = (WiFi.getMode() == WIFI_AP_STA);
         sendJsonPsram(req, doc);
     });
 
@@ -1670,6 +1678,13 @@ void init() {
         });
 
     // ---- POST /api/reboot ----
+    s_server.on("/api/reboot", HTTP_POST, [](AsyncWebServerRequest* req) {
+        req->send(200, "text/plain", "reboot");
+        delay(500);
+        ESP.restart();
+    });
+
+    // ---- GET /api/log ----
     s_server.on("/api/log", HTTP_GET, [](AsyncWebServerRequest* req) {
         uint32_t after_ts  = 0;
         size_t   max_ent   = 200;

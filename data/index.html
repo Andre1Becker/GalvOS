@@ -1648,6 +1648,11 @@
       <label>Hostname</label>
       <input id="cfg-host" type="text" maxlength="31">
 
+      <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn ok" onclick="connectWifi()">Connect</button>
+        <button class="btn secondary" onclick="saveNetConfig()">Save &amp; Restart</button>
+      </div>
+
       <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">
         <div style="font-family:monospace;font-size:12px;color:var(--accent);margin-bottom:8px">NTP TIME SYNC</div>
         <label style="display:block;margin-bottom:6px">NTP Server
@@ -1661,11 +1666,6 @@
           <button class="btn secondary" onclick="saveNtpConfig()" style="flex:1">Save NTP</button>
           <span id="cfg-ntp-status" style="font-size:13px;color:var(--dim)">--</span>
         </div>
-      </div>
-
-      <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap">
-        <button class="btn ok" onclick="connectWifi()">Connect</button>
-        <button class="btn secondary" onclick="saveNetConfig()">Save &amp; Restart</button>
       </div>
     </div>
 
@@ -3872,7 +3872,10 @@ async function pollScanResults() {
     const sel = document.getElementById('cfg-ssid-select');
     if (nets.length === 0) {
       sel.innerHTML = '<option value="">No networks found</option>';
-      document.getElementById('scan-status').textContent = 'No networks -- scan again';
+      const st = await fetch('/api/wifi-status').then(r => r.json()).catch(() => null);
+      document.getElementById('scan-status').textContent = (st && st.ap_active)
+        ? 'No networks found -- scanning is limited while connected via the device\'s own hotspot. Enter SSID manually below.'
+        : 'No networks -- scan again';
       return;
     }
     nets.sort((a,b) => b.rssi - a.rssi);
