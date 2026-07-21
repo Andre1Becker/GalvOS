@@ -5096,15 +5096,23 @@ function paintApplyZone(z) {
 // UP (confirmed via the Corner Color Map calibration pattern). Y is negated
 // here so strokes drawn near the top of the canvas project near the top of
 // the beam, not the bottom.
+//
+// X is ALSO negated, unlike every other content source (calib patterns,
+// text, presets) which need no JS-side X compensation -- firmware's global
+// X-mirror (pattern_engine::applyCalibration()) already corrects those.
+// Paint strokes still projected mirrored left/right with only the Y fix in
+// place, confirmed on hardware even with both the Pen tool (open freehand
+// strokes) and the shape tools (closed Rect/Circle/Triangle) -- i.e. it's
+// not a per-tool quirk, the whole canvas->galvo X mapping was backwards.
 function paintG2C(gx, gy) {
     const cv = document.getElementById('pt-canvas');
     const half = cv.width / 2;
-    return [half + (gx / PAINT_RANGE) * half, half - (gy / PAINT_RANGE) * half];
+    return [half - (gx / PAINT_RANGE) * half, half - (gy / PAINT_RANGE) * half];
 }
 function paintC2G(px, py) {
     const cv = document.getElementById('pt-canvas');
     const half = cv.width / 2;
-    return [((px - half) / half) * PAINT_RANGE, -((py - half) / half) * PAINT_RANGE];
+    return [-((px - half) / half) * PAINT_RANGE, -((py - half) / half) * PAINT_RANGE];
 }
 function paintEventPos(e) {
     const cv = document.getElementById('pt-canvas');
