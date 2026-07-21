@@ -2367,9 +2367,11 @@ static size_t p_fireworks(LaserPoint* o, size_t m, uint32_t ph, uint8_t sp, uint
         // Per-launch randomised parameters
         const uint32_t seed = s * 10007u + cycle * 997u;
         const float launchX = (sHash(seed + 1u) * 1.6f - 0.8f) * sc;         // -0.8..0.8
-        const float burstY  = (-0.15f - sHash(seed + 2u) * 0.55f) * sc;      // upper area
+        // DAC space: +y = up. Burst height is the upper area (+y); launch is
+        // the bottom (-y) -- see corner-color-map calibration note.
+        const float burstY  = (0.15f + sHash(seed + 2u) * 0.55f) * sc;       // upper area
         const float hue     = sHash(seed + 3u) * PI2;
-        const float startY  = sc * 0.95f;                                    // bottom
+        const float startY  = -sc * 0.95f;                                   // bottom
         // Slight diagonal drift + mid-flight bow, so shells don't all rise
         // in a perfectly straight vertical line.
         const float driftX  = (sHash(seed + 5u) - 0.5f) * 0.35f * sc;        // end-point sideways drift
@@ -2440,9 +2442,9 @@ static size_t p_fireworks(LaserPoint* o, size_t m, uint32_t ph, uint8_t sp, uint
                     }
                     default: {  // "Goldregen": embers drift out, then fall under gravity
                         const float outRad = radBase * 0.5f;
-                        const float fall   = bp * bp * sc * 0.5f;
+                        const float fall   = bp * bp * sc * 0.5f;  // falling = -y (down)
                         px = finalX + cosf(a) * outRad;
-                        py = burstY + sinf(a) * outRad * 0.4f + fall;
+                        py = burstY + sinf(a) * outRad * 0.4f - fall;
                         break;
                     }
                 }
@@ -2653,8 +2655,12 @@ const char* profileMemberName(uint8_t profile, uint8_t n) {
 // square), not a closed rectangle. This avoids the horizontal base-streak
 // that appears when the galvo sweeps the root's bottom edge across the screen.
 //
-// Galvo coords: x right, y DOWN, origin centre, range ±SC.
-// "Up" in tree-space = negative y.
+// Internal tree-space: x right, y DOWN, origin centre, range +-SC.
+// "Up" in tree-space = negative y. DAC space is actually +y = up (confirmed
+// via the Corner Color Map calibration pattern), so every vertex's y is
+// negated at PathVertex-emission time below to convert tree-space -> DAC
+// space; the tree-building math above stays in its own y-down space
+// unchanged.
 //
 // sp  = zoom speed   (0=very slow .. 255=fast)
 // sz  = tree scale   (0=small .. 255=full)
@@ -2738,15 +2744,16 @@ static size_t p_pythagoras_tree(LaserPoint* o, size_t m,
         const uint8_t cg = (uint8_t)(255.0f * tc           * brightness);
 
         // Draw left wall: BL -> TL  (open segment, 2 vertices)
-        verts[vIdx+0] = optimizer::PathVertex(blx, bly, cr, cg, 0, /*lift=*/true);
-        verts[vIdx+1] = optimizer::PathVertex(tlx, tly, cr, cg, 0);
+        // y negated: tree-space (y-down) -> DAC space (y-up).
+        verts[vIdx+0] = optimizer::PathVertex(blx, -bly, cr, cg, 0, /*lift=*/true);
+        verts[vIdx+1] = optimizer::PathVertex(tlx, -tly, cr, cg, 0);
         segs[segCount] = optimizer::PathSegment(&verts[vIdx], 2, /*closed=*/false);
         vIdx     += 2;
         segCount += 1;
 
         // Draw right wall: BR -> TR  (open segment, 2 vertices)
-        verts[vIdx+0] = optimizer::PathVertex(brx, bry, cr, cg, 0, /*lift=*/true);
-        verts[vIdx+1] = optimizer::PathVertex(trx, try_, cr, cg, 0);
+        verts[vIdx+0] = optimizer::PathVertex(brx, -bry, cr, cg, 0, /*lift=*/true);
+        verts[vIdx+1] = optimizer::PathVertex(trx, -try_, cr, cg, 0);
         segs[segCount] = optimizer::PathSegment(&verts[vIdx], 2, /*closed=*/false);
         vIdx     += 2;
         segCount += 1;

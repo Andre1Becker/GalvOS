@@ -5092,15 +5092,19 @@ function paintApplyZone(z) {
 }
 
 // ---- coordinate mapping: galvo units (±PAINT_RANGE) <-> canvas px ----
+// Canvas px: y grows DOWN (standard <canvas> convention). Galvo gy: y grows
+// UP (confirmed via the Corner Color Map calibration pattern). Y is negated
+// here so strokes drawn near the top of the canvas project near the top of
+// the beam, not the bottom.
 function paintG2C(gx, gy) {
     const cv = document.getElementById('pt-canvas');
     const half = cv.width / 2;
-    return [half + (gx / PAINT_RANGE) * half, half + (gy / PAINT_RANGE) * half];
+    return [half + (gx / PAINT_RANGE) * half, half - (gy / PAINT_RANGE) * half];
 }
 function paintC2G(px, py) {
     const cv = document.getElementById('pt-canvas');
     const half = cv.width / 2;
-    return [((px - half) / half) * PAINT_RANGE, ((py - half) / half) * PAINT_RANGE];
+    return [((px - half) / half) * PAINT_RANGE, -((py - half) / half) * PAINT_RANGE];
 }
 function paintEventPos(e) {
     const cv = document.getElementById('pt-canvas');

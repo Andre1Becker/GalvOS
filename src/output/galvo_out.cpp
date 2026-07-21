@@ -1069,6 +1069,8 @@ void applyCalibration(LaserPoint* pts, size_t n) {
 
 // ── Hardware debug API ────────────────────────────────────────────────────
 void setDebugOutput(int16_t x, int16_t y, uint8_t r, uint8_t g, uint8_t b) {
+    // Fixed optical X-mirror -- see pattern_engine::applyCalibration().
+    x = -x;
     if (gConfig.invert_x) x = -x;
     if (gConfig.invert_y) y = -y;
     s_dbg_x = x; s_dbg_y = y;

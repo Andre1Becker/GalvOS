@@ -73,7 +73,9 @@ namespace textrender {
 // ============================================================
 // Stroke-Font  (x,y) pairs, x=PU = Pen-Up, Terminator = {EN,EN}
 // coordinate space: x ∈ [-5,5], y ∈ [-7,7]  (+y = up)
-// renderGlyph: screen_y = oy - sy * sc  →  correct y-flip
+// renderGlyph: screen_y = oy + sy * sc  -- font +y=up maps directly onto
+// DAC +y=up (confirmed via the Corner Color Map calibration pattern; no
+// flip needed and none should be added here).
 // ============================================================
 
 #define PU 126
@@ -167,8 +169,8 @@ static inline void addPt(LaserPoint* o, size_t& n, size_t max,
 
 // ============================================================
 // renderGlyph -- one character
-//   FIX v2.0: Y is inverted: screen_y = oy - sy * sc
-//              so that +y in font space = up in DAC space
+//   screen_y = oy + sy * sc: font +y=up maps directly onto DAC +y=up,
+//   no inversion (see coordinate-space note above the font tables).
 // ============================================================
 struct GlyphResult {
     float last_x, last_y;
@@ -205,7 +207,7 @@ static GlyphResult renderGlyph(LaserPoint* out, size_t& n, size_t max,
         }
         if (nverts >= 64) break;
         verts[nverts].x = ox + sx * sc + dx_offset;
-        verts[nverts].y = oy - sy * sc + dy_offset;  // FIX v2.0: minus = y-flip
+        verts[nverts].y = oy + sy * sc + dy_offset;  // font +y=up -> DAC +y=up, no flip
         verts[nverts].r = r; verts[nverts].g = g; verts[nverts].b = b;
         verts[nverts].lift = false;
         if (nverts == seg_start) verts[nverts].lift = true;
@@ -550,15 +552,13 @@ size_t generate(LaserPoint* out, size_t max_pts, const TextConfig& cfg, uint32_t
         }
 
         case TANIM_STARWARS: {
-            // FIX v2.0: correct Star Wars perspective crawl
-            // Text scrolls from bottom to top, trapezoid: wide at bottom, narrow at top
-            // DAC space: y=+32767 = top, y=-32767 = bottom (after hw invert_y or not)
-            // We render in DAC space where +y = up (font space already handles flip)
-            // Scroll: yPos goes from -32767..+32767 over time
+            // Star Wars perspective crawl: text enters large at the bottom
+            // (near the viewer) and scrolls up, shrinking toward a vanishing
+            // point at the top. DAC space: +y = up = screen top, -y = down =
+            // screen bottom (ground truth, confirmed via the Corner Color Map
+            // calibration pattern; no invert_y dependency here).
             float scroll_speed = 8000.f;
-            // Scroll from +40k down to -40k (renderer +y = up, invert_y flips to screen).
-            // After invert_y: renderer +y becomes screen bottom → text enters from bottom.
-            float yPos = 40000.f - fmodf(t * scroll_speed, 80000.f);  // scrolls +40k..-40k
+            float yPos = -40000.f + fmodf(t * scroll_speed, 80000.f);  // scrolls -40k..+40k (bottom -> top)
 
             size_t total = 0;
 
@@ -567,12 +567,10 @@ size_t generate(LaserPoint* out, size_t max_pts, const TextConfig& cfg, uint32_t
 
                 if (yBase > 70000.f || yBase < -36000.f) continue;
 
-                // Perspective: after invert_y, renderer +y = screen bottom (large),
-                // renderer -y = screen top (small).
-                // So: large scale at high yBase (bottom on screen), small at low yBase.
-                float persp = (yBase + 32767.f) / 65534.f;  // 0=renderer-bottom, 1=renderer-top
+                // Perspective: -y (screen bottom, near viewer) = large;
+                // +y (screen top, far/vanishing point) = small.
+                float persp = (32767.f - yBase) / 65534.f;  // 1=bottom(near), 0=top(far)
                 persp = fmaxf(0.05f, fminf(1.0f, persp));
-                // High persp (renderer top = screen bottom after invert) → large
                 float scaleP = display_sc * (0.2f + persp * 0.8f);
                 float twP    = textWidth(cfg.text, full_len) * scaleP;
                 float startXP = -twP * 0.5f;
@@ -644,7 +642,7 @@ size_t glyphOutlinePaths(const char* text, float scale,
                 int8_t sy = s[i + 1];
                 if (tmp.count < GlyphSubpath::MAX_PTS) {
                     tmp.x[tmp.count] = gx + sx * scale;
-                    tmp.y[tmp.count] = cy - sy * scale;   // same y-flip as renderGlyph
+                    tmp.y[tmp.count] = cy + sy * scale;   // no flip, matches renderGlyph
                     tmp.count++;
                 }
             }

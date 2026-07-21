@@ -299,6 +299,13 @@ static void applyCalibration(LaserPoint* pts, size_t n) {
     for (size_t i = 0; i < n; i++) {
         int32_t x = pts[i].x, y = pts[i].y;
         if (gConfig.swap_xy) { int32_t t = x; x = y; y = t; }
+        // Fixed optical X-mirror of this build: the beam path flips X between
+        // DAC space and the projected image (Y is not affected). Confirmed via
+        // the Corner Color Map calibration pattern. This is a physical property
+        // of this unit's mirror/mount, not a per-installation preference, so it
+        // is corrected here unconditionally -- independent of, and composes
+        // with, the user-facing Invert X toggle below.
+        x = -x;
         if (gConfig.invert_x) x = -x;
         if (gConfig.invert_y) y = -y;
         x = (x * gConfig.galvo_x_gain) / 32767;
