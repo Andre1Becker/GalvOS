@@ -463,34 +463,56 @@ static void wifiScanTask(void*) {
     s_scan_results = 0;
     s_scan_error   = false;
 
-    // WIFI_SCAN_RUNNING (-1): the IDF driver's internal scan-busy bit was already
-    // set, e.g. a previous scan got interrupted by a WiFi.mode() switch (AP_STA->STA
-    // on reconnect) and never delivered its SCAN_DONE event, leaving the bit stuck.
-    // WIFI_SCAN_FAILED (-2): esp_wifi_scan_start() itself failed (radio busy/STA
-    // mid-(re)connect), or the scan started but never signalled completion within
-    // the wrapper's 10s wait. Both are worth a retry after clearing scan state.
-    int n = WIFI_SCAN_FAILED;
+    // WiFi.scanNetworks() refuses to even try once WiFiScanClass's own
+    // WIFI_SCANNING_BIT gets stuck (seen in the field as a permanent code -1):
+    // it's set right before esp_wifi_scan_start() and only cleared by the
+    // SCAN_DONE event, so a scan interrupted by a WiFi.mode() switch (e.g.
+    // AP_STA->STA on reconnect) leaves it stuck forever with no way to recover
+    // via the wrapper. Call esp_wifi_scan_start() directly instead -- block=true
+    // blocks at the IDF level on the *driver's* own state, sidestepping the
+    // wrapper's bit entirely, and gives the real esp_err_t on failure (WiFi.
+    // scanNetworks() collapses every failure into the single code -2). Arduino's
+    // own SCAN_DONE handler still fires afterward regardless of who started the
+    // scan, so WiFi.scanComplete()/SSID()/RSSI() below still work as usual.
+    WiFi.enableSTA(true);
+    wifi_scan_config_t config = {};
+    config.show_hidden          = false;
+    config.scan_type            = WIFI_SCAN_TYPE_ACTIVE;
+    config.scan_time.active.min = 100;
+    config.scan_time.active.max = 300;
+
+    esp_err_t err = ESP_FAIL;
     const int kMaxAttempts = 3;
     for (int attempt = 1; attempt <= kMaxAttempts; attempt++) {
         if (attempt > 1) {
             esp_wifi_scan_stop();
             vTaskDelay(pdMS_TO_TICKS(300 * attempt));
         }
-        n = WiFi.scanNetworks(false, false);
-        if (n >= 0) break;
-        ESP_LOGW(TAG, "WiFi-Scan attempt %d/%d failed (code %d), wifi_status=%d mode=%d, "
-                      "int_free=%u int_largest=%u",
-                 attempt, kMaxAttempts, n, (int)WiFi.status(), (int)WiFi.getMode(),
+        err = esp_wifi_scan_start(&config, true);
+        if (err == ESP_OK) break;
+        ESP_LOGW(TAG, "WiFi-Scan attempt %d/%d: esp_wifi_scan_start failed: %s, "
+                      "wifi_status=%d int_free=%u int_largest=%u",
+                 attempt, kMaxAttempts, esp_err_to_name(err), (int)WiFi.status(),
                  (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL),
                  (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL));
+    }
+
+    int n = -1;
+    if (err == ESP_OK) {
+        // The SCAN_DONE event (and Arduino's result caching) may lag the
+        // blocking call's return by a beat -- give it up to 500ms to land.
+        for (int i = 0; i < 25 && n < 0; i++) {
+            n = WiFi.scanComplete();
+            if (n < 0) vTaskDelay(pdMS_TO_TICKS(20));
+        }
     }
     s_scan_results = (n < 0) ? 0 : n;
     s_scan_error   = (n < 0);
     s_scan_done    = true;
     s_scan_running = false;
     if (n < 0) {
-        ESP_LOGW(TAG, "WiFi-Scan gave up after %d attempts (code %d), AP_active=%d",
-                 kMaxAttempts, n, WiFi.getMode() == WIFI_AP_STA);
+        ESP_LOGW(TAG, "WiFi-Scan gave up after %d attempts (err=%s, poll=%d), AP_active=%d",
+                 kMaxAttempts, esp_err_to_name(err), n, WiFi.getMode() == WIFI_AP_STA);
     } else {
         ESP_LOGI(TAG, "WiFi-Scan: %d networks found", s_scan_results);
     }
