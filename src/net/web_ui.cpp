@@ -478,8 +478,11 @@ static void wifiScanTask(void*) {
         }
         n = WiFi.scanNetworks(false, false);
         if (n >= 0) break;
-        ESP_LOGW(TAG, "WiFi-Scan attempt %d/%d failed (code %d), wifi_status=%d mode=%d",
-                 attempt, kMaxAttempts, n, (int)WiFi.status(), (int)WiFi.getMode());
+        ESP_LOGW(TAG, "WiFi-Scan attempt %d/%d failed (code %d), wifi_status=%d mode=%d, "
+                      "int_free=%u int_largest=%u",
+                 attempt, kMaxAttempts, n, (int)WiFi.status(), (int)WiFi.getMode(),
+                 (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL),
+                 (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL));
     }
     s_scan_results = (n < 0) ? 0 : n;
     s_scan_error   = (n < 0);
