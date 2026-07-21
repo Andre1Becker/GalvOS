@@ -35,6 +35,7 @@
 #include <SD.h>
 #include <Preferences.h>
 #include <WiFi.h>
+#include <esp_wifi.h>
 #include <esp_log.h>
 #include <esp_heap_caps.h>
 
@@ -161,6 +162,8 @@ static void denyUnauth(AsyncWebServerRequest* req) {
 // WiFi-Scan Status
 static volatile bool   s_scan_running = false;
 static volatile int    s_scan_results = 0;
+static volatile bool   s_scan_error   = false;
+static volatile bool   s_scan_done    = false;  // true once a completed result is waiting to be picked up
 
 // ── /api/paint/set chunked-body buffer (fixed PSRAM, no per-request heap alloc) ──
 // Previous impl used `new String()` per request, freed only on the success
@@ -458,14 +461,24 @@ static void buildConfigJson(JsonDocument& doc) {
 static void wifiScanTask(void*) {
     s_scan_running = true;
     s_scan_results = 0;
+    s_scan_error   = false;
     // Synchronous scan -- blocks ~2-3s, runs in its own task
     int n = WiFi.scanNetworks(false, false);
+    if (n == WIFI_SCAN_RUNNING) {
+        // The IDF driver's internal scan-busy bit was already set (e.g. a previous
+        // scan got interrupted by a WiFi.mode() switch -- AP_STA->STA on reconnect --
+        // and never delivered its SCAN_DONE event, so the bit stuck forever). A plain
+        // retry always returns -1 again; force-clear the stuck state first.
+        ESP_LOGW(TAG, "WiFi-Scan stuck (WIFI_SCAN_RUNNING) -- forcing esp_wifi_scan_stop() and retrying");
+        esp_wifi_scan_stop();
+        vTaskDelay(pdMS_TO_TICKS(200));
+        n = WiFi.scanNetworks(false, false);
+    }
     s_scan_results = (n < 0) ? 0 : n;
+    s_scan_error   = (n < 0);
+    s_scan_done    = true;
     s_scan_running = false;
     if (n < 0) {
-        // Negative = WIFI_SCAN_FAILED/-RUNNING, not "0 found" -- most common cause is
-        // a station already associated to our own fallback SoftAP: ESP-IDF then locks
-        // the radio to the AP's channel and can't hop for a full-channel STA scan.
         ESP_LOGW(TAG, "WiFi-Scan failed (code %d), AP_active=%d", n, WiFi.getMode() == WIFI_AP_STA);
     } else {
         ESP_LOGI(TAG, "WiFi-Scan: %d networks found", s_scan_results);
@@ -1601,7 +1614,7 @@ void init() {
 
 
     // ---- GET /api/wifi-scan ----
-    // Gibt {status:"scanning"} or {status:"done", networks:[...]} zurueck
+    // Gibt {status:"scanning"}, {status:"error", message}, or {status:"done", networks:[...]} zurueck
     s_server.on("/api/wifi-scan", HTTP_GET, [](AsyncWebServerRequest* req) {
         JsonDocument doc(&jsonAllocator());
         if (s_scan_running) {
@@ -1609,16 +1622,25 @@ void init() {
             sendJsonPsram(req, doc);
             return;
         }
-        int n = s_scan_results;
-        if (n <= 0) {
-            // No scan yet -- start immediately
+        if (!s_scan_done) {
+            // No scan has ever completed yet -- kick one off. (Not "0 found" -- that
+            // used to be indistinguishable from this and caused an endless auto-retry
+            // loop that silently re-scanned forever without ever reporting a result.)
             WiFi.scanDelete();
             xTaskCreatePinnedToCore(wifiScanTask, "wifi_scan", 4096, nullptr, 2, nullptr, 0);
             doc["status"] = "scanning";
             sendJsonPsram(req, doc);
             return;
         }
+        if (s_scan_error) {
+            doc["status"]  = "error";
+            doc["message"] = "WiFi scan failed -- radio busy or stuck, please retry";
+            s_scan_done = false;
+            sendJsonPsram(req, doc);
+            return;
+        }
         // Ergebnisse liefern
+        int n = s_scan_results;
         doc["status"] = "done";
         JsonArray arr = doc["networks"].to<JsonArray>();
         for (int i = 0; i < n; i++) {
@@ -1630,6 +1652,7 @@ void init() {
         }
         WiFi.scanDelete();
         s_scan_results = 0;
+        s_scan_done    = false;
         sendJsonPsram(req, doc);
     });
 
@@ -1641,6 +1664,7 @@ void init() {
             if (!s_scan_running) {
                 WiFi.scanDelete();
                 s_scan_results = 0;
+                s_scan_done    = false;
                 xTaskCreatePinnedToCore(wifiScanTask, "wifi_scan", 4096, nullptr, 2, nullptr, 0);
             }
             req->send(202, "text/plain", "scan started");

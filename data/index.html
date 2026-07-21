@@ -3866,8 +3866,13 @@ async function pollScanResults() {
       document.getElementById('scan-status').textContent = '⏳ Scanning…';
       return;
     }
-    // done
     clearInterval(s_scanTimer); s_scanTimer = null;
+    if (data.status === 'error') {
+      document.getElementById('cfg-ssid-select').innerHTML = '<option value="">Scan failed</option>';
+      document.getElementById('scan-status').textContent = data.message || 'Scan failed -- try again';
+      return;
+    }
+    // done
     const nets = data.networks || [];
     const sel = document.getElementById('cfg-ssid-select');
     if (nets.length === 0) {
