@@ -993,6 +993,18 @@ void task(void*) {
         // Without this, safety::subsystemsOk() would time out and DISARM
         // the laser mid-pattern, causing spurious blank-point frames.
         safety::subsystemHeartbeat(0);  // SYS_PATTERN = 0
+
+        // Camera-in-the-loop calib session must die with E-Stop like any
+        // other output path. The hardware gate (galvo_out.cpp checking
+        // gState.laser_armed) already blanks the beam unconditionally; this
+        // additionally restores the session's optimizer-profile snapshot so
+        // an interrupted tuning run can't leave a profile's live values
+        // altered. estop_ok (not laser_armed) is checked deliberately -- a
+        // session must survive simply not being armed yet.
+        if (web_ui::calibCamActive() && !gState.estop_ok.load()) {
+            web_ui::calibCamForceStop();
+        }
+
         if (s_test_pattern >= 0) {
             size_t n = 0;
             switch (s_test_pattern) {

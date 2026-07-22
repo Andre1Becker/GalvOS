@@ -728,6 +728,153 @@ static size_t opt_vel_accel(LaserPoint* o, size_t m,
     return n;
 }
 
+// ──────────────────────────────────────────────────────────────
+// CAMERA-IN-THE-LOOP PATTERNS (11-16)
+// Geometry mirrors idealPolylines() in the host-side optimizeGalvo.py --
+// r = 30000, h = r/2 = 15000 -- so the ground truth the host rasterizes for
+// homography/error scoring matches what actually gets drawn. All white
+// (255/0 only, per pattern color rule), all routed through
+// liveOptimizerConfig() like the opt_* patterns above.
+// ──────────────────────────────────────────────────────────────
+static constexpr float CAM_R = 30000.0f;
+static constexpr float CAM_H = CAM_R * 0.5f;   // 15000
+
+// PATTERN 11: CORNERS4 -- 4 static dots, homography reference.
+// Deliberately does NOT go through optimizer::optimize()'s corner-dwell
+// heuristic (corner_angle_deg/min_corner_pts/max_corner_pts): those are
+// exactly what a host tuning run sweeps, and could shrink dwell to nothing.
+// Instead each dot is a manually-held point (CALIB_CAM_DOT_DWELL_PTS ticks),
+// same "patterns that manage their own point emission" pattern documented
+// on optimizer::emitBlankTo() -- only the inter-dot jump goes through the
+// optimizer (Pillar 2/3 distance-proportional, ringing-shaped blanking).
+static size_t cam_corners4(LaserPoint* o, size_t m,
+                            uint32_t, uint8_t bright, uint8_t) {
+    size_t n = 0;
+    uint8_t wr, wg, wb; colorOut(255, 255, 255, bright, wr, wg, wb);
+    static const float dots[4][2] = {
+        { -CAM_R, -CAM_R }, { CAM_R, -CAM_R }, { CAM_R, CAM_R }, { -CAM_R, CAM_R },
+    };
+    const optimizer::OptimizerConfig cfg = liveOptimizerConfig();
+    for (const auto& d : dots) {
+        optimizer::emitBlankTo(o, n, m, d[0], d[1], cfg);
+        for (uint8_t k = 0; k < CALIB_CAM_DOT_DWELL_PTS && n < m; k++)
+            o[n++] = LaserPoint((int16_t)d[0], (int16_t)d[1], wr, wg, wb, 0);
+    }
+    return n;
+}
+
+// PATTERN 12: SQUARE -- half-size +-15000, sharp (90 deg) corners.
+static size_t cam_square(LaserPoint* o, size_t m,
+                          uint32_t, uint8_t bright, uint8_t) {
+    uint8_t wr, wg, wb; colorOut(255, 255, 255, bright, wr, wg, wb);
+    optimizer::PathVertex verts[4] = {
+        optimizer::PathVertex(-CAM_H, -CAM_H, wr, wg, wb, true),
+        optimizer::PathVertex( CAM_H, -CAM_H, wr, wg, wb, false),
+        optimizer::PathVertex( CAM_H,  CAM_H, wr, wg, wb, false),
+        optimizer::PathVertex(-CAM_H,  CAM_H, wr, wg, wb, false),
+    };
+    optimizer::PathSegment seg(verts, 4, true);
+    return optimizer::optimize(&seg, 1, o, m, liveOptimizerConfig());
+}
+
+// PATTERN 13: STAR -- 5-point self-intersecting star (pentagram), half-size.
+// Vertex k at angle k*(4*pi/5) - pi/2, radius CAM_H, connecting every 2nd
+// point of a regular pentagon -- matches the host's idealPolylines() star.
+static size_t cam_star(LaserPoint* o, size_t m,
+                        uint32_t, uint8_t bright, uint8_t) {
+    uint8_t wr, wg, wb; colorOut(255, 255, 255, bright, wr, wg, wb);
+    optimizer::PathVertex verts[5];
+    for (int k = 0; k < 5; k++) {
+        float a = k * (4.0f * (float)M_PI / 5.0f) - (float)M_PI / 2.0f;
+        verts[k] = optimizer::PathVertex(cosf(a) * CAM_H, sinf(a) * CAM_H,
+                                          wr, wg, wb, k == 0);
+    }
+    optimizer::PathSegment seg(verts, 5, true);
+    return optimizer::optimize(&seg, 1, o, m, liveOptimizerConfig());
+}
+
+// PATTERN 14: SEGMENTS -- 4 vertical lines, x = -15000,-5000,5000,15000,
+// y from -h to h. One optimize() call over all 4 so the inter-line jumps
+// use the real distance-proportional, ZV-shaped blank path -- exercises the
+// blanking S-curve (Pillar 2/3) the same way opt_jump_ring does.
+static size_t cam_segments(LaserPoint* o, size_t m,
+                            uint32_t, uint8_t bright, uint8_t) {
+    uint8_t wr, wg, wb; colorOut(255, 255, 255, bright, wr, wg, wb);
+    static const float xs[4] = { -CAM_H, -CAM_H * (1.0f / 3.0f),
+                                   CAM_H * (1.0f / 3.0f),  CAM_H };
+    optimizer::PathVertex verts[4][2];
+    optimizer::PathSegment segs[4];
+    for (int i = 0; i < 4; i++) {
+        verts[i][0] = optimizer::PathVertex(xs[i], -CAM_H, wr, wg, wb, true);
+        verts[i][1] = optimizer::PathVertex(xs[i],  CAM_H, wr, wg, wb, false);
+        segs[i] = optimizer::PathSegment(verts[i], 2, false);
+    }
+    return optimizer::optimize(segs, 4, o, m, liveOptimizerConfig());
+}
+
+// PATTERN 15: CIRCLE -- radius 15000, 128 base points (matches the host's
+// ground-truth vertex count so optimizer resampling only adds points, never
+// changes the primitive the host scores against).
+static size_t cam_circle(LaserPoint* o, size_t m,
+                          uint32_t, uint8_t bright, uint8_t) {
+    uint8_t wr, wg, wb; colorOut(255, 255, 255, bright, wr, wg, wb);
+    static constexpr int N = 128;
+    // static, not stack: patterns::task's stack is a tight 12 KB budget
+    // (see main.cpp's startTask comment on a prior stack-canary crash) --
+    // 128 PathVertex (~1.5 KB) is affordable on the stack alone, but keep it
+    // off the stack anyway for headroom under the rest of task()'s frame.
+    static optimizer::PathVertex verts[N];
+    for (int i = 0; i < N; i++) {
+        float a = PI2 * i / (float)N;
+        verts[i] = optimizer::PathVertex(cosf(a) * CAM_H, sinf(a) * CAM_H,
+                                          wr, wg, wb, i == 0);
+    }
+    optimizer::PathSegment seg(verts, N, true);
+    return optimizer::optimize(&seg, 1, o, m, liveOptimizerConfig());
+}
+
+// PATTERN 16: SPIRAL -- 3-turn Archimedean spiral, radius 0.15*h (2250) to
+// h (15000), 512 base points. Open path (no closing edge) -- matches the
+// host's theta 0..6*pi, radius linspace(0.15*h, h) ground truth.
+static size_t cam_spiral(LaserPoint* o, size_t m,
+                          uint32_t, uint8_t bright, uint8_t) {
+    uint8_t wr, wg, wb; colorOut(255, 255, 255, bright, wr, wg, wb);
+    static constexpr int N = 512;
+    static const float rInner = CAM_H * 0.15f;
+    // static, not stack -- 512 PathVertex is 6 KB, half of patterns::task's
+    // entire 12 KB stack budget (see main.cpp's startTask comment on a prior
+    // stack-canary crash). Recomputed every call same as before; only the
+    // storage class changes.
+    static optimizer::PathVertex verts[N];
+    for (int i = 0; i < N; i++) {
+        float t = (float)i / (float)(N - 1);
+        float theta = t * 6.0f * (float)M_PI;
+        float r = rInner + (CAM_H - rInner) * t;
+        verts[i] = optimizer::PathVertex(cosf(theta) * r, sinf(theta) * r,
+                                          wr, wg, wb, i == 0);
+    }
+    optimizer::PathSegment seg(verts, N, false);
+    return optimizer::optimize(&seg, 1, o, m, liveOptimizerConfig());
+}
+
+int8_t camPatternIndex(const char* name) {
+    if (!name) return -1;
+    static const char* NAMES[CALIB_CAM_COUNT] = {
+        "corners4", "square", "star", "segments", "circle", "spiral"
+    };
+    for (uint8_t i = 0; i < CALIB_CAM_COUNT; i++)
+        if (strcmp(name, NAMES[i]) == 0) return (int8_t)(CALIB_CAM_BASE + i);
+    return -1;
+}
+
+const char* camPatternName(uint8_t idx) {
+    static const char* NAMES[CALIB_CAM_COUNT] = {
+        "corners4", "square", "star", "segments", "circle", "spiral"
+    };
+    if (idx < CALIB_CAM_BASE || idx >= CALIB_CAM_BASE + CALIB_CAM_COUNT) return "";
+    return NAMES[idx - CALIB_CAM_BASE];
+}
+
 // ══════════════════════════════════════════════════════════════
 // DISPATCH + METADATA
 // ══════════════════════════════════════════════════════════════
@@ -737,17 +884,23 @@ uint8_t profileOf(uint8_t idx) {
         case 3:  // DAC Range Box    -- rectangle + inscribed circle
         case 4:  // Zone Outline     -- polygon outline
         case 7:  // Opt Corner Sweep -- isolates corner_angle_deg / corner pts
+        case 12: // Cam Square       -- sharp-corner polygon, ringing/dwell
+        case 13: // Cam Star         -- self-intersecting star, corner dwell
             return OPT_PROFILE_VECTOR;
         case 0:  // Blanking Test    -- arc segments split by blank jumps
         case 2:  // ILDA Test        -- circle + square + blanked sub-figures
         case 6:  // Three Circles    -- three separate closed circles
         case 9:  // Opt Jump Ring    -- isolates blank_samples / ringing_comp
+        case 14: // Cam Segments     -- 4 blanked lines, blanking S-curve
             return OPT_PROFILE_MULTIOBJECT;
         case 5:  // Corner Color Map -- four isolated dots
+        case 11: // Cam Corners4     -- four isolated dwell dots
             return OPT_PROFILE_PARTICLES;
         case 8:  // Opt Density Ramp -- isolates pts_per_1000_units / resample
+        case 15: // Cam Circle       -- density uniformity
             return OPT_PROFILE_SMOOTH;
         case 10: // Opt Vel/Accel    -- isolates max_step_units / max_accel
+        case 16: // Cam Spiral       -- velocity clamps
             return OPT_PROFILE_WAVES;
         default:
             return OPT_PROFILE_VECTOR;
@@ -818,6 +971,32 @@ const CalibPatternInfo CALIB_INFO[CALIB_PATTERN_COUNT] = {
      "Star = accel_clamp probe: enable accel_clamp and reduce "
      "max_accel_units until spike tips stop overshooting."},
 
+    {"Cam Corners4",
+     "4 static dots at the frame corners -- camera homography reference",
+     "Selected via /api/calib-cam/start, not the idx-based calib-pattern API. "
+     "Each dot holds for CALIB_CAM_DOT_DWELL_PTS ticks regardless of live "
+     "optimizer overrides, so it stays camera-visible during autotuning."},
+
+    {"Cam Square",
+     "Square, half-size, sharp corners -- ringing / corner-dwell probe",
+     "Selected via /api/calib-cam/start. Runs under OPT_PROFILE_VECTOR."},
+
+    {"Cam Star",
+     "5-point self-intersecting star, half-size -- corner-dwell probe",
+     "Selected via /api/calib-cam/start. Runs under OPT_PROFILE_VECTOR."},
+
+    {"Cam Segments",
+     "4 vertical lines with blanked jumps between -- blanking S-curve probe",
+     "Selected via /api/calib-cam/start. Runs under OPT_PROFILE_MULTIOBJECT."},
+
+    {"Cam Circle",
+     "Circle, 128 base points -- point-density uniformity probe",
+     "Selected via /api/calib-cam/start. Runs under OPT_PROFILE_SMOOTH."},
+
+    {"Cam Spiral",
+     "3-turn Archimedean spiral, 512 base points -- velocity-clamp probe",
+     "Selected via /api/calib-cam/start. Runs under OPT_PROFILE_WAVES."},
+
 };
 
 using PFn = size_t(*)(LaserPoint*, size_t, uint32_t, uint8_t, uint8_t);
@@ -825,6 +1004,7 @@ static const PFn DISPATCH[CALIB_PATTERN_COUNT] = {
     blanking_test, aspect_ratio, ilda_test,
     dac_range_box, zone_outline, corner_color_map, three_circles,
     opt_corner_sweep, opt_density_ramp, opt_jump_ring, opt_vel_accel,
+    cam_corners4, cam_square, cam_star, cam_segments, cam_circle, cam_spiral,
 };
 
 

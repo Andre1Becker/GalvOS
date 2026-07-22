@@ -59,6 +59,145 @@ static std::atomic<int> s_active_requests{0};
 
 int activeRequests() { return s_active_requests.load(); }
 
+// ── Camera-in-the-loop calibration session (/api/calib-cam/*) ────────────────
+// Lets a host-side optimizer (OpenCV + Optuna) select a calib_patterns::
+// pattern, override optimizer parameters live, and measure the projection.
+// Overrides are RAM-only (never persisted) and scoped to the one optimizer
+// profile the active calib-cam pattern runs under; the pre-session values of
+// that profile are snapshotted on the first override and restored on stop
+// (or force-stopped from pattern_engine::task() the instant E-Stop trips --
+// see calibCamForceStop()), so an aborted tuning run can never leave a normal
+// preset's optimizer profile altered.
+static bool                s_calibcam_active   = false;
+static uint8_t             s_calibcam_pat_idx  = 0;      // calib_patterns:: index (11..16)
+static uint8_t             s_calibcam_profile  = 0;      // profile owning the session's snapshot
+static bool                s_calibcam_has_snap = false;
+static OptimizerLiveConfig s_calibcam_snapshot;
+
+// Restores the snapshotted profile (if any) and clears session state. Shared
+// by the /stop handler and calibCamForceStop() (E-Stop path) so both go
+// through the exact same cleanup.
+static void stopCalibCamSession() {
+    if (s_calibcam_has_snap) {
+        gOptimizerProfiles[s_calibcam_profile] = s_calibcam_snapshot;
+        if (s_calibcam_profile == gActiveOptimizerProfile) syncOptimizerConfig();
+        gPatternCacheGen++;
+        s_calibcam_has_snap = false;
+    }
+    s_calibcam_active = false;
+    gState.calib_active    = false;
+    gState.calib_no_thresh = false;
+    if (gState.master_dimmer.load() == 0) gState.ui_master_dimmer.store(0);
+}
+
+bool calibCamActive() { return s_calibcam_active; }
+void calibCamForceStop() { stopCalibCamSession(); }
+
+// Applies recognized OptimizerLiveConfig overrides from `src` onto `cfg`,
+// clamped to the exact same bounds as /api/optimizer-live (kept in sync by
+// hand -- both lists are short and reviewed together). Every applied key is
+// echoed into `applied` as its effective (post-clamp) value; every key in
+// `src` that isn't a known field name (or is the "profile" selector, handled
+// by the caller) is appended to `ignored`.
+static void applyOptimizerOverrides(JsonObjectConst src, OptimizerLiveConfig& cfg,
+                                     JsonObject applied, JsonArray ignored) {
+    for (JsonPairConst kv : src) {
+        const char* key = kv.key().c_str();
+        if (!strcmp(key, "profile")) continue;  // selector, not a field
+        JsonVariantConst val = kv.value();
+        if (!strcmp(key, "corner_angle_deg") && val.is<float>()) {
+            cfg.corner_angle_deg = constrain((float)val, 0.0f, 180.0f);
+            applied["corner_angle_deg"] = cfg.corner_angle_deg;
+        } else if (!strcmp(key, "min_corner_pts") && val.is<int>()) {
+            cfg.min_corner_pts = constrain((int)val, 1, 20);
+            applied["min_corner_pts"] = cfg.min_corner_pts;
+        } else if (!strcmp(key, "max_corner_pts") && val.is<int>()) {
+            cfg.max_corner_pts = constrain((int)val, 1, 20);
+            applied["max_corner_pts"] = cfg.max_corner_pts;
+        } else if (!strcmp(key, "pts_per_1000_units") && val.is<float>()) {
+            cfg.pts_per_1000_units = constrain((float)val, 0.1f, 50.0f);
+            applied["pts_per_1000_units"] = cfg.pts_per_1000_units;
+        } else if (!strcmp(key, "min_segment_pts") && val.is<int>()) {
+            cfg.min_segment_pts = constrain((int)val, 2, 20);
+            applied["min_segment_pts"] = cfg.min_segment_pts;
+        } else if (!strcmp(key, "blank_samples") && val.is<int>()) {
+            cfg.blank_samples = constrain((int)val, 1, 100);
+            applied["blank_samples"] = cfg.blank_samples;
+        } else if (!strcmp(key, "max_pts_per_frame") && val.is<int>()) {
+            cfg.max_pts_per_frame = constrain((int)val, 50, (int)PATTERN_POINTS_MAX);
+            applied["max_pts_per_frame"] = cfg.max_pts_per_frame;
+        } else if (!strcmp(key, "min_blank_samples") && val.is<int>()) {
+            cfg.min_blank_samples = constrain((int)val, 1, 100);
+            applied["min_blank_samples"] = cfg.min_blank_samples;
+        } else if (!strcmp(key, "blank_pts_per_1000_units") && val.is<float>()) {
+            cfg.blank_pts_per_1000_units = constrain((float)val, 0.1f, 50.0f);
+            applied["blank_pts_per_1000_units"] = cfg.blank_pts_per_1000_units;
+        } else if (!strcmp(key, "min_interior_pts_per_segment") && val.is<int>()) {
+            cfg.min_interior_pts_per_segment = constrain((int)val, 0, 50);
+            applied["min_interior_pts_per_segment"] = cfg.min_interior_pts_per_segment;
+        } else if (!strcmp(key, "stage1_blank_target") && val.is<int>()) {
+            cfg.stage1_blank_target = constrain((int)val, 1, 100);
+            applied["stage1_blank_target"] = cfg.stage1_blank_target;
+        } else if (!strcmp(key, "resample_enabled") && val.is<bool>()) {
+            cfg.resample_enabled = (bool)val;
+            applied["resample_enabled"] = cfg.resample_enabled;
+        } else if (!strcmp(key, "resample_spacing_units") && val.is<float>()) {
+            cfg.resample_spacing_units = constrain((float)val, 10.0f, 2000.0f);
+            applied["resample_spacing_units"] = cfg.resample_spacing_units;
+        } else if (!strcmp(key, "ringing_comp_enabled") && val.is<bool>()) {
+            cfg.ringing_comp_enabled = (bool)val;
+            applied["ringing_comp_enabled"] = cfg.ringing_comp_enabled;
+        } else if (!strcmp(key, "ring_freq_hz") && val.is<float>()) {
+            cfg.ring_freq_hz = constrain((float)val, 1.0f, 2000.0f);
+            applied["ring_freq_hz"] = cfg.ring_freq_hz;
+        } else if (!strcmp(key, "ring_damping_ratio") && val.is<float>()) {
+            cfg.ring_damping_ratio = constrain((float)val, 0.0f, 0.9f);
+            applied["ring_damping_ratio"] = cfg.ring_damping_ratio;
+        } else if (!strcmp(key, "vel_clamp_enabled") && val.is<bool>()) {
+            cfg.vel_clamp_enabled = (bool)val;
+            applied["vel_clamp_enabled"] = cfg.vel_clamp_enabled;
+        } else if (!strcmp(key, "max_step_units") && val.is<float>()) {
+            cfg.max_step_units = constrain((float)val, 50.0f, 32767.0f);
+            applied["max_step_units"] = cfg.max_step_units;
+        } else if (!strcmp(key, "accel_clamp_enabled") && val.is<bool>()) {
+            cfg.accel_clamp_enabled = (bool)val;
+            applied["accel_clamp_enabled"] = cfg.accel_clamp_enabled;
+        } else if (!strcmp(key, "max_accel_units") && val.is<float>()) {
+            cfg.max_accel_units = constrain((float)val, 10.0f, 32767.0f);
+            applied["max_accel_units"] = cfg.max_accel_units;
+        } else {
+            ignored.add(key);
+        }
+    }
+}
+
+// Lists, into `out`, every OptimizerLiveConfig field where `cur` differs from
+// `snap` -- i.e. the overrides a calib-cam session has actually applied so
+// far. Used by GET /api/calib-cam/status.
+static void diffOptimizerOverrides(const OptimizerLiveConfig& cur,
+                                    const OptimizerLiveConfig& snap, JsonObject out) {
+    if (cur.corner_angle_deg != snap.corner_angle_deg) out["corner_angle_deg"] = cur.corner_angle_deg;
+    if (cur.min_corner_pts != snap.min_corner_pts) out["min_corner_pts"] = cur.min_corner_pts;
+    if (cur.max_corner_pts != snap.max_corner_pts) out["max_corner_pts"] = cur.max_corner_pts;
+    if (cur.pts_per_1000_units != snap.pts_per_1000_units) out["pts_per_1000_units"] = cur.pts_per_1000_units;
+    if (cur.min_segment_pts != snap.min_segment_pts) out["min_segment_pts"] = cur.min_segment_pts;
+    if (cur.blank_samples != snap.blank_samples) out["blank_samples"] = cur.blank_samples;
+    if (cur.max_pts_per_frame != snap.max_pts_per_frame) out["max_pts_per_frame"] = cur.max_pts_per_frame;
+    if (cur.min_blank_samples != snap.min_blank_samples) out["min_blank_samples"] = cur.min_blank_samples;
+    if (cur.blank_pts_per_1000_units != snap.blank_pts_per_1000_units) out["blank_pts_per_1000_units"] = cur.blank_pts_per_1000_units;
+    if (cur.min_interior_pts_per_segment != snap.min_interior_pts_per_segment) out["min_interior_pts_per_segment"] = cur.min_interior_pts_per_segment;
+    if (cur.stage1_blank_target != snap.stage1_blank_target) out["stage1_blank_target"] = cur.stage1_blank_target;
+    if (cur.resample_enabled != snap.resample_enabled) out["resample_enabled"] = cur.resample_enabled;
+    if (cur.resample_spacing_units != snap.resample_spacing_units) out["resample_spacing_units"] = cur.resample_spacing_units;
+    if (cur.ringing_comp_enabled != snap.ringing_comp_enabled) out["ringing_comp_enabled"] = cur.ringing_comp_enabled;
+    if (cur.ring_freq_hz != snap.ring_freq_hz) out["ring_freq_hz"] = cur.ring_freq_hz;
+    if (cur.ring_damping_ratio != snap.ring_damping_ratio) out["ring_damping_ratio"] = cur.ring_damping_ratio;
+    if (cur.vel_clamp_enabled != snap.vel_clamp_enabled) out["vel_clamp_enabled"] = cur.vel_clamp_enabled;
+    if (cur.max_step_units != snap.max_step_units) out["max_step_units"] = cur.max_step_units;
+    if (cur.accel_clamp_enabled != snap.accel_clamp_enabled) out["accel_clamp_enabled"] = cur.accel_clamp_enabled;
+    if (cur.max_accel_units != snap.max_accel_units) out["max_accel_units"] = cur.max_accel_units;
+}
+
 // ── PSRAM-backed JSON response ────────────────────────────────────────────────
 // serializeJson() into an Arduino String allocates on the internal DRAM heap,
 // which is the scarce resource shared with lwIP/WiFi. On the polled /api/state
@@ -1412,6 +1551,110 @@ void init() {
         }
         sendJsonPsram(req, doc);
     });
+
+    // ── Camera-in-the-loop calibration API (/api/calib-cam/*) ────────
+    // Registered before /api/calib-pattern/... and well before the
+    // serveStatic catch-all (see the ordering-bug note further down) --
+    // same ESPAsyncWebServer prefix-matching pitfall as calib-pattern's
+    // /stop + /list vs. its own bare route.
+
+    // POST /api/calib-cam/start  {"pattern": "square"}
+    s_server.on("/api/calib-cam/start", HTTP_POST,
+        [](AsyncWebServerRequest* req) {},
+        nullptr,
+        [](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t, size_t) {
+            JsonDocument doc(&jsonAllocator());
+            if (deserializeJson(doc, data, len)) { req->send(400, "text/plain", "bad json"); return; }
+            const char* name = doc["pattern"] | "";
+            int8_t idx = calib_patterns::camPatternIndex(name);
+            if (idx < 0) { req->send(400, "text/plain", "unknown pattern"); return; }
+
+            // A previous session that was never cleanly /stop-ped (client
+            // crash, page reload mid-run) could still be holding a snapshot --
+            // restore it before starting the new one so overrides never leak
+            // across sessions.
+            stopCalibCamSession();
+
+            const uint8_t prof = calib_patterns::profileOf((uint8_t)idx);
+            if (prof != gActiveOptimizerProfile) {
+                gActiveOptimizerProfile = prof;
+                syncOptimizerConfig();
+                gPatternCacheGen++;
+            }
+
+            ilda::stop();
+            gTextConfig.active   = false;
+            gState.calib_idx     = (uint8_t)idx;
+            gState.calib_bright  = 200;
+            gState.calib_channel = 0;
+            gState.calib_no_thresh = false;
+            if (gState.ui_master_dimmer.load() < 200) gState.ui_master_dimmer.store(200);
+            gState.calib_active  = true;
+
+            s_calibcam_active  = true;
+            s_calibcam_pat_idx = (uint8_t)idx;
+            s_calibcam_profile = prof;
+
+            JsonDocument resp(&jsonAllocator());
+            resp["ok"]      = true;
+            resp["pattern"] = name;
+            sendJsonPsram(req, resp);
+        });
+
+    // POST /api/calib-cam/params  {optimizer overrides..., "profile": N}
+    s_server.on("/api/calib-cam/params", HTTP_POST,
+        [](AsyncWebServerRequest* req) {},
+        nullptr,
+        [](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t, size_t) {
+            if (!s_calibcam_active) { req->send(400, "text/plain", "no active calib-cam session"); return; }
+            JsonDocument doc(&jsonAllocator());
+            if (deserializeJson(doc, data, len)) { req->send(400, "text/plain", "bad json"); return; }
+
+            if (doc["profile"].is<int>()) {
+                int pr = (int)doc["profile"];
+                if (pr < 0 || pr >= OPT_PROFILE_COUNT) { req->send(400, "text/plain", "bad profile"); return; }
+                if ((uint8_t)pr != s_calibcam_profile) {
+                    req->send(400, "text/plain", "profile must match the active calib-cam pattern's profile");
+                    return;
+                }
+            }
+
+            if (!s_calibcam_has_snap) {
+                s_calibcam_snapshot = gOptimizerProfiles[s_calibcam_profile];
+                s_calibcam_has_snap = true;
+            }
+
+            JsonDocument resp(&jsonAllocator());
+            JsonObject applied = resp["applied"].to<JsonObject>();
+            JsonArray  ignored = resp["ignored"].to<JsonArray>();
+            applyOptimizerOverrides(doc.as<JsonObjectConst>(),
+                                     gOptimizerProfiles[s_calibcam_profile], applied, ignored);
+
+            if (s_calibcam_profile == gActiveOptimizerProfile) syncOptimizerConfig();
+            gPatternCacheGen++;
+
+            resp["ok"] = true;
+            sendJsonPsram(req, resp);
+        });
+
+    // POST /api/calib-cam/stop
+    s_server.on("/api/calib-cam/stop", HTTP_POST,
+        [](AsyncWebServerRequest* req) {
+            stopCalibCamSession();
+            req->send(200, "application/json", "{\"ok\":true}");
+        });
+
+    // GET /api/calib-cam/status
+    s_server.on("/api/calib-cam/status", HTTP_GET,
+        [](AsyncWebServerRequest* req) {
+            JsonDocument doc(&jsonAllocator());
+            doc["active"]  = s_calibcam_active;
+            doc["pattern"] = s_calibcam_active ? calib_patterns::camPatternName(s_calibcam_pat_idx) : "";
+            JsonObject overrides = doc["overrides"].to<JsonObject>();
+            if (s_calibcam_has_snap)
+                diffOptimizerOverrides(gOptimizerProfiles[s_calibcam_profile], s_calibcam_snapshot, overrides);
+            sendJsonPsram(req, doc);
+        });
 
     // ── calibration-Pattern API ──────────────────────────────────
     // NOTE: specific routes (/stop, /list) must be registered BEFORE
