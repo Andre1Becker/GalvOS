@@ -8,3 +8,8 @@ presets-tab-restructure_v5.14.0.patch
 *.diff
 data/*.gz
 .claude
+scripts/optimizeGalvo/*.json
+scripts/optimizeGalvo/results
+scripts/optimizeGalvo/__pycache__
+*.bak
+*.npz
