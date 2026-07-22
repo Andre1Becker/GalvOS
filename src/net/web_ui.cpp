@@ -1558,7 +1558,8 @@ void init() {
     // same ESPAsyncWebServer prefix-matching pitfall as calib-pattern's
     // /stop + /list vs. its own bare route.
 
-    // POST /api/calib-cam/start  {"pattern": "square"}
+    // POST /api/calib-cam/start  {"pattern": "square", "channel": 3}
+    // "channel" is optional: 0=white 1=R 2=G 3=B, defaults to 3 (blue) if omitted.
     s_server.on("/api/calib-cam/start", HTTP_POST,
         [](AsyncWebServerRequest* req) {},
         nullptr,
@@ -1586,7 +1587,12 @@ void init() {
             gTextConfig.active   = false;
             gState.calib_idx     = (uint8_t)idx;
             gState.calib_bright  = 200;
-            gState.calib_channel = 0;
+            // 0=white, 1=R, 2=G, 3=B (see calib_patterns.cpp's cam_* pattern
+            // comment) -- default blue: keeps a single laser diode's optics
+            // in the loop instead of a combined white dot that can smear/
+            // offset on a mono camera if R/G/B aren't perfectly co-boresighted.
+            gState.calib_channel = doc["channel"].is<int>()
+                ? (uint8_t)constrain((int)doc["channel"], 0, 3) : 3;
             gState.calib_no_thresh = false;
             if (gState.ui_master_dimmer.load() < 200) gState.ui_master_dimmer.store(200);
             gState.calib_active  = true;
@@ -1598,6 +1604,7 @@ void init() {
             JsonDocument resp(&jsonAllocator());
             resp["ok"]      = true;
             resp["pattern"] = name;
+            resp["channel"] = gState.calib_channel;
             sendJsonPsram(req, resp);
         });
 
@@ -1650,6 +1657,7 @@ void init() {
             JsonDocument doc(&jsonAllocator());
             doc["active"]  = s_calibcam_active;
             doc["pattern"] = s_calibcam_active ? calib_patterns::camPatternName(s_calibcam_pat_idx) : "";
+            doc["channel"] = gState.calib_channel;
             JsonObject overrides = doc["overrides"].to<JsonObject>();
             if (s_calibcam_has_snap)
                 diffOptimizerOverrides(gOptimizerProfiles[s_calibcam_profile], s_calibcam_snapshot, overrides);

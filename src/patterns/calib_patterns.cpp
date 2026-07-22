@@ -741,9 +741,21 @@ static size_t opt_vel_accel(LaserPoint* o, size_t m,
 // CAMERA-IN-THE-LOOP PATTERNS (11-16)
 // Geometry mirrors idealPolylines() in the host-side optimizeGalvo.py --
 // r = 30000, h = r/2 = 15000 -- so the ground truth the host rasterizes for
-// homography/error scoring matches what actually gets drawn. All white
-// (255/0 only, per pattern color rule), all routed through
-// liveOptimizerConfig() like the opt_* patterns above.
+// homography/error scoring matches what actually gets drawn. Color is
+// caller-selectable via the `ch` argument (same 0=white/1=R/2=G/3=B
+// convention as ilda_test/aspect_ratio/dac_range_box/zone_outline) so the
+// host script can pick it per session via POST /api/calib-cam/start
+// {"channel": N} -- the ESP32 defaults to 3 (blue) when the field is
+// omitted: a single-diode dot can't smear/offset on the mono camera the
+// way a combined white dot could if R/G/B aren't perfectly co-boresighted.
+// All routed through liveOptimizerConfig() like the opt_* patterns above.
+static inline void camColorOut(uint8_t ch, uint8_t bright,
+                                uint8_t& ro, uint8_t& go, uint8_t& bo) {
+    if (ch == 1)      colorOut(bright, 0, 0, bright, ro, go, bo);
+    else if (ch == 2) colorOut(0, bright, 0, bright, ro, go, bo);
+    else if (ch == 3) colorOut(0, 0, bright, bright, ro, go, bo);
+    else              colorOut(bright, bright, bright, bright, ro, go, bo);
+}
 // ──────────────────────────────────────────────────────────────
 static constexpr float CAM_R = 30000.0f;
 static constexpr float CAM_H = CAM_R * 0.5f;   // 15000
@@ -757,9 +769,9 @@ static constexpr float CAM_H = CAM_R * 0.5f;   // 15000
 // on optimizer::emitBlankTo() -- only the inter-dot jump goes through the
 // optimizer (Pillar 2/3 distance-proportional, ringing-shaped blanking).
 static size_t cam_corners4(LaserPoint* o, size_t m,
-                            uint32_t, uint8_t bright, uint8_t) {
+                            uint32_t, uint8_t bright, uint8_t ch) {
     size_t n = 0;
-    uint8_t wr, wg, wb; colorOut(255, 255, 255, bright, wr, wg, wb);
+    uint8_t wr, wg, wb; camColorOut(ch, bright, wr, wg, wb);
     static const float dots[4][2] = {
         { -CAM_R, -CAM_R }, { CAM_R, -CAM_R }, { CAM_R, CAM_R }, { -CAM_R, CAM_R },
     };
@@ -774,8 +786,8 @@ static size_t cam_corners4(LaserPoint* o, size_t m,
 
 // PATTERN 12: SQUARE -- half-size +-15000, sharp (90 deg) corners.
 static size_t cam_square(LaserPoint* o, size_t m,
-                          uint32_t, uint8_t bright, uint8_t) {
-    uint8_t wr, wg, wb; colorOut(255, 255, 255, bright, wr, wg, wb);
+                          uint32_t, uint8_t bright, uint8_t ch) {
+    uint8_t wr, wg, wb; camColorOut(ch, bright, wr, wg, wb);
     optimizer::PathVertex verts[4] = {
         optimizer::PathVertex(-CAM_H, -CAM_H, wr, wg, wb, true),
         optimizer::PathVertex( CAM_H, -CAM_H, wr, wg, wb, false),
@@ -790,8 +802,8 @@ static size_t cam_square(LaserPoint* o, size_t m,
 // Vertex k at angle k*(4*pi/5) - pi/2, radius CAM_H, connecting every 2nd
 // point of a regular pentagon -- matches the host's idealPolylines() star.
 static size_t cam_star(LaserPoint* o, size_t m,
-                        uint32_t, uint8_t bright, uint8_t) {
-    uint8_t wr, wg, wb; colorOut(255, 255, 255, bright, wr, wg, wb);
+                        uint32_t, uint8_t bright, uint8_t ch) {
+    uint8_t wr, wg, wb; camColorOut(ch, bright, wr, wg, wb);
     optimizer::PathVertex verts[5];
     for (int k = 0; k < 5; k++) {
         float a = k * (4.0f * (float)M_PI / 5.0f) - (float)M_PI / 2.0f;
@@ -807,8 +819,8 @@ static size_t cam_star(LaserPoint* o, size_t m,
 // use the real distance-proportional, ZV-shaped blank path -- exercises the
 // blanking S-curve (Pillar 2/3) the same way opt_jump_ring does.
 static size_t cam_segments(LaserPoint* o, size_t m,
-                            uint32_t, uint8_t bright, uint8_t) {
-    uint8_t wr, wg, wb; colorOut(255, 255, 255, bright, wr, wg, wb);
+                            uint32_t, uint8_t bright, uint8_t ch) {
+    uint8_t wr, wg, wb; camColorOut(ch, bright, wr, wg, wb);
     static const float xs[4] = { -CAM_H, -CAM_H * (1.0f / 3.0f),
                                    CAM_H * (1.0f / 3.0f),  CAM_H };
     optimizer::PathVertex verts[4][2];
@@ -825,8 +837,8 @@ static size_t cam_segments(LaserPoint* o, size_t m,
 // ground-truth vertex count so optimizer resampling only adds points, never
 // changes the primitive the host scores against).
 static size_t cam_circle(LaserPoint* o, size_t m,
-                          uint32_t, uint8_t bright, uint8_t) {
-    uint8_t wr, wg, wb; colorOut(255, 255, 255, bright, wr, wg, wb);
+                          uint32_t, uint8_t bright, uint8_t ch) {
+    uint8_t wr, wg, wb; camColorOut(ch, bright, wr, wg, wb);
     static constexpr int N = 128;
     // PSRAM, not stack: patterns::task's stack is a tight 12 KB budget
     // (see main.cpp's startTask comment on a prior stack-canary crash).
@@ -848,8 +860,8 @@ static size_t cam_circle(LaserPoint* o, size_t m,
 // h (15000), 512 base points. Open path (no closing edge) -- matches the
 // host's theta 0..6*pi, radius linspace(0.15*h, h) ground truth.
 static size_t cam_spiral(LaserPoint* o, size_t m,
-                          uint32_t, uint8_t bright, uint8_t) {
-    uint8_t wr, wg, wb; colorOut(255, 255, 255, bright, wr, wg, wb);
+                          uint32_t, uint8_t bright, uint8_t ch) {
+    uint8_t wr, wg, wb; camColorOut(ch, bright, wr, wg, wb);
     static constexpr int N = 512;
     static const float rInner = CAM_H * 0.15f;
     // PSRAM, not stack -- 512 PathVertex is 6 KB, half of patterns::task's

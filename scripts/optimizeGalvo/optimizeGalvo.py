@@ -139,6 +139,13 @@ DEFAULT_CONFIG = {
     "settleSeconds": 0.6,       # wait after param change before capture
     "binaryThreshold": 40,      # 0..255, beam trace threshold after background subtraction
     "dacRange": 30000,          # reference dot coordinate (+-) used for homography
+    "camPatternChannel": 3,     # laser color for calib-cam patterns: 0=white 1=R 2=G
+                                # 3=B (default). Sent as "channel" to POST /api/calib-
+                                # cam/start. Blue avoids a combined-white dot smearing/
+                                # offsetting on the mono camera if R/G/B aren't
+                                # perfectly co-boresighted (see optimizeGalvo diagnose
+                                # geometry issues); switch to 1/2 to check a specific
+                                # channel's own alignment instead.
     "showCameraView": True,     # live preview window during calibrate/measure/optimize
     "presetPreviewSeconds": 4.0,  # how long each real preset is shown in the optional
                                    # post-optimize visual sanity-check
@@ -173,6 +180,8 @@ def validateConfig(cfg: dict):
     problems = []
     if not isinstance(cfg.get("dacRange"), (int, float)) or cfg["dacRange"] <= 0:
         problems.append("dacRange must be a positive number")
+    if not isinstance(cfg.get("camPatternChannel"), int) or not (0 <= cfg["camPatternChannel"] <= 3):
+        problems.append("camPatternChannel must be an integer 0-3 (0=white 1=R 2=G 3=B)")
     if not isinstance(cfg.get("requestTimeoutSeconds"), (int, float)) or cfg["requestTimeoutSeconds"] <= 0:
         problems.append("requestTimeoutSeconds must be a positive number")
     if not isinstance(cfg.get("requestRetries"), int) or cfg["requestRetries"] < 0:
@@ -368,8 +377,12 @@ class EspClient:
                    retries=cfg.get("requestRetries", 2),
                    retryDelaySeconds=cfg.get("requestRetryDelaySeconds", 1.0))
 
-    def startPattern(self, pattern: str) -> dict:
-        return self._post("/api/calib-cam/start", {"pattern": pattern})
+    def startPattern(self, pattern: str, channel: int | None = None) -> dict:
+        """channel: 0=white 1=R 2=G 3=B - omit to keep the ESP32's own default (blue)."""
+        payload = {"pattern": pattern}
+        if channel is not None:
+            payload["channel"] = channel
+        return self._post("/api/calib-cam/start", payload)
 
     def setParams(self, params: dict) -> dict:
         """Returns effective values as applied by the server (server-authoritative)."""
@@ -734,7 +747,7 @@ def runCalibrate(cfg: dict, esp: EspClient, cam: Camera):
     background = cam.grabBackground()
 
     waitWhilePaused(cam)  # safe boundary: laser is off, nothing running yet
-    esp.startPattern("corners4")
+    esp.startPattern("corners4", channel=cfg["camPatternChannel"])
     time.sleep(cfg["settleSeconds"])
     cam.statusText = "calibrate: corners4"
     image = cam.grabAccumulated(cfg["accumFrames"])
@@ -938,7 +951,7 @@ def measureOnce(esp: EspClient, cam: Camera, cfg: dict, homography: np.ndarray,
     active, and it resets any previous overrides on every /start, so overrides
     must be (re-)applied per pattern rather than once per optimize trial."""
     waitWhilePaused(cam)  # safe boundary: no pattern is running yet
-    esp.startPattern(pattern)
+    esp.startPattern(pattern, channel=cfg["camPatternChannel"])
     effective = esp.setParams(params) if params else None
     if effective and effective.get("ignored"):
         raise OptimizerError(
@@ -1722,6 +1735,7 @@ def runWizard(existingCfg: dict | None = None) -> dict:
     ask("exposure", "camera exposure (DirectShow log2 scale, negative = shorter, "
                     "e.g. -11 ~= 1/2048s)", int)
     ask("dacRange", "DAC reference range (+-) for calibration corner dots", int)
+    ask("camPatternChannel", "calib-cam pattern color (0=white 1=R 2=G 3=B)", int)
     ask("requestTimeoutSeconds", "ESP32 HTTP request timeout (seconds)", float)
     ask("requestRetries", "extra retries on ESP32 timeout/connection error before giving "
                          "up (helps with transient WiFi hiccups during long optimize runs)",
@@ -1775,6 +1789,13 @@ def runPreview(cfg: dict, cam: Camera, zoomIdx: int = 0):
                 exposure += 1 if key == ord("+") else -1
                 cam.cap.set(cv2.CAP_PROP_EXPOSURE, exposure)
                 print(f"exposure {exposure}")
+            elif key == ord("s"):
+                cfg["exposure"] = exposure
+                try:
+                    CONFIG_FILE.write_text(json.dumps(cfg, indent=2))
+                    print(f"saved exposure {exposure} -> {CONFIG_FILE.name}")
+                except OSError as e:
+                    print(f"could not save {CONFIG_FILE.name}: {e}")
     finally:
         liveView.close()
 
