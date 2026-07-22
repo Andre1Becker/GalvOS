@@ -2363,6 +2363,14 @@ function handleStateUpdate(s) {
     pill.title = reasons.length ? 'Blocked: ' + reasons.join(', ') : '';
   }
 
+  // Starfield: Size slider requests a star count (0-255), but the optimizer's
+  // frame budget may cap it lower -- show the actual rendered count instead
+  // of echoing the raw slider value.
+  if (s_activePresetIdx === 90 && typeof s.starfield_stars !== 'undefined') {
+    const szValEl = document.getElementById('lv-sz-val');
+    if (szValEl) szValEl.textContent = s.starfield_stars + ' stars';
+  }
+
   // Active mode pill: shows what is currently producing output
   const modeEl = document.getElementById('active-mode-pill');
   if (modeEl) {
@@ -4367,7 +4375,7 @@ async function activatePreset(idx) {
 // get meaningful names and a short description for scene/special presets.
 const PRESET_PARAM_HINTS = {
     90: { sp: 'Fall Speed', sz: 'Star Count',
-          hint: '⭐ Starfield — Speed controls how fast stars fall top→bottom (0 = stopped). Size sets the number of stars (1–150). Twinkle brightness varies automatically.' },
+          hint: '⭐ Starfield — Speed controls how fast stars fall top→bottom (0 = stopped). Size requests the star count (up to 150); the readout shows the actual count after the optimizer\'s frame budget caps it -- raise Max points/frame in Optimizer Settings (Particles profile) for more. Twinkle brightness varies automatically.' },
     91: { sp: 'Blink Speed', sz: 'Digit Size',
           hint: '⏱ Countdown Timer — Speed controls the blink rate when expired. Size scales the digit height.' },
     104: { sp: 'Fade Speed', sz: 'Amount',
@@ -4467,7 +4475,8 @@ function liveSlider() {
     document.getElementById('lv-sp-val').textContent  = document.getElementById('lv-sp').value;
     var _spMulEl = document.getElementById('lv-spmul-val');
     if (_spMulEl) _spMulEl.textContent = (document.getElementById('lv-spmul').value || 1) + '×';
-    document.getElementById('lv-sz-val').textContent  = document.getElementById('lv-sz').value;
+    if (s_activePresetIdx !== 90)
+        document.getElementById('lv-sz-val').textContent  = document.getElementById('lv-sz').value;
     document.getElementById('lv-ascale-val').textContent = document.getElementById('lv-ascale').value + '%';
     document.getElementById('lv-rot-val').textContent = document.getElementById('lv-rot').value + '°';
     document.getElementById('lv-r-val').textContent   = document.getElementById('lv-r').value;

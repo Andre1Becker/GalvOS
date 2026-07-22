@@ -325,6 +325,7 @@ static void buildStateJson(JsonDocument& doc) {
     }
     doc["no_hw_mode"]      = galvo::noHwMode();
     doc["preset_idx"]      = static_cast<int8_t>(patterns::getPreset());
+    doc["starfield_stars"] = presets::gStarfieldStarCount.load();
     doc["dmx_frame_count"] = gState.dmx_frame_count.load();
     doc["master_dimmer"]   = gState.master_dimmer.load();
     doc["points_per_sec"]  = galvo::pointsPerSec();

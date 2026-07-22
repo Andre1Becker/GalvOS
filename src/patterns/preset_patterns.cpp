@@ -8,6 +8,8 @@
 
 namespace presets {
 
+std::atomic<uint16_t> gStarfieldStarCount{0};
+
 static constexpr float PI2  = 2.0f * M_PI;
 static constexpr float SC   = 18000.0f;
 
@@ -1365,6 +1367,7 @@ static size_t p90(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
         stars[ns].used = false;
         ns++;
     }
+    gStarfieldStarCount.store((uint16_t)ns, std::memory_order_relaxed);
 
     // Greedy nearest-neighbor: start from last known galvo position,
     // always pick the closest unvisited star next. O(n^2) -- fine for n<=150.

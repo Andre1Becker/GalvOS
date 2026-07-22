@@ -1,7 +1,14 @@
 #pragma once
 #include "config.h"
+#include <atomic>
 
 namespace presets {
+
+// Actual star count rendered by Starfield (p90) last frame -- the Size
+// slider's 0-255 range is a *request*; the optimizer's per-profile frame
+// budget (max_pts_per_frame) may cap it lower, so the WebUI reads this back
+// to show the real, achieved count instead of the raw slider value.
+extern std::atomic<uint16_t> gStarfieldStarCount;
 
 constexpr uint8_t PRESET_COUNT = 81;
 
