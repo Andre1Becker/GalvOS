@@ -460,14 +460,18 @@ static void emitSegment(const PathSegment& seg, const OptimizerConfig& cfg,
 // Scratch sizing: input geometry (vertices before interior/corner fill) is far
 // smaller than the emitted point count. The largest caller today declares
 // PathVertex[64] / PathSegment[16] (text_renderer.cpp); these scratch sizes
-// leave an 8x/4x margin while keeping the static DRAM cost small (~8 KB total).
+// leave an 8x/4x margin at zero DRAM cost (lazy PSRAM, ~7 KB).
 // applyTransform bounds-checks against both, so an over-large caller degrades
 // by dropping trailing segments rather than overflowing.
 namespace {
     constexpr size_t kMaxXfVerts = 512;
     constexpr size_t kMaxXfSegs  = 64;
-    PathVertex  s_xf_verts[kMaxXfVerts];
-    PathSegment s_xf_segs[kMaxXfSegs];
+    // Lazy PSRAM (~7 KB total) -- was static DRAM .bss. Fully overwritten
+    // before use on every applyTransform() call. Uses the same
+    // heap_caps_malloc path as s_clamp_scratch so the host-side unit-test
+    // build (plain-malloc shim above) keeps working.
+    PathVertex*  s_xf_verts = nullptr;
+    PathSegment* s_xf_segs  = nullptr;
 }
 
 // Fills s_xf_segs / s_xf_verts with transformed copies of the input and points
@@ -478,6 +482,22 @@ namespace {
 static size_t applyTransform(const PathSegment* segments, size_t segment_count,
                               const AffineTransform& xf,
                               const PathSegment** out_segments) {
+    if (!s_xf_verts) {
+        s_xf_verts = (PathVertex*)heap_caps_malloc(
+            kMaxXfVerts * sizeof(PathVertex), MALLOC_CAP_SPIRAM);
+        s_xf_segs = (PathSegment*)heap_caps_malloc(
+            kMaxXfSegs * sizeof(PathSegment), MALLOC_CAP_SPIRAM);
+        if (!s_xf_verts || !s_xf_segs) {
+            // No PSRAM -> pass the input through untransformed, never crash.
+            free(s_xf_verts);
+            s_xf_verts = nullptr;
+            *out_segments = segments;
+            return segment_count;
+        }
+        memreg::track("Optimizer XForm Scratch",
+                      kMaxXfVerts * sizeof(PathVertex) +
+                      kMaxXfSegs * sizeof(PathSegment), true);
+    }
     size_t seg_out = 0;
     size_t vtx_out = 0;
     for (size_t s = 0; s < segment_count && seg_out < kMaxXfSegs; s++) {

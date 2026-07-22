@@ -2,6 +2,7 @@
 #include "countdown_timer.h"
 #include "point_optimizer.h"
 #include "util/mem_registry.h"
+#include "util/ps_scratch.h"
 #include <math.h>
 #include <string.h>
 #include <Arduino.h>
@@ -9,6 +10,14 @@
 namespace presets {
 
 std::atomic<uint16_t> gStarfieldStarCount{0};
+
+// Running total of per-pattern PSRAM scratch (was DRAM .bss before v6.04.0),
+// aggregated under one memreg entry for the WebUI memory viewer.
+static size_t s_scratchBytes = 0;
+static void trackScratch(size_t bytes) {
+    s_scratchBytes += bytes;
+    memreg::track("Preset Scratch", s_scratchBytes, true);
+}
 
 static constexpr float PI2  = 2.0f * M_PI;
 static constexpr float SC   = 18000.0f;
@@ -167,8 +176,14 @@ static int buildWfChains(int nv, const int(*E)[2], int ne,
     if (nv > WF_MAX_VERTS) return 0;
     static bool used[WF_MAX_EDGES];
     memset(used, 0, sizeof(used));
-    static int adj_edge[WF_MAX_VERTS][WF_MAX_VERTS];
-    static int adj_other[WF_MAX_VERTS][WF_MAX_VERTS];
+    // Adjacency scratch (2x 4 KB) lives in PSRAM -- fully rewritten per call.
+    typedef int AdjRow[WF_MAX_VERTS];
+    static AdjRow* adj_edge  = nullptr;
+    static AdjRow* adj_other = nullptr;
+    if (!psScratch(adj_edge, WF_MAX_VERTS) || !psScratch(adj_other, WF_MAX_VERTS))
+        return 0;
+    static bool tracked = false;
+    if (!tracked) { tracked = true; trackScratch(2 * sizeof(AdjRow) * WF_MAX_VERTS); }
     static int adj_count[WF_MAX_VERTS];
     memset(adj_count, 0, sizeof(adj_count));
     for (int e = 0; e < ne && e < WF_MAX_EDGES; e++) {
@@ -217,13 +232,23 @@ static int buildWfChains(int nv, const int(*E)[2], int ne,
 
 static size_t wf(LaserPoint*o,size_t mx,const P3D*V,int nv,const int(*E)[2],int ne,float ry,float rx,float sc,uint8_t r,uint8_t g,uint8_t b){
     if (ne > WF_MAX_EDGES) ne = WF_MAX_EDGES;
-    static int chains[WF_MAX_EDGES][WF_MAX_VERTS + 1];
+    // chains (~8 KB) + verts (~25 KB) in PSRAM -- fully rewritten per call.
+    typedef int ChainRow[WF_MAX_VERTS + 1];
+    typedef optimizer::PathVertex VertRow[WF_MAX_VERTS + 1];
+    static ChainRow* chains = nullptr;
+    static VertRow*  verts  = nullptr;
+    if (!psScratch(chains, WF_MAX_EDGES) || !psScratch(verts, WF_MAX_EDGES))
+        return 0;
+    static bool tracked = false;
+    if (!tracked) {
+        tracked = true;
+        trackScratch(WF_MAX_EDGES * (sizeof(ChainRow) + sizeof(VertRow)));
+    }
     static int chain_len[WF_MAX_EDGES];
     static bool chain_closed[WF_MAX_EDGES];
     int nchains = buildWfChains(nv, E, ne, chains, chain_len, chain_closed, WF_MAX_EDGES);
 
     optimizer::PathSegment segs[WF_MAX_EDGES];
-    static optimizer::PathVertex verts[WF_MAX_EDGES][WF_MAX_VERTS + 1];
     for (int c = 0; c < nchains; c++) {
         int len = chain_len[c];
         for (int i = 0; i < len; i++) {
@@ -1342,7 +1367,12 @@ static size_t p90(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
 
     // Collect currently-visible stars.
     struct Star { float x, y; uint8_t r, g, b; bool used; };
-    static Star stars[150];
+    // stars + sorted (~3.6 KB) in PSRAM -- rebuilt every call.
+    static Star* stars = nullptr;
+    if (!psScratch(stars, 300)) return n;   // [0..149]=stars, [150..299]=sorted
+    Star* sorted = stars + 150;
+    static bool tracked = false;
+    if (!tracked) { tracked = true; trackScratch(300 * sizeof(Star)); }
     int ns = 0;
     for (int i = 0; i < nStars && ns < 150; i++) {
         const float xPos  = (fr(i * 7)  * 2.f - 1.f) * SC * 0.95f;
@@ -1371,7 +1401,6 @@ static size_t p90(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
 
     // Greedy nearest-neighbor: start from last known galvo position,
     // always pick the closest unvisited star next. O(n^2) -- fine for n<=150.
-    static Star sorted[150];
     float cur_x = (n > 0) ? o[n-1].x : 0.f;
     float cur_y = (n > 0) ? o[n-1].y : 0.f;
     for (int s = 0; s < ns; s++) {
@@ -1796,7 +1825,14 @@ static size_t p_solar(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     // Build three closed circle PathSegments so optimizer::emitBlankJump()
     // handles inter-object jumps with proper S-curve easing (Pillar 2).
     // lift=true on vertex[0] of each segment triggers the blank jump.
-    static optimizer::PathVertex vSun[48], vPla[36], vMoo[24];
+    // One PSRAM block: [0..47]=sun, [48..83]=planet, [84..107]=moon.
+    static optimizer::PathVertex* vSolar = nullptr;
+    if (!psScratch(vSolar, 108)) return 0;
+    static bool tracked = false;
+    if (!tracked) { tracked = true; trackScratch(108 * sizeof(optimizer::PathVertex)); }
+    optimizer::PathVertex* vSun = vSolar;
+    optimizer::PathVertex* vPla = vSolar + 48;
+    optimizer::PathVertex* vMoo = vSolar + 84;
 
     for(int i=0;i<48;i++){
         float a=PI2*i/48.f;
@@ -1844,7 +1880,12 @@ static size_t p_bouncing(LaserPoint* o, size_t m, uint32_t ph, uint8_t sp, uint8
         float trailY[BP_TRAIL_MAX];
         bool  init;
     };
-    static Ball   balls[BP_MAX_BALLS];
+    // Persistent state in PSRAM (zeroed once at alloc, same as .bss was);
+    // `seeded` below stays the init guard exactly as before.
+    static Ball* balls = nullptr;
+    if (!psScratch(balls, BP_MAX_BALLS)) return 0;
+    static bool tracked = false;
+    if (!tracked) { tracked = true; trackScratch(BP_MAX_BALLS * sizeof(Ball)); }
     static uint32_t lastMs   = 0;
     static uint32_t startMs  = 0;
     static bool     seeded   = false;
@@ -2010,7 +2051,12 @@ static size_t p_shooting(LaserPoint* o, size_t m, uint32_t ph, uint8_t sp, uint8
         bool     active;
     };
 
-    static Meteor  meteors[SS_MAX];
+    // Persistent state in PSRAM (zeroed once at alloc, same as .bss was);
+    // `inited` below stays the init guard exactly as before.
+    static Meteor* meteors = nullptr;
+    if (!psScratch(meteors, SS_MAX)) return 0;
+    static bool tracked = false;
+    if (!tracked) { tracked = true; trackScratch(SS_MAX * sizeof(Meteor)); }
     static uint32_t lastMs = 0;
     static bool     inited = false;
 
@@ -2675,9 +2721,16 @@ const char* profileMemberName(uint8_t profile, uint8_t n) {
 #define PT_NVERT  1016   // 2 vertices per segment
 static size_t p_pythagoras_tree(LaserPoint* o, size_t m,
                                 uint32_t ph, uint8_t sp, uint8_t sz) {
-    // Static storage: 508 segments * 2 vertices * 12 B = ~12 KB in DRAM.
-    static optimizer::PathVertex verts[PT_NVERT];
-    static optimizer::PathSegment segs[PT_NSEG];
+    // Scratch storage (~18 KB verts+segs) in PSRAM -- rebuilt every call.
+    static optimizer::PathVertex*  verts = nullptr;
+    static optimizer::PathSegment* segs  = nullptr;
+    if (!psScratch(verts, PT_NVERT) || !psScratch(segs, PT_NSEG)) return 0;
+    static bool tracked = false;
+    if (!tracked) {
+        tracked = true;
+        trackScratch(PT_NVERT * sizeof(optimizer::PathVertex) +
+                     PT_NSEG  * sizeof(optimizer::PathSegment));
+    }
 
     // Zoom: frac runs 0..1 endlessly (ph frame counter, ~20 fps).
     // spd range: sp=0 -> 0.003 (1 zoom cycle / ~33 s),

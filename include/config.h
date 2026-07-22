@@ -673,7 +673,10 @@ struct PaintConfig {
     volatile uint8_t stroke_count = 0;      // strokes used in strokes[]
     PaintStroke      strokes[PAINT_STROKES_MAX];
 };
-extern PaintConfig gPaint;
+// Reference, not object: the ~9 KB canvas is placement-new'd into PSRAM at
+// static-init time (see main.cpp) instead of costing DRAM .bss. Safe because
+// CONFIG_SPIRAM_BOOT_INIT registers the PSRAM heap before global ctors run.
+extern PaintConfig& gPaint;
 
 // ── Projection & Galvo Rate Configuration ───────────────────────────────────
 struct ProjectionConfig {

@@ -33,6 +33,8 @@
 #include <esp_log.h>
 #include <string.h>
 #include "util/log_buffer.h"
+#include "util/mem_registry.h"
+#include "util/ps_scratch.h"
 #include <driver/gpio.h>
 
 static const char* TAG = "sd_card";
@@ -45,12 +47,22 @@ static uint8_t  s_file_count = 0;
 static char     s_error_msg[64] = "Not initialized";
 static char     s_fs_type[8]    = "-";
 
-static char     s_paths[ILDA_MAX_FILES][ILDA_MAX_PATH];
-static char     s_names[ILDA_MAX_FILES][64];
+// File tables (~7.7 KB) in PSRAM -- lazily allocated in init(), was DRAM .bss
+typedef char PathRow[ILDA_MAX_PATH];
+typedef char NameRow[64];
+static PathRow* s_paths = nullptr;
+static NameRow* s_names = nullptr;
 
 namespace sd_card {
 
 bool init() {
+    if (!psScratch(s_paths, ILDA_MAX_FILES) || !psScratch(s_names, ILDA_MAX_FILES)) {
+        strlcpy(s_error_msg, "File table alloc failed", sizeof(s_error_msg));
+        ESP_LOGE(TAG, "SD: %s", s_error_msg);
+        return false;
+    }
+    memreg::track("SD File Table", ILDA_MAX_FILES * (sizeof(PathRow) + sizeof(NameRow)), true);
+
     // SD runs on SPI3 via Arduino's SPIClass(HSPI) -- a completely
     // independent hardware peripheral from the DAC's SPI2, on its own
     // dedicated GPIOs (see pinmap.h for why the two must never share
@@ -162,8 +174,8 @@ uint8_t scanFiles() {
     LOCK_SD();
     if (!s_ready) return 0;
     s_file_count = 0;
-    memset(s_paths, 0, sizeof(s_paths));
-    memset(s_names, 0, sizeof(s_names));
+    memset(s_paths, 0, ILDA_MAX_FILES * sizeof(PathRow));
+    memset(s_names, 0, ILDA_MAX_FILES * sizeof(NameRow));
 
     File root = SD.open("/ilda");
     if (!root || !root.isDirectory()) {

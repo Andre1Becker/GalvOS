@@ -11,6 +11,9 @@
 #include <LittleFS.h>
 #include <esp_log.h>
 #include <esp_task_wdt.h>   // WDT-control
+#include <new>                        // placement new (gPaint -> PSRAM)
+#include <soc/soc_memory_layout.h>    // esp_ptr_external_ram
+#include "util/mem_registry.h"
 #include "config.h"
 #include "pinmap.h"
 #include "safety/safety.h"
@@ -51,7 +54,15 @@ volatile uint8_t    gActiveOptimizerProfile = OPT_PROFILE_VECTOR;
 optimizer::AffineTransform optimizer::gLiveTransform;  // Phase 3: live Z-rot + move affine, published per-frame by pattern_engine
 volatile uint32_t   gPatternCacheGen = 0; // Phase 2 static-preset cache invalidation
 ZoneConfig       gZone;                 // touch-defined projection zone
-PaintConfig      gPaint;                // paint-by-finger canvas
+// Paint canvas (~9 KB) lives in PSRAM: placement-new at static-init time
+// (PSRAM heap is registered before global ctors via CONFIG_SPIRAM_BOOT_INIT).
+// DRAM fallback keeps PSRAM-less debug setups alive.
+static PaintConfig* allocPaintConfig() {
+    void* p = ps_malloc(sizeof(PaintConfig));
+    if (!p) p = malloc(sizeof(PaintConfig));
+    return new (p) PaintConfig();
+}
+PaintConfig&     gPaint = *allocPaintConfig();  // paint-by-finger canvas
 volatile bool    gDebugNoHW = false;
 
 static const char* TAG = "main";
@@ -307,6 +318,8 @@ void setup() {
       gDebugNoHW = p.getBool("dbg_nohw", false); p.end();
       if(gDebugNoHW) ESP_LOGW("main","DEBUG NO-HW MODE active"); }
     logbuf::init();
+    memreg::track("Paint Canvas", sizeof(PaintConfig),
+                  esp_ptr_external_ram(&gPaint));
     LOG_I(logbuf::CAT_SYSTEM, "FW %s | Chip %s | PSRAM %uKB | Heap %uKB",
           LASER_FW_VERSION, ESP.getChipModel(),
           ESP.getPsramSize()/1024, ESP.getFreeHeap()/1024);

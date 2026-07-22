@@ -108,7 +108,12 @@ These are features that are designed and intended, but not yet implemented.
 
 The plan is to add an auto-tuning mode that uses a global-shutter camera input to capture the projected image and automatically calibrate galvo linearity, offset, gain, and potentially optimizer parameters. This would replace the current manual calibration workflow.
 
-**Optimize Heap Usage even more:** 117KBs to 121 KBs Untracked Heap Memory usage
+**Optimize Heap Usage even more:** ~~117KBs to 121 KBs Untracked Heap Memory usage~~
+Fixed in v6.04.0: ~120 KB of `static` scratch buffers (preset/paint/calib pattern
+verts, EtherDream RX, SD file table, gPaint canvas, optimizer transform scratch)
+moved from DRAM .bss to lazily allocated PSRAM (`src/util/ps_scratch.h`).
+Static RAM 180,728 B -> 57,872 B; the "untracked" remainder is the WiFi/lwIP/
+AsyncTCP stack plus FreeRTOS task stacks, which cannot leave internal RAM.
 
 ---
 

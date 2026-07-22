@@ -16,6 +16,8 @@
 #include "output/galvo_out.h"
 #include "safety/safety.h"
 #include "util/log_buffer.h"
+#include "util/mem_registry.h"
+#include "util/ps_scratch.h"
 #include "net/web_ui.h"
 
 #include <Arduino.h>
@@ -105,6 +107,13 @@ static const uint32_t BEACON_FAIL_REBOOT_MS = 30000;
 
 // response buffer
 static uint8_t  s_resp[64];
+
+// Running total of PSRAM RX/frame scratch (was DRAM .bss before v6.04.0)
+static size_t s_scratchBytes = 0;
+static void trackScratch(size_t bytes) {
+    s_scratchBytes += bytes;
+    memreg::track("EtherDream Scratch", s_scratchBytes, true);
+}
 
 // ── send response ──────────────────────────────────────────────
 static void sendResponse(uint8_t cmd, uint8_t response, const DACStatus* st) {
@@ -215,9 +224,11 @@ static void sendBeacon() {
 
 // ── process point data ───────────────────────────────────────
 static void processDataPoints(uint8_t* buf, uint16_t count) {
-    // Temporary frame buffer (stack -- count limited by TCP-MTU)
+    // Frame scratch (2 KB) in PSRAM -- was DRAM .bss ("static: not on stack")
     const size_t MAX_PTS = 256;
-    static LaserPoint pts[MAX_PTS];  // static: not on stack
+    static LaserPoint* pts = nullptr;
+    if (!pts && psScratch(pts, MAX_PTS)) trackScratch(MAX_PTS * sizeof(LaserPoint));
+    if (!pts) return;
     size_t n = 0;
 
     for (uint16_t i = 0; i < count && n < MAX_PTS; i++) {
@@ -284,8 +295,11 @@ static void handleClient() {
                     break;
                 }
 
-                // Read point data (with timeout)
-                static uint8_t pt_buf[8192];  // static: not on task stack
+                // Read point data (with timeout). 8 KB RX buffer in PSRAM --
+                // was DRAM .bss ("static: not on task stack").
+                static uint8_t* pt_buf = nullptr;
+                if (!pt_buf && psScratch(pt_buf, 8192)) trackScratch(8192);
+                if (!pt_buf) break;
                 size_t got = 0;
                 uint32_t t0 = millis();
                 while (got < pt_bytes && millis()-t0 < 50) {

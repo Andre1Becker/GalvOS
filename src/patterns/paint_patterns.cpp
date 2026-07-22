@@ -1,6 +1,8 @@
 #include "paint_patterns.h"
 #include "point_optimizer.h"
 #include "mutex.h"
+#include "util/mem_registry.h"
+#include "util/ps_scratch.h"
 
 namespace paint {
 
@@ -39,15 +41,29 @@ static inline optimizer::OptimizerConfig liveOptimizerConfig() {
 }
 
 size_t generate(LaserPoint* out, size_t max_pts) {
+    // PSRAM scratch: snapshot (~9 KB -- previously a stack local eating most
+    // of the pattern task's 12 KB stack) + vertex scratch (~14 KB -- was
+    // DRAM .bss). generate() only runs on the pattern task, so one shared
+    // snapshot buffer is race-free.
+    typedef optimizer::PathVertex VertRow[PAINT_VERTS_PER_STROKE];
+    static PaintConfig* snapBuf = nullptr;
+    static VertRow*     verts   = nullptr;
+    if (!psScratch(snapBuf, 1) || !psScratch(verts, PAINT_STROKES_MAX)) return 0;
+    static bool tracked = false;
+    if (!tracked) {
+        tracked = true;
+        memreg::track("Paint Scratch", sizeof(PaintConfig) +
+                      PAINT_STROKES_MAX * sizeof(VertRow), true);
+    }
+
     // Thread-safe snapshot: pattern task (Core 1) reads while /api/paint/set
     // (Core 0) may write -- copy the whole canvas under mtx::paint so a
     // partial HTTP-body write can never be read mid-tear (same fix pattern
     // used for gZone).
-    PaintConfig snap;
-    { LOCK_PAINT(); snap = gPaint; }
+    PaintConfig& snap = *snapBuf;
+    { LOCK_PAINT(); memcpy(snapBuf, &gPaint, sizeof(PaintConfig)); }
     if (snap.stroke_count == 0) return 0;
 
-    static optimizer::PathVertex verts[PAINT_STROKES_MAX][PAINT_VERTS_PER_STROKE];
     optimizer::PathSegment segs[PAINT_STROKES_MAX];
     uint8_t segCount = 0;
 

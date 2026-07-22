@@ -9,12 +9,21 @@
 #include "calib_patterns.h"
 #include "config.h"
 #include "point_optimizer.h"
+#include "util/mem_registry.h"
+#include "util/ps_scratch.h"
 #include <math.h>
 #include <string.h>
 #include <initializer_list>
 #include <Arduino.h>
 
 namespace calib_patterns {
+
+// Running total of PSRAM vertex scratch (was DRAM .bss before v6.04.0)
+static size_t s_scratchBytes = 0;
+static void trackScratch(size_t bytes) {
+    s_scratchBytes += bytes;
+    memreg::track("Calib Scratch", s_scratchBytes, true);
+}
 
 // ── constants ────────────────────────────────────────────────
 static constexpr float PI2  = 6.2831853f;
@@ -819,11 +828,13 @@ static size_t cam_circle(LaserPoint* o, size_t m,
                           uint32_t, uint8_t bright, uint8_t) {
     uint8_t wr, wg, wb; colorOut(255, 255, 255, bright, wr, wg, wb);
     static constexpr int N = 128;
-    // static, not stack: patterns::task's stack is a tight 12 KB budget
-    // (see main.cpp's startTask comment on a prior stack-canary crash) --
-    // 128 PathVertex (~1.5 KB) is affordable on the stack alone, but keep it
-    // off the stack anyway for headroom under the rest of task()'s frame.
-    static optimizer::PathVertex verts[N];
+    // PSRAM, not stack: patterns::task's stack is a tight 12 KB budget
+    // (see main.cpp's startTask comment on a prior stack-canary crash).
+    // Rewritten every call; formerly DRAM .bss.
+    static optimizer::PathVertex* verts = nullptr;
+    if (!psScratch(verts, N)) return 0;
+    static bool tracked = false;
+    if (!tracked) { tracked = true; trackScratch(N * sizeof(optimizer::PathVertex)); }
     for (int i = 0; i < N; i++) {
         float a = PI2 * i / (float)N;
         verts[i] = optimizer::PathVertex(cosf(a) * CAM_H, sinf(a) * CAM_H,
@@ -841,11 +852,13 @@ static size_t cam_spiral(LaserPoint* o, size_t m,
     uint8_t wr, wg, wb; colorOut(255, 255, 255, bright, wr, wg, wb);
     static constexpr int N = 512;
     static const float rInner = CAM_H * 0.15f;
-    // static, not stack -- 512 PathVertex is 6 KB, half of patterns::task's
+    // PSRAM, not stack -- 512 PathVertex is 6 KB, half of patterns::task's
     // entire 12 KB stack budget (see main.cpp's startTask comment on a prior
-    // stack-canary crash). Recomputed every call same as before; only the
-    // storage class changes.
-    static optimizer::PathVertex verts[N];
+    // stack-canary crash). Rewritten every call; formerly DRAM .bss.
+    static optimizer::PathVertex* verts = nullptr;
+    if (!psScratch(verts, N)) return 0;
+    static bool tracked = false;
+    if (!tracked) { tracked = true; trackScratch(N * sizeof(optimizer::PathVertex)); }
     for (int i = 0; i < N; i++) {
         float t = (float)i / (float)(N - 1);
         float theta = t * 6.0f * (float)M_PI;
