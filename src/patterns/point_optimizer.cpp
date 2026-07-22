@@ -794,6 +794,49 @@ size_t optimize(const PathSegment* segments, size_t segment_count,
         needed = planned_total + blank_overhead;
     }
 
+    // Stage 1.5: corner dwell is fixed overhead -- Stage 2 below only ever
+    // scales interior (length-proportional) density, never corner_total.
+    // That's fine as long as corner_total + blank_overhead fits under
+    // effective_cap; Stage 1 above already drove blank_samples to its
+    // floor trying to arrange that. But if corner_total ALONE (many
+    // vertices, e.g. a dense sampled curve or a many-sided polygon) still
+    // exceeds what's left after the floor blank overhead, nothing upstream
+    // can save it: emitAllSegments()'s hard per-point cap (see emit()) then
+    // truncates mid-shape once spending runs out mid-corner-loop. For a
+    // CLOSED path that always sacrifices whatever is written last -- the
+    // final edge, the closing dwell at vertex 0 -- i.e. the loop silently
+    // stops short of reconnecting, a real gap the eye reads as "not
+    // closed" (as opposed to merely a coarser corner). Observed on
+    // many-vertex closed shapes (Octagon and up, dense Lissajous/rose
+    // curves) once max_pts_per_frame is tuned low enough that even
+    // min_corner_pts per vertex doesn't fit.
+    //
+    // Scale min_corner_pts/max_corner_pts down together (floor 1 pt/vertex
+    // -- the minimum needed to actually visit every vertex) so corner_total
+    // itself shrinks to fit, then re-plan with the new corner budget. This
+    // trades corner sharpness/dwell for the one thing that must never be
+    // sacrificed: the shape actually closing.
+    if (corner_total + blank_overhead > effective_cap && corner_total > 0) {
+        float available_for_corners = (float)effective_cap - (float)blank_overhead;
+        if (available_for_corners < 0.0f) available_for_corners = 0.0f;
+        float corner_scale = available_for_corners / (float)corner_total;
+
+        uint8_t new_min = (uint8_t)std::max(1.0f, floorf(cfg.min_corner_pts * corner_scale));
+        uint8_t new_max = (uint8_t)std::max((float)new_min, floorf(cfg.max_corner_pts * corner_scale));
+        cfg.min_corner_pts = new_min;
+        cfg.max_corner_pts = new_max;
+
+        corner_total = 0; interior_total = 0;
+        for (size_t s = 0; s < segment_count; s++) {
+            uint16_t cp = 0, ip = 0;
+            planSegment(segments[s], cfg, &cp, &ip);
+            corner_total += cp;
+            interior_total += ip;
+        }
+        planned_total = corner_total + interior_total;
+        needed = planned_total + blank_overhead;
+    }
+
     // Stage 2: scale interior (length-proportional) density against the
     // now-correct (possibly Stage-1-reduced) blank_overhead. Fixed
     // overhead (corners + blanking) is subtracted first; only the
