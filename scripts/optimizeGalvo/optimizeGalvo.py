@@ -71,7 +71,7 @@ import requests
 # ── versioning ───────────────────────────────────────────────────────────────
 # Semantic version of this script (independent of GalvOS firmware version).
 # Bump on every behavioral change; see git log for change history.
-SCRIPT_VERSION = "2.7.0"
+SCRIPT_VERSION = "2.7.1"
 
 # GalvOS firmware version that introduced /api/calib-cam/* (see firmware git log:
 # "fw: v6.03.0 -- camera-in-the-loop calibration API (calib-cam)").
@@ -108,6 +108,24 @@ CATEGORY_EXPECTS_CLOSED: dict[str, bool] = {
     "Symbols": True,
     "Lines": False,
     "Waves": False,
+}
+
+# Presets that are structurally several disjoint strokes/objects joined only by
+# blank (laser-off) travel jumps - componentsAtFloor > 1 is the correct, expected
+# read for these, not a beam-path defect. Downgrades analyze-live's "POSSIBLE GAP"
+# to an informational NOTE for exactly these names (checked in runAnalyzeLive) -
+# everything else still gets the full warning. Verified against
+# preset_patterns.cpp: "Three Circles"/p107 (3 separate closed circles),
+# "Confetti Burst"/p63 (NP separate closed particle polygons), "Grid 3x3"
+# (independent line segments), "Starfield"/p90 (per-star blank-jump + dwell,
+# no connecting stroke at all), "Multi Wave"/p37 (3 independently-optimized
+# sinewave() curves), "Radial Waves"/p44 (4 concentric closed rings, NR separate
+# PathSegments), "Wave Field"/p48 (5 open row segments, NROW separate
+# PathSegments) - each passes multiple PathSegments to one optimize() call, which
+# only eases the blank jump between them, it does not connect them.
+KNOWN_MULTI_PIECE_PRESETS: set[str] = {
+    "Three Circles", "Confetti Burst", "Grid 3x3", "Starfield",
+    "Multi Wave", "Radial Waves", "Wave Field",
 }
 
 # Numeric knobs that are no-ops while their boolean gate is false - used both to
@@ -1642,13 +1660,19 @@ def runAnalyzeLive(cfg: dict, esp: EspClient, cam: Camera):
                     f"forms a fully closed loop by itself - likely unrelated "
                     f"clutter, not a break in the main shape. Check the annotated "
                     f"screenshot to confirm.")
+        elif geometry["componentsAtFloor"] > 1 and source.get("presetName") in KNOWN_MULTI_PIECE_PRESETS:
+            flag = (f"NOTE - '{source.get('presetName')}' fragments into "
+                    f"{geometry['componentsAtFloor']} piece(s) at the floor threshold, "
+                    f"but that's expected - it's a known multi-object/multi-segment "
+                    f"preset by design (see KNOWN_MULTI_PIECE_PRESETS), not a beam-path "
+                    f"gap.")
         elif geometry["componentsAtFloor"] > 1:
             flag = ("POSSIBLE GAP / DISCONNECTED SEGMENT - the trace does not form a "
                     "single continuous piece even at the most permissive threshold. "
                     "This is expected by design for multi-object/particle presets "
-                    "(Starfield, Confetti Burst, Grid 3x3, Three Circles, ...) - only "
-                    "worth investigating if this preset is meant to be one "
-                    "continuous stroke.")
+                    "(Starfield, Confetti Burst, Grid 3x3, Three Circles, Multi Wave, "
+                    "Radial Waves, Wave Field, ...) - only worth investigating if this "
+                    "preset is meant to be one continuous stroke.")
         elif expectClosed is True and closed is False:
             flag = (f"NOTE - '{source.get('presetName')}' is category "
                     f"'{source['category']}' (normally a closed shape) but the "
