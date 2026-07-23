@@ -82,8 +82,7 @@ Full system state. Polled by the WebUI every second.
 **Response fields:**
 
 | Field | Type | Description |
-|-------|------|-------------|
-
+| --- | --- | --- | --- |
 | `estop_ok` | bool | E-Stop circuit closed (not pressed) |
 | `scanfail_ok` | bool | NE555 scan-fail hardware OK |
 | `laser_armed` | bool | Laser power rail enabled |
@@ -149,7 +148,7 @@ Returns the full `RuntimeConfig` plus all optimizer profiles.
 Key response fields: all `RuntimeConfig` fields (see [Chapter 3](03-build-and-config.md#runtimeconfig--user-parameters)), plus:
 
 | Field | Description |
-|-------|-------------|
+| --- | --- | --- |
 | `opt_active_profile` | Index of the currently active optimizer profile (0–5) |
 | `opt_profiles` | Array of 6 profile objects, each containing all optimizer parameters and their effective values (`opt_eff_*`) |
 | `opt_profile_members` | Array of 6 arrays, each listing the preset names that belong to that profile |
@@ -168,11 +167,13 @@ Write one or more `RuntimeConfig` fields. Only fields present in the body are up
 ```
 
 **Example — update white balance gains:**
+
 ```json
 {"gain_r": 115, "gain_g": 43, "gain_b": 255}
 ```
 
 **Example — update visibility thresholds:**
+
 ```json
 {"thresh_r": 143, "thresh_g": 144, "thresh_b": 169}
 ```
@@ -272,8 +273,7 @@ Update live preset controls without changing the active preset. All fields are o
 **Available fields:**
 
 | Field | Type | Range | Description |
-|-------|------|-------|-------------|
-
+| --- | --- | --- | --- |
 | `speed` | int | 0–255 | Animation speed |
 | `size` | int | 0–255 | Pattern scale |
 | `autoscaleSpeed` | int | 0–100 | Auto-scaling speed (0 = off) |
@@ -551,8 +551,7 @@ Returns projection configuration and all derived safety calculations.
 **Key response fields:**
 
 | Field | Description |
-|-------|-------------|
-
+| --- | --- | --- |
 | `kpps` | Current output rate |
 | `rated_kpps` | Galvo rated speed |
 | `exit_angle` | Housing aperture half-angle (°) |
@@ -652,8 +651,7 @@ Activate text mode and set content. Text mode overrides presets and DMX while ac
 ```
 
 | Field | Values |
-|-------|--------|
-
+| --- | --- | --- |
 | `font` | 0=Simple, 1=Bold, 2=Outline |
 | `anim` | 0=Static, 1=Scroll Left, 2=Scroll Right, 3=Bounce, 4=Typewriter, 5=Wave, 6=Pulse, 7=Rotate, 8=Zoom, 10=Orbit, 11=Star Wars |
 

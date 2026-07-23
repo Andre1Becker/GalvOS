@@ -56,8 +56,7 @@ pip install -r requirements.txt
 ## Files
 
 | File | Purpose |
-|------|---------|
-
+| --- | --- |
 | `camConfig.json` | Runtime config — ESP32 base URL, camera index/resolution/exposure, DAC calibration range, cost weights, diagnose thresholds, HTTP timeout/retry settings. Created by `wizard` on first run. |
 | `homography.npz` | Pixel→DAC homography matrix plus the stored background frame, written by `calibrate`. Required by `measure`, `optimize`, and `diagnose`. |
 | `searchSpace.json` | Parameter ranges per camera-tunable optimizer profile (`Vector`, `Smooth`, `Waves`, `MultiObject`). Edit this if you widen a parameter's firmware-side limits. |
@@ -70,8 +69,7 @@ Override the config path with `--config`, e.g. to keep separate configs for mult
 Six patterns exist on the firmware side purely for this tool (`calib_patterns.cpp`, indices 11–16), geometrically matching the ground truth the script rasterizes internally so measured error is directly comparable to the ideal:
 
 | Pattern | Used for |
-|---------|----------|
-
+| --- | --- |
 | `corners4` | 4 static dots at the DAC-range corners — the homography reference. Uses a fixed manual dwell so it stays camera-visible regardless of what corner-dwell overrides a search throws at it. |
 | `square` | Sharp 90° corners — corner hotspot + path deviation. |
 | `star` | 5-point pentagram (self-intersecting) — corner hotspot + path deviation. |
@@ -157,8 +155,7 @@ Added in optimizeGalvo v2.4.0. Tunes the camera's own **capture** settings — e
 Every measurement reduces to a single weighted cost (`costWeights` in `camConfig.json`):
 
 | Metric | What it catches |
-|--------|-----------------|
-
+| --- | --- |
 | `pathDeviationRms` | How far the traced beam deviates from the ideal geometry — corner dwell and interior density problems. |
 | `blankLeakage` | Laser visible during a blank jump — insufficient hold-off or blanking overshoot. |
 | `cornerHotspot` | Excess brightness pooling at a corner — too much dwell relative to the rest of the shape. |
@@ -180,8 +177,7 @@ This tool projects real geometry through the real laser via the normal `calib_ac
 ## Version History
 
 | Version | Change |
-|---------|--------|
-
+| --- | --- |
 | fw v6.03.0 | Initial `/api/calib-cam/*` API and the 6 camera patterns. |
 | fw v6.04.1 | Patterns default to blue; `channel` field on `/api/calib-cam/start`. |
 | fw v6.05.0 | Fixed closed shapes not reconnecting when a heavily-tuned-down `max_pts_per_frame` starved corner dwell — see [Chapter 5](05-optimizer.md#stage-4--corner-dwell). |

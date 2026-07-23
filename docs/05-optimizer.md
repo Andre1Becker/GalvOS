@@ -312,7 +312,6 @@ GalvOS maintains **eight** independent optimizer profiles. The first six map 1:1
 
 | Profile | Index | Preset class | Primary workload | NVS suffix |
 | --- | --- | --- | --- | --- |
-
 | Vector | 0 | Closed polygons, stars, geometric shapes | Corner dwell | `_s` |
 | Smooth | 1 | Continuous closed curves, spirals | Interior density | `_c` |
 | Waves | 2 | Open polylines, wave patterns | Velocity clamp | `_w` |
@@ -380,8 +379,7 @@ The default is 1010 (tuned for a ~30 Hz flicker-free floor at 30 kpps: 30000 / 1
 Full table of all optimizer parameters, their defaults, valid ranges, and effects.
 
 | Parameter | Default | Range | Effect |
-|-----------|---------|-------|--------|
-
+| --- | --- | --- | --- |
 | `corner_angle_deg` | 25.0° | 0–180° | Minimum exterior angle to classify as a corner and add dwell points. Lower values add dwell at gentler bends; 0 adds dwell at every vertex. |
 | `min_corner_pts` | 2 | 0–255 | Points added at the softest qualifying corner (exterior angle just above `corner_angle_deg`). |
 | `max_corner_pts` | 8 | 0–255 | Points added at the sharpest corner (full 180° reversal). |

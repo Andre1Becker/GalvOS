@@ -52,8 +52,7 @@ If you're missing some of the "helpful" items, the documentation will explain wh
 GalvOS was developed for and tested on the **Mikoy 5W RGB laser projector**. The key components extracted from it (or sourced separately) are:
 
 | Component | Specification | Notes |
-|-----------|---------------|-------|
-
+| --- | --- | --- |
 | Galvo Set | Jolooyo JY-15K-BL | 15 kpps, ±20° optical, OEM driver board included |
 | Laser Module | MN-1M5AT | 3-channel, R: 638 nm ~1W, G: 520 nm ~1W, B: 445 nm ~3W |
 | Galvo PSU | ±12.8V (measured) | Provides ±15V rail to OPA4134 via the OEM galvo driver |
@@ -66,8 +65,7 @@ Other galvo sets and laser drivers may work, but will require tuning of the opti
 You will need to source and build:
 
 | Component | Part Number | Quantity | Notes |
-|-----------|-------------|----------|-------|
-
+| --- | --- | --- | ---|
 | MCU | ESP32-S3-DevKitC-1 (N16R8) | 1 | The N16R8 variant specifically — 16 MB Flash, 8 MB OPI PSRAM |
 | DAC | DAC8562 | 1 | 16-bit dual SPI DAC, available as MSOP-10 |
 | Op-Amp | OPA4134UA | 1 | Quad op-amp, SOIC-14 |
@@ -112,8 +110,7 @@ Non-negotiable before powering up the laser:
 ### Development Environment
 
 | Software | Version | Purpose |
-|----------|---------|---------|
-
+| --- | --- | --- |
 | [VS Code](https://code.visualstudio.com/) | Latest | IDE (recommended) |
 | [PlatformIO IDE extension](https://platformio.org/install/ide?install=vscode) | Latest | Build system, flashing, serial monitor |
 | [Git](https://git-scm.com/) | Any recent | Cloning the repository |
@@ -136,8 +133,7 @@ No browser plugins or extensions are required.
 ### Optional but Useful
 
 | Tool | Purpose |
-|------|---------|
-
+| --- | --- |
 | Serial terminal (e.g. PuTTY, `screen`, VS Code serial monitor) | Reading debug output during firmware development |
 | [Wireshark](https://www.wireshark.org/) | Debugging Art-Net UDP traffic |
 | Any DMX controller or software (e.g. QLC+) | Testing DMX input |
