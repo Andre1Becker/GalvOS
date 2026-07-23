@@ -148,7 +148,7 @@ Returns the full `RuntimeConfig` plus all optimizer profiles.
 Key response fields: all `RuntimeConfig` fields (see [Chapter 3](03-build-and-config.md#runtimeconfig--user-parameters)), plus:
 
 | Field | Description |
-| --- | --- | --- |
+| --- | --- |
 | `opt_active_profile` | Index of the currently active optimizer profile (0–5) |
 | `opt_profiles` | Array of 6 profile objects, each containing all optimizer parameters and their effective values (`opt_eff_*`) |
 | `opt_profile_members` | Array of 6 arrays, each listing the preset names that belong to that profile |
