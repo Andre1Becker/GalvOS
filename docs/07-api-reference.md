@@ -82,7 +82,7 @@ Full system state. Polled by the WebUI every second.
 **Response fields:**
 
 | Field | Type | Description |
-| --- | --- | --- | --- |
+| --- | --- | --- |
 | `estop_ok` | bool | E-Stop circuit closed (not pressed) |
 | `scanfail_ok` | bool | NE555 scan-fail hardware OK |
 | `laser_armed` | bool | Laser power rail enabled |
