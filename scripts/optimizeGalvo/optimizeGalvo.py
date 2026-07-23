@@ -73,6 +73,7 @@ import argparse
 import collections
 import functools
 import json
+import os
 import sys
 import textwrap
 import time
@@ -86,7 +87,7 @@ import requests
 # ── versioning ───────────────────────────────────────────────────────────────
 # Semantic version of this script (independent of GalvOS firmware version).
 # Bump on every behavioral change; see git log for change history.
-SCRIPT_VERSION = "2.8.0"
+SCRIPT_VERSION = "2.9.0"
 
 # GalvOS firmware version that introduced /api/calib-cam/* (see firmware git log:
 # "fw: v6.03.0 -- camera-in-the-loop calibration API (calib-cam)").
@@ -214,6 +215,73 @@ def prTip(*values, **kwargs):
 
 def prInfo(*values, **kwargs):
     pr("[i]", *values, **kwargs)
+
+
+# ── bold text / tables ───────────────────────────────────────────────────────
+# Windows Terminal and modern PowerShell/conhost render ANSI SGR codes fine, but
+# classic conhost needs ENABLE_VIRTUAL_TERMINAL_PROCESSING turned on explicitly
+# first - _enableWindowsAnsi() does that once at startup (best-effort, silently
+# no-ops on anything it doesn't understand). NO_COLOR / non-tty output (piped to
+# a file, redirected in CI) falls back to plain text automatically.
+
+def _enableWindowsAnsi():
+    if sys.platform != "win32":
+        return
+    try:
+        import ctypes
+        kernel32 = ctypes.windll.kernel32
+        ENABLE_VIRTUAL_TERMINAL_PROCESSING = 0x0004
+        for stdHandle in (-11, -12):  # STD_OUTPUT_HANDLE, STD_ERROR_HANDLE
+            handle = kernel32.GetStdHandle(stdHandle)
+            mode = ctypes.c_uint32()
+            if kernel32.GetConsoleMode(handle, ctypes.byref(mode)):
+                kernel32.SetConsoleMode(handle, mode.value | ENABLE_VIRTUAL_TERMINAL_PROCESSING)
+    except Exception:
+        pass  # best-effort - worst case, ANSI codes show up as raw text
+
+
+def _supportsColor() -> bool:
+    if os.environ.get("NO_COLOR"):
+        return False
+    return sys.stdout.isatty()
+
+
+_COLOR = _supportsColor()
+_SGR_BOLD, _SGR_DIM, _SGR_RESET = ("\033[1m", "\033[2m", "\033[0m") if _COLOR else ("", "", "")
+
+
+def bold(s) -> str:
+    return f"{_SGR_BOLD}{s}{_SGR_RESET}" if _COLOR else str(s)
+
+
+def dim(s) -> str:
+    return f"{_SGR_DIM}{s}{_SGR_RESET}" if _COLOR else str(s)
+
+
+def prTable(rows: list[tuple[str, object]], headers: tuple[str, str] | None = None):
+    """Renders a bordered two-column (label, value) table sized to its content and
+    capped at TERM_WIDTH. ASCII-only borders (+/-/|) - Unicode box-drawing chars
+    hit UnicodeEncodeError on a non-UTF-8 Windows console codepage (e.g. output
+    piped through another tool), the exact failure mode the no-emoji rule exists
+    to avoid. Bypasses pr()'s hard-wrap (its length check would be thrown off by
+    bold()'s invisible ANSI bytes) - lines are already sized to fit."""
+    if not rows:
+        return
+    data = ([headers] if headers else []) + [(k, str(v)) for k, v in rows]
+    col0 = max(len(r[0]) for r in data)
+    col1 = min(max(len(r[1]) for r in data), TERM_WIDTH - col0 - 7)
+
+    def border():
+        print("+" + "-" * (col0 + 2) + "+" + "-" * (col1 + 2) + "+")
+
+    border()
+    if headers:
+        print(f"| {bold(headers[0].ljust(col0))} | {bold(headers[1].ljust(col1))} |")
+        border()
+    for k, v in rows:
+        v = str(v)[:col1]
+        print(f"| {bold(str(k).ljust(col0))} | {v.ljust(col1)} |")
+    border()
 
 
 # ── interactive prompts ──────────────────────────────────────────────────────
@@ -821,22 +889,23 @@ class Camera:
         self.lastAccumulated: np.ndarray | None = None
         reportedFps = self.cap.get(cv2.CAP_PROP_FPS)
         readExposure = self.cap.get(cv2.CAP_PROP_EXPOSURE)
-        pr(f"camera: {cfg['frameWidth']}x{cfg['frameHeight']} @ driver-reported "
-              f"{reportedFps:.1f} fps (nominal, not necessarily the achieved rate - "
-              f"watch the live overlay for measured fps), backend={backendName}")
-        if appliedAutoExpVal is not None:
-            pr(f"camera exposure: requested {cfg['exposure']}, driver confirms "
-                  f"{readExposure:.2f} (manual mode value {appliedAutoExpVal})")
-        else:
-            pr(f"camera exposure: requested {cfg['exposure']}, driver reports "
-                  f"{readExposure:.2f} - none of the manual-exposure mode values "
-                  f"{AUTO_EXPOSURE_MANUAL_CANDIDATES} stuck, so auto-exposure is very "
-                  f"likely still active. If the measured fps in the live overlay is "
-                  f"low AND changes with scene brightness, this is why - auto-exposure "
-                  f"is lengthening integration time in normal lighting, which caps a "
-                  f"global-shutter sensor's fps at 1/exposure_time. Try "
-                  f"'cameraBackend': 'msmf' in {CONFIG_FILE.name} (or 'dshow' if "
-                  f"already on msmf), or your camera vendor's own control app if "
+        exposureStuck = appliedAutoExpVal is not None
+        prTable([
+            ("resolution",   f"{cfg['frameWidth']}x{cfg['frameHeight']}"),
+            ("backend",      backendName),
+            ("driver fps",   f"{reportedFps:.1f} (nominal - watch the live overlay for measured fps)"),
+            ("exposure req", cfg["exposure"]),
+            ("exposure got", f"{readExposure:.2f}"
+                              + (f" (manual mode {appliedAutoExpVal})" if exposureStuck else " (auto-exposure)")),
+        ], headers=("camera", "value"))
+        if not exposureStuck:
+            prWarn(f"none of the manual-exposure mode values {AUTO_EXPOSURE_MANUAL_CANDIDATES} "
+                  f"stuck, so auto-exposure is very likely still active.")
+            prTip(f"if the measured fps in the live overlay is low AND changes with scene "
+                  f"brightness, this is why - auto-exposure is lengthening integration time "
+                  f"in normal lighting, which caps a global-shutter sensor's fps at "
+                  f"1/exposure_time. Try 'cameraBackend': 'msmf' in {CONFIG_FILE.name} (or "
+                  f"'dshow' if already on msmf), or your camera vendor's own control app if "
                   f"neither UVC backend exposes a working manual-exposure switch.")
 
     def setExposureGain(self, exposure: int, gain: int):
@@ -1645,7 +1714,7 @@ def runAnalyzeLive(cfg: dict, esp: EspClient, cam: Camera):
              f"will be skipped, the report will describe the raw preset index only")
         presetsCache = None
     source = describeLiveSource(esp, presetsCache)
-    pr(f"analyzing live output: {source['label']}")
+    pr(f"analyzing live output: {bold(source['label'])}")
 
     cam.statusText = "analyze-live: capturing current output (not touching the pattern)"
     capture = cam.grabAccumulated(cfg["accumFrames"])
@@ -1665,25 +1734,28 @@ def runAnalyzeLive(cfg: dict, esp: EspClient, cam: Camera):
     except cv2.error as e:
         prWarn(f"could not save {rawPath}: {e}")
 
-    pr("\n=== analyze-live ===")
+    pr()
+    pr(bold("=== analyze-live ==="))
     if geometry["litPixelCount"] < 30:
         prWarn("INDETERMINATE - essentially nothing detected in the frame.")
         prTip("Check: laser armed / E-Stop / scan-fail (see warnings above), camera "
              "exposure/threshold/framing, or that something is actually projecting.")
     else:
         bx, by = geometry["bboxDacUnits"]
-        pr(f"lit trace: {geometry['litPixelCount']} px, bbox {bx:.0f} x {by:.0f} "
-             f"DAC units, {geometry['saturationFrac'] * 100:.0f}% sensor-saturated")
-        pr(f"connectivity: {geometry['componentsAtFloor']} piece(s) at the most "
-             f"permissive usable threshold, {geometry['componentsAtConfigured']} at "
-             f"the configured binaryThreshold ({cfg['binaryThreshold']})")
-        if geometry["componentsAtConfigured"] > geometry["componentsAtFloor"]:
-            pr("  (that gap is brightness/dwell unevenness - dimmer connecting "
-                 "arcs between brighter dwell points - not a broken path; see the "
-                 "annotated screenshot)")
         closed = geometry["closedLoop"]
-        pr(f"closed loop (encloses an area): "
-             f"{closed if closed is not None else 'indeterminate'}")
+        prTable([
+            ("lit trace",       f"{geometry['litPixelCount']} px"),
+            ("bounding box",    f"{bx:.0f} x {by:.0f} DAC units"),
+            ("sensor saturated", f"{geometry['saturationFrac'] * 100:.0f}%"),
+            ("pieces (floor)",  geometry["componentsAtFloor"]),
+            ("pieces (configured)", f"{geometry['componentsAtConfigured']} "
+                                     f"@ threshold {cfg['binaryThreshold']}"),
+            ("closed loop",     closed if closed is not None else "indeterminate"),
+        ], headers=("metric", "value"))
+        if geometry["componentsAtConfigured"] > geometry["componentsAtFloor"]:
+            prInfo("that gap is brightness/dwell unevenness - dimmer connecting "
+                 "arcs between brighter dwell points - not a broken path; see the "
+                 "annotated screenshot")
 
         expectClosed = CATEGORY_EXPECTS_CLOSED.get(source.get("category"))
         flag = None
@@ -1936,7 +2008,8 @@ def formatValue(v) -> str:
 
 
 def printChangeReport(profileName: str, changed: list, unchanged: list):
-    pr(f"\n=== {profileName}: parameter changes (before -> after) ===")
+    pr()
+    pr(bold(f"=== {profileName}: parameter changes (before -> after) ==="))
     if changed:
         pr("changed:")
         for field, before, after in changed:
@@ -2150,8 +2223,8 @@ def runOptimize(cfg: dict, esp: EspClient, cam: Camera, profile: str | None, tri
         if fresh:
             thisStudyName = f"{thisStudyName}_{time.strftime('%Y%m%d_%H%M%S')}"
 
-        pr(f"\n=== tuning profile '{name}' via pattern(s) "
-              f"{space['patterns']} ===")
+        pr()
+        pr(bold(f"=== tuning profile '{name}' via pattern(s) {space['patterns']} ==="))
         study, stoppedEarly = runStudyForProfile(
             optuna, cfg, esp, cam, name, space, trials,
             thisStudyName, storageUrl, homography, background)
@@ -2230,7 +2303,8 @@ def runOptimize(cfg: dict, esp: EspClient, cam: Camera, profile: str | None, tri
             break
 
     if summary:
-        pr("\n=== summary ===")
+        pr()
+        pr(bold("=== summary ==="))
         for name, cost, nChanged in summary:
             pr(f"  {name:<12} best cost {cost:.4f}, {nChanged} param(s) changed")
         orientedPatterns = {p: v["name"] for p, v in _loadOrientationCache().items()
@@ -2304,21 +2378,24 @@ def classifyProfile(name: str, patterns: list[str], allMetrics: dict[str, Metric
 
 def printDiagnosis(name: str, verdict: str, geometryIssues: list[str], settingsIssues: list[str],
                    calib: dict | None = None):
-    pr(f"\n{name}: {verdict}")
+    pr()
+    pr(f"{bold(name)}: {bold(verdict)}")
     for g in geometryIssues:
         pr(f"  [geometry] {g}")
     for s in settingsIssues:
         pr(f"  [settings] {s}")
     if verdict == "GEOMETRY ISSUE":
-        pr("  -> not fixable by autotune. Re-run 'calibrate' (camera/projection surface "
+        prTip("not fixable by autotune. Re-run 'calibrate' (camera/projection surface "
               "may have moved); if it persists, suspect galvo gain/offset/DAC-range "
               "calibration drift - current live values, for reference:")
         if calib:
-            pr(f"       gain   X={calib['gain_x']}  Y={calib['gain_y']}")
-            pr(f"       offset X={calib['offset_x']}  Y={calib['offset_y']}")
-            pr(f"       dac_limit [{calib['dac_limit_min']}, {calib['dac_limit_max']}]")
+            prTable([
+                ("gain X / Y",   f"{calib['gain_x']} / {calib['gain_y']}"),
+                ("offset X / Y", f"{calib['offset_x']} / {calib['offset_y']}"),
+                ("dac_limit",    f"[{calib['dac_limit_min']}, {calib['dac_limit_max']}]"),
+            ], headers=("galvo calib", "value"))
         else:
-            pr("       (could not read - GET /api/config missing expected fields)")
+            prInfo("could not read - GET /api/config missing expected fields")
     elif verdict == "OK":
         pr("  -> within tolerance, no action needed.")
 
@@ -2384,7 +2461,8 @@ def runDiagnose(cfg: dict, esp: EspClient, cam: Camera, profile: str | None,
         except OptimizerError:
             pass    # best-effort - a genuine failure here would already have raised above
 
-    pr("\n=== diagnosis ===")
+    pr()
+    pr(bold("=== diagnosis ==="))
     pr(f"(measured against the fixed camera-calibration geometry, DAC range "
          f"+-{cfg['dacRange']:.0f} - a profile's tuning is only verified at that size, "
          f"not necessarily at whatever 'Size' a live preset actually runs at)")
@@ -2433,16 +2511,18 @@ def runCheckConnection(cfg: dict, esp: EspClient) -> bool:
 
     prOk("controller reachable")
     fwVersionStr = status.get("fw_version", "?")
-    pr(f"  fw_version      : {fwVersionStr}")
-    pr(f"  hostname / ip   : {status.get('hostname', '?')} / {status.get('ip', '?')}")
-    pr(f"  rssi            : {status.get('rssi', '?')} dBm")
-    pr(f"  uptime_s        : {status.get('uptime_s', '?')}")
-    pr(f"  free_heap       : {status.get('free_heap', '?')} B")
-    pr(f"  free_psram      : {status.get('free_psram', '?')} B")
-    pr(f"  estop_ok        : {bool(status.get('estop_ok'))}")
-    pr(f"  scanfail_ok     : {bool(status.get('scanfail_ok'))}")
-    pr(f"  laser_armed     : {bool(status.get('laser_armed'))}")
-    pr(f"  debug_mode      : {bool(status.get('debug_mode'))}")
+    prTable([
+        ("fw_version",   fwVersionStr),
+        ("hostname / ip", f"{status.get('hostname', '?')} / {status.get('ip', '?')}"),
+        ("rssi",         f"{status.get('rssi', '?')} dBm"),
+        ("uptime_s",     status.get("uptime_s", "?")),
+        ("free_heap",    f"{status.get('free_heap', '?')} B"),
+        ("free_psram",   f"{status.get('free_psram', '?')} B"),
+        ("estop_ok",     bool(status.get("estop_ok"))),
+        ("scanfail_ok",  bool(status.get("scanfail_ok"))),
+        ("laser_armed",  bool(status.get("laser_armed"))),
+        ("debug_mode",   bool(status.get("debug_mode"))),
+    ], headers=("field", "value"))
     if not status.get("estop_ok") or not status.get("scanfail_ok"):
         prWarn("a safety interlock is currently tripped - "
               "calib-cam patterns will not project until cleared.")
@@ -2754,7 +2834,8 @@ def runAutotuneCamera(cfg: dict, esp: EspClient, cam: Camera, patterns: list[str
         return
 
     best = study.best_params
-    pr(f"\n=== camera autotune: parameter changes (before -> after) ===")
+    pr()
+    pr(bold("=== camera autotune: parameter changes (before -> after) ==="))
     for field in ("exposure", "gain", "binaryThreshold", "accumFrames"):
         before, after = baseline[field], best[field]
         marker = "" if before == after else "  (changed)"
@@ -2816,6 +2897,7 @@ def runAutotuneCamera(cfg: dict, esp: EspClient, cam: Camera, patterns: list[str
 
 def main():
     global CONFIG_FILE
+    _enableWindowsAnsi()
     parser = argparse.ArgumentParser(
         prog="optimizeGalvo.py",
         formatter_class=argparse.RawDescriptionHelpFormatter,
