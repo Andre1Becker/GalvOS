@@ -62,8 +62,7 @@ If you just want to get up and running:
 ## Documentation
 
 | Chapter | Description |
-|---------|-------------|
-
+| --- | --- |
 | [01 — Introduction](docs/01-introduction.md) | Project background, safety, disclaimer, hardware overview |
 | [02 — Prerequisites](docs/02-prerequisites.md) | Tools, hardware, software, and skills needed |
 | [03 — Build & Configuration](docs/03-build-and-config.md) | PlatformIO setup, all configurable parameters, flash instructions |
