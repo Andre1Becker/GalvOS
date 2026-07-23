@@ -63,7 +63,7 @@ import requests
 # ── versioning ───────────────────────────────────────────────────────────────
 # Semantic version of this script (independent of GalvOS firmware version).
 # Bump on every behavioral change; see git log for change history.
-SCRIPT_VERSION = "2.4.0"
+SCRIPT_VERSION = "2.5.0"
 
 # GalvOS firmware version that introduced /api/calib-cam/* (see firmware git log:
 # "fw: v6.03.0 -- camera-in-the-loop calibration API (calib-cam)").
@@ -174,7 +174,10 @@ DEFAULT_CONFIG = {
         "pathDeviationRms": 1.0,
         "blankLeakage": 2.0,
         "cornerHotspot": 0.5,
-        "brightnessNonUniformity": 0.7
+        "brightnessNonUniformity": 0.7,
+        "saturationFrac": 3.0   # fraction (0..1) of the traced beam that's raw-sensor-
+                                # saturated - usually a camera exposure/gain problem
+                                # (blooming), not a scan/dwell one; see Metrics.saturationFrac
     },
     "diagnoseThresholds": {
         # Above these: 'diagnose' flags the profile. Geometry ones (scale/offset) are
@@ -189,7 +192,10 @@ DEFAULT_CONFIG = {
                                          # dacRange, retune if your rig uses a different one
         "blankLeakage": 15.0,
         "cornerHotspot": 0.35,
-        "brightnessNonUniformity": 0.5
+        "brightnessNonUniformity": 0.5,
+        "saturationFrac": 0.10          # >10% of the traced beam clipped -> likely camera
+                                         # blooming; 'diagnose' points at 'autotune-camera'
+                                         # for this one specifically, not 'optimize'
     },
     "cameraAutotuneRanges": {
         # Search bounds for 'autotune-camera'. Only knobs that (a) affect capture
@@ -1048,6 +1054,14 @@ class Metrics:
     blankLeakage: float
     cornerHotspot: float
     brightnessNonUniformity: float
+    # Fraction of traced pixels at raw sensor saturation (dacImage >= 250) - a global-
+    # shutter CMOS sensor bleeds charge into neighboring pixels once a spot is bright
+    # enough (blooming), which can inflate pathDeviationRms (halo spreads past the
+    # ideal path) and cornerHotspot (ROI reads "hot" from clipping, not real dwell
+    # brightness) with a camera artifact rather than an actual scan/dwell problem.
+    # Flagged here (and painted magenta in annotateCanvas) instead of silently baked
+    # into those metrics, since there's no reliable way to subtract the halo back out.
+    saturationFrac: float = 0.0
     # Overall shape size/position vs. ideal (DAC-space bounding box, 1st-99th percentile
     # to shrug off stray noise pixels) - NOT part of `cost` on purpose: these reflect
     # galvo gain/offset calibration, which no scan/dwell parameter can fix, so letting
@@ -1107,8 +1121,10 @@ def computeMetrics(capture: np.ndarray, background: np.ndarray, homography: np.n
     dacPerPixel = (2 * r) / CANVAS
     if tracePixels.any():
         pathDeviationRms = float(np.sqrt(np.mean(distToIdeal[tracePixels] ** 2)) * dacPerPixel)
+        saturationFrac = float(np.mean(dacImage[tracePixels] >= 250))
     else:
         pathDeviationRms = float(2 * r)    # nothing visible -> worst case
+        saturationFrac = 0.0
 
     # 2. blank leakage: mean brightness inside gap corridors (should be dark)
     if gapMask is not None:
@@ -1163,9 +1179,13 @@ def computeMetrics(capture: np.ndarray, background: np.ndarray, homography: np.n
     cost = (w["pathDeviationRms"] * pathDeviationRms / 100.0
             + w["blankLeakage"] * blankLeakage / 10.0
             + w["cornerHotspot"] * cornerHotspot
-            + w["brightnessNonUniformity"] * brightnessNonUniformity)
-    metrics = Metrics(pathDeviationRms, blankLeakage, cornerHotspot, brightnessNonUniformity,
-                      scaleErrorXPct, scaleErrorYPct, offsetXUnits, offsetYUnits, cost)
+            + w["brightnessNonUniformity"] * brightnessNonUniformity
+            + w.get("saturationFrac", 0.0) * saturationFrac)
+    metrics = Metrics(pathDeviationRms=pathDeviationRms, blankLeakage=blankLeakage,
+                      cornerHotspot=cornerHotspot, brightnessNonUniformity=brightnessNonUniformity,
+                      saturationFrac=saturationFrac, scaleErrorXPct=scaleErrorXPct,
+                      scaleErrorYPct=scaleErrorYPct, offsetXUnits=offsetXUnits,
+                      offsetYUnits=offsetYUnits, cost=cost)
     debug = {"dacImage": dacImage, "trace": trace, "idealMask": idealMask, "gapMask": gapMask,
              "orientation": orientation}
     return metrics, debug
@@ -1176,8 +1196,13 @@ def annotateCanvas(debug: dict, m: Metrics, pattern: str, label: str = "") -> np
     against (not the raw camera frame), so what's drawn lines up exactly with what was
     measured: dim green = ideal path, cyan = beam detected on that path (good), red =
     beam detected off the ideal path (the pathDeviationRms/scaleError/offset problem),
-    amber = light leaking into a blank corridor (blankLeakage). Used for both saved
-    screenshots and the live view so 'what was analyzed' is never just numbers."""
+    amber = light leaking into a blank corridor (blankLeakage), magenta = raw sensor
+    saturation (dacImage >= 250) within the traced beam - painted last so it overrides
+    cyan/red/amber there, since a bloomed/clipped pixel can otherwise look exactly like
+    a genuine off-path detection (see Metrics.saturationFrac's docstring). The faint
+    gray background elsewhere is real camera signal that never crossed binaryThreshold -
+    it's not scored at all, on-path or not. Used for both saved screenshots and the
+    live view so 'what was analyzed' is never just numbers."""
     dacImage, trace, idealMask, gapMask = (debug["dacImage"], debug["trace"],
                                            debug["idealMask"], debug["gapMask"])
     orientation = debug.get("orientation", "identity")
@@ -1186,29 +1211,37 @@ def annotateCanvas(debug: dict, m: Metrics, pattern: str, label: str = "") -> np
     tracePixels = trace > 0
     matched = tracePixels & (idealDilated > 0)
     deviated = tracePixels & (idealDilated == 0)
+    saturated = tracePixels & (dacImage >= 250)
     canvas[idealMask > 0] = (0, 140, 0)
     canvas[matched] = (255, 255, 0)
     canvas[deviated] = (0, 0, 255)
     if gapMask is not None:
         leaking = (gapMask > 0) & (dacImage > 40)
         canvas[leaking] = (0, 200, 255)
+    canvas[saturated] = (255, 0, 255)
 
     title = f"{label + ': ' if label else ''}{pattern}"
     lines = [
         title,
         f"path dev {m.pathDeviationRms:.1f}  blank leak {m.blankLeakage:.1f}  "
-        f"corner hot {m.cornerHotspot:.2f}  uniformity {m.brightnessNonUniformity:.2f}",
+        f"corner hot {m.cornerHotspot:.2f}  uniformity {m.brightnessNonUniformity:.2f}  "
+        f"sat {m.saturationFrac * 100:.0f}%",
         f"scale X{m.scaleErrorXPct:+.1f}% Y{m.scaleErrorYPct:+.1f}%  "
         f"offset X{m.offsetXUnits:+.0f} Y{m.offsetYUnits:+.0f}  cost {m.cost:.3f}",
     ]
     for i, line in enumerate(lines):
         cv2.putText(canvas, line, (8, 22 + i * 20), cv2.FONT_HERSHEY_SIMPLEX, 0.5,
                    (255, 255, 255), 1, cv2.LINE_AA)
+    warnY = 22 + len(lines) * 20 + 6
+    if np.any(saturated):
+        cv2.putText(canvas, "magenta = sensor-saturated (likely blooming, not a real "
+                   "position/dwell error)", (8, warnY), cv2.FONT_HERSHEY_SIMPLEX, 0.5,
+                   (255, 0, 255), 1, cv2.LINE_AA)
+        warnY += 20
     if orientation != "identity":
         # Always shown, not just on first detection - the whole point is that this
         # compensation must never be silently invisible in a saved/live image (see
         # detectOrientation()'s warning for what it does and doesn't mean).
-        warnY = 22 + len(lines) * 20 + 6
         cv2.putText(canvas, f"!! ideal reference auto-oriented: {orientation} !!",
                    (8, warnY), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (0, 0, 255), 2, cv2.LINE_AA)
     return canvas
@@ -1805,6 +1838,12 @@ def classifyProfile(name: str, patterns: list[str], allMetrics: dict[str, Metric
             settingsIssues.append(f"{pattern}: brightness non-uniformity "
                                   f"{m.brightnessNonUniformity:.2f} "
                                   f"(threshold {thresholds['brightnessNonUniformity']})")
+        if m.saturationFrac > thresholds["saturationFrac"]:
+            settingsIssues.append(
+                f"{pattern}: {m.saturationFrac * 100:.0f}% of the traced beam is raw-sensor-"
+                f"saturated (threshold {thresholds['saturationFrac'] * 100:.0f}%) - likely "
+                f"camera blooming inflating path deviation/corner hotspot, not a real scan/"
+                f"dwell problem; try 'autotune-camera' before 'optimize' for this one")
     if geometryIssues:
         verdict = "GEOMETRY ISSUE"
     elif settingsIssues:
