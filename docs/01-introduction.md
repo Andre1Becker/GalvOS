@@ -112,8 +112,7 @@ If this disclaimer makes you uncomfortable, that discomfort is appropriate. Buil
 GalvOS is built on a custom perfboard (15 × 9 cm) that replaces the original Mikoy mainboard. The key components are:
 
 | Component | Part | Role |
-|-----------|------|------|
-
+| --- | --- | --- |
 | MCU | ESP32-S3-WROOM-1 N16R8 | Main processor (dual-core, 240 MHz, 16 MB Flash, 8 MB OPI PSRAM) |
 | DAC | DAC8562 | 16-bit dual-channel SPI DAC for X/Y galvo positioning |
 | Op-Amp | OPA4134UA (quad, SOIC-14) | Differential amplifier stage — converts DAC output to ±5V galvo drive |
