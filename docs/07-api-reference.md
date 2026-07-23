@@ -551,7 +551,7 @@ Returns projection configuration and all derived safety calculations.
 **Key response fields:**
 
 | Field | Description |
-| --- | --- | --- |
+| --- | --- |
 | `kpps` | Current output rate |
 | `rated_kpps` | Galvo rated speed |
 | `exit_angle` | Housing aperture half-angle (°) |
@@ -651,7 +651,7 @@ Activate text mode and set content. Text mode overrides presets and DMX while ac
 ```
 
 | Field | Values |
-| --- | --- | --- |
+| --- | --- |
 | `font` | 0=Simple, 1=Bold, 2=Outline |
 | `anim` | 0=Static, 1=Scroll Left, 2=Scroll Right, 3=Bounce, 4=Typewriter, 5=Wave, 6=Pulse, 7=Rotate, 8=Zoom, 10=Orbit, 11=Star Wars |
 
