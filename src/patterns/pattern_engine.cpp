@@ -929,11 +929,25 @@ static void applyPointsOnlyMode(size_t& n) {
     uint32_t cycleMs = (uint32_t)gLivePreset.points_fade_in_ms + gLivePreset.points_fade_out_ms;
     if (cycleMs == 0) cycleMs = 1;
     s_pm_acc_ms = (s_pm_acc_ms + dt_ms) % cycleMs;
-    const uint8_t blankSamples = gOptimizerConfig.min_blank_samples;  // snapshot once — avoid TOCTOU vs. live WebUI writes
+
+    // Distance-proportional, ZV-shaped blank jump (same optimizer::emitBlankTo()
+    // Starfield/BouncingPoints etc. use) instead of a fixed tick count -- a
+    // Heart's dwell dots are spread around a wide outline, so jumps between
+    // them vary a lot in length. A fixed short jump left the galvo still
+    // moving/ringing when the dwell lit up, showing as a streak instead of a
+    // still point; scaling move+settle by actual jump distance fixes that.
+    optimizer::OptimizerConfig cfg;  // snapshot once — avoid TOCTOU vs. live WebUI writes
+    cfg.blank_samples            = gOptimizerConfig.blank_samples;
+    cfg.min_blank_samples        = gOptimizerConfig.min_blank_samples;
+    cfg.blank_pts_per_1000_units = gOptimizerConfig.blank_pts_per_1000_units;
+    cfg.ringing_comp_enabled     = gOptimizerConfig.ringing_comp_enabled;
+    cfg.ring_freq_hz             = gOptimizerConfig.ring_freq_hz;
+    cfg.ring_damping_ratio       = gOptimizerConfig.ring_damping_ratio;
+    cfg.galvo_kpps               = gProjection.galvo_kpps;
 
     size_t o = 0;
     for (uint8_t k = 0; k < count; k++) {
-        if (o + (size_t)dwell + (size_t)(2 * blankSamples) + 1 > PATTERN_POINTS_MAX) break;
+        if (o + (size_t)dwell + (size_t)cfg.blank_samples + 1 > PATTERN_POINTS_MAX) break;
         size_t src_idx = (size_t)((uint32_t)k * nl / count);
         const LaserPoint& src = s_pm_lit[src_idx];
 
@@ -959,18 +973,7 @@ static void applyPointsOnlyMode(size_t& n) {
         uint8_t g = (uint8_t)(src.g * v);
         uint8_t b = (uint8_t)(src.b * v);
 
-        float px = (o > 0) ? s_frame[o - 1].x : src.x;
-        float py = (o > 0) ? s_frame[o - 1].y : src.y;
-        int moveTicks   = blankSamples;
-        int settleTicks = blankSamples;
-        for (int d = 0; d < moveTicks; d++) {
-            float t = (float)(d + 1) / (float)moveTicks;
-            int16_t bx = (int16_t)(px + (src.x - px) * t);
-            int16_t by = (int16_t)(py + (src.y - py) * t);
-            s_frame[o++] = LaserPoint(bx, by, 0, 0, 0, 1);
-        }
-        for (int d = 0; d < settleTicks; d++)
-            s_frame[o++] = LaserPoint(src.x, src.y, 0, 0, 0, 1);
+        optimizer::emitBlankTo(s_frame, o, PATTERN_POINTS_MAX, src.x, src.y, cfg);
         for (int d = 0; d < dwell; d++)
             s_frame[o++] = LaserPoint(src.x, src.y, r, g, b, 0);
     }
