@@ -34,7 +34,7 @@ The boot log tells you nearly everything: firmware version, chip ID, PSRAM size,
 **Key log messages to know:**
 
 | Message | Meaning |
-|---------|---------|
+| --- | --- |
 | `=== Mikoy Laser FW x.x.x ===` | Firmware started successfully |
 | `Config loaded. DMX=x Hostname=x` | NVS config loaded OK |
 | `WiFi connected: x.x.x.x (RSSI -xx dBm)` | STA mode connected |
@@ -410,7 +410,7 @@ If the ESP32 crashes with a Guru Meditation error, the serial monitor prints a b
 A quick-reference index of open issues documented in [Chapter 9](09-known-issues-and-todos.md):
 
 | Issue | Impact | Workaround |
-| --- | --- | --- | --- |
+| --- | --- | --- |
 | SD card causes galvo malfunction | ILDA playback non-functional | Remove SD card |
 | Text: Bounce has no effect | Minor | Use Scroll or Static |
 | Text: Typewriter runs once only | Minor | — |
