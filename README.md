@@ -80,8 +80,7 @@ If you just want to get up and running:
 ## Hardware at a Glance
 
 | Component | Part |
-|-----------|------|
-
+| --- | --- |
 | MCU | ESP32-S3-WROOM-1 N16R8 (16 MB Flash, 8 MB OPI PSRAM) |
 | DAC | DAC8562 (16-bit, dual-channel, SPI) |
 | Output Stage | OPA4134UA quad op-amp — differential ±5V galvo drive |
