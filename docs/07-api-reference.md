@@ -3,6 +3,7 @@
 The GalvOS REST API is served by the ESP32 WebUI server (ESPAsyncWebServer) at `http://<device-ip>/api/`. The WebUI itself uses this API exclusively — everything the browser can do, an external system can do too.
 
 ## Table of Contents
+
 - [Base URL & Conventions](#base-url--conventions)
 - [Authentication](#authentication)
 - [Route Registration Order](#route-registration-order)
@@ -30,7 +31,7 @@ The GalvOS REST API is served by the ESP32 WebUI server (ESPAsyncWebServer) at `
 
 ## Base URL & Conventions
 
-```
+```text
 Base URL:  http://<device-ip>/api/
 Format:    JSON (application/json) for all requests and most responses
 Encoding:  UTF-8
@@ -48,7 +49,7 @@ Encoding:  UTF-8
 
 Write endpoints (all `POST`) require an `X-Auth` header with the current session token:
 
-```
+```text
 X-Auth: <token>
 ```
 
@@ -82,6 +83,7 @@ Full system state. Polled by the WebUI every second.
 
 | Field | Type | Description |
 |-------|------|-------------|
+
 | `estop_ok` | bool | E-Stop circuit closed (not pressed) |
 | `scanfail_ok` | bool | NE555 scan-fail hardware OK |
 | `laser_armed` | bool | Laser power rail enabled |
@@ -160,6 +162,7 @@ Key response fields: all `RuntimeConfig` fields (see [Chapter 3](03-build-and-co
 Write one or more `RuntimeConfig` fields. Only fields present in the body are updated. Takes effect immediately; changes are not automatically persisted to NVS (use the Calibration save button or `/api/calib-save`).
 
 **Example — change DMX address:**
+
 ```json
 {"dmx_address": 17}
 ```
@@ -182,7 +185,7 @@ Write one or more `RuntimeConfig` fields. Only fields present in the body are up
 
 Arm or disarm the laser. Body is a plain `1` (arm) or `0` (disarm) — not JSON.
 
-```
+```text
 POST /api/arm
 Body: 1
 ```
@@ -234,6 +237,7 @@ Update safety thresholds.
 Returns the full preset list. Used by the Presets tab grid.
 
 **Response:** Array of preset objects:
+
 ```json
 [
   {"idx": 0, "name": "Circle", "class": 0, "svg": "<svg>...</svg>"},
@@ -254,6 +258,7 @@ Activate a preset by index, or deactivate.
 ```
 
 Deactivate (laser off):
+
 ```json
 {"idx": -1}
 ```
@@ -268,6 +273,7 @@ Update live preset controls without changing the active preset. All fields are o
 
 | Field | Type | Range | Description |
 |-------|------|-------|-------------|
+
 | `speed` | int | 0–255 | Animation speed |
 | `size` | int | 0–255 | Pattern scale |
 | `autoscaleSpeed` | int | 0–100 | Auto-scaling speed (0 = off) |
@@ -305,6 +311,7 @@ Update live preset controls without changing the active preset. All fields are o
 Color animations are applied via `POST /api/preset-live` using `col_anim_type` and related fields (see above).
 
 To stop an animation and clear the color override:
+
 ```json
 {"col_override": false, "col_anim_type": 0}
 ```
@@ -545,6 +552,7 @@ Returns projection configuration and all derived safety calculations.
 
 | Field | Description |
 |-------|-------------|
+
 | `kpps` | Current output rate |
 | `rated_kpps` | Galvo rated speed |
 | `exit_angle` | Housing aperture half-angle (°) |
@@ -645,6 +653,7 @@ Activate text mode and set content. Text mode overrides presets and DMX while ac
 
 | Field | Values |
 |-------|--------|
+
 | `font` | 0=Simple, 1=Bold, 2=Outline |
 | `anim` | 0=Static, 1=Scroll Left, 2=Scroll Right, 3=Bounce, 4=Typewriter, 5=Wave, 6=Pulse, 7=Rotate, 8=Zoom, 10=Orbit, 11=Star Wars |
 

@@ -3,6 +3,7 @@
 The GalvOS WebUI is a single-page application served directly from the ESP32's LittleFS flash. No internet connection required, no app to install — open a browser and go.
 
 ## Table of Contents
+
 - [Accessing the WebUI](#accessing-the-webui)
 - [Installing as a PWA](#installing-as-a-pwa)
 - [General Layout](#general-layout)
@@ -41,16 +42,19 @@ Open `http://192.168.4.1` in any browser. Once you configure a Wi-Fi network in 
 GalvOS ships as a Progressive Web App (PWA). This means you can install it on your device's home screen and launch it like a native app — no browser chrome, full screen, offline-capable UI.
 
 **On Android (Chrome):**
+
 1. Open the WebUI in Chrome.
 2. Tap the three-dot menu → "Add to Home screen".
 3. Confirm. The app icon appears on your home screen.
 
 **On iOS (Safari):**
+
 1. Open the WebUI in Safari.
 2. Tap the Share button (box with arrow) → "Add to Home Screen".
 3. Confirm.
 
 **On Desktop (Chrome/Edge):**
+
 1. Look for the install icon in the address bar (a small computer with a download arrow).
 2. Click it and confirm.
 
@@ -146,9 +150,9 @@ The Presets tab is the main performance control surface. It is split into two ar
 A 5-column card that applies to every active preset in real time. Changes take effect immediately without reloading the pattern.
 
 <img width="1400" height="699" alt="image" src="https://github.com/user-attachments/assets/ee1b1d09-49d1-4fe8-9067-cf5ebe6ecc95" />
-(Global Controls)
 
 **Column 1 — Speed / Size / Rotation:**
+
 - **Speed** — pattern animation speed (0–255). Meaning varies by preset: step increment, phase advance, or oscillation rate.
 - **Speed Multiplier** — shown for some presets that support a secondary speed factor.
 - **Size** — scales the pattern output (10–255). 255 = full scan range. Reduce to shrink the image. For Starfield (up to 150 stars, since v6.02.3), Size instead requests a star count — since v6.02.4 the readout shows the actual rendered count (`starfield_stars` in `/api/state`), which can be lower than requested if the Particles optimizer profile's `max_pts_per_frame` budget caps it first.
@@ -156,11 +160,13 @@ A 5-column card that applies to every active preset in real time. Changes take e
 - **Rotation (Z)** — static Z-axis rotation offset (−180° to +180°).
 
 **Column 2 — Auto-Rotation:**
+
 - **Continuous rotation toggle** — enables continuously spinning rotation on any or all axes.
 - **Z / Y / X axis speed** — independent speed for each rotation axis (0–100).
 - **Master speed** — global multiplier applied on top of per-axis speeds.
 
 **Column 3 — Color & Color Animations:**
+
 - **Color Override toggle** — when on, the color picker overrides the preset's built-in color.
 - **Color wheel** — click or drag to select hue and saturation. A vertical brightness slider is on the right.
 - **Hex input** — type a hex color code directly (`ffc96e` etc.).
@@ -178,6 +184,7 @@ A 5-column card that applies to every active preset in real time. Changes take e
 
 **Column 4 — Points-Only Mode:**
 Converts any preset into a dot-cloud: instead of drawing connected lines, the optimizer samples points from the pattern and dwells on each one as a lit dot.
+
 - **Points-Only Mode toggle** — on/off.
 - **Point count** — number of dots (2–80).
 - **Fade-in / Fade-out** — enable smooth brightness ramp at each dot, with configurable duration (0–5000 ms).
@@ -185,6 +192,7 @@ Converts any preset into a dot-cloud: instead of drawing connected lines, the op
 - **Static Mode** — disables fading entirely; all dots at full brightness.
 
 **Column 5 — Kaleidoscope & Mirror:**
+
 - **Kaleidoscope** — replicates the pattern into N rotationally symmetric segments (2–16). Mirror H and Mirror V options alternate between original and mirrored copies of each segment.
 - **Mirror** — simpler reflection: Off, ↔ X (horizontal flip), ↕ Y (vertical flip), ✳ Radial4 (4-fold copy without reflection).
 
@@ -193,7 +201,6 @@ Converts any preset into a dot-cloud: instead of drawing connected lines, the op
 The main preset library, fetched from `/api/presets` on tab load. Each preset is shown as a tile with an SVG thumbnail and name.
 
 <img width="1394" height="1170" alt="image" src="https://github.com/user-attachments/assets/48c361fb-c441-4e64-9ef4-f27be0febf44" />
-(Presets)
 
 - **Category filters** — buttons above the grid filter by category (Geometry, Waves, 3D, Scenes, etc.). Click to toggle. Multiple categories can be active simultaneously.
 - **Click a preset** — activates it immediately. The active preset name is shown in the Global Controls header.
@@ -203,6 +210,7 @@ The main preset library, fetched from `/api/presets` on tab load. Each preset is
 ### Waves Sub-Grid
 
 A separate section for wave presets, with two additional parameters:
+
 - **Amplitude** (0.1–2.0×) — scales the wave height.
 - **Frequency ×** (0.25–4.0×) — scales the wave frequency.
 
@@ -296,6 +304,7 @@ A list of calibration patterns to project while adjusting parameters. Select a p
 
 | Pattern | Purpose |
 |---------|---------|
+
 | White fill | Full-white output — for overall brightness assessment |
 | Red / Green / Blue fill | Single-channel output — for per-channel threshold calibration |
 | Three Circles | One solid R, G, B circle side by side — for white balance matching |
@@ -323,6 +332,7 @@ Press **💾 Save calibration** to persist all values to NVS.
 Each laser diode has a minimum PWM duty below which it emits no visible light — the dead zone. The threshold calibration finds this minimum so GalvOS can map 0–100% logical brightness onto the actually visible range.
 
 Procedure:
+
 1. Press **▶ Start test beam** — a static low-level beam activates on each channel, bypassing gain, gamma, and master dimmer so only the threshold sliders control it.
 2. For each color channel, lower the slider until that color just goes dark. The value at which it disappears is the threshold.
 3. Press **💾 Save thresholds**.
@@ -371,7 +381,8 @@ Per-preset-class optimizer profile management. See [Chapter 5 — The Optimizer]
 Six optimizer profiles, one per preset class:
 
 | Profile | Preset class | Scanner workload |
-|---------|-------------|-----------------|
+|---------|--------------|------------------|
+
 | Vector | Closed polygons, straight runs | Corner dwell |
 | Smooth | Continuous closed curves | Interior density |
 | Waves | Open polylines, high frequency | Velocity clamp |
@@ -411,6 +422,7 @@ Hardware configuration for the galvo scanner and laser module.
 ### Angular Configuration Card
 
 Physical angles of the galvo and housing setup — used for the projection geometry calculator and safety assessment:
+
 - **Mechanical Half-Angle** — galvo mirror maximum deflection (±°).
 - **Housing Exit Half-Angle** — actual beam exit limit (typically smaller than galvo limit).
 - **ILDA Rating Half-Angle** — standard ±8°; only change if your galvo's datasheet specifies a different rating angle.
@@ -418,6 +430,7 @@ Physical angles of the galvo and housing setup — used for the projection geome
 ### Laser Module Power Card
 
 Laser power in mW per channel. Used for white balance auto-calculation and the safety assessment display. Totals shown:
+
 - **Total power** (all channels)
 - **Visible power V(λ)** — weighted by eye sensitivity
 - **Blue-light hazard B(λ)** — the blue channel (445 nm) has the highest photochemical retinal risk
@@ -486,23 +499,27 @@ A second card below the log console, showing who holds the RAM — static/long-l
 
 Network, DMX, safety, IP, and debug settings.
 
-<img width="1403" height="1129" alt="image" src="https://github.com/user-attachments/assets/58809d0a-b41b-4414-b056-ee5b051500c0" />
+![image](https://github.com/user-attachments/assets/58809d0a-b41b-4414-b056-ee5b051500c0)
 
 ### DMX and Art-Net
+
 - **DMX Start Address** (1–512) — first DMX channel GalvOS responds to.
 - **Art-Net Universe** (0–32767) — Art-Net universe number.
 
 ### WiFi Connection
+
 - Scan for available networks or enter SSID manually.
 - Enter password. Hostname (default `galvOS`) sets the mDNS name.
 - **NTP Server / Timezone** — time synchronisation settings. Use POSIX TZ string format.
 - **Connect** — connects without restarting. **Save & Restart** — saves and reboots.
 
 ### IP Configuration
+
 - Toggle between DHCP and static IP.
 - Enter static IP, gateway, subnet mask, and DNS when static mode is enabled.
 
 ### Safety Configuration
+
 - **Safety Override** — bypasses E-Stop and scan-fail checks. Only use with the laser disarmed and no audience. Red warning state clearly shown.
 - **⟳ System Reboot** — restarts the ESP32 immediately (confirmation prompt). Use after a config or firmware change that requires a reboot, without needing physical access to the device.
 - **⚠ Factory Reset** — clears all NVS config and restarts. Wi-Fi credentials are lost; AP mode restarts.
@@ -514,7 +531,7 @@ Network, DMX, safety, IP, and debug settings.
 
 ### Debug
 
-<img width="704" height="1109" alt="image" src="https://github.com/user-attachments/assets/bbddf485-a012-42cf-a48d-3574f4e96f5f" />
+![image](https://github.com/user-attachments/assets/bbddf485-a012-42cf-a48d-3574f4e96f5f)
 
 - **No-HW Mode** — skips SPI/DAC init at boot. Use only for firmware development without hardware connected. Disable before normal operation.
 - **DAC Debug Log** — logs DAC8562 register writes to serial and the Log tab (rate-limited). For low-level DAC debugging only.

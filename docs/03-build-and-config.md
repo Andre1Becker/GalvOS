@@ -1,6 +1,7 @@
 # Chapter 3 — Build & Configuration
 
 ## Table of Contents
+
 - [Repository Setup](#repository-setup)
 - [PlatformIO Build](#platformio-build)
 - [Flash Instructions](#flash-instructions)
@@ -33,6 +34,7 @@ PlatformIO detects `platformio.ini` automatically. On the first build it will do
 
 | Library | Version | Purpose |
 |---------|---------|---------|
+
 | `esp32async/AsyncTCP` | ^3.4.10 | Async TCP for ESPAsyncWebServer |
 | `esp32async/ESPAsyncWebServer` | ^3.11.1 | WebUI HTTP server + WebSocket |
 | `someweisguy/esp_dmx` | ^4.1.0 | DMX-512 receive via UART |
@@ -69,6 +71,7 @@ pio device monitor
 ### What `upload_all` Does
 
 The `scripts/upload_all.py` pre-build script adds a custom target that:
+
 1. Builds the LittleFS image from `data/`
 2. Flashes the firmware
 3. Flashes the LittleFS
@@ -85,6 +88,7 @@ The `scripts/gzip_assets.py` pre-build hook automatically gzip-compresses `index
 4. After flashing, the ESP32 restarts automatically.
 
 **Serial port selection:** PlatformIO usually detects the correct port automatically. If you have multiple serial devices, set `upload_port` in `platformio.ini`:
+
 ```ini
 upload_port = /dev/ttyUSB0   ; Linux
 upload_port = COM5            ; Windows
@@ -102,6 +106,7 @@ These are the parameters in `platformio.ini` that you may want to adjust. Everyt
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
+
 | `LASER_FW_VERSION` | `"6.05.0"` | Version string shown in the WebUI header and serial log. Increment this when you modify the firmware (see [Version Bumps](#version-bumps)). |
 | `GALVO_SAMPLE_RATE_HZ` | `30000` | The ISR tick rate — how many DAC samples are written per second. This is **not** the same as `galvo_kpps` in the WebUI (which controls how many of those ticks contain new pattern points). Default 30,000 Hz = 30 kpps effective output at full density. |
 | `DEFAULT_DMX_ADDRESS` | `1` | Default DMX start address on first boot (before any NVS config). |
@@ -113,6 +118,7 @@ These are the parameters in `platformio.ini` that you may want to adjust. Everyt
 
 | Parameter | Value | Why Not |
 |-----------|-------|---------|
+
 | `board_build.flash_size` | `16MB` | Must match the N16R8 physical flash. Wrong value = flash corruption. |
 | `board_build.psram_type` | `octal` | Required for the N16R8 OPI PSRAM. Other values break PSRAM. |
 | `board_build.arduino.memory_type` | `qio_opi` | Required for N16R8 octal PSRAM. Do not change. |
@@ -124,11 +130,13 @@ These are the parameters in `platformio.ini` that you may want to adjust. Everyt
 ### Version Bumps
 
 Version strings follow **Major.Minor.Patch**:
+
 - **Patch** — single bug fix, one file changed
 - **Minor** — new feature or refactor touching multiple call sites
 - **Major** — broad architectural change
 
 Update `LASER_FW_VERSION` in `platformio.ini` using Python string replacement (not sed — the escaped quotes make sed fragile):
+
 ```python
 # In a patch script:
 content = content.replace('-D LASER_FW_VERSION=\\"6.05.0\\"',
@@ -143,6 +151,7 @@ content = content.replace('-D LASER_FW_VERSION=\\"6.05.0\\"',
 
 | Partition | Type | Size | Purpose |
 |-----------|------|------|---------|
+
 | `otadata` | data/ota | 8 KB | OTA update bookkeeping |
 | `app0` | app/ota_0 | 5 MB | Active firmware image |
 | `app1` | app/ota_1 | 5 MB | OTA update staging slot |
@@ -164,6 +173,7 @@ These constants are defined in `include/config.h` and require a firmware rebuild
 
 | Constant | Default | Description |
 |----------|---------|-------------|
+
 | `PATTERN_POINTS_MAX` | `2048` | Maximum number of `LaserPoint` entries in the pattern buffer. Increasing this uses more PSRAM. |
 | `POINTS_MODE_MAX_DOTS` | `80` | UI slider ceiling for the Points-Only mode dot count. |
 | `POINTS_MODE_MIN_DWELL` | `3` | Minimum dwell ticks per dot in Points-Only mode. Below this, the dot is invisible. |
@@ -175,6 +185,7 @@ These constants are defined in `include/config.h` and require a firmware rebuild
 
 | Constant | Default | Description |
 |----------|---------|-------------|
+
 | `PLAYLIST_MAX_ENTRIES` | `32` | Maximum entries in an ILDA playlist. |
 | `PAINT_STROKES_MAX` | `12` | Maximum strokes/shapes on the Paint canvas. |
 | `PAINT_VERTS_PER_STROKE` | `96` | Maximum vertices per stroke (simplified client-side before upload). |
@@ -191,6 +202,7 @@ These constants are defined in `include/config.h` and require a firmware rebuild
 
 | Field | Default | Range | Description |
 |-------|---------|-------|-------------|
+
 | `galvo_x_offset` | `0` | −32767..32767 | DC offset applied to the X galvo output (DAC units). Use to center the image horizontally. |
 | `galvo_y_offset` | `0` | −32767..32767 | DC offset applied to the Y galvo output. Use to center the image vertically. |
 | `galvo_x_gain` | `32767` | 0..32767 | Scaling factor for X. Full scale = 32767. Reduce to shrink the image horizontally. |
@@ -203,6 +215,7 @@ These constants are defined in `include/config.h` and require a firmware rebuild
 
 | Field | Default | Description |
 |-------|---------|-------------|
+
 | `dac_limit_min` | `0x0666` | Minimum DAC code (clips the lower end of travel). Default ≈ 2.5% from the bottom — keeps OPA4134 output within ±5.5V. |
 | `dac_limit_max` | `0xF999` | Maximum DAC code (clips the upper end of travel). Default ≈ 2.5% from the top. |
 
@@ -212,6 +225,7 @@ These limits protect the galvo driver from being fed voltages outside its rated 
 
 | Field | Default | Range | Description |
 |-------|---------|-------|-------------|
+
 | `gain_r` | `115` | 0..255 | White balance gain for the red channel. Calibrated for R=1W, 638 nm (V(λ)=0.235). |
 | `gain_g` | `43` | 0..255 | White balance gain for the green channel. Calibrated for G=1W, 520 nm (V(λ)=0.710). |
 | `gain_b` | `255` | 0..255 | White balance gain for the blue channel. Calibrated for B=3W, 445 nm (V(λ)=0.040). |
@@ -226,6 +240,7 @@ These limits protect the galvo driver from being fed voltages outside its rated 
 
 | Field | Default | Description |
 |-------|---------|-------------|
+
 | `wifi_ssid` | `""` | Wi-Fi network name. Empty = start in AP mode (SSID: "galvOS", open). |
 | `wifi_pass` | `""` | Wi-Fi password. |
 | `hostname` | `"galvOS"` | mDNS hostname. Accessible as `http://galvOS.local` on networks with mDNS support. Auto-generated from MAC if empty. |
@@ -238,6 +253,7 @@ These limits protect the galvo driver from being fed voltages outside its rated 
 
 | Field | Default | Range | Description |
 |-------|---------|-------|-------------|
+
 | `dmx_address` | `1` | 1..512 | DMX start channel. CH1 = Master Dimmer, CH2–25 as per the channel map in `config.h`. |
 | `artnet_universe` | `0` | 0..32767 | Art-Net universe number. |
 
@@ -245,6 +261,7 @@ These limits protect the galvo driver from being fed voltages outside its rated 
 
 | Field | Default | Description |
 |-------|---------|-------------|
+
 | `scanfail_timeout_ms` | `50` | How long the NE555 scan-fail timer runs before declaring a fault (firmware side, for display only — the hardware NE555 has its own RC time constant). |
 | `watchdog_period_ms` | `500` | Hardware watchdog heartbeat interval. Firmware pulses GPIO14 at this rate; the NE555 watchdog must be retriggered within this window or it cuts the laser rail. |
 | `heap_critical_bytes` | `6144` | Minimum free internal DRAM block. If internal heap fragmentation causes the largest free block to fall below this, the firmware triggers `esp_restart()`. Calibrated to 6 KB — approximately 2× margin below the measured peak load. |
@@ -260,6 +277,7 @@ These limits protect the galvo driver from being fed voltages outside its rated 
 
 | Field | Default | Description |
 |-------|---------|-------------|
+
 | `galvo_kpps` | `20` | **The most important runtime parameter.** Output rate in kilo-points-per-second. This directly controls the ISR period and how fast the galvo mirrors move. Range: 12–60 kpps. The Jolooyo JY-15K-BL is rated at 15 kpps — running above this causes missed steps and visible distortion. Start at 15 and only increase if your specific hardware handles it. |
 | `galvo_rated_kpps` | `15` | The galvo's rated speed from its datasheet. Used as the basis for PPS scaling in the optimizer — do not confuse with `galvo_kpps`. If you use a different galvo set, set this to its rated speed. |
 | `scan_angle_mech_deg` | `25.0°` | Galvo mechanical half-angle (±25° = 50° full sweep). Used for display and safety zone calculations. |
@@ -278,6 +296,7 @@ These limits protect the galvo driver from being fed voltages outside its rated 
 
 | Field | Default | Description |
 |-------|---------|-------------|
+
 | `temp_warn_c` | `45°C` | Temperature at which fans switch to 100% duty. Normal operation: fans run at `fan_min_pct`. |
 | `temp_reduce_c` | `55°C` | Temperature at which laser power is reduced to 50% (via `thermal_power_scale`). |
 | `temp_shutdown_c` | `70°C` | Temperature at which an immediate shutdown is triggered. |
@@ -294,6 +313,7 @@ For a full explanation of what each parameter does, see [Chapter 5 — The Optim
 
 | Macro | Default | Description |
 |-------|---------|-------------|
+
 | `OPT_DEFAULT_CORNER_ANGLE_DEG` | `25.0°` | Minimum angle (at a vertex) that triggers corner dwell extra points. |
 | `OPT_DEFAULT_MIN_CORNER_PTS` | `2` | Minimum extra points added at a corner. |
 | `OPT_DEFAULT_MAX_CORNER_PTS` | `8` | Maximum extra points added at a corner. |
@@ -322,7 +342,8 @@ For a full explanation of what each parameter does, see [Chapter 5 — The Optim
 All GPIO assignments are defined in `include/pinmap.h`. The following table summarises the assignments. Pins marked **Do Not Use** are reserved by hardware and cannot be reassigned.
 
 | GPIO | Assignment | Direction | Notes |
-|------|-----------|-----------|-------|
+|------|------------|-----------|-------|
+
 | 1 | `PIN_SD_MISO` | Input | SD card MISO on SPI3 (independent from DAC's SPI2). Pull-up recommended. |
 | 4 | `PIN_DMX_RX` | Input | DMX-512 receive from MAX485 RO |
 | 5 | `PIN_SD_SCK` | Output | SD card SCK on SPI3 (independent from DAC's SPI2) |
@@ -350,6 +371,7 @@ All GPIO assignments are defined in `include/pinmap.h`. The following table summ
 
 | GPIO | Reason |
 |------|--------|
+
 | 0, 3, 45, 46 | Strapping pins — state at boot determines boot mode |
 | 19, 20 | USB D−/D+ — native USB CDC |
 | 35, 36, 37 | OPI PSRAM internal connections on N16R8 — not accessible |
@@ -365,11 +387,13 @@ GPIO 5, 6, 15, 40, 41, 42 are free. GPIO 15, 40, 41 were previously used for an 
 GalvOS uses the ESP32 NVS (Non-Volatile Storage) to persist configuration across reboots. Parameters are stored in two NVS namespaces:
 
 | Namespace | Contents |
-|-----------|---------|
+|-----------|----------|
+
 | `"laser"` | `RuntimeConfig` fields, optimizer profiles, safety config, Wi-Fi credentials |
 | `"projection"` | `ProjectionConfig` fields (galvo_kpps, laser power, angles, distance) |
 
 NVS values take priority over compile-time defaults on every boot. This means:
+
 - Changing an `OPT_DEFAULT_*` macro in `config.h` has **no effect** if that parameter is already stored in NVS.
 - To apply new compile-time defaults, you must reset NVS (see below).
 
@@ -384,9 +408,11 @@ Optimizer profile parameters are keyed with a per-profile suffix (`_s`, `_c`, `_
 **Via serial monitor:** Send `nvs_reset` over the serial console (if implemented), or trigger a factory reset by holding a specific GPIO low during boot (check the current firmware for the exact method).
 
 **Via esptool (nuclear option):** Erase the entire NVS partition:
+
 ```bash
 esptool.py --port /dev/ttyUSB0 erase_region 0x9000 0x5000
 ```
+
 This clears NVS completely. The firmware will apply all compile-time defaults on next boot.
 
 > **Note:** Wi-Fi credentials are stored in NVS. After a reset, the ESP32 will return to AP mode (SSID: "galvOS") with no password until you reconfigure it via the WebUI Settings tab.

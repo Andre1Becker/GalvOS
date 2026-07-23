@@ -7,6 +7,7 @@ Terms are grouped by topic. If you are looking for a specific abbreviation, use 
 ---
 
 ## Table of Contents
+
 - [Laser & Optics](#laser--optics)
 - [Galvo & Scanner](#galvo--scanner)
 - [Hardware Components](#hardware-components)

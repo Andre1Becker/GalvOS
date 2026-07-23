@@ -1,6 +1,7 @@
 # Chapter 2 — Prerequisites
 
 ## Table of Contents
+
 - [Who Is This For?](#who-is-this-for)
 - [Knowledge Requirements](#knowledge-requirements)
 - [Required Hardware](#required-hardware)
@@ -23,16 +24,19 @@ The one area where there is **no substitute for experience** is laser safety. Wo
 You will have a much better time if you come in with:
 
 **Essential:**
+
 - Basic electronics: reading schematics, soldering, understanding voltage dividers and resistor networks
 - Microcontroller basics: you have flashed firmware to an ESP32 or similar before
 - Comfort with a terminal / command line
 
 **Very helpful:**
+
 - C++/Arduino framework — you don't need to rewrite the firmware, but being able to read and modify it is valuable
 - PlatformIO basics — the build system used for this project
 - Some familiarity with the ESP32 ecosystem (Wi-Fi setup, NVS, FreeRTOS at a surface level)
 
 **Nice to have:**
+
 - Basic understanding of galvo laser systems — how galvo mirrors work, what "kpps" means, why blanking matters
 - DMX-512 protocol fundamentals, if you intend to use DMX control
 - HTTP/REST API basics, if you want to integrate GalvOS with other systems
@@ -48,7 +52,8 @@ If you're missing some of the "helpful" items, the documentation will explain wh
 GalvOS was developed for and tested on the **Mikoy 5W RGB laser projector**. The key components extracted from it (or sourced separately) are:
 
 | Component | Specification | Notes |
-|-----------|--------------|-------|
+|-----------|---------------|-------|
+
 | Galvo Set | Jolooyo JY-15K-BL | 15 kpps, ±20° optical, OEM driver board included |
 | Laser Module | MN-1M5AT | 3-channel, R: 638 nm ~1W, G: 520 nm ~1W, B: 445 nm ~3W |
 | Galvo PSU | ±12.8V (measured) | Provides ±15V rail to OPA4134 via the OEM galvo driver |
@@ -61,7 +66,8 @@ Other galvo sets and laser drivers may work, but will require tuning of the opti
 You will need to source and build:
 
 | Component | Part Number | Quantity | Notes |
-|-----------|------------|---------|-------|
+|-----------|-------------|----------|-------|
+
 | MCU | ESP32-S3-DevKitC-1 (N16R8) | 1 | The N16R8 variant specifically — 16 MB Flash, 8 MB OPI PSRAM |
 | DAC | DAC8562 | 1 | 16-bit dual SPI DAC, available as MSOP-10 |
 | Op-Amp | OPA4134UA | 1 | Quad op-amp, SOIC-14 |
@@ -73,6 +79,7 @@ You will need to source and build:
 | Perfboard | 15 × 9 cm (minimum) | 1 | Or custom PCB if you prefer |
 
 **Passive components** (full list in the netlist):
+
 - Resistors: 220Ω × 3, 1kΩ × 8, 4.7kΩ × 1, 10kΩ × 9, 22kΩ × 4, 100kΩ × 1, 50kΩ trimmer × 1, 100Ω × 5
 - Capacitors: 100µF electrolytic × several, 10µF electrolytic × several, 100nF ceramic × 11, 1nF ceramic × 2
 - Schottky diode: 1N5819 × 1 (reverse polarity protection)
@@ -82,16 +89,19 @@ The complete netlist with all values and wiring is in [`hardware/`](../hardware/
 ### Test & Measurement Equipment
 
 You will need, at minimum:
+
 - **Multimeter** — for verifying supply rails and basic continuity checks
 - **USB-to-serial adapter** — for the serial console (though the ESP32-S3 DevKitC-1 has USB CDC built in)
 
 Strongly recommended:
+
 - **Oscilloscope** — invaluable for checking DAC output waveforms, galvo drive signals, and tuning the ringing compensation
 - **Laser power meter** — for calibrating white balance and verifying power levels
 
 ### Safety Equipment
 
 Non-negotiable before powering up the laser:
+
 - **Laser safety eyewear** — OD rating appropriate for 638 nm, 520 nm, and 445 nm at your power levels. If in doubt, over-specify the OD.
 - **Beam stop** — a non-reflective, non-combustible target placed in the beam path during initial testing
 
@@ -102,7 +112,8 @@ Non-negotiable before powering up the laser:
 ### Development Environment
 
 | Software | Version | Purpose |
-|---------|---------|---------|
+|----------|---------|---------|
+
 | [VS Code](https://code.visualstudio.com/) | Latest | IDE (recommended) |
 | [PlatformIO IDE extension](https://platformio.org/install/ide?install=vscode) | Latest | Build system, flashing, serial monitor |
 | [Git](https://git-scm.com/) | Any recent | Cloning the repository |
@@ -114,6 +125,7 @@ PlatformIO handles all library dependencies automatically — you do not need to
 ### Browser for WebUI
 
 The GalvOS WebUI works in any modern browser. Specifically tested:
+
 - Chrome / Chromium (recommended — best PWA support)
 - Firefox
 - Safari (iOS and macOS)
@@ -125,6 +137,7 @@ No browser plugins or extensions are required.
 
 | Tool | Purpose |
 |------|---------|
+
 | Serial terminal (e.g. PuTTY, `screen`, VS Code serial monitor) | Reading debug output during firmware development |
 | [Wireshark](https://www.wireshark.org/) | Debugging Art-Net UDP traffic |
 | Any DMX controller or software (e.g. QLC+) | Testing DMX input |
@@ -152,6 +165,7 @@ The full build and flash workflow is covered in [Chapter 3 — Build & Configura
 Work through this list before you power up anything with the laser connected.
 
 ### Safety Checklist
+
 - [ ] I have read and understood the [Safety section](01-introduction.md#safety--read-this-first) in full
 - [ ] I have appropriate laser safety eyewear for my laser's wavelengths and power
 - [ ] I have a beam stop in place for initial testing
@@ -159,6 +173,7 @@ Work through this list before you power up anything with the laser connected.
 - [ ] My build environment is controlled — no uninvolved people in the beam path
 
 ### Hardware Checklist
+
 - [ ] Power supply rails verified with a multimeter before connecting any ICs: +5V_BUCK, ±15V, +3.3V
 - [ ] All fail-safe pull-up resistors fitted: R_FSR, R_FSG, R_FSB (10 kΩ each, GPIO7/8/21 → +3.3V)
 - [ ] DAC8562 /CLR pull-up fitted (10 kΩ, GPIO13 / Pin5 → +5V_BUCK)
@@ -169,6 +184,7 @@ Work through this list before you power up anything with the laser connected.
 - [ ] E-Stop connector wired and verified (J_ESTOP pull-up to 3.3V via R_ESTOP)
 
 ### Software Checklist
+
 - [ ] Repository cloned
 - [ ] PlatformIO extension installed and ESP32-S3 toolchain downloaded
 - [ ] First build completes without errors (`pio run`)
@@ -178,6 +194,7 @@ Work through this list before you power up anything with the laser connected.
 - [ ] Serial monitor shows boot log without crash/restart loops (`pio device monitor`)
 
 ### Initial Configuration Checklist (WebUI)
+
 - [ ] Galvo orientation calibrated (invert_x / invert_y / swap_xy in Calibration tab)
 - [ ] Output rate (`galvo_kpps`) set appropriately for your galvo set (Projection tab)
 - [ ] White balance (gain_r / gain_g / gain_b) verified with the calibration patterns

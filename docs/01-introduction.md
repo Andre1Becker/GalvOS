@@ -1,6 +1,7 @@
 # Chapter 1 — Introduction
 
 ## Table of Contents
+
 - [The Origin Story](#the-origin-story)
 - [What GalvOS Is (and Isn't)](#what-galvos-is-and-isnt)
 - [Safety — Read This First](#safety--read-this-first)
@@ -33,12 +34,14 @@ The result is GalvOS — an open-source platform that replaces the OEM controlle
 ## What GalvOS Is (and Isn't)
 
 **GalvOS is:**
+
 - A complete firmware and hardware replacement for the Mikoy 5W RGB laser projector
 - An open-source ESP32-S3 platform that could in principle be adapted to other galvo laser projectors
 - A browser-based laser show controller with DMX, Art-Net, ILDA, and a rich WebUI
 - A working project with real hardware-verified features — not a prototype
 
 **GalvOS is not:**
+
 - A plug-and-play consumer product. You need to build the hardware yourself.
 - Compatible with the original Mikoy mainboard or firmware — this is a full replacement.
 - A beginner laser project. You will be working with Class IIIB/IV laser radiation.
@@ -58,6 +61,7 @@ This section is not optional reading. Please treat it accordingly.
 The Mikoy 5W RGB projector contains laser diodes with a combined output power of approximately 5W across three wavelengths (638 nm red, 520 nm green, 445 nm blue). This places it in **Class IIIB or Class IV** under IEC 60825-1, depending on beam geometry and configuration.
 
 At these power levels:
+
 - **Intrabeam exposure causes immediate, permanent eye injury** — including at reflections from glossy surfaces.
 - **Skin burns** are possible at close range or with prolonged exposure.
 - **Fire ignition** is possible if the beam is focused on combustible materials.
@@ -77,6 +81,7 @@ At these power levels:
 By modifying this device, the original CE marking, eye safety certification, and any product compliance declarations are **void**. You are constructing a new, uncertified laser product.
 
 Depending on your jurisdiction, operating a Class IIIB or Class IV laser device may require:
+
 - A registered laser safety officer
 - A controlled access environment
 - Compliance with national laser safety standards (EN 60825-1, ANSI Z136.1, or equivalent)
@@ -108,6 +113,7 @@ GalvOS is built on a custom perfboard (15 × 9 cm) that replaces the original Mi
 
 | Component | Part | Role |
 |-----------|------|------|
+
 | MCU | ESP32-S3-WROOM-1 N16R8 | Main processor (dual-core, 240 MHz, 16 MB Flash, 8 MB OPI PSRAM) |
 | DAC | DAC8562 | 16-bit dual-channel SPI DAC for X/Y galvo positioning |
 | Op-Amp | OPA4134UA (quad, SOIC-14) | Differential amplifier stage — converts DAC output to ±5V galvo drive |
@@ -125,6 +131,7 @@ The full netlist with all resistor values, capacitor values, and wiring is in th
 ### Memory Architecture
 
 The ESP32-S3 N16R8 provides:
+
 - **16 MB SPI Flash** — partitioned into firmware (4 MB) and LittleFS (8 MB, holds the WebUI)
 - **8 MB OPI PSRAM** — used for large pattern buffers, JSON serialization, and the pattern cache. All allocations above ~16 KB must use `ps_malloc()` or `heap_caps_malloc(MALLOC_CAP_SPIRAM)`.
 - **~140 KB free internal DRAM** (post-boot, post-optimization) — still scarce (shared with the Wi-Fi/lwIP/AsyncTCP stack), but considerably less scarce than it used to be: firmware v6.04.0 moved ~120 KB of `static` scratch buffers (pattern verts/chains, paint canvas, EtherDream RX, SD file tables, optimizer transform scratch) from DRAM `.bss` into lazily-allocated PSRAM via `src/util/ps_scratch.h`. Static RAM footprint dropped from 180,728 B to 57,872 B. See [Known Issues → Optimize Heap Usage](09-known-issues-and-todos.md#planned-features) for the full breakdown.
@@ -136,6 +143,7 @@ The ESP32-S3 N16R8 provides:
 GalvOS runs two FreeRTOS cores in parallel:
 
 **Core 0 — Communication & Control:**
+
 - Wi-Fi stack
 - WebUI HTTP server (ESPAsyncWebServer)
 - Art-Net UDP receiver
@@ -146,6 +154,7 @@ GalvOS runs two FreeRTOS cores in parallel:
 - Ether Dream / Helios protocol (experimental)
 
 **Core 1 — Real-Time Output:**
+
 - Galvo timer ISR — fires at the configured sample rate (default 30,000 times/second)
 - Pattern engine — generates `LaserPoint` streams from active preset or ILDA file
 - Point optimizer pipeline — processes raw points before DAC output
@@ -161,7 +170,7 @@ Understanding the signal chain from firmware to physical beam is useful for trou
 
 ### X/Y Position (Galvo)
 
-```
+```text
 Pattern Engine
   → LaserPoint (int16_t x, y ∈ [-32768 .. 32767])
   → Point Optimizer (resample, corner dwell, blanking, velocity/accel clamp)
@@ -181,7 +190,7 @@ The coordinate convention (before any calibration transform) is: **x increases t
 
 ### RGB Laser Modulation
 
-```
+```text
 Pattern Engine
   → LaserPoint (uint8_t r, g, b ∈ [0..255])
   → galvo_out.cpp rgbWrite()
@@ -217,3 +226,7 @@ The laser power rail is controlled by a solid-state relay (SSR1). The relay is e
 If any condition fails, GPIO38 goes LOW, the SSR drops out, and the laser power rail is cut. Hardware conditions (E-Stop, watchdog) are enforced even if firmware is hung or crashed.
 
 The `safety::lastFailsafeReason()` function stores the reason for the last shutdown in RTC memory, which survives `esp_restart()` — so you can read it in the serial log after a reset.
+
+---
+
+**Headsup**: *This complete project is - i hate that wordring - "vibe coded"*. It is amazing how much you can do with the help of an LLM without knowing anything about a specific topic. I've learned so much about all sub topics that this projects touches.

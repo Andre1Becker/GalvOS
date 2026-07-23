@@ -3,6 +3,7 @@
 > Things go wrong. This chapter documents what they look like, why they happen, and what to do about them. The tables are kept terse on purpose — if you are here, you probably want the answer, not a lecture.
 
 ## Table of Contents
+
 - [Before You Debug](#before-you-debug)
 - [Reading the Serial Log](#reading-the-serial-log)
 - [Boot & Connectivity Issues](#boot--connectivity-issues)
@@ -344,6 +345,7 @@ If the ESP32 crashes with a Guru Meditation error, the serial monitor prints a b
 
 | Fault reason | Cause | Fix |
 |-------------|-------|-----|
+
 | `estop` | E-Stop circuit open | Check J_ESTOP wiring. Pin1 must be pulled to +3.3V via R_ESTOP (10 kΩ). Shorting Pin2 to Pin1 disables E-Stop. |
 | `scanfail` | NE555 scan-fail timer timed out | DAC must be producing output on VOUTA for the scan-fail NE555 (U11) to be triggered. Starts a preset before arming. Also check C_T/R_T values on U11. |
 | `watchdog` | NE555 hardware watchdog timeout | GPIO14 heartbeat pulse from firmware not arriving at U12 TRIG. Check R_HB (1 kΩ) and NE555 U12 wiring. |
@@ -379,6 +381,7 @@ If the ESP32 crashes with a Guru Meditation error, the serial monitor prints a b
 **Diagnosis:** Boot log line `[heap] after patterns::init: N B free`. Should be ≥ 30,000 bytes. If N < 10,000, something is allocating on DRAM that should be in PSRAM.
 
 **Allocation rules:**
+
 - Buffers > 16 KB → `ps_malloc()` or `heap_caps_malloc(MALLOC_CAP_SPIRAM)`
 - All `JsonDocument` instances → `JsonDocument doc(&jsonAllocator())` (uses `SpiRamAllocator`)
 - API responses → `sendJsonPsram()` (chunked, PSRAM buffer)
@@ -409,6 +412,7 @@ A quick-reference index of open issues documented in [Chapter 9](09-known-issues
 
 | Issue | Impact | Workaround |
 |-------|--------|-----------|
+
 | SD card causes galvo malfunction | ILDA playback non-functional | Remove SD card |
 | Text: Bounce has no effect | Minor | Use Scroll or Static |
 | Text: Typewriter runs once only | Minor | — |

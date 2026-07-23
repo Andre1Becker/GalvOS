@@ -3,6 +3,7 @@
 > If Chapter 3 was about telling the firmware what hardware you have, and Chapter 4 was about clicking buttons, this chapter is about understanding what happens between those two things. The optimizer is the core of GalvOS — the piece of software that turns a list of geometric vertices into a sequence of DAC samples that the galvo mirrors can actually follow without vibrating, blurring, or drawing lines in the dark.
 
 ## Table of Contents
+
 - [Why an Optimizer?](#why-an-optimizer)
 - [The Coordinate System](#the-coordinate-system)
 - [Pipeline Overview](#pipeline-overview)
@@ -57,7 +58,7 @@ Physical orientation is calibrated via `invert_x`, `invert_y`, and `swap_xy` in 
 
 The optimizer sits between the pattern engine and the DAC output. Every frame, this pipeline runs in order:
 
-```
+```text
 Pattern Engine
   → [1] Primitive Generation   (vertices + colors as PathSegments)
   → [2] Transform              (rotation, scale, translation — affine)
@@ -112,7 +113,7 @@ The `lift` flag on a vertex means "blank jump to this vertex from the previous p
 
 Before any density calculations, every input vertex is passed through a **2×3 affine transform**:
 
-```
+```text
 x' = a·x + b·y + tx
 y' = c·x + d·y + ty
 ```
@@ -151,7 +152,7 @@ The optimizer computes the **exterior angle** at each vertex — the angle betwe
 
 If the exterior angle exceeds `corner_angle_deg` (default 25°), the vertex is classified as a corner. The number of extra dwell points is interpolated between `min_corner_pts` (softest qualifying corner) and `max_corner_pts` (sharpest, 180° reversal):
 
-```
+```text
 corner_pts = lerp(min_corner_pts, max_corner_pts, severity)
 ```
 
@@ -181,7 +182,7 @@ GalvOS's blanking pipeline (Pillar 2) solves this with two techniques:
 
 Short blank jumps (adjacent vertices in a wireframe) need fewer settling ticks than long diagonal jumps (jumping across the full scan field). The sample count scales with distance:
 
-```
+```text
 count = (distance / 1000.0) × blank_pts_per_1000_units
 count = clamp(count, min_blank_samples, blank_samples)
 ```
@@ -192,7 +193,7 @@ This means a short jump between adjacent wireframe edges might use only 6 blank 
 
 The galvo position during a blank jump is not commanded to jump instantly to the target — it follows a smoothstep trajectory:
 
-```
+```math
 position(t) = smoothstep(t) = 3t² - 2t³   for t ∈ [0, 1]
 ```
 
@@ -238,7 +239,7 @@ GalvOS implements **Zero-Vibration (ZV) input shaping** on blank jumps. The idea
 
 The two impulses are sized using the galvo's damping ratio (ζ) and natural frequency (ω_n):
 
-```
+```math
 K   = exp(-ζ × π / √(1 - ζ²))
 A1  = 1 / (1 + K)      ← amplitude of the first impulse
 A2  = K / (1 + K)      ← amplitude of the second impulse
@@ -248,7 +249,7 @@ shift_pts = round(td / tick_period)   ← delay in output points
 
 Each output point in the blank jump is then:
 
-```
+```math
 shaped[i] = A1 × unshaped[i] + A2 × unshaped[i - shift_pts]
 ```
 
@@ -287,7 +288,7 @@ The final `LaserPoint[]` array is written to the DAC ISR ring buffer. The ISR ru
 
 The optimizer parameters are tuned at a specific galvo output rate. When you change `galvo_kpps` away from `galvo_rated_kpps`, the optimizer automatically rescales three parameters to compensate:
 
-```
+```text
 r = galvo_rated_kpps / galvo_kpps   (the "headroom ratio")
 
 pts_per_1000_units ×= 1/r    ← fewer points/unit at lower kpps (more time per tick)
@@ -311,6 +312,7 @@ GalvOS maintains **eight** independent optimizer profiles. The first six map 1:1
 
 | Profile | Index | Preset class | Primary workload | NVS suffix |
 | --- | --- | --- | --- | --- |
+
 | Vector | 0 | Closed polygons, stars, geometric shapes | Corner dwell | `_s` |
 | Smooth | 1 | Continuous closed curves, spirals | Interior density | `_c` |
 | Waves | 2 | Open polylines, wave patterns | Velocity clamp | `_w` |
@@ -379,6 +381,7 @@ Full table of all optimizer parameters, their defaults, valid ranges, and effect
 
 | Parameter | Default | Range | Effect |
 |-----------|---------|-------|--------|
+
 | `corner_angle_deg` | 25.0° | 0–180° | Minimum exterior angle to classify as a corner and add dwell points. Lower values add dwell at gentler bends; 0 adds dwell at every vertex. |
 | `min_corner_pts` | 2 | 0–255 | Points added at the softest qualifying corner (exterior angle just above `corner_angle_deg`). |
 | `max_corner_pts` | 8 | 0–255 | Points added at the sharpest corner (full 180° reversal). |

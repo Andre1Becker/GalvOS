@@ -9,10 +9,9 @@
 
 ---
 
-**Headsup**: *This complete project is - i hate that wordring - "vibe coded"*. It is amazing how much you can do with the help of an LLM without knowing anything about a specific topic. I've learned so much about all sub topics that this projects touches.
-
----
 ## ⚠️ SAFETY WARNING — READ BEFORE PROCEEDING
+
+(I know - BORING! But hey - at least you read this far. So keep going!)
 
 **This project involves CLASS IIIB or CLASS IV laser devices.**
 
@@ -64,6 +63,7 @@ If you just want to get up and running:
 
 | Chapter | Description |
 |---------|-------------|
+
 | [01 — Introduction](docs/01-introduction.md) | Project background, safety, disclaimer, hardware overview |
 | [02 — Prerequisites](docs/02-prerequisites.md) | Tools, hardware, software, and skills needed |
 | [03 — Build & Configuration](docs/03-build-and-config.md) | PlatformIO setup, all configurable parameters, flash instructions |
@@ -82,6 +82,7 @@ If you just want to get up and running:
 
 | Component | Part |
 |-----------|------|
+
 | MCU | ESP32-S3-WROOM-1 N16R8 (16 MB Flash, 8 MB OPI PSRAM) |
 | DAC | DAC8562 (16-bit, dual-channel, SPI) |
 | Output Stage | OPA4134UA quad op-amp — differential ±5V galvo drive |
@@ -99,7 +100,7 @@ Full netlist: [`hardware/`](hardware/)
 
 ## Repository Structure
 
-```
+```text
 GalvOS/
 ├── src/                    # Firmware source (C++, Arduino/PlatformIO)
 │   ├── control/            # DMX, Art-Net, safety control
