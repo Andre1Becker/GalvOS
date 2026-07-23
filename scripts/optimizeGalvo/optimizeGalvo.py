@@ -21,6 +21,13 @@ Workflow:
                   (exposure, gain, binaryThreshold, accumFrames) instead of
                   firmware parameters; run this once after 'preview' if the
                   hand-picked exposure/threshold aren't visibly reliable
+  8. analyze-live - structural (no-reference) read of whatever preset is
+                  actually live right now - unlike measure/diagnose/optimize
+                  this never starts/stops a pattern, so it works on any
+                  preset, not just the 6 calib patterns. Flags a beam trace
+                  that doesn't form one continuous piece, or doesn't close
+                  when its category says it should, and always saves a
+                  screenshot either way.
 
 Usage:
   python optimizeGalvo.py wizard
@@ -32,6 +39,7 @@ Usage:
   python optimizeGalvo.py optimize --preset "Milky Way" --trials 60
   python optimizeGalvo.py diagnose --autotune
   python optimizeGalvo.py autotune-camera --trials 30
+  python optimizeGalvo.py analyze-live
   python optimizeGalvo.py --config myRig.json check
 
 calibrate/measure/optimize/diagnose/autotune-camera open a live camera view window
@@ -63,7 +71,7 @@ import requests
 # ── versioning ───────────────────────────────────────────────────────────────
 # Semantic version of this script (independent of GalvOS firmware version).
 # Bump on every behavioral change; see git log for change history.
-SCRIPT_VERSION = "2.5.0"
+SCRIPT_VERSION = "2.7.0"
 
 # GalvOS firmware version that introduced /api/calib-cam/* (see firmware git log:
 # "fw: v6.03.0 -- camera-in-the-loop calibration API (calib-cam)").
@@ -87,6 +95,19 @@ FW_PROFILE_PATTERNS = {
     "Smooth":      ["circle"],
     "Waves":       ["spiral"],
     "MultiObject": ["segments"],
+}
+
+# Preset category (from GET /api/presets' "cat") -> whether its geometry is expected
+# to be a closed loop. Used only to word 'analyze-live's report, never as a hard
+# pass/fail - every bucket has exceptions ("Three Circles" is Geometry but
+# multi-object, "Grid 3x3" is Lines but multi-segment by design). Categories not
+# listed here (Spirals, Curves, 3D, Complex, Combo, Party, Scenes, Timers, Symbols
+# other than Yin Yang, ...) are intentionally left with no expectation either way.
+CATEGORY_EXPECTS_CLOSED: dict[str, bool] = {
+    "Geometry": True,
+    "Symbols": True,
+    "Lines": False,
+    "Waves": False,
 }
 
 # Numeric knobs that are no-ops while their boolean gate is false - used both to
@@ -115,20 +136,50 @@ class OptimizerError(Exception):
     printed as a plain message - no Python traceback - unless --debug is set."""
 
 
+# ── output helpers ───────────────────────────────────────────────────────────
+
+TERM_WIDTH = 80  # hard-wrap terminal output to this width for readability
+
+
+def pr(*values, sep: str = " ", **kwargs):
+    """print() replacement that hard-wraps to TERM_WIDTH columns. Messages here are
+    built from f-string concatenation with variable-length interpolated values (paths,
+    hostnames, counts, ...) so the source's own line breaks don't reflect the actual
+    rendered length - wrapping has to happen here, at print time, against the real
+    string. Preserves embedded newlines and each line's own leading indentation;
+    wrapped continuation lines get that same indentation so a multi-line message
+    still reads as one block."""
+    text = sep.join(str(v) for v in values)
+    for line in text.split("\n"):
+        if len(line) <= TERM_WIDTH:
+            print(line, **kwargs)
+            continue
+        indent = line[:len(line) - len(line.lstrip(" "))]
+        print(textwrap.fill(line, width=TERM_WIDTH, subsequent_indent=indent,
+                            break_long_words=False, break_on_hyphens=False), **kwargs)
+
+
 # ── interactive prompts ──────────────────────────────────────────────────────
 
 def askYesNo(prompt: str, default: bool) -> bool:
     """y/n prompt that reprompts on anything unrecognized (e.g. 'y93', 'ya') instead
     of silently treating it as no - only an empty line (Enter) falls back to
-    `default`. Used for every [y/N]/[Y/n] question in this script."""
+    `default`. Used for every [y/N]/[Y/n] question in this script. A prompt longer
+    than TERM_WIDTH has its question text wrapped via pr() first, leaving only the
+    short trailing '[y/N]: ' marker as the actual input() prompt."""
     valid = {"y": True, "yes": True, "n": False, "no": False}
+    if len(prompt) > TERM_WIDTH:
+        head, sep, tail = prompt.rpartition(" [")
+        if sep:
+            pr(head)
+            prompt = sep.lstrip() + tail
     while True:
         raw = input(prompt).strip().lower()
         if raw == "":
             return default
         if raw in valid:
             return valid[raw]
-        print(f"  please answer y or n (got '{raw}')")
+        pr(f"  please answer y or n (got '{raw}')")
 
 
 # ── configuration ────────────────────────────────────────────────────────────
@@ -161,6 +212,18 @@ DEFAULT_CONFIG = {
     "accumFrames": 24,          # frames max()-accumulated per measurement (~1 s @ 24 fps effective)
     "settleSeconds": 0.6,       # wait after param change before capture
     "binaryThreshold": 40,      # 0..255, beam trace threshold after background subtraction
+    "liveAnalysisMinComponentPx": 60,  # analyze-live only: connected-component pixel
+                                # area (on the 800x800 DAC canvas, after 1px dilation)
+                                # below which a blob is treated as sensor noise/dust
+                                # rather than a real disconnected piece of the beam
+                                # trace, and dropped before counting pieces / testing
+                                # closure. Too low -> noise specks inflate the piece
+                                # count and can trigger false "possible gap" flags;
+                                # too high -> a real small disconnected fragment gets
+                                # silently merged away. 60 was picked by observing
+                                # stray noise blobs top out around 50-57px on this
+                                # rig's camera/exposure - retune if your rig is noisier
+                                # or analyze-live's screenshots show it eating real gaps
     "dacRange": 30000,          # reference dot coordinate (+-) used for homography
     "camPatternChannel": 3,     # laser color for calib-cam patterns: 0=white 1=R 2=G
                                 # 3=B (default). Sent as "channel" to POST /api/calib-
@@ -256,6 +319,8 @@ def validateConfig(cfg: dict):
         problems.append("accumFrames must be an integer >= 1")
     if not isinstance(cfg.get("binaryThreshold"), (int, float)) or not (0 <= cfg["binaryThreshold"] <= 255):
         problems.append("binaryThreshold must be a number between 0 and 255")
+    if not isinstance(cfg.get("liveAnalysisMinComponentPx"), (int, float)) or cfg["liveAnalysisMinComponentPx"] < 0:
+        problems.append("liveAnalysisMinComponentPx must be a non-negative number")
     costWeights = cfg.get("costWeights")
     if not isinstance(costWeights, dict) or not all(
             isinstance(v, (int, float)) for v in costWeights.values()):
@@ -310,14 +375,14 @@ def loadConfig() -> dict:
 
         unknownKeys = sorted(set(onDisk) - set(DEFAULT_CONFIG))
         if unknownKeys:
-            print(f"warning: {CONFIG_FILE.name} has unrecognized key(s), check for typos: "
+            pr(f"warning: {CONFIG_FILE.name} has unrecognized key(s), check for typos: "
                   f"{unknownKeys}")
         cfg = {**DEFAULT_CONFIG, **onDisk}
         for key in nestedDictKeys:
             if key in onDisk:
                 unknownSub = sorted(set(onDisk[key]) - set(DEFAULT_CONFIG[key]))
                 if unknownSub:
-                    print(f"warning: {CONFIG_FILE.name} '{key}' has unrecognized key(s): "
+                    pr(f"warning: {CONFIG_FILE.name} '{key}' has unrecognized key(s): "
                           f"{unknownSub}")
                 cfg[key] = {**DEFAULT_CONFIG[key], **onDisk[key]}
 
@@ -335,16 +400,16 @@ def loadConfig() -> dict:
             try:
                 CONFIG_FILE.write_text(json.dumps(cfg, indent=2))
             except OSError as e:
-                print(f"warning: could not add missing default key(s) to {CONFIG_FILE.name}: {e}")
+                pr(f"warning: could not add missing default key(s) to {CONFIG_FILE.name}: {e}")
             else:
                 added = missingKeys + missingSub
-                print(f"added missing default key(s) to {CONFIG_FILE.name}: {added}")
+                pr(f"added missing default key(s) to {CONFIG_FILE.name}: {added}")
 
         validateConfig(cfg)
         return cfg
 
     if sys.stdin.isatty():
-        print(f"no {CONFIG_FILE.name} found - running first-time setup wizard\n")
+        pr(f"no {CONFIG_FILE.name} found - running first-time setup wizard\n")
         cfg = runWizard()
         validateConfig(cfg)
         return cfg
@@ -354,7 +419,7 @@ def loadConfig() -> dict:
         CONFIG_FILE.write_text(json.dumps(cfg, indent=2))
     except OSError as e:
         raise OptimizerError(f"cannot write {CONFIG_FILE}: {e}") from e
-    print(f"created {CONFIG_FILE.name} with defaults (non-interactive session, skipped "
+    pr(f"created {CONFIG_FILE.name} with defaults (non-interactive session, skipped "
           f"the setup wizard - run 'optimizeGalvo.py wizard' to configure it)")
     return cfg
 
@@ -405,7 +470,7 @@ class EspClient:
                         f"the controller's IP address instead if unsure. Run "
                         f"'optimizeGalvo.py check' for a full diagnostic."
                     ) from e
-                print(f"warning: {path} {'timed out' if isinstance(e, requests.exceptions.Timeout) else 'connection failed'} "
+                pr(f"warning: {path} {'timed out' if isinstance(e, requests.exceptions.Timeout) else 'connection failed'} "
                       f"(attempt {attempt}/{self.retries + 1}) - retrying in "
                       f"{self.retryDelaySeconds:.0f}s ...")
                 time.sleep(self.retryDelaySeconds)
@@ -467,6 +532,17 @@ class EspClient:
         """GET /api/config - includes opt_active_profile and opt_profile_members,
         the live list of optimizer profiles the connected firmware actually has."""
         return self._get("/api/config")
+
+    def getState(self) -> dict:
+        """GET /api/state - live pattern-engine state (preset_idx, ilda_active,
+        playlist_active, calib_active, frame_lit/frame_blank, fps, ...). Used by
+        'analyze-live' to describe what's actually on screen without touching it."""
+        return self._get("/api/state")
+
+    def getPresets(self) -> list[dict]:
+        """GET /api/presets - [{idx, name, cat}, ...] for every built-in preset.
+        Returns a bare JSON array (not an object), unlike every other endpoint here."""
+        return self._get("/api/presets")   # type: ignore[return-value]
 
     def applyOptimizerLive(self, profileIndex: int, params: dict) -> None:
         """POST /api/optimizer-live - permanently applies params to a firmware profile
@@ -557,12 +633,12 @@ class LiveView:
                                   f"_{self._snapCounter}.png")
             ok = cv2.imwrite(str(path), frame)
         except (OSError, cv2.error) as e:
-            print(f"warning: could not save snapshot: {e}")
+            pr(f"warning: could not save snapshot: {e}")
             return
         if ok:
-            print(f"saved snapshot -> {path.relative_to(Path(__file__).parent)}")
+            pr(f"saved snapshot -> {path.relative_to(Path(__file__).parent)}")
         else:
-            print(f"warning: cv2.imwrite reported failure for {path.name}")
+            pr(f"warning: cv2.imwrite reported failure for {path.name}")
 
     def update(self, frame: np.ndarray, text: str = "") -> int:
         """Draws frame + overlay, polls for a keypress, returns the masked key code
@@ -688,14 +764,14 @@ class Camera:
         self.lastAccumulated: np.ndarray | None = None
         reportedFps = self.cap.get(cv2.CAP_PROP_FPS)
         readExposure = self.cap.get(cv2.CAP_PROP_EXPOSURE)
-        print(f"camera: {cfg['frameWidth']}x{cfg['frameHeight']} @ driver-reported "
+        pr(f"camera: {cfg['frameWidth']}x{cfg['frameHeight']} @ driver-reported "
               f"{reportedFps:.1f} fps (nominal, not necessarily the achieved rate - "
               f"watch the live overlay for measured fps), backend={backendName}")
         if appliedAutoExpVal is not None:
-            print(f"camera exposure: requested {cfg['exposure']}, driver confirms "
+            pr(f"camera exposure: requested {cfg['exposure']}, driver confirms "
                   f"{readExposure:.2f} (manual mode value {appliedAutoExpVal})")
         else:
-            print(f"camera exposure: requested {cfg['exposure']}, driver reports "
+            pr(f"camera exposure: requested {cfg['exposure']}, driver reports "
                   f"{readExposure:.2f} - none of the manual-exposure mode values "
                   f"{AUTO_EXPOSURE_MANUAL_CANDIDATES} stuck, so auto-exposure is very "
                   f"likely still active. If the measured fps in the live overlay is "
@@ -830,19 +906,19 @@ def runCalibrate(cfg: dict, esp: EspClient, cam: Camera):
     # interior. The labeled screenshot below is the way to catch that: the printed/drawn
     # TL/TR/BR/BL must match the dots' real physical layout as you view the wall.
     pixelCorners = orderCorners(detectDots(diff, 4, cfg["binaryThreshold"]))
-    print("detected corner dots (labeled by position in the photo) - these must match "
+    pr("detected corner dots (labeled by position in the photo) - these must match "
          "the real physical layout as you view the projection surface:")
     for label, (px, py) in zip(cornerNames, pixelCorners):
-        print(f"  {label}: pixel ({px:.0f}, {py:.0f})")
+        pr(f"  {label}: pixel ({px:.0f}, {py:.0f})")
 
     try:
         RESULTS_DIR.mkdir(exist_ok=True)
         timestamp = time.strftime('%Y-%m-%d_%H-%M-%S')
         snapPath = RESULTS_DIR / f"calibrate_{timestamp}.png"
         if cv2.imwrite(str(snapPath), image):
-            print(f"saved calibration snapshot -> {snapPath.relative_to(Path(__file__).parent)}")
+            pr(f"saved calibration snapshot -> {snapPath.relative_to(Path(__file__).parent)}")
         else:
-            print(f"warning: cv2.imwrite reported failure for {snapPath.name}")
+            pr(f"warning: cv2.imwrite reported failure for {snapPath.name}")
 
         labeled = cv2.cvtColor(diff, cv2.COLOR_GRAY2BGR)
         for label, (px, py) in zip(cornerNames, pixelCorners):
@@ -851,12 +927,12 @@ def runCalibrate(cfg: dict, esp: EspClient, cam: Camera):
                        0.8, (0, 255, 0), 2, cv2.LINE_AA)
         labeledPath = RESULTS_DIR / f"calibrate_{timestamp}_labeled.png"
         if cv2.imwrite(str(labeledPath), labeled):
-            print(f"saved labeled corners -> {labeledPath.relative_to(Path(__file__).parent)} "
+            pr(f"saved labeled corners -> {labeledPath.relative_to(Path(__file__).parent)} "
                   f"- verify TL/TR/BR/BL against the dots' real physical layout")
         else:
-            print(f"warning: cv2.imwrite reported failure for {labeledPath.name}")
+            pr(f"warning: cv2.imwrite reported failure for {labeledPath.name}")
     except (OSError, cv2.error) as e:
-        print(f"warning: could not save calibration snapshot: {e}")
+        pr(f"warning: could not save calibration snapshot: {e}")
 
     h, _ = cv2.findHomography(pixelCorners, dacCorners)
     if h is None:
@@ -870,10 +946,10 @@ def runCalibrate(cfg: dict, esp: EspClient, cam: Camera):
         np.savez(HOMOGRAPHY_FILE, homography=h, background=background)
     except OSError as e:
         raise OptimizerError(f"cannot write {HOMOGRAPHY_FILE.name}: {e}") from e
-    print(f"homography saved -> {HOMOGRAPHY_FILE.name}")
+    pr(f"homography saved -> {HOMOGRAPHY_FILE.name}")
     print(h)
     resetOrientationCache()
-    print(f"cleared {ORIENTATION_FILE.name} (if present) - orientation will be "
+    pr(f"cleared {ORIENTATION_FILE.name} (if present) - orientation will be "
          f"re-detected fresh for each pattern on next measurement")
 
 
@@ -973,7 +1049,7 @@ def _loadOrientationCache() -> dict[str, dict]:
             try:
                 _orientationCache.update(json.loads(ORIENTATION_FILE.read_text()))
             except (json.JSONDecodeError, OSError) as e:
-                print(f"warning: could not read {ORIENTATION_FILE.name} ({e}) - "
+                pr(f"warning: could not read {ORIENTATION_FILE.name} ({e}) - "
                       f"re-detecting orientation for every pattern")
         _orientationCacheLoaded = True
     return _orientationCache
@@ -983,7 +1059,7 @@ def _saveOrientationCache():
     try:
         ORIENTATION_FILE.write_text(json.dumps(_orientationCache, indent=2))
     except OSError as e:
-        print(f"warning: could not save {ORIENTATION_FILE.name}: {e}")
+        pr(f"warning: could not save {ORIENTATION_FILE.name}: {e}")
 
 
 def resetOrientationCache():
@@ -996,7 +1072,7 @@ def resetOrientationCache():
         try:
             ORIENTATION_FILE.unlink()
         except OSError as e:
-            print(f"warning: could not remove stale {ORIENTATION_FILE.name}: {e}")
+            pr(f"warning: could not remove stale {ORIENTATION_FILE.name}: {e}")
 
 
 def detectOrientation(pattern: str, r: int, trace: np.ndarray) -> str:
@@ -1028,18 +1104,18 @@ def detectOrientation(pattern: str, r: int, trace: np.ndarray) -> str:
                       "detected": time.strftime("%Y-%m-%d_%H-%M-%S")}
     _saveOrientationCache()
     if best != "identity":
-        print(f"\n{'!' * 70}")
-        print(f"ORIENTATION MISMATCH on pattern '{pattern}': idealPolylines() only fits "
+        pr(f"\n{'!' * 70}")
+        pr(f"ORIENTATION MISMATCH on pattern '{pattern}': idealPolylines() only fits "
              f"the measured trace after applying '{best}' (fit {scores[best]:.1f} DAC-unit "
              f"avg deviation vs. {scores['identity']:.1f} unrotated).")
-        print(f"This means the firmware's actual output for '{pattern}' is rotated/mirrored "
+        pr(f"This means the firmware's actual output for '{pattern}' is rotated/mirrored "
              f"relative to this tool's reference - a real coordinate-convention issue, not "
              f"a camera/calibration problem. From here on, THIS TOOL compensates for it when "
              f"scoring '{pattern}' (saved to {ORIENTATION_FILE.name}) so geometry metrics "
              f"stay meaningful - but that only fixes the MEASUREMENT. If this pattern's "
              f"point-generation path is shared by a real preset, that preset could still be "
              f"projected rotated/mirrored live; this does not check or fix that.")
-        print(f"{'!' * 70}\n")
+        pr(f"{'!' * 70}\n")
     return best
 
 
@@ -1273,7 +1349,7 @@ def measureOnce(esp: EspClient, cam: Camera, cfg: dict, homography: np.ndarray,
         try:
             cv2.imwrite(str(saveTo), capture)
         except cv2.error as e:
-            print(f"warning: could not save capture to {saveTo}: {e}")
+            pr(f"warning: could not save capture to {saveTo}: {e}")
     metrics, debug = computeMetrics(capture, background, homography, pattern, cfg)
     annotated = annotateCanvas(debug, metrics, pattern, label=statusPrefix)
     if cam.liveView:
@@ -1287,8 +1363,315 @@ def measureOnce(esp: EspClient, cam: Camera, cfg: dict, homography: np.ndarray,
         try:
             cv2.imwrite(str(annotatedPath), annotated)
         except cv2.error as e:
-            print(f"warning: could not save annotated capture to {annotatedPath}: {e}")
+            pr(f"warning: could not save annotated capture to {annotatedPath}: {e}")
     return metrics, effective
+
+
+# ── live (no-reference) geometry analysis ────────────────────────────────────
+#
+# measure/diagnose/optimize all score against a known ideal (idealPolylines()), so
+# they only work on the 6 calib patterns. analyze-live has no ideal to compare
+# against - it runs on whatever real preset is actually live - so instead it asks
+# purely structural questions of the traced beam: does it form one continuous
+# piece, and does it enclose an area (closed loop)? That's enough to catch "there's
+# a gap" / "this doesn't close" without needing to know what the shape should be.
+
+# Just above sensor/compression noise after background subtraction - low enough to
+# catch the dim connecting arcs between bright corner-dwell points (a real, fully-
+# connected stroke reads as ONE piece here even when it fragments into many at a
+# higher threshold - see analyzeLiveGeometry's docstring), high enough to not pick
+# up per-pixel dark-frame noise as spurious extra pieces.
+LIVE_ANALYSIS_FLOOR_THRESHOLD = 12
+
+
+def _filteredComponents(mask: np.ndarray, minAreaPx: float) -> tuple[int, np.ndarray, np.ndarray | None]:
+    """mask: uint8, 0 or 255. Dilates by 1px first so a trace broken only by sub-
+    pixel antialiasing/dropout isn't miscounted as multiple pieces, then drops any
+    component smaller than minAreaPx (liveAnalysisMinComponentPx) as sensor noise/
+    dust rather than a real piece of the beam trace - without this, a handful of
+    stray noise specks (observed 9-57px on this rig) can inflate a genuinely
+    continuous, single-gap trace's piece count into the double digits. Returns
+    (piece count, filtered mask of ALL kept pieces, mask of the single LARGEST kept
+    piece alone or None if nothing survived the filter). The "all pieces" mask feeds
+    the saved screenshot and bbox/saturation stats (everything real that's visible);
+    the "largest piece alone" mask feeds the closure test, deliberately excluding
+    any other real-but-unrelated piece (a second object, a stray reflection just
+    above the noise floor) that would otherwise corrupt what "does THIS shape
+    enclose an area" is asking about."""
+    dilated = cv2.dilate(mask, np.ones((3, 3), np.uint8))
+    n, labels, stats, _ = cv2.connectedComponentsWithStats(dilated)
+    filtered = np.zeros_like(dilated)
+    kept = [i for i in range(1, n) if stats[i, cv2.CC_STAT_AREA] >= minAreaPx]
+    for i in kept:
+        filtered[labels == i] = 255
+    largest = None
+    if kept:
+        biggest = max(kept, key=lambda i: stats[i, cv2.CC_STAT_AREA])
+        largest = np.where(labels == biggest, np.uint8(255), np.uint8(0))
+    return len(kept), filtered, largest
+
+
+def analyzeLiveGeometry(dacImage: np.ndarray, cfg: dict) -> dict:
+    """No-reference structural read of an already background-subtracted, DAC-canvas-
+    warped beam trace (see warpToDacCanvas) - works on any preset, not just the 6
+    calib patterns computeMetrics knows the ideal shape of. Returns a dict:
+
+      litPixelCount        - RAW trace pixel count at the permissive floor threshold,
+                              before noise filtering. <30 means "nothing meaningful
+                              visible" to the caller; this stays unfiltered so a
+                              legitimately sparse preset (e.g. a few Particles dots)
+                              isn't misreported as "nothing visible".
+      componentsAtFloor     - piece count at LIVE_ANALYSIS_FLOOR_THRESHOLD, after
+                              dropping sub-liveAnalysisMinComponentPx noise blobs
+                              (see _filteredComponents). The key signal: a genuinely
+                              continuous stroke reads as 1 here even if corner-dwell
+                              brightness makes it look beaded at a higher threshold.
+                              Stays >1 only for an actual break in the beam path, or
+                              a preset that's legitimately multi-piece by design
+                              (particles, multi-object scenes).
+      componentsAtConfigured - piece count at cfg['binaryThreshold'] (what the rest
+                              of this tool treats as "on"), same noise filtering.
+                              Usually >= componentsAtFloor for corner-dwell-heavy
+                              patterns; the gap between the two is brightness/dwell
+                              unevenness, not a defect.
+      closedLoop            - True/False/None. Flood-fills from the canvas border
+                              around the SINGLE LARGEST noise-filtered floor-
+                              threshold piece (not the union of all pieces - a
+                              second, unrelated real piece elsewhere in frame
+                              shouldn't corrupt whether the main shape closes) and
+                              checks whether that piece's own centroid is sealed off
+                              (encloses an area) or reachable (open path). None if
+                              too little is visible, or the centroid itself sits on
+                              the piece (can't judge).
+      bboxDacUnits           - (width, height) of the floor-threshold trace in DAC
+                              units (1st-99th percentile, like computeMetrics' scale
+                              check), or None if nothing visible.
+      saturationFrac         - fraction of the floor-threshold trace at raw sensor
+                              saturation (dacImage >= 250) - see Metrics.
+                              saturationFrac's blooming caveat. NOTE: computed over
+                              the floor trace here, not the configured-threshold one
+                              Metrics uses, since analyze-live's whole point is to
+                              look at the full trace including its dim segments.
+    """
+    h, w = dacImage.shape
+    _, maskFloorRaw = cv2.threshold(dacImage, LIVE_ANALYSIS_FLOOR_THRESHOLD, 255, cv2.THRESH_BINARY)
+
+    result = {
+        "litPixelCount": int((maskFloorRaw > 0).sum()),
+        "componentsAtFloor": 0,
+        "componentsAtConfigured": 0,
+        "closedLoop": None,
+        "bboxDacUnits": None,
+        "saturationFrac": 0.0,
+    }
+    if result["litPixelCount"] < 30:
+        return result   # nothing meaningful visible - caller reports INDETERMINATE
+
+    minAreaPx = cfg.get("liveAnalysisMinComponentPx", 60)
+    result["componentsAtFloor"], maskFloor, largestFloor = _filteredComponents(maskFloorRaw, minAreaPx)
+    _, maskConfiguredRaw = cv2.threshold(dacImage, cfg["binaryThreshold"], 255, cv2.THRESH_BINARY)
+    result["componentsAtConfigured"], _, _ = _filteredComponents(maskConfiguredRaw, minAreaPx)
+    if not np.any(maskFloor):
+        return result   # everything below minAreaPx was noise - too faint to say more
+
+    result["saturationFrac"] = float(np.mean(dacImage[maskFloor > 0] >= 250))
+
+    r = cfg["dacRange"]
+    dacPerPixel = (2 * r) / CANVAS
+    ys, xs = np.nonzero(maskFloor)
+    xLo, xHi = np.percentile(xs, [1, 99])
+    yLo, yHi = np.percentile(ys, [1, 99])
+    result["bboxDacUnits"] = ((xHi - xLo) * dacPerPixel, (yHi - yLo) * dacPerPixel)
+
+    # Closed-loop test: flood-fill from a canvas corner (off-trace - the homography
+    # maps the usable DAC range well inside the CANVAS x CANVAS square) around the
+    # largest single piece only, and check whether that piece's own centroid is
+    # reachable from outside it.
+    lys, lxs = np.nonzero(largestFloor)
+    cx, cy = int(lxs.mean()), int(lys.mean())
+    if largestFloor[cy, cx] == 0:   # centroid must be off-trace for this to mean anything
+        free = 255 - largestFloor
+        ffMask = np.zeros((h + 2, w + 2), np.uint8)
+        cv2.floodFill(free, ffMask, (0, 0), 128)
+        result["closedLoop"] = bool(free[cy, cx] != 128)
+    return result
+
+
+def annotateLiveGeometry(dacImage: np.ndarray, geometry: dict, cfg: dict, label: str = "") -> np.ndarray:
+    """Visual readout for analyze-live's saved/live-view screenshot: cyan = beam
+    trace at the permissive, noise-filtered floor threshold (what componentsAtFloor/
+    closedLoop are computed from - recomputed here rather than threaded through
+    `geometry` so that dict stays plain printable/JSON-able data), magenta = raw
+    sensor saturation within it (see Metrics.saturationFrac's blooming caveat -
+    painted last so a bloomed dwell point isn't mistaken for extra disconnected
+    pieces). Unlike annotateCanvas, there's no ideal-path overlay - there is no
+    reference geometry to compare against here."""
+    _, maskFloorRaw = cv2.threshold(dacImage, LIVE_ANALYSIS_FLOOR_THRESHOLD, 255, cv2.THRESH_BINARY)
+    _, maskFloor, _ = _filteredComponents(maskFloorRaw, cfg.get("liveAnalysisMinComponentPx", 60))
+    canvas = cv2.cvtColor(dacImage, cv2.COLOR_GRAY2BGR)
+    tracePixels = maskFloor > 0
+    saturated = tracePixels & (dacImage >= 250)
+    canvas[tracePixels] = (255, 255, 0)
+    canvas[saturated] = (255, 0, 255)
+
+    lines = [label] if label else []
+    lines.append(
+        f"pieces: floor={geometry['componentsAtFloor']} configured={geometry['componentsAtConfigured']}  "
+        f"closed={geometry['closedLoop']}  sat={geometry['saturationFrac'] * 100:.0f}%")
+    if geometry["bboxDacUnits"]:
+        bx, by = geometry["bboxDacUnits"]
+        lines.append(f"bbox {bx:.0f} x {by:.0f} DAC units  lit px {geometry['litPixelCount']}")
+    for i, line in enumerate(lines):
+        cv2.putText(canvas, line, (8, 22 + i * 20), cv2.FONT_HERSHEY_SIMPLEX, 0.5,
+                   (255, 255, 255), 1, cv2.LINE_AA)
+    if np.any(saturated):
+        cv2.putText(canvas, "magenta = sensor-saturated (likely blooming at a dwell "
+                   "point, not necessarily a real defect)", (8, 22 + len(lines) * 20),
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 255), 1, cv2.LINE_AA)
+    return canvas
+
+
+def describeLiveSource(esp: EspClient, presetsCache: list[dict] | None) -> dict:
+    """Figures out what's actually driving the current output, so analyze-live's
+    report is labeled correctly instead of assuming a preset is active. presetsCache:
+    an already-fetched GET /api/presets list (or None if that call failed) - analyze-
+    live only ever needs one, so it's fetched once by the caller."""
+    state = esp.getState()
+    if state.get("calib_active"):
+        return {"kind": "calib", "category": None,
+                "label": "calibration/test pattern (calib-cam tool) - not a real "
+                "preset, the analysis below describes that test pattern instead"}
+    if state.get("ilda_active"):
+        return {"kind": "ilda", "category": None, "label": "ILDA file playback"}
+    if state.get("playlist_active"):
+        return {"kind": "playlist", "category": None, "label": "playlist"}
+    presetIdx = state.get("preset_idx")
+    if isinstance(presetIdx, int) and presetIdx >= 0 and presetsCache:
+        match = next((p for p in presetsCache if p.get("idx") == presetIdx), None)
+        if match:
+            return {"kind": "preset", "category": match.get("cat"),
+                    "presetName": match.get("name"),
+                    "label": f"preset '{match.get('name')}' ({match.get('cat')})"}
+    return {"kind": "custom", "category": None,
+            "label": "custom output (text/paint/curves mode, or an unrecognized "
+            "preset index) - no preset name available"}
+
+
+def runAnalyzeLive(cfg: dict, esp: EspClient, cam: Camera):
+    """Analyzes whatever is currently projecting on the ESP32. Unlike measure/
+    diagnose/optimize, this NEVER calls startPattern()/stop() - it captures exactly
+    one frame of the live output and leaves the controller alone throughout (see
+    dispatch(), which special-cases this command to skip its usual esp.stop() on
+    exit too). Trades the reference-based scoring those commands do (limited to the
+    6 calib patterns, since that's all that has a known ideal shape) for a generic,
+    no-reference structural read that works on any preset: whether the beam trace
+    is one continuous piece and whether it encloses an area (closed loop), plus a
+    saturation check. This catches "doesn't close" / "has a gap" - it can NOT tell
+    you a shape is the WRONG shape (e.g. an octagon silently missing one edge's
+    interior points, with the rest still tracing a closed loop, reads as fine here);
+    for that, look at the saved screenshot. Requires an existing homography.npz -
+    run 'calibrate' first."""
+    homography, background = loadHomography()
+
+    status = esp.getStatus()
+    if not status.get("laser_armed"):
+        pr("warning: laser_armed is false on the controller - nothing will be "
+             "visible until it's armed. Capturing anyway.")
+    if not status.get("estop_ok") or not status.get("scanfail_ok"):
+        pr("warning: E-Stop or scan-fail interlock is tripped - nothing will be "
+             "visible. Capturing anyway.")
+
+    try:
+        presetsCache = esp.getPresets()
+    except OptimizerError as e:
+        pr(f"warning: could not fetch /api/presets ({e}) - preset name lookup "
+             f"will be skipped, the report will describe the raw preset index only")
+        presetsCache = None
+    source = describeLiveSource(esp, presetsCache)
+    pr(f"analyzing live output: {source['label']}")
+
+    cam.statusText = "analyze-live: capturing current output (not touching the pattern)"
+    capture = cam.grabAccumulated(cfg["accumFrames"])
+    diff = cv2.subtract(capture, background)
+    dacImage = warpToDacCanvas(diff, homography, cfg["dacRange"])
+    geometry = analyzeLiveGeometry(dacImage, cfg)
+
+    try:
+        RESULTS_DIR.mkdir(exist_ok=True)
+    except OSError as e:
+        pr(f"warning: could not create {RESULTS_DIR.name}/ for screenshots: {e}")
+
+    timestamp = time.strftime("%Y-%m-%d_%H-%M-%S")
+    rawPath = RESULTS_DIR / f"analyze_live_{timestamp}.png"
+    try:
+        cv2.imwrite(str(rawPath), capture)
+    except cv2.error as e:
+        pr(f"warning: could not save {rawPath}: {e}")
+
+    pr("\n=== analyze-live ===")
+    if geometry["litPixelCount"] < 30:
+        pr("INDETERMINATE - essentially nothing detected in the frame.")
+        pr("  Check: laser armed / E-Stop / scan-fail (see warnings above), camera "
+             "exposure/threshold/framing, or that something is actually projecting.")
+    else:
+        bx, by = geometry["bboxDacUnits"]
+        pr(f"lit trace: {geometry['litPixelCount']} px, bbox {bx:.0f} x {by:.0f} "
+             f"DAC units, {geometry['saturationFrac'] * 100:.0f}% sensor-saturated")
+        pr(f"connectivity: {geometry['componentsAtFloor']} piece(s) at the most "
+             f"permissive usable threshold, {geometry['componentsAtConfigured']} at "
+             f"the configured binaryThreshold ({cfg['binaryThreshold']})")
+        if geometry["componentsAtConfigured"] > geometry["componentsAtFloor"]:
+            pr("  (that gap is brightness/dwell unevenness - dimmer connecting "
+                 "arcs between brighter dwell points - not a broken path; see the "
+                 "annotated screenshot)")
+        closed = geometry["closedLoop"]
+        pr(f"closed loop (encloses an area): "
+             f"{closed if closed is not None else 'indeterminate'}")
+
+        expectClosed = CATEGORY_EXPECTS_CLOSED.get(source.get("category"))
+        flag = None
+        if geometry["componentsAtFloor"] > 1 and closed is True:
+            # The largest single piece already forms a fully sealed loop on its
+            # own (closedLoop is tested against that piece alone, see
+            # analyzeLiveGeometry) - the extra piece(s) are very likely unrelated
+            # clutter (a stray blob just above the noise floor, a second object)
+            # rather than a break in the main shape, so this is downgraded from a
+            # gap warning to an FYI.
+            flag = (f"NOTE - trace fragments into {geometry['componentsAtFloor']} "
+                    f"piece(s) at the floor threshold, but the largest one already "
+                    f"forms a fully closed loop by itself - likely unrelated "
+                    f"clutter, not a break in the main shape. Check the annotated "
+                    f"screenshot to confirm.")
+        elif geometry["componentsAtFloor"] > 1:
+            flag = ("POSSIBLE GAP / DISCONNECTED SEGMENT - the trace does not form a "
+                    "single continuous piece even at the most permissive threshold. "
+                    "This is expected by design for multi-object/particle presets "
+                    "(Starfield, Confetti Burst, Grid 3x3, Three Circles, ...) - only "
+                    "worth investigating if this preset is meant to be one "
+                    "continuous stroke.")
+        elif expectClosed is True and closed is False:
+            flag = (f"NOTE - '{source.get('presetName')}' is category "
+                    f"'{source['category']}' (normally a closed shape) but the "
+                    f"traced loop reads as open. Could be a real gap too small to "
+                    f"break connectivity at this threshold, or just this heuristic "
+                    f"being wrong for this preset - check the annotated screenshot.")
+        if flag:
+            pr(f"\n[!] {flag}")
+        else:
+            pr("\nno structural issue detected (this is an informational read, "
+                 "not a full optimizer diagnostic - see 'diagnose' for that, on the "
+                 "6 calib patterns).")
+
+    annotated = annotateLiveGeometry(dacImage, geometry, cfg, label=source["label"])
+    if cam.liveView:
+        cam.liveView.update(annotated, "analyze-live (analyzed)")
+    annotatedPath = rawPath.with_name(f"{rawPath.stem}_annotated{rawPath.suffix}")
+    try:
+        cv2.imwrite(str(annotatedPath), annotated)
+        pr(f"\nscreenshots saved -> {rawPath.relative_to(Path(__file__).parent)}, "
+             f"{annotatedPath.name}")
+    except cv2.error as e:
+        pr(f"warning: could not save {annotatedPath}: {e}")
 
 
 # ── optimization ─────────────────────────────────────────────────────────────
@@ -1388,7 +1771,7 @@ def selectFirmwareProfiles(spaces: dict, requested: str | None,
         return [byName[n] for n in names]
 
     if len(tunable) == 1:
-        print(f"only one tunable profile - using '{tunable[0]['name']}'")
+        pr(f"only one tunable profile - using '{tunable[0]['name']}'")
         return tunable
 
     if not sys.stdin.isatty():
@@ -1397,15 +1780,15 @@ def selectFirmwareProfiles(spaces: dict, requested: str | None,
             f"with comma-separated names or 'all' in a non-interactive session"
         )
 
-    print("\ntunable firmware profiles:")
+    pr("\ntunable firmware profiles:")
     for i, p in enumerate(tunable, 1):
         patterns = spaces[p["name"]].get("patterns", FW_PROFILE_PATTERNS[p["name"]])
         nParams = len(spaces[p["name"]].get("params", {}))
         members = ", ".join(p["members"]) if p["members"] else "(no presets)"
         active = "  [active]" if p["active"] else ""
-        print(f"  {i}. {p['name']}{active}  -  cam pattern(s): {', '.join(patterns)}, "
+        pr(f"  {i}. {p['name']}{active}  -  cam pattern(s): {', '.join(patterns)}, "
               f"{nParams} param(s)")
-        print(f"       presets: {members}")
+        pr(f"       presets: {members}")
     while True:
         raw = input(f"select profile(s) to tune [numbers/names, comma-separated, or "
                     f"'all']: ").strip().lower()
@@ -1421,7 +1804,7 @@ def selectFirmwareProfiles(spaces: dict, requested: str | None,
         if picks and not bad:
             seen = set()
             return [p for p in picks if not (p["name"] in seen or seen.add(p["name"]))]
-        print(f"  invalid choice(s) {bad or [raw]} - enter numbers 1-{len(tunable)}, "
+        pr(f"  invalid choice(s) {bad or [raw]} - enter numbers 1-{len(tunable)}, "
               f"profile names, or 'all'")
 
 
@@ -1488,16 +1871,16 @@ def formatValue(v) -> str:
 
 
 def printChangeReport(profileName: str, changed: list, unchanged: list):
-    print(f"\n=== {profileName}: parameter changes (before -> after) ===")
+    pr(f"\n=== {profileName}: parameter changes (before -> after) ===")
     if changed:
-        print("changed:")
+        pr("changed:")
         for field, before, after in changed:
-            print(f"  {field:<30} {formatValue(before):>10} -> {formatValue(after)}")
+            pr(f"  {field:<30} {formatValue(before):>10} -> {formatValue(after)}")
     else:
-        print("changed: (none)")
-    print("unchanged:")
+        pr("changed: (none)")
+    pr("unchanged:")
     for field, value, reason in unchanged:
-        print(f"  {field:<30} {formatValue(value):>10}   {reason}")
+        pr(f"  {field:<30} {formatValue(value):>10}   {reason}")
 
 
 def validateProfileSpace(profile: str, space: dict) -> dict:
@@ -1593,7 +1976,7 @@ def runStudyForProfile(optuna, cfg: dict, esp: EspClient, cam: Camera,
         runIndex += 1
         avgDuration = sum(trialDurations) / len(trialDurations)
         eta = (trials - runIndex) * avgDuration
-        print(f"[{profileName} trial {runIndex}/{trials}] (#{trial.number}) "
+        pr(f"[{profileName} trial {runIndex}/{trials}] (#{trial.number}) "
               f"cost={totalCost:.4f}  {duration:.1f}s, avg {avgDuration:.1f}s/trial, "
               f"ETA {eta / 60:.1f} min")
 
@@ -1605,7 +1988,7 @@ def runStudyForProfile(optuna, cfg: dict, esp: EspClient, cam: Camera,
                     "durationSeconds": round(duration, 2)
                 }) + "\n")
         except OSError as e:
-            print(f"warning: could not append to per-trial log {logFile.name}: {e}")
+            pr(f"warning: could not append to per-trial log {logFile.name}: {e}")
         return totalCost
 
     try:
@@ -1617,11 +2000,11 @@ def runStudyForProfile(optuna, cfg: dict, esp: EspClient, cam: Camera,
 
     priorTrials = len(study.trials)
     if priorTrials:
-        print(f"resuming study '{studyName}' ({storageUrl}) - "
+        pr(f"resuming study '{studyName}' ({storageUrl}) - "
               f"{priorTrials} trial(s) already recorded, adding {trials} more")
     else:
-        print(f"new study '{studyName}' -> {storageUrl}")
-    print(f"per-trial log -> {logFile.name}")
+        pr(f"new study '{studyName}' -> {storageUrl}")
+    pr(f"per-trial log -> {logFile.name}")
 
     stoppedEarly = None
     try:
@@ -1642,8 +2025,8 @@ def runStudyForProfile(optuna, cfg: dict, esp: EspClient, cam: Camera,
             pass    # best-effort cleanup - the original error/interrupt is what matters
 
     if stoppedEarly:
-        print(f"\noptimize stopped early: {stoppedEarly}")
-        print(f"re-run the same command (same --study-name/--storage) to continue - "
+        pr(f"\noptimize stopped early: {stoppedEarly}")
+        pr(f"re-run the same command (same --study-name/--storage) to continue - "
               f"{len(study.trials)} trial(s) are safely recorded so far.")
     return study, stoppedEarly
 
@@ -1662,24 +2045,24 @@ def runOptimize(cfg: dict, esp: EspClient, cam: Camera, profile: str | None, tri
 
     # One config fetch drives everything: the tunable-profile menu, each profile's
     # member presets, and the before/after baselines.
-    print("querying ESP32 for available optimizer profiles ...")
+    pr("querying ESP32 for available optimizer profiles ...")
     config = esp.getConfig()
     fwProfiles = fetchFirmwareProfiles(esp, config)
     activeFw = next((p for p in fwProfiles if p["active"]), None)
-    print(f"ESP32 reports {len(fwProfiles)} optimizer profile(s)"
+    pr(f"ESP32 reports {len(fwProfiles)} optimizer profile(s)"
           + (f", currently active: {activeFw['name']}" if activeFw else "") + ".")
 
     if presetName:
         profile = resolveProfileForPreset(fwProfiles, presetName)
-        print(f"preset '{presetName}' -> firmware profile '{profile}'")
+        pr(f"preset '{presetName}' -> firmware profile '{profile}'")
 
     selected = selectFirmwareProfiles(spaces, profile, fwProfiles)
 
-    print(f"\ntuning {len(selected)} profile(s), {trials} trial(s) each - "
+    pr(f"\ntuning {len(selected)} profile(s), {trials} trial(s) each - "
           f"presets that will be affected:")
     for p in selected:
         members = ", ".join(p["members"]) if p["members"] else "(no presets)"
-        print(f"  {p['name']}: {members}")
+        pr(f"  {p['name']}: {members}")
 
     homography, background = loadHomography()
     try:
@@ -1702,7 +2085,7 @@ def runOptimize(cfg: dict, esp: EspClient, cam: Camera, profile: str | None, tri
         if fresh:
             thisStudyName = f"{thisStudyName}_{time.strftime('%Y%m%d_%H%M%S')}"
 
-        print(f"\n=== tuning profile '{name}' via pattern(s) "
+        pr(f"\n=== tuning profile '{name}' via pattern(s) "
               f"{space['patterns']} ===")
         study, stoppedEarly = runStudyForProfile(
             optuna, cfg, esp, cam, name, space, trials,
@@ -1733,8 +2116,8 @@ def runOptimize(cfg: dict, esp: EspClient, cam: Camera, profile: str | None, tri
             try:
                 outFile.write_text(json.dumps(result, indent=2))
             except OSError as e:
-                print(f"warning: could not save best-params file: {e}")
-            print(f"\nbest cost {study.best_value:.4f} (over {len(completed)} completed "
+                pr(f"warning: could not save best-params file: {e}")
+            pr(f"\nbest cost {study.best_value:.4f} (over {len(completed)} completed "
                   f"trial(s)) - saved -> {outFile.name}")
             summary.append((name, study.best_value, len(changed)))
 
@@ -1743,7 +2126,7 @@ def runOptimize(cfg: dict, esp: EspClient, cam: Camera, profile: str | None, tri
             # tuned. Only worth the extra camera time when something actually changed -
             # an unchanged profile has nothing to compare.
             if changed:
-                print(f"\ncapturing before/after comparison for '{name}' ...")
+                pr(f"\ncapturing before/after comparison for '{name}' ...")
                 for pattern in space["patterns"]:
                     beforeM, _ = measureOnce(
                         esp, cam, cfg, homography, background, pattern,
@@ -1753,7 +2136,7 @@ def runOptimize(cfg: dict, esp: EspClient, cam: Camera, profile: str | None, tri
                         esp, cam, cfg, homography, background, pattern,
                         statusPrefix=f"{name} AFTER", params=bestParams,
                         saveTo=RESULTS_DIR / f"{name}_{pattern}_after_{result['timestamp']}.png")
-                    print(f"  {pattern}: cost {beforeM.cost:.4f} -> {afterM.cost:.4f}  -> "
+                    pr(f"  {pattern}: cost {beforeM.cost:.4f} -> {afterM.cost:.4f}  -> "
                           f"{RESULTS_DIR.name}/{name}_{pattern}_{{before,after}}_"
                           f"{result['timestamp']}[_annotated].png")
 
@@ -1766,28 +2149,28 @@ def runOptimize(cfg: dict, esp: EspClient, cam: Camera, profile: str | None, tri
             if doApply and changed:
                 esp.applyOptimizerLive(idx, bestParams)
                 appliedAny = True
-                print(f"applied to '{name}' (live until reboot - persisting to NVS is "
+                pr(f"applied to '{name}' (live until reboot - persisting to NVS is "
                       f"offered at the end)")
             elif changed and not interactive:
-                print("(not applied - non-interactive session without --apply; values "
+                pr("(not applied - non-interactive session without --apply; values "
                       "are only in the results JSON)")
         else:
-            print(f"no completed trials for '{name}' - nothing to report")
+            pr(f"no completed trials for '{name}' - nothing to report")
 
         if stoppedEarly and ("interrupted" in stoppedEarly or "'q' pressed" in stoppedEarly):
             remaining = [q["name"] for q in selected[selected.index(p) + 1:]]
             if remaining:
-                print(f"skipping remaining profile(s) {remaining} after interrupt")
+                pr(f"skipping remaining profile(s) {remaining} after interrupt")
             break
 
     if summary:
-        print("\n=== summary ===")
+        pr("\n=== summary ===")
         for name, cost, nChanged in summary:
-            print(f"  {name:<12} best cost {cost:.4f}, {nChanged} param(s) changed")
+            pr(f"  {name:<12} best cost {cost:.4f}, {nChanged} param(s) changed")
         orientedPatterns = {p: v["name"] for p, v in _loadOrientationCache().items()
                            if v["name"] != "identity"}
         if orientedPatterns:
-            print(f"NOTE: orientation-compensated pattern(s): {orientedPatterns} - scan/dwell "
+            pr(f"NOTE: orientation-compensated pattern(s): {orientedPatterns} - scan/dwell "
                  f"parameters are unaffected by this (rotation-invariant), but this profile's "
                  f"geometry checks (diagnose) are scored against a rotated/mirrored reference. "
                  f"See the warning printed when first detected.")
@@ -1799,9 +2182,9 @@ def runOptimize(cfg: dict, esp: EspClient, cam: Camera, profile: str | None, tri
                               "reboot? [y/N]: ", default=False)
         if doSave:
             esp.saveOptimizer()
-            print("saved to NVS")
+            pr("saved to NVS")
         else:
-            print("(not persisted - applied values are live until the ESP32 reboots)")
+            pr("(not persisted - applied values are live until the ESP32 reboots)")
 
 
 # ── diagnose ─────────────────────────────────────────────────────────────────
@@ -1855,23 +2238,23 @@ def classifyProfile(name: str, patterns: list[str], allMetrics: dict[str, Metric
 
 def printDiagnosis(name: str, verdict: str, geometryIssues: list[str], settingsIssues: list[str],
                    calib: dict | None = None):
-    print(f"\n{name}: {verdict}")
+    pr(f"\n{name}: {verdict}")
     for g in geometryIssues:
-        print(f"  [geometry] {g}")
+        pr(f"  [geometry] {g}")
     for s in settingsIssues:
-        print(f"  [settings] {s}")
+        pr(f"  [settings] {s}")
     if verdict == "GEOMETRY ISSUE":
-        print("  -> not fixable by autotune. Re-run 'calibrate' (camera/projection surface "
+        pr("  -> not fixable by autotune. Re-run 'calibrate' (camera/projection surface "
               "may have moved); if it persists, suspect galvo gain/offset/DAC-range "
               "calibration drift - current live values, for reference:")
         if calib:
-            print(f"       gain   X={calib['gain_x']}  Y={calib['gain_y']}")
-            print(f"       offset X={calib['offset_x']}  Y={calib['offset_y']}")
-            print(f"       dac_limit [{calib['dac_limit_min']}, {calib['dac_limit_max']}]")
+            pr(f"       gain   X={calib['gain_x']}  Y={calib['gain_y']}")
+            pr(f"       offset X={calib['offset_x']}  Y={calib['offset_y']}")
+            pr(f"       dac_limit [{calib['dac_limit_min']}, {calib['dac_limit_max']}]")
         else:
-            print("       (could not read - GET /api/config missing expected fields)")
+            pr("       (could not read - GET /api/config missing expected fields)")
     elif verdict == "OK":
-        print("  -> within tolerance, no action needed.")
+        pr("  -> within tolerance, no action needed.")
 
 
 def runDiagnose(cfg: dict, esp: EspClient, cam: Camera, profile: str | None,
@@ -1885,7 +2268,7 @@ def runDiagnose(cfg: dict, esp: EspClient, cam: Camera, profile: str | None,
     spaces = loadSearchSpaceFile()
     homography, background = loadHomography()
 
-    print("querying ESP32 for available optimizer profiles ...")
+    pr("querying ESP32 for available optimizer profiles ...")
     config = esp.getConfig()
     fwProfiles = fetchFirmwareProfiles(esp, config)
     selected = selectFirmwareProfiles(spaces, profile, fwProfiles)
@@ -1903,14 +2286,14 @@ def runDiagnose(cfg: dict, esp: EspClient, cam: Camera, profile: str | None,
              "dac_limit_min": config["dac_limit_min"], "dac_limit_max": config["dac_limit_max"]}
             if all(k in config for k in calibKeys) else None)
 
-    print(f"\ndiagnosing {len(selected)} profile(s) against currently-live parameters "
+    pr(f"\ndiagnosing {len(selected)} profile(s) against currently-live parameters "
          f"(no overrides applied) ...")
 
     timestamp = time.strftime("%Y-%m-%d_%H-%M-%S")
     try:
         RESULTS_DIR.mkdir(exist_ok=True)
     except OSError as e:
-        print(f"warning: could not create {RESULTS_DIR.name}/ for diagnosis screenshots: {e}")
+        pr(f"warning: could not create {RESULTS_DIR.name}/ for diagnosis screenshots: {e}")
 
     results = []    # (name, verdict, geometryIssues, settingsIssues)
     flagged = []    # firmware-profile dicts flagged OPTIMIZER SETTINGS ISSUE
@@ -1935,16 +2318,16 @@ def runDiagnose(cfg: dict, esp: EspClient, cam: Camera, profile: str | None,
         except OptimizerError:
             pass    # best-effort - a genuine failure here would already have raised above
 
-    print("\n=== diagnosis ===")
-    print(f"(measured against the fixed camera-calibration geometry, DAC range "
+    pr("\n=== diagnosis ===")
+    pr(f"(measured against the fixed camera-calibration geometry, DAC range "
          f"+-{cfg['dacRange']:.0f} - a profile's tuning is only verified at that size, "
          f"not necessarily at whatever 'Size' a live preset actually runs at)")
-    print(f"annotated screenshots (ideal path vs. traced beam vs. deviation) saved -> "
+    pr(f"annotated screenshots (ideal path vs. traced beam vs. deviation) saved -> "
          f"{RESULTS_DIR.name}/diagnose_<profile>_<pattern>_{timestamp}_annotated.png")
     orientedPatterns = {p: v["name"] for p, v in _loadOrientationCache().items()
                         if v["name"] != "identity"}
     if orientedPatterns:
-        print(f"NOTE: orientation-compensated pattern(s) this run: {orientedPatterns} - "
+        pr(f"NOTE: orientation-compensated pattern(s) this run: {orientedPatterns} - "
              f"geometry metrics for these are scored against a rotated/mirrored reference "
              f"(see the warning printed when each was first detected, and the annotated "
              f"screenshots); this does not confirm the firmware output itself is correctly "
@@ -1953,11 +2336,11 @@ def runDiagnose(cfg: dict, esp: EspClient, cam: Camera, profile: str | None,
         printDiagnosis(name, verdict, geometryIssues, settingsIssues, calib)
 
     if not flagged:
-        print("\nno profile needs autotune.")
+        pr("\nno profile needs autotune.")
         return
 
     flaggedNames = [p["name"] for p in flagged]
-    print(f"\n{len(flagged)} profile(s) flagged for autotune: {flaggedNames}")
+    pr(f"\n{len(flagged)} profile(s) flagged for autotune: {flaggedNames}")
     doAutotune = autotune
     if not doAutotune and sys.stdin.isatty():
         doAutotune = askYesNo("run autotune ('optimize') on these now? [y/N]: ", default=False)
@@ -1965,7 +2348,7 @@ def runDiagnose(cfg: dict, esp: EspClient, cam: Camera, profile: str | None,
         runOptimize(cfg, esp, cam, ",".join(flaggedNames), trials, studyName=studyName,
                    storageUrl=storageUrl, autoApply=autoApply)
     else:
-        print(f"(not autotuning - re-run with --autotune, or "
+        pr(f"(not autotuning - re-run with --autotune, or "
               f"'optimizeGalvo.py optimize --profile {','.join(flaggedNames)}')")
 
 
@@ -1973,36 +2356,36 @@ def runDiagnose(cfg: dict, esp: EspClient, cam: Camera, profile: str | None,
 
 def runCheckConnection(cfg: dict, esp: EspClient) -> bool:
     """Reachability/identity check against the ESP32. No camera required."""
-    print(f"checking {esp.baseUrl} (timeout {esp.timeout}s) ...")
+    pr(f"checking {esp.baseUrl} (timeout {esp.timeout}s) ...")
     try:
         status = esp.getStatus()
     except OptimizerError as e:
-        print(f"FAILED: {e}")
+        pr(f"FAILED: {e}")
         return False
 
-    print("OK - controller reachable")
+    pr("OK - controller reachable")
     fwVersionStr = status.get("fw_version", "?")
-    print(f"  fw_version      : {fwVersionStr}")
-    print(f"  hostname / ip   : {status.get('hostname', '?')} / {status.get('ip', '?')}")
-    print(f"  rssi            : {status.get('rssi', '?')} dBm")
-    print(f"  uptime_s        : {status.get('uptime_s', '?')}")
-    print(f"  free_heap       : {status.get('free_heap', '?')} B")
-    print(f"  free_psram      : {status.get('free_psram', '?')} B")
-    print(f"  estop_ok        : {bool(status.get('estop_ok'))}")
-    print(f"  scanfail_ok     : {bool(status.get('scanfail_ok'))}")
-    print(f"  laser_armed     : {bool(status.get('laser_armed'))}")
-    print(f"  debug_mode      : {bool(status.get('debug_mode'))}")
+    pr(f"  fw_version      : {fwVersionStr}")
+    pr(f"  hostname / ip   : {status.get('hostname', '?')} / {status.get('ip', '?')}")
+    pr(f"  rssi            : {status.get('rssi', '?')} dBm")
+    pr(f"  uptime_s        : {status.get('uptime_s', '?')}")
+    pr(f"  free_heap       : {status.get('free_heap', '?')} B")
+    pr(f"  free_psram      : {status.get('free_psram', '?')} B")
+    pr(f"  estop_ok        : {bool(status.get('estop_ok'))}")
+    pr(f"  scanfail_ok     : {bool(status.get('scanfail_ok'))}")
+    pr(f"  laser_armed     : {bool(status.get('laser_armed'))}")
+    pr(f"  debug_mode      : {bool(status.get('debug_mode'))}")
     if not status.get("estop_ok") or not status.get("scanfail_ok"):
-        print("  NOTE: a safety interlock is currently tripped - "
+        pr("  NOTE: a safety interlock is currently tripped - "
               "calib-cam patterns will not project until cleared.")
 
     fwVersion = parseFwVersion(fwVersionStr)
     minStr = ".".join(map(str, MIN_FW_VERSION_CALIB_CAM))
     if fwVersion is None:
-        print(f"  NOTE: could not parse fw_version '{fwVersionStr}' - unable to check "
+        pr(f"  NOTE: could not parse fw_version '{fwVersionStr}' - unable to check "
               f"calib-cam API support (needs >= v{minStr})")
     elif fwVersion < MIN_FW_VERSION_CALIB_CAM:
-        print(f"  WARNING: firmware v{fwVersionStr} predates the calib-cam API "
+        pr(f"  WARNING: firmware v{fwVersionStr} predates the calib-cam API "
               f"(added in v{minStr}). 'calibrate'/'measure'/'optimize' will fail with "
               f"404 until the ESP32 firmware is updated.")
     return True
@@ -2023,32 +2406,36 @@ def probeCameras(maxIndex: int = 4, backend: int = cv2.CAP_DSHOW) -> list[int]:
 
 def runWizard(existingCfg: dict | None = None) -> dict:
     """Interactively (re-)creates camConfig.json. Enter accepts the shown default."""
-    print("=== GalvOS camera-in-the-loop optimizer - setup wizard ===")
-    print("Press Enter to accept the default shown in [brackets].\n")
+    pr("=== GalvOS camera-in-the-loop optimizer - setup wizard ===")
+    pr("Press Enter to accept the default shown in [brackets].\n")
 
     cfg = dict(existingCfg) if existingCfg else dict(DEFAULT_CONFIG)
 
     def ask(key: str, prompt: str, cast=str):
         current = cfg.get(key, DEFAULT_CONFIG[key])
-        raw = input(f"{prompt} [{current}]: ").strip()
+        if len(prompt) + len(str(current)) > TERM_WIDTH:
+            pr(prompt)
+            raw = input(f"[{current}]: ").strip()
+        else:
+            raw = input(f"{prompt} [{current}]: ").strip()
         if not raw:
             cfg[key] = current
             return
         try:
             cfg[key] = cast(raw)
         except ValueError:
-            print(f"  invalid value '{raw}', keeping {current}")
+            pr(f"  invalid value '{raw}', keeping {current}")
             cfg[key] = current
 
     ask("esp32BaseUrl", "ESP32 controller base URL (mDNS hostname or IP, e.g. "
                         "http://galvos.local or http://192.168.1.50)")
 
-    print("\nscanning for cameras (DirectShow, indices 0-4) ...")
+    pr("\nscanning for cameras (DirectShow, indices 0-4) ...")
     found = probeCameras()
     if found:
-        print(f"  found camera index(es): {found}")
+        pr(f"  found camera index(es): {found}")
     else:
-        print("  no camera detected - plug it in, you can still finish setup and "
+        pr("  no camera detected - plug it in, you can still finish setup and "
               "re-run 'optimizeGalvo.py wizard' later")
     ask("cameraIndex", "camera device index", int)
     ask("frameWidth", "camera frame width", int)
@@ -2070,8 +2457,8 @@ def runWizard(existingCfg: dict | None = None) -> dict:
         CONFIG_FILE.write_text(json.dumps(cfg, indent=2))
     except OSError as e:
         raise OptimizerError(f"cannot write {CONFIG_FILE}: {e}") from e
-    print(f"\nsaved -> {CONFIG_FILE.name}")
-    print("(costWeights and other advanced settings were left at their current "
+    pr(f"\nsaved -> {CONFIG_FILE.name}")
+    pr("(costWeights and other advanced settings were left at their current "
           f"values - edit {CONFIG_FILE.name} directly for those)")
 
     if askYesNo("\ntest connection to the controller now? [Y/n]: ", default=True):
@@ -2092,7 +2479,7 @@ def runPreview(cfg: dict, cam: Camera, zoomIdx: int = 0):
         PREVIEW_WINDOW_NAME, cfg["frameWidth"], cfg["frameHeight"], zoomIdx=zoomIdx,
         hotkeys="[1/2/3] zoom   [+/-] exposure (auto-saved)   [s] screenshot   "
                 "[space] pause   [q] quit")
-    print("preview: " + liveView.hotkeys)
+    pr("preview: " + liveView.hotkeys)
     lastFrame = cam.grabGray()
     try:
         while not liveView.quitRequested:
@@ -2114,9 +2501,9 @@ def runPreview(cfg: dict, cam: Camera, zoomIdx: int = 0):
                 cfg["exposure"] = exposure
                 try:
                     CONFIG_FILE.write_text(json.dumps(cfg, indent=2))
-                    print(f"exposure {exposure} -> saved to {CONFIG_FILE.name}")
+                    pr(f"exposure {exposure} -> saved to {CONFIG_FILE.name}")
                 except OSError as e:
-                    print(f"exposure {exposure} (could not save {CONFIG_FILE.name}: {e})")
+                    pr(f"exposure {exposure} (could not save {CONFIG_FILE.name}: {e})")
     finally:
         liveView.close()
 
@@ -2233,7 +2620,7 @@ def runAutotuneCamera(cfg: dict, esp: EspClient, cam: Camera, patterns: list[str
         runIndex += 1
         avgDuration = sum(trialDurations) / len(trialDurations)
         eta = (trials - runIndex) * avgDuration
-        print(f"[camera-autotune trial {runIndex}/{trials}] (#{trial.number}) "
+        pr(f"[camera-autotune trial {runIndex}/{trials}] (#{trial.number}) "
               f"exp={exposure} gain={gain} thr={binaryThreshold} frames={accumFrames} "
               f"cost={totalCost:.4f} sat={saturationFrac:.3f} bg={backgroundBrightness:.3f}  "
               f"{duration:.1f}s, avg {avgDuration:.1f}s/trial, ETA {eta / 60:.1f} min")
@@ -2248,7 +2635,7 @@ def runAutotuneCamera(cfg: dict, esp: EspClient, cam: Camera, patterns: list[str
                     "metrics": perPattern, "durationSeconds": round(duration, 2)
                 }) + "\n")
         except OSError as e:
-            print(f"warning: could not append to per-trial log {logFile.name}: {e}")
+            pr(f"warning: could not append to per-trial log {logFile.name}: {e}")
         return totalCost
 
     try:
@@ -2260,13 +2647,13 @@ def runAutotuneCamera(cfg: dict, esp: EspClient, cam: Camera, patterns: list[str
 
     priorTrials = len(study.trials)
     if priorTrials:
-        print(f"resuming study '{studyName}' ({storageUrl}) - "
+        pr(f"resuming study '{studyName}' ({storageUrl}) - "
               f"{priorTrials} trial(s) already recorded, adding {trials} more")
     else:
-        print(f"new study '{studyName}' -> {storageUrl}")
-    print(f"tuning camera capture settings via pattern(s) {list(patterns)} - firmware "
+        pr(f"new study '{studyName}' -> {storageUrl}")
+    pr(f"tuning camera capture settings via pattern(s) {list(patterns)} - firmware "
          f"parameters are left exactly as currently live")
-    print(f"per-trial log -> {logFile.name}")
+    pr(f"per-trial log -> {logFile.name}")
 
     stoppedEarly = None
     try:
@@ -2287,23 +2674,23 @@ def runAutotuneCamera(cfg: dict, esp: EspClient, cam: Camera, patterns: list[str
             pass    # best-effort cleanup - the original error/interrupt is what matters
 
     if stoppedEarly:
-        print(f"\nautotune-camera stopped early: {stoppedEarly}")
-        print(f"re-run the same command (same --study-name/--storage) to continue - "
+        pr(f"\nautotune-camera stopped early: {stoppedEarly}")
+        pr(f"re-run the same command (same --study-name/--storage) to continue - "
               f"{len(study.trials)} trial(s) are safely recorded so far.")
 
     completed = [t for t in study.trials if t.state.name == "COMPLETE"]
     if not completed:
-        print("no completed trials - nothing to report")
+        pr("no completed trials - nothing to report")
         cam.setExposureGain(baseline["exposure"], baseline["gain"])
         return
 
     best = study.best_params
-    print(f"\n=== camera autotune: parameter changes (before -> after) ===")
+    pr(f"\n=== camera autotune: parameter changes (before -> after) ===")
     for field in ("exposure", "gain", "binaryThreshold", "accumFrames"):
         before, after = baseline[field], best[field]
         marker = "" if before == after else "  (changed)"
-        print(f"  {field:<16} {before:>8} -> {after}{marker}")
-    print(f"best cost {study.best_value:.4f} (over {len(completed)} completed trial(s))")
+        pr(f"  {field:<16} {before:>8} -> {after}{marker}")
+    pr(f"best cost {study.best_value:.4f} (over {len(completed)} completed trial(s))")
 
     result = {
         "bestCost": study.best_value, "bestParams": best, "baseline": baseline,
@@ -2315,8 +2702,8 @@ def runAutotuneCamera(cfg: dict, esp: EspClient, cam: Camera, patterns: list[str
     try:
         outFile.write_text(json.dumps(result, indent=2))
     except OSError as e:
-        print(f"warning: could not save best-params file: {e}")
-    print(f"saved -> {outFile.name}")
+        pr(f"warning: could not save best-params file: {e}")
+    pr(f"saved -> {outFile.name}")
 
     interactive = sys.stdin.isatty()
     doApply = autoApply
@@ -2332,9 +2719,9 @@ def runAutotuneCamera(cfg: dict, esp: EspClient, cam: Camera, patterns: list[str
         cfg["accumFrames"] = best["accumFrames"]
         try:
             CONFIG_FILE.write_text(json.dumps(cfg, indent=2))
-            print(f"saved -> {CONFIG_FILE.name}")
+            pr(f"saved -> {CONFIG_FILE.name}")
         except OSError as e:
-            print(f"warning: could not save {CONFIG_FILE.name}: {e}")
+            pr(f"warning: could not save {CONFIG_FILE.name}: {e}")
 
         # homography.npz's background was captured at the OLD exposure/gain - stale
         # from here on, since diff-subtraction (computeMetrics/calibrate) assumes it
@@ -2346,13 +2733,13 @@ def runAutotuneCamera(cfg: dict, esp: EspClient, cam: Camera, patterns: list[str
             time.sleep(cfg["settleSeconds"])
             newBackground = cam.grabBackground()
             np.savez(HOMOGRAPHY_FILE, homography=homography, background=newBackground)
-            print(f"refreshed background in {HOMOGRAPHY_FILE.name} for the new exposure/gain")
+            pr(f"refreshed background in {HOMOGRAPHY_FILE.name} for the new exposure/gain")
         except (OptimizerError, OSError) as e:
-            print(f"warning: could not refresh {HOMOGRAPHY_FILE.name} background: {e} - "
+            pr(f"warning: could not refresh {HOMOGRAPHY_FILE.name} background: {e} - "
                  f"run 'calibrate' again before the next measurement")
     else:
         cam.setExposureGain(baseline["exposure"], baseline["gain"])
-        print(f"(not applied - camera restored to its previous exposure/gain; best values "
+        pr(f"(not applied - camera restored to its previous exposure/gain; best values "
              f"are only in {outFile.name})")
 
 
@@ -2380,6 +2767,12 @@ def main():
                             settings problems, optionally autotune (= 'optimize') the latter
               7. autotune-camera  Optuna search over exposure/gain/binaryThreshold/
                             accumFrames (camera capture quality, not firmware params)
+
+            standalone (run any time after 'calibrate', doesn't fit the tuning order above):
+              analyze-live  structural (no-reference) read of whatever preset is
+                            live right now - flags gaps/breaks or an unexpectedly
+                            open shape without needing a known ideal geometry, and
+                            never starts/stops a pattern on the ESP32
 
             files:
               {CONFIG_FILE.name:<18} runtime config (created via the wizard on first run;
@@ -2653,6 +3046,31 @@ def main():
         help="apply the best camera settings to camConfig.json and refresh homography.npz's "
              "background without asking")
 
+    sub.add_parser(
+        "analyze-live",
+        help="capture + structurally analyze whatever preset is currently live",
+        description="Unlike measure/diagnose/optimize, this NEVER calls the calib-cam "
+                     "start/stop API - it captures exactly one frame of whatever the "
+                     "ESP32 is already projecting (any preset, ILDA file, or custom "
+                     "output) and leaves it running throughout, before and after. "
+                     "Since there's no known 'ideal' shape for an arbitrary preset "
+                     "the way there is for the 6 calib patterns, this runs a no-"
+                     "reference structural read instead of the usual path-deviation "
+                     "scoring: whether the beam trace forms one continuous piece "
+                     "(vs. a real gap/disconnected segment) and whether it encloses "
+                     "an area (closed loop) or not, plus a sensor-saturation check. "
+                     "Looks up the active preset's name/category via GET /api/state "
+                     "+ /api/presets to label the report and word its one heuristic "
+                     "flag - never a hard pass/fail, since plenty of presets are "
+                     "legitimately multi-piece (particles, starfields, multi-object "
+                     "scenes) or open by design (lines, waves). Always saves a raw + "
+                     "annotated screenshot to results/analyze_live_<timestamp>.png "
+                     "regardless of the verdict, for a follow-up look by eye or "
+                     "another tool. Can NOT tell you a shape is the wrong shape, "
+                     "only that it has a break or an unexpectedly open loop - see "
+                     "the saved screenshot for anything more specific. Requires an "
+                     "existing homography.npz - run 'calibrate' first.")
+
     parser.add_argument(
         "--debug", action="store_true",
         help="on error, print a full Python traceback instead of a short message "
@@ -2663,21 +3081,21 @@ def main():
     if args.config:
         CONFIG_FILE = Path(args.config)
 
-    print(f"optimizeGalvo.py v{SCRIPT_VERSION}")
+    pr(f"optimizeGalvo.py v{SCRIPT_VERSION}")
 
     try:
         dispatch(args)
     except OptimizerError as e:
-        print(f"error: {e}", file=sys.stderr)
+        pr(f"error: {e}", file=sys.stderr)
         sys.exit(1)
     except (KeyboardInterrupt, EOFError):
-        print("\ninterrupted", file=sys.stderr)
+        pr("\ninterrupted", file=sys.stderr)
         sys.exit(130)
     except Exception as e:
         if args.debug:
             raise
-        print(f"error: unexpected {type(e).__name__}: {e}", file=sys.stderr)
-        print("(re-run with --debug for a full traceback)", file=sys.stderr)
+        pr(f"error: unexpected {type(e).__name__}: {e}", file=sys.stderr)
+        pr("(re-run with --debug for a full traceback)", file=sys.stderr)
         sys.exit(1)
 
 
@@ -2702,12 +3120,13 @@ def dispatch(args):
         sys.exit(0 if runCheckConnection(cfg, esp) else 1)
 
     showView = cfg.get("showCameraView", True) and not args.noView
+    viewCmds = ("calibrate", "measure", "optimize", "diagnose", "autotune-camera",
+               "analyze-live")
     liveView = LiveView("GalvOS camera view", cfg["frameWidth"], cfg["frameHeight"],
                         zoomIdx=args.zoom - 1) \
-        if showView and args.cmd in ("calibrate", "measure", "optimize", "diagnose",
-                                     "autotune-camera") else None
-    if args.cmd in ("calibrate", "measure", "optimize", "diagnose", "autotune-camera"):
-        print("camera view: " + (liveView.hotkeys if liveView
+        if showView and args.cmd in viewCmds else None
+    if args.cmd in viewCmds:
+        pr("camera view: " + (liveView.hotkeys if liveView
                                  else "disabled (--no-view or showCameraView=false)"))
 
     cam = Camera(cfg, liveView=liveView)
@@ -2738,11 +3157,18 @@ def dispatch(args):
             patterns = [p.strip() for p in args.patterns.split(",") if p.strip()]
             runAutotuneCamera(cfg, esp, cam, patterns, args.trials,
                              args.studyName, args.storageUrl, args.fresh, args.autoApply)
+        elif args.cmd == "analyze-live":
+            runAnalyzeLive(cfg, esp, cam)
     finally:
-        try:
-            esp.stop()
-        except OptimizerError:
-            pass
+        # 'preview' and 'analyze-live' never start/stop a pattern on the ESP32 -
+        # stopping here would interrupt whatever was already live before the command
+        # ran, defeating the entire point of both (aim the camera / analyze the
+        # current output without disturbing it).
+        if args.cmd not in ("preview", "analyze-live"):
+            try:
+                esp.stop()
+            except OptimizerError:
+                pass
         if liveView:
             liveView.close()
         cam.release()
