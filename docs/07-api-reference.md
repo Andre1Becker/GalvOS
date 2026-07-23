@@ -66,6 +66,7 @@ ESPAsyncWebServer matches routes in registration order. Two endpoints are order-
 
 - `POST /api/calib-pattern/stop` — registered before `/api/calib-pattern`
 - `GET /api/text/vertices` — registered before `/api/text`
+- `/api/calib-cam/{start,params,stop,status}` — registered before `/api/calib-pattern/...` and well before the LittleFS catch-all
 
 This is handled correctly in the shipped firmware. If you add new routes that share a prefix with an existing endpoint, register the more specific route first.
 
@@ -100,6 +101,7 @@ Full system state. Polled by the WebUI every second.
 | `buffer_fill` | int | Ring buffer fill level (%) |
 | `last_dmx_age_ms` | int | ms since last DMX frame (−1 if never received) |
 | `preset_idx` | int | Active preset index (−1 if none) |
+| `starfield_stars` | int | Actual rendered star count for the Starfield preset (since v6.02.4) — the requested Size (0–255) can be capped lower by the Particles optimizer profile's `max_pts_per_frame` budget; the WebUI shows this value instead of echoing the raw slider |
 | `dac_ok` | bool | DAC8562 initialised and responding |
 | `no_hw_mode` | bool | No-HW debug mode active |
 | `heap` | int | Free internal heap (bytes) |
@@ -356,6 +358,75 @@ Stop the active calibration pattern and return to normal operation.
 > ⚠️ This route must be registered **before** any prefix-matching handler for `/api/calib-pattern`. See [Route Registration Order](#route-registration-order).
 
 Body: empty or `{}`.
+
+---
+
+### Camera-in-the-Loop Calibration (`/api/calib-cam/*`)
+
+Added in v6.03.0 — a session-based API for the host-side camera auto-tuning tool (`scripts/optimizeGalvo/optimizeGalvo.py`, see [Chapter 11](11-camera-autotuning.md)). It projects one of 6 dedicated camera-reference patterns and lets the host apply optimizer overrides live, RAM-only, without touching NVS. There is no dedicated WebUI panel for this — it exists purely for the host tool to drive.
+
+All four routes are registered before `/api/calib-pattern/...` for the same route-ordering reason as `/api/calib-pattern/stop` — see [Route Registration Order](#route-registration-order).
+
+#### `POST /api/calib-cam/start`
+
+Starts a session and activates one of the camera-reference patterns.
+
+```json
+{"pattern": "square", "channel": 3}
+```
+
+`pattern`: one of `corners4`, `square`, `star`, `segments`, `circle`, `spiral`. `corners4` is the 4-dot homography reference used by the tool's `calibrate` command; the rest are used for measurement and tuning.
+
+`channel` (optional, since v6.04.1): `0` = white (R+G+B), `1` = R, `2` = G, `3` = B (**default**). Patterns default to blue rather than white because a mono/global-shutter camera can see the R/G/B beams smear apart or offset if the laser diodes aren't perfectly co-boresighted — a single channel avoids that entirely.
+
+Starting a session snapshots the current values of whichever optimizer profile the pattern belongs to, and switches the active profile to it if it isn't already active. Any previous session that was never cleanly `/stop`-ped (client crash, page reload mid-run) is force-restored first, so overrides can never leak across sessions.
+
+---
+
+#### `POST /api/calib-cam/params`
+
+Applies optimizer parameter overrides to the session's profile, live, without persisting to NVS. Requires an active session (`/start` first).
+
+```json
+{
+  "corner_angle_deg": 25.0,
+  "max_corner_pts": 8,
+  "blank_samples": 16,
+  "profile": 0
+}
+```
+
+All fields are optional; unrecognized keys are echoed back in the response's `ignored` array instead of erroring. **Note the field names here have no `opt_` prefix**, unlike `/api/optimizer-live` — `corner_angle_deg` here is `opt_corner_angle_deg` there. Both endpoints clamp to the same bounds by hand-kept convention. `profile`, if present, must match the profile the active pattern already belongs to (it exists only so the caller can double-check, not to switch profiles mid-session).
+
+Response:
+
+```json
+{"ok": true, "applied": {"corner_angle_deg": 25.0, "max_corner_pts": 8}, "ignored": []}
+```
+
+`applied` echoes the effective (post-clamp) value of every field that was recognized and set.
+
+---
+
+#### `POST /api/calib-cam/stop`
+
+Ends the session and restores the profile's pre-session snapshot (if any override was ever applied). Body: empty or `{}`.
+
+> Tuned values do **not** persist by themselves — stopping the session always reverts to the snapshot. To keep a tuned result, the host tool must call `/api/optimizer-live` (with the winning values, `opt_`-prefixed) and `/api/optimizer-save` *before* calling `/stop`, or the values vanish when the session ends. This is also invoked automatically the instant E-Stop trips, so an aborted tuning run can never leave a preset's optimizer profile silently altered.
+
+---
+
+#### `GET /api/calib-cam/status`
+
+```json
+{
+  "active": true,
+  "pattern": "square",
+  "overrides": {"corner_angle_deg": 25.0, "max_corner_pts": 8}
+}
+```
+
+`overrides` lists only the fields that differ from the session's original snapshot — i.e. what has actually been changed so far.
 
 ---
 

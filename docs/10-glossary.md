@@ -275,6 +275,15 @@ A group of 512 DMX channels. A single DMX cable carries one universe. Art-Net al
 **Adaptive density**
 The optimizer's Pillar 1: the number of interior points added to each edge scales with the edge length and is concentrated near corners. Longer edges get more points; sharper corners get more dwell time.
 
+**Calib-cam (camera-in-the-loop calibration)**
+The `/api/calib-cam/*` REST API (since v6.03.0) that lets a host-side tool (`optimizeGalvo.py`) select a camera-reference pattern and override optimizer parameters live, RAM-only, while measuring the projected result with a camera. See [Chapter 11 — Camera-in-the-Loop Auto-Tuning](11-camera-autotuning.md).
+
+**Homography**
+A projective transformation that maps points from one plane to another — here, camera pixel coordinates to DAC coordinate space. `optimizeGalvo.py`'s `calibrate` command computes this once from 4 reference dots (the `corners4` pattern) so it can translate every later camera measurement back into DAC units for scoring.
+
+**Optuna**
+An open-source hyperparameter optimization framework using Tree-structured Parzen Estimator (TPE) search. `optimizeGalvo.py` uses it to search optimizer parameter space (or camera capture settings) for the combination that minimizes a measured cost, resuming from a persistent SQLite study on interruption.
+
 **Acceleration clamp**
 Optional optimizer stage that limits how quickly the commanded galvo velocity can change from one tick to the next. Prevents sharp velocity ramps that can excite galvo resonance even when individual step sizes are within bounds.
 

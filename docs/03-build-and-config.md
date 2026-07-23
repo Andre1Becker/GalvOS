@@ -102,7 +102,7 @@ These are the parameters in `platformio.ini` that you may want to adjust. Everyt
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `LASER_FW_VERSION` | `"5.77.4"` | Version string shown in the WebUI header and serial log. Increment this when you modify the firmware (see [Version Bumps](#version-bumps)). |
+| `LASER_FW_VERSION` | `"6.05.0"` | Version string shown in the WebUI header and serial log. Increment this when you modify the firmware (see [Version Bumps](#version-bumps)). |
 | `GALVO_SAMPLE_RATE_HZ` | `30000` | The ISR tick rate — how many DAC samples are written per second. This is **not** the same as `galvo_kpps` in the WebUI (which controls how many of those ticks contain new pattern points). Default 30,000 Hz = 30 kpps effective output at full density. |
 | `DEFAULT_DMX_ADDRESS` | `1` | Default DMX start address on first boot (before any NVS config). |
 | `DEFAULT_DMX_UNIVERSE` | `0` | Default Art-Net universe on first boot. |
@@ -131,8 +131,8 @@ Version strings follow **Major.Minor.Patch**:
 Update `LASER_FW_VERSION` in `platformio.ini` using Python string replacement (not sed — the escaped quotes make sed fragile):
 ```python
 # In a patch script:
-content = content.replace('-D LASER_FW_VERSION=\\"5.77.4\\"',
-                          '-D LASER_FW_VERSION=\\"5.77.5\\"', 1)
+content = content.replace('-D LASER_FW_VERSION=\\"6.05.0\\"',
+                          '-D LASER_FW_VERSION=\\"6.05.1\\"', 1)
 ```
 
 ---
@@ -143,14 +143,16 @@ content = content.replace('-D LASER_FW_VERSION=\\"5.77.4\\"',
 
 | Partition | Type | Size | Purpose |
 |-----------|------|------|---------|
-| `nvs` | data/nvs | 20 KB | NVS key-value store — all runtime config |
 | `otadata` | data/ota | 8 KB | OTA update bookkeeping |
 | `app0` | app/ota_0 | 5 MB | Active firmware image |
 | `app1` | app/ota_1 | 5 MB | OTA update staging slot |
 | `spiffs` | data/spiffs | 5 MB | LittleFS — WebUI (`index.html.gz` + assets) |
 | `coredump` | data/coredump | 64 KB | Core dump on crash (for post-mortem debugging) |
+| `nvs` | data/nvs | 256 KB | NVS key-value store — all runtime config |
 
-Total: 15.25 MB of the 16 MB flash used. The LittleFS partition is labeled `spiffs` for historical PlatformIO compatibility — it is formatted as LittleFS, not SPIFFS.
+Total: ~15.32 MB of the 16 MB flash used. The LittleFS partition is labeled `spiffs` for historical PlatformIO compatibility — it is formatted as LittleFS, not SPIFFS.
+
+> **Note:** The `nvs` partition grew from its original 20 KB in two steps (v6.00.0 → 64 KB, v6.00.2 → 256 KB) after calibration saves started failing with `NOT_ENOUGH_SPACE` as more tunable parameters (per-profile optimizer defaults, per-channel calibration, etc.) accumulated in NVS. **Both resizes shifted every partition's offset** — if you are updating from firmware older than v6.00.0, erase the entire flash before reflashing (`pio run --target erase` or `esptool.py erase_flash`), otherwise the ESP32-IDF partition table and the actual NVS contents on flash will disagree and NVS reads may return garbage or fail outright.
 
 ---
 

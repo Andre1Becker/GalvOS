@@ -161,6 +161,12 @@ where `severity` runs from 0 (at `corner_angle_deg`) to 1 (at 180°).
 
 Interior points along an edge are not uniformly spaced — they are velocity-eased using a continuous `shapeEdgeT()` function. Points are denser near corners (where the mirror is decelerating or accelerating) and sparser in the middle of long straight runs (where the mirror has reached cruising speed). This avoids a velocity kink at the edge midpoint that would excite galvo ringing on every edge in the pattern.
 
+**Corner dwell vs. the frame budget (since v6.05.0):**
+
+`max_pts_per_frame` normally only scales down *interior* density to fit the budget — corner dwell is treated as fixed overhead, since a corner that doesn't get its full dwell still looks acceptable, just slightly less sharp. But on a many-vertex closed shape (an octagon and up, a dense Lissajous/rose/trochoid curve, Concentric Rings) at a heavily tuned-down `max_pts_per_frame`, corner dwell *alone* (plus the floor blanking overhead) could exceed the entire budget. Interior density has nothing left to give, and the point emitter silently truncates mid-shape — which for a closed path always sacrifices whatever would be written last: the final edge and the closing dwell back to the first vertex. The result reads as "the shape doesn't close," not "the corners look a bit soft."
+
+`optimize()` now runs an extra pass before scaling interior density: if corner dwell alone doesn't fit the available budget, `min_corner_pts`/`max_corner_pts` are scaled down together (floor: 1 point per vertex — just enough to actually visit every vertex) until corner dwell does fit, and the segment plan is recomputed against the new corner budget. This trades corner sharpness for the one thing that must never be sacrificed: the loop actually reconnecting. It is automatic and requires no configuration; if a gap still appears, `max_pts_per_frame` is too low even for 1 point per vertex on that shape.
+
 ---
 
 ## Stage 5 — Blanking (Pillar 2)

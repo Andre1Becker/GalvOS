@@ -127,7 +127,7 @@ The full netlist with all resistor values, capacitor values, and wiring is in th
 The ESP32-S3 N16R8 provides:
 - **16 MB SPI Flash** — partitioned into firmware (4 MB) and LittleFS (8 MB, holds the WebUI)
 - **8 MB OPI PSRAM** — used for large pattern buffers, JSON serialization, and the pattern cache. All allocations above ~16 KB must use `ps_malloc()` or `heap_caps_malloc(MALLOC_CAP_SPIRAM)`.
-- **~31 KB free internal DRAM** (post-boot, post-optimization) — scarce; used only for time-critical ISR data and small buffers.
+- **~140 KB free internal DRAM** (post-boot, post-optimization) — still scarce (shared with the Wi-Fi/lwIP/AsyncTCP stack), but considerably less scarce than it used to be: firmware v6.04.0 moved ~120 KB of `static` scratch buffers (pattern verts/chains, paint canvas, EtherDream RX, SD file tables, optimizer transform scratch) from DRAM `.bss` into lazily-allocated PSRAM via `src/util/ps_scratch.h`. Static RAM footprint dropped from 180,728 B to 57,872 B. See [Known Issues → Optimize Heap Usage](09-known-issues-and-todos.md#planned-features) for the full breakdown.
 
 ---
 
@@ -168,7 +168,7 @@ Pattern Engine
   → galvo_out.cpp ISR
   → DAC code = coordinate + 0x8000  (maps [-32768..32767] → [0x0000..0xFFFF])
   → DAC output limited to [dac_limit_min .. dac_limit_max] (default 0x0666..0xF999)
-  → DAC8562 SPI (16-bit, ~30 kpps throughput via raw hardware register access)
+  → DAC8562 SPI (16-bit, ~30 kpps throughput via raw hardware register access, 40 MHz SPI clock since v6.02.2 — up from 20 MHz; the DAC8562 is rated for 50 MHz max and 40 MHz is the next clean APB/2 divider on the ESP32-S3's 80 MHz APB bus)
   → VOUTA / VOUTB (0 .. 2.5V relative to internal VREF)
   → OPA4134 differential amplifier (gain 2.2×, inverting)
      VOUT = 2 × (2.5V − VDAC)  →  range ≈ ±5V

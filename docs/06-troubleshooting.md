@@ -92,6 +92,12 @@ If the ESP32 crashes with a Guru Meditation error, the serial monitor prints a b
 **Cause:** mDNS not supported on some networks (corporate Wi-Fi, VPNs) or Windows without Bonjour.  
 **Fix:** Use the IP address directly. Find it in the Dashboard → System card, or in the serial log: `WiFi connected: x.x.x.x`.
 
+### Wi-Fi scan (Configuration tab) returns "error" or hangs
+
+**Cause:** `WiFi.scanNetworks()` on the Arduino core has several failure modes on the ESP32-S3 — a busy-bit that stays stuck after a mode switch, `WIFI_SCAN_FAILED` while STA is mid-(re)connect, or an async completion event that doesn't reliably fire under load. All were seen in the field between v6.00.3 and v6.00.7.  
+**Fix:** As of v6.00.7, the scan handler calls `esp_wifi_scan_start()`/`esp_wifi_scan_get_ap_records()` directly instead of going through `WiFiScanClass`, retries up to 3× on any negative result code, and reports a distinct `"error"` status to the UI instead of silently looping. If a scan still fails repeatedly, check the serial log for `esp_err_to_name()` plus internal-heap headroom — `esp_wifi_scan_start()` needs a contiguous internal-DRAM block, so heap pressure (see [Memory & Stability Issues](#memory--stability-issues)) is a plausible root cause of a stubborn failure.  
+**Note:** An AP-mode (SoftAP) scan returning 0 networks is a separate, unfixable ESP-IDF channel-lock limitation — enter the SSID manually instead.
+
 ### Wi-Fi drops and does not reconnect
 
 **Cause:** The Wi-Fi watchdog task detects the drop and sets `s_wifi_services_started = false`. `setAutoReconnect(true)` handles reconnection automatically.  
@@ -141,6 +147,11 @@ If the ESP32 crashes with a Guru Meditation error, the serial monitor prints a b
 
 **Cause B:** `galvo_kpps` set too high for the scan angle. The galvo cannot settle at the corner before the next edge starts.  
 **Fix:** Reduce `galvo_kpps` (Projection tab). Run the Autotune to find the safe maximum.
+
+### Closed shape has a visible gap instead of reconnecting
+
+**Cause (fixed in v6.05.0):** At a heavily tuned-down `max_pts_per_frame`, corner dwell was treated as fixed overhead — only interior density was ever scaled back to fit the frame budget. On a many-vertex closed shape (Octagon and up, dense Lissajous/rose/trochoid curves, Concentric Rings), corner dwell alone could exceed what was left of the budget, and the point emitter silently stopped mid-shape — always cutting off the final edge and closing dwell first, which reads as "the shape doesn't close."  
+**Fix:** The optimizer now scales `min_corner_pts`/`max_corner_pts` down together (floor: 1 point per vertex) whenever corner dwell alone doesn't fit the budget, trading corner sharpness for a guaranteed closed loop. This is automatic — no configuration needed. If you still see a gap on current firmware, `max_pts_per_frame` is too low even for 1 point per vertex; raise it in the Optimizer tab.
 
 ### Straight lines look curved
 
@@ -405,4 +416,3 @@ A quick-reference index of open issues documented in [Chapter 9](09-known-issues
 | Text: Star Wars renders as dots | Minor | — |
 | Calibration channel selector not working | Minor | Calibrate with RGB combined |
 | ILDA Standard Test Pattern bad output | Minor | Use Crosshair/Grid patterns instead |
-| Paint canvas smaller than projection area | Minor | Scale up with Size slider |

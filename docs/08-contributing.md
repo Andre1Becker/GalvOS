@@ -23,9 +23,11 @@ GalvOS is a one-person project that grew considerably beyond its original scope.
 Browse [Chapter 9 — Known Issues & Todos](09-known-issues-and-todos.md) for a current list of open bugs and planned features. Pick something that matches your skills and interests:
 
 - **C++ firmware bugs** — text animations (Bounce, Typewriter, Star Wars)
-- **C++ new features** — SD card SPI bus fix, new patterns, auto-tuning
-- **JavaScript/HTML** — WebUI improvements, Paint canvas sizing, point limit in status bar
+- **C++ new features** — new patterns, extending the camera-in-the-loop auto-tuning API (Chapter 11) to more optimizer profiles
+- **JavaScript/HTML** — WebUI improvements, point limit in status bar
+- **Python** — `scripts/optimizeGalvo/` (camera auto-tuning tool, see Chapter 11)
 - **Documentation** — screenshot capture, diagram creation, corrections
+- **Hardware** — the SD card / DAC SPI bus conflict is root-caused and fixed in firmware (v5.90.0, independent SPI3 bus); what remains is physically rewiring the perfboard, see [Known Issues](09-known-issues-and-todos.md#critical-issues)
 
 Open an issue or a discussion on GitHub before starting larger changes — it avoids duplicate work.
 
@@ -81,7 +83,9 @@ GalvOS/
 │   └── index.html                  # Single-file WebUI PWA (HTML + CSS + JS)
 ├── scripts/
 │   ├── upload_all.py               # Custom PlatformIO target: flash firmware + LittleFS
-│   └── gzip_assets.py              # Pre-build hook: gzip data/ assets
+│   ├── gzip_assets.py              # Pre-build hook: gzip data/ assets
+│   └── optimizeGalvo/              # Host-side camera-in-the-loop auto-tuning tool (see Chapter 11)
+│       └── optimizeGalvo.py        # OpenCV + Optuna, drives /api/calib-cam/*
 ├── hardware/
 │   └── netlist.txt                 # Full wiring netlist
 └── platformio.ini                  # Build configuration
@@ -457,10 +461,13 @@ Roughly in priority order:
 
 **Bug fixes (firmware):**
 
-- SD card / galvo SPI bus contention — root cause investigation and fix
 - Text: Bounce animation has no effect
 - Text: Typewriter runs once only — add loop logic
 - Text: Star Wars Scroll direction and rendering
+
+**Hardware:**
+
+- SD card / DAC SPI bus contention — root cause found and fixed in firmware (v5.90.0, SD moved to independent SPI3). Remaining work is physically rewiring the perfboard (SD → GPIO5/6/1/42) — see [Known Issues](09-known-issues-and-todos.md#critical-issues).
 
 **New patterns (firmware):**
 
@@ -472,10 +479,14 @@ Roughly in priority order:
 **UI improvements (JavaScript/HTML):**
 
 - Point limit display in the status/telemetry bar
-- Paint canvas scaled to match the full projection area
 - Point and stroke count shown under the Paint canvas
 - Feature toggles (enable/disable ArtNet, DMX independently)
 - kpps history graph on the Dashboard
+
+**Camera-in-the-loop auto-tuning (Python + firmware, see Chapter 11):**
+
+- Extend `/api/calib-cam/*` and `optimizeGalvo.py` to the Wireframe/Trails/Text optimizer profiles (currently camera-tunable: Vector, Smooth, Waves, MultiObject)
+- Auto-tune galvo geometry calibration (offset/gain) from the camera, not just optimizer scan/dwell parameters
 
 **Calibration (firmware + UI):**
 

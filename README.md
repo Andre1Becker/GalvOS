@@ -44,6 +44,7 @@ The origin story: the stock firmware couldn't dim the laser — it was full-brig
 - Per-point laser modulation with full RGB PWM control
 - Hardware safety interlocks (scan-fail detection, watchdog, E-Stop, optoisolated TTL)
 - Point optimizer pipeline with adaptive density, S-curve blanking, and ringing compensation
+- Camera-in-the-loop auto-tuning of optimizer parameters via a companion Python tool (see [Chapter 11](docs/11-camera-autotuning.md))
 - Temperature monitoring (up to 5× DS18B20 sensors)
 
 ---
@@ -73,6 +74,7 @@ If you just want to get up and running:
 | [08 — Contributing](docs/08-contributing.md) | How to contribute, code style, patch workflow |
 | [09 — Known Issues & Todos](docs/09-known-issues-and-todos.md) | Open bugs, missing features, planned work |
 | [10 — Glossary & Terminology](docs/10-glossary.md) | All abbreviations and technical terms explained |
+| [11 — Camera-in-the-Loop Auto-Tuning](docs/11-camera-autotuning.md) | Automated optimizer tuning via `scripts/optimizeGalvo/optimizeGalvo.py` and a USB camera |
 
 ---
 
@@ -115,6 +117,10 @@ GalvOS/
 ├── data/
 │   └── index.html          # WebUI (single-file PWA, served via LittleFS)
 ├── hardware/               # Netlist, wiring diagrams
+├── scripts/
+│   ├── upload_all.py       # PlatformIO target: flash firmware + LittleFS
+│   ├── gzip_assets.py      # Pre-build hook: gzip data/ assets
+│   └── optimizeGalvo/      # Camera-in-the-loop auto-tuning tool (see docs/11)
 ├── docs/                   # Full documentation (you are here)
 ├── assets/                 # Screenshots, diagrams
 ├── platformio.ini          # Build configuration

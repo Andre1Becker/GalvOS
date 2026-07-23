@@ -151,7 +151,7 @@ A 5-column card that applies to every active preset in real time. Changes take e
 **Column 1 — Speed / Size / Rotation:**
 - **Speed** — pattern animation speed (0–255). Meaning varies by preset: step increment, phase advance, or oscillation rate.
 - **Speed Multiplier** — shown for some presets that support a secondary speed factor.
-- **Size** — scales the pattern output (10–255). 255 = full scan range. Reduce to shrink the image.
+- **Size** — scales the pattern output (10–255). 255 = full scan range. Reduce to shrink the image. For Starfield (up to 150 stars, since v6.02.3), Size instead requests a star count — since v6.02.4 the readout shows the actual rendered count (`starfield_stars` in `/api/state`), which can be lower than requested if the Particles optimizer profile's `max_pts_per_frame` budget caps it first.
 - **Auto-Scaling speed** — oscillates size between 0 and the Size value at the set rate. Three modes: Small→Big→Small, Small→Big, Big→Small.
 - **Rotation (Z)** — static Z-axis rotation offset (−180° to +180°).
 
@@ -264,7 +264,7 @@ A freehand drawing canvas that projects directly onto the laser.
 - **Clear** — erase all strokes.
 - **Project** — sends the current canvas to the laser. The projector renders the strokes as a vector point cloud.
 
-**Limitations:** The canvas is smaller than the full projection area (see [Known Issues](09-known-issues-and-todos.md)). Maximum 12 strokes, 96 vertices per stroke.
+Since v5.89.19, the canvas is scaled to match your configured **projection zone** (fetched from `/api/zone` on load, falling back to the ±24000 default range if no zone is enabled), with the zone outline drawn as a dashed guide — so strokes drawn near the canvas edge no longer get clipped by zone blanking. **Limitations:** Maximum 12 strokes, 96 vertices per stroke.
 
 ---
 
@@ -274,7 +274,7 @@ ILDA file playback from an SD card.
 
 <img width="917" height="491" alt="image" src="https://github.com/user-attachments/assets/b11c18f6-d442-4fe2-a1ab-6a8d6dffa5f7" />
 
-> ⚠️ **Known issue:** SD card insertion currently causes galvo malfunction. See [Known Issues](09-known-issues-and-todos.md). This tab is non-functional until that issue is resolved.
+> ⚠️ **Known issue:** The galvo-corruption-on-SD-insert bug is fixed in firmware (v5.90.0 moved the SD card to its own SPI3 bus, fully independent of the DAC's SPI2) — but the **perfboard has not been physically rewired yet**. Until the 4 SD wires are moved to GPIO5/6/1/42, `sd_card::init()` simply finds no card and this tab stays non-functional. See [Known Issues](09-known-issues-and-todos.md#critical-issues).
 
 - **File list** — lists `.ild` files found on the SD card (up to 40 files).
 - **Playback controls** — select a file, set loop mode, and play/stop.
@@ -351,6 +351,12 @@ An interactive canvas for defining a clipping polygon — the area the laser is 
 - **Save Zone / Reset to Rectangle** — save or discard changes.
 
 > **Known issue:** The ILDA test pattern currently has incorrect output. See [Known Issues](09-known-issues-and-todos.md).
+
+### Camera-in-the-Loop Auto-Tuning (calib-cam)
+
+Since firmware v6.03.0, there is a second calibration path that doesn't live in this tab at all: the `/api/calib-cam/*` REST API, driven by a companion host-side Python tool (`scripts/optimizeGalvo/optimizeGalvo.py`) using a mono/global-shutter USB camera. It projects dedicated reference patterns, measures them with the camera, and runs an automated Optuna search over optimizer scan/dwell parameters — the manual "tune a slider, look at the beam, repeat" loop, done in software instead.
+
+This does **not** replace the Galvo Calibration card above (offset/gain/swap/invert are still manual) — it auto-tunes the *optimizer* profiles (Vector, Smooth, Waves, MultiObject) against camera-measured beam quality. See [Chapter 11 — Camera-in-the-Loop Auto-Tuning](11-camera-autotuning.md) for the full setup and workflow.
 
 ---
 
@@ -430,7 +436,7 @@ A simplified laser hazard summary based on configured power and angles: laser cl
 
 Build and manage playlists of ILDA files for automated sequential playback.
 
-> ⚠️ Requires SD card — see [Known Issues](09-known-issues-and-todos.md) for the SD card / galvo bug.
+> ⚠️ Requires SD card — non-functional until the SD card is physically rewired to its independent SPI3 bus. See [Known Issues](09-known-issues-and-todos.md#critical-issues).
 
 <img width="924" height="298" alt="image" src="https://github.com/user-attachments/assets/bd9287c3-497c-4dbb-b504-e3c09c62a1ab" />
 
