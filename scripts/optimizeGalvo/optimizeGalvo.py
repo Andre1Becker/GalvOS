@@ -5,7 +5,10 @@ GalvOS camera-in-the-loop optimizer profile tuner.
 Host: Windows 11, OV9281 global-shutter USB camera (mono, 720p, 120 fps).
 Target: GalvOS ESP32-S3 controller via REST (/api/calib-cam/*, /api/status).
 
-Workflow:
+---
+
+## Workflow
+
   0. wizard     - first-time setup (runs automatically if no config exists yet)
   1. check      - verify the ESP32 controller is reachable (do this first)
   2. preview    - live camera view to set focus / exposure / ND filter
@@ -29,7 +32,10 @@ Workflow:
                   when its category says it should, and always saves a
                   screenshot either way.
 
-Usage:
+---
+
+## Usage
+
   python optimizeGalvo.py wizard
   python optimizeGalvo.py check
   python optimizeGalvo.py preview
@@ -42,14 +48,23 @@ Usage:
   python optimizeGalvo.py analyze-live
   python optimizeGalvo.py --config myRig.json check
 
-calibrate/measure/optimize/diagnose/autotune-camera open a live camera view window
-(disable with --no-view or showCameraView:false in the config); press '1'/'2'/'3' in
-that window for 1x/2x/3x digital zoom (centered crop, rescaled - window size stays
-constant), 's' to save the current frame to results/snapshot_<timestamp>.png.
+---
 
-Run `python optimizeGalvo.py <command> --help` for details on any command.
+## Camera view window (calibrate/measure/optimize/diagnose/autotune-camera)
 
-Note: requires opencv-python, numpy, optuna, requests (see requirements.txt).
+Opens by default (disable with --no-view or showCameraView:false in the config).
+Hotkeys while the window has focus:
+  1 / 2 / 3   1x/2x/3x digital zoom (centered crop, rescaled - window size
+              stays constant)
+  s           save the current frame to results/snapshot_<timestamp>.png
+
+[i] Run `python optimizeGalvo.py <command> --help` for details on any command.
+
+---
+
+## Requirements
+
+opencv-python, numpy, optuna, requests (see requirements.txt).
 If wheels for your Python version are not yet published, use a Python
 3.12/3.13 venv.
 """
@@ -71,7 +86,7 @@ import requests
 # ── versioning ───────────────────────────────────────────────────────────────
 # Semantic version of this script (independent of GalvOS firmware version).
 # Bump on every behavioral change; see git log for change history.
-SCRIPT_VERSION = "2.7.1"
+SCRIPT_VERSION = "2.8.0"
 
 # GalvOS firmware version that introduced /api/calib-cam/* (see firmware git log:
 # "fw: v6.03.0 -- camera-in-the-loop calibration API (calib-cam)").
@@ -175,6 +190,30 @@ def pr(*values, sep: str = " ", **kwargs):
         indent = line[:len(line) - len(line.lstrip(" "))]
         print(textwrap.fill(line, width=TERM_WIDTH, subsequent_indent=indent,
                             break_long_words=False, break_on_hyphens=False), **kwargs)
+
+
+# ASCII status prefixes (no emojis - avoids Windows console code-page encoding
+# issues). Pick by what the line means to the user, not by call site:
+#   [!] prWarn  recoverable problem or user-facing error (skipped a step, degraded
+#               operation, request retried/failed) - also used for the top-level
+#               error/interrupted handlers in main()
+#   [+] prOk    action completed successfully (file written, connection confirmed)
+#   [*] prTip   actionable recommendation - what to run/check next
+#   [i] prInfo  notable status worth calling out, not just routine progress text
+def prWarn(*values, **kwargs):
+    pr("[!]", *values, **kwargs)
+
+
+def prOk(*values, **kwargs):
+    pr("[+]", *values, **kwargs)
+
+
+def prTip(*values, **kwargs):
+    pr("[*]", *values, **kwargs)
+
+
+def prInfo(*values, **kwargs):
+    pr("[i]", *values, **kwargs)
 
 
 # ── interactive prompts ──────────────────────────────────────────────────────
@@ -393,14 +432,14 @@ def loadConfig() -> dict:
 
         unknownKeys = sorted(set(onDisk) - set(DEFAULT_CONFIG))
         if unknownKeys:
-            pr(f"warning: {CONFIG_FILE.name} has unrecognized key(s), check for typos: "
+            prWarn(f"{CONFIG_FILE.name} has unrecognized key(s), check for typos: "
                   f"{unknownKeys}")
         cfg = {**DEFAULT_CONFIG, **onDisk}
         for key in nestedDictKeys:
             if key in onDisk:
                 unknownSub = sorted(set(onDisk[key]) - set(DEFAULT_CONFIG[key]))
                 if unknownSub:
-                    pr(f"warning: {CONFIG_FILE.name} '{key}' has unrecognized key(s): "
+                    prWarn(f"{CONFIG_FILE.name} '{key}' has unrecognized key(s): "
                           f"{unknownSub}")
                 cfg[key] = {**DEFAULT_CONFIG[key], **onDisk[key]}
 
@@ -418,16 +457,16 @@ def loadConfig() -> dict:
             try:
                 CONFIG_FILE.write_text(json.dumps(cfg, indent=2))
             except OSError as e:
-                pr(f"warning: could not add missing default key(s) to {CONFIG_FILE.name}: {e}")
+                prWarn(f"could not add missing default key(s) to {CONFIG_FILE.name}: {e}")
             else:
                 added = missingKeys + missingSub
-                pr(f"added missing default key(s) to {CONFIG_FILE.name}: {added}")
+                prOk(f"added missing default key(s) to {CONFIG_FILE.name}: {added}")
 
         validateConfig(cfg)
         return cfg
 
     if sys.stdin.isatty():
-        pr(f"no {CONFIG_FILE.name} found - running first-time setup wizard\n")
+        prInfo(f"no {CONFIG_FILE.name} found - running first-time setup wizard\n")
         cfg = runWizard()
         validateConfig(cfg)
         return cfg
@@ -437,7 +476,7 @@ def loadConfig() -> dict:
         CONFIG_FILE.write_text(json.dumps(cfg, indent=2))
     except OSError as e:
         raise OptimizerError(f"cannot write {CONFIG_FILE}: {e}") from e
-    pr(f"created {CONFIG_FILE.name} with defaults (non-interactive session, skipped "
+    prOk(f"created {CONFIG_FILE.name} with defaults (non-interactive session, skipped "
           f"the setup wizard - run 'optimizeGalvo.py wizard' to configure it)")
     return cfg
 
@@ -488,7 +527,7 @@ class EspClient:
                         f"the controller's IP address instead if unsure. Run "
                         f"'optimizeGalvo.py check' for a full diagnostic."
                     ) from e
-                pr(f"warning: {path} {'timed out' if isinstance(e, requests.exceptions.Timeout) else 'connection failed'} "
+                prWarn(f"{path} {'timed out' if isinstance(e, requests.exceptions.Timeout) else 'connection failed'} "
                       f"(attempt {attempt}/{self.retries + 1}) - retrying in "
                       f"{self.retryDelaySeconds:.0f}s ...")
                 time.sleep(self.retryDelaySeconds)
@@ -651,12 +690,12 @@ class LiveView:
                                   f"_{self._snapCounter}.png")
             ok = cv2.imwrite(str(path), frame)
         except (OSError, cv2.error) as e:
-            pr(f"warning: could not save snapshot: {e}")
+            prWarn(f"could not save snapshot: {e}")
             return
         if ok:
-            pr(f"saved snapshot -> {path.relative_to(Path(__file__).parent)}")
+            prOk(f"saved snapshot -> {path.relative_to(Path(__file__).parent)}")
         else:
-            pr(f"warning: cv2.imwrite reported failure for {path.name}")
+            prWarn(f"cv2.imwrite reported failure for {path.name}")
 
     def update(self, frame: np.ndarray, text: str = "") -> int:
         """Draws frame + overlay, polls for a keypress, returns the masked key code
@@ -934,9 +973,9 @@ def runCalibrate(cfg: dict, esp: EspClient, cam: Camera):
         timestamp = time.strftime('%Y-%m-%d_%H-%M-%S')
         snapPath = RESULTS_DIR / f"calibrate_{timestamp}.png"
         if cv2.imwrite(str(snapPath), image):
-            pr(f"saved calibration snapshot -> {snapPath.relative_to(Path(__file__).parent)}")
+            prOk(f"saved calibration snapshot -> {snapPath.relative_to(Path(__file__).parent)}")
         else:
-            pr(f"warning: cv2.imwrite reported failure for {snapPath.name}")
+            prWarn(f"cv2.imwrite reported failure for {snapPath.name}")
 
         labeled = cv2.cvtColor(diff, cv2.COLOR_GRAY2BGR)
         for label, (px, py) in zip(cornerNames, pixelCorners):
@@ -945,12 +984,12 @@ def runCalibrate(cfg: dict, esp: EspClient, cam: Camera):
                        0.8, (0, 255, 0), 2, cv2.LINE_AA)
         labeledPath = RESULTS_DIR / f"calibrate_{timestamp}_labeled.png"
         if cv2.imwrite(str(labeledPath), labeled):
-            pr(f"saved labeled corners -> {labeledPath.relative_to(Path(__file__).parent)} "
+            prOk(f"saved labeled corners -> {labeledPath.relative_to(Path(__file__).parent)} "
                   f"- verify TL/TR/BR/BL against the dots' real physical layout")
         else:
-            pr(f"warning: cv2.imwrite reported failure for {labeledPath.name}")
+            prWarn(f"cv2.imwrite reported failure for {labeledPath.name}")
     except (OSError, cv2.error) as e:
-        pr(f"warning: could not save calibration snapshot: {e}")
+        prWarn(f"could not save calibration snapshot: {e}")
 
     h, _ = cv2.findHomography(pixelCorners, dacCorners)
     if h is None:
@@ -964,10 +1003,10 @@ def runCalibrate(cfg: dict, esp: EspClient, cam: Camera):
         np.savez(HOMOGRAPHY_FILE, homography=h, background=background)
     except OSError as e:
         raise OptimizerError(f"cannot write {HOMOGRAPHY_FILE.name}: {e}") from e
-    pr(f"homography saved -> {HOMOGRAPHY_FILE.name}")
+    prOk(f"homography saved -> {HOMOGRAPHY_FILE.name}")
     print(h)
     resetOrientationCache()
-    pr(f"cleared {ORIENTATION_FILE.name} (if present) - orientation will be "
+    prInfo(f"cleared {ORIENTATION_FILE.name} (if present) - orientation will be "
          f"re-detected fresh for each pattern on next measurement")
 
 
@@ -1067,7 +1106,7 @@ def _loadOrientationCache() -> dict[str, dict]:
             try:
                 _orientationCache.update(json.loads(ORIENTATION_FILE.read_text()))
             except (json.JSONDecodeError, OSError) as e:
-                pr(f"warning: could not read {ORIENTATION_FILE.name} ({e}) - "
+                prWarn(f"could not read {ORIENTATION_FILE.name} ({e}) - "
                       f"re-detecting orientation for every pattern")
         _orientationCacheLoaded = True
     return _orientationCache
@@ -1077,7 +1116,7 @@ def _saveOrientationCache():
     try:
         ORIENTATION_FILE.write_text(json.dumps(_orientationCache, indent=2))
     except OSError as e:
-        pr(f"warning: could not save {ORIENTATION_FILE.name}: {e}")
+        prWarn(f"could not save {ORIENTATION_FILE.name}: {e}")
 
 
 def resetOrientationCache():
@@ -1090,7 +1129,7 @@ def resetOrientationCache():
         try:
             ORIENTATION_FILE.unlink()
         except OSError as e:
-            pr(f"warning: could not remove stale {ORIENTATION_FILE.name}: {e}")
+            prWarn(f"could not remove stale {ORIENTATION_FILE.name}: {e}")
 
 
 def detectOrientation(pattern: str, r: int, trace: np.ndarray) -> str:
@@ -1123,10 +1162,10 @@ def detectOrientation(pattern: str, r: int, trace: np.ndarray) -> str:
     _saveOrientationCache()
     if best != "identity":
         pr(f"\n{'!' * 70}")
-        pr(f"ORIENTATION MISMATCH on pattern '{pattern}': idealPolylines() only fits "
+        prWarn(f"ORIENTATION MISMATCH on pattern '{pattern}': idealPolylines() only fits "
              f"the measured trace after applying '{best}' (fit {scores[best]:.1f} DAC-unit "
              f"avg deviation vs. {scores['identity']:.1f} unrotated).")
-        pr(f"This means the firmware's actual output for '{pattern}' is rotated/mirrored "
+        prWarn(f"This means the firmware's actual output for '{pattern}' is rotated/mirrored "
              f"relative to this tool's reference - a real coordinate-convention issue, not "
              f"a camera/calibration problem. From here on, THIS TOOL compensates for it when "
              f"scoring '{pattern}' (saved to {ORIENTATION_FILE.name}) so geometry metrics "
@@ -1367,7 +1406,7 @@ def measureOnce(esp: EspClient, cam: Camera, cfg: dict, homography: np.ndarray,
         try:
             cv2.imwrite(str(saveTo), capture)
         except cv2.error as e:
-            pr(f"warning: could not save capture to {saveTo}: {e}")
+            prWarn(f"could not save capture to {saveTo}: {e}")
     metrics, debug = computeMetrics(capture, background, homography, pattern, cfg)
     annotated = annotateCanvas(debug, metrics, pattern, label=statusPrefix)
     if cam.liveView:
@@ -1381,7 +1420,7 @@ def measureOnce(esp: EspClient, cam: Camera, cfg: dict, homography: np.ndarray,
         try:
             cv2.imwrite(str(annotatedPath), annotated)
         except cv2.error as e:
-            pr(f"warning: could not save annotated capture to {annotatedPath}: {e}")
+            prWarn(f"could not save annotated capture to {annotatedPath}: {e}")
     return metrics, effective
 
 
@@ -1593,16 +1632,16 @@ def runAnalyzeLive(cfg: dict, esp: EspClient, cam: Camera):
 
     status = esp.getStatus()
     if not status.get("laser_armed"):
-        pr("warning: laser_armed is false on the controller - nothing will be "
+        prWarn("laser_armed is false on the controller - nothing will be "
              "visible until it's armed. Capturing anyway.")
     if not status.get("estop_ok") or not status.get("scanfail_ok"):
-        pr("warning: E-Stop or scan-fail interlock is tripped - nothing will be "
+        prWarn("E-Stop or scan-fail interlock is tripped - nothing will be "
              "visible. Capturing anyway.")
 
     try:
         presetsCache = esp.getPresets()
     except OptimizerError as e:
-        pr(f"warning: could not fetch /api/presets ({e}) - preset name lookup "
+        prWarn(f"could not fetch /api/presets ({e}) - preset name lookup "
              f"will be skipped, the report will describe the raw preset index only")
         presetsCache = None
     source = describeLiveSource(esp, presetsCache)
@@ -1617,19 +1656,19 @@ def runAnalyzeLive(cfg: dict, esp: EspClient, cam: Camera):
     try:
         RESULTS_DIR.mkdir(exist_ok=True)
     except OSError as e:
-        pr(f"warning: could not create {RESULTS_DIR.name}/ for screenshots: {e}")
+        prWarn(f"could not create {RESULTS_DIR.name}/ for screenshots: {e}")
 
     timestamp = time.strftime("%Y-%m-%d_%H-%M-%S")
     rawPath = RESULTS_DIR / f"analyze_live_{timestamp}.png"
     try:
         cv2.imwrite(str(rawPath), capture)
     except cv2.error as e:
-        pr(f"warning: could not save {rawPath}: {e}")
+        prWarn(f"could not save {rawPath}: {e}")
 
     pr("\n=== analyze-live ===")
     if geometry["litPixelCount"] < 30:
-        pr("INDETERMINATE - essentially nothing detected in the frame.")
-        pr("  Check: laser armed / E-Stop / scan-fail (see warnings above), camera "
+        prWarn("INDETERMINATE - essentially nothing detected in the frame.")
+        prTip("Check: laser armed / E-Stop / scan-fail (see warnings above), camera "
              "exposure/threshold/framing, or that something is actually projecting.")
     else:
         bx, by = geometry["bboxDacUnits"]
@@ -1679,10 +1718,11 @@ def runAnalyzeLive(cfg: dict, esp: EspClient, cam: Camera):
                     f"traced loop reads as open. Could be a real gap too small to "
                     f"break connectivity at this threshold, or just this heuristic "
                     f"being wrong for this preset - check the annotated screenshot.")
+        pr()
         if flag:
-            pr(f"\n[!] {flag}")
+            prWarn(flag)
         else:
-            pr("\nno structural issue detected (this is an informational read, "
+            prOk("no structural issue detected (this is an informational read, "
                  "not a full optimizer diagnostic - see 'diagnose' for that, on the "
                  "6 calib patterns).")
 
@@ -1692,10 +1732,11 @@ def runAnalyzeLive(cfg: dict, esp: EspClient, cam: Camera):
     annotatedPath = rawPath.with_name(f"{rawPath.stem}_annotated{rawPath.suffix}")
     try:
         cv2.imwrite(str(annotatedPath), annotated)
-        pr(f"\nscreenshots saved -> {rawPath.relative_to(Path(__file__).parent)}, "
+        pr()
+        prOk(f"screenshots saved -> {rawPath.relative_to(Path(__file__).parent)}, "
              f"{annotatedPath.name}")
     except cv2.error as e:
-        pr(f"warning: could not save {annotatedPath}: {e}")
+        prWarn(f"could not save {annotatedPath}: {e}")
 
 
 # ── optimization ─────────────────────────────────────────────────────────────
@@ -2012,7 +2053,7 @@ def runStudyForProfile(optuna, cfg: dict, esp: EspClient, cam: Camera,
                     "durationSeconds": round(duration, 2)
                 }) + "\n")
         except OSError as e:
-            pr(f"warning: could not append to per-trial log {logFile.name}: {e}")
+            prWarn(f"could not append to per-trial log {logFile.name}: {e}")
         return totalCost
 
     try:
@@ -2140,8 +2181,9 @@ def runOptimize(cfg: dict, esp: EspClient, cam: Camera, profile: str | None, tri
             try:
                 outFile.write_text(json.dumps(result, indent=2))
             except OSError as e:
-                pr(f"warning: could not save best-params file: {e}")
-            pr(f"\nbest cost {study.best_value:.4f} (over {len(completed)} completed "
+                prWarn(f"could not save best-params file: {e}")
+            pr()
+            prOk(f"best cost {study.best_value:.4f} (over {len(completed)} completed "
                   f"trial(s)) - saved -> {outFile.name}")
             summary.append((name, study.best_value, len(changed)))
 
@@ -2173,18 +2215,18 @@ def runOptimize(cfg: dict, esp: EspClient, cam: Camera, profile: str | None, tri
             if doApply and changed:
                 esp.applyOptimizerLive(idx, bestParams)
                 appliedAny = True
-                pr(f"applied to '{name}' (live until reboot - persisting to NVS is "
+                prOk(f"applied to '{name}' (live until reboot - persisting to NVS is "
                       f"offered at the end)")
             elif changed and not interactive:
-                pr("(not applied - non-interactive session without --apply; values "
-                      "are only in the results JSON)")
+                prInfo("not applied - non-interactive session without --apply; values "
+                      "are only in the results JSON")
         else:
-            pr(f"no completed trials for '{name}' - nothing to report")
+            prWarn(f"no completed trials for '{name}' - nothing to report")
 
         if stoppedEarly and ("interrupted" in stoppedEarly or "'q' pressed" in stoppedEarly):
             remaining = [q["name"] for q in selected[selected.index(p) + 1:]]
             if remaining:
-                pr(f"skipping remaining profile(s) {remaining} after interrupt")
+                prWarn(f"skipping remaining profile(s) {remaining} after interrupt")
             break
 
     if summary:
@@ -2194,7 +2236,7 @@ def runOptimize(cfg: dict, esp: EspClient, cam: Camera, profile: str | None, tri
         orientedPatterns = {p: v["name"] for p, v in _loadOrientationCache().items()
                            if v["name"] != "identity"}
         if orientedPatterns:
-            pr(f"NOTE: orientation-compensated pattern(s): {orientedPatterns} - scan/dwell "
+            prInfo(f"orientation-compensated pattern(s): {orientedPatterns} - scan/dwell "
                  f"parameters are unaffected by this (rotation-invariant), but this profile's "
                  f"geometry checks (diagnose) are scored against a rotated/mirrored reference. "
                  f"See the warning printed when first detected.")
@@ -2206,9 +2248,9 @@ def runOptimize(cfg: dict, esp: EspClient, cam: Camera, profile: str | None, tri
                               "reboot? [y/N]: ", default=False)
         if doSave:
             esp.saveOptimizer()
-            pr("saved to NVS")
+            prOk("saved to NVS")
         else:
-            pr("(not persisted - applied values are live until the ESP32 reboots)")
+            prInfo("not persisted - applied values are live until the ESP32 reboots")
 
 
 # ── diagnose ─────────────────────────────────────────────────────────────────
@@ -2317,7 +2359,7 @@ def runDiagnose(cfg: dict, esp: EspClient, cam: Camera, profile: str | None,
     try:
         RESULTS_DIR.mkdir(exist_ok=True)
     except OSError as e:
-        pr(f"warning: could not create {RESULTS_DIR.name}/ for diagnosis screenshots: {e}")
+        prWarn(f"could not create {RESULTS_DIR.name}/ for diagnosis screenshots: {e}")
 
     results = []    # (name, verdict, geometryIssues, settingsIssues)
     flagged = []    # firmware-profile dicts flagged OPTIMIZER SETTINGS ISSUE
@@ -2346,12 +2388,12 @@ def runDiagnose(cfg: dict, esp: EspClient, cam: Camera, profile: str | None,
     pr(f"(measured against the fixed camera-calibration geometry, DAC range "
          f"+-{cfg['dacRange']:.0f} - a profile's tuning is only verified at that size, "
          f"not necessarily at whatever 'Size' a live preset actually runs at)")
-    pr(f"annotated screenshots (ideal path vs. traced beam vs. deviation) saved -> "
+    prOk(f"annotated screenshots (ideal path vs. traced beam vs. deviation) saved -> "
          f"{RESULTS_DIR.name}/diagnose_<profile>_<pattern>_{timestamp}_annotated.png")
     orientedPatterns = {p: v["name"] for p, v in _loadOrientationCache().items()
                         if v["name"] != "identity"}
     if orientedPatterns:
-        pr(f"NOTE: orientation-compensated pattern(s) this run: {orientedPatterns} - "
+        prInfo(f"orientation-compensated pattern(s) this run: {orientedPatterns} - "
              f"geometry metrics for these are scored against a rotated/mirrored reference "
              f"(see the warning printed when each was first detected, and the annotated "
              f"screenshots); this does not confirm the firmware output itself is correctly "
@@ -2360,11 +2402,13 @@ def runDiagnose(cfg: dict, esp: EspClient, cam: Camera, profile: str | None,
         printDiagnosis(name, verdict, geometryIssues, settingsIssues, calib)
 
     if not flagged:
-        pr("\nno profile needs autotune.")
+        pr()
+        prOk("no profile needs autotune.")
         return
 
     flaggedNames = [p["name"] for p in flagged]
-    pr(f"\n{len(flagged)} profile(s) flagged for autotune: {flaggedNames}")
+    pr()
+    prWarn(f"{len(flagged)} profile(s) flagged for autotune: {flaggedNames}")
     doAutotune = autotune
     if not doAutotune and sys.stdin.isatty():
         doAutotune = askYesNo("run autotune ('optimize') on these now? [y/N]: ", default=False)
@@ -2372,22 +2416,22 @@ def runDiagnose(cfg: dict, esp: EspClient, cam: Camera, profile: str | None,
         runOptimize(cfg, esp, cam, ",".join(flaggedNames), trials, studyName=studyName,
                    storageUrl=storageUrl, autoApply=autoApply)
     else:
-        pr(f"(not autotuning - re-run with --autotune, or "
-              f"'optimizeGalvo.py optimize --profile {','.join(flaggedNames)}')")
+        prTip(f"not autotuning - re-run with --autotune, or "
+              f"'optimizeGalvo.py optimize --profile {','.join(flaggedNames)}'")
 
 
 # ── connection check ────────────────────────────────────────────────────────
 
 def runCheckConnection(cfg: dict, esp: EspClient) -> bool:
     """Reachability/identity check against the ESP32. No camera required."""
-    pr(f"checking {esp.baseUrl} (timeout {esp.timeout}s) ...")
+    prInfo(f"checking {esp.baseUrl} (timeout {esp.timeout}s) ...")
     try:
         status = esp.getStatus()
     except OptimizerError as e:
-        pr(f"FAILED: {e}")
+        prWarn(f"FAILED: {e}")
         return False
 
-    pr("OK - controller reachable")
+    prOk("controller reachable")
     fwVersionStr = status.get("fw_version", "?")
     pr(f"  fw_version      : {fwVersionStr}")
     pr(f"  hostname / ip   : {status.get('hostname', '?')} / {status.get('ip', '?')}")
@@ -2400,16 +2444,16 @@ def runCheckConnection(cfg: dict, esp: EspClient) -> bool:
     pr(f"  laser_armed     : {bool(status.get('laser_armed'))}")
     pr(f"  debug_mode      : {bool(status.get('debug_mode'))}")
     if not status.get("estop_ok") or not status.get("scanfail_ok"):
-        pr("  NOTE: a safety interlock is currently tripped - "
+        prWarn("a safety interlock is currently tripped - "
               "calib-cam patterns will not project until cleared.")
 
     fwVersion = parseFwVersion(fwVersionStr)
     minStr = ".".join(map(str, MIN_FW_VERSION_CALIB_CAM))
     if fwVersion is None:
-        pr(f"  NOTE: could not parse fw_version '{fwVersionStr}' - unable to check "
+        prInfo(f"could not parse fw_version '{fwVersionStr}' - unable to check "
               f"calib-cam API support (needs >= v{minStr})")
     elif fwVersion < MIN_FW_VERSION_CALIB_CAM:
-        pr(f"  WARNING: firmware v{fwVersionStr} predates the calib-cam API "
+        prWarn(f"firmware v{fwVersionStr} predates the calib-cam API "
               f"(added in v{minStr}). 'calibrate'/'measure'/'optimize' will fail with "
               f"404 until the ESP32 firmware is updated.")
     return True
@@ -2481,9 +2525,10 @@ def runWizard(existingCfg: dict | None = None) -> dict:
         CONFIG_FILE.write_text(json.dumps(cfg, indent=2))
     except OSError as e:
         raise OptimizerError(f"cannot write {CONFIG_FILE}: {e}") from e
-    pr(f"\nsaved -> {CONFIG_FILE.name}")
-    pr("(costWeights and other advanced settings were left at their current "
-          f"values - edit {CONFIG_FILE.name} directly for those)")
+    pr()
+    prOk(f"saved -> {CONFIG_FILE.name}")
+    prInfo(f"costWeights and other advanced settings were left at their current "
+          f"values - edit {CONFIG_FILE.name} directly for those")
 
     if askYesNo("\ntest connection to the controller now? [Y/n]: ", default=True):
         esp = EspClient.fromConfig(cfg)
@@ -2525,9 +2570,9 @@ def runPreview(cfg: dict, cam: Camera, zoomIdx: int = 0):
                 cfg["exposure"] = exposure
                 try:
                     CONFIG_FILE.write_text(json.dumps(cfg, indent=2))
-                    pr(f"exposure {exposure} -> saved to {CONFIG_FILE.name}")
+                    prOk(f"exposure {exposure} -> saved to {CONFIG_FILE.name}")
                 except OSError as e:
-                    pr(f"exposure {exposure} (could not save {CONFIG_FILE.name}: {e})")
+                    prWarn(f"exposure {exposure} (could not save {CONFIG_FILE.name}: {e})")
     finally:
         liveView.close()
 
@@ -2659,7 +2704,7 @@ def runAutotuneCamera(cfg: dict, esp: EspClient, cam: Camera, patterns: list[str
                     "metrics": perPattern, "durationSeconds": round(duration, 2)
                 }) + "\n")
         except OSError as e:
-            pr(f"warning: could not append to per-trial log {logFile.name}: {e}")
+            prWarn(f"could not append to per-trial log {logFile.name}: {e}")
         return totalCost
 
     try:
@@ -2726,8 +2771,8 @@ def runAutotuneCamera(cfg: dict, esp: EspClient, cam: Camera, patterns: list[str
     try:
         outFile.write_text(json.dumps(result, indent=2))
     except OSError as e:
-        pr(f"warning: could not save best-params file: {e}")
-    pr(f"saved -> {outFile.name}")
+        prWarn(f"could not save best-params file: {e}")
+    prOk(f"saved -> {outFile.name}")
 
     interactive = sys.stdin.isatty()
     doApply = autoApply
@@ -2743,9 +2788,9 @@ def runAutotuneCamera(cfg: dict, esp: EspClient, cam: Camera, patterns: list[str
         cfg["accumFrames"] = best["accumFrames"]
         try:
             CONFIG_FILE.write_text(json.dumps(cfg, indent=2))
-            pr(f"saved -> {CONFIG_FILE.name}")
+            prOk(f"saved -> {CONFIG_FILE.name}")
         except OSError as e:
-            pr(f"warning: could not save {CONFIG_FILE.name}: {e}")
+            prWarn(f"could not save {CONFIG_FILE.name}: {e}")
 
         # homography.npz's background was captured at the OLD exposure/gain - stale
         # from here on, since diff-subtraction (computeMetrics/calibrate) assumes it
@@ -2757,14 +2802,14 @@ def runAutotuneCamera(cfg: dict, esp: EspClient, cam: Camera, patterns: list[str
             time.sleep(cfg["settleSeconds"])
             newBackground = cam.grabBackground()
             np.savez(HOMOGRAPHY_FILE, homography=homography, background=newBackground)
-            pr(f"refreshed background in {HOMOGRAPHY_FILE.name} for the new exposure/gain")
+            prOk(f"refreshed background in {HOMOGRAPHY_FILE.name} for the new exposure/gain")
         except (OptimizerError, OSError) as e:
-            pr(f"warning: could not refresh {HOMOGRAPHY_FILE.name} background: {e} - "
+            prWarn(f"could not refresh {HOMOGRAPHY_FILE.name} background: {e} - "
                  f"run 'calibrate' again before the next measurement")
     else:
         cam.setExposureGain(baseline["exposure"], baseline["gain"])
-        pr(f"(not applied - camera restored to its previous exposure/gain; best values "
-             f"are only in {outFile.name})")
+        prInfo(f"not applied - camera restored to its previous exposure/gain; best values "
+             f"are only in {outFile.name}")
 
 
 # ── main ─────────────────────────────────────────────────────────────────────
@@ -2779,6 +2824,7 @@ def main():
                      "GalvOS ESP32-S3 REST API to calibrate pixel<->DAC space and auto-tune\n"
                      "scan/corner/dwell parameters against camera-measured beam quality.",
         epilog=textwrap.dedent(f"""\
+            {"-" * 78}
             typical workflow (run in order):
               0. wizard     first-time setup - runs automatically if no config exists yet
               1. check      verify the ESP32 controller is reachable, first thing to run
@@ -2798,6 +2844,7 @@ def main():
                             open shape without needing a known ideal geometry, and
                             never starts/stops a pattern on the ESP32
 
+            {"-" * 78}
             files:
               {CONFIG_FILE.name:<18} runtime config (created via the wizard on first run;
                                    override the path with --config)
@@ -2808,10 +2855,11 @@ def main():
               {RESULTS_DIR.name + "/":<18} measurement snapshots, optuna_study.db (resumable
                                    search state), per-trial .jsonl logs, and best-params JSON
 
+            {"-" * 78}
             requirements: opencv-python, numpy, optuna, requests (see requirements.txt).
             If wheels for your Python version aren't published yet, use a 3.12/3.13 venv.
 
-            run 'optimizeGalvo.py <command> --help' for details on any command.
+            [i] run 'optimizeGalvo.py <command> --help' for details on any command.
             optimizeGalvo.py v{SCRIPT_VERSION}
             """),
     )
@@ -3110,16 +3158,17 @@ def main():
     try:
         dispatch(args)
     except OptimizerError as e:
-        pr(f"error: {e}", file=sys.stderr)
+        prWarn(e, file=sys.stderr)
         sys.exit(1)
     except (KeyboardInterrupt, EOFError):
-        pr("\ninterrupted", file=sys.stderr)
+        pr(file=sys.stderr)
+        prWarn("interrupted", file=sys.stderr)
         sys.exit(130)
     except Exception as e:
         if args.debug:
             raise
-        pr(f"error: unexpected {type(e).__name__}: {e}", file=sys.stderr)
-        pr("(re-run with --debug for a full traceback)", file=sys.stderr)
+        prWarn(f"unexpected {type(e).__name__}: {e}", file=sys.stderr)
+        prTip("re-run with --debug for a full traceback", file=sys.stderr)
         sys.exit(1)
 
 
