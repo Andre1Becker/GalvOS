@@ -398,6 +398,20 @@ DEFAULT_CONFIG = {
                                 # threshold pipeline needs the background as dark as possible
     "accumFrames": 24,          # frames max()-accumulated per measurement (~1 s @ 24 fps effective)
     "settleSeconds": 0.6,       # wait after param change before capture
+    "patternSwitchSettleSeconds": 1.0,  # extra grace period around a calib-cam PATTERN
+                                # switch specifically (measureOnce: right after
+                                # startPattern, and again right after stop()) - separate
+                                # from settleSeconds because a full pattern switch means
+                                # the firmware has to actually stop streaming the OLD
+                                # shape's points and start the NEW one, which takes real
+                                # time; settleSeconds alone was sometimes too short,
+                                # letting the tail end of the previous calib pattern (or
+                                # the start of the next one) bleed into the same
+                                # accumulated capture as a visible extra shape. Only
+                                # applies where a different pattern can follow another
+                                # one back-to-back (optimize/diagnose/autotune-camera/
+                                # measure) - sweepGain/autotune-colors keep one pattern
+                                # running throughout and aren't affected.
     "binaryThreshold": 40,      # 0..255, beam trace threshold after background subtraction
     "liveAnalysisMinComponentPx": 60,  # analyze-live only: connected-component pixel
                                 # area (on the 800x800 DAC canvas, after 1px dilation)
@@ -1674,6 +1688,13 @@ def measureOnce(esp: EspClient, cam: Camera, cfg: dict, homography: np.ndarray,
     must be (re-)applied per pattern rather than once per optimize trial."""
     waitWhilePaused(cam)  # safe boundary: no pattern is running yet
     esp.startPattern(pattern, channel=cfg["camPatternChannel"])
+    # Grace period for the actual pattern SWITCH (stop streaming whatever shape was
+    # live before, start streaming this one) - separate from settleSeconds below,
+    # which is about letting a /params override take effect. Too short here and the
+    # tail of the previous pattern (or the very start of this one, before the galvo
+    # has caught up) ends up baked into the same max-accumulated capture as an extra,
+    # unrelated shape - see patternSwitchSettleSeconds in DEFAULT_CONFIG.
+    time.sleep(cfg["patternSwitchSettleSeconds"])
     effective = esp.setParams(params) if params else None
     if effective and effective.get("ignored"):
         raise OptimizerError(
@@ -1686,6 +1707,11 @@ def measureOnce(esp: EspClient, cam: Camera, cfg: dict, homography: np.ndarray,
     cam.statusText = f"{statusPrefix}: {pattern}"
     capture = cam.grabAccumulated(cfg["accumFrames"])
     esp.stop()
+    # Same grace period again, symmetrically, before whatever comes next (the next
+    # pattern in this same trial, or the next trial's first pattern) is allowed to
+    # start - the capture above is already safely in hand, so this delay can never
+    # taint ITS own measurement, only protect the NEXT one's.
+    time.sleep(cfg["patternSwitchSettleSeconds"])
     if saveTo:
         try:
             cv2.imwrite(str(saveTo), capture)
@@ -3016,9 +3042,15 @@ def runAutotuneCamera(cfg: dict, esp: EspClient, cam: Camera, patterns: list[str
         totalCost = 0.0
         saturationFrac = 0.0
         perPattern = {}
-        for pattern in patterns:
+        for patternIdx, pattern in enumerate(patterns):
+            # Exactly one pattern per trial gets saved (raw + measureOnce's own
+            # "_annotated" companion = 2 files/trial, not 2 per pattern) - enough to
+            # spot-check capture quality and pattern-switch bleed-through trial over
+            # trial without results/ filling up with every pattern of every trial.
+            saveTo = (RESULTS_DIR / f"autotune_camera_trial{trial.number:04d}_{pattern}.png"
+                     if patternIdx == 0 else None)
             m, _ = measureOnce(
-                esp, cam, trialCfg, homography, background, pattern,
+                esp, cam, trialCfg, homography, background, pattern, saveTo=saveTo,
                 statusPrefix=f"autotune-camera trial {runIndex + 1}/{trials}")
             totalCost += m.cost
             saturationFrac = max(saturationFrac, _saturationFraction(cam.lastAccumulated))

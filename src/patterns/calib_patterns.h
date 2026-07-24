@@ -61,6 +61,17 @@ int8_t camPatternIndex(const char* name);
 // Inverse of camPatternIndex(): "" if idx is not a calib-cam pattern.
 const char* camPatternName(uint8_t idx);
 
+// Clears generate()'s cross-frame seam-bridge memory for one pattern index, so
+// its next generate() call draws straight into its own shape instead of first
+// bridging (via a real, if blanked, ZV-shaped jump) from wherever that pattern
+// was last drawn - which could be stale by a whole previous session. Call this
+// for the pattern being started whenever a calib-cam/calib-pattern session
+// begins fresh (see /api/calib-cam/start in web_ui.cpp), not on every frame -
+// mid-session, the bridge is legitimate (unused by static patterns, and small
+// enough to be invisible for animated ones since idx's own last-drawn position
+// is still fresh from 40ms ago).
+void resetSeamState(uint8_t idx);
+
 // Optimizer profile each calibration pattern runs under. The alignment
 // patterns (0-6) are plain polygons and circles, so they belong with the
 // presets of the same shape; the four optimizer test patterns (7-10) are

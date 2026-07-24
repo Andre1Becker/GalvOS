@@ -1576,6 +1576,14 @@ void init() {
             // across sessions.
             stopCalibCamSession();
 
+            // This pattern's own last-drawn position (calib_patterns::generate()'s
+            // cross-frame seam bridge) could be stale by a whole previous session -
+            // without this, the first frame bridges from that stale spot via a
+            // real (blanked, but large/fast) jump, visible as a spurious extra
+            // shape in exactly the kind of accumulated capture optimizeGalvo.py's
+            // camera-in-the-loop measurement relies on.
+            calib_patterns::resetSeamState((uint8_t)idx);
+
             const uint8_t prof = calib_patterns::profileOf((uint8_t)idx);
             if (prof != gActiveOptimizerProfile) {
                 gActiveOptimizerProfile = prof;

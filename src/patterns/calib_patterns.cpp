@@ -1033,16 +1033,30 @@ static const PFn DISPATCH[CALIB_PATTERN_COUNT] = {
 };
 
 
+// Cross-frame seam bridge (#4) state, same as presets::generate() -- moved out
+// of generate() to file scope (was function-local static) so resetSeamState()
+// below can reach into it. Persists across calib-cam sessions by design (a
+// pattern's own animation continues smoothly frame to frame while it stays
+// active), but that means it's stale the FIRST time a pattern starts after
+// having been inactive for a while: sLastX/Y[idx] still holds wherever that
+// pattern was last drawn, possibly minutes/sessions ago and nowhere near
+// where it's about to start now. Left alone, the very next generate() call
+// for that idx bridges from that stale position via a real (blanked, but
+// large/fast) ZV-shaped jump -- see resetSeamState().
+static float sLastX[CALIB_PATTERN_COUNT] = {0};
+static float sLastY[CALIB_PATTERN_COUNT] = {0};
+static bool  sHas[CALIB_PATTERN_COUNT]   = {false};
+
+void resetSeamState(uint8_t idx) {
+    if (idx < CALIB_PATTERN_COUNT) sHas[idx] = false;
+}
+
 size_t generate(uint8_t idx, LaserPoint* out, size_t max_pts,
                 uint32_t phase, uint8_t brightness, uint8_t channel) {
     if (idx >= CALIB_PATTERN_COUNT || !out) return 0;
     size_t n = DISPATCH[idx](out, max_pts, phase, brightness, channel);
 
-    // Cross-frame seam bridge (#4), same as presets::generate().
     // Static patterns produce ~0 jump -> skip.
-    static float sLastX[CALIB_PATTERN_COUNT] = {0};
-    static float sLastY[CALIB_PATTERN_COUNT] = {0};
-    static bool  sHas[CALIB_PATTERN_COUNT]   = {false};
     static constexpr float kSeamThresh2 = 100.f;
     if (n > 0) {
         size_t f = 0; while (f < n && out[f].blank) f++;
