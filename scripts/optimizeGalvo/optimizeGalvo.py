@@ -87,7 +87,7 @@ import requests
 # ── versioning ───────────────────────────────────────────────────────────────
 # Semantic version of this script (independent of GalvOS firmware version).
 # Bump on every behavioral change; see git log for change history.
-SCRIPT_VERSION = "2.9.0"
+SCRIPT_VERSION = "2.10.0"
 
 # GalvOS firmware version that introduced /api/calib-cam/* (see firmware git log:
 # "fw: v6.03.0 -- camera-in-the-loop calibration API (calib-cam)").
@@ -547,6 +547,50 @@ def loadConfig() -> dict:
     prOk(f"created {CONFIG_FILE.name} with defaults (non-interactive session, skipped "
           f"the setup wizard - run 'optimizeGalvo.py wizard' to configure it)")
     return cfg
+
+
+# Files in results/ that must survive a cleanup - the Optuna SQLite study database(s)
+# (plus the -wal/-shm/-journal sidecar files SQLite creates alongside an open db), since
+# deleting them would silently wipe the resumable trial history 'optimize' and
+# 'autotune-camera' rely on (see storageUrl in runOptimize/runAutotuneCamera).
+RESULTS_PERSISTENT_GLOBS = ("*.db", "*.db-wal", "*.db-shm", "*.db-journal")
+
+
+def cleanupResultsDir():
+    """Offers to delete stale results/ files left over from previous runs (snapshots,
+    per-trial .jsonl logs, best_*.json, ...) so they don't quietly pile up run after run.
+    Never touches the Optuna study database(s) - those are load-bearing, not disposable.
+    Silently does nothing if results/ doesn't exist yet, nothing stale is found, or the
+    session isn't interactive (no one to answer the confirmation prompt, and deleting
+    without asking would be the one truly irreversible thing this script could do)."""
+    if not RESULTS_DIR.exists() or not sys.stdin.isatty():
+        return
+    persistent = set()
+    for pattern in RESULTS_PERSISTENT_GLOBS:
+        persistent.update(RESULTS_DIR.glob(pattern))
+    stale = sorted((p for p in RESULTS_DIR.iterdir() if p.is_file() and p not in persistent),
+                  key=lambda p: p.name)
+    if not stale:
+        return
+
+    totalBytes = sum(p.stat().st_size for p in stale)
+    pr(f"found {len(stale)} old file(s) in {RESULTS_DIR.name}/ from previous runs "
+       f"({totalBytes / 1024:.0f} KB) - optuna_study.db (search history) is always kept:")
+    for p in stale[:10]:
+        pr(f"  {p.name}")
+    if len(stale) > 10:
+        pr(f"  ... and {len(stale) - 10} more")
+
+    if not askYesNo(f"delete these {len(stale)} old file(s)? [y/N]: ", default=False):
+        return
+    deleted = 0
+    for p in stale:
+        try:
+            p.unlink()
+            deleted += 1
+        except OSError as e:
+            prWarn(f"could not delete {p.name}: {e}")
+    prOk(f"deleted {deleted} old file(s) from {RESULTS_DIR.name}/")
 
 
 # ── ESP32 REST client ────────────────────────────────────────────────────────
@@ -2935,7 +2979,9 @@ def main():
               {SEARCH_SPACE_FILE.name:<18} parameter ranges per optimize profile - edit to
                                    match your firmware's accepted parameter limits
               {RESULTS_DIR.name + "/":<18} measurement snapshots, optuna_study.db (resumable
-                                   search state), per-trial .jsonl logs, and best-params JSON
+                                   search state), per-trial .jsonl logs, and best-params JSON.
+                                   Stale files (everything except *.db) trigger a delete-y/n
+                                   prompt at the start of every interactive run.
 
             {"-" * 78}
             requirements: opencv-python, numpy, optuna, requests (see requirements.txt).
@@ -3238,6 +3284,8 @@ def main():
     pr(f"optimizeGalvo.py v{SCRIPT_VERSION}")
 
     try:
+        if args.cmd != "wizard":
+            cleanupResultsDir()
         dispatch(args)
     except OptimizerError as e:
         prWarn(e, file=sys.stderr)
