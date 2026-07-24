@@ -1272,6 +1272,7 @@ void init() {
                 if (doc["rainbow"].is<bool>())       gTextConfig.rainbow   = doc["rainbow"];
                 if (doc["flip_x"].is<bool>())        gTextConfig.flip_x    = doc["flip_x"];
                 if (doc["flip_y"].is<bool>())        gTextConfig.flip_y    = doc["flip_y"];
+                if (doc["orbit_reverse"].is<bool>()) gTextConfig.orbit_reverse = doc["orbit_reverse"];
                 if (doc["active"].is<bool>())        gTextConfig.active    = doc["active"];
                 // Text has its own optimizer profile (blank-jump-dominated,
                 // many short glyph strokes -- see OPT_PROFILE_TEXT in
@@ -1336,6 +1337,7 @@ void init() {
         doc["rainbow"] = gTextConfig.rainbow;
         doc["flip_x"]  = gTextConfig.flip_x;
         doc["flip_y"]  = gTextConfig.flip_y;
+        doc["orbit_reverse"] = gTextConfig.orbit_reverse;
         doc["active"]  = gTextConfig.active;
         sendJsonPsram(req, doc);
     });

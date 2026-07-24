@@ -55,9 +55,15 @@ static inline optimizer::OptimizerConfig textOptimizerConfig(float sc = 0.f) {
     // scale one glyph would otherwise consume hundreds of points and fill the
     // frame buffer after ~8 characters (truncating the rest of the string).
     // Couple the density to the render scale so the point count PER GLYPH stays
-    // roughly constant regardless of text size: ppu = 8000 / sc, clamped.
+    // roughly constant regardless of text size: ppu = K / sc, clamped.
+    // K=8000 put ~300 interior points on an average glyph (a 40-font-unit
+    // stroke length is typical) -- against the 2048-point frame buffer that
+    // filled up after 6-8 characters, exactly the reported "only ~8 chars
+    // render, then fragments" bug. K=1400 keeps an average glyph under ~100
+    // interior points, comfortably fitting TEXT_MAX_STATIC_CHARS (16) plus
+    // per-glyph corner/blank overhead inside one frame.
     if (sc > 1.f) {
-        float ppu = 8000.f / sc;
+        float ppu = 1400.f / sc;
         if (ppu < 2.f)  ppu = 2.f;
         if (ppu > 30.f) ppu = 30.f;
         cfg.pts_per_1000_units = ppu;
@@ -421,22 +427,36 @@ size_t generate(LaserPoint* out, size_t max_pts, const TextConfig& cfg, uint32_t
             return renderTextString(out, max_pts, cfg.text, full_len,
                                     cfg, start_x, base_y, display_sc);
 
+        // SCREEN_EDGE is the point at which the string's near edge counts as
+        // fully off-screen (DAC full-scale). Scroll must travel the string
+        // in from beyond one edge and all the way out past the other, so the
+        // period has to cover 2*SCREEN_EDGE + tw -- a smaller margin (as
+        // this used to be, 18000/20000) makes the string double back before
+        // its trailing edge ever clears the screen, which reads as "scroll
+        // doesn't go all the way through, restarts from the middle".
         case TANIM_SCROLL_L: {
-            float period = tw + 20000.f;
-            float ox = 18000.f - fmodf(t * 8000.f, period);
+            const float SCREEN_EDGE = 32767.f;
+            float period = tw + 2.f * SCREEN_EDGE;
+            float ox = SCREEN_EDGE - fmodf(t * 8000.f, period);
             return renderTextString(out, max_pts, cfg.text, full_len,
                                     cfg, ox, base_y, display_sc);
         }
 
         case TANIM_SCROLL_R: {
-            float period = tw + 20000.f;
-            float ox = -tw - 18000.f + fmodf(t * 8000.f, period);
+            const float SCREEN_EDGE = 32767.f;
+            float period = tw + 2.f * SCREEN_EDGE;
+            float ox = -tw - SCREEN_EDGE + fmodf(t * 8000.f, period);
             return renderTextString(out, max_pts, cfg.text, full_len,
                                     cfg, ox, base_y, display_sc);
         }
 
         case TANIM_BOUNCE: {
-            float range = fmaxf(0.f, 18000.f - tw * 0.5f);
+            // Same SCREEN_EDGE as scroll -- the old 18000 margin was smaller
+            // than the half-width most display_sc-scaled strings already
+            // occupy (up to 30000, see max_half above), so range clamped to
+            // 0 for any normal-length string and Bounce never moved at all.
+            const float SCREEN_EDGE = 32767.f;
+            float range = fmaxf(1000.f, SCREEN_EDGE - tw * 0.5f);
             float bx    = sinf(t * 2.f) * range;
             return renderTextString(out, max_pts, cfg.text, full_len,
                                     cfg, start_x + bx, base_y, display_sc);
@@ -513,7 +533,13 @@ size_t generate(LaserPoint* out, size_t max_pts, const TextConfig& cfg, uint32_t
             const float R      = 20000.f;               // sphere radius (DAC units)
             const float focal  = 42000.f;               // perspective focal length
             const float camZ   = R + focal;             // camera distance from center
-            const float spin   = fmodf(t * 1.2f, 2.f * (float)M_PI);
+            // spin's sign was previously hardwired positive -- longitude is
+            // phi = x*kLon + spin, and dphi/dt only depends on spin's rate
+            // (mirroring x via flip_x only reorders letters along the arc,
+            // it doesn't touch d(spin)/dt), so there was no way to make the
+            // globe spin the other way. orbit_reverse flips that rate.
+            const float spin_dir = cfg.orbit_reverse ? -1.f : 1.f;
+            const float spin   = fmodf(t * 1.2f * spin_dir, 2.f * (float)M_PI);
             // Wrap the FULL text width onto a moderate arc (~80 deg) of the
             // sphere. Mapping half the width to 1.6 rad (as before) spread the
             // string over ~183 deg -> more than one hemisphere, so part of it
@@ -575,12 +601,19 @@ size_t generate(LaserPoint* out, size_t max_pts, const TextConfig& cfg, uint32_t
                 float twP    = textWidth(cfg.text, full_len) * scaleP;
                 float startXP = -twP * 0.5f;
 
-                // Render a single line of text at this y position and scale
-                // Cap pts per glyph to keep total frame size stable across scale changes.
-                // Budget: split remaining space evenly across letters, max 80 pts/glyph.
+                // Render a single line of text at this y position and scale.
+                // Split remaining space evenly across letters so no single
+                // glyph can eat the whole frame. The old hard 80 pts/glyph
+                // ceiling on top of that was tighter than the Text profile's
+                // own blank overhead (blank_samples+min_blank_samples per
+                // pen-lift run, times up to 4 runs for a multi-stroke glyph
+                // like 'B'/'E'/'K' -- 14*4=56 alone), so most glyphs had
+                // only a handful of points left for corners+interior and
+                // collapsed to isolated dots ("Star Wars shows only dots/
+                // fragments"). Let the per-letter share of the remaining
+                // buffer (already a real bound) govern it instead.
                 size_t letters = (size_t)full_len > 0 ? (size_t)full_len : 1;
-                size_t glyph_cap_base = (max_pts > total) ? (max_pts - total) / letters : 0;
-                size_t glyph_cap = glyph_cap_base < 80 ? glyph_cap_base : 80;
+                size_t glyph_cap = (max_pts > total) ? (max_pts - total) / letters : 0;
 
                 float cx2 = startXP;
                 for (int ci = 0; ci < full_len && cfg.text[ci]; ci++) {

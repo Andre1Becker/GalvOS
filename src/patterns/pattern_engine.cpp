@@ -1082,7 +1082,14 @@ void task(void*) {
         { LOCK_STATE(); textSnap = gTextConfig; }
         if (textSnap.active && textSnap.text[0]) {
             size_t n = textrender::generate(s_frame, PATTERN_POINTS_MAX, textSnap, phase);
-            if (n == 0) { static LaserPoint blank_pt={0,0,0,0,0,1}; galvo::pushFrame(&blank_pt,1); vTaskDelay(pdMS_TO_TICKS(40)); continue; }  // guard
+            // Some animations legitimately return 0 pts for part of their
+            // cycle (e.g. Typewriter's blank beat between retype passes).
+            // phase MUST still advance here -- otherwise the animation
+            // phase freezes on the exact tick that produced the empty
+            // frame and never moves again, which is why Typewriter used to
+            // type out once and then stay stuck blank forever instead of
+            // looping.
+            if (n == 0) { static LaserPoint blank_pt={0,0,0,0,0,1}; galvo::pushFrame(&blank_pt,1); phase++; vTaskDelay(pdMS_TO_TICKS(40)); continue; }  // guard
             // ESP_LOGI("TXT","frame n=%d", (int)n);
             applyCalibration(s_frame, n);
             if (gState.master_dimmer.load() > 0) {

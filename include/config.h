@@ -598,6 +598,7 @@ struct TextConfig {
     bool      rainbow     = false;
     bool      flip_x      = false;   // mirror text horizontally (negate X)
     bool      flip_y      = false;   // mirror text vertically   (negate Y)
+    bool      orbit_reverse = false; // Orbit anim: spin the sphere the other way
     volatile bool      active      = false;   // text mode active (overrides preset + DMX)
 };
 
