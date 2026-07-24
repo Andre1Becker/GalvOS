@@ -1,5 +1,4 @@
-<img width="1376" height="477" alt="image" src="https://github.com/user-attachments/assets/a6471fb4-0bad-4138-9e9b-6d8616768f19" />
-
+<img width="1245" height="435" alt="image" src="https://github.com/user-attachments/assets/24634af9-8041-4a15-bcb3-d55c0516e026" />
 
 # GalvOS
 
