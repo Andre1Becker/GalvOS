@@ -344,7 +344,7 @@ If the ESP32 crashes with a Guru Meditation error, the serial monitor prints a b
 **Common conditions and fixes:**
 
 | Fault reason | Cause | Fix |
-| --- | --- | --- | --- |
+| --- | --- | --- |
 | `estop` | E-Stop circuit open | Check J_ESTOP wiring. Pin1 must be pulled to +3.3V via R_ESTOP (10 kΩ). Shorting Pin2 to Pin1 disables E-Stop. |
 | `scanfail` | NE555 scan-fail timer timed out | DAC must be producing output on VOUTA for the scan-fail NE555 (U11) to be triggered. Starts a preset before arming. Also check C_T/R_T values on U11. |
 | `watchdog` | NE555 hardware watchdog timeout | GPIO14 heartbeat pulse from firmware not arriving at U12 TRIG. Check R_HB (1 kΩ) and NE555 U12 wiring. |
