@@ -1,3 +1,6 @@
+<img width="1376" height="477" alt="image" src="https://github.com/user-attachments/assets/a6471fb4-0bad-4138-9e9b-6d8616768f19" />
+
+
 # GalvOS
 
 > **Open-source ESP32-S3 laser show controller — built to replace proprietary OEM controllers in RGB galvo laser projectors.**
