@@ -50,6 +50,90 @@ The origin story: the stock firmware couldn't dim the laser — it was full-brig
 
 ---
 
+## Full Feature List
+
+Yes, all of this is real, and yes, it's all running on a $6 microcontroller.
+
+### Output & Rendering
+
+| Feature | What it does |
+| --- | --- |
+| 16-bit galvo DAC (DAC8562) | 4× the resolution of the OEM's 12-bit — lines that were jagged are now just... lines. |
+| 9-stage point optimizer pipeline | Turns "draw a hexagon" into a stream the mirrors can physically survive — corner dwell, blanking, velocity/acceleration clamp, ZV ringing compensation. |
+| 6 optimizer profiles (Vector, Smooth, Waves, Wireframe, MultiObject, Particles) | One-size-fits-all optimizer settings don't exist, so pick per preset class instead. Auto-switches with the active preset. |
+| Smart Defaults button | Computes sane optimizer parameters from your kpps and frame budget. For when guessing sliders gets old. |
+| Adjustable galvo sample rate (12–60 kpps) with Autotune | Binary-searches the highest rate your hardware handles before it starts buffering complaints. |
+| CIE 1931 gamma correction | γ≈2.2 so "50% brightness" actually looks like 50% brightness to your eyeballs, not to a linear sensor. |
+| Projection zone clipping | Draw a polygon, laser respects it. Points outside get blanked instead of redecorating your neighbor's wall. |
+
+### Patterns & Effects
+
+| Feature | What it does |
+| --- | --- |
+| Built-in preset library (Geometry, Waves, 3D, Scenes, math curves) | A whole gallery of shapes so you don't have to parametrize a Lissajous curve at 2 AM. |
+| Mathematical curve engine | Lissajous, spirographs, epicycloids — up to 5 live parameter sliders each. |
+| Auto-rotation (independent X/Y/Z) + static rotation offset | Spin any pattern on any axis, at its own speed, because static geometry is for cowards. |
+| 7 color animation modes (Gradient, Chase, Strobe, Pulse, Twinkle, Flip, Seg) | Layer a light show on top of any preset's own color without touching its code. |
+| Points-Only Mode | Turns any pattern into a dot cloud with configurable fade-in/out and fade direction — instant particle show. |
+| Kaleidoscope (2–16-fold) & Mirror | Symmetric multiplication of whatever's on screen, because one hexagon is never enough. |
+| Freehand Paint tab | Draw with your finger or mouse, project it as vectors. Shape tools included for people who can't draw circles. |
+| Laser Text mode | 3 fonts, 10 animations (scroll, bounce, typewriter, Star Wars crawl, ...), up to 127 characters. |
+| Countdown timer with laser payoff | Set a timer, and when it hits zero: show text or fire off an ILDA file. Genuinely useful for events. |
+
+### Control Inputs
+
+| Feature | What it does |
+| --- | --- |
+| DMX-512 input (MAX485, 25 channels) | Talks to any real lighting desk like a grown-up fixture. |
+| Art-Net input | DMX over Ethernet/Wi-Fi for the desk-less crowd. |
+| Live software DMX console (WebUI) | 25 sliders, no physical desk required, with instant test patterns (red circle, rainbow). |
+| WebUI override priority | WebUI wins over DMX on demand — for when you need to grab manual control mid-show. |
+| Master dimmer (WebUI + DMX CH1 combined) | One dial to rule the overall brightness, regardless of source. |
+
+### Storage & Playback
+
+| Feature | What it does |
+| --- | --- |
+| ILDA file playback from SD card | Plays the industry-standard laser show format straight off a memory card. |
+| Playlist manager | Queue multiple ILDA files with per-entry loop count and pause duration. |
+| Independent SPI3 bus for SD | SD reads no longer corrupt the DAC output mid-frame (see [Known Issues](docs/10-known-issues-and-todos.md) for the physical rewire still pending). |
+
+### Calibration & Tuning
+
+| Feature | What it does |
+| --- | --- |
+| Galvo geometry calibration | Offset, gain (linked X/Y), swap, invert — dial in a perfectly centered, correctly proportioned image. |
+| Color/gamma calibration patterns | White fill, per-channel fill, three-circle white balance, crosshair, grid, DAC range box, official ILDA test pattern. |
+| Visibility threshold calibration | Finds each laser diode's "dead zone" so 0–100% brightness maps to what's actually visible instead of a chunk of invisible PWM range. |
+| Auto White Balance | Calculates per-channel gain from configured laser power so R/G/B actually look equally bright. |
+| Camera-in-the-loop auto-tuning | A USB camera + Optuna search auto-tunes optimizer profiles against measured beam quality — no more "nudge a slider, squint at the wall" loop. See [Chapter 6](docs/06-camera-autotuning.md). |
+
+### Safety & Reliability
+
+| Feature | What it does |
+| --- | --- |
+| Hardware E-Stop input | A physical kill switch the firmware cannot override. |
+| NE555 scan-fail detection | If the galvo stops moving (or firmware hangs), the laser cuts — hardware-level, no software in the loop. |
+| NE555 hardware watchdog | Independent of the ESP32's own watchdog; catches the case where the ESP32 itself locks up. |
+| Fail-safe optoisolated RGB TTL | 10kΩ pull-ups keep every laser channel OFF by default on boot, reset, panic, or brownout. |
+| OTA update lockout while armed | Can't push new firmware to a live, armed laser. On purpose. |
+| Safety Assessment card | Live laser-class and audience-distance estimate from your configured power and beam angles. |
+| Thermal protection | Up to 5× DS18B20 sensors, configurable warn/reduce/shutdown thresholds, auto or manual fan control. |
+
+### Connectivity & UI
+
+| Feature | What it does |
+| --- | --- |
+| Browser-based WebUI, installable as a PWA | No app store, no native install — works full-screen from any phone, tablet, or desktop. |
+| Live Dashboard | Safety status, telemetry, CPU load, temperature history, DAC output rate, and frame composition — all scrolling in real time. |
+| Live log console + memory viewer | Streamed over WebSocket, colour-coded by severity, plus a heap/PSRAM breakdown by subsystem for hunting leaks. |
+| Wi-Fi AP + STA mode, mDNS | Boots as its own access point out of the box; joins your network and answers at `galvOS.local` once configured. |
+| Static IP / DHCP configuration | For the network nerds who don't trust DHCP leases. |
+| REST API with token auth | Full external control surface — see [API Reference](docs/08-api-reference.md). |
+| Factory reset | Nukes all NVS config back to defaults when you've fat-fingered one setting too many. |
+
+---
+
 ## Quick Start
 
 Feeling yolo? Take this route then:
