@@ -128,7 +128,7 @@ Yes, all of this is real, and yes, it's all running on a $6 microcontroller.
 | Live Dashboard | Safety status, telemetry, CPU load, temperature history, DAC output rate, and frame composition — all scrolling in real time. |
 | Live log console + memory viewer | Streamed over WebSocket, colour-coded by severity, plus a heap/PSRAM breakdown by subsystem for hunting leaks. |
 | Wi-Fi AP + STA mode, mDNS | Boots as its own access point out of the box; joins your network and answers at `galvOS.local` once configured. |
-| Static IP / DHCP configuration | For the network nerds who don't trust DHCP leases. |
+| Static IP / DHCP configuration | For the tinfoil hatters who don't trust DHCP leases. |
 | REST API with token auth | Full external control surface — see [API Reference](docs/08-api-reference.md). |
 | Factory reset | Nukes all NVS config back to defaults when you've fat-fingered one setting too many. |
 
@@ -161,7 +161,7 @@ Need a good sleep aid? This is the one for you here:
 | [08 — API Reference](docs/08-api-reference.md) | REST API endpoints for integration and automation |
 | [09 — Contributing](docs/09-contributing.md) | How to contribute, code style, patch workflow |
 | [10 — Known Issues & Todos](docs/10-known-issues-and-todos.md) | Open bugs, missing features, planned work |
-| [11 — Glossary & Terminology](docs/11-glossary.md) | All abbreviations and technical terms explained |
+| [11 — Glossary & Terminology](docs/11-glossary.md) | All (no but most) abbreviations and technical terms explained |
 
 ---
 

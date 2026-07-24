@@ -69,6 +69,11 @@ None atm :-)
 **Symptom 1:** The scroll direction is incorrect (text moves in the wrong direction).  
 **Symptom 2:** The text renders as dots only instead of the expected vector strokes.
 
+### Scroll left or right
+
+**Status:** Text never leaves the projection area fully but is cut off and imidiatly starts over  
+**Symptom:** Bad looking effect :-)
+
 ---
 
 ## Calibration Issues
