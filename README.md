@@ -32,7 +32,7 @@ Lasers at these power levels are capable of causing **immediate and permanent ey
 
 GalvOS replaces the original control board of an RGB galvo laser projector (specifically the Mikoy 5W) with an ESP32-S3-based system. The result is a firmware platform that is more capable, fully open, and frankly more fun to work with than whatever the OEM shipped.
 
-The origin story: the stock firmware couldn't dim the laser — it was full-brightness or nothing. What started as a quick bug investigation turned into a complete hardware and firmware replacement. Classic maker story.
+The origin story: the stock firmware couldn't dim the laser — it was full-brightness or nothing. What started as a quick bug investigation turned into a complete hardware and firmware replacement. Classic "Well, that escalated quickly..." moment.
 
 **Key capabilities:**
 
@@ -50,7 +50,7 @@ The origin story: the stock firmware couldn't dim the laser — it was full-brig
 
 ## Quick Start
 
-If you just want to get up and running:
+Feeling yolo? Take this route then:
 
 1. **Read the [Safety section](docs/01-introduction.md#safety)** — seriously.
 2. **Check [Prerequisites](docs/02-prerequisites.md)** — tools and hardware needed.
@@ -60,6 +60,8 @@ If you just want to get up and running:
 ---
 
 ## Documentation
+
+Need a good sleep aid? This is the one for you here:
 
 | Chapter | Description |
 | --- | --- |
