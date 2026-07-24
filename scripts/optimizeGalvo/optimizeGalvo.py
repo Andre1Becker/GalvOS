@@ -87,7 +87,7 @@ import requests
 # ── versioning ───────────────────────────────────────────────────────────────
 # Semantic version of this script (independent of GalvOS firmware version).
 # Bump on every behavioral change; see git log for change history.
-SCRIPT_VERSION = "2.10.0"
+SCRIPT_VERSION = "2.11.0"
 
 # GalvOS firmware version that introduced /api/calib-cam/* (see firmware git log:
 # "fw: v6.03.0 -- camera-in-the-loop calibration API (calib-cam)").
@@ -2542,6 +2542,50 @@ def runDiagnose(cfg: dict, esp: EspClient, cam: Camera, profile: str | None,
               f"'optimizeGalvo.py optimize --profile {','.join(flaggedNames)}'")
 
 
+# Commands that call esp.startPattern() at some point and therefore need the laser
+# actually armed and no interlock tripped to produce a meaningful capture - checked
+# up front by requireLaserReady() so a not-ready controller fails fast with a clear
+# message instead of surfacing later as "expected 4 dots but found 0" deep in
+# detectDots(), or as bogus all-zero/garbage metrics. 'preview' doesn't touch the
+# ESP32 at all; 'analyze-live' never starts/stops a pattern by design and does its
+# own non-blocking version of this same check inline (see runAnalyzeLive).
+LASER_REQUIRED_CMDS = ("calibrate", "measure", "optimize", "diagnose", "autotune-camera")
+
+
+def requireLaserReady(esp: EspClient):
+    """Raises OptimizerError if the controller isn't actually ready to project
+    (E-Stop/scan-fail tripped, or laser not armed) - interactive sessions are asked
+    whether to proceed anyway (e.g. bench-testing the capture/scoring pipeline with
+    no live beam); non-interactive sessions abort outright, since silently continuing
+    would just burn a settle+capture cycle on a blank frame and report misleading
+    (or outright wrong) metrics."""
+    try:
+        status = esp.getStatus()
+    except OptimizerError as e:
+        raise OptimizerError(
+            f"could not read controller status before starting a pattern: {e}"
+        ) from e
+
+    problems = []
+    if not status.get("estop_ok"):
+        problems.append("E-Stop is tripped")
+    if not status.get("scanfail_ok"):
+        problems.append("scan-fail interlock is tripped")
+    if not status.get("laser_armed"):
+        problems.append("laser is NOT armed")
+    if not problems:
+        return
+
+    prWarn("controller reports it is not ready to project: " + "; ".join(problems) + ".")
+    prTip("arm the laser and/or clear the interlock (controller panel or WebUI), then "
+          "re-run - 'optimizeGalvo.py check' shows the full interlock state.")
+    if sys.stdin.isatty() and askYesNo(
+            "continue anyway (capture will most likely be blank/meaningless)? [y/N]: ",
+            default=False):
+        return
+    raise OptimizerError("aborting: controller not ready to project (see warning above)")
+
+
 # ── connection check ────────────────────────────────────────────────────────
 
 def runCheckConnection(cfg: dict, esp: EspClient) -> bool:
@@ -3332,8 +3376,11 @@ def dispatch(args):
         pr("camera view: " + (liveView.hotkeys if liveView
                                  else "disabled (--no-view or showCameraView=false)"))
 
-    cam = Camera(cfg, liveView=liveView)
     esp = EspClient.fromConfig(cfg)
+    if args.cmd in LASER_REQUIRED_CMDS:
+        requireLaserReady(esp)
+
+    cam = Camera(cfg, liveView=liveView)
     try:
         if args.cmd == "preview":
             runPreview(cfg, cam, zoomIdx=args.zoom - 1)
