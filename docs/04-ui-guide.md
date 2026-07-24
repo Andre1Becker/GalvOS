@@ -250,7 +250,7 @@ Projects laser text. Text mode overrides any active preset and DMX input while a
 
 - **Text input** — supports uppercase A–Z, digits 0–9, and `.,:!?-+`. Maximum 127 characters. Up to 16 characters display statically; longer text scrolls automatically.
 - **Font** — Simple (thin strokes, fastest), Bold (thick strokes), Outline (double-line).
-- **Animation** — Static, Scroll Left/Right, Bounce, Typewriter, Wave, Pulse, Rotate, Zoom, Orbit, Star Wars Scroll. See [Known Issues](09-known-issues-and-todos.md) for animation bugs.
+- **Animation** — Static, Scroll Left/Right, Bounce, Typewriter, Wave, Pulse, Rotate, Zoom, Orbit, Star Wars Scroll. See [Known Issues](10-known-issues-and-todos.md) for animation bugs.
 - **Live toggle** — when on, text updates are sent to the laser as you type. Turn off if you want to compose text before displaying it.
 - **Speed / Size** — animation speed and text size.
 - **Color / Rainbow** — fixed color via color picker, or rainbow cycling across characters.
@@ -282,7 +282,7 @@ ILDA file playback from an SD card.
 
 ![image](https://github.com/user-attachments/assets/b11c18f6-d442-4fe2-a1ab-6a8d6dffa5f7)
 
-> ⚠️ **Known issue:** The galvo-corruption-on-SD-insert bug is fixed in firmware (v5.90.0 moved the SD card to its own SPI3 bus, fully independent of the DAC's SPI2) — but the **perfboard has not been physically rewired yet**. Until the 4 SD wires are moved to GPIO5/6/1/42, `sd_card::init()` simply finds no card and this tab stays non-functional. See [Known Issues](09-known-issues-and-todos.md#critical-issues).
+> ⚠️ **Known issue:** The galvo-corruption-on-SD-insert bug is fixed in firmware (v5.90.0 moved the SD card to its own SPI3 bus, fully independent of the DAC's SPI2) — but the **perfboard has not been physically rewired yet**. Until the 4 SD wires are moved to GPIO5/6/1/42, `sd_card::init()` simply finds no card and this tab stays non-functional. See [Known Issues](10-known-issues-and-todos.md#critical-issues).
 
 - **File list** — lists `.ild` files found on the SD card (up to 40 files).
 - **Playback controls** — select a file, set loop mode, and play/stop.
@@ -359,13 +359,13 @@ An interactive canvas for defining a clipping polygon — the area the laser is 
 - **⬛ Enable Clipping** — activates zone clipping. Only enable after verifying the outline is correct.
 - **Save Zone / Reset to Rectangle** — save or discard changes.
 
-> **Known issue:** The ILDA test pattern currently has incorrect output. See [Known Issues](09-known-issues-and-todos.md).
+> **Known issue:** The ILDA test pattern currently has incorrect output. See [Known Issues](10-known-issues-and-todos.md).
 
 ### Camera-in-the-Loop Auto-Tuning (calib-cam)
 
 Since firmware v6.03.0, there is a second calibration path that doesn't live in this tab at all: the `/api/calib-cam/*` REST API, driven by a companion host-side Python tool (`scripts/optimizeGalvo/optimizeGalvo.py`) using a mono/global-shutter USB camera. It projects dedicated reference patterns, measures them with the camera, and runs an automated Optuna search over optimizer scan/dwell parameters — the manual "tune a slider, look at the beam, repeat" loop, done in software instead.
 
-This does **not** replace the Galvo Calibration card above (offset/gain/swap/invert are still manual) — it auto-tunes the *optimizer* profiles (Vector, Smooth, Waves, MultiObject) against camera-measured beam quality. See [Chapter 11 — Camera-in-the-Loop Auto-Tuning](11-camera-autotuning.md) for the full setup and workflow.
+This does **not** replace the Galvo Calibration card above (offset/gain/swap/invert are still manual) — it auto-tunes the *optimizer* profiles (Vector, Smooth, Waves, MultiObject) against camera-measured beam quality. See [Chapter 6 — Camera-in-the-Loop Auto-Tuning](06-camera-autotuning.md) for the full setup and workflow.
 
 ---
 
@@ -448,7 +448,7 @@ A simplified laser hazard summary based on configured power and angles: laser cl
 
 Build and manage playlists of ILDA files for automated sequential playback.
 
-> ⚠️ Requires SD card — non-functional until the SD card is physically rewired to its independent SPI3 bus. See [Known Issues](09-known-issues-and-todos.md#critical-issues).
+> ⚠️ Requires SD card — non-functional until the SD card is physically rewired to its independent SPI3 bus. See [Known Issues](10-known-issues-and-todos.md#critical-issues).
 
 ![image](https://github.com/user-attachments/assets/bd9287c3-497c-4dbb-b504-e3c09c62a1ab)
 

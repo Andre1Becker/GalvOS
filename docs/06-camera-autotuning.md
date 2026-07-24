@@ -1,4 +1,4 @@
-# Chapter 11 — Camera-in-the-Loop Auto-Tuning
+# Chapter 6 — Camera-in-the-Loop Auto-Tuning
 
 > Chapter 5 explained what the optimizer does. This chapter explains how to stop guessing at its parameters by hand and let a camera and a search algorithm do it instead. Turning `max_corner_pts` up by one, projecting, squinting at the beam, turning it back down — that loop gets old fast. This one replaces the squinting with a webcam and a cost function.
 
@@ -27,11 +27,11 @@
 
 ## What This Is
 
-Firmware v6.03.0 added a REST API, `/api/calib-cam/*`, that lets an external program select a calibration pattern, live-override the active optimizer profile's parameters (RAM-only, never touching NVS), and read back exactly what has changed. `scripts/optimizeGalvo/optimizeGalvo.py` is the program that actually drives it: it opens a mono/global-shutter USB camera, projects one of six reference patterns, measures the result, and runs an [Optuna](10-glossary.md) search to find the parameter combination that produces the cleanest beam.
+Firmware v6.03.0 added a REST API, `/api/calib-cam/*`, that lets an external program select a calibration pattern, live-override the active optimizer profile's parameters (RAM-only, never touching NVS), and read back exactly what has changed. `scripts/optimizeGalvo/optimizeGalvo.py` is the program that actually drives it: it opens a mono/global-shutter USB camera, projects one of six reference patterns, measures the result, and runs an [Optuna](11-glossary.md) search to find the parameter combination that produces the cleanest beam.
 
 This is **not** a replacement for the manual Galvo Calibration card in the WebUI (Chapter 4) — offset, gain, swap, and invert are still set by hand, because those are fixed hardware/wiring properties, not something a search should be exploring every run. What this tool auto-tunes is the **optimizer**: corner dwell, blanking, resample, ringing compensation — the parameters in [Chapter 5](05-optimizer.md#parameter-reference) that trade off against each other and are genuinely tedious to hand-tune by eye.
 
-It replaces the closing item in [Chapter 9's Planned Features](09-known-issues-and-todos.md#planned-features) — "auto-tuning via global shutter camera" was the plan; this is the implementation.
+It replaces the closing item in [Chapter 10's Planned Features](10-known-issues-and-todos.md#planned-features) — "auto-tuning via global shutter camera" was the plan; this is the implementation.
 
 ---
 

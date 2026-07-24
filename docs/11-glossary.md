@@ -1,4 +1,4 @@
-# Chapter 10 — Glossary & Terminology
+# Chapter 11 — Glossary & Terminology
 
 > A laser show controller touches a surprisingly wide range of disciplines — electronics, embedded systems, optics, networking, signal processing, and photobiology. This glossary collects the abbreviations and technical terms used throughout the GalvOS documentation and explains each one in plain language.
 
@@ -245,7 +245,7 @@ A compact string that encodes a timezone's offset from UTC and its daylight savi
 A web application that can be installed on a device and launched like a native app. GalvOS's `index.html` is a PWA — it can be added to the home screen on iOS or Android and runs without browser chrome. The app icon, name, and display mode are configured in the WebUI manifest.
 
 **REST API**
-Representational State Transfer — a style of web API where resources are addressed by URLs and standard HTTP methods (GET, POST, PUT, DELETE). GalvOS exposes a REST API at `/api/` for all configuration and control. See [Chapter 7 — API Reference](07-api-reference.md).
+Representational State Transfer — a style of web API where resources are addressed by URLs and standard HTTP methods (GET, POST, PUT, DELETE). GalvOS exposes a REST API at `/api/` for all configuration and control. See [Chapter 8 — API Reference](08-api-reference.md).
 
 **STA mode (Station mode)**
 The ESP32 connects to an existing Wi-Fi network as a client, like a phone or laptop would. Configured with SSID and password in the WebUI Configuration tab. After connecting, the device is accessible at its DHCP-assigned IP or via mDNS.
@@ -277,7 +277,7 @@ A group of 512 DMX channels. A single DMX cable carries one universe. Art-Net al
 The optimizer's Pillar 1: the number of interior points added to each edge scales with the edge length and is concentrated near corners. Longer edges get more points; sharper corners get more dwell time.
 
 **Calib-cam (camera-in-the-loop calibration)**
-The `/api/calib-cam/*` REST API (since v6.03.0) that lets a host-side tool (`optimizeGalvo.py`) select a camera-reference pattern and override optimizer parameters live, RAM-only, while measuring the projected result with a camera. See [Chapter 11 — Camera-in-the-Loop Auto-Tuning](11-camera-autotuning.md).
+The `/api/calib-cam/*` REST API (since v6.03.0) that lets a host-side tool (`optimizeGalvo.py`) select a camera-reference pattern and override optimizer parameters live, RAM-only, while measuring the projected result with a camera. See [Chapter 6 — Camera-in-the-Loop Auto-Tuning](06-camera-autotuning.md).
 
 **Homography**
 A projective transformation that maps points from one plane to another — here, camera pixel coordinates to DAC coordinate space. `optimizeGalvo.py`'s `calibrate` command computes this once from 4 reference dots (the `corners4` pattern) so it can translate every later camera measurement back into DAC units for scoring.

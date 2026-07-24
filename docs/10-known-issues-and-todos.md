@@ -1,4 +1,4 @@
-# Chapter 9 — Known Issues & Todos
+# Chapter 10 — Known Issues & Todos
 
 > This is an honest list. Every project has rough edges — GalvOS more than most, because it is a one-person hardware/firmware/UI project that started as a dimmer fix and grew considerably beyond that. Nothing here is hidden. If you run into one of these, you are not doing it wrong.
 
@@ -110,7 +110,7 @@ These are features that are designed and intended, but not yet implemented.
 
 Done. Firmware v6.03.0 added the `/api/calib-cam/*` camera-in-the-loop calibration API, and the companion `scripts/optimizeGalvo/optimizeGalvo.py` tool (added alongside, now at v2.5.0) drives it end-to-end: pixel↔DAC homography from a 4-dot reference pattern, Optuna-based auto-tuning of the Vector/Smooth/Waves/MultiObject optimizer profiles against camera-measured beam quality, a `diagnose` mode that separates geometry drift from optimizer-setting problems, and an `autotune-camera` mode that tunes the camera's own exposure/gain/threshold instead of firmware parameters. v6.04.1 added per-channel pattern color (patterns default to blue now, to avoid RGB boresight smear on a mono camera) and v6.05.0 fixed a frame-budget edge case where heavily-tuned-down profiles could leave closed shapes not reconnecting.
 
-This does **not** replace the manual galvo geometry calibration (offset/gain/swap/invert) in the Calibration tab — it only auto-tunes optimizer scan/dwell parameters. See the new [Chapter 11 — Camera-in-the-Loop Auto-Tuning](11-camera-autotuning.md) for the full workflow.
+This does **not** replace the manual galvo geometry calibration (offset/gain/swap/invert) in the Calibration tab — it only auto-tunes optimizer scan/dwell parameters. See the new [Chapter 6 — Camera-in-the-Loop Auto-Tuning](06-camera-autotuning.md) for the full workflow.
 
 **Optimize Heap Usage even more:** ~~117KBs to 121 KBs Untracked Heap Memory usage~~
 Fixed in v6.04.0: ~120 KB of `static` scratch buffers (preset/paint/calib pattern
@@ -123,7 +123,7 @@ AsyncTCP stack plus FreeRTOS task stacks, which cannot leave internal RAM.
 
 ## Contributing a Fix
 
-If you fix one of the issues above, please see [Chapter 8 — Contributing](08-contributing.md) for the patch workflow and commit message format.
+If you fix one of the issues above, please see [Chapter 9 — Contributing](09-contributing.md) for the patch workflow and commit message format.
 
 When submitting a fix for a known issue, reference the issue name from this chapter in your commit message body:
 
@@ -131,5 +131,5 @@ When submitting a fix for a known issue, reference the issue name from this chap
 Fix Typewriter animation looping
 
 Typewriter now restarts after completing one pass.
-Resolves: "Typewriter Animation — Runs Once Only" (docs/09-known-issues-and-todos.md)
+Resolves: "Typewriter Animation — Runs Once Only" (docs/10-known-issues-and-todos.md)
 ```

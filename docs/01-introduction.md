@@ -133,7 +133,7 @@ The ESP32-S3 N16R8 provides:
 
 - **16 MB SPI Flash** — partitioned into firmware (4 MB) and LittleFS (8 MB, holds the WebUI)
 - **8 MB OPI PSRAM** — used for large pattern buffers, JSON serialization, and the pattern cache. All allocations above ~16 KB must use `ps_malloc()` or `heap_caps_malloc(MALLOC_CAP_SPIRAM)`.
-- **~140 KB free internal DRAM** (post-boot, post-optimization) — still scarce (shared with the Wi-Fi/lwIP/AsyncTCP stack), but considerably less scarce than it used to be: firmware v6.04.0 moved ~120 KB of `static` scratch buffers (pattern verts/chains, paint canvas, EtherDream RX, SD file tables, optimizer transform scratch) from DRAM `.bss` into lazily-allocated PSRAM via `src/util/ps_scratch.h`. Static RAM footprint dropped from 180,728 B to 57,872 B. See [Known Issues → Optimize Heap Usage](09-known-issues-and-todos.md#planned-features) for the full breakdown.
+- **~140 KB free internal DRAM** (post-boot, post-optimization) — still scarce (shared with the Wi-Fi/lwIP/AsyncTCP stack), but considerably less scarce than it used to be: firmware v6.04.0 moved ~120 KB of `static` scratch buffers (pattern verts/chains, paint canvas, EtherDream RX, SD file tables, optimizer transform scratch) from DRAM `.bss` into lazily-allocated PSRAM via `src/util/ps_scratch.h`. Static RAM footprint dropped from 180,728 B to 57,872 B. See [Known Issues → Optimize Heap Usage](10-known-issues-and-todos.md#planned-features) for the full breakdown.
 
 ---
 

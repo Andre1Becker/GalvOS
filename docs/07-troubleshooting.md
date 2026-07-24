@@ -1,4 +1,4 @@
-# Chapter 6 — Troubleshooting
+# Chapter 7 — Troubleshooting
 
 > Things go wrong. This chapter documents what they look like, why they happen, and what to do about them. The tables are kept terse on purpose — if you are here, you probably want the answer, not a lecture.
 
@@ -111,7 +111,7 @@ If the ESP32 crashes with a Guru Meditation error, the serial monitor prints a b
 
 ### Galvos go crazy when SD card is inserted
 
-**Cause:** SD card wired onto the DAC8562's SPI2 pins; the GPIO matrix let SD's real SPI3 traffic overwrite the DAC's clock/data lines. Fixed in firmware v5.90.0, but requires a physical rewire (SD → GPIO5/6/1/42) — see [Known Issues](09-known-issues-and-todos.md).  
+**Cause:** SD card wired onto the DAC8562's SPI2 pins; the GPIO matrix let SD's real SPI3 traffic overwrite the DAC's clock/data lines. Fixed in firmware v5.90.0, but requires a physical rewire (SD → GPIO5/6/1/42) — see [Known Issues](10-known-issues-and-todos.md).  
 **Fix (until rewired):** Do not insert the SD card.
 
 ### Output is mirrored horizontally
@@ -245,7 +245,7 @@ If the ESP32 crashes with a Guru Meditation error, the serial monitor prints a b
 
 ### Calibration pattern looks wrong or produces incorrect output
 
-**Cause:** Known issue with some calibration patterns. See [Known Issues](09-known-issues-and-todos.md).
+**Cause:** Known issue with some calibration patterns. See [Known Issues](10-known-issues-and-todos.md).
 
 ---
 
@@ -322,7 +322,7 @@ If the ESP32 crashes with a Guru Meditation error, the serial monitor prints a b
 
 ### SD card causes galvo malfunction
 
-**Cause:** SD card wired onto the DAC8562's SPI2 pins; the GPIO matrix let SD's real SPI3 traffic overwrite the DAC's clock/data lines. Fixed in firmware v5.90.0, but requires a physical rewire (SD → GPIO5/6/1/42) — see [Known Issues](09-known-issues-and-todos.md).  
+**Cause:** SD card wired onto the DAC8562's SPI2 pins; the GPIO matrix let SD's real SPI3 traffic overwrite the DAC's clock/data lines. Fixed in firmware v5.90.0, but requires a physical rewire (SD → GPIO5/6/1/42) — see [Known Issues](10-known-issues-and-todos.md).  
 **Fix (until rewired):** Remove the SD card. All other features work normally without it.
 
 ### ILDA files not listed in the ILDA tab
@@ -407,7 +407,7 @@ If the ESP32 crashes with a Guru Meditation error, the serial monitor prints a b
 
 ## Known Bugs & Limitations
 
-A quick-reference index of open issues documented in [Chapter 9](09-known-issues-and-todos.md):
+A quick-reference index of open issues documented in [Chapter 10](10-known-issues-and-todos.md):
 
 | Issue | Impact | Workaround |
 | --- | --- | --- |

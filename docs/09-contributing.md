@@ -1,4 +1,4 @@
-# Chapter 8 — Contributing
+# Chapter 9 — Contributing
 
 GalvOS is a one-person project that grew considerably beyond its original scope. Community contributions are genuinely welcome — there are known bugs to fix, patterns to add, animations to repair, and features that need a second pair of hands. This chapter explains how the codebase is structured, what the code standards are, and the exact workflow for submitting changes.
 
@@ -20,14 +20,14 @@ GalvOS is a one-person project that grew considerably beyond its original scope.
 
 ## Where to Start
 
-Browse [Chapter 9 — Known Issues & Todos](09-known-issues-and-todos.md) for a current list of open bugs and planned features. Pick something that matches your skills and interests:
+Browse [Chapter 10 — Known Issues & Todos](10-known-issues-and-todos.md) for a current list of open bugs and planned features. Pick something that matches your skills and interests:
 
 - **C++ firmware bugs** — text animations (Bounce, Typewriter, Star Wars)
-- **C++ new features** — new patterns, extending the camera-in-the-loop auto-tuning API (Chapter 11) to more optimizer profiles
+- **C++ new features** — new patterns, extending the camera-in-the-loop auto-tuning API (Chapter 6) to more optimizer profiles
 - **JavaScript/HTML** — WebUI improvements, point limit in status bar
-- **Python** — `scripts/optimizeGalvo/` (camera auto-tuning tool, see Chapter 11)
+- **Python** — `scripts/optimizeGalvo/` (camera auto-tuning tool, see Chapter 6)
 - **Documentation** — screenshot capture, diagram creation, corrections
-- **Hardware** — the SD card / DAC SPI bus conflict is root-caused and fixed in firmware (v5.90.0, independent SPI3 bus); what remains is physically rewiring the perfboard, see [Known Issues](09-known-issues-and-todos.md#critical-issues)
+- **Hardware** — the SD card / DAC SPI bus conflict is root-caused and fixed in firmware (v5.90.0, independent SPI3 bus); what remains is physically rewiring the perfboard, see [Known Issues](10-known-issues-and-todos.md#critical-issues)
 
 Open an issue or a discussion on GitHub before starting larger changes — it avoids duplicate work.
 
@@ -84,7 +84,7 @@ GalvOS/
 ├── scripts/
 │   ├── upload_all.py               # Custom PlatformIO target: flash firmware + LittleFS
 │   ├── gzip_assets.py              # Pre-build hook: gzip data/ assets
-│   └── optimizeGalvo/              # Host-side camera-in-the-loop auto-tuning tool (see Chapter 11)
+│   └── optimizeGalvo/              # Host-side camera-in-the-loop auto-tuning tool (see Chapter 6)
 │       └── optimizeGalvo.py        # OpenCV + Optuna, drives /api/calib-cam/*
 ├── hardware/
 │   └── netlist.txt                 # Full wiring netlist
@@ -227,7 +227,7 @@ Update `LASER_FW_VERSION` in `platformio.ini`. New preset = minor or patch bump 
 
 Calibration patterns live in `src/patterns/calib_patterns.{cpp,h}`.
 
-Key rule: **do not call `applyGamma()` inside `colorOut()` if `rgbWrite()` in `galvo_out.cpp` will call it again.** Each color value must go through the gamma LUT exactly once. This is the double-gamma bug pattern — see [Chapter 6 — Troubleshooting](06-troubleshooting.md#color--calibration-issues).
+Key rule: **do not call `applyGamma()` inside `colorOut()` if `rgbWrite()` in `galvo_out.cpp` will call it again.** Each color value must go through the gamma LUT exactly once. This is the double-gamma bug pattern — see [Chapter 7 — Troubleshooting](07-troubleshooting.md#color--calibration-issues).
 
 Register the new pattern in the calibration pattern list (returned by `/api/calib-pattern/list`) and add a dispatch case in the calibration pattern handler.
 
@@ -467,7 +467,7 @@ Roughly in priority order:
 
 **Hardware:**
 
-- SD card / DAC SPI bus contention — root cause found and fixed in firmware (v5.90.0, SD moved to independent SPI3). Remaining work is physically rewiring the perfboard (SD → GPIO5/6/1/42) — see [Known Issues](09-known-issues-and-todos.md#critical-issues).
+- SD card / DAC SPI bus contention — root cause found and fixed in firmware (v5.90.0, SD moved to independent SPI3). Remaining work is physically rewiring the perfboard (SD → GPIO5/6/1/42) — see [Known Issues](10-known-issues-and-todos.md#critical-issues).
 
 **New patterns (firmware):**
 
@@ -483,7 +483,7 @@ Roughly in priority order:
 - Feature toggles (enable/disable ArtNet, DMX independently)
 - kpps history graph on the Dashboard
 
-**Camera-in-the-loop auto-tuning (Python + firmware, see Chapter 11):**
+**Camera-in-the-loop auto-tuning (Python + firmware, see Chapter 6):**
 
 - Extend `/api/calib-cam/*` and `optimizeGalvo.py` to the Wireframe/Trails/Text optimizer profiles (currently camera-tunable: Vector, Smooth, Waves, MultiObject)
 - Auto-tune galvo geometry calibration (offset/gain) from the camera, not just optimizer scan/dwell parameters

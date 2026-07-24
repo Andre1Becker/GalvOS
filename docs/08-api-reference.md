@@ -1,4 +1,4 @@
-# Chapter 7 — API Reference
+# Chapter 8 — API Reference
 
 The GalvOS REST API is served by the ESP32 WebUI server (ESPAsyncWebServer) at `http://<device-ip>/api/`. The WebUI itself uses this API exclusively — everything the browser can do, an external system can do too.
 
@@ -370,7 +370,7 @@ Body: empty or `{}`.
 
 ### Camera-in-the-Loop Calibration (`/api/calib-cam/*`)
 
-Added in v6.03.0 — a session-based API for the host-side camera auto-tuning tool (`scripts/optimizeGalvo/optimizeGalvo.py`, see [Chapter 11](11-camera-autotuning.md)). It projects one of 6 dedicated camera-reference patterns and lets the host apply optimizer overrides live, RAM-only, without touching NVS. There is no dedicated WebUI panel for this — it exists purely for the host tool to drive.
+Added in v6.03.0 — a session-based API for the host-side camera auto-tuning tool (`scripts/optimizeGalvo/optimizeGalvo.py`, see [Chapter 6](06-camera-autotuning.md)). It projects one of 6 dedicated camera-reference patterns and lets the host apply optimizer overrides live, RAM-only, without touching NVS. There is no dedicated WebUI panel for this — it exists purely for the host tool to drive.
 
 All four routes are registered before `/api/calib-pattern/...` for the same route-ordering reason as `/api/calib-pattern/stop` — see [Route Registration Order](#route-registration-order).
 

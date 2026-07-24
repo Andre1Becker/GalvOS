@@ -43,7 +43,7 @@ The origin story: the stock firmware couldn't dim the laser — it was full-brig
 - Per-point laser modulation with full RGB PWM control
 - Hardware safety interlocks (scan-fail detection, watchdog, E-Stop, optoisolated TTL)
 - Point optimizer pipeline with adaptive density, S-curve blanking, and ringing compensation
-- Camera-in-the-loop auto-tuning of optimizer parameters via a companion Python tool (see [Chapter 11](docs/11-camera-autotuning.md))
+- Camera-in-the-loop auto-tuning of optimizer parameters via a companion Python tool (see [Chapter 6](docs/06-camera-autotuning.md))
 - Temperature monitoring (up to 5× DS18B20 sensors)
 
 ---
@@ -70,12 +70,12 @@ Need a good sleep aid? This is the one for you here:
 | [03 — Build & Configuration](docs/03-build-and-config.md) | PlatformIO setup, all configurable parameters, flash instructions |
 | [04 — UI Guide](docs/04-ui-guide.md) | Complete walkthrough of all WebUI tabs and controls |
 | [05 — The Optimizer](docs/05-optimizer.md) | Deep-dive into the point optimizer pipeline |
-| [06 — Troubleshooting](docs/06-troubleshooting.md) | Common problems and how to solve them |
-| [07 — API Reference](docs/07-api-reference.md) | REST API endpoints for integration and automation |
-| [08 — Contributing](docs/08-contributing.md) | How to contribute, code style, patch workflow |
-| [09 — Known Issues & Todos](docs/09-known-issues-and-todos.md) | Open bugs, missing features, planned work |
-| [10 — Glossary & Terminology](docs/10-glossary.md) | All abbreviations and technical terms explained |
-| [11 — Camera-in-the-Loop Auto-Tuning](docs/11-camera-autotuning.md) | Automated optimizer tuning via `scripts/optimizeGalvo/optimizeGalvo.py` and a USB camera |
+| [06 — Camera-in-the-Loop Auto-Tuning](docs/06-camera-autotuning.md) | Automated optimizer tuning via `scripts/optimizeGalvo/optimizeGalvo.py` and a USB camera |
+| [07 — Troubleshooting](docs/07-troubleshooting.md) | Common problems and how to solve them |
+| [08 — API Reference](docs/08-api-reference.md) | REST API endpoints for integration and automation |
+| [09 — Contributing](docs/09-contributing.md) | How to contribute, code style, patch workflow |
+| [10 — Known Issues & Todos](docs/10-known-issues-and-todos.md) | Open bugs, missing features, planned work |
+| [11 — Glossary & Terminology](docs/11-glossary.md) | All abbreviations and technical terms explained |
 
 ---
 
@@ -121,7 +121,7 @@ GalvOS/
 ├── scripts/
 │   ├── upload_all.py       # PlatformIO target: flash firmware + LittleFS
 │   ├── gzip_assets.py      # Pre-build hook: gzip data/ assets
-│   └── optimizeGalvo/      # Camera-in-the-loop auto-tuning tool (see docs/11)
+│   └── optimizeGalvo/      # Camera-in-the-loop auto-tuning tool (see docs/06)
 ├── docs/                   # Full documentation (you are here)
 ├── assets/                 # Screenshots, diagrams
 ├── platformio.ini          # Build configuration
@@ -135,4 +135,4 @@ GalvOS/
 - **Firmware & Software:** [GNU General Public License v3.0](LICENSE)
 - **Hardware Designs:** [CERN Open Hardware Licence v2 — Strongly Reciprocal (CERN-OHL-S)](https://ohwr.org/cern_ohl_s_v2.txt)
 
-Contributions welcome under the same license terms. See [Contributing](docs/08-contributing.md).
+Contributions welcome under the same license terms. See [Contributing](docs/09-contributing.md).
