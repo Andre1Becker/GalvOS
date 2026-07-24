@@ -24,7 +24,10 @@ Target: GalvOS ESP32-S3 controller via REST (/api/calib-cam/*, /api/status).
                   (exposure, gain, binaryThreshold, accumFrames) instead of
                   firmware parameters; run this once after 'preview' if the
                   hand-picked exposure/threshold aren't visibly reliable
-  8. analyze-live - structural (no-reference) read of whatever preset is
+  8. autotune-colors - camera-measured RGB visibility-threshold ("Basiswert")
+                  + gain/brightness matching, automating the WebUI's two
+                  manual per-channel calibration tools. No homography needed.
+  9. analyze-live - structural (no-reference) read of whatever preset is
                   actually live right now - unlike measure/diagnose/optimize
                   this never starts/stops a pattern, so it works on any
                   preset, not just the 6 calib patterns. Flags a beam trace
@@ -45,6 +48,7 @@ Target: GalvOS ESP32-S3 controller via REST (/api/calib-cam/*, /api/status).
   python optimizeGalvo.py optimize --preset "Milky Way" --trials 60
   python optimizeGalvo.py diagnose --autotune
   python optimizeGalvo.py autotune-camera --trials 30
+  python optimizeGalvo.py autotune-colors
   python optimizeGalvo.py analyze-live
   python optimizeGalvo.py --config myRig.json check
 
@@ -87,7 +91,7 @@ import requests
 # ── versioning ───────────────────────────────────────────────────────────────
 # Semantic version of this script (independent of GalvOS firmware version).
 # Bump on every behavioral change; see git log for change history.
-SCRIPT_VERSION = "2.12.0"
+SCRIPT_VERSION = "2.13.0"
 
 # GalvOS firmware version that introduced /api/calib-cam/* (see firmware git log:
 # "fw: v6.03.0 -- camera-in-the-loop calibration API (calib-cam)").
@@ -325,7 +329,13 @@ DEFAULT_CONFIG = {
     "esp32BaseUrl": "http://galvos.local",
     "cameraIndex": 0,
     "frameWidth": 1280,
-    "frameHeight": 720,
+    "frameHeight": 800,        # OV9281's native active-array size - probed against a real
+                                # unit (VID_1BCF&PID_28C4): 1280x800 applies cleanly under
+                                # dshow and is the largest mode that isn't an ISP crop/scale
+                                # of the full sensor, so it gives calibrate's homography and
+                                # measure/diagnose's pixel-space metrics the most resolution
+                                # to work with. 1280x720 also works if you need the extra
+                                # margin for a different lens/mount.
     "cameraFps": None,          # explicitly request this capture fps from the driver
                                 # (null = let the driver auto-select; see the printed
                                 # "driver-reported ... fps" line and the live overlay's
@@ -333,13 +343,44 @@ DEFAULT_CONFIG = {
     "cameraBackend": "dshow",  # dshow (default) / msmf / any - try msmf if manual
                                 # exposure won't stick under dshow (common on Windows
                                 # with some UVC drivers) and fps stays low regardless
-                                # of scene brightness
+                                # of scene brightness. Probed against a real OV9281
+                                # (VID_1BCF&PID_28C4): dshow is the one to use there -
+                                # msmf opened fixed at 1280x720@120fps and ignored every
+                                # resolution/FOURCC change request outright (repeated
+                                # "Failed to select stream 0" warnings), while dshow
+                                # negotiated every requested mode and manual exposure
+                                # stuck immediately (see AUTO_EXPOSURE_MANUAL_CANDIDATES).
     "displaySmoothFrames": 3,  # rolling max-projection over this many raw frames,
                                 # display-only - fixes preview flicker at high fps/
                                 # short exposure without touching measurement accuracy
                                 # (grabAccumulated's own accumFrames is separate). 1 = off
     "exposure": -11,            # DirectShow log2 scale, ~1/2048 s
-    "gain": 0,
+    "gain": 0,                  # some UVC drivers (confirmed on a real OV9281,
+                                # VID_1BCF&PID_28C4) don't expose IAMVideoProcAmp Gain at
+                                # all - Camera probes this itself at startup (see
+                                # self.gainSupported) and 'autotune-camera' drops gain from
+                                # its search space automatically when it doesn't stick, so
+                                # this is a safe no-op default either way
+    "brightness": 0,            # IAMVideoProcAmp neutral point (this camera's range is
+                                # -64..64) - pinned rather than left at driver/OS default so
+                                # a stray change from another app (e.g. Windows Camera) can't
+                                # silently shift every future measurement's baseline
+    "contrast": 0,               # neutral point (this camera's range is 0..95) - same
+                                # reasoning as brightness
+    "gamma": 100,                # 100 = linear response on this camera (range 100..300,
+                                # higher = more curve) - computeMetrics' background-diff/
+                                # threshold pipeline assumes pixel value is proportional to
+                                # real light intensity, which only holds at gamma=linear
+    "sharpness": 1,              # minimum (this camera's range is 1..10, no true "off") -
+                                # UVC edge-enhancement rings/haloes around a small bright
+                                # point source (the laser dot), which biases threshold-based
+                                # blob detection and homography corner-dot centroids
+    "backlightCompensation": 0, # OFF (this camera's range is 0..1) - this use case (a small
+                                # bright dot on a large dark background) is the textbook
+                                # backlight-compensation trigger; left on, the driver
+                                # auto-brightens the whole frame to compensate, inflating
+                                # background brightness/noise right when the diff-then-
+                                # threshold pipeline needs the background as dark as possible
     "accumFrames": 24,          # frames max()-accumulated per measurement (~1 s @ 24 fps effective)
     "settleSeconds": 0.6,       # wait after param change before capture
     "binaryThreshold": 40,      # 0..255, beam trace threshold after background subtraction
@@ -404,9 +445,15 @@ DEFAULT_CONFIG = {
         # quality and (b) can be changed trial-to-trial without reopening the camera
         # are tunable this way - frameWidth/frameHeight/cameraFps/cameraBackend are
         # negotiated once at VideoCapture-open time, so they're left to the wizard.
-        "exposureMin": -14,          # DirectShow log2 scale - more negative = shorter
+        "exposureMin": -13,          # DirectShow log2 scale - more negative = shorter.
+                                     # -13 is this camera's actual hardware floor (probed:
+                                     # IAMCameraControl Exposure range is [-13, -1]) - a
+                                     # lower bound the driver can't reach just wastes Optuna
+                                     # trials on a value that silently clamps to -13 anyway
         "exposureMax": -2,
-        "gainMin": 0,
+        "gainMin": 0,                # only used if Camera detects gain actually sticks on
+                                     # your unit (self.gainSupported) - see the "gain" note
+                                     # in DEFAULT_CONFIG above
         "gainMax": 80,
         "binaryThresholdMin": 10,
         "binaryThresholdMax": 200,
@@ -460,6 +507,10 @@ def validateConfig(cfg: dict):
         problems.append("cameraIndex must be a non-negative integer")
     if not isinstance(cfg.get("accumFrames"), int) or cfg["accumFrames"] < 1:
         problems.append("accumFrames must be an integer >= 1")
+    for key in ("brightness", "contrast", "gamma", "sharpness", "backlightCompensation"):
+        if not isinstance(cfg.get(key), (int, float)):
+            problems.append(f"{key} must be a number (hardware range varies by camera - "
+                            f"an out-of-range value is simply clamped/ignored by the driver)")
     if not isinstance(cfg.get("binaryThreshold"), (int, float)) or not (0 <= cfg["binaryThreshold"] <= 255):
         problems.append("binaryThreshold must be a number between 0 and 255")
     if not isinstance(cfg.get("liveAnalysisMinComponentPx"), (int, float)) or cfg["liveAnalysisMinComponentPx"] < 0:
@@ -743,6 +794,31 @@ class EspClient:
         """POST /api/optimizer-save - persists all optimizer profiles to NVS."""
         self._post("/api/optimizer-save")
 
+    def setCalibLive(self, **fields) -> dict:
+        """POST /api/calib-live - sets any of gain_r/g/b, thresh_r/g/b (plus the galvo
+        geometry fields the WebUI's Calibration card also uses) live, with NO NVS
+        write and NO session-snapshot/rollback - unlike optimizer-live params, this is
+        an immediate, permanent (until changed again) mutation of gConfig. Only
+        non-None kwargs are sent, so callers can set a single field without touching
+        the others. Callers that change these values must restore them themselves if
+        the change shouldn't stick (see runAutotuneColors)."""
+        payload = {k: v for k, v in fields.items() if v is not None}
+        return self._post("/api/calib-live", payload)
+
+    def calibSave(self) -> None:
+        """POST /api/calib-save - persists current gConfig (gain_r/g/b, thresh_r/g/b,
+        galvo geometry, ...) to NVS. The calib-live values set above are lost on
+        reboot until this is called."""
+        self._post("/api/calib-save")
+
+    def calibThreshTest(self, active: bool, channel: int) -> None:
+        """POST /api/calib-thresh-test - drives a static, minimal-level (logical=1)
+        single-point beam with gain/gamma/dimmer bypassed, so the configured
+        thresh_r/g/b directly controls the output duty almost 1:1. channel must be
+        1(R)/2(G)/3(B) individually for a single-channel test - channel=0 lights all
+        three at once (see calib_thresh_ch decode in galvo_out.cpp)."""
+        self._post("/api/calib-thresh-test", {"active": active, "channel": channel})
+
 
 # ── live camera view ─────────────────────────────────────────────────────────
 
@@ -961,7 +1037,30 @@ class Camera:
             if abs(self.cap.get(cv2.CAP_PROP_EXPOSURE) - cfg["exposure"]) < 1.0:
                 appliedAutoExpVal = autoVal
                 break
-        self.cap.set(cv2.CAP_PROP_GAIN, cfg["gain"])
+        # cv2's set() return value is a reliable, honest "does this control exist on this
+        # camera" signal for plain IAMVideoProcAmp properties (unlike manual-exposure mode
+        # above, which needs the readback dance since drivers silently ignore an
+        # unrecognized Flags value instead of failing) - confirmed against a real OV9281
+        # (VID_1BCF&PID_28C4), where Gain isn't exposed at all: set() returns False and
+        # get() stays pinned at -1 no matter what's requested. autotune-camera checks
+        # self.gainSupported to drop gain from its search space when it's not real.
+        self.gainSupported = bool(self.cap.set(cv2.CAP_PROP_GAIN, cfg["gain"]))
+
+        # ISP image controls pinned for measurement linearity/consistency, not searched -
+        # see the DEFAULT_CONFIG comments for why each value was picked for this use case.
+        # Not every camera exposes all of these (or any) - unsupported ones just no-op via
+        # the same set()-return-value check as gain above.
+        otherControls = {
+            "brightness":           (cv2.CAP_PROP_BRIGHTNESS, cfg["brightness"]),
+            "contrast":             (cv2.CAP_PROP_CONTRAST, cfg["contrast"]),
+            "gamma":                (cv2.CAP_PROP_GAMMA, cfg["gamma"]),
+            "sharpness":            (cv2.CAP_PROP_SHARPNESS, cfg["sharpness"]),
+            "backlightCompensation": (cv2.CAP_PROP_BACKLIGHT, cfg["backlightCompensation"]),
+        }
+        self.otherControlsSupported = {
+            name: bool(self.cap.set(prop, value)) for name, (prop, value) in otherControls.items()
+        }
+
         for _ in range(3):          # flush pipeline after settings change
             self.cap.read()
 
@@ -972,6 +1071,7 @@ class Camera:
         reportedFps = self.cap.get(cv2.CAP_PROP_FPS)
         readExposure = self.cap.get(cv2.CAP_PROP_EXPOSURE)
         exposureStuck = appliedAutoExpVal is not None
+        unsupportedOther = [name for name, ok in self.otherControlsSupported.items() if not ok]
         prTable([
             ("resolution",   f"{cfg['frameWidth']}x{cfg['frameHeight']}"),
             ("backend",      backendName),
@@ -979,6 +1079,9 @@ class Camera:
             ("exposure req", cfg["exposure"]),
             ("exposure got", f"{readExposure:.2f}"
                               + (f" (manual mode {appliedAutoExpVal})" if exposureStuck else " (auto-exposure)")),
+            ("gain",         cfg["gain"] if self.gainSupported else "not supported by this camera - ignored"),
+            ("other controls", "all applied" if not unsupportedOther
+                              else f"not supported, ignored: {unsupportedOther}"),
         ], headers=("camera", "value"))
         if not exposureStuck:
             prWarn(f"none of the manual-exposure mode values {AUTO_EXPOSURE_MANUAL_CANDIDATES} "
@@ -2587,7 +2690,8 @@ def runDiagnose(cfg: dict, esp: EspClient, cam: Camera, profile: str | None,
 # detectDots(), or as bogus all-zero/garbage metrics. 'preview' doesn't touch the
 # ESP32 at all; 'analyze-live' never starts/stops a pattern by design and does its
 # own non-blocking version of this same check inline (see runAnalyzeLive).
-LASER_REQUIRED_CMDS = ("calibrate", "measure", "optimize", "diagnose", "autotune-camera")
+LASER_REQUIRED_CMDS = ("calibrate", "measure", "optimize", "diagnose", "autotune-camera",
+                      "autotune-colors")
 
 
 def requireLaserReady(esp: EspClient):
@@ -2860,7 +2964,11 @@ def runAutotuneCamera(cfg: dict, esp: EspClient, cam: Camera, patterns: list[str
             cam.liveView.setProgress(runIndex + 1, trials)
 
         exposure = trial.suggest_int("exposure", ranges["exposureMin"], ranges["exposureMax"])
-        gain = trial.suggest_int("gain", ranges["gainMin"], ranges["gainMax"])
+        # Only searched if this camera actually has a working Gain control (see
+        # Camera.gainSupported) - suggesting a dimension that never affects the capture
+        # would just dilute Optuna's sampling of the params that do something.
+        gain = (trial.suggest_int("gain", ranges["gainMin"], ranges["gainMax"])
+                if cam.gainSupported else baseline["gain"])
         binaryThreshold = trial.suggest_int("binaryThreshold", ranges["binaryThresholdMin"],
                                             ranges["binaryThresholdMax"])
         accumFrames = trial.suggest_int("accumFrames", ranges["accumFramesMin"],
@@ -2959,11 +3067,17 @@ def runAutotuneCamera(cfg: dict, esp: EspClient, cam: Camera, patterns: list[str
         cam.setExposureGain(baseline["exposure"], baseline["gain"])
         return
 
-    best = study.best_params
+    # study.best_params only contains "gain" if it was actually suggest_int'd in some
+    # trial (i.e. cam.gainSupported was true) - fall back to the fixed baseline otherwise
+    # so this camera's gain-free run doesn't KeyError, and so 'apply' below has a value.
+    best = {**baseline, **study.best_params}
     pr()
     pr(bold("=== camera autotune: parameter changes (before -> after) ==="))
     for field in ("exposure", "gain", "binaryThreshold", "accumFrames"):
         before, after = baseline[field], best[field]
+        if field == "gain" and not cam.gainSupported:
+            pr(f"  {field:<16} {before:>8} (not supported by this camera - left unchanged)")
+            continue
         marker = "" if before == after else "  (changed)"
         pr(f"  {field:<16} {before:>8} -> {after}{marker}")
     pr(f"best cost {study.best_value:.4f} (over {len(completed)} completed trial(s))")
@@ -3017,6 +3131,342 @@ def runAutotuneCamera(cfg: dict, esp: EspClient, cam: Camera, patterns: list[str
         cam.setExposureGain(baseline["exposure"], baseline["gain"])
         prInfo(f"not applied - camera restored to its previous exposure/gain; best values "
              f"are only in {outFile.name}")
+
+
+# ── color calibration (visibility threshold + gain matching) ─────────────────
+# Automates the WebUI's two manual RGB calibration tools (Base R/G/B "Basiswert"
+# sliders + Three Circles gain matching) with camera measurement instead of eyeballing.
+# Unlike measure/optimize/diagnose, this needs no homography.npz - brightness matching
+# is purely photometric (how much light lands on the sensor), not geometric.
+
+CALIB_CHANNEL_INDEX = {"r": 1, "g": 2, "b": 3}   # calib-cam/calib-thresh-test channel convention
+CALIB_CHANNEL_NAME = {1: "R", 2: "G", 3: "B"}
+
+# Min connected-component pixel count to call a single static dot/dwell-point
+# "visible" for autotune-colors - much lower than liveAnalysisMinComponentPx's
+# default (60, tuned for a full traced pattern outline), since a single point at
+# threshold-floor brightness is far smaller than that.
+COLOR_TUNE_MIN_LIT_PX = 8
+
+
+def _parseColorChannels(spec: str) -> list[int]:
+    letters = [c.strip().lower() for c in spec.split(",") if c.strip()]
+    unknown = [c for c in letters if c not in CALIB_CHANNEL_INDEX]
+    if unknown:
+        raise OptimizerError(f"unknown channel(s) in --channels: {unknown} - use r, g, b")
+    if not letters:
+        raise OptimizerError("--channels must name at least one of r, g, b")
+    return [CALIB_CHANNEL_INDEX[c] for c in letters]
+
+
+def measureBrightness(cam: Camera, background: np.ndarray, cfg: dict,
+                      nFrames: int = 6, minAreaPx: float = COLOR_TUNE_MIN_LIT_PX
+                      ) -> tuple[float, int, float]:
+    """Homography-free brightness read for autotune-colors: no pattern geometry is
+    scored here, only how much light actually lands on the sensor - so unlike
+    measureOnce/computeMetrics this never warps to the DAC canvas. Captures nFrames
+    max-accumulated (Camera.grabAccumulated), diffs against background (laser off),
+    thresholds at binaryThreshold, and reuses _filteredComponents' noise-gated
+    connected-component filter (the same one analyze-live uses) so a stray sensor
+    speck can't register as "visible". Returns (mean brightness of kept pixels, 0.0
+    if none found; kept pixel count; fraction of kept pixels raw-sensor-saturated
+    >=250, see computeMetrics's saturationFrac)."""
+    capture = cam.grabAccumulated(nFrames)
+    diff = cv2.subtract(capture, background)
+    _, mask = cv2.threshold(diff, cfg["binaryThreshold"], 255, cv2.THRESH_BINARY)
+    _, filtered, _ = _filteredComponents(mask, minAreaPx)
+    litPixels = filtered > 0
+    litCount = int(np.count_nonzero(litPixels))
+    if litCount == 0:
+        return 0.0, 0, 0.0
+    litVals = diff[litPixels].astype(float)
+    return float(np.mean(litVals)), litCount, float(np.mean(litVals >= 250))
+
+
+def sweepThreshold(esp: EspClient, cam: Camera, cfg: dict, background: np.ndarray,
+                   channelIdx: int, iterations: int, marginUnits: int) -> dict:
+    """Binary search on thresh_<c> (the 'Basiswert' visibility floor) using the
+    existing manual calib-thresh-test beam (static, minimal-level, gain/gamma/dimmer
+    bypassed - see EspClient.calibThreshTest) - automates exactly the procedure the
+    WebUI's Base R/G/B sliders are for. Converges to the lowest thresh_<c> that's
+    reliably camera-visible, then adds marginUnits of headroom (mirrors the "adjust
+    until it just clips, then back off" convention the DAC Range Box calib pattern
+    already uses)."""
+    field = f"thresh_{CALIB_CHANNEL_NAME[channelIdx].lower()}"
+    samples = []
+    esp.calibThreshTest(active=True, channel=channelIdx)
+    try:
+        lo, hi = 0, 254
+        while lo < hi:
+            mid = (lo + hi) // 2
+            esp.setCalibLive(**{field: mid})
+            time.sleep(cfg["settleSeconds"])
+            brightness, litPx, _ = measureBrightness(cam, background, cfg, nFrames=4)
+            visible = litPx >= COLOR_TUNE_MIN_LIT_PX
+            samples.append({"thresh": mid, "brightness": brightness, "litPx": litPx,
+                           "visible": visible})
+            if len(samples) >= iterations:
+                break
+            if visible:
+                hi = mid
+            else:
+                lo = mid + 1
+    finally:
+        esp.calibThreshTest(active=False, channel=channelIdx)
+    found = min(hi + marginUnits, 254)
+    return {"field": field, "found": found, "floor": hi, "samples": samples}
+
+
+def sweepGain(esp: EspClient, cam: Camera, cfg: dict, background: np.ndarray,
+             channelIdx: int, targetBrightness: float, iterations: int) -> dict:
+    """Binary search on gain_<c> against a static corner-dwell pattern (calib idx
+    'corners4' - the same one 'calibrate' uses for homography, deliberately NOT
+    scanned so PWM duty is measured without conflating it with scan-speed/dwell-time)
+    until the measured brightness reaches targetBrightness - the weakest channel's
+    own max brightness, picked by the caller since you can only dim a stronger
+    channel down to match, never brighten the weak one past gain=255."""
+    field = f"gain_{CALIB_CHANNEL_NAME[channelIdx].lower()}"
+    samples = []
+    esp.startPattern("corners4", channel=channelIdx)
+    try:
+        lo, hi = 0, 255
+        while lo < hi:
+            mid = (lo + hi) // 2
+            esp.setCalibLive(**{field: mid})
+            time.sleep(cfg["settleSeconds"])
+            brightness, litPx, sat = measureBrightness(cam, background, cfg,
+                                                        nFrames=cfg["accumFrames"])
+            samples.append({"gain": mid, "brightness": brightness, "litPx": litPx,
+                           "saturationFrac": sat})
+            if len(samples) >= iterations:
+                break
+            if brightness < targetBrightness:
+                lo = mid + 1
+            else:
+                hi = mid
+    finally:
+        esp.stop()
+    return {"field": field, "found": hi, "samples": samples}
+
+
+def interactiveExposureAdjust(cam: Camera, cfg: dict):
+    """Lets the user dial in camera exposure by eye against a live feed before
+    autotune-colors measures anything - same '+'/'-' auto-saved-to-camConfig.json
+    exposure control 'preview' offers, just inline here instead of a separate prior
+    command, since a too-dark exposure would otherwise silently bias every reading
+    below (a near-threshold or weak-channel beam can be invisible to an underexposed
+    camera even though it's physically lit, but there's no scored ground truth here
+    for a search to catch that against, unlike autotune-camera). Reuses the already-
+    open cam.liveView rather than opening a second window. No-op (keeps the
+    configured exposure as-is) if there's no view window (--no-view) or the session
+    isn't interactive - nothing to look at or press a key with."""
+    liveView = cam.liveView
+    if not liveView:
+        prInfo("no camera view window (--no-view) - using exposure from camConfig.json as-is")
+        return
+    if not sys.stdin.isatty():
+        prInfo("non-interactive session - using exposure from camConfig.json as-is")
+        return
+
+    exposure = cfg["exposure"]
+    savedHotkeys = liveView.hotkeys
+    liveView.hotkeys = ("[+/-] exposure (auto-saved)   [1/2/3] zoom   "
+                        "[c] continue   [q] abort")
+    pr("adjust exposure so a faint/near-threshold beam would still be visible without "
+         "blowing out a full-brightness one, then press 'c' to continue: " + liveView.hotkeys)
+    try:
+        while True:
+            frame = cam.grabGray()
+            saturated = float(np.mean(frame >= 250)) * 100
+            cam.statusText = f"set exposure, then 'c': exp {exposure}  sat {saturated:.1f}%  max {frame.max()}"
+            key = liveView.update(frame, cam.statusText)
+            if liveView.quitRequested or key == ord("q"):
+                raise KeyboardInterrupt()
+            if key in (ord("+"), ord("-")):
+                exposure += 1 if key == ord("+") else -1
+                cam.cap.set(cv2.CAP_PROP_EXPOSURE, exposure)
+                cfg["exposure"] = exposure
+                try:
+                    CONFIG_FILE.write_text(json.dumps(cfg, indent=2))
+                    prOk(f"exposure {exposure} -> saved to {CONFIG_FILE.name}")
+                except OSError as e:
+                    prWarn(f"exposure {exposure} (could not save {CONFIG_FILE.name}: {e})")
+            elif key == ord("c"):
+                return
+    finally:
+        liveView.hotkeys = savedHotkeys
+
+
+def runAutotuneColors(cfg: dict, esp: EspClient, cam: Camera, channels: list[int],
+                      doThreshold: bool, doGain: bool, iterations: int,
+                      thresholdMargin: int, autoApply: bool):
+    interactive = sys.stdin.isatty()
+
+    # A too-dark camera exposure would silently distort every measurement below (a
+    # near-threshold or weak-channel beam can be invisible to an underexposed camera
+    # even though it's physically lit) - unlike autotune-camera's own Optuna search,
+    # there's no scored ground truth here to search against, so a human eyeballs it
+    # once against a live feed before anything is measured. Persists to camConfig.json
+    # exactly like 'preview's exposure adjustment does (no restore-on-exit: the user
+    # just dialed in a real setting, not a transient search).
+    interactiveExposureAdjust(cam, cfg)
+
+    pr("reading current gain/threshold from the ESP32 ...")
+    before = esp.getConfig()
+    origThresh = {c: before.get(f"thresh_{CALIB_CHANNEL_NAME[c].lower()}") for c in (1, 2, 3)}
+    origGain = {c: before.get(f"gain_{CALIB_CHANNEL_NAME[c].lower()}") for c in (1, 2, 3)}
+    if any(v is None for v in list(origThresh.values()) + list(origGain.values())):
+        raise OptimizerError(
+            "ESP32's GET /api/config did not report gain_r/g/b or thresh_r/g/b - "
+            "firmware may predate this feature."
+        )
+
+    thresholdResults: dict[int, dict] = {}
+    gainResults: dict[int, dict] = {}
+    restored = False
+
+    def restoreOriginals():
+        nonlocal restored
+        if restored:
+            return
+        esp.setCalibLive(thresh_r=origThresh[1], thresh_g=origThresh[2], thresh_b=origThresh[3],
+                         gain_r=origGain[1], gain_g=origGain[2], gain_b=origGain[3])
+        restored = True
+
+    try:
+        # Defensive: a previous crashed run could have left calib-thresh-test active,
+        # which would otherwise light up the "laser off" background capture below.
+        esp.calibThreshTest(active=False, channel=1)
+        esp.stop()
+        time.sleep(0.3)
+        cam.statusText = "autotune-colors: background (laser off)"
+        background = cam.grabBackground()
+
+        if doThreshold:
+            pr(bold("\n=== phase 1: visibility threshold (Basiswert) ==="))
+            for c in channels:
+                waitWhilePaused(cam)
+                cam.statusText = f"threshold: channel {CALIB_CHANNEL_NAME[c]}"
+                pr(f"  channel {CALIB_CHANNEL_NAME[c]}: searching ...")
+                result = sweepThreshold(esp, cam, cfg, background, c, iterations, thresholdMargin)
+                thresholdResults[c] = result
+                if not any(s["visible"] for s in result["samples"]):
+                    prWarn(f"  channel {CALIB_CHANNEL_NAME[c]}: never detected visible "
+                          f"across the full threshold sweep - check the laser/optics for "
+                          f"this channel, or that it's actually in camera frame.")
+                pr(f"  channel {CALIB_CHANNEL_NAME[c]}: found thresh={result['found']} "
+                      f"(was {origThresh[c]})")
+            # Apply the found thresholds live so phase 2's gain search measures against
+            # the corrected floor, not the original one.
+            esp.setCalibLive(**{thresholdResults[c]["field"]: thresholdResults[c]["found"]
+                                for c in channels})
+
+        if doGain:
+            pr(bold("\n=== phase 2: channel brightness (gain) matching ==="))
+            baseline = {}
+            for c in channels:
+                waitWhilePaused(cam)
+                cam.statusText = f"gain baseline: channel {CALIB_CHANNEL_NAME[c]}"
+                esp.startPattern("corners4", channel=c)
+                esp.setCalibLive(**{f"gain_{CALIB_CHANNEL_NAME[c].lower()}": 255})
+                time.sleep(cfg["settleSeconds"])
+                brightness, litPx, sat = measureBrightness(cam, background, cfg,
+                                                           nFrames=cfg["accumFrames"])
+                esp.stop()
+                if litPx == 0:
+                    raise OptimizerError(
+                        f"channel {CALIB_CHANNEL_NAME[c]} not detected at all at full "
+                        f"gain - cannot brightness-match. Check the laser/optics for this "
+                        f"channel, or run 'preview' to confirm it's in camera frame."
+                    )
+                if sat > cfg["diagnoseThresholds"].get("saturationFrac", 0.10):
+                    prWarn(f"  channel {CALIB_CHANNEL_NAME[c]}: {sat * 100:.0f}% of the "
+                          f"detected beam is sensor-saturated at full gain - readings may "
+                          f"be unreliable. Consider 'autotune-camera' or lowering exposure "
+                          f"first.")
+                baseline[c] = brightness
+                pr(f"  channel {CALIB_CHANNEL_NAME[c]}: baseline brightness at gain=255 "
+                      f"= {brightness:.1f}")
+
+            referenceChannel = min(baseline, key=baseline.get)
+            target = baseline[referenceChannel]
+            pr(f"  reference: channel {CALIB_CHANNEL_NAME[referenceChannel]} (weakest, "
+                  f"target brightness {target:.1f}) - other channel(s) matched down to it")
+
+            for c in channels:
+                if c == referenceChannel:
+                    gainResults[c] = {"field": f"gain_{CALIB_CHANNEL_NAME[c].lower()}",
+                                      "found": 255, "samples": [], "baseline": baseline[c]}
+                    continue
+                waitWhilePaused(cam)
+                cam.statusText = f"gain: channel {CALIB_CHANNEL_NAME[c]}"
+                result = sweepGain(esp, cam, cfg, background, c, target, iterations)
+                result["baseline"] = baseline[c]
+                gainResults[c] = result
+                pr(f"  channel {CALIB_CHANNEL_NAME[c]}: found gain={result['found']} "
+                      f"(was {origGain[c]})")
+
+        pr()
+        pr(bold("=== autotune-colors: summary ==="))
+        rows = []
+        for c in (1, 2, 3):
+            if c not in channels:
+                continue
+            name = CALIB_CHANNEL_NAME[c]
+            if c in thresholdResults:
+                rows.append((f"{name} thresh", f"{origThresh[c]} -> {thresholdResults[c]['found']}"))
+            if c in gainResults:
+                rows.append((f"{name} gain", f"{origGain[c]} -> {gainResults[c]['found']}"))
+        prTable(rows, headers=("field", "before -> after"))
+
+        try:
+            RESULTS_DIR.mkdir(exist_ok=True)
+            timestamp = time.strftime("%Y-%m-%d_%H-%M-%S")
+            outFile = RESULTS_DIR / f"colors_{timestamp}.json"
+            outFile.write_text(json.dumps({
+                "timestamp": timestamp,
+                "channels": [CALIB_CHANNEL_NAME[c] for c in channels],
+                "before": {"thresh": origThresh, "gain": origGain},
+                "threshold": thresholdResults,
+                "gain": gainResults,
+            }, indent=2, default=str))
+            prOk(f"saved -> {outFile.name}")
+        except OSError as e:
+            prWarn(f"could not save results file: {e}")
+
+        changedAny = bool(thresholdResults) or bool(gainResults)
+        doApply = autoApply
+        if not doApply and interactive and changedAny:
+            doApply = askYesNo("\napply these found value(s) to the ESP32 now? [y/N]: ",
+                               default=False)
+
+        if doApply and changedAny:
+            fields = {}
+            for c in channels:
+                if c in thresholdResults:
+                    fields[thresholdResults[c]["field"]] = thresholdResults[c]["found"]
+                if c in gainResults:
+                    fields[gainResults[c]["field"]] = gainResults[c]["found"]
+            esp.setCalibLive(**fields)
+            restored = True   # the applied values ARE the intended new live state now
+            prOk("applied (live until reboot - persisting to NVS is offered next)")
+
+            doSave = autoApply
+            if not doSave and interactive:
+                doSave = askYesNo("persist to NVS so it survives a reboot? [y/N]: ",
+                                  default=False)
+            if doSave:
+                esp.calibSave()
+                prOk("saved to NVS")
+            else:
+                prInfo("not persisted - applied values are live until the ESP32 reboots")
+        elif changedAny and not interactive:
+            prInfo("not applied - non-interactive session without --apply; found values "
+                  "are only in the results JSON, original gain/threshold restored")
+        else:
+            prInfo("not applied - original gain/threshold restored")
+    finally:
+        restoreOriginals()
 
 
 # ── main ─────────────────────────────────────────────────────────────────────
@@ -3328,6 +3778,64 @@ def main():
         help="apply the best camera settings to camConfig.json and refresh homography.npz's "
              "background without asking")
 
+    pColors = sub.add_parser(
+        "autotune-colors",
+        help="camera-measured RGB visibility-threshold + brightness matching",
+        description="Automates the WebUI's two manual RGB calibration tools with camera "
+                     "measurement instead of eyeballing. Phase 1 (visibility threshold / "
+                     "'Basiswert'): for each channel, binary-searches thresh_r/g/b using the "
+                     "existing static minimal-level calib-thresh-test beam, converging on the "
+                     "lowest duty that's reliably camera-visible (plus a small margin). Phase "
+                     "2 (channel brightness / gain matching): projects the static 'corners4' "
+                     "dwell pattern per channel (no scanning, so PWM duty is measured without "
+                     "conflating it with scan-speed/dwell-time), finds each channel's max "
+                     "brightness at gain=255, then binary-searches gain_r/g/b on the other "
+                     "channel(s) down to match the weakest channel's brightness (you can only "
+                     "dim a stronger channel to match, never brighten the weak one further). "
+                     "Prints a before/after table, saves the full sweep history to "
+                     "results/colors_<timestamp>.json, and offers to apply (/api/calib-live) "
+                     "+ persist (/api/calib-save) the result - see --apply. gain_r/g/b/"
+                     "thresh_r/g/b have no session-snapshot/rollback in firmware (unlike "
+                     "optimizer-live params) - every value tested during the search is a live, "
+                     "permanent-until-changed mutation, so this script always restores the "
+                     "ORIGINAL values live afterwards unless you confirm applying the found "
+                     "ones (or on Ctrl+C/'q'/error). Does NOT require homography.npz - "
+                     "brightness matching is photometric, not geometric, so 'calibrate' is not "
+                     "a prerequisite. Starts with an interactive exposure check against a live "
+                     "feed ('+'/'-' to adjust, auto-saved to camConfig.json, 'c' to continue) - "
+                     "a too-dark exposure (e.g. one tuned for a full-brightness pattern "
+                     "elsewhere) can make a near-threshold or weak-channel beam invisible and "
+                     "silently bias every reading below, and there's no scored ground truth "
+                     "here for a search to catch that automatically. Skipped in non-interactive "
+                     "sessions or with --no-view. Shows a live camera view window throughout "
+                     "(see --no-view/--zoom).")
+    pColors.add_argument(
+        "--channels", default="r,g,b",
+        help="comma-separated channel(s) to tune (default: r,g,b). Useful to re-check a "
+             "single channel after an optics change without re-running all three.")
+    pColors.add_argument(
+        "--skip-threshold", action="store_true", dest="skipThreshold",
+        help="skip phase 1 (visibility threshold) - keep thresh_r/g/b as currently live and "
+             "only run the gain-matching phase")
+    pColors.add_argument(
+        "--skip-gain", action="store_true", dest="skipGain",
+        help="skip phase 2 (brightness/gain matching) - only run the threshold sweep")
+    pColors.add_argument(
+        "--iterations", type=int, default=8,
+        help="binary-search iterations per channel per phase (default: 8 - enough to "
+             "resolve the full 0-255 duty range to within ~1 unit)")
+    pColors.add_argument(
+        "--threshold-margin", type=int, default=3, dest="thresholdMargin",
+        help="duty units of headroom added above the found visibility floor in phase 1 "
+             "(default: 3) - mirrors the 'adjust until it just clips, then back off' "
+             "convention used elsewhere in this calib UI")
+    pColors.add_argument(
+        "--apply", action="store_true", dest="autoApply",
+        help="apply the found value(s) (/api/calib-live) and persist to NVS (/api/calib-save) "
+             "without asking. Without this flag, interactive sessions are prompted once for "
+             "apply and once for the NVS save; non-interactive sessions apply nothing and the "
+             "original gain/threshold are restored (results only go to the JSON file).")
+
     sub.add_parser(
         "analyze-live",
         help="capture + structurally analyze whatever preset is currently live",
@@ -3404,9 +3912,14 @@ def dispatch(args):
         esp = EspClient.fromConfig(cfg)
         sys.exit(0 if runCheckConnection(cfg, esp) else 1)
 
+    if args.cmd == "autotune-colors" and args.skipThreshold and args.skipGain:
+        raise OptimizerError(
+            "--skip-threshold and --skip-gain together skip both phases - nothing to do"
+        )
+
     showView = cfg.get("showCameraView", True) and not args.noView
     viewCmds = ("calibrate", "measure", "optimize", "diagnose", "autotune-camera",
-               "analyze-live")
+               "autotune-colors", "analyze-live")
     liveView = LiveView("GalvOS camera view", cfg["frameWidth"], cfg["frameHeight"],
                         zoomIdx=args.zoom - 1) \
         if showView and args.cmd in viewCmds else None
@@ -3445,6 +3958,12 @@ def dispatch(args):
             patterns = [p.strip() for p in args.patterns.split(",") if p.strip()]
             runAutotuneCamera(cfg, esp, cam, patterns, args.trials,
                              args.studyName, args.storageUrl, args.fresh, args.autoApply)
+        elif args.cmd == "autotune-colors":
+            channels = _parseColorChannels(args.channels)
+            runAutotuneColors(cfg, esp, cam, channels,
+                             doThreshold=not args.skipThreshold, doGain=not args.skipGain,
+                             iterations=args.iterations, thresholdMargin=args.thresholdMargin,
+                             autoApply=args.autoApply)
         elif args.cmd == "analyze-live":
             runAnalyzeLive(cfg, esp, cam)
         if liveView:
