@@ -91,7 +91,7 @@ import requests
 # ── versioning ───────────────────────────────────────────────────────────────
 # Semantic version of this script (independent of GalvOS firmware version).
 # Bump on every behavioral change; see git log for change history.
-SCRIPT_VERSION = "2.13.0"
+SCRIPT_VERSION = "2.13.1"
 
 # GalvOS firmware version that introduced /api/calib-cam/* (see firmware git log:
 # "fw: v6.03.0 -- camera-in-the-loop calibration API (calib-cam)").
@@ -2915,6 +2915,12 @@ def runPreview(cfg: dict, cam: Camera, zoomIdx: int = 0):
         hotkeys="[1/2/3] zoom   [+/-] exposure (auto-saved)   [s] screenshot   "
                 "[space] pause   [q] quit")
     pr("preview: " + liveView.hotkeys)
+    # Wire the window into cam so grabGray()'s own rolling max-smoothing (displaySmoothFrames)
+    # drives it - without this, cam.liveView stays None (preview isn't in main()'s viewCmds)
+    # and the loop below fell back to displaying/saving a single raw frame, which at high
+    # fps/short exposure often only catches part of a fast-scanned pattern (that's what the
+    # smoothing exists to fix - see displaySmoothFrames in DEFAULT_CONFIG).
+    cam.liveView = liveView
     lastFrame = cam.grabGray()
     try:
         while not liveView.quitRequested:
@@ -2929,7 +2935,7 @@ def runPreview(cfg: dict, cam: Camera, zoomIdx: int = 0):
             lastFrame = frame
             saturated = float(np.mean(frame >= 250)) * 100
             cam.statusText = f"preview: exp {exposure}  sat {saturated:.1f}%  max {frame.max()}"
-            key = liveView.update(frame, cam.statusText)
+            key = liveView.lastKey
             if key in (ord("+"), ord("-")):
                 exposure += 1 if key == ord("+") else -1
                 cam.cap.set(cv2.CAP_PROP_EXPOSURE, exposure)
@@ -2940,6 +2946,7 @@ def runPreview(cfg: dict, cam: Camera, zoomIdx: int = 0):
                 except OSError as e:
                     prWarn(f"exposure {exposure} (could not save {CONFIG_FILE.name}: {e})")
     finally:
+        cam.liveView = None
         liveView.close()
 
 
@@ -3362,7 +3369,7 @@ def interactiveExposureAdjust(cam: Camera, cfg: dict):
             frame = cam.grabGray()
             saturated = float(np.mean(frame >= 250)) * 100
             cam.statusText = f"set exposure, then 'c': exp {exposure}  sat {saturated:.1f}%  max {frame.max()}"
-            key = liveView.update(frame, cam.statusText)
+            key = liveView.lastKey
             if liveView.quitRequested or key == ord("q"):
                 raise KeyboardInterrupt()
             if key in (ord("+"), ord("-")):
