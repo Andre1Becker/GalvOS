@@ -87,11 +87,17 @@ import requests
 # ── versioning ───────────────────────────────────────────────────────────────
 # Semantic version of this script (independent of GalvOS firmware version).
 # Bump on every behavioral change; see git log for change history.
-SCRIPT_VERSION = "2.11.0"
+SCRIPT_VERSION = "2.12.0"
 
 # GalvOS firmware version that introduced /api/calib-cam/* (see firmware git log:
 # "fw: v6.03.0 -- camera-in-the-loop calibration API (calib-cam)").
 MIN_FW_VERSION_CALIB_CAM = (6, 3, 0)
+
+# Hard floor for resultViewHoldSeconds (camConfig.json) - the camera view window must
+# stay open at least this long after a command finishes, so the last capture is
+# actually visible instead of the window vanishing instantly. The config value can
+# raise this, never lower it (see validateConfig).
+MIN_RESULT_VIEW_HOLD_SECONDS = 5.0
 
 # Firmware optimizer profile names, in index order - mirrors the OPT_PROFILE_*
 # constants in GalvOS's include/config.h. The firmware API (GET /api/config)
@@ -358,6 +364,14 @@ DEFAULT_CONFIG = {
                                 # geometry issues); switch to 1/2 to check a specific
                                 # channel's own alignment instead.
     "showCameraView": True,     # live preview window during calibrate/measure/optimize
+    "resultViewHoldSeconds": 5.0,  # minimum seconds the camera view window (if shown)
+                                # stays open and live after calibrate/measure/optimize/
+                                # diagnose/autotune-camera/analyze-live finishes, instead
+                                # of vanishing the instant the last capture completes -
+                                # long enough to actually look at what was just measured.
+                                # Press 'q' to close early. Hard floor MIN_RESULT_VIEW_
+                                # HOLD_SECONDS below - raise this in the config to hold
+                                # it open longer, it can't go lower.
     "costWeights": {
         "pathDeviationRms": 1.0,
         "blankLeakage": 2.0,
@@ -438,6 +452,10 @@ def validateConfig(cfg: dict):
         problems.append("cameraBackend must be 'dshow', 'msmf', or 'any'")
     if not isinstance(cfg.get("displaySmoothFrames"), int) or cfg["displaySmoothFrames"] < 1:
         problems.append("displaySmoothFrames must be an integer >= 1")
+    if (not isinstance(cfg.get("resultViewHoldSeconds"), (int, float))
+            or cfg["resultViewHoldSeconds"] < MIN_RESULT_VIEW_HOLD_SECONDS):
+        problems.append(f"resultViewHoldSeconds must be a number >= "
+                        f"{MIN_RESULT_VIEW_HOLD_SECONDS}")
     if not isinstance(cfg.get("cameraIndex"), int) or cfg["cameraIndex"] < 0:
         problems.append("cameraIndex must be a non-negative integer")
     if not isinstance(cfg.get("accumFrames"), int) or cfg["accumFrames"] < 1:
@@ -868,6 +886,26 @@ def waitWhilePaused(cam: "Camera"):
             cam.grabGray()
     if liveView.quitRequested:
         raise KeyboardInterrupt()
+
+
+def holdLiveView(cam: "Camera", seconds: float):
+    """Keeps the camera view window open and live for at least `seconds` after a
+    command finishes, instead of it vanishing the instant the last capture completes -
+    otherwise there's no time to actually look at what was just measured/calibrated/
+    diagnosed. Still pumps real frames through cam.grabGray() (not a frozen still) so
+    the window stays responsive rather than looking hung; 'q' closes it immediately
+    instead of waiting out the rest of the hold. No-op if there's no attached view."""
+    liveView = cam.liveView
+    if not liveView:
+        return
+    deadline = time.monotonic() + seconds
+    while time.monotonic() < deadline and not liveView.quitRequested:
+        remaining = deadline - time.monotonic()
+        cam.statusText = f"done - closing in {remaining:.0f}s (press 'q' to close now)"
+        try:
+            cam.grabGray()
+        except OptimizerError:
+            break   # camera went away (unplugged/in use) - nothing left to hold open
 
 
 # ── camera ───────────────────────────────────────────────────────────────────
@@ -3409,6 +3447,8 @@ def dispatch(args):
                              args.studyName, args.storageUrl, args.fresh, args.autoApply)
         elif args.cmd == "analyze-live":
             runAnalyzeLive(cfg, esp, cam)
+        if liveView:
+            holdLiveView(cam, cfg.get("resultViewHoldSeconds", MIN_RESULT_VIEW_HOLD_SECONDS))
     finally:
         # 'preview' and 'analyze-live' never start/stop a pattern on the ESP32 -
         # stopping here would interrupt whatever was already live before the command
