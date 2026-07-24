@@ -340,6 +340,21 @@ DEFAULT_CONFIG = {
                                 # (null = let the driver auto-select; see the printed
                                 # "driver-reported ... fps" line and the live overlay's
                                 # measured fps to check what you're actually getting)
+    "cameraFourcc": "MJPG",    # request this pixel format at open time (null = leave
+                                # whatever the driver defaults to). This matters a lot more
+                                # than it sounds: confirmed on a real OV9281
+                                # (VID_1BCF&PID_28C4) that leaving it unset at 1280x720/800
+                                # under dshow lands on an uncompressed mode whose declared
+                                # UVC frame interval caps out around 5fps - and the actual
+                                # *measured* fps (live overlay) can sag well below even that
+                                # under load, not just the nominal/driver-reported one. MJPG
+                                # is a real capture mode this sensor's ISP offers at the same
+                                # resolution with a much higher declared rate, and it round-
+                                # tripped cleanly in testing (requested == applied, frame
+                                # delivered). Only takes effect on cameras/backends that
+                                # support switching it - set to null and see if "fourcc" in
+                                # the printed camera table still shows something else if this
+                                # doesn't fix a low-fps camera for you.
     "cameraBackend": "dshow",  # dshow (default) / msmf / any - try msmf if manual
                                 # exposure won't stick under dshow (common on Windows
                                 # with some UVC drivers) and fps stays low regardless
@@ -495,6 +510,9 @@ def validateConfig(cfg: dict):
     if cfg.get("cameraFps") is not None and (
             not isinstance(cfg["cameraFps"], (int, float)) or cfg["cameraFps"] <= 0):
         problems.append("cameraFps must be null or a positive number")
+    if cfg.get("cameraFourcc") is not None and (
+            not isinstance(cfg["cameraFourcc"], str) or len(cfg["cameraFourcc"]) != 4):
+        problems.append("cameraFourcc must be null or a 4-character FOURCC string (e.g. 'MJPG')")
     if cfg.get("cameraBackend") not in ("dshow", "msmf", "any"):
         problems.append("cameraBackend must be 'dshow', 'msmf', or 'any'")
     if not isinstance(cfg.get("displaySmoothFrames"), int) or cfg["displaySmoothFrames"] < 1:
@@ -1020,6 +1038,11 @@ class Camera:
             )
         self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, cfg["frameWidth"])
         self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, cfg["frameHeight"])
+        # Pixel format matters as much as resolution for achievable fps - see the
+        # cameraFourcc comment in DEFAULT_CONFIG. Requested after resolution (matches
+        # what was actually verified working against a real OV9281 in ov9281_probe.py).
+        if cfg.get("cameraFourcc"):
+            self.cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*cfg["cameraFourcc"]))
         # Not requested by default - the driver picks whatever mode it negotiates
         # for frameWidth/frameHeight, which is very often well below the sensor's
         # rated fps (e.g. OV9281's 120fps is usually only available at lower
@@ -1072,9 +1095,16 @@ class Camera:
         readExposure = self.cap.get(cv2.CAP_PROP_EXPOSURE)
         exposureStuck = appliedAutoExpVal is not None
         unsupportedOther = [name for name, ok in self.otherControlsSupported.items() if not ok]
+        rawFourcc = int(self.cap.get(cv2.CAP_PROP_FOURCC))
+        appliedFourcc = ("".join(chr((rawFourcc >> (8 * i)) & 0xFF) for i in range(4))
+                        if rawFourcc > 0 else "?")
         prTable([
             ("resolution",   f"{cfg['frameWidth']}x{cfg['frameHeight']}"),
             ("backend",      backendName),
+            ("fourcc",       f"requested {cfg.get('cameraFourcc') or '(driver default)'}, "
+                              f"got {appliedFourcc}" + (
+                                  "" if not cfg.get("cameraFourcc") or appliedFourcc == cfg["cameraFourcc"]
+                                  else " - DID NOT STICK, check cameraFourcc/cameraBackend")),
             ("driver fps",   f"{reportedFps:.1f} (nominal - watch the live overlay for measured fps)"),
             ("exposure req", cfg["exposure"]),
             ("exposure got", f"{readExposure:.2f}"
@@ -3071,6 +3101,27 @@ def runAutotuneCamera(cfg: dict, esp: EspClient, cam: Camera, patterns: list[str
     # trial (i.e. cam.gainSupported was true) - fall back to the fixed baseline otherwise
     # so this camera's gain-free run doesn't KeyError, and so 'apply' below has a value.
     best = {**baseline, **study.best_params}
+
+    # A resumed study can still hand back a "best" trial that was sampled under a
+    # WIDER/different cameraAutotuneRanges from a previous run - Optuna's best_params
+    # only reflects what scored lowest historically, it never re-checks that against
+    # the range this run was actually called with. Concretely: this is exactly how a
+    # camConfig.json ended up with "exposure": -14 even after exposureMin was corrected
+    # to this camera's real floor of -13 - an old trial from before that fix was still
+    # sitting in optuna_study.db as the recorded best, and got replayed straight back
+    # out. Clamp to the CURRENT bounds and say so, rather than silently re-applying a
+    # value this run's own search space says isn't even reachable.
+    clampBounds = {"exposure": (ranges["exposureMin"], ranges["exposureMax"]),
+                  "gain": (ranges["gainMin"], ranges["gainMax"]),
+                  "binaryThreshold": (ranges["binaryThresholdMin"], ranges["binaryThresholdMax"]),
+                  "accumFrames": (ranges["accumFramesMin"], ranges["accumFramesMax"])}
+    for field, (lo, hi) in clampBounds.items():
+        clamped = max(lo, min(hi, best[field]))
+        if clamped != best[field]:
+            prWarn(f"best {field}={best[field]} is outside the current cameraAutotuneRanges "
+                  f"[{lo}, {hi}] (likely a stale trial from before the range was last changed, "
+                  f"replayed from the resumed study) - clamped to {clamped}")
+            best[field] = clamped
     pr()
     pr(bold("=== camera autotune: parameter changes (before -> after) ==="))
     for field in ("exposure", "gain", "binaryThreshold", "accumFrames"):
