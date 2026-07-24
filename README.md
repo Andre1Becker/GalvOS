@@ -72,7 +72,7 @@ Need a good sleep aid? This is the one for you here:
 | [03 — Build & Configuration](docs/03-build-and-config.md) | PlatformIO setup, all configurable parameters, flash instructions |
 | [04 — UI Guide](docs/04-ui-guide.md) | Complete walkthrough of all WebUI tabs and controls |
 | [05 — The Optimizer](docs/05-optimizer.md) | Deep-dive into the point optimizer pipeline |
-| [06 — Camera-in-the-Loop Auto-Tuning](docs/06-camera-autotuning.md) | Automated optimizer tuning via `scripts/optimizeGalvo/optimizeGalvo.py` and a USB camera |
+| [06 — Auto-Tuning (CAM-based)](docs/06-camera-autotuning.md) | Automated optimizer tuning via `scripts/optimizeGalvo/optimizeGalvo.py` and a USB camera |
 | [07 — Troubleshooting](docs/07-troubleshooting.md) | Common problems and how to solve them |
 | [08 — API Reference](docs/08-api-reference.md) | REST API endpoints for integration and automation |
 | [09 — Contributing](docs/09-contributing.md) | How to contribute, code style, patch workflow |
