@@ -1,0 +1,5613 @@
+(export
+	(version "E")
+	(design
+		(source "D:\\Sourcecode\\Firmware\\GalvOS\\hardware\\schematics\\Laser Controller.kicad_sch")
+		(date "2026-07-24T09:09:43")
+		(tool "Eeschema 10.0.3")
+		(sheet
+			(number "1")
+			(name "/")
+			(tstamps "/")
+			(title_block
+				(title "ESP32 Laser Controller Board")
+				(company)
+				(rev)
+				(date "2026-07-24")
+				(source "Laser Controller.kicad_sch")
+				(comment
+					(number "1")
+					(value "")
+				)
+				(comment
+					(number "2")
+					(value "")
+				)
+				(comment
+					(number "3")
+					(value "")
+				)
+				(comment
+					(number "4")
+					(value "")
+				)
+				(comment
+					(number "5")
+					(value "")
+				)
+				(comment
+					(number "6")
+					(value "")
+				)
+				(comment
+					(number "7")
+					(value "")
+				)
+				(comment
+					(number "8")
+					(value "")
+				)
+				(comment
+					(number "9")
+					(value "")
+				)
+			)
+		)
+	)
+	(components
+		(comp
+			(ref "C1")
+			(value "100nF")
+			(footprint "Capacitor_THT:CP_Radial_D4.0mm_P1.50mm")
+			(description "Unpolarized capacitor")
+			(fields
+				(field
+					(name "Footprint") "Capacitor_THT:CP_Radial_D4.0mm_P1.50mm")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Unpolarized capacitor")
+			)
+			(libsource
+				(lib "Device")
+				(part "C")
+				(description "Unpolarized capacitor")
+			)
+			(property
+				(name "Sheetname")
+				(value "Stammblatt")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Laser Controller.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "cap capacitor")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "C_*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "f8b75d1d-017c-4951-83e3-3e01d607d352")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "C2")
+			(value "100nF")
+			(footprint "Capacitor_THT:CP_Radial_D4.0mm_P1.50mm")
+			(description "Unpolarized capacitor")
+			(fields
+				(field
+					(name "Footprint") "Capacitor_THT:CP_Radial_D4.0mm_P1.50mm")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Unpolarized capacitor")
+			)
+			(libsource
+				(lib "Device")
+				(part "C")
+				(description "Unpolarized capacitor")
+			)
+			(property
+				(name "Sheetname")
+				(value "Stammblatt")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Laser Controller.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "cap capacitor")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "C_*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "ce0f0458-5e3d-4747-817b-47bb4a516447")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "C3")
+			(value "1nF")
+			(footprint "Capacitor_THT:CP_Radial_D4.0mm_P1.50mm")
+			(description "Unpolarized capacitor")
+			(fields
+				(field
+					(name "Footprint") "Capacitor_THT:CP_Radial_D4.0mm_P1.50mm")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Unpolarized capacitor")
+			)
+			(libsource
+				(lib "Device")
+				(part "C")
+				(description "Unpolarized capacitor")
+			)
+			(property
+				(name "Sheetname")
+				(value "Stammblatt")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Laser Controller.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "cap capacitor")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "C_*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "9d306e8c-18df-4681-aa9c-ff03f7721d9f")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "C4")
+			(value "1nF")
+			(footprint "Capacitor_THT:CP_Radial_D4.0mm_P1.50mm")
+			(description "Unpolarized capacitor")
+			(fields
+				(field
+					(name "Footprint") "Capacitor_THT:CP_Radial_D4.0mm_P1.50mm")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Unpolarized capacitor")
+			)
+			(libsource
+				(lib "Device")
+				(part "C")
+				(description "Unpolarized capacitor")
+			)
+			(property
+				(name "Sheetname")
+				(value "Stammblatt")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Laser Controller.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "cap capacitor")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "C_*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "7c0808be-09c7-4503-a065-3d7ed99a26de")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "C5")
+			(value "100nF")
+			(footprint "Capacitor_THT:CP_Radial_D4.0mm_P1.50mm")
+			(description "Unpolarized capacitor")
+			(fields
+				(field
+					(name "Footprint") "Capacitor_THT:CP_Radial_D4.0mm_P1.50mm")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Unpolarized capacitor")
+			)
+			(libsource
+				(lib "Device")
+				(part "C")
+				(description "Unpolarized capacitor")
+			)
+			(property
+				(name "Sheetname")
+				(value "Stammblatt")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Laser Controller.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "cap capacitor")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "C_*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "71f4105f-e2e9-4780-af44-91c19415ed36")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "C6")
+			(value "100nF")
+			(footprint "Capacitor_THT:CP_Radial_D4.0mm_P1.50mm")
+			(description "Unpolarized capacitor")
+			(fields
+				(field
+					(name "Footprint") "Capacitor_THT:CP_Radial_D4.0mm_P1.50mm")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Unpolarized capacitor")
+			)
+			(libsource
+				(lib "Device")
+				(part "C")
+				(description "Unpolarized capacitor")
+			)
+			(property
+				(name "Sheetname")
+				(value "Stammblatt")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Laser Controller.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "cap capacitor")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "C_*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "eb296cd3-23ac-4099-bbed-4aad4525cad1")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "C7")
+			(value "100nF")
+			(footprint "Capacitor_THT:CP_Radial_D4.0mm_P1.50mm")
+			(description "Unpolarized capacitor")
+			(fields
+				(field
+					(name "Footprint") "Capacitor_THT:CP_Radial_D4.0mm_P1.50mm")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Unpolarized capacitor")
+			)
+			(libsource
+				(lib "Device")
+				(part "C")
+				(description "Unpolarized capacitor")
+			)
+			(property
+				(name "Sheetname")
+				(value "Stammblatt")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Laser Controller.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "cap capacitor")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "C_*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "408010ff-114f-43ab-94a0-90a08b4b7042")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "D1")
+			(value "1N5819")
+			(footprint "Diode_THT:D_DO-41_SOD81_P10.16mm_Horizontal")
+			(datasheet "http://www.vishay.com/docs/88525/1n5817.pdf")
+			(description "40V 1A Schottky Barrier Rectifier Diode, DO-41")
+			(fields
+				(field
+					(name "Footprint") "Diode_THT:D_DO-41_SOD81_P10.16mm_Horizontal")
+				(field
+					(name "Datasheet") "http://www.vishay.com/docs/88525/1n5817.pdf")
+				(field
+					(name "Description") "40V 1A Schottky Barrier Rectifier Diode, DO-41")
+			)
+			(libsource
+				(lib "Diode")
+				(part "1N5819")
+				(description "40V 1A Schottky Barrier Rectifier Diode, DO-41")
+			)
+			(property
+				(name "Sheetname")
+				(value "Stammblatt")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Laser Controller.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "diode Schottky")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "D*DO?41*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "b05359be-eac5-43b5-956b-cd94085ca098")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "J1")
+			(value "Micro_SD_Card")
+			(footprint "Connector_Card:SD_Card_Device_16mm_SlotDepth")
+			(datasheet "https://www.we-online.com/components/products/datasheet/693072010801.pdf")
+			(description "Micro SD Card Socket")
+			(fields
+				(field
+					(name "Footprint") "Connector_Card:SD_Card_Device_16mm_SlotDepth")
+				(field
+					(name "Datasheet") "https://www.we-online.com/components/products/datasheet/693072010801.pdf")
+				(field
+					(name "Description") "Micro SD Card Socket")
+			)
+			(libsource
+				(lib "Connector")
+				(part "Micro_SD_Card")
+				(description "Micro SD Card Socket")
+			)
+			(property
+				(name "Sheetname")
+				(value "Stammblatt")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Laser Controller.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "connector SD microsd")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "microSD*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "8a7d2cde-778e-4eed-9a1c-c0e5bb36608b")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+						(pin
+							(num "3")
+						)
+						(pin
+							(num "4")
+						)
+						(pin
+							(num "5")
+						)
+						(pin
+							(num "6")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "R1")
+			(value "220")
+			(footprint "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+			(description "Resistor")
+			(fields
+				(field
+					(name "Footprint") "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Resistor")
+			)
+			(libsource
+				(lib "")
+				(part "R_4")
+				(description "Resistor")
+			)
+			(property
+				(name "Sheetname")
+				(value "Stammblatt")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Laser Controller.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "R res resistor")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "R_*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "f2d1a69a-abff-4b0b-afce-9743553ea5c6")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "R2")
+			(value "220")
+			(footprint "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+			(description "Resistor")
+			(fields
+				(field
+					(name "Footprint") "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Resistor")
+			)
+			(libsource
+				(lib "")
+				(part "R_3")
+				(description "Resistor")
+			)
+			(property
+				(name "Sheetname")
+				(value "Stammblatt")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Laser Controller.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "R res resistor")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "R_*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "deee849c-1350-4391-baf9-fc13249e4424")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "R3")
+			(value "10K")
+			(footprint "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+			(description "Resistor")
+			(fields
+				(field
+					(name "Footprint") "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Resistor")
+			)
+			(libsource
+				(lib "Device")
+				(part "R")
+				(description "Resistor")
+			)
+			(property
+				(name "Sheetname")
+				(value "Stammblatt")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Laser Controller.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "R res resistor")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "R_*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "4f14bcfc-3640-45bc-8ba4-fcd974de12ae")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "R4")
+			(value "220")
+			(footprint "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+			(description "Resistor")
+			(fields
+				(field
+					(name "Footprint") "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Resistor")
+			)
+			(libsource
+				(lib "")
+				(part "R_2")
+				(description "Resistor")
+			)
+			(property
+				(name "Sheetname")
+				(value "Stammblatt")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Laser Controller.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "R res resistor")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "R_*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "7ddd8ef0-03c9-4e72-bd75-12e215a264f4")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "R5")
+			(value "4.7K")
+			(footprint "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+			(description "Resistor")
+			(fields
+				(field
+					(name "Footprint") "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Resistor")
+			)
+			(libsource
+				(lib "Device")
+				(part "R")
+				(description "Resistor")
+			)
+			(property
+				(name "Sheetname")
+				(value "Stammblatt")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Laser Controller.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "R res resistor")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "R_*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "05d3807e-b1cc-4997-84bb-cc65ff1ae9eb")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "R6")
+			(value "100")
+			(footprint "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+			(description "Resistor")
+			(fields
+				(field
+					(name "Footprint") "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Resistor")
+			)
+			(libsource
+				(lib "Device")
+				(part "R")
+				(description "Resistor")
+			)
+			(property
+				(name "Sheetname")
+				(value "Stammblatt")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Laser Controller.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "R res resistor")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "R_*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "a6bdeadf-2919-4480-b34d-af5dbf2c76a8")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "R7")
+			(value "10k")
+			(footprint "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+			(description "Resistor")
+			(fields
+				(field
+					(name "Footprint") "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Resistor")
+			)
+			(libsource
+				(lib "Device")
+				(part "R")
+				(description "Resistor")
+			)
+			(property
+				(name "Sheetname")
+				(value "Stammblatt")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Laser Controller.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "R res resistor")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "R_*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "9982b6fe-2232-4c8d-b0f7-bb650cdc6a69")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "R8")
+			(value "22k")
+			(footprint "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+			(description "Resistor")
+			(fields
+				(field
+					(name "Footprint") "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Resistor")
+			)
+			(libsource
+				(lib "Device")
+				(part "R")
+				(description "Resistor")
+			)
+			(property
+				(name "Sheetname")
+				(value "Stammblatt")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Laser Controller.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "R res resistor")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "R_*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "b1cb14ad-3c1e-4c13-8f11-35332b6121f3")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "R9")
+			(value "22k")
+			(footprint "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+			(description "Resistor")
+			(fields
+				(field
+					(name "Footprint") "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Resistor")
+			)
+			(libsource
+				(lib "Device")
+				(part "R")
+				(description "Resistor")
+			)
+			(property
+				(name "Sheetname")
+				(value "Stammblatt")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Laser Controller.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "R res resistor")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "R_*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "32cec9b7-8604-4b6e-aae0-ac82825de9b3")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "R10")
+			(value "10k")
+			(footprint "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+			(description "Resistor")
+			(fields
+				(field
+					(name "Footprint") "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Resistor")
+			)
+			(libsource
+				(lib "Device")
+				(part "R")
+				(description "Resistor")
+			)
+			(property
+				(name "Sheetname")
+				(value "Stammblatt")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Laser Controller.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "R res resistor")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "R_*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "0f942909-e5f3-4bd6-bedc-db0903039d52")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "R11")
+			(value "100")
+			(footprint "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+			(description "Resistor")
+			(fields
+				(field
+					(name "Footprint") "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Resistor")
+			)
+			(libsource
+				(lib "Device")
+				(part "R")
+				(description "Resistor")
+			)
+			(property
+				(name "Sheetname")
+				(value "Stammblatt")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Laser Controller.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "R res resistor")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "R_*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "fff9cb61-6b7d-4595-a468-3ef2adc793e6")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "R12")
+			(value "22k")
+			(footprint "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+			(description "Resistor")
+			(fields
+				(field
+					(name "Footprint") "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Resistor")
+			)
+			(libsource
+				(lib "Device")
+				(part "R")
+				(description "Resistor")
+			)
+			(property
+				(name "Sheetname")
+				(value "Stammblatt")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Laser Controller.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "R res resistor")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "R_*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "deebe713-2ec6-49be-86d5-7654c838231c")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "R13")
+			(value "100")
+			(footprint "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+			(description "Resistor")
+			(fields
+				(field
+					(name "Footprint") "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Resistor")
+			)
+			(libsource
+				(lib "Device")
+				(part "R")
+				(description "Resistor")
+			)
+			(property
+				(name "Sheetname")
+				(value "Stammblatt")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Laser Controller.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "R res resistor")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "R_*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "e5df4db2-6f47-48e8-9fa2-44b8d6199d58")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "R14")
+			(value "10k")
+			(footprint "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+			(description "Resistor")
+			(fields
+				(field
+					(name "Footprint") "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Resistor")
+			)
+			(libsource
+				(lib "Device")
+				(part "R")
+				(description "Resistor")
+			)
+			(property
+				(name "Sheetname")
+				(value "Stammblatt")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Laser Controller.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "R res resistor")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "R_*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "8830cd33-97dc-422a-b579-171372fa12e9")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "R15")
+			(value "10k")
+			(footprint "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+			(description "Resistor")
+			(fields
+				(field
+					(name "Footprint") "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Resistor")
+			)
+			(libsource
+				(lib "Device")
+				(part "R")
+				(description "Resistor")
+			)
+			(property
+				(name "Sheetname")
+				(value "Stammblatt")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Laser Controller.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "R res resistor")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "R_*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "985dda6d-0cb6-4846-8a8d-e8fd97b03f3d")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "R16")
+			(value "100")
+			(footprint "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+			(description "Resistor")
+			(fields
+				(field
+					(name "Footprint") "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Resistor")
+			)
+			(libsource
+				(lib "Device")
+				(part "R")
+				(description "Resistor")
+			)
+			(property
+				(name "Sheetname")
+				(value "Stammblatt")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Laser Controller.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "R res resistor")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "R_*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "3ef5be78-57bc-4097-96c1-0c8e453d4928")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "R17")
+			(value "22k")
+			(footprint "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+			(description "Resistor")
+			(fields
+				(field
+					(name "Footprint") "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Resistor")
+			)
+			(libsource
+				(lib "Device")
+				(part "R")
+				(description "Resistor")
+			)
+			(property
+				(name "Sheetname")
+				(value "Stammblatt")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Laser Controller.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "R res resistor")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "R_*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "8908c96f-d95c-4f3b-8fb3-33a436399a42")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "R18")
+			(value "1k")
+			(footprint "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+			(description "Resistor")
+			(fields
+				(field
+					(name "Footprint") "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Resistor")
+			)
+			(libsource
+				(lib "Device")
+				(part "R")
+				(description "Resistor")
+			)
+			(property
+				(name "Sheetname")
+				(value "Stammblatt")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Laser Controller.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "R res resistor")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "R_*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "6b18892d-7d06-4c96-aefc-721bc9feff4f")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "R19")
+			(value "1k")
+			(footprint "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+			(description "Resistor")
+			(fields
+				(field
+					(name "Footprint") "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Resistor")
+			)
+			(libsource
+				(lib "Device")
+				(part "R")
+				(description "Resistor")
+			)
+			(property
+				(name "Sheetname")
+				(value "Stammblatt")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Laser Controller.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "R res resistor")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "R_*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "0f65fa8d-13e2-449b-bfb3-d4b97beedddd")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "R20")
+			(value "1k")
+			(footprint "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+			(description "Resistor")
+			(fields
+				(field
+					(name "Footprint") "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Resistor")
+			)
+			(libsource
+				(lib "Device")
+				(part "R")
+				(description "Resistor")
+			)
+			(property
+				(name "Sheetname")
+				(value "Stammblatt")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Laser Controller.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "R res resistor")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "R_*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "095fef32-ec64-4fcc-a431-29ff3d4381f0")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "R21")
+			(value "1k")
+			(footprint "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+			(description "Resistor")
+			(fields
+				(field
+					(name "Footprint") "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Resistor")
+			)
+			(libsource
+				(lib "Device")
+				(part "R")
+				(description "Resistor")
+			)
+			(property
+				(name "Sheetname")
+				(value "Stammblatt")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Laser Controller.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "R res resistor")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "R_*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "28df08ae-2a0f-47e3-a401-df277f28932d")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "R22")
+			(value "1k")
+			(footprint "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+			(description "Resistor")
+			(fields
+				(field
+					(name "Footprint") "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Resistor")
+			)
+			(libsource
+				(lib "Device")
+				(part "R")
+				(description "Resistor")
+			)
+			(property
+				(name "Sheetname")
+				(value "Stammblatt")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Laser Controller.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "R res resistor")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "R_*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "c1123aa0-bc3c-4b85-b28b-e55cb4084aae")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "R23")
+			(value "1k")
+			(footprint "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+			(description "Resistor")
+			(fields
+				(field
+					(name "Footprint") "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Resistor")
+			)
+			(libsource
+				(lib "Device")
+				(part "R")
+				(description "Resistor")
+			)
+			(property
+				(name "Sheetname")
+				(value "Stammblatt")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Laser Controller.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "R res resistor")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "R_*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "d782da35-df46-4154-96e3-81590dba11f6")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "R25")
+			(value "22k")
+			(footprint "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+			(description "Resistor")
+			(fields
+				(field
+					(name "Footprint") "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Resistor")
+			)
+			(libsource
+				(lib "Device")
+				(part "R")
+				(description "Resistor")
+			)
+			(property
+				(name "Sheetname")
+				(value "Stammblatt")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Laser Controller.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "R res resistor")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "R_*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "941b3e54-f597-4858-a5cf-6e8c502bbd05")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "R26")
+			(value "0")
+			(description "Resistor")
+			(fields
+				(field
+					(name "Footprint")
+				)
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Resistor")
+			)
+			(libsource
+				(lib "Device")
+				(part "R")
+				(description "Resistor")
+			)
+			(property
+				(name "Sheetname")
+				(value "Stammblatt")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Laser Controller.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "R res resistor")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "R_*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "adfad3ed-cc9e-4122-ae91-86c7db8458f3")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "U1")
+			(value "ESP32-S3-N16R8-DevKit")
+			(footprint "Footprint:XCVR_ESP32-S3-N16R8-DevKit")
+			(datasheet "https://www.espressif.com/sites/default/files/documentation/esp32-s3_datasheet_en.pdf")
+			(description "ESP32-S3-N16R8 Development Board, 16MB Flash, 8MB PSRAM, WiFi 2.4G, BT5, Dual USB-C, RGB-LED")
+			(fields
+				(field
+					(name "MF") "Espressif Systems")
+				(field
+					(name "MP") "ESP32-S3-N16R8-DevKit")
+				(field
+					(name "Footprint") "Footprint:XCVR_ESP32-S3-N16R8-DevKit")
+				(field
+					(name "Datasheet") "https://www.espressif.com/sites/default/files/documentation/esp32-s3_datasheet_en.pdf")
+				(field
+					(name "Description") "ESP32-S3-N16R8 Development Board, 16MB Flash, 8MB PSRAM, WiFi 2.4G, BT5, Dual USB-C, RGB-LED")
+			)
+			(libsource
+				(lib "RF_Module")
+				(part "ESP32-S3-N16R8-DevKit")
+				(description "ESP32-S3-N16R8 Development Board, 16MB Flash, 8MB PSRAM, WiFi 2.4G, BT5, Dual USB-C, RGB-LED")
+			)
+			(property
+				(name "MF")
+				(value "Espressif Systems")
+			)
+			(property
+				(name "MP")
+				(value "ESP32-S3-N16R8-DevKit")
+			)
+			(property
+				(name "Sheetname")
+				(value "Stammblatt")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Laser Controller.kicad_sch")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "aabd661c-d96e-4b38-9547-889674cc04b6")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "J1_1")
+						)
+						(pin
+							(num "J1_2")
+						)
+						(pin
+							(num "J1_3")
+						)
+						(pin
+							(num "J1_4")
+						)
+						(pin
+							(num "J1_5")
+						)
+						(pin
+							(num "J1_6")
+						)
+						(pin
+							(num "J1_7")
+						)
+						(pin
+							(num "J1_8")
+						)
+						(pin
+							(num "J1_9")
+						)
+						(pin
+							(num "J1_10")
+						)
+						(pin
+							(num "J1_11")
+						)
+						(pin
+							(num "J1_12")
+						)
+						(pin
+							(num "J1_13")
+						)
+						(pin
+							(num "J1_14")
+						)
+						(pin
+							(num "J1_15")
+						)
+						(pin
+							(num "J1_16")
+						)
+						(pin
+							(num "J1_17")
+						)
+						(pin
+							(num "J1_18")
+						)
+						(pin
+							(num "J1_19")
+						)
+						(pin
+							(num "J1_20")
+						)
+						(pin
+							(num "J1_21")
+						)
+						(pin
+							(num "J1_22")
+						)
+						(pin
+							(num "J2_1")
+						)
+						(pin
+							(num "J2_2")
+						)
+						(pin
+							(num "J2_3")
+						)
+						(pin
+							(num "J2_4")
+						)
+						(pin
+							(num "J2_5")
+						)
+						(pin
+							(num "J2_6")
+						)
+						(pin
+							(num "J2_7")
+						)
+						(pin
+							(num "J2_8")
+						)
+						(pin
+							(num "J2_9")
+						)
+						(pin
+							(num "J2_10")
+						)
+						(pin
+							(num "J2_11")
+						)
+						(pin
+							(num "J2_12")
+						)
+						(pin
+							(num "J2_13")
+						)
+						(pin
+							(num "J2_14")
+						)
+						(pin
+							(num "J2_15")
+						)
+						(pin
+							(num "J2_16")
+						)
+						(pin
+							(num "J2_17")
+						)
+						(pin
+							(num "J2_18")
+						)
+						(pin
+							(num "J2_19")
+						)
+						(pin
+							(num "J2_20")
+						)
+						(pin
+							(num "J2_21")
+						)
+						(pin
+							(num "J2_22")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "U2")
+			(value "DAC8562SDGST")
+			(footprint "Footprint:DGS10")
+			(description "16-bit, dual-channel, low-power, ultra-low glitch, voltage output DAC with 2.5V, 4ppm/°C reference")
+			(fields
+				(field
+					(name "MF") "Texas Instruments")
+				(field
+					(name "Package") "VSSOP-10 Texas Instruments")
+				(field
+					(name "Price") "None")
+				(field
+					(name "SnapEDA_Link") "https://www.snapeda.com/parts/DAC8562SDGST/Texas+Instruments/view-part/?ref=snap")
+				(field
+					(name "MP") "DAC8562SDGST")
+				(field
+					(name "Availability") "In Stock")
+				(field
+					(name "Check_prices") "https://www.snapeda.com/parts/DAC8562SDGST/Texas+Instruments/view-part/?ref=eda")
+				(field
+					(name "Footprint") "Footprint:DGS10")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "16-bit, dual-channel, low-power, ultra-low glitch, voltage output DAC with 2.5V, 4ppm/°C reference")
+			)
+			(libsource
+				(lib "Buffer")
+				(part "DAC8562SDGST")
+				(description "16-bit, dual-channel, low-power, ultra-low glitch, voltage output DAC with 2.5V, 4ppm/°C reference")
+			)
+			(property
+				(name "MF")
+				(value "Texas Instruments")
+			)
+			(property
+				(name "Package")
+				(value "VSSOP-10 Texas Instruments")
+			)
+			(property
+				(name "Price")
+				(value "None")
+			)
+			(property
+				(name "SnapEDA_Link")
+				(value "https://www.snapeda.com/parts/DAC8562SDGST/Texas+Instruments/view-part/?ref=snap")
+			)
+			(property
+				(name "MP")
+				(value "DAC8562SDGST")
+			)
+			(property
+				(name "Availability")
+				(value "In Stock")
+			)
+			(property
+				(name "Check_prices")
+				(value "https://www.snapeda.com/parts/DAC8562SDGST/Texas+Instruments/view-part/?ref=eda")
+			)
+			(property
+				(name "Sheetname")
+				(value "Stammblatt")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Laser Controller.kicad_sch")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "3fd04141-d998-40cd-816d-80f4a1beb3f5")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "8")
+						)
+						(pin
+							(num "7")
+						)
+						(pin
+							(num "10")
+						)
+						(pin
+							(num "5")
+						)
+						(pin
+							(num "4")
+						)
+						(pin
+							(num "6")
+						)
+						(pin
+							(num "9")
+						)
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+						(pin
+							(num "3")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "U3")
+			(value "TTL_RGB Blue")
+			(description "Generic connector, single row, 01x02, script generated")
+			(fields
+				(field
+					(name "Footprint")
+				)
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Generic connector, single row, 01x02, script generated")
+			)
+			(libsource
+				(lib "Connector")
+				(part "Conn_01x02_Socket")
+				(description "Generic connector, single row, 01x02, script generated")
+			)
+			(property
+				(name "Sheetname")
+				(value "Stammblatt")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Laser Controller.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "connector")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "Connector*:*_1x??_*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "d0b90e42-d735-4026-8f8b-f9a5839c3563")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "U4")
+			(value "TTL_RGB Red")
+			(description "Generic connector, single row, 01x02, script generated")
+			(fields
+				(field
+					(name "Footprint")
+				)
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Generic connector, single row, 01x02, script generated")
+			)
+			(libsource
+				(lib "")
+				(part "Conn_01x02_Socket_1")
+				(description "Generic connector, single row, 01x02, script generated")
+			)
+			(property
+				(name "Sheetname")
+				(value "Stammblatt")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Laser Controller.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "connector")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "Connector*:*_1x??_*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "eac7dc82-ac13-43bb-a789-0d7d63c7a9b5")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "U5")
+			(value "TTL_RGB Green")
+			(description "Generic connector, single row, 01x02, script generated")
+			(fields
+				(field
+					(name "Footprint")
+				)
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Generic connector, single row, 01x02, script generated")
+			)
+			(libsource
+				(lib "")
+				(part "Conn_01x02_Socket_2")
+				(description "Generic connector, single row, 01x02, script generated")
+			)
+			(property
+				(name "Sheetname")
+				(value "Stammblatt")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Laser Controller.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "connector")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "Connector*:*_1x??_*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "919fc297-7dd8-48d1-a118-0d288708bc3a")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "U6")
+			(value "DS18B20")
+			(footprint "Package_TO_SOT_THT:TO-92_Inline")
+			(datasheet "http://datasheets.maximintegrated.com/en/ds/DS18B20.pdf")
+			(description "Programmable Resolution 1-Wire Digital Thermometer TO-92")
+			(fields
+				(field
+					(name "Footprint") "Package_TO_SOT_THT:TO-92_Inline")
+				(field
+					(name "Datasheet") "http://datasheets.maximintegrated.com/en/ds/DS18B20.pdf")
+				(field
+					(name "Description") "Programmable Resolution 1-Wire Digital Thermometer TO-92")
+			)
+			(libsource
+				(lib "Sensor_Temperature")
+				(part "DS18B20")
+				(description "Programmable Resolution 1-Wire Digital Thermometer TO-92")
+			)
+			(property
+				(name "Sheetname")
+				(value "Stammblatt")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Laser Controller.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "OneWire 1Wire Dallas Maxim")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "TO*92*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "afafd26f-a4eb-4c89-8afe-5565a4b3f592")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "3")
+						)
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "U7")
+			(value "DS18B20")
+			(footprint "Package_TO_SOT_THT:TO-92_Inline")
+			(datasheet "http://datasheets.maximintegrated.com/en/ds/DS18B20.pdf")
+			(description "Programmable Resolution 1-Wire Digital Thermometer TO-92")
+			(fields
+				(field
+					(name "Footprint") "Package_TO_SOT_THT:TO-92_Inline")
+				(field
+					(name "Datasheet") "http://datasheets.maximintegrated.com/en/ds/DS18B20.pdf")
+				(field
+					(name "Description") "Programmable Resolution 1-Wire Digital Thermometer TO-92")
+			)
+			(libsource
+				(lib "Sensor_Temperature")
+				(part "DS18B20")
+				(description "Programmable Resolution 1-Wire Digital Thermometer TO-92")
+			)
+			(property
+				(name "Sheetname")
+				(value "Stammblatt")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Laser Controller.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "OneWire 1Wire Dallas Maxim")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "TO*92*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "8c80053b-ef35-451b-8dc6-9b5eb6336b55")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "3")
+						)
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "U8")
+			(value "DS18B20")
+			(footprint "Package_TO_SOT_THT:TO-92_Inline")
+			(datasheet "http://datasheets.maximintegrated.com/en/ds/DS18B20.pdf")
+			(description "Programmable Resolution 1-Wire Digital Thermometer TO-92")
+			(fields
+				(field
+					(name "Footprint") "Package_TO_SOT_THT:TO-92_Inline")
+				(field
+					(name "Datasheet") "http://datasheets.maximintegrated.com/en/ds/DS18B20.pdf")
+				(field
+					(name "Description") "Programmable Resolution 1-Wire Digital Thermometer TO-92")
+			)
+			(libsource
+				(lib "Sensor_Temperature")
+				(part "DS18B20")
+				(description "Programmable Resolution 1-Wire Digital Thermometer TO-92")
+			)
+			(property
+				(name "Sheetname")
+				(value "Stammblatt")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Laser Controller.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "OneWire 1Wire Dallas Maxim")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "TO*92*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "0eac84e2-fd74-4bca-970e-2854b634be0d")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "3")
+						)
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "U9")
+			(value "DS18B20")
+			(footprint "Package_TO_SOT_THT:TO-92_Inline")
+			(datasheet "http://datasheets.maximintegrated.com/en/ds/DS18B20.pdf")
+			(description "Programmable Resolution 1-Wire Digital Thermometer TO-92")
+			(fields
+				(field
+					(name "Footprint") "Package_TO_SOT_THT:TO-92_Inline")
+				(field
+					(name "Datasheet") "http://datasheets.maximintegrated.com/en/ds/DS18B20.pdf")
+				(field
+					(name "Description") "Programmable Resolution 1-Wire Digital Thermometer TO-92")
+			)
+			(libsource
+				(lib "Sensor_Temperature")
+				(part "DS18B20")
+				(description "Programmable Resolution 1-Wire Digital Thermometer TO-92")
+			)
+			(property
+				(name "Sheetname")
+				(value "Stammblatt")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Laser Controller.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "OneWire 1Wire Dallas Maxim")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "TO*92*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "5003e2e9-2265-4079-b1d7-197ddfda943f")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "3")
+						)
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "U10")
+			(value "DS18B20")
+			(footprint "Package_TO_SOT_THT:TO-92_Inline")
+			(datasheet "http://datasheets.maximintegrated.com/en/ds/DS18B20.pdf")
+			(description "Programmable Resolution 1-Wire Digital Thermometer TO-92")
+			(fields
+				(field
+					(name "Footprint") "Package_TO_SOT_THT:TO-92_Inline")
+				(field
+					(name "Datasheet") "http://datasheets.maximintegrated.com/en/ds/DS18B20.pdf")
+				(field
+					(name "Description") "Programmable Resolution 1-Wire Digital Thermometer TO-92")
+			)
+			(libsource
+				(lib "Sensor_Temperature")
+				(part "DS18B20")
+				(description "Programmable Resolution 1-Wire Digital Thermometer TO-92")
+			)
+			(property
+				(name "Sheetname")
+				(value "Stammblatt")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Laser Controller.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "OneWire 1Wire Dallas Maxim")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "TO*92*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "3018b739-855d-4f9b-91e0-9d02d2c36346")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "3")
+						)
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "U12")
+			(value "OPA4134UA_2K5")
+			(footprint "Footprint:D14")
+			(description "Quad SoundPlus™ High Performance Audio Operational Amplifiers")
+			(fields
+				(field
+					(name "MF") "Texas Instruments")
+				(field
+					(name "Package") "SOIC-14 Texas Instruments")
+				(field
+					(name "Price") "None")
+				(field
+					(name "SnapEDA_Link") "https://www.snapeda.com/parts/OPA4134UA/2K5/Texas+Instruments/view-part/?ref=snap")
+				(field
+					(name "MP") "OPA4134UA/2K5")
+				(field
+					(name "Availability") "In Stock")
+				(field
+					(name "Check_prices") "https://www.snapeda.com/parts/OPA4134UA/2K5/Texas+Instruments/view-part/?ref=eda")
+				(field
+					(name "Footprint") "Footprint:D14")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Quad SoundPlus™ High Performance Audio Operational Amplifiers")
+			)
+			(libsource
+				(lib "Symbols")
+				(part "OPA4134UA_2K5")
+				(description "Quad SoundPlus™ High Performance Audio Operational Amplifiers")
+			)
+			(property
+				(name "MF")
+				(value "Texas Instruments")
+			)
+			(property
+				(name "Package")
+				(value "SOIC-14 Texas Instruments")
+			)
+			(property
+				(name "Price")
+				(value "None")
+			)
+			(property
+				(name "SnapEDA_Link")
+				(value "https://www.snapeda.com/parts/OPA4134UA/2K5/Texas+Instruments/view-part/?ref=snap")
+			)
+			(property
+				(name "MP")
+				(value "OPA4134UA/2K5")
+			)
+			(property
+				(name "Availability")
+				(value "In Stock")
+			)
+			(property
+				(name "Check_prices")
+				(value "https://www.snapeda.com/parts/OPA4134UA/2K5/Texas+Instruments/view-part/?ref=eda")
+			)
+			(property
+				(name "Sheetname")
+				(value "Stammblatt")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Laser Controller.kicad_sch")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "77f4eecf-b12c-46ff-99f9-b9c601b7d406")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+						(pin
+							(num "3")
+						)
+						(pin
+							(num "4")
+						)
+						(pin
+							(num "5")
+						)
+						(pin
+							(num "6")
+						)
+						(pin
+							(num "7")
+						)
+						(pin
+							(num "14")
+						)
+						(pin
+							(num "13")
+						)
+						(pin
+							(num "12")
+						)
+						(pin
+							(num "11")
+						)
+						(pin
+							(num "10")
+						)
+						(pin
+							(num "9")
+						)
+						(pin
+							(num "8")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "U13")
+			(value "Galvo Input")
+			(footprint "Connector_FFC-FPC:TE_84982-4_2Rows-04Pins-P1.0mm_Vertical")
+			(description "Generic connector, single row, 01x04, script generated")
+			(fields
+				(field
+					(name "Footprint") "Connector_FFC-FPC:TE_84982-4_2Rows-04Pins-P1.0mm_Vertical")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Generic connector, single row, 01x04, script generated")
+			)
+			(libsource
+				(lib "Connector")
+				(part "Conn_01x04_Socket")
+				(description "Generic connector, single row, 01x04, script generated")
+			)
+			(property
+				(name "Sheetname")
+				(value "Stammblatt")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Laser Controller.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "connector")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "Connector*:*_1x??_*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "e4de4e25-c014-4d3b-86bc-24ea12a20c99")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+						(pin
+							(num "3")
+						)
+						(pin
+							(num "4")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "U15")
+			(value "6N137")
+			(footprint "Package_DIP:DIP-8_W7.62mm")
+			(datasheet "https://docs.broadcom.com/docs/AV02-0940EN")
+			(description "Single High Speed LSTTL/TTL Compatible Optocoupler with enable, dV/dt 1000/us, VCM 10, max 7V VCC, DIP-8")
+			(fields
+				(field
+					(name "Footprint") "Package_DIP:DIP-8_W7.62mm")
+				(field
+					(name "Datasheet") "https://docs.broadcom.com/docs/AV02-0940EN")
+				(field
+					(name "Description") "Single High Speed LSTTL/TTL Compatible Optocoupler with enable, dV/dt 1000/us, VCM 10, max 7V VCC, DIP-8")
+			)
+			(libsource
+				(lib "Isolator")
+				(part "6N137")
+				(description "Single High Speed LSTTL/TTL Compatible Optocoupler with enable, dV/dt 1000/us, VCM 10, max 7V VCC, DIP-8")
+			)
+			(property
+				(name "Sheetname")
+				(value "Stammblatt")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Laser Controller.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "High speed optically coupled gates enable")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "DIP*W7.62mm*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "a149a65a-744b-4d3a-98a1-4dfb707b0712")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+						(pin
+							(num "3")
+						)
+						(pin
+							(num "4")
+						)
+						(pin
+							(num "8")
+						)
+						(pin
+							(num "5")
+						)
+						(pin
+							(num "7")
+						)
+						(pin
+							(num "6")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "U16")
+			(value "6N137")
+			(footprint "Package_DIP:DIP-8_W7.62mm")
+			(datasheet "https://docs.broadcom.com/docs/AV02-0940EN")
+			(description "Single High Speed LSTTL/TTL Compatible Optocoupler with enable, dV/dt 1000/us, VCM 10, max 7V VCC, DIP-8")
+			(fields
+				(field
+					(name "Footprint") "Package_DIP:DIP-8_W7.62mm")
+				(field
+					(name "Datasheet") "https://docs.broadcom.com/docs/AV02-0940EN")
+				(field
+					(name "Description") "Single High Speed LSTTL/TTL Compatible Optocoupler with enable, dV/dt 1000/us, VCM 10, max 7V VCC, DIP-8")
+			)
+			(libsource
+				(lib "Isolator")
+				(part "6N137")
+				(description "Single High Speed LSTTL/TTL Compatible Optocoupler with enable, dV/dt 1000/us, VCM 10, max 7V VCC, DIP-8")
+			)
+			(property
+				(name "Sheetname")
+				(value "Stammblatt")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Laser Controller.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "High speed optically coupled gates enable")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "DIP*W7.62mm*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "e59c5088-025f-4e21-9d08-355157ba3760")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+						(pin
+							(num "3")
+						)
+						(pin
+							(num "4")
+						)
+						(pin
+							(num "8")
+						)
+						(pin
+							(num "5")
+						)
+						(pin
+							(num "7")
+						)
+						(pin
+							(num "6")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "U17")
+			(value "6N137")
+			(footprint "Package_DIP:DIP-8_W7.62mm")
+			(datasheet "https://docs.broadcom.com/docs/AV02-0940EN")
+			(description "Single High Speed LSTTL/TTL Compatible Optocoupler with enable, dV/dt 1000/us, VCM 10, max 7V VCC, DIP-8")
+			(fields
+				(field
+					(name "Footprint") "Package_DIP:DIP-8_W7.62mm")
+				(field
+					(name "Datasheet") "https://docs.broadcom.com/docs/AV02-0940EN")
+				(field
+					(name "Description") "Single High Speed LSTTL/TTL Compatible Optocoupler with enable, dV/dt 1000/us, VCM 10, max 7V VCC, DIP-8")
+			)
+			(libsource
+				(lib "Isolator")
+				(part "6N137")
+				(description "Single High Speed LSTTL/TTL Compatible Optocoupler with enable, dV/dt 1000/us, VCM 10, max 7V VCC, DIP-8")
+			)
+			(property
+				(name "Sheetname")
+				(value "Stammblatt")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Laser Controller.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "High speed optically coupled gates enable")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "DIP*W7.62mm*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "dede5cee-d3b2-4928-ac22-b61008c07eb4")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+						(pin
+							(num "3")
+						)
+						(pin
+							(num "4")
+						)
+						(pin
+							(num "8")
+						)
+						(pin
+							(num "5")
+						)
+						(pin
+							(num "7")
+						)
+						(pin
+							(num "6")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "X_Knoten1")
+			(value "0")
+			(footprint "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+			(description "Resistor")
+			(fields
+				(field
+					(name "Footprint") "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Resistor")
+			)
+			(libsource
+				(lib "Device")
+				(part "R")
+				(description "Resistor")
+			)
+			(property
+				(name "Sheetname")
+				(value "Stammblatt")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Laser Controller.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "R res resistor")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "R_*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "040d411e-9cea-4a73-a546-7623c7abcda5")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "Y_Knoten1")
+			(value "0")
+			(footprint "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+			(description "Resistor")
+			(fields
+				(field
+					(name "Footprint") "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Resistor")
+			)
+			(libsource
+				(lib "Device")
+				(part "R")
+				(description "Resistor")
+			)
+			(property
+				(name "Sheetname")
+				(value "Stammblatt")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Laser Controller.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "R res resistor")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "R_*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "28951710-8989-4afe-bf36-9038d5d46ae3")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+	)
+	(groups)
+	(variants)
+	(libparts
+		(libpart
+			(lib "")
+			(part "Conn_01x02_Socket_1")
+			(description "Generic connector, single row, 01x02, script generated")
+			(footprints
+				(fp "Connector*:*_1x??_*")
+			)
+			(fields
+				(field
+					(name "Reference") "J")
+				(field
+					(name "Value") "Conn_01x02_Socket")
+				(field
+					(name "Footprint")
+				)
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Generic connector, single row, 01x02, script generated")
+			)
+			(pins
+				(pin
+					(num "1")
+					(name "Pin_1")
+					(type "passive")
+				)
+				(pin
+					(num "2")
+					(name "Pin_2")
+					(type "passive")
+				)
+			)
+		)
+		(libpart
+			(lib "")
+			(part "Conn_01x02_Socket_2")
+			(description "Generic connector, single row, 01x02, script generated")
+			(footprints
+				(fp "Connector*:*_1x??_*")
+			)
+			(fields
+				(field
+					(name "Reference") "J")
+				(field
+					(name "Value") "Conn_01x02_Socket")
+				(field
+					(name "Footprint")
+				)
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Generic connector, single row, 01x02, script generated")
+			)
+			(pins
+				(pin
+					(num "1")
+					(name "Pin_1")
+					(type "passive")
+				)
+				(pin
+					(num "2")
+					(name "Pin_2")
+					(type "passive")
+				)
+			)
+		)
+		(libpart
+			(lib "")
+			(part "R_2")
+			(description "Resistor")
+			(footprints
+				(fp "R_*")
+			)
+			(fields
+				(field
+					(name "Reference") "R")
+				(field
+					(name "Value") "R")
+				(field
+					(name "Footprint")
+				)
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Resistor")
+			)
+			(pins
+				(pin
+					(num "1")
+					(name "")
+					(type "passive")
+				)
+				(pin
+					(num "2")
+					(name "")
+					(type "passive")
+				)
+			)
+		)
+		(libpart
+			(lib "")
+			(part "R_3")
+			(description "Resistor")
+			(footprints
+				(fp "R_*")
+			)
+			(fields
+				(field
+					(name "Reference") "R")
+				(field
+					(name "Value") "R")
+				(field
+					(name "Footprint")
+				)
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Resistor")
+			)
+			(pins
+				(pin
+					(num "1")
+					(name "")
+					(type "passive")
+				)
+				(pin
+					(num "2")
+					(name "")
+					(type "passive")
+				)
+			)
+		)
+		(libpart
+			(lib "")
+			(part "R_4")
+			(description "Resistor")
+			(footprints
+				(fp "R_*")
+			)
+			(fields
+				(field
+					(name "Reference") "R")
+				(field
+					(name "Value") "R")
+				(field
+					(name "Footprint")
+				)
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Resistor")
+			)
+			(pins
+				(pin
+					(num "1")
+					(name "")
+					(type "passive")
+				)
+				(pin
+					(num "2")
+					(name "")
+					(type "passive")
+				)
+			)
+		)
+		(libpart
+			(lib "Buffer")
+			(part "DAC8562SDGST")
+			(description "16-bit, dual-channel, low-power, ultra-low glitch, voltage output DAC with 2.5V, 4ppm/°C reference")
+			(fields
+				(field
+					(name "Reference") "U")
+				(field
+					(name "Value") "DAC8562SDGST")
+				(field
+					(name "Footprint") "DAC8562SDGST:SOP50P490X110-10N")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "16-bit, dual-channel, low-power, ultra-low glitch, voltage output DAC with 2.5V, 4ppm/°C reference")
+				(field
+					(name "MF") "Texas Instruments")
+				(field
+					(name "Package") "VSSOP-10 Texas Instruments")
+				(field
+					(name "Price") "None")
+				(field
+					(name "SnapEDA_Link") "https://www.snapeda.com/parts/DAC8562SDGST/Texas+Instruments/view-part/?ref=snap")
+				(field
+					(name "MP") "DAC8562SDGST")
+				(field
+					(name "Availability") "In Stock")
+				(field
+					(name "Check_prices") "https://www.snapeda.com/parts/DAC8562SDGST/Texas+Instruments/view-part/?ref=eda")
+			)
+			(pins
+				(pin
+					(num "1")
+					(name "VOUTA")
+					(type "output")
+				)
+				(pin
+					(num "2")
+					(name "VOUTB")
+					(type "output")
+				)
+				(pin
+					(num "3")
+					(name "GND")
+					(type "power_in")
+				)
+				(pin
+					(num "4")
+					(name "LDAC")
+					(type "bidirectional")
+				)
+				(pin
+					(num "5")
+					(name "CLR")
+					(type "bidirectional")
+				)
+				(pin
+					(num "6")
+					(name "SYNC")
+					(type "bidirectional")
+				)
+				(pin
+					(num "7")
+					(name "SCLK")
+					(type "input")
+				)
+				(pin
+					(num "8")
+					(name "DIN")
+					(type "input")
+				)
+				(pin
+					(num "9")
+					(name "AVDD")
+					(type "power_in")
+				)
+				(pin
+					(num "10")
+					(name "VREFINNREFOUT")
+					(type "input")
+				)
+			)
+		)
+		(libpart
+			(lib "Connector")
+			(part "Conn_01x02_Socket")
+			(description "Generic connector, single row, 01x02, script generated")
+			(footprints
+				(fp "Connector*:*_1x??_*")
+			)
+			(fields
+				(field
+					(name "Reference") "J")
+				(field
+					(name "Value") "Conn_01x02_Socket")
+				(field
+					(name "Footprint")
+				)
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Generic connector, single row, 01x02, script generated")
+			)
+			(pins
+				(pin
+					(num "1")
+					(name "Pin_1")
+					(type "passive")
+				)
+				(pin
+					(num "2")
+					(name "Pin_2")
+					(type "passive")
+				)
+			)
+		)
+		(libpart
+			(lib "Connector")
+			(part "Conn_01x04_Socket")
+			(description "Generic connector, single row, 01x04, script generated")
+			(footprints
+				(fp "Connector*:*_1x??_*")
+			)
+			(fields
+				(field
+					(name "Reference") "J")
+				(field
+					(name "Value") "Conn_01x04_Socket")
+				(field
+					(name "Footprint")
+				)
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Generic connector, single row, 01x04, script generated")
+			)
+			(pins
+				(pin
+					(num "1")
+					(name "Pin_1")
+					(type "passive")
+				)
+				(pin
+					(num "2")
+					(name "Pin_2")
+					(type "passive")
+				)
+				(pin
+					(num "3")
+					(name "Pin_3")
+					(type "passive")
+				)
+				(pin
+					(num "4")
+					(name "Pin_4")
+					(type "passive")
+				)
+			)
+		)
+		(libpart
+			(lib "Connector")
+			(part "Micro_SD_Card")
+			(description "Micro SD Card Socket")
+			(docs "https://www.we-online.com/components/products/datasheet/693072010801.pdf")
+			(footprints
+				(fp "microSD*")
+			)
+			(fields
+				(field
+					(name "Reference") "J")
+				(field
+					(name "Value") "Micro_SD_Card")
+				(field
+					(name "Footprint")
+				)
+				(field
+					(name "Datasheet") "https://www.we-online.com/components/products/datasheet/693072010801.pdf")
+				(field
+					(name "Description") "Micro SD Card Socket")
+			)
+			(pins
+				(pin
+					(num "1")
+					(name "3v3")
+					(type "power_in")
+				)
+				(pin
+					(num "2")
+					(name "CS")
+					(type "bidirectional")
+				)
+				(pin
+					(num "3")
+					(name "MOSI")
+					(type "input")
+				)
+				(pin
+					(num "4")
+					(name "CLK")
+					(type "power_in")
+				)
+				(pin
+					(num "5")
+					(name "MISO")
+					(type "input")
+				)
+				(pin
+					(num "6")
+					(name "GND")
+					(type "power_in")
+				)
+			)
+		)
+		(libpart
+			(lib "Device")
+			(part "C")
+			(description "Unpolarized capacitor")
+			(footprints
+				(fp "C_*")
+			)
+			(fields
+				(field
+					(name "Reference") "C")
+				(field
+					(name "Value") "C")
+				(field
+					(name "Footprint")
+				)
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Unpolarized capacitor")
+			)
+			(pins
+				(pin
+					(num "1")
+					(name "")
+					(type "passive")
+				)
+				(pin
+					(num "2")
+					(name "")
+					(type "passive")
+				)
+			)
+		)
+		(libpart
+			(lib "Device")
+			(part "R")
+			(description "Resistor")
+			(footprints
+				(fp "R_*")
+			)
+			(fields
+				(field
+					(name "Reference") "R")
+				(field
+					(name "Value") "R")
+				(field
+					(name "Footprint")
+				)
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Resistor")
+			)
+			(pins
+				(pin
+					(num "1")
+					(name "")
+					(type "passive")
+				)
+				(pin
+					(num "2")
+					(name "")
+					(type "passive")
+				)
+			)
+		)
+		(libpart
+			(lib "Diode")
+			(part "1N5819")
+			(description "40V 1A Schottky Barrier Rectifier Diode, DO-41")
+			(docs "http://www.vishay.com/docs/88525/1n5817.pdf")
+			(footprints
+				(fp "D*DO?41*")
+			)
+			(fields
+				(field
+					(name "Reference") "D")
+				(field
+					(name "Value") "1N5819")
+				(field
+					(name "Footprint") "Diode_THT:D_DO-41_SOD81_P10.16mm_Horizontal")
+				(field
+					(name "Datasheet") "http://www.vishay.com/docs/88525/1n5817.pdf")
+				(field
+					(name "Description") "40V 1A Schottky Barrier Rectifier Diode, DO-41")
+			)
+			(pins
+				(pin
+					(num "1")
+					(name "K")
+					(type "passive")
+				)
+				(pin
+					(num "2")
+					(name "A")
+					(type "passive")
+				)
+			)
+		)
+		(libpart
+			(lib "Isolator")
+			(part "6N137")
+			(description "Single High Speed LSTTL/TTL Compatible Optocoupler with enable, dV/dt 1000/us, VCM 10, max 7V VCC, DIP-8")
+			(docs "https://docs.broadcom.com/docs/AV02-0940EN")
+			(footprints
+				(fp "DIP*W7.62mm*")
+			)
+			(fields
+				(field
+					(name "Reference") "U")
+				(field
+					(name "Value") "6N137")
+				(field
+					(name "Footprint") "Package_DIP:DIP-8_W7.62mm")
+				(field
+					(name "Datasheet") "https://docs.broadcom.com/docs/AV02-0940EN")
+				(field
+					(name "Description") "Single High Speed LSTTL/TTL Compatible Optocoupler with enable, dV/dt 1000/us, VCM 10, max 7V VCC, DIP-8")
+			)
+			(pins
+				(pin
+					(num "1")
+					(name "NC")
+					(type "passive")
+				)
+				(pin
+					(num "2")
+					(name "A")
+					(type "passive")
+				)
+				(pin
+					(num "3")
+					(name "C")
+					(type "passive")
+				)
+				(pin
+					(num "4")
+					(name "NC")
+					(type "passive")
+				)
+				(pin
+					(num "5")
+					(name "GND")
+					(type "power_in")
+				)
+				(pin
+					(num "6")
+					(name "VO")
+					(type "open_collector")
+				)
+				(pin
+					(num "7")
+					(name "EN")
+					(type "input")
+				)
+				(pin
+					(num "8")
+					(name "VCC")
+					(type "power_in")
+				)
+			)
+		)
+		(libpart
+			(lib "RF_Module")
+			(part "ESP32-S3-N16R8-DevKit")
+			(description "ESP32-S3-N16R8 Development Board, 16MB Flash, 8MB PSRAM, WiFi 2.4G, BT5, Dual USB-C, RGB-LED")
+			(docs "https://www.espressif.com/sites/default/files/documentation/esp32-s3_datasheet_en.pdf")
+			(fields
+				(field
+					(name "Reference") "U")
+				(field
+					(name "Value") "ESP32-S3-N16R8-DevKit")
+				(field
+					(name "Footprint") "ESP32-S3-N16R8-DevKit:XCVR_ESP32-S3-N16R8-DevKit")
+				(field
+					(name "Datasheet") "https://www.espressif.com/sites/default/files/documentation/esp32-s3_datasheet_en.pdf")
+				(field
+					(name "Description") "ESP32-S3-N16R8 Development Board, 16MB Flash, 8MB PSRAM, WiFi 2.4G, BT5, Dual USB-C, RGB-LED")
+				(field
+					(name "MF") "Espressif Systems")
+				(field
+					(name "MP") "ESP32-S3-N16R8-DevKit")
+			)
+			(pins
+				(pin
+					(num "J1_1")
+					(name "3V3")
+					(type "power_in")
+				)
+				(pin
+					(num "J1_2")
+					(name "3V3")
+					(type "power_in")
+				)
+				(pin
+					(num "J1_3")
+					(name "RST")
+					(type "input")
+				)
+				(pin
+					(num "J1_4")
+					(name "GPIO4")
+					(type "bidirectional")
+				)
+				(pin
+					(num "J1_5")
+					(name "GPIO5")
+					(type "bidirectional")
+				)
+				(pin
+					(num "J1_6")
+					(name "GPIO6")
+					(type "bidirectional")
+				)
+				(pin
+					(num "J1_7")
+					(name "GPIO7")
+					(type "bidirectional")
+				)
+				(pin
+					(num "J1_8")
+					(name "GPIO15")
+					(type "bidirectional")
+				)
+				(pin
+					(num "J1_9")
+					(name "GPIO16")
+					(type "bidirectional")
+				)
+				(pin
+					(num "J1_10")
+					(name "GPIO17")
+					(type "bidirectional")
+				)
+				(pin
+					(num "J1_11")
+					(name "GPIO18")
+					(type "bidirectional")
+				)
+				(pin
+					(num "J1_12")
+					(name "GPIO8")
+					(type "bidirectional")
+				)
+				(pin
+					(num "J1_13")
+					(name "GPIO3")
+					(type "bidirectional")
+				)
+				(pin
+					(num "J1_14")
+					(name "GPIO46")
+					(type "bidirectional")
+				)
+				(pin
+					(num "J1_15")
+					(name "GPIO9")
+					(type "bidirectional")
+				)
+				(pin
+					(num "J1_16")
+					(name "GPIO10")
+					(type "bidirectional")
+				)
+				(pin
+					(num "J1_17")
+					(name "GPIO11")
+					(type "bidirectional")
+				)
+				(pin
+					(num "J1_18")
+					(name "GPIO12")
+					(type "bidirectional")
+				)
+				(pin
+					(num "J1_19")
+					(name "GPIO13")
+					(type "bidirectional")
+				)
+				(pin
+					(num "J1_20")
+					(name "GPIO14")
+					(type "bidirectional")
+				)
+				(pin
+					(num "J1_21")
+					(name "5V0")
+					(type "power_in")
+				)
+				(pin
+					(num "J1_22")
+					(name "GND")
+					(type "power_in")
+				)
+				(pin
+					(num "J2_1")
+					(name "GND")
+					(type "power_in")
+				)
+				(pin
+					(num "J2_2")
+					(name "GPIO43/TX")
+					(type "bidirectional")
+				)
+				(pin
+					(num "J2_3")
+					(name "GPIO44/RX")
+					(type "bidirectional")
+				)
+				(pin
+					(num "J2_4")
+					(name "GPIO1")
+					(type "bidirectional")
+				)
+				(pin
+					(num "J2_5")
+					(name "GPIO2")
+					(type "bidirectional")
+				)
+				(pin
+					(num "J2_6")
+					(name "GPIO42")
+					(type "bidirectional")
+				)
+				(pin
+					(num "J2_7")
+					(name "GPIO41")
+					(type "bidirectional")
+				)
+				(pin
+					(num "J2_8")
+					(name "GPIO40")
+					(type "bidirectional")
+				)
+				(pin
+					(num "J2_9")
+					(name "GPIO39")
+					(type "bidirectional")
+				)
+				(pin
+					(num "J2_10")
+					(name "GPIO38")
+					(type "bidirectional")
+				)
+				(pin
+					(num "J2_11")
+					(name "GPIO37")
+					(type "bidirectional")
+				)
+				(pin
+					(num "J2_12")
+					(name "GPIO36")
+					(type "bidirectional")
+				)
+				(pin
+					(num "J2_13")
+					(name "GPIO35")
+					(type "bidirectional")
+				)
+				(pin
+					(num "J2_14")
+					(name "GPIO0/BOOT")
+					(type "bidirectional")
+				)
+				(pin
+					(num "J2_15")
+					(name "GPIO45")
+					(type "bidirectional")
+				)
+				(pin
+					(num "J2_16")
+					(name "GPIO48")
+					(type "bidirectional")
+				)
+				(pin
+					(num "J2_17")
+					(name "GPIO47")
+					(type "bidirectional")
+				)
+				(pin
+					(num "J2_18")
+					(name "GPIO21")
+					(type "bidirectional")
+				)
+				(pin
+					(num "J2_19")
+					(name "GPIO20/USB_D+")
+					(type "bidirectional")
+				)
+				(pin
+					(num "J2_20")
+					(name "GPIO19/USB_D-")
+					(type "bidirectional")
+				)
+				(pin
+					(num "J2_21")
+					(name "GND")
+					(type "power_in")
+				)
+				(pin
+					(num "J2_22")
+					(name "GND")
+					(type "power_in")
+				)
+			)
+		)
+		(libpart
+			(lib "Sensor_Temperature")
+			(part "DS18B20")
+			(description "Programmable Resolution 1-Wire Digital Thermometer TO-92")
+			(docs "http://datasheets.maximintegrated.com/en/ds/DS18B20.pdf")
+			(footprints
+				(fp "TO*92*")
+			)
+			(fields
+				(field
+					(name "Reference") "U")
+				(field
+					(name "Value") "DS18B20")
+				(field
+					(name "Footprint") "Package_TO_SOT_THT:TO-92_Inline")
+				(field
+					(name "Datasheet") "http://datasheets.maximintegrated.com/en/ds/DS18B20.pdf")
+				(field
+					(name "Description") "Programmable Resolution 1-Wire Digital Thermometer TO-92")
+			)
+			(pins
+				(pin
+					(num "1")
+					(name "GND")
+					(type "power_in")
+				)
+				(pin
+					(num "2")
+					(name "DQ")
+					(type "bidirectional")
+				)
+				(pin
+					(num "3")
+					(name "V_{DD}")
+					(type "power_in")
+				)
+			)
+		)
+		(libpart
+			(lib "Symbols")
+			(part "OPA4134UA_2K5")
+			(description "Quad SoundPlus™ High Performance Audio Operational Amplifiers")
+			(fields
+				(field
+					(name "Reference") "U")
+				(field
+					(name "Value") "OPA4134UA_2K5")
+				(field
+					(name "Footprint") "Footprint:SOIC127P600X175-14N")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Quad SoundPlus™ High Performance Audio Operational Amplifiers")
+				(field
+					(name "MF") "Texas Instruments")
+				(field
+					(name "Package") "SOIC-14 Texas Instruments")
+				(field
+					(name "Price") "None")
+				(field
+					(name "SnapEDA_Link") "https://www.snapeda.com/parts/OPA4134UA/2K5/Texas+Instruments/view-part/?ref=snap")
+				(field
+					(name "MP") "OPA4134UA/2K5")
+				(field
+					(name "Availability") "In Stock")
+				(field
+					(name "Check_prices") "https://www.snapeda.com/parts/OPA4134UA/2K5/Texas+Instruments/view-part/?ref=eda")
+			)
+			(pins
+				(pin
+					(num "1")
+					(name "OUT_A")
+					(type "output")
+				)
+				(pin
+					(num "2")
+					(name "-IN_A")
+					(type "input")
+				)
+				(pin
+					(num "3")
+					(name "+IN_A")
+					(type "input")
+				)
+				(pin
+					(num "4")
+					(name "V+")
+					(type "power_in")
+				)
+				(pin
+					(num "5")
+					(name "+IN_B")
+					(type "input")
+				)
+				(pin
+					(num "6")
+					(name "-IN_B")
+					(type "input")
+				)
+				(pin
+					(num "7")
+					(name "OUT_B")
+					(type "output")
+				)
+				(pin
+					(num "8")
+					(name "OUT_C")
+					(type "output")
+				)
+				(pin
+					(num "9")
+					(name "-IN_C")
+					(type "input")
+				)
+				(pin
+					(num "10")
+					(name "+IN_C")
+					(type "input")
+				)
+				(pin
+					(num "11")
+					(name "V-")
+					(type "power_in")
+				)
+				(pin
+					(num "12")
+					(name "+IN_D")
+					(type "input")
+				)
+				(pin
+					(num "13")
+					(name "-IN_D")
+					(type "input")
+				)
+				(pin
+					(num "14")
+					(name "OUT_D")
+					(type "output")
+				)
+			)
+		)
+	)
+	(libraries
+		(library
+			(logical "Buffer")
+			(uri "${KICAD10_SYMBOL_DIR}/Buffer.kicad_sym")
+		)
+		(library
+			(logical "Connector")
+			(uri "${KICAD10_SYMBOL_DIR}/Connector.kicad_sym")
+		)
+		(library
+			(logical "Device")
+			(uri "${KICAD10_SYMBOL_DIR}/Device.kicad_sym")
+		)
+		(library
+			(logical "Diode")
+			(uri "${KICAD10_SYMBOL_DIR}/Diode.kicad_sym")
+		)
+		(library
+			(logical "Isolator")
+			(uri "${KICAD10_SYMBOL_DIR}/Isolator.kicad_sym")
+		)
+		(library
+			(logical "RF_Module")
+			(uri "${KICAD10_SYMBOL_DIR}/RF_Module.kicad_sym")
+		)
+		(library
+			(logical "Sensor_Temperature")
+			(uri "${KICAD10_SYMBOL_DIR}/Sensor_Temperature.kicad_sym")
+		)
+		(library
+			(logical "Symbols")
+			(uri "D:/Sourcecode/KiCad_Libs/Symbols")
+		)
+	)
+	(nets
+		(net
+			(code "1")
+			(name "+15V")
+			(class "Default")
+			(node
+				(ref "D1")
+				(pin "2")
+				(pinfunction "A_2")
+				(pintype "passive")
+			)
+			(node
+				(ref "U12")
+				(pin "4")
+				(pinfunction "V+_4")
+				(pintype "power_in")
+			)
+		)
+		(net
+			(code "2")
+			(name "-15V")
+			(class "Default")
+			(node
+				(ref "U12")
+				(pin "11")
+				(pinfunction "V-_11")
+				(pintype "power_in")
+			)
+		)
+		(net
+			(code "3")
+			(name "5V GND Buck")
+			(class "Default")
+			(node
+				(ref "C5")
+				(pin "2")
+				(pintype "passive")
+			)
+			(node
+				(ref "C6")
+				(pin "2")
+				(pintype "passive")
+			)
+			(node
+				(ref "C7")
+				(pin "2")
+				(pintype "passive")
+			)
+			(node
+				(ref "R19")
+				(pin "2")
+				(pintype "passive")
+			)
+			(node
+				(ref "R21")
+				(pin "2")
+				(pintype "passive")
+			)
+			(node
+				(ref "R23")
+				(pin "2")
+				(pintype "passive")
+			)
+			(node
+				(ref "R26")
+				(pin "2")
+				(pintype "passive")
+			)
+			(node
+				(ref "U1")
+				(pin "J1_22")
+				(pinfunction "GND_J1_22")
+				(pintype "power_in")
+			)
+			(node
+				(ref "U1")
+				(pin "J2_21")
+				(pinfunction "GND_J2_21")
+				(pintype "power_in")
+			)
+			(node
+				(ref "U1")
+				(pin "J2_22")
+				(pinfunction "GND_J2_22")
+				(pintype "power_in")
+			)
+			(node
+				(ref "U10")
+				(pin "1")
+				(pinfunction "GND_1")
+				(pintype "power_in")
+			)
+			(node
+				(ref "U15")
+				(pin "3")
+				(pinfunction "C_3")
+				(pintype "passive")
+			)
+			(node
+				(ref "U15")
+				(pin "5")
+				(pinfunction "GND_5")
+				(pintype "power_in")
+			)
+			(node
+				(ref "U16")
+				(pin "3")
+				(pinfunction "C_3")
+				(pintype "passive")
+			)
+			(node
+				(ref "U16")
+				(pin "5")
+				(pinfunction "GND_5")
+				(pintype "power_in")
+			)
+			(node
+				(ref "U17")
+				(pin "3")
+				(pinfunction "C_3")
+				(pintype "passive")
+			)
+			(node
+				(ref "U17")
+				(pin "5")
+				(pinfunction "GND_5")
+				(pintype "power_in")
+			)
+			(node
+				(ref "U3")
+				(pin "1")
+				(pinfunction "Pin_1_1")
+				(pintype "passive")
+			)
+			(node
+				(ref "U4")
+				(pin "1")
+				(pinfunction "Pin_1_1")
+				(pintype "passive")
+			)
+			(node
+				(ref "U5")
+				(pin "1")
+				(pinfunction "Pin_1_1")
+				(pintype "passive")
+			)
+			(node
+				(ref "U6")
+				(pin "1")
+				(pinfunction "GND_1")
+				(pintype "power_in")
+			)
+			(node
+				(ref "U7")
+				(pin "1")
+				(pinfunction "GND_1")
+				(pintype "power_in")
+			)
+			(node
+				(ref "U8")
+				(pin "1")
+				(pinfunction "GND_1")
+				(pintype "power_in")
+			)
+			(node
+				(ref "U9")
+				(pin "1")
+				(pinfunction "GND_1")
+				(pintype "power_in")
+			)
+		)
+		(net
+			(code "4")
+			(name "AGND (from Galvo Board)")
+			(class "Default")
+			(node
+				(ref "C2")
+				(pin "2")
+				(pintype "passive")
+			)
+			(node
+				(ref "C3")
+				(pin "2")
+				(pintype "passive")
+			)
+			(node
+				(ref "C4")
+				(pin "2")
+				(pintype "passive")
+			)
+			(node
+				(ref "R25")
+				(pin "2")
+				(pintype "passive")
+			)
+			(node
+				(ref "R26")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "R8")
+				(pin "2")
+				(pintype "passive")
+			)
+			(node
+				(ref "R9")
+				(pin "2")
+				(pintype "passive")
+			)
+			(node
+				(ref "U13")
+				(pin "3")
+				(pinfunction "Pin_3_3")
+				(pintype "passive")
+			)
+			(node
+				(ref "U2")
+				(pin "3")
+				(pinfunction "GND_3")
+				(pintype "power_in")
+			)
+			(node
+				(ref "U2")
+				(pin "4")
+				(pinfunction "LDAC_4")
+				(pintype "bidirectional")
+			)
+		)
+		(net
+			(code "5")
+			(name "Buck +5V")
+			(class "Default")
+			(node
+				(ref "C1")
+				(pin "2")
+				(pintype "passive")
+			)
+			(node
+				(ref "C5")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "C6")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "C7")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "D1")
+				(pin "1")
+				(pinfunction "K_1")
+				(pintype "passive")
+			)
+			(node
+				(ref "R3")
+				(pin "2")
+				(pintype "passive")
+			)
+			(node
+				(ref "U1")
+				(pin "J1_21")
+				(pinfunction "5V0_J1_21")
+				(pintype "power_in")
+			)
+			(node
+				(ref "U15")
+				(pin "7")
+				(pinfunction "EN_7")
+				(pintype "input")
+			)
+			(node
+				(ref "U15")
+				(pin "8")
+				(pinfunction "VCC_8")
+				(pintype "power_in")
+			)
+			(node
+				(ref "U16")
+				(pin "7")
+				(pinfunction "EN_7")
+				(pintype "input")
+			)
+			(node
+				(ref "U16")
+				(pin "8")
+				(pinfunction "VCC_8")
+				(pintype "power_in")
+			)
+			(node
+				(ref "U17")
+				(pin "7")
+				(pinfunction "EN_7")
+				(pintype "input")
+			)
+			(node
+				(ref "U17")
+				(pin "8")
+				(pinfunction "VCC_8")
+				(pintype "power_in")
+			)
+		)
+		(net
+			(code "6")
+			(name "Net-(C3-Pad1)")
+			(class "Default")
+			(node
+				(ref "C3")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "R11")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "X_Knoten1")
+				(pin "1")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "7")
+			(name "Net-(C4-Pad1)")
+			(class "Default")
+			(node
+				(ref "C4")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "R13")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "Y_Knoten1")
+				(pin "1")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "8")
+			(name "Net-(J1-3v3)")
+			(class "Default")
+			(node
+				(ref "J1")
+				(pin "1")
+				(pinfunction "3v3_1")
+				(pintype "power_in")
+			)
+			(node
+				(ref "R18")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "R20")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "R22")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "R5")
+				(pin "2")
+				(pintype "passive")
+			)
+			(node
+				(ref "U1")
+				(pin "J1_1")
+				(pinfunction "3V3_J1_1")
+				(pintype "power_in")
+			)
+			(node
+				(ref "U1")
+				(pin "J1_2")
+				(pinfunction "3V3_J1_2")
+				(pintype "power_in")
+			)
+			(node
+				(ref "U10")
+				(pin "3")
+				(pinfunction "V_{DD}_3")
+				(pintype "power_in")
+			)
+			(node
+				(ref "U6")
+				(pin "3")
+				(pinfunction "V_{DD}_3")
+				(pintype "power_in")
+			)
+			(node
+				(ref "U7")
+				(pin "3")
+				(pinfunction "V_{DD}_3")
+				(pintype "power_in")
+			)
+			(node
+				(ref "U8")
+				(pin "3")
+				(pinfunction "V_{DD}_3")
+				(pintype "power_in")
+			)
+			(node
+				(ref "U9")
+				(pin "3")
+				(pinfunction "V_{DD}_3")
+				(pintype "power_in")
+			)
+		)
+		(net
+			(code "9")
+			(name "Net-(J1-CLK)")
+			(class "Default")
+			(node
+				(ref "J1")
+				(pin "4")
+				(pinfunction "CLK_4")
+				(pintype "power_in")
+			)
+			(node
+				(ref "U1")
+				(pin "J1_5")
+				(pinfunction "GPIO5_J1_5")
+				(pintype "bidirectional")
+			)
+		)
+		(net
+			(code "10")
+			(name "Net-(J1-CS)")
+			(class "Default")
+			(node
+				(ref "J1")
+				(pin "2")
+				(pinfunction "CS_2")
+				(pintype "bidirectional")
+			)
+			(node
+				(ref "U1")
+				(pin "J2_6")
+				(pinfunction "GPIO42_J2_6")
+				(pintype "bidirectional")
+			)
+		)
+		(net
+			(code "11")
+			(name "Net-(J1-GND)")
+			(class "Default")
+			(node
+				(ref "J1")
+				(pin "6")
+				(pinfunction "GND_6")
+				(pintype "power_in")
+			)
+			(node
+				(ref "U1")
+				(pin "J2_1")
+				(pinfunction "GND_J2_1")
+				(pintype "power_in")
+			)
+		)
+		(net
+			(code "12")
+			(name "Net-(J1-MISO)")
+			(class "Default")
+			(node
+				(ref "J1")
+				(pin "5")
+				(pinfunction "MISO_5")
+				(pintype "input")
+			)
+			(node
+				(ref "U1")
+				(pin "J2_4")
+				(pinfunction "GPIO1_J2_4")
+				(pintype "bidirectional")
+			)
+		)
+		(net
+			(code "13")
+			(name "Net-(J1-MOSI)")
+			(class "Default")
+			(node
+				(ref "J1")
+				(pin "3")
+				(pinfunction "MOSI_3")
+				(pintype "input")
+			)
+			(node
+				(ref "U1")
+				(pin "J1_6")
+				(pinfunction "GPIO6_J1_6")
+				(pintype "bidirectional")
+			)
+		)
+		(net
+			(code "14")
+			(name "Net-(R7-Pad2)")
+			(class "Default")
+			(node
+				(ref "R7")
+				(pin "2")
+				(pintype "passive")
+			)
+			(node
+				(ref "X_Knoten1")
+				(pin "2")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "15")
+			(name "Net-(R14-Pad2)")
+			(class "Default")
+			(node
+				(ref "R14")
+				(pin "2")
+				(pintype "passive")
+			)
+			(node
+				(ref "Y_Knoten1")
+				(pin "2")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "16")
+			(name "Net-(U1-GPIO7)")
+			(class "Default")
+			(node
+				(ref "R1")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "U1")
+				(pin "J1_7")
+				(pinfunction "GPIO7_J1_7")
+				(pintype "bidirectional")
+			)
+		)
+		(net
+			(code "17")
+			(name "Net-(U1-GPIO8)")
+			(class "Default")
+			(node
+				(ref "R2")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "U1")
+				(pin "J1_12")
+				(pinfunction "GPIO8_J1_12")
+				(pintype "bidirectional")
+			)
+		)
+		(net
+			(code "18")
+			(name "Net-(U1-GPIO10)")
+			(class "Default")
+			(node
+				(ref "U1")
+				(pin "J1_16")
+				(pinfunction "GPIO10_J1_16")
+				(pintype "bidirectional")
+			)
+			(node
+				(ref "U2")
+				(pin "6")
+				(pinfunction "SYNC_6")
+				(pintype "bidirectional")
+			)
+		)
+		(net
+			(code "19")
+			(name "Net-(U1-GPIO11)")
+			(class "Default")
+			(node
+				(ref "U1")
+				(pin "J1_17")
+				(pinfunction "GPIO11_J1_17")
+				(pintype "bidirectional")
+			)
+			(node
+				(ref "U2")
+				(pin "8")
+				(pinfunction "DIN_8")
+				(pintype "input")
+			)
+		)
+		(net
+			(code "20")
+			(name "Net-(U1-GPIO12)")
+			(class "Default")
+			(node
+				(ref "U1")
+				(pin "J1_18")
+				(pinfunction "GPIO12_J1_18")
+				(pintype "bidirectional")
+			)
+			(node
+				(ref "U2")
+				(pin "7")
+				(pinfunction "SCLK_7")
+				(pintype "input")
+			)
+		)
+		(net
+			(code "21")
+			(name "Net-(U1-GPIO18)")
+			(class "Default")
+			(node
+				(ref "R5")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "U1")
+				(pin "J1_11")
+				(pinfunction "GPIO18_J1_11")
+				(pintype "bidirectional")
+			)
+			(node
+				(ref "U10")
+				(pin "2")
+				(pinfunction "DQ_2")
+				(pintype "bidirectional")
+			)
+			(node
+				(ref "U6")
+				(pin "2")
+				(pinfunction "DQ_2")
+				(pintype "bidirectional")
+			)
+			(node
+				(ref "U7")
+				(pin "2")
+				(pinfunction "DQ_2")
+				(pintype "bidirectional")
+			)
+			(node
+				(ref "U8")
+				(pin "2")
+				(pinfunction "DQ_2")
+				(pintype "bidirectional")
+			)
+			(node
+				(ref "U9")
+				(pin "2")
+				(pinfunction "DQ_2")
+				(pintype "bidirectional")
+			)
+		)
+		(net
+			(code "22")
+			(name "Net-(U1-GPIO21)")
+			(class "Default")
+			(node
+				(ref "R4")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "U1")
+				(pin "J2_18")
+				(pinfunction "GPIO21_J2_18")
+				(pintype "bidirectional")
+			)
+		)
+		(net
+			(code "23")
+			(name "Net-(U2-AVDD)")
+			(class "Default")
+			(node
+				(ref "C1")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "U2")
+				(pin "9")
+				(pinfunction "AVDD_9")
+				(pintype "power_in")
+			)
+		)
+		(net
+			(code "24")
+			(name "Net-(U2-CLR)")
+			(class "Default")
+			(node
+				(ref "R3")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "U2")
+				(pin "5")
+				(pinfunction "CLR_5")
+				(pintype "bidirectional")
+			)
+		)
+		(net
+			(code "25")
+			(name "Net-(U2-VOUTA)")
+			(class "Default")
+			(node
+				(ref "R11")
+				(pin "2")
+				(pintype "passive")
+			)
+			(node
+				(ref "U2")
+				(pin "1")
+				(pinfunction "VOUTA_1")
+				(pintype "output")
+			)
+		)
+		(net
+			(code "26")
+			(name "Net-(U2-VOUTB)")
+			(class "Default")
+			(node
+				(ref "R13")
+				(pin "2")
+				(pintype "passive")
+			)
+			(node
+				(ref "U2")
+				(pin "2")
+				(pinfunction "VOUTB_2")
+				(pintype "output")
+			)
+		)
+		(net
+			(code "27")
+			(name "Net-(U12-+IN_A)")
+			(class "Default")
+			(node
+				(ref "R10")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "R9")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "U12")
+				(pin "3")
+				(pinfunction "+IN_A_3")
+				(pintype "input")
+			)
+		)
+		(net
+			(code "28")
+			(name "Net-(U12-+IN_B)")
+			(class "Default")
+			(node
+				(ref "R15")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "R25")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "U12")
+				(pin "5")
+				(pinfunction "+IN_B_5")
+				(pintype "input")
+			)
+		)
+		(net
+			(code "29")
+			(name "Net-(U12-+IN_C)")
+			(class "Default")
+			(node
+				(ref "C2")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "R10")
+				(pin "2")
+				(pintype "passive")
+			)
+			(node
+				(ref "R12")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "R15")
+				(pin "2")
+				(pintype "passive")
+			)
+			(node
+				(ref "R17")
+				(pin "2")
+				(pintype "passive")
+			)
+			(node
+				(ref "U12")
+				(pin "10")
+				(pinfunction "+IN_C_10")
+				(pintype "input")
+			)
+			(node
+				(ref "U2")
+				(pin "10")
+				(pinfunction "VREFINNREFOUT_10")
+				(pintype "input")
+			)
+		)
+		(net
+			(code "30")
+			(name "Net-(U12--IN_A)")
+			(class "Default")
+			(node
+				(ref "R12")
+				(pin "2")
+				(pintype "passive")
+			)
+			(node
+				(ref "R7")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "R8")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "U12")
+				(pin "2")
+				(pinfunction "-IN_A_2")
+				(pintype "input")
+			)
+		)
+		(net
+			(code "31")
+			(name "Net-(U12--IN_B)")
+			(class "Default")
+			(node
+				(ref "R14")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "R17")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "U12")
+				(pin "6")
+				(pinfunction "-IN_B_6")
+				(pintype "input")
+			)
+		)
+		(net
+			(code "32")
+			(name "Net-(U12--IN_C)")
+			(class "Default")
+			(node
+				(ref "U12")
+				(pin "8")
+				(pinfunction "OUT_C_8")
+				(pintype "output")
+			)
+			(node
+				(ref "U12")
+				(pin "9")
+				(pinfunction "-IN_C_9")
+				(pintype "input")
+			)
+		)
+		(net
+			(code "33")
+			(name "Net-(U12-OUT_A)")
+			(class "Default")
+			(node
+				(ref "R6")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "U12")
+				(pin "1")
+				(pinfunction "OUT_A_1")
+				(pintype "output")
+			)
+		)
+		(net
+			(code "34")
+			(name "Net-(U12-OUT_B)")
+			(class "Default")
+			(node
+				(ref "R16")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "U12")
+				(pin "7")
+				(pinfunction "OUT_B_7")
+				(pintype "output")
+			)
+		)
+		(net
+			(code "35")
+			(name "Net-(U13-Pin_2)")
+			(class "Default")
+			(node
+				(ref "R6")
+				(pin "2")
+				(pintype "passive")
+			)
+			(node
+				(ref "U13")
+				(pin "2")
+				(pinfunction "Pin_2_2")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "36")
+			(name "Net-(U13-Pin_4)")
+			(class "Default")
+			(node
+				(ref "R16")
+				(pin "2")
+				(pintype "passive")
+			)
+			(node
+				(ref "U13")
+				(pin "4")
+				(pinfunction "Pin_4_4")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "37")
+			(name "Net-(U15-A)")
+			(class "Default")
+			(node
+				(ref "R1")
+				(pin "2")
+				(pintype "passive")
+			)
+			(node
+				(ref "U15")
+				(pin "2")
+				(pinfunction "A_2")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "38")
+			(name "Net-(U15-VO)")
+			(class "Default")
+			(node
+				(ref "R18")
+				(pin "2")
+				(pintype "passive")
+			)
+			(node
+				(ref "R19")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "U15")
+				(pin "6")
+				(pinfunction "VO_6")
+				(pintype "open_collector")
+			)
+			(node
+				(ref "U4")
+				(pin "2")
+				(pinfunction "Pin_2_2")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "39")
+			(name "Net-(U16-A)")
+			(class "Default")
+			(node
+				(ref "R2")
+				(pin "2")
+				(pintype "passive")
+			)
+			(node
+				(ref "U16")
+				(pin "2")
+				(pinfunction "A_2")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "40")
+			(name "Net-(U16-VO)")
+			(class "Default")
+			(node
+				(ref "R20")
+				(pin "2")
+				(pintype "passive")
+			)
+			(node
+				(ref "R21")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "U16")
+				(pin "6")
+				(pinfunction "VO_6")
+				(pintype "open_collector")
+			)
+			(node
+				(ref "U5")
+				(pin "2")
+				(pinfunction "Pin_2_2")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "41")
+			(name "Net-(U17-A)")
+			(class "Default")
+			(node
+				(ref "R4")
+				(pin "2")
+				(pintype "passive")
+			)
+			(node
+				(ref "U17")
+				(pin "2")
+				(pinfunction "A_2")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "42")
+			(name "Net-(U17-VO)")
+			(class "Default")
+			(node
+				(ref "R22")
+				(pin "2")
+				(pintype "passive")
+			)
+			(node
+				(ref "R23")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "U17")
+				(pin "6")
+				(pinfunction "VO_6")
+				(pintype "open_collector")
+			)
+			(node
+				(ref "U3")
+				(pin "2")
+				(pinfunction "Pin_2_2")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "43")
+			(name "unconnected-(U1-GPIO0{slash}BOOT-PadJ2_14)")
+			(class "Default")
+			(node
+				(ref "U1")
+				(pin "J2_14")
+				(pinfunction "GPIO0/BOOT_J2_14")
+				(pintype "bidirectional+no_connect")
+			)
+		)
+		(net
+			(code "44")
+			(name "unconnected-(U1-GPIO2-PadJ2_5)")
+			(class "Default")
+			(node
+				(ref "U1")
+				(pin "J2_5")
+				(pinfunction "GPIO2_J2_5")
+				(pintype "bidirectional+no_connect")
+			)
+		)
+		(net
+			(code "45")
+			(name "unconnected-(U1-GPIO3-PadJ1_13)")
+			(class "Default")
+			(node
+				(ref "U1")
+				(pin "J1_13")
+				(pinfunction "GPIO3_J1_13")
+				(pintype "bidirectional+no_connect")
+			)
+		)
+		(net
+			(code "46")
+			(name "unconnected-(U1-GPIO4-PadJ1_4)")
+			(class "Default")
+			(node
+				(ref "U1")
+				(pin "J1_4")
+				(pinfunction "GPIO4_J1_4")
+				(pintype "bidirectional+no_connect")
+			)
+		)
+		(net
+			(code "47")
+			(name "unconnected-(U1-GPIO9-PadJ1_15)")
+			(class "Default")
+			(node
+				(ref "U1")
+				(pin "J1_15")
+				(pinfunction "GPIO9_J1_15")
+				(pintype "bidirectional+no_connect")
+			)
+		)
+		(net
+			(code "48")
+			(name "unconnected-(U1-GPIO13-PadJ1_19)")
+			(class "Default")
+			(node
+				(ref "U1")
+				(pin "J1_19")
+				(pinfunction "GPIO13_J1_19")
+				(pintype "bidirectional+no_connect")
+			)
+		)
+		(net
+			(code "49")
+			(name "unconnected-(U1-GPIO14-PadJ1_20)")
+			(class "Default")
+			(node
+				(ref "U1")
+				(pin "J1_20")
+				(pinfunction "GPIO14_J1_20")
+				(pintype "bidirectional+no_connect")
+			)
+		)
+		(net
+			(code "50")
+			(name "unconnected-(U1-GPIO15-PadJ1_8)")
+			(class "Default")
+			(node
+				(ref "U1")
+				(pin "J1_8")
+				(pinfunction "GPIO15_J1_8")
+				(pintype "bidirectional+no_connect")
+			)
+		)
+		(net
+			(code "51")
+			(name "unconnected-(U1-GPIO16-PadJ1_9)")
+			(class "Default")
+			(node
+				(ref "U1")
+				(pin "J1_9")
+				(pinfunction "GPIO16_J1_9")
+				(pintype "bidirectional+no_connect")
+			)
+		)
+		(net
+			(code "52")
+			(name "unconnected-(U1-GPIO17-PadJ1_10)")
+			(class "Default")
+			(node
+				(ref "U1")
+				(pin "J1_10")
+				(pinfunction "GPIO17_J1_10")
+				(pintype "bidirectional+no_connect")
+			)
+		)
+		(net
+			(code "53")
+			(name "unconnected-(U1-GPIO19{slash}USB_D--PadJ2_20)")
+			(class "Default")
+			(node
+				(ref "U1")
+				(pin "J2_20")
+				(pinfunction "GPIO19/USB_D-_J2_20")
+				(pintype "bidirectional+no_connect")
+			)
+		)
+		(net
+			(code "54")
+			(name "unconnected-(U1-GPIO20{slash}USB_D+-PadJ2_19)")
+			(class "Default")
+			(node
+				(ref "U1")
+				(pin "J2_19")
+				(pinfunction "GPIO20/USB_D+_J2_19")
+				(pintype "bidirectional+no_connect")
+			)
+		)
+		(net
+			(code "55")
+			(name "unconnected-(U1-GPIO35-PadJ2_13)")
+			(class "Default")
+			(node
+				(ref "U1")
+				(pin "J2_13")
+				(pinfunction "GPIO35_J2_13")
+				(pintype "bidirectional+no_connect")
+			)
+		)
+		(net
+			(code "56")
+			(name "unconnected-(U1-GPIO36-PadJ2_12)")
+			(class "Default")
+			(node
+				(ref "U1")
+				(pin "J2_12")
+				(pinfunction "GPIO36_J2_12")
+				(pintype "bidirectional+no_connect")
+			)
+		)
+		(net
+			(code "57")
+			(name "unconnected-(U1-GPIO37-PadJ2_11)")
+			(class "Default")
+			(node
+				(ref "U1")
+				(pin "J2_11")
+				(pinfunction "GPIO37_J2_11")
+				(pintype "bidirectional+no_connect")
+			)
+		)
+		(net
+			(code "58")
+			(name "unconnected-(U1-GPIO38-PadJ2_10)")
+			(class "Default")
+			(node
+				(ref "U1")
+				(pin "J2_10")
+				(pinfunction "GPIO38_J2_10")
+				(pintype "bidirectional+no_connect")
+			)
+		)
+		(net
+			(code "59")
+			(name "unconnected-(U1-GPIO39-PadJ2_9)")
+			(class "Default")
+			(node
+				(ref "U1")
+				(pin "J2_9")
+				(pinfunction "GPIO39_J2_9")
+				(pintype "bidirectional+no_connect")
+			)
+		)
+		(net
+			(code "60")
+			(name "unconnected-(U1-GPIO40-PadJ2_8)")
+			(class "Default")
+			(node
+				(ref "U1")
+				(pin "J2_8")
+				(pinfunction "GPIO40_J2_8")
+				(pintype "bidirectional+no_connect")
+			)
+		)
+		(net
+			(code "61")
+			(name "unconnected-(U1-GPIO41-PadJ2_7)")
+			(class "Default")
+			(node
+				(ref "U1")
+				(pin "J2_7")
+				(pinfunction "GPIO41_J2_7")
+				(pintype "bidirectional+no_connect")
+			)
+		)
+		(net
+			(code "62")
+			(name "unconnected-(U1-GPIO43{slash}TX-PadJ2_2)")
+			(class "Default")
+			(node
+				(ref "U1")
+				(pin "J2_2")
+				(pinfunction "GPIO43/TX_J2_2")
+				(pintype "bidirectional+no_connect")
+			)
+		)
+		(net
+			(code "63")
+			(name "unconnected-(U1-GPIO44{slash}RX-PadJ2_3)")
+			(class "Default")
+			(node
+				(ref "U1")
+				(pin "J2_3")
+				(pinfunction "GPIO44/RX_J2_3")
+				(pintype "bidirectional+no_connect")
+			)
+		)
+		(net
+			(code "64")
+			(name "unconnected-(U1-GPIO45-PadJ2_15)")
+			(class "Default")
+			(node
+				(ref "U1")
+				(pin "J2_15")
+				(pinfunction "GPIO45_J2_15")
+				(pintype "bidirectional+no_connect")
+			)
+		)
+		(net
+			(code "65")
+			(name "unconnected-(U1-GPIO46-PadJ1_14)")
+			(class "Default")
+			(node
+				(ref "U1")
+				(pin "J1_14")
+				(pinfunction "GPIO46_J1_14")
+				(pintype "bidirectional+no_connect")
+			)
+		)
+		(net
+			(code "66")
+			(name "unconnected-(U1-GPIO47-PadJ2_17)")
+			(class "Default")
+			(node
+				(ref "U1")
+				(pin "J2_17")
+				(pinfunction "GPIO47_J2_17")
+				(pintype "bidirectional+no_connect")
+			)
+		)
+		(net
+			(code "67")
+			(name "unconnected-(U1-GPIO48-PadJ2_16)")
+			(class "Default")
+			(node
+				(ref "U1")
+				(pin "J2_16")
+				(pinfunction "GPIO48_J2_16")
+				(pintype "bidirectional+no_connect")
+			)
+		)
+		(net
+			(code "68")
+			(name "unconnected-(U1-RST-PadJ1_3)")
+			(class "Default")
+			(node
+				(ref "U1")
+				(pin "J1_3")
+				(pinfunction "RST_J1_3")
+				(pintype "input+no_connect")
+			)
+		)
+		(net
+			(code "69")
+			(name "unconnected-(U12-+IN_D-Pad12)")
+			(class "Default")
+			(node
+				(ref "U12")
+				(pin "12")
+				(pinfunction "+IN_D_12")
+				(pintype "input+no_connect")
+			)
+		)
+		(net
+			(code "70")
+			(name "unconnected-(U12--IN_D-Pad13)")
+			(class "Default")
+			(node
+				(ref "U12")
+				(pin "13")
+				(pinfunction "-IN_D_13")
+				(pintype "input+no_connect")
+			)
+		)
+		(net
+			(code "71")
+			(name "unconnected-(U12-OUT_D-Pad14)")
+			(class "Default")
+			(node
+				(ref "U12")
+				(pin "14")
+				(pinfunction "OUT_D_14")
+				(pintype "output+no_connect")
+			)
+		)
+		(net
+			(code "72")
+			(name "unconnected-(U13-Pin_1-Pad1)")
+			(class "Default")
+			(node
+				(ref "U13")
+				(pin "1")
+				(pinfunction "Pin_1_1")
+				(pintype "passive+no_connect")
+			)
+		)
+		(net
+			(code "73")
+			(name "unconnected-(U15-NC-Pad1)")
+			(class "Default")
+			(node
+				(ref "U15")
+				(pin "1")
+				(pinfunction "NC_1")
+				(pintype "passive+no_connect")
+			)
+		)
+		(net
+			(code "74")
+			(name "unconnected-(U15-NC-Pad4)")
+			(class "Default")
+			(node
+				(ref "U15")
+				(pin "4")
+				(pinfunction "NC_4")
+				(pintype "passive+no_connect")
+			)
+		)
+		(net
+			(code "75")
+			(name "unconnected-(U16-NC-Pad1)")
+			(class "Default")
+			(node
+				(ref "U16")
+				(pin "1")
+				(pinfunction "NC_1")
+				(pintype "passive+no_connect")
+			)
+		)
+		(net
+			(code "76")
+			(name "unconnected-(U16-NC-Pad4)")
+			(class "Default")
+			(node
+				(ref "U16")
+				(pin "4")
+				(pinfunction "NC_4")
+				(pintype "passive+no_connect")
+			)
+		)
+		(net
+			(code "77")
+			(name "unconnected-(U17-NC-Pad1)")
+			(class "Default")
+			(node
+				(ref "U17")
+				(pin "1")
+				(pinfunction "NC_1")
+				(pintype "passive+no_connect")
+			)
+		)
+		(net
+			(code "78")
+			(name "unconnected-(U17-NC-Pad4)")
+			(class "Default")
+			(node
+				(ref "U17")
+				(pin "4")
+				(pinfunction "NC_4")
+				(pintype "passive+no_connect")
+			)
+		)
+	)
+)

@@ -13,3 +13,4 @@ scripts/optimizeGalvo/results
 scripts/optimizeGalvo/__pycache__
 *.bak
 *.npz
+hardware/schematics/*.lck
