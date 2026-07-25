@@ -100,6 +100,20 @@ These are features that are designed and intended, but not yet implemented.
 | IDN (ILDA Digital Network) | ❌ Planned | UDP port 7255; discrete frame mode only (wave mode out of scope); requires IDN-Hello discovery + IDN-Stream frame parser |
 | sACN / E1.31 | ❌ Planned | ANSI DMX-over-IP standard; relevant for professional lighting console integration (MA, ETC) |
 
+### Multi-Controller
+
+| Feature | Status | Notes |
+|---|---|---|
+| ESP-NOW Sync | ❌ Planned | Peer-to-peer frame sync over WiFi hardware; ~1–2 ms latency; no extra hardware required; Master broadcasts frame counter + preset ID |
+| ArtNet Master Mode | ❌ Planned | GalvOS as ArtNet sender; enables sync via existing show software (Pangolin, QLC+) |
+
+### Stand-alone & Integration
+
+| Feature | Status | Notes |
+|---|---|---|
+| Autostart Preset | ❌ Planned | Persist last active preset in NVS; replay on boot without WebUI interaction |
+| ILDA Output Header | ❌ Planned | Expose DAC X/Y + RGB TTL on standard ILDA 15-pin D-Sub; enables show software control without Art-Net |
+
 ---
 
 ## Contributing a Fix
