@@ -35,7 +35,7 @@ The origin story: the stock firmware couldn't dim the laser — it was full-brig
 ## Full Feature List
 
 Yes, all of this is real, and yes, it's all running on a 6 Freedom Money ($) microcontroller.
-(That exclude all the other components you need - but hey, sounds much more inpressive this way :-) )
+(That exclude all the other components you need - but hey, sounds much more impressive this way :-) )
 
 ### Output & Rendering
 

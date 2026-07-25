@@ -16,3 +16,4 @@ scripts/optimizeGalvo/__pycache__
 hardware/schematics/*.lck
 scripts/ov9281.*
 plans/*
+community-presets/_smoketest/
