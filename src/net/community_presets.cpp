@@ -15,6 +15,11 @@ static String pathFor(const String& id) {
 }
 
 void init() {
+    // LittleFS's mkdir() is not recursive -- "/presets" must exist before
+    // "/presets/community" can be created, unlike open(..., create=true).
+    if (!LittleFS.exists("/presets")) {
+        if (!LittleFS.mkdir("/presets")) ESP_LOGE(TAG, "mkdir /presets failed");
+    }
     if (!LittleFS.exists(DIR)) {
         if (!LittleFS.mkdir(DIR)) ESP_LOGE(TAG, "mkdir %s failed", DIR);
     }

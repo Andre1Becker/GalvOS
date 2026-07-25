@@ -1,6 +1,6 @@
-<img width="1855" height="430" alt="image" src="https://github.com/user-attachments/assets/27f2adcc-0e56-4d4b-a446-699b2150028c" />
-
 # GalvOS
+
+![image](https://github.com/user-attachments/assets/27f2adcc-0e56-4d4b-a446-699b2150028c)
 
 > **Open-source ESP32-S3 laser show controller — built to replace proprietary OEM controllers in RGB galvo laser projectors.**
 
@@ -8,7 +8,6 @@
 [![Hardware License: CERN-OHL-S](https://img.shields.io/badge/HW_License-CERN--OHL--S-orange.svg)](https://ohwr.org/cern_ohl_s_v2.txt)
 [![Platform: ESP32-S3](https://img.shields.io/badge/Platform-ESP32--S3-red.svg)](https://www.espressif.com/en/products/socs/esp32-s3)
 [![Framework: Arduino](https://img.shields.io/badge/Framework-Arduino-teal.svg)](https://www.arduino.cc/)
-
 
 ---
 
@@ -101,7 +100,7 @@ Yes, all of this is real, and yes, it's all running on a 6 Freedom Money ($) mic
 | Hardware E-Stop input | A physical kill switch the firmware cannot override. |
 | NE555 scan-fail detection | If the galvo stops moving (or firmware hangs), the laser cuts — hardware-level, no software in the loop. |
 | NE555 hardware watchdog | Independent of the ESP32's own watchdog; catches the case where the ESP32 itself locks up. |
-| Fail-safe optoisolated RGB TTL | 10kΩ pull-ups keep every laser channel OFF by default on boot, reset, panic, or brownout. |
+| Fail-safe opto-isolated RGB TTL | 10kΩ pull-ups keep every laser channel OFF by default on boot, reset, panic, or brownout. |
 | OTA update lockout while armed | Can't push new firmware to a live, armed laser. On purpose. |
 | Safety Assessment card | Live laser-class and audience-distance estimate from your configured power and beam angles. |
 | Thermal protection | Up to 5× DS18B20 sensors, configurable warn/reduce/shutdown thresholds, auto or manual fan control. |
