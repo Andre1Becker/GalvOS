@@ -14,6 +14,7 @@ The GalvOS REST API is served by the ESP32 WebUI server (ESPAsyncWebServer) at `
 - [Community Presets](#community-presets)
 - [Color Animations & Curves](#color-animations--curves)
 - [Calibration](#calibration)
+- [Backup & Restore](#backup--restore)
 - [Optimizer](#optimizer)
 - [Projection](#projection)
 - [Text Mode](#text-mode)
@@ -587,6 +588,50 @@ Activate the ILDA standard test pattern.
 
 ---
 
+## Backup & Restore
+
+Added in v6.06.0. Snapshots the live in-RAM config (galvo calibration, all 8 optimizer profiles, network, projection/system/thermal settings) to a single JSON document and back — see `src/net/backup_manager.h`/`.cpp`.
+
+Restore validates every recognized key against the same bounds the live `/api/calib-live`, `/api/optimizer-live`, `/api/projection`, `/api/dmx/address`, and `/api/safety/config` endpoints enforce, **before applying anything**. A single rejected field aborts the whole restore — nothing partially applies. `galvo_kpps` and each profile's `max_pts_per_frame` additionally get a hard clamp to their `config.h` limits at apply time, on top of the reject-on-out-of-range check.
+
+### `GET /api/backup`
+
+Downloads the full config snapshot as `application/json` with `Content-Disposition: attachment; filename="galvos_backup.json"`.
+
+---
+
+### `GET /api/backup/info`
+
+Metadata only — no download. Useful for a quick "what would I be downloading" check.
+
+```json
+{"fw": "6.07.0", "schema": 1, "timestamp": 1737800000}
+```
+
+---
+
+### `POST /api/restore`
+
+Body: a full backup document (as produced by `GET /api/backup`). Validates every field; applies and persists to NVS only if nothing is rejected, then reboots.
+
+**Response (success):**
+
+```json
+{"ok": true, "rejected": []}
+```
+
+**Response (rejected):**
+
+```json
+{"ok": false, "rejected": ["calib.gain_r", "optimizer.profiles[3].max_pts_per_frame"]}
+```
+
+**Errors:** `403` if the laser is currently armed (disarm first), `400` bad JSON or `ok: false` with the `rejected` array populated.
+
+> ⚠️ Restore reboots the device on success (same as OTA — never leaves it running on half-applied config). Expect the connection to drop.
+
+---
+
 ## Optimizer
 
 ### `POST /api/optimizer-profile-switch`
@@ -744,6 +789,7 @@ Activate text mode and set content. Text mode overrides presets and DMX while ac
   "rainbow": false,
   "flip_x": false,
   "flip_y": false,
+  "orbit_reverse": false,
   "active": true
 }
 ```
@@ -752,6 +798,7 @@ Activate text mode and set content. Text mode overrides presets and DMX while ac
 | --- | --- |
 | `font` | 0=Simple, 1=Bold, 2=Outline |
 | `anim` | 0=Static, 1=Scroll Left, 2=Scroll Right, 3=Bounce, 4=Typewriter, 5=Wave, 6=Pulse, 7=Rotate, 8=Zoom, 10=Orbit, 11=Star Wars |
+| `orbit_reverse` | bool — reverses spin direction for the Orbit animation only (since v6.05.7) |
 
 Characters supported: A–Z, 0–9, `.,:!?-+`
 

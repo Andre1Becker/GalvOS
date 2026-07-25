@@ -48,31 +48,39 @@ None atm :-)
 
 ## Text Mode Issues
 
-### Bounce Animation — No Effect
+All five bugs below were fixed in **v6.05.7** ("Text mode gets a proper wardrobe, not just fig leaves"). Kept here for the curious and for anyone still running an older build.
 
-**Status:** Open  
-**Symptom:** Selecting the "Bounce" animation in Text mode has no visible effect. The text renders statically.
+### ~~Bounce Animation — No Effect~~ — Fixed in v6.05.7
 
-### Typewriter Animation — Runs Once Only
+~~Selecting the "Bounce" animation in Text mode has no visible effect. The text renders statically.~~
 
-**Status:** Open  
-**Symptom:** The Typewriter animation plays through once and stops. It does not loop.
+Root cause: the animation's edge margin (18000 DAC units) was smaller than the half-width most normal-length strings already occupy, so the computed bounce range clamped to zero — the toggle did precisely nothing. Margin is now derived from the real DAC edge (32767 units).
 
-### Orbit Animation — Rotation Direction
+### ~~Typewriter Animation — Runs Once Only~~ — Fixed in v6.05.7
 
-**Status:** Open  
-**Detail:** The Orbit animation's rotation direction is fixed and cannot be switched. A control to reverse the direction is planned.
+~~The Typewriter animation plays through once and stops. It does not loop.~~
 
-### Star Wars Scroll — Two Issues
+Root cause: the pattern engine's `n==0` guard — hit on Typewriter's own blank beat between passes — skipped advancing the animation phase, freezing its clock on the exact tick that produced nothing. Phase now advances on blank frames too.
 
-**Status:** Open  
-**Symptom 1:** The scroll direction is incorrect (text moves in the wrong direction).  
-**Symptom 2:** The text renders as dots only instead of the expected vector strokes.
+### ~~Orbit Animation — Rotation Direction~~ — Fixed in v6.05.7
 
-### Scroll left or right
+~~The Orbit animation's rotation direction is fixed and cannot be switched. A control to reverse the direction is planned.~~
 
-**Status:** Text never leaves the projection area fully but is cut off and imidiatly starts over  
-**Symptom:** Bad looking effect :-)
+Added a dedicated `orbit_reverse` toggle (WebUI: Text tab → "🔄 Reverse Spin (Orbit)", API: `orbit_reverse` field on `POST /api/text`) — `flip_x`/`flip_y` only reorder letters along the arc, they never touched the actual spin rate, so this needed a field of its own.
+
+### ~~Star Wars Scroll — Two Issues~~ — Fixed in v6.05.7
+
+~~Symptom 1: The scroll direction is incorrect (text moves in the wrong direction). Symptom 2: The text renders as dots only instead of the expected vector strokes.~~
+
+The dots issue was a point-budget bug: a hardcoded 80-points-per-glyph ceiling was tighter than the Text profile's own blank-jump overhead for multi-stroke letters (B/E/K...), so most glyphs collapsed to isolated dots. Removed the artificial ceiling in favor of the real per-letter buffer share. Scroll direction (bottom-large → top-small, vanishing point) is now confirmed correct against the Corner Color Map calibration pattern.
+
+### ~~Scroll Left / Right — Cut Off Mid-Crawl~~ — Fixed in v6.05.7
+
+~~Text never leaves the projection area fully but is cut off and immediately starts over. Bad looking effect :-)~~
+
+Root cause: the scroll period used an 18000-unit edge margin instead of the real DAC edge (32767 units), so the string doubled back before its trailing edge ever cleared the screen. Same fix applied to Bounce (above).
+
+*Bonus, not previously tracked here:* text also used to truncate after ~8 characters (a point-density constant put ~300 points on an average glyph against the 2048-point frame buffer) — turned down from 8000 to 1400 in the same release, alongside the empty-text-field now defaulting to `GALVOS` instead of showing nothing.
 
 ---
 

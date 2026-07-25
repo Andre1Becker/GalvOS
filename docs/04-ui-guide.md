@@ -289,12 +289,13 @@ Projects laser text. Text mode overrides any active preset and DMX input while a
 
 - **Text input** — supports uppercase A–Z, digits 0–9, and `.,:!?-+`. Maximum 127 characters. Up to 16 characters display statically; longer text scrolls automatically.
 - **Font** — Simple (thin strokes, fastest), Bold (thick strokes), Outline (double-line).
-- **Animation** — Static, Scroll Left/Right, Bounce, Typewriter, Wave, Pulse, Rotate, Zoom, Orbit, Star Wars Scroll. See [Known Issues](10-known-issues-and-todos.md) for animation bugs.
+- **Animation** — Static, Scroll Left/Right, Bounce, Typewriter, Wave, Pulse, Rotate, Zoom, Orbit, Star Wars Scroll. All animation bugs from earlier releases were fixed in v6.05.7 — see [Known Issues](10-known-issues-and-todos.md#text-mode-issues) for the (now historical) details.
 - **Live toggle** — when on, text updates are sent to the laser as you type. Turn off if you want to compose text before displaying it.
 - **Speed / Size** — animation speed and text size.
 - **Color / Rainbow** — fixed color via color picker, or rainbow cycling across characters.
 - **Flip X / Flip Y** — mirror the text output horizontally or vertically.
-- **▶ Show text / ⏹ Stop** — activate or deactivate text mode.
+- **🔄 Reverse Spin (Orbit)** — added in v6.05.7. Flips the Orbit animation's rotation direction; has no effect on other animations.
+- **▶ Show text / ⏹ Stop** — activate or deactivate text mode. Leaving the text field empty and hitting Show now falls back to `GALVOS` instead of doing nothing (v6.05.7).
 
 ---
 
@@ -561,6 +562,16 @@ Network, DMX, safety, IP, and debug settings.
 - **Safety Override** — bypasses E-Stop and scan-fail checks. Only use with the laser disarmed and no audience. Red warning state clearly shown.
 - **⟳ System Reboot** — restarts the ESP32 immediately (confirmation prompt). Use after a config or firmware change that requires a reboot, without needing physical access to the device.
 - **⚠ Factory Reset** — clears all NVS config and restarts. Wi-Fi credentials are lost; AP mode restarts.
+
+### Backup & Restore
+
+Added in v6.06.0 — because "I remember my DAC limits" is not a disaster recovery plan.
+
+- **⬇ Download Backup** — downloads a JSON snapshot of galvo calibration, all 8 optimizer profiles, network settings, and system/thermal thresholds (`galvos_backup.json`).
+- **⬆ Choose Backup File** — pick a previously downloaded backup. GalvOS does a quick JSON-syntax check in the browser, then shows an **⚠ Restore & Reboot** button once the file looks like valid JSON.
+- **⚠ Restore & Reboot** — asks for confirmation, then uploads the file. The firmware validates every single value against the same bounds the live config endpoints enforce before touching anything — if even one field is out of range, the whole restore is rejected and nothing is applied. On success it persists the config and reboots automatically.
+- Restore is blocked while the laser is **armed** — disarm first.
+- Not a substitute for the calibration workflow — it restores *previous* known-good values, it doesn't calibrate for you. See [Tab: Calibration](#tab-calibration) if you're setting up a projector for the first time.
 
 ### Access Credentials
 
