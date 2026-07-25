@@ -228,4 +228,4 @@ The `safety::lastFailsafeReason()` function stores the reason for the last shutd
 
 ---
 
-**Headsup**: *This complete project is - i hate that wordring - "vibe coded"*. It is amazing how much you can do with the help of an LLM without knowing anything about a specific topic. I've learned so much about all sub topics that this projects touches.
+**Headsup**: *This complete project is - i hate that wording - "vibe coded"*. It is amazing how much you can do with the help of an LLM without knowing anything about a specific topic. I've learned so much about all sub topics that this projects touches.

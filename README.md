@@ -228,6 +228,6 @@ Lasers at these power levels are capable of causing **immediate and permanent ey
 ## License
 
 - **Firmware & Software:** [GNU General Public License v3.0](LICENSE)
-- **Hardware Designs:** [CERN Open Hardware Licence v2 — Strongly Reciprocal (CERN-OHL-S)](https://ohwr.org/cern_ohl_s_v2.txt)
+- **Hardware Designs:** [CERN Open Hardware License v2 — Strongly Reciprocal (CERN-OHL-S)](https://ohwr.org/cern_ohl_s_v2.txt)
 
 Contributions welcome under the same license terms. See [Contributing](docs/09-contributing.md).
