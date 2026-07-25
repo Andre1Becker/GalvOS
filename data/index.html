@@ -1798,10 +1798,10 @@
           ⬆ Choose Backup File
           <input id="restore-file" type="file" accept="application/json,.json" style="display:none" onchange="handleRestoreFile(this.files[0])">
         </label>
+        <button id="restore-btn" class="btn danger" disabled onclick="confirmRestore()">⚠ Restore Settings</button>
       </div>
       <div id="restore-filename" style="font-size:13px;color:var(--dim);margin-bottom:8px"></div>
       <div id="restore-result" style="font-size:14px;display:none;padding:10px 12px;border-radius:4px;margin-bottom:12px;background:#0a0a14;border:1px solid var(--border)"></div>
-      <button id="restore-btn" class="btn danger" style="display:none" onclick="confirmRestore()">⚠ Restore Settings</button>
     </div>
 
     <div class="card">
@@ -3525,7 +3525,7 @@ var g_restoreBody = null;
 
 function handleRestoreFile(file) {
   g_restoreBody = null;
-  document.getElementById('restore-btn').style.display = 'none';
+  document.getElementById('restore-btn').disabled = true;
   const resEl = document.getElementById('restore-result');
   resEl.style.display = 'none';
   const nameEl = document.getElementById('restore-filename');
@@ -3536,7 +3536,7 @@ function handleRestoreFile(file) {
     try {
       JSON.parse(reader.result);  // syntax sanity check only -- the firmware validates content
       g_restoreBody = reader.result;
-      document.getElementById('restore-btn').style.display = '';
+      document.getElementById('restore-btn').disabled = false;
     } catch (e) {
       toast('Not valid JSON', true);
     }
@@ -3573,7 +3573,7 @@ async function restoreBackup() {
     resEl.style.borderColor = 'var(--ok)';
     resEl.style.color = 'var(--ok)';
     resEl.textContent = 'Restored — rebooting…';
-    document.getElementById('restore-btn').style.display = 'none';
+    document.getElementById('restore-btn').disabled = true;
   } catch (e) {
     resEl.style.borderColor = 'var(--danger)';
     resEl.style.color = 'var(--danger)';
