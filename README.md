@@ -25,9 +25,10 @@ The origin story: the stock firmware couldn't dim the laser — it was full-brig
 - DMX-512 and Art-Net input
 - ILDA file playback from SD card
 - Per-point laser modulation with full RGB PWM control
-- Hardware safety interlocks (scan-fail detection, watchdog, E-Stop, optoisolated TTL)
+- Hardware safety interlocks (scan-fail detection, watchdog, E-Stop, opto-isolated TTL)
 - Point optimizer pipeline with adaptive density, S-curve blanking, and ringing compensation
 - Camera-in-the-loop auto-tuning of optimizer parameters via a companion Python tool (see [Chapter 6](docs/06-camera-autotuning.md))
+- Community Presets — browse, download, and activate GitHub-hosted preset bundles straight from the WebUI
 - Temperature monitoring (up to 5× DS18B20 sensors)
 
 ---
@@ -62,6 +63,8 @@ Yes, all of this is real, and yes, it's all running on a 6 Freedom Money ($) mic
 | Freehand Paint tab | Draw with your finger or mouse, project it as vectors. Shape tools included for people who can't draw circles. |
 | Laser Text mode | 3 fonts, 10 animations (scroll, bounce, typewriter, Star Wars crawl, ...), up to 127 characters. |
 | Countdown timer with laser payoff | Set a timer, and when it hits zero: show text or fire off an ILDA file. Genuinely useful for events. |
+| Community Presets (GitHub-hosted) | Browse a shared preset library straight from GitHub in the WebUI, download to the device, activate with one tap — each bundle carries a full optimizer tuning plus playback params. Now the internet can pick your colors too. |
+| Community Preset Builder | Offline browser tool ([`community-presets/builder.html`](community-presets/builder.html)) for creating those bundles — for people who'd rather drag sliders than write C++. Advanced Mode even has a point/curve editor that exports C++ snippets for new built-in presets. |
 
 ### Control Inputs
 
@@ -186,6 +189,10 @@ GalvOS/
 │   └── pinmap.h            # All GPIO assignments
 ├── data/
 │   └── index.html          # WebUI (single-file PWA, served via LittleFS)
+├── community-presets/      # GitHub-hosted community preset library
+│   ├── index.json          # Preset index fetched by the WebUI's GitHub Browser
+│   ├── builder.html        # Community Preset Builder (offline browser tool, no backend)
+│   └── *.json              # The preset bundles themselves
 ├── hardware/               # Netlist, wiring diagrams
 ├── scripts/
 │   ├── upload_all.py       # PlatformIO target: flash firmware + LittleFS

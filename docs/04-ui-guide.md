@@ -9,6 +9,7 @@ The GalvOS WebUI is a single-page application served directly from the ESP32's L
 - [General Layout](#general-layout)
 - [Tab: Dashboard](#tab-dashboard)
 - [Tab: Presets](#tab-presets)
+- [Tab: Preset Manager](#tab-preset-manager)
 - [Tab: DMX Live](#tab-dmx-live)
 - [Tab: Text](#tab-text)
 - [Tab: Paint](#tab-paint)
@@ -225,6 +226,44 @@ A panel for parametric mathematical curves (Lissajous, spirographs, epicycloids,
 ### Countdown Timer
 
 A standalone utility embedded in the Presets tab. Set hours/minutes/seconds, then Start/Pause/Stop. On expiry: do nothing, show a text message (Text mode), or play an ILDA file.
+
+### Community Presets
+
+A card at the bottom of the Presets tab showing every community preset stored on the device, each tile marked with a **COMMUNITY** badge.
+
+- **Click a tile** — activates the preset: applies its playback params (built-in preset, color, speed, size) and layers its optimizer tuning on top of the live optimizer config. The active preset name shows as "Name (Community)".
+- **＋ Browse / Manage** — jumps to the Preset Manager tab.
+- If nothing is stored yet, the card tells you to go browse in the Preset Manager tab. It's not wrong.
+
+---
+
+## Tab: Preset Manager
+
+Home of the Community Presets feature: preset bundles hosted in the GalvOS GitHub repo, downloadable straight from the WebUI. Each bundle is a single JSON that carries a full optimizer tuning (same fields as the Optimizer tab) plus playback params (which built-in preset to run, color, speed, size) — someone else's 2 AM slider-tweaking session, packaged for your device.
+
+### GitHub Browser
+
+- **⟳ Browse GitHub** — fetches the community preset index from `raw.githubusercontent.com` and shows each entry as a card with name, author, description, and tags. Your **browser** does the fetching — the firmware never talks to GitHub itself, so this works even though the ESP32 has no internet-facing ambitions.
+- **Download** — the browser downloads the preset JSON and POSTs it to the device, where it is validated against the schema and written to LittleFS. It then appears under Presets → Community Presets and in the Local Manager below.
+
+> **Note:** Browsing requires the device you're viewing the WebUI on (phone/desktop) to have internet access. The ESP32 itself does not need any.
+
+### Local Manager
+
+A table of every community preset stored on the device (Name, Author, Size):
+
+- **✎ Rename** — edits the display name in place (Enter or ✓ to confirm). The id and filename stay unchanged.
+- **🗑** — deletes a single preset (with confirmation).
+- **Checkboxes + 🗑 Delete selected** — bulk delete.
+- **⟳ Refresh** — reloads the list from the device.
+
+### Storage Monitor
+
+A usage bar showing LittleFS storage: preset count and used/total space. Each preset is capped at 10 KB, so filling this up would take genuine dedication.
+
+> **Note:** Activating a community preset applies its optimizer tuning as a session-only override — it is not persisted. Selecting another preset or rebooting returns to the built-in optimizer profile for that preset class.
+
+Want to publish your own? See [Contributing a Community Preset](09-contributing.md#contributing-a-community-preset).
 
 ---
 

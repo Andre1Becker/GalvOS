@@ -8,6 +8,7 @@ GalvOS is a one-person project that grew considerably beyond its original scope.
 - [Repository Structure](#repository-structure)
 - [Code Standards](#code-standards)
 - [Adding a New Preset Pattern](#adding-a-new-preset-pattern)
+- [Contributing a Community Preset](#contributing-a-community-preset)
 - [Adding a New Calibration Pattern](#adding-a-new-calibration-pattern)
 - [Adding a New API Endpoint](#adding-a-new-api-endpoint)
 - [Modifying the WebUI](#modifying-the-webui)
@@ -81,6 +82,10 @@ GalvOS/
 │   └── mutex.h                     # Named mutexes
 ├── data/
 │   └── index.html                  # Single-file WebUI PWA (HTML + CSS + JS)
+├── community-presets/
+│   ├── index.json                  # Preset index fetched by the WebUI's GitHub Browser
+│   ├── builder.html                # Community Preset Builder (offline browser tool)
+│   └── *.json                      # Community preset bundles
 ├── scripts/
 │   ├── upload_all.py               # Custom PlatformIO target: flash firmware + LittleFS
 │   ├── gzip_assets.py              # Pre-build hook: gzip data/ assets
@@ -220,6 +225,41 @@ Add a small SVG thumbnail for the preset grid in `data/index.html`. The `STATIC_
 ### Step 6 — Bump the version
 
 Update `LASER_FW_VERSION` in `platformio.ini`. New preset = minor or patch bump depending on scope.
+
+---
+
+## Contributing a Community Preset
+
+Not every contribution needs a compiler. Community presets are JSON bundles hosted in [`community-presets/`](../community-presets/) — the WebUI's Preset Manager fetches `index.json` from GitHub and lets users download them straight to their device. A bundle carries:
+
+- **`meta`** — `id`, `name`, `author`, `description`, `tags`, `schema_version` (currently 1)
+- **`optimizer_profile`** — a full optimizer tuning, same field names and bounds as `/api/optimizer-live`
+- **`preset_params`** — which built-in preset to run (`preset_idx`) plus `col_r/g/b`, `speed`, `size_val`
+
+See [`community-presets/shooting-stars-v1.json`](../community-presets/shooting-stars-v1.json) for a complete example.
+
+### Workflow
+
+1. **Open the builder** — [`community-presets/builder.html`](../community-presets/builder.html) runs entirely offline in your browser. No backend, no install, no excuses.
+2. **Simple Mode** — pick a built-in preset, set color/speed/size, tune the optimizer fields, then **Export Device JSON**. That file is the deliverable.
+3. **Advanced Mode** — a point/curve editor for custom geometry. Note: custom points have **no on-device format** (built-in presets are fixed C++ generators), so "Export Device JSON" is disabled there. Instead, **Export C++ Snippet** gives you a generator function to hand-paste into `preset_patterns.cpp` (then follow [Adding a New Preset Pattern](#adding-a-new-preset-pattern)), or **Save Session JSON** to keep working on it later.
+4. **Test on your device** — POST the exported JSON to your own controller and activate it:
+
+   ```bash
+   curl -X POST http://<device-ip>/api/community/save -d @my-preset.json
+   curl -X POST http://<device-ip>/api/community/activate -d '{"id":"my-preset"}'
+   ```
+
+5. **Submit a PR** — add `<id>.json` to `community-presets/` and append a matching entry (`id`, `name`, `author`, `description`, `tags`, `file`) to `community-presets/index.json`.
+
+### Validation limits
+
+The firmware rejects anything that fails these checks, so save yourself a review round-trip:
+
+- Max **10 KB** per preset file
+- `id`: lowercase `[a-z0-9-]` only, max 64 chars
+- `schema_version` must be `1`
+- `max_pts_per_frame` ≤ **1300** — a downloaded preset must not request a bigger frame budget than any built-in profile uses
 
 ---
 

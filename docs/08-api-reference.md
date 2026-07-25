@@ -11,6 +11,7 @@ The GalvOS REST API is served by the ESP32 WebUI server (ESPAsyncWebServer) at `
 - [Configuration](#configuration)
 - [Safety & ARM](#safety--arm)
 - [Presets & Live Controls](#presets--live-controls)
+- [Community Presets](#community-presets)
 - [Color Animations & Curves](#color-animations--curves)
 - [Calibration](#calibration)
 - [Optimizer](#optimizer)
@@ -303,6 +304,103 @@ Update live preset controls without changing the active preset. All fields are o
 | `bp_trail_len` | int | 0–12 | Bouncing Points trail length |
 | `bp_endless` | bool | — | Bouncing Points loop forever |
 | `bp_duration_sec` | int | 1–90 | Duration when not endless |
+
+---
+
+## Community Presets
+
+Manages GitHub-hosted community presets stored on LittleFS (`/presets/community/<id>.json`). The firmware never talks to GitHub — the WebUI (i.e. the browser) downloads the preset JSON from `raw.githubusercontent.com` and POSTs it to the device for validation and storage.
+
+A preset document has three parts:
+
+```json
+{
+  "meta": {
+    "id": "shooting-stars-v1",
+    "name": "Shooting Stars",
+    "author": "Andre1Becker",
+    "description": "...",
+    "tags": ["particles", "trails"],
+    "schema_version": 1
+  },
+  "optimizer_profile": { "...same fields/bounds as /api/optimizer-live..." },
+  "preset_params": {
+    "preset_idx": 74,
+    "col_r": 255, "col_g": 255, "col_b": 255,
+    "speed": 140, "size_val": 200
+  }
+}
+```
+
+**Validation limits:** max 10 KB per file, `id` sanitized to lowercase `[a-z0-9-]` (max 64 chars), `schema_version` must be 1, and `max_pts_per_frame` is capped at 1300 — tighter than the general `/api/optimizer-live` ceiling, so a downloaded preset can't request a bigger frame budget than any built-in profile uses.
+
+### `GET /api/community/list`
+
+Lists all stored presets.
+
+**Response:**
+
+```json
+{"presets": [{"id": "shooting-stars-v1", "name": "Shooting Stars", "author": "Andre1Becker", "size_bytes": 1024}]}
+```
+
+---
+
+### `GET /api/community/fs-info`
+
+LittleFS storage stats for the Storage Monitor card.
+
+**Response:**
+
+```json
+{"total_bytes": 0, "used_bytes": 0, "free_bytes": 0, "preset_count": 0}
+```
+
+---
+
+### `POST /api/community/save`
+
+Body: a full preset document (see above). Validates and writes it to LittleFS.
+
+**Errors:** `413` preset too large, `400` bad JSON or a validation failure (the `error` field carries a human-readable reason), `500` write failed.
+
+---
+
+### `POST /api/community/activate`
+
+```json
+{"id": "shooting-stars-v1"}
+```
+
+Applies `preset_params` (activates the built-in preset with the bundled color/speed/size), then layers `optimizer_profile` on top of the live optimizer config as a **RAM-only override** — not persisted, same pattern as the calib-cam session overrides. Selecting another preset or rebooting reverts to the preset class profile.
+
+**Response:**
+
+```json
+{"ok": true, "idx": 74, "name": "Shooting Stars"}
+```
+
+**Errors:** `404` not found, `400` invalid `preset_idx`.
+
+---
+
+### `POST /api/community/rename`
+
+```json
+{"id": "shooting-stars-v1", "name": "New Name"}
+```
+
+Rewrites `meta.name` in place. The id and filename stay unchanged.
+
+---
+
+### `DELETE /api/community/delete`
+
+```json
+{"id": "shooting-stars-v1"}
+```
+
+Deletes the stored preset. Note the HTTP method: `DELETE` with a JSON body — one of the few non-GET/POST routes in the API.
 
 ---
 
