@@ -1801,7 +1801,7 @@
       </div>
       <div id="restore-filename" style="font-size:13px;color:var(--dim);margin-bottom:8px"></div>
       <div id="restore-result" style="font-size:14px;display:none;padding:10px 12px;border-radius:4px;margin-bottom:12px;background:#0a0a14;border:1px solid var(--border)"></div>
-      <button id="restore-btn" class="btn danger" style="display:none" onclick="confirmRestore()">⚠ Restore & Reboot</button>
+      <button id="restore-btn" class="btn danger" style="display:none" onclick="confirmRestore()">⚠ Restore Settings</button>
     </div>
 
     <div class="card">
@@ -3492,6 +3492,16 @@ function confirmSystemReboot() {
 // ============================================================
 // Backup & Restore
 // ============================================================
+function backupFilename() {
+  var pad = function(n) { return (n < 10 ? '0' : '') + n; };
+  var d = new Date();
+  var ts = d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + '-' +
+           pad(d.getHours()) + '-' + pad(d.getMinutes()) + '-' + pad(d.getSeconds());
+  var fwEl = document.getElementById('sb-fw');
+  var ver = (fwEl && fwEl.textContent && fwEl.textContent !== '--') ? fwEl.textContent : 'unknown';
+  return 'galvos_backup_v' + ver + '_' + ts + '.json';
+}
+
 async function downloadBackup() {
   try {
     const r = await fetch('/api/backup');
@@ -3500,7 +3510,7 @@ async function downloadBackup() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'galvos_backup.json';
+    a.download = backupFilename();
     document.body.appendChild(a);
     a.click();
     a.remove();
