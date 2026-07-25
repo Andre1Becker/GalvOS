@@ -21,6 +21,7 @@
 #include "util/stack_mon.h"
 #include "util/mem_registry.h"
 #include "net/ntp_client.h"
+#include "net/backup_manager.h"
 #include "patterns/preset_patterns.h"
 #include "patterns/countdown_timer.h"
 #include <Arduino.h>
@@ -205,7 +206,7 @@ static void diffOptimizerOverrides(const OptimizerLiveConfig& cur,
 // WiFiUdp ENOMEM spiral). This serializes straight into a PSRAM buffer and
 // streams it chunked; the shared_ptr deleter frees the buffer whether the
 // response completes or the client aborts mid-stream.
-static void sendJsonPsram(AsyncWebServerRequest* req, const JsonDocument& doc) {
+static void sendJsonPsram(AsyncWebServerRequest* req, const JsonDocument& doc, int status = 200) {
     size_t json_len = measureJson(doc);
     size_t buf_len  = json_len + 1;
     std::shared_ptr<char> buf(
@@ -223,6 +224,7 @@ static void sendJsonPsram(AsyncWebServerRequest* req, const JsonDocument& doc) {
             memcpy(out, buf.get() + index, n);
             return n;
         });
+    resp->setCode(status);
     req->send(resp);
 }
 
@@ -2142,6 +2144,95 @@ void init() {
         [](AsyncWebServerRequest* req) {
             s_prefs.begin("laser", false); s_prefs.clear(); s_prefs.end();
             req->send(200, "text/plain", "reset"); delay(500); ESP.restart();
+        });
+
+    // ---- GET /api/backup ---- full-config JSON download ----
+    // Calib + all 8 optimizer profiles + network + system/thermal settings,
+    // straight from the live in-RAM structs (kept in sync with NVS by
+    // persistConfig()/loadConfig() -- see BackupManager for the field list).
+    s_server.on("/api/backup", HTTP_GET, [](AsyncWebServerRequest* req) {
+        JsonDocument doc(&jsonAllocator());
+        BackupManager::serializeToJson(doc);
+        size_t json_len = measureJson(doc);
+        size_t buf_len  = json_len + 1;
+        std::shared_ptr<char> buf(
+            (char*)heap_caps_malloc(buf_len, MALLOC_CAP_SPIRAM),
+            [](char* p) { heap_caps_free(p); });
+        if (!buf) { req->send(503, "text/plain", "OOM"); return; }
+        serializeJson(doc, buf.get(), buf_len);
+        AsyncWebServerResponse* resp = req->beginChunkedResponse(
+            "application/json",
+            [buf, json_len](uint8_t* out, size_t maxLen, size_t index) -> size_t {
+                if (index >= json_len) return 0;
+                size_t n = std::min(maxLen, json_len - index);
+                memcpy(out, buf.get() + index, n);
+                return n;
+            });
+        resp->addHeader("Content-Disposition", "attachment; filename=\"galvos_backup.json\"");
+        req->send(resp);
+    });
+
+    // ---- GET /api/backup/info ---- metadata only (no download) ----
+    s_server.on("/api/backup/info", HTTP_GET, [](AsyncWebServerRequest* req) {
+        JsonDocument doc(&jsonAllocator());
+        doc["fw"]        = LASER_FW_VERSION;
+        doc["schema"]    = BackupManager::SCHEMA_VERSION;
+        doc["timestamp"] = (uint32_t)ntp_client::nowEpoch();
+        sendJsonPsram(req, doc);
+    });
+
+    // ---- POST /api/restore ---- validate + apply a backup JSON, then reboot ----
+    // Every value is validated before anything is written (see
+    // BackupManager::deserializeFromJson) -- a single rejected key aborts the
+    // whole restore untouched. On success the live structs are already
+    // updated by BackupManager; this handler only has to persist them (reusing
+    // the same NVS writers as the live WebUI endpoints) and restart, same as
+    // OTA never leaves the device running on half-applied config.
+    s_server.on("/api/restore", HTTP_POST,
+        [](AsyncWebServerRequest* req) {},
+        nullptr,
+        [](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t, size_t) {
+            if (gState.laser_armed.load()) {
+                req->send(403, "application/json",
+                    "{\"error\":\"Laser armed — disarm before restoring\"}");
+                return;
+            }
+            JsonDocument doc(&jsonAllocator());
+            if (deserializeJson(doc, data, len) != DeserializationError::Ok) {
+                req->send(400, "application/json", "{\"error\":\"bad json\"}");
+                return;
+            }
+            JsonDocument result(&jsonAllocator());
+            JsonArray rejected = result["rejected"].to<JsonArray>();
+            bool ok = BackupManager::deserializeFromJson(doc, rejected);
+            result["ok"] = ok;
+            if (!ok) {
+                sendJsonPsram(req, result, 400);
+                return;
+            }
+            persistConfig();  // calib + optimizer profiles + net, "laser" namespace
+            { Preferences p; p.begin("projection", false);
+              p.putUShort("kpps",       gProjection.galvo_kpps);
+              p.putUShort("rated_kpps", gProjection.galvo_rated_kpps);
+              p.putFloat("scan_ang",    gProjection.scan_angle_mech_deg);
+              p.putFloat("exit_ang",    gProjection.exit_angle_deg);
+              p.putFloat("ilda_ang",    gProjection.ilda_test_angle_deg);
+              p.putFloat("pwr_r",       gProjection.power_r_mw);
+              p.putFloat("pwr_g",       gProjection.power_g_mw);
+              p.putFloat("pwr_b",       gProjection.power_b_mw);
+              p.putFloat("dist_m",      gProjection.distance_m);
+              p.end(); }
+            { Preferences p; p.begin("laser", false);
+              p.putUChar("t_warn",   gSafety.temp_warn_c);
+              p.putUChar("t_red",    gSafety.temp_reduce_c);
+              p.putUChar("t_shut",   gSafety.temp_shutdown_c);
+              p.putUChar("fan_min",  gSafety.fan_min_pct);
+              p.putBool ("fan_auto", gSafety.fan_auto);
+              p.end(); }
+            ESP_LOGW(TAG, "Config restored from backup -- rebooting");
+            sendJsonPsram(req, result);
+            vTaskDelay(pdMS_TO_TICKS(800));
+            ESP.restart();
         });
 
     // WebSocket removed in 5.34.0 — unused (state is polled via /api/state).

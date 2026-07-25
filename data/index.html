@@ -1722,6 +1722,25 @@
     </div>
 
     <div class="card">
+      <h2>💾 Backup & Restore</h2>
+      <p style="color:var(--dim);font-size:14px;margin-bottom:14px">
+        Download a full snapshot of galvo calibration, all optimizer profiles, network and
+        system/thermal settings. Restoring validates every value first — nothing is applied
+        if any value is rejected — then reboots.
+      </p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+        <button class="btn secondary" onclick="downloadBackup()">⬇ Download Backup</button>
+        <label class="btn secondary" style="cursor:pointer;margin:0;display:inline-flex;align-items:center">
+          ⬆ Choose Backup File
+          <input id="restore-file" type="file" accept="application/json,.json" style="display:none" onchange="handleRestoreFile(this.files[0])">
+        </label>
+      </div>
+      <div id="restore-filename" style="font-size:13px;color:var(--dim);margin-bottom:8px"></div>
+      <div id="restore-result" style="font-size:14px;display:none;padding:10px 12px;border-radius:4px;margin-bottom:12px;background:#0a0a14;border:1px solid var(--border)"></div>
+      <button id="restore-btn" class="btn danger" style="display:none" onclick="confirmRestore()">⚠ Restore & Reboot</button>
+    </div>
+
+    <div class="card">
       <h2>🔑 Access Credentials</h2>
       <p style="color:var(--dim);font-size:14px;margin-bottom:14px">
         Hover a value to reveal it. Click the API Token to copy.
@@ -3398,6 +3417,88 @@ function confirmFactoryReset() {
 function confirmSystemReboot() {
   if (!confirm('Really reboot the system now?')) return;
   apiCall('POST', '/api/reboot').then(() => toast('Rebooting…'));
+}
+
+// ============================================================
+// Backup & Restore
+// ============================================================
+async function downloadBackup() {
+  try {
+    const r = await fetch('/api/backup');
+    if (!r.ok) { toast('Backup download failed', true); return; }
+    const blob = await r.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'galvos_backup.json';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    toast('Backup downloaded');
+  } catch (e) {
+    toast('Backup download failed', true);
+  }
+}
+
+var g_restoreBody = null;
+
+function handleRestoreFile(file) {
+  g_restoreBody = null;
+  document.getElementById('restore-btn').style.display = 'none';
+  const resEl = document.getElementById('restore-result');
+  resEl.style.display = 'none';
+  const nameEl = document.getElementById('restore-filename');
+  if (!file) { nameEl.textContent = ''; return; }
+  nameEl.textContent = file.name;
+  const reader = new FileReader();
+  reader.onload = function() {
+    try {
+      JSON.parse(reader.result);  // syntax sanity check only -- the firmware validates content
+      g_restoreBody = reader.result;
+      document.getElementById('restore-btn').style.display = '';
+    } catch (e) {
+      toast('Not valid JSON', true);
+    }
+  };
+  reader.readAsText(file);
+}
+
+function confirmRestore() {
+  if (!g_restoreBody) return;
+  if (!confirm('Restore this backup and reboot now? Current configuration will be overwritten.')) return;
+  restoreBackup();
+}
+
+async function restoreBackup() {
+  const resEl = document.getElementById('restore-result');
+  resEl.style.display = '';
+  resEl.style.borderColor = 'var(--border)';
+  resEl.style.color = 'var(--dim)';
+  resEl.textContent = 'Validating…';
+  try {
+    const opts = { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: g_restoreBody };
+    if (window._apiToken) opts.headers['X-Auth'] = window._apiToken;
+    const r = await fetch('/api/restore', opts);
+    const body = await r.json().catch(() => null);
+    if (!r.ok || !body || !body.ok) {
+      resEl.style.borderColor = 'var(--danger)';
+      resEl.style.color = 'var(--danger)';
+      const rej = (body && body.rejected) || [];
+      resEl.textContent = rej.length
+        ? 'Rejected: ' + rej.join(', ')
+        : ((body && body.error) || 'Restore failed');
+      return;
+    }
+    resEl.style.borderColor = 'var(--ok)';
+    resEl.style.color = 'var(--ok)';
+    resEl.textContent = 'Restored — rebooting…';
+    document.getElementById('restore-btn').style.display = 'none';
+  } catch (e) {
+    resEl.style.borderColor = 'var(--danger)';
+    resEl.style.color = 'var(--danger)';
+    resEl.textContent = 'Restore request failed';
+  }
 }
 
 // Reveal masked credentials (OTA pass / API token) on hover only
