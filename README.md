@@ -9,24 +9,6 @@
 [![Platform: ESP32-S3](https://img.shields.io/badge/Platform-ESP32--S3-red.svg)](https://www.espressif.com/en/products/socs/esp32-s3)
 [![Framework: Arduino](https://img.shields.io/badge/Framework-Arduino-teal.svg)](https://www.arduino.cc/)
 
----
-
-## ⚠️ SAFETY WARNING — READ BEFORE PROCEEDING
-
-(I know - BORING! But hey - at least you read this far. So keep going!)
-
-**This project involves CLASS IIIB or CLASS IV laser devices.**
-
-Lasers at these power levels are capable of causing **immediate and permanent eye injury** and skin burns, and can ignite materials at close range.
-
-- **Never** look into the beam or at specular (mirror-like) reflections.
-- **Always** use appropriate laser safety eyewear — OD rating matched to your specific wavelengths and power level.
-- **Never** operate the laser without proper enclosure or beam stops in place.
-- By modifying this device, the original CE marking and safety certification are **void**.
-- **You are solely responsible** for the safe operation of any device built using this project.
-- Check your local laws — modifying laser equipment may require licensing in your jurisdiction.
-
-> 🔴 **This project is intended for experienced makers and engineers who understand laser safety. Treat every beam as dangerous until proven otherwise.**
 
 ---
 
@@ -213,6 +195,25 @@ GalvOS/
 ├── platformio.ini          # Build configuration
 └── partitions.csv          # Flash partition table
 ```
+
+---
+
+## ⚠️ SAFETY WARNING — READ BEFORE PROCEEDING
+
+(I know - BORING! But hey - at least you read this far. So keep going!)
+
+**This project involves CLASS IIIB or CLASS IV laser devices.**
+
+Lasers at these power levels are capable of causing **immediate and permanent eye injury** and skin burns, and can ignite materials at close range.
+
+- **Never** look into the beam or at specular (mirror-like) reflections.
+- **Always** use appropriate laser safety eyewear — OD rating matched to your specific wavelengths and power level.
+- **Never** operate the laser without proper enclosure or beam stops in place.
+- By modifying this device, the original CE marking and safety certification are **void**.
+- **You are solely responsible** for the safe operation of any device built using this project.
+- Check your local laws — modifying laser equipment may require licensing in your jurisdiction.
+
+> 🔴 **This project is intended for experienced makers and engineers who understand laser safety. Treat every beam as dangerous until proven otherwise.**
 
 ---
 
