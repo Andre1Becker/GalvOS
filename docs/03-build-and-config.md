@@ -152,7 +152,7 @@ content = content.replace('-D LASER_FW_VERSION=\\"6.05.0\\"',
 | `app0` | app/ota_0 | 5 MB | Active firmware image |
 | `app1` | app/ota_1 | 5 MB | OTA update staging slot |
 | `spiffs` | data/spiffs | 5 MB | LittleFS — WebUI (`index.html.gz` + assets) |
-| `coredump` | data/coredump | 64 KB | Core dump on crash (for post-mortem debugging) |
+| `coredump` | data/core dump | 64 KB | Core dump on crash (for post-mortem debugging) |
 | `nvs` | data/nvs | 256 KB | NVS key-value store — all runtime config |
 
 Total: ~15.32 MB of the 16 MB flash used. The LittleFS partition is labeled `spiffs` for historical PlatformIO compatibility — it is formatted as LittleFS, not SPIFFS.
@@ -236,8 +236,8 @@ These limits protect the galvo driver from being fed voltages outside its rated 
 | `hostname` | `"galvOS"` | mDNS hostname. Accessible as `http://galvOS.local` on networks with mDNS support. Auto-generated from MAC if empty. |
 | `wifi_static` | `false` | Use static IP instead of DHCP. |
 | `wifi_ip` / `wifi_gw` / `wifi_mask` / `wifi_dns` | `""` | Static IP configuration. Only used when `wifi_static = true`. |
-| `ntp_server` | `"pool.ntp.org"` | NTP server for time synchronisation. |
-| `ntp_tz` | `"UTC0"` | POSIX timezone string. Example for Central European Time: `"CET-1CEST,M3.5.0,M10.5.0/3"`. |
+| `ntp_server` | `"pool.ntp.org"` | NTP server for time synchronization. |
+| `ntp_tz` | `"UTC0"` | POSIX time zone string. Example for Central European Time: `"CET-1CEST,M3.5.0,M10.5.0/3"`. |
 
 ### DMX / Art-Net
 
@@ -274,7 +274,7 @@ These limits protect the galvo driver from being fed voltages outside its rated 
 | `power_r_mw` | `1000.0` | Red channel laser power in mW. Used for white balance auto-calculation and laser hazard display. |
 | `power_g_mw` | `1000.0` | Green channel laser power in mW. |
 | `power_b_mw` | `3000.0` | Blue channel laser power in mW. The blue diode in the Mikoy 5W is 3W — be aware that 445 nm carries an elevated photochemical retinal hazard (B(λ) = 0.22). |
-| `distance_m` | `3.0` | Throw distance to the projection surface in metres. Used for spot size and safety calculations in the UI. |
+| `distance_m` | `3.0` | Throw distance to the projection surface in meters. Used for spot size and safety calculations in the UI. |
 
 ---
 
@@ -325,7 +325,7 @@ For a full explanation of what each parameter does, see [Chapter 5 — The Optim
 
 ## pinmap.h — GPIO Assignments
 
-All GPIO assignments are defined in `include/pinmap.h`. The following table summarises the assignments. Pins marked **Do Not Use** are reserved by hardware and cannot be reassigned.
+All GPIO assignments are defined in `include/pinmap.h`. The following table summarizes the assignments. Pins marked **Do Not Use** are reserved by hardware and cannot be reassigned.
 
 | GPIO | Assignment | Direction | Notes |
 | --- | --- | --- | --- |

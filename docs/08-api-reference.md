@@ -104,7 +104,7 @@ Full system state. Polled by the WebUI every second.
 | `last_dmx_age_ms` | int | ms since last DMX frame (−1 if never received) |
 | `preset_idx` | int | Active preset index (−1 if none) |
 | `starfield_stars` | int | Actual rendered star count for the Starfield preset (since v6.02.4) — the requested Size (0–255) can be capped lower by the Particles optimizer profile's `max_pts_per_frame` budget; the WebUI shows this value instead of echoing the raw slider |
-| `dac_ok` | bool | DAC8562 initialised and responding |
+| `dac_ok` | bool | DAC8562 initialized and responding |
 | `no_hw_mode` | bool | No-HW debug mode active |
 | `heap` | int | Free internal heap (bytes) |
 | `psram` | int | Free PSRAM (bytes) |
@@ -127,14 +127,14 @@ Full system state. Polled by the WebUI every second.
 | `sd_free_kb` / `sd_total_kb` | int | SD card capacity |
 | `sd_fs_type` | string | Filesystem type (e.g. "FAT32") |
 | `sd_file_count` | int | Number of `.ild` files indexed |
-| `ntp_synced` | bool | NTP time synchronised |
+| `ntp_synced` | bool | NTP time synchronized |
 | `found` | int | Number of DS18B20 sensors found on 1-Wire bus |
 
 ---
 
 ### `GET /api/status`
 
-Lightweight status response. Lower overhead than `/api/state` — uses direct `snprintf` instead of JSON serialisation. Suitable for high-frequency polling.
+Lightweight status response. Lower overhead than `/api/state` — uses direct `snprintf` instead of JSON serialization. Suitable for high-frequency polling.
 
 **Response fields:** `estop_ok`, `scanfail_ok`, `laser_armed`, `source`, `master_dimmer`, `points_per_sec`, `buffer_fill`, `debug_mode`, `ui_override`, `ui_master_dimmer`, `fw_version`, `ota_pass`, `free_heap`, `free_psram`, `hostname`, `ip`, `rssi`, `uptime_s`, `last_dmx_age_ms`.
 
@@ -482,7 +482,7 @@ Starts a session and activates one of the camera-reference patterns.
 
 `pattern`: one of `corners4`, `square`, `star`, `segments`, `circle`, `spiral`. `corners4` is the 4-dot homography reference used by the tool's `calibrate` command; the rest are used for measurement and tuning.
 
-`channel` (optional, since v6.04.1): `0` = white (R+G+B), `1` = R, `2` = G, `3` = B (**default**). Patterns default to blue rather than white because a mono/global-shutter camera can see the R/G/B beams smear apart or offset if the laser diodes aren't perfectly co-boresighted — a single channel avoids that entirely.
+`channel` (optional, since v6.04.1): `0` = white (R+G+B), `1` = R, `2` = G, `3` = B (**default**). Patterns default to blue rather than white because a mono/global-shutter camera can see the R/G/B beams smear apart or offset if the laser diodes aren't perfectly co-bore sighted — a single channel avoids that entirely.
 
 Starting a session snapshots the current values of whichever optimizer profile the pattern belongs to, and switches the active profile to it if it isn't already active. Any previous session that was never cleanly `/stop`-ped (client crash, page reload mid-run) is force-restored first, so overrides can never leak across sessions.
 

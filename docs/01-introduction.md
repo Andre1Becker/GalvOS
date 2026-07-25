@@ -76,7 +76,7 @@ At these power levels:
 - **Keep your build area clear** of people who are not wearing appropriate eye protection.
 - **Test new firmware with the laser disconnected** from mains power until you are confident it behaves correctly.
 
-### Legal Obligations
+### Legal Obligation
 
 By modifying this device, the original CE marking, eye safety certification, and any product compliance declarations are **void**. You are constructing a new, uncertified laser product.
 
@@ -228,4 +228,4 @@ The `safety::lastFailsafeReason()` function stores the reason for the last shutd
 
 ---
 
-**Headsup**: *This complete project is - i hate that wording - "vibe coded"*. It is amazing how much you can do with the help of an LLM without knowing anything about a specific topic. I've learned so much about all sub topics that this projects touches.
+**Heads-up**: *This complete project is - i hate that wording - "vibe coded"*. It is amazing how much you can do with the help of an LLM without knowing anything about a specific topic. I've learned so much about all sub topics that this projects touches.

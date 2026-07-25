@@ -112,7 +112,7 @@ Yes, all of this is real, and yes, it's all running on a 6 Freedom Money ($) mic
 | --- | --- |
 | Browser-based WebUI, installable as a PWA | No app store, no native install — works full-screen from any phone, tablet, or desktop. |
 | Live Dashboard | Safety status, telemetry, CPU load, temperature history, DAC output rate, and frame composition — all scrolling in real time. |
-| Live log console + memory viewer | Streamed over WebSocket, colour-coded by severity, plus a heap/PSRAM breakdown by subsystem for hunting leaks. |
+| Live log console + memory viewer | Streamed over WebSocket, color-coded by severity, plus a heap/PSRAM breakdown by subsystem for hunting leaks. |
 | Wi-Fi AP + STA mode, mDNS | Boots as its own access point out of the box; joins your network and answers at `galvOS.local` once configured. |
 | Static IP / DHCP configuration | For the tinfoil hatters who don't trust DHCP leases. |
 | REST API with token auth | Full external control surface — see [API Reference](docs/08-api-reference.md). |
@@ -146,7 +146,7 @@ Need a good sleep aid? This is the one for you here:
 | [07 — Troubleshooting](docs/07-troubleshooting.md) | Common problems and how to solve them |
 | [08 — API Reference](docs/08-api-reference.md) | REST API endpoints for integration and automation |
 | [09 — Contributing](docs/09-contributing.md) | How to contribute, code style, patch workflow |
-| [10 — Known Issues & Todos](docs/10-known-issues-and-todos.md) | Open bugs, missing features, planned work |
+| [10 — Known Issues & To-dos](docs/10-known-issues-and-todos.md) | Open bugs, missing features, planned work |
 | [11 — Glossary & Terminology](docs/11-glossary.md) | All (no but most) abbreviations and technical terms explained |
 
 ---

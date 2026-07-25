@@ -39,7 +39,7 @@ It replaces the closing item in [Chapter 10's Planned Features](10-known-issues-
 
 - A mono or global-shutter USB camera. The tool was built and tested against an **OV9281**-based module — a rolling-shutter webcam will smear a fast-moving beam and produce misleading measurements.
 - GalvOS firmware ≥ v6.04.1 (for per-channel pattern color; v6.03.0 works but always draws white).
-- Python 3.12 or 3.13 is the safest bet — if wheels for `opencv-python`/`optuna`/`numpy` aren't published yet for your interpreter version, use a 3.12/3.13 venv rather than fighting a source build.
+- Python 3.12 or 3.13 is the safest bet — if wheels for `opencv-python`/`optuna`/`numpy` aren't published yet for your interpreter version, use a 3.12/3.13 v-env rather than fighting a source build.
 - The ESP32 and the machine running the script on the same network, with a known base URL (hostname or IP).
 
 ## Installation
@@ -77,7 +77,7 @@ Six patterns exist on the firmware side purely for this tool (`calib_patterns.cp
 | `circle` | Continuous curve, no real corners — path deviation + brightness uniformity. |
 | `spiral` | Dense continuous curve — path deviation + brightness uniformity under high interior density. |
 
-Since v6.04.1, `/api/calib-cam/start` accepts a `channel` field (default: **blue**, channel 3) instead of always drawing white. A mono camera can see the R/G/B beams smear apart or land at slightly different positions if the laser diodes aren't perfectly co-boresighted — measuring on one channel avoids that artifact entirely. `optimizeGalvo.py` drives this from `camPatternChannel` in `camConfig.json`.
+Since v6.04.1, `/api/calib-cam/start` accepts a `channel` field (default: **blue**, channel 3) instead of always drawing white. A mono camera can see the R/G/B beams smear apart or land at slightly different positions if the laser diodes aren't perfectly co-bore sighted — measuring on one channel avoids that artifact entirely. `optimizeGalvo.py` drives this from `camPatternChannel` in `camConfig.json`.
 
 ## Workflow
 

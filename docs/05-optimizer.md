@@ -105,7 +105,7 @@ The `lift` flag on a vertex means "blank jump to this vertex from the previous p
 
 **Pattern color rule:** All patterns specify only `255` or `0` as default channel values (e.g. pure red = `255,0,0`; yellow = `255,255,0`). Mixed intermediate colors come in through the color override system in the WebUI Global Controls.
 
-**Wireframe note:** For 3D wireframe patterns, `buildWfChains()` must be called to group isolated 2-vertex edges into proper `PathSegment` chains. Without this, each edge is a 2-vertex segment with no `has_incoming || has_outgoing` relationship to its neighbours, and corner dwell never fires — because a 2-vertex segment has no corners.
+**Wireframe note:** For 3D wireframe patterns, `buildWfChains()` must be called to group isolated 2-vertex edges into proper `PathSegment` chains. Without this, each edge is a 2-vertex segment with no `has_incoming || has_outgoing` relationship to its neighbor's, and corner dwell never fires — because a 2-vertex segment has no corners.
 
 ---
 
@@ -189,9 +189,9 @@ count = clamp(count, min_blank_samples, blank_samples)
 
 This means a short jump between adjacent wireframe edges might use only 6 blank samples, while a long cross-screen jump uses up to 16 (or more, with higher `blank_samples`). Every jump pays only what it actually needs.
 
-### S-Curve (Smoothstep) Easing
+### S-Curve (Smooth step) Easing
 
-The galvo position during a blank jump is not commanded to jump instantly to the target — it follows a smoothstep trajectory:
+The galvo position during a blank jump is not commanded to jump instantly to the target — it follows a smooth step trajectory:
 
 ```math
 position(t) = smoothstep(t) = 3t² - 2t³   for t ∈ [0, 1]
@@ -231,7 +231,7 @@ This limits how quickly the galvo velocity can increase — easing hard velocity
 
 ## Stage 8 — ZV Ringing Compensation (Pillar 3)
 
-Even with smoothstepped blank jumps, the galvo mirror can ring at its natural mechanical resonance frequency after arriving at a new position. This appears as a visible oscillation in the first few drawn points of a shape — particularly visible at high kpps or wide scan angles.
+Even with smooth stepped blank jumps, the galvo mirror can ring at its natural mechanical resonance frequency after arriving at a new position. This appears as a visible oscillation in the first few drawn points of a shape — particularly visible at high kpps or wide scan angles.
 
 GalvOS implements **Zero-Vibration (ZV) input shaping** on blank jumps. The idea is elegant: instead of commanding a single trajectory to the target position, the optimizer commands two overlapping trajectories — a smaller one at t=0, and a second smaller one delayed by exactly half the galvo's damped oscillation period. The mechanical response to the first trajectory and the second cancel each other out destructively, leaving no residual vibration at the landing point.
 
@@ -253,7 +253,7 @@ Each output point in the blank jump is then:
 shaped[i] = A1 × unshaped[i] + A2 × unshaped[i - shift_pts]
 ```
 
-where `unshaped[i]` is the smoothstep trajectory computed by Stage 5.
+where `unshaped[i]` is the smooth step trajectory computed by Stage 5.
 
 When `ringing_comp_enabled = false` (the default), A1=1 and A2=0 — the shaped output is byte-identical to the unshaped Pillar 2 trajectory. No overhead, no change.
 
@@ -317,7 +317,7 @@ GalvOS maintains **eight** independent optimizer profiles. The first six map 1:1
 | Waves | 2 | Open polylines, wave patterns | Velocity clamp | `_w` |
 | Wireframe | 3 | 3D edge chains, wireframe models | Corner dwell + short blank jumps | `_3` |
 | MultiObject | 4 | Several separate closed objects | Long blank jumps | `_sol` |
-| Particles | 5 | Isolated dots, starfields | Blank jumps only | `_sc` |
+| Particles | 5 | Isolated dots, starfield | Blank jumps only | `_sc` |
 | Trails | 6 | Moving dots with fade tails (meteors, comets) | Blank jumps, reduced frame budget | `_tr` |
 | Text | 7 | Text renderer (not a preset class) | Blank jumps between short glyph strokes | `_txt` |
 
@@ -358,7 +358,7 @@ Key findings behind the tuning (see `OPT_PROFILE_DEFAULTS` in `config.h` for the
 
 Computing geometry for a complex 3D preset at 30 kpps generates the same output every frame when nothing changes — it is wasteful to recompute it. GalvOS maintains a **single-slot PSRAM pattern cache** for static presets.
 
-When a preset is activated that appears on the `isStaticPreset` allowlist, the optimizer computes the `LaserPoint[]` output once and caches it. Subsequent frames reuse the cached result directly, bypassing the entire optimizer pipeline.
+When a preset is activated that appears on the `isStaticPreset` allow list, the optimizer computes the `LaserPoint[]` output once and caches it. Subsequent frames reuse the cached result directly, bypassing the entire optimizer pipeline.
 
 The cache is invalidated (and recomputed on the next frame) whenever `gPatternCacheGen` is incremented. This counter is bumped on any optimizer parameter change or `galvo_kpps` change — because both affect the optimizer output.
 

@@ -56,7 +56,7 @@ Log levels in GalvOS:
 
 The WebUI Log tab (streaming over WebSocket) shows the same output. It auto-refreshes only when the Log tab is active.
 
-If the ESP32 crashes with a Guru Meditation error, the serial monitor prints a backtrace. With the `esp32_exception_decoder` filter active in PlatformIO, the addresses are decoded into source file names and line numbers. Copy the full crash output — it is the fastest path to finding the bug.
+If the ESP32 crashes with a Guru Meditation error, the serial monitor prints a back trace. With the `esp32_exception_decoder` filter active in PlatformIO, the addresses are decoded into source file names and line numbers. Copy the full crash output — it is the fastest path to finding the bug.
 
 ---
 
@@ -75,7 +75,7 @@ If the ESP32 crashes with a Guru Meditation error, the serial monitor prints a b
 
 **Cause B:** Panic handler fired — laser turned off, `esp_restart()` called.  
 **Diagnosis:** Serial log shows `Guru Meditation` or `abort()` before the restart.  
-**Fix:** Decode the backtrace with `esp32_exception_decoder`. The `last_failsafe` field in `/api/state` stores the reason in RTC memory across restarts.
+**Fix:** Decode the back trace with `esp32_exception_decoder`. The `last_failsafe` field in `/api/state` stores the reason in RTC memory across restarts.
 
 ### No Wi-Fi AP appears after first flash
 
@@ -86,7 +86,7 @@ If the ESP32 crashes with a Guru Meditation error, the serial monitor prints a b
 
 **Cause:** JavaScript running but API calls failing — server not yet ready, or a route is returning errors.  
 **Diagnosis:** Open browser DevTools → Network tab. Look for failed `/api/state` calls.  
-**Fix:** Wait 5–10 seconds after boot for all tasks to initialise. If still failing, check serial log for errors.
+**Fix:** Wait 5–10 seconds after boot for all tasks to initialize. If still failing, check serial log for errors.
 
 ### mDNS hostname (`galvOS.local`) not resolving
 
@@ -157,7 +157,7 @@ If the ESP32 crashes with a Guru Meditation error, the serial monitor prints a b
 ### Straight lines look curved
 
 **Cause:** The galvo mirror is still settling from a blank jump when the first interior points of the edge are being drawn.  
-**Fix:** Increase `blank_samples` and `min_blank_samples`. Ensure the smoothstep blanking is active (it always is — but increasing the sample count gives it more travel time).
+**Fix:** Increase `blank_samples` and `min_blank_samples`. Ensure the smooth step blanking is active (it always is — but increasing the sample count gives it more travel time).
 
 ### Image flickers or strobes at high frame rates
 
@@ -179,8 +179,8 @@ If the ESP32 crashes with a Guru Meditation error, the serial monitor prints a b
 ### Laser fires at boot before ARM
 
 **What is happening:** The fail-safe pull-ups (R_FSR/G/B, 10 kΩ → +3.3V) on GPIO7/8/21 hold the GPIOs HIGH during boot. This makes the 6N137 LEDs dark, which pulls the optocoupler outputs to +1.65V (HIGH) — which is "laser ON" for the MN-1M5AT active-HIGH driver.  
-**Why this is expected:** This is the correct fail-safe behaviour for the TTL signals. However, the laser power rail is controlled by PIN_LASER_ENABLE (GPIO38 → SSR1), which the safety system holds LOW until all conditions are satisfied. The laser cannot actually fire until `safety::allOk()` returns true and the user presses ARM.  
-**If the laser fires anyway:** The SSR1 is being energised before ARM. Check R_PD_EN (10 kΩ pull-down on GPIO38 → GND) is fitted. Measure GPIO38 at boot — it must be LOW before ARM.
+**Why this is expected:** This is the correct fail-safe behavior for the TTL signals. However, the laser power rail is controlled by PIN_LASER_ENABLE (GPIO38 → SSR1), which the safety system holds LOW until all conditions are satisfied. The laser cannot actually fire until `safety::allOk()` returns true and the user presses ARM.  
+**If the laser fires anyway:** The SSR1 is being energized before ARM. Check R_PD_EN (10 kΩ pull-down on GPIO38 → GND) is fitted. Measure GPIO38 at boot — it must be LOW before ARM.
 
 ### Laser does not turn on after ARM
 
@@ -208,7 +208,7 @@ If the ESP32 crashes with a Guru Meditation error, the serial monitor prints a b
 
 **Cause C:** Firmware LEDC channel detached.  
 **Diagnosis:** Check serial log for LEDC errors at boot.  
-**Note:** `ledcAttachPin()` is called once at `setup()` — never per blank/unblank cycle. If you see this error, something is calling it in a loop.
+**Note:** `ledcAttachPin()` is called once at `setup()` — never per blank/un-blank cycle. If you see this error, something is calling it in a loop.
 
 ### Colors washed out or wrong after a color animation
 
@@ -355,7 +355,7 @@ If the ESP32 crashes with a Guru Meditation error, the serial monitor prints a b
 
 **Cause A:** Hardware watchdog timeout — firmware loop exceeded `watchdog_period_ms`.  
 **Diagnosis:** Serial log shows watchdog-related messages. `last_failsafe` in RTC memory.  
-**Fix:** Usually caused by a hang on Core 0 (Wi-Fi, heavy JSON serialisation). Reduce WebUI polling frequency if you have custom integrations. Check for memory allocation failures.
+**Fix:** Usually caused by a hang on Core 0 (Wi-Fi, heavy JSON serialization). Reduce WebUI polling frequency if you have custom integrations. Check for memory allocation failures.
 
 **Cause B:** Temperature exceeded `temp_shutdown_c` (default 70°C).  
 **Diagnosis:** Dashboard → Temperature History chart.  
@@ -389,7 +389,7 @@ If the ESP32 crashes with a Guru Meditation error, the serial monitor prints a b
 
 ### `heap_critical_bytes` threshold triggered restart
 
-**What happens:** If the largest free block of internal DRAM falls below `heap_critical_bytes` (default 6144 bytes), the firmware calls `esp_restart()`. This prevents the system from reaching a state where even small allocations fail and cause undefined behaviour.
+**What happens:** If the largest free block of internal DRAM falls below `heap_critical_bytes` (default 6144 bytes), the firmware calls `esp_restart()`. This prevents the system from reaching a state where even small allocations fail and cause undefined behavior.
 
 **Diagnosis:** Serial log shows a restart with no Guru Meditation. Check `last_failsafe`.
 

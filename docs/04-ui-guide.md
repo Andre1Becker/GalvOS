@@ -365,7 +365,7 @@ Press **💾 Save calibration** to persist all values to NVS.
 
 ### Parameter Card (visibility threshold & white balance)
 
-**Visibility threshold (Basiswert):**
+**Visibility threshold (base value):**
 
 Each laser diode has a minimum PWM duty below which it emits no visible light — the dead zone. The threshold calibration finds this minimum so GalvOS can map 0–100% logical brightness onto the actually visible range.
 
@@ -516,7 +516,7 @@ Live firmware log output, streamed from the ESP32 over the WebSocket. Auto-refre
 
 ![image](https://github.com/user-attachments/assets/220d7d13-0bbf-44be-8aa6-39b473627996)
 
-- Log entries are colour-coded by severity: INFO (dim), WARN (orange), ERROR (red).
+- Log entries are color-coded by severity: INFO (dim), WARN (orange), ERROR (red).
 - Use this tab to diagnose startup issues, track DMX frame counts, or watch for ring buffer overflow warnings.
 - The log buffer is limited in size — older entries are overwritten.
 
@@ -548,7 +548,7 @@ Network, DMX, safety, IP, and debug settings.
 
 - Scan for available networks or enter SSID manually.
 - Enter password. Hostname (default `galvOS`) sets the mDNS name.
-- **NTP Server / Timezone** — time synchronisation settings. Use POSIX TZ string format.
+- **NTP Server / Time zone** — time synchronization settings. Use POSIX TZ string format.
 - **Connect** — connects without restarting. **Save & Restart** — saves and reboots.
 
 ### IP Configuration

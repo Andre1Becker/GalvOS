@@ -21,7 +21,7 @@ GalvOS is a one-person project that grew considerably beyond its original scope.
 
 ## Where to Start
 
-Browse [Chapter 10 — Known Issues & Todos](10-known-issues-and-todos.md) for a current list of open bugs and planned features. Pick something that matches your skills and interests:
+Browse [Chapter 10 — Known Issues & To-dos](10-known-issues-and-todos.md) for a current list of open bugs and planned features. Pick something that matches your skills and interests:
 
 - **C++ firmware bugs** — text animations (Bounce, Typewriter, Star Wars)
 - **C++ new features** — new patterns, extending the camera-in-the-loop auto-tuning API (Chapter 6) to more optimizer profiles
@@ -182,7 +182,7 @@ Profile assignment guide:
 - Open polylines, wave shapes → `Waves`
 - 3D edge chains → `Wireframe`
 - Multiple separate objects → `MultiObject`
-- Isolated points, starfields → `Particles`
+- Isolated points, starfield → `Particles`
 
 ### Step 3 — Add to the PRESETS table
 

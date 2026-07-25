@@ -38,10 +38,10 @@ Laser hazard classifications under IEC 60825-1. Class IIIB: 5 mW–500 mW, can c
 The degree to which a laser beam's rays are parallel. A perfectly collimated beam does not diverge with distance and produces a sharp dot at any throw distance. Real beams diverge slightly — this divergence angle is a key laser specification.
 
 **Dwell**
-Holding the galvo mirrors at a fixed position for one or more output ticks. Dwell points are inserted at corners (corner dwell) and during blank jumps (settle ticks) to give the mirrors time to reach and stabilise at a commanded position.
+Holding the galvo mirrors at a fixed position for one or more output ticks. Dwell points are inserted at corners (corner dwell) and during blank jumps (settle ticks) to give the mirrors time to reach and stabilize at a commanded position.
 
 **Fail-safe**
-A design principle where hardware defaults to the safe state when power is lost or firmware crashes. In GalvOS, the 10 kΩ pull-up resistors on GPIO 7/8/21 hold the laser TTL lines HIGH at boot (before firmware initialises), which keeps the optocouplers dark and the laser TTL signal at 1.65 V — meaning laser ON at the TTL level. The laser power rail is separately held off by the SSR until all safety conditions are met.
+A design principle where hardware defaults to the safe state when power is lost or firmware crashes. In GalvOS, the 10 kΩ pull-up resistors on GPIO 7/8/21 hold the laser TTL lines HIGH at boot (before firmware initializes), which keeps the optocouplers dark and the laser TTL signal at 1.65 V — meaning laser ON at the TTL level. The laser power rail is separately held off by the SSR until all safety conditions are met.
 
 **ILDA angle**
 The International Laser Display Association's standard test angle of ±8° optical. Galvo kpps ratings are specified at this angle — at wider angles, the achievable scan rate decreases proportionally.
@@ -50,7 +50,7 @@ The International Laser Display Association's standard test angle of ±8° optic
 The logarithmic measure of how much a laser safety filter attenuates the beam. OD 3 = 1000× attenuation (0.1% transmission). OD 4 = 10,000× attenuation. Laser safety eyewear must be rated for the specific wavelengths and power levels in use, with sufficient OD to reduce the transmitted power below the Maximum Permissible Exposure (MPE).
 
 **Optical half-angle**
-The angle from the centre line (0°) to the edge of the scan field — the "radius" of the scan in angular terms. A projector with ±20° optical half-angle sweeps a 40° full field. Often confused with mechanical angle; the relationship between them depends on the mirror geometry (typically: optical = 2× mechanical for a flat mirror).
+The angle from the center line (0°) to the edge of the scan field — the "radius" of the scan in angular terms. A projector with ±20° optical half-angle sweeps a 40° full field. Often confused with mechanical angle; the relationship between them depends on the mirror geometry (typically: optical = 2× mechanical for a flat mirror).
 
 **Ringing**
 Mechanical oscillation of the galvo mirror after a fast position change. The mirror overshoots the target position, bounces back, overshoots again in the other direction, and repeats — decaying exponentially. Visible as waviness or ghosting in the projected image near sharp corners or after blank jumps. Addressed by ZV input shaping (Pillar 3 of the optimizer) and corner dwell (Pillar 1).
@@ -71,7 +71,7 @@ The CIE standard function describing the relative sensitivity of the human eye t
 The CIE weighting function for photochemical retinal hazard (blue-light hazard). Peaks at 435–440 nm — which is very close to the 445 nm blue laser diode used in the Mikoy 5W (B(λ) ≈ 0.22). Blue-light hazard is separate from the thermal hazard modelled by V(λ) and can accumulate with prolonged low-level exposure even when the beam appears dim.
 
 **Wavelength (λ, lambda)**
-The physical property that determines the perceived color of light. Measured in nanometres (nm). GalvOS hardware: red 638 nm, green 520 nm, blue 445 nm.
+The physical property that determines the perceived color of light. Measured in nanometers (nm). GalvOS hardware: red 638 nm, green 520 nm, blue 445 nm.
 
 ---
 
@@ -87,13 +87,13 @@ The Jolooyo galvo set used in GalvOS. Rated at 15 kpps at the ILDA standard ±8�
 The scan rate — how many distinct mirror positions (DAC samples) the galvo can accurately follow per second, in thousands. The JY-15K-BL is rated at 15 kpps at ±8°. In GalvOS, `galvo_kpps` sets the actual ISR output rate; `galvo_rated_kpps` stores the datasheet reference value used for PPS scaling.
 
 **PID (Proportional-Integral-Derivative) controller**
-The servo control algorithm inside the galvo driver board that continuously adjusts the coil current to minimise the error between the commanded mirror position and the actual mirror position. The OEM galvo driver uses a 4× LM324 op-amp PID implementation. The trim potentiometers on the driver board adjust P, I, D gains and damping.
+The servo control algorithm inside the galvo driver board that continuously adjusts the coil current to minimize the error between the commanded mirror position and the actual mirror position. The OEM galvo driver uses a 4× LM324 op-amp PID implementation. The trim potentiometers on the driver board adjust P, I, D gains and damping.
 
 **PPS (points per second)**
 The galvo output rate without the "kilo" prefix. 30,000 PPS = 30 kpps. Used in log output and some API fields.
 
 **Scan angle**
-How far the galvo mirrors deflect from their centre position. Wider scan angles produce a larger image but require more time to traverse and reduce the achievable scan rate. See `scan_angle_mech_deg` and `exit_angle_deg` in the Projection tab.
+How far the galvo mirrors deflect from their center position. Wider scan angles produce a larger image but require more time to traverse and reduce the achievable scan rate. See `scan_angle_mech_deg` and `exit_angle_deg` in the Projection tab.
 
 ---
 
@@ -211,7 +211,7 @@ The ESP32's key-value store built on flash memory. Survives power cycles. GalvOS
 A high-speed PSRAM interface using 8 data lines simultaneously. The N16R8 module uses OPI PSRAM, configured via `board_build.psram_type = octal` and `board_build.arduino.memory_type = qio_opi` in `platformio.ini`. Provides ~80 MB/s bandwidth to PSRAM vs. ~40 MB/s for quad-SPI PSRAM.
 
 **PSRAM (Pseudo-Static RAM)**
-External RAM connected to the ESP32 via SPI. In the N16R8 module: 8 MB, OPI interface, mapped into the address space alongside internal DRAM. Slower than internal DRAM (higher latency) but vastly larger. GalvOS uses PSRAM for all large allocations: pattern buffers, JSON serialisation, the pattern cache, and the Paint body buffer. Allocated via `ps_malloc()` or `heap_caps_malloc(MALLOC_CAP_SPIRAM)`.
+External RAM connected to the ESP32 via SPI. In the N16R8 module: 8 MB, OPI interface, mapped into the address space alongside internal DRAM. Slower than internal DRAM (higher latency) but vastly larger. GalvOS uses PSRAM for all large allocations: pattern buffers, JSON serialization, the pattern cache, and the Paint body buffer. Allocated via `ps_malloc()` or `heap_caps_malloc(MALLOC_CAP_SPIRAM)`.
 
 ---
 
@@ -236,10 +236,10 @@ The numerical identifier for a device on a network. In AP mode, GalvOS always us
 A protocol that allows devices to be discovered by hostname on a local network without a DNS server. GalvOS registers as `galvOS.local` (or whatever `hostname` is configured to). Works on most home networks; may not work on corporate networks or through VPNs.
 
 **NTP (Network Time Protocol)**
-Used to synchronise the ESP32's clock to an internet time server. GalvOS uses `pool.ntp.org` by default. Timezone is configured using a POSIX TZ string. NTP sync status is shown in the Dashboard → System card.
+Used to synchronize the ESP32's clock to an internet time server. GalvOS uses `pool.ntp.org` by default. Time zone is configured using a POSIX TZ string. NTP sync status is shown in the Dashboard → System card.
 
 **POSIX TZ string**
-A compact string that encodes a timezone's offset from UTC and its daylight saving rules. Example for Central European Time: `"CET-1CEST,M3.5.0,M10.5.0/3"`. Reference: https://www.gnu.org/software/libc/manual/html_node/TZ-Variable.html
+A compact string that encodes a time zone's offset from UTC and its daylight saving rules. Example for Central European Time: `"CET-1CEST,M3.5.0,M10.5.0/3"`. Reference: https://www.gnu.org/software/libc/manual/html_node/TZ-Variable.html
 
 **PWA (Progressive Web App)**
 A web application that can be installed on a device and launched like a native app. GalvOS's `index.html` is a PWA — it can be added to the home screen on iOS or Android and runs without browser chrome. The app icon, name, and display mode are configured in the WebUI manifest.
@@ -315,7 +315,7 @@ Optional optimizer stage that replaces length-proportional point density with co
 **Ring buffer**
 A fixed-size circular buffer used as a queue between the pattern engine (producer) and the galvo ISR (consumer). The pattern engine writes frames of `LaserPoint` arrays into the ring buffer; the ISR reads one point per tick. An overflow means the producer is faster than the consumer; an underrun means the consumer is faster.
 
-**S-curve / Smoothstep**
+**S-curve / Smooth step**
 A mathematical curve (3t² − 2t³) that starts at 0, ends at 1, and has zero velocity (zero first derivative) at both endpoints. Used for blank jump trajectories in GalvOS: the galvo position follows an S-curve from start to end, so the mirror starts and stops the jump gently with no abrupt velocity changes.
 
 **Velocity clamp**
@@ -351,7 +351,7 @@ Adjusting the relative brightness of R, G, B channels so a nominally "white" out
 ## Build System & Tools
 
 **CERN-OHL-S**
-CERN Open Hardware Licence version 2, Strongly Reciprocal. The license covering GalvOS hardware designs. Requires that derivatives are released under the same license with complete design files.
+CERN Open Hardware License version 2, Strongly Reciprocal. The license covering GalvOS hardware designs. Requires that derivatives are released under the same license with complete design files.
 
 **esptool.py**
 The official Espressif command-line tool for flashing ESP32 chips over UART. Used by PlatformIO internally. Can also be used directly for operations PlatformIO doesn't expose, such as erasing individual flash partitions (`erase_region`).
@@ -360,7 +360,7 @@ The official Espressif command-line tool for flashing ESP32 chips over UART. Use
 The license covering GalvOS firmware and software. Requires that derivative works be released under the same license with full source code.
 
 **LittleFS image**
-The binary filesystem image containing the WebUI files, assembled by PlatformIO from the `data/` directory and flashed to the LittleFS flash partition. Must be reflashed with `pio run --target upload_all` after any change to files in `data/`.
+The binary filesystem image containing the WebUI files, assembled by PlatformIO from the `data/` directory and flashed to the LittleFS flash partition. Must be re-flashed with `pio run --target upload_all` after any change to files in `data/`.
 
 **platformio.ini**
 The PlatformIO project configuration file. Defines the target board, framework, library dependencies, build flags, flash settings, and upload configuration. The top-level file for all build parameters in GalvOS.
