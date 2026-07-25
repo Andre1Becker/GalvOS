@@ -88,7 +88,17 @@ None atm ...
 
 These are features that are designed and intended, but not yet implemented.
 
-Feature Complete. Well until i have a new idea ;-)
+### Control Interfaces
+
+| Interface | Status | Notes |
+|---|---|---|
+| Ether Dream (TCP) | ✅ Complete | Compatible with QLC+, Pangolin, LaserBoy, Shownet |
+| DMX512 (MAX485) | ✅ Complete | Hardware RX-only |
+| Art-Net (UDP) | ✅ Complete | DMX over IP |
+| Helios DAC (USB) | ⚠️ Stub | `src/net/helios_usb.cpp` — TinyUSB vendor-class not wired up; USB-CDC conflict (Serial debug vs. Vendor-Class on same OTG controller) must be resolved first |
+| OSC (Open Sound Control) | ❌ Planned | UDP, port 9000; enables control from TouchDesigner, Resolume, TouchOSC without DMX hardware; low implementation effort |
+| IDN (ILDA Digital Network) | ❌ Planned | UDP port 7255; discrete frame mode only (wave mode out of scope); requires IDN-Hello discovery + IDN-Stream frame parser |
+| sACN / E1.31 | ❌ Planned | ANSI DMX-over-IP standard; relevant for professional lighting console integration (MA, ETC) |
 
 ---
 
