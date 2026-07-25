@@ -1,0 +1,1186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GalvOS Community Preset Builder</title>
+<style>
+  :root{
+    --bg:#0e1116; --panel:#161b22; --panel2:#1c2330; --border:#2a3140;
+    --text:#e6edf3; --dim:#8b96a5; --accent:#4da3ff; --accent2:#ff6b6b;
+    --ok:#3ecf8e; --warn:#e6a23c; --danger:#ff5555; --mono:'Consolas','Cascadia Code',monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font:14px/1.4 -apple-system,Segoe UI,Roboto,sans-serif;}
+  h1,h2,h3{margin:0 0 8px;font-weight:600;}
+  h1{font-size:18px;}
+  h2{font-size:13px;text-transform:uppercase;letter-spacing:.05em;color:var(--dim);border-bottom:1px solid var(--border);padding-bottom:6px;}
+  h3{font-size:12px;color:var(--dim);text-transform:uppercase;letter-spacing:.04em;}
+  a{color:var(--accent);}
+  button{font:inherit;background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:5px;padding:6px 10px;cursor:pointer;}
+  button:hover{border-color:var(--accent);}
+  button.primary{background:var(--accent);border-color:var(--accent);color:#031321;font-weight:600;}
+  button.danger{border-color:var(--danger);color:var(--danger);}
+  button:disabled{opacity:.4;cursor:not-allowed;}
+  button.small{padding:3px 7px;font-size:12px;}
+  input,select,textarea{font:inherit;background:#0b0e13;color:var(--text);border:1px solid var(--border);border-radius:4px;padding:5px 7px;width:100%;}
+  input[type=checkbox]{width:auto;}
+  input[type=range]{padding:0;}
+  label{display:block;font-size:12px;color:var(--dim);margin:8px 0 3px;}
+  label.inline{display:inline-flex;align-items:center;gap:6px;color:var(--text);font-size:13px;margin:4px 0;}
+  .row{display:flex;gap:8px;}
+  .row>*{flex:1;min-width:0;}
+  .field{margin-bottom:6px;}
+  .hint{font-size:11px;color:var(--dim);margin-top:2px;}
+  .warn-text{color:var(--warn);}
+  .danger-text{color:var(--danger);}
+  .app{display:flex;flex-direction:column;height:100vh;}
+  header{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-bottom:1px solid var(--border);background:var(--panel);}
+  header .sub{color:var(--dim);font-size:12px;}
+  .layout{flex:1;display:flex;overflow:hidden;}
+  aside.sidebar{width:320px;flex:0 0 320px;overflow-y:auto;background:var(--panel);border-right:1px solid var(--border);padding:12px;}
+  aside.sidebar section{margin-bottom:18px;}
+  main{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;}
+  .mode-tabs{display:flex;gap:6px;margin-bottom:12px;}
+  .mode-tabs button{flex:0 0 auto;padding:8px 18px;}
+  .mode-tabs button.active{background:var(--accent);border-color:var(--accent);color:#031321;font-weight:600;}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:12px;}
+  .palette{display:flex;flex-wrap:wrap;gap:6px;}
+  .swatch{width:30px;height:30px;border-radius:5px;border:2px solid var(--border);cursor:pointer;position:relative;}
+  .swatch.selected{border-color:#fff;box-shadow:0 0 0 2px var(--accent);}
+  .swatch span{position:absolute;bottom:-16px;left:50%;transform:translateX(-50%);font-size:9px;color:var(--dim);white-space:nowrap;}
+  .budget-bar{height:16px;border-radius:8px;background:#0b0e13;border:1px solid var(--border);overflow:hidden;position:relative;margin-top:4px;}
+  .budget-bar .fill{height:100%;background:var(--accent);transition:width .15s;}
+  .budget-bar .fill.over{background:var(--danger);}
+  .budget-label{font-size:11px;color:var(--dim);margin-top:3px;}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:6px 10px;}
+  .opt-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px 10px;font-size:12px;}
+  .opt-grid label{margin:4px 0 1px;}
+  fieldset{border:1px solid var(--border);border-radius:6px;margin:0 0 10px;padding:8px 10px;}
+  fieldset legend{padding:0 4px;color:var(--dim);font-size:12px;}
+  fieldset:disabled{opacity:.45;}
+  fieldset:disabled input,fieldset:disabled select{cursor:not-allowed;}
+  .editor-wrap{display:flex;gap:12px;flex:1;min-height:520px;}
+  .editor-wrap canvas{background:#05070a;border:1px solid var(--border);border-radius:6px;cursor:crosshair;}
+  .canvas-col{flex:1;display:flex;flex-direction:column;gap:8px;min-width:0;}
+  .canvas-toolbar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;}
+  .canvas-toolbar label.inline{margin:0;background:var(--panel2);padding:4px 8px;border-radius:5px;border:1px solid var(--border);}
+  .point-col{width:290px;flex:0 0 290px;display:flex;flex-direction:column;background:var(--panel);border:1px solid var(--border);border-radius:8px;overflow:hidden;}
+  .point-list{flex:1;overflow-y:auto;}
+  .point-row{display:flex;align-items:center;gap:6px;padding:5px 8px;border-bottom:1px solid var(--border);cursor:pointer;font-size:12px;font-family:var(--mono);}
+  .point-row:hover{background:var(--panel2);}
+  .point-row.selected{background:#233047;}
+  .point-row .idx{color:var(--dim);width:24px;}
+  .point-row .sw{width:12px;height:12px;border-radius:3px;flex:0 0 12px;}
+  .point-row .badge{font-size:9px;padding:1px 4px;border-radius:3px;background:var(--panel2);color:var(--dim);}
+  .point-row .badge.on{color:var(--ok);}
+  .point-props{border-top:1px solid var(--border);padding:10px;}
+  .tag{display:inline-block;font-size:10px;padding:2px 6px;border-radius:10px;background:var(--panel2);color:var(--dim);margin-left:6px;}
+  .tag.exp{color:var(--warn);border:1px solid var(--warn);}
+  .banner{padding:8px 10px;border-radius:6px;font-size:12px;margin-bottom:10px;}
+  .banner.info{background:#132437;border:1px solid #234a6e;color:#9cc9ff;}
+  .banner.warn{background:#2e2410;border:1px solid #6e5423;color:#f0c877;}
+  .fn-presets{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0;}
+  textarea{resize:vertical;min-height:50px;}
+  code,pre{font-family:var(--mono);}
+  pre.snippet{background:#05070a;border:1px solid var(--border);border-radius:6px;padding:10px;max-height:320px;overflow:auto;font-size:12px;white-space:pre;}
+  .import-input{display:none;}
+  footer{padding:6px 16px;font-size:11px;color:var(--dim);border-top:1px solid var(--border);}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div>
+      <h1>GalvOS Community Preset Builder</h1>
+      <div class="sub">Offline preset tuner &amp; point/curve editor for the Mikoy laser show controller &mdash; no backend, exports device-loadable JSON.</div>
+    </div>
+    <div class="row" style="flex:0 0 auto;gap:6px;">
+      <button id="btnSurprise">🎲 Surprise Me</button>
+    </div>
+  </header>
+  <div class="layout">
+    <aside class="sidebar">
+      <section>
+        <h2>Scanner Settings</h2>
+        <div class="field">
+          <label>Scanner Speed (kpps) <span id="kppsWarn" class="warn-text" hidden>above verified stable (30)</span></label>
+          <input type="number" id="fKpps" value="30" min="1" max="100" step="1">
+        </div>
+        <div class="field">
+          <label>Target FPS</label>
+          <input type="number" id="fFps" value="30" min="1" max="60" step="1">
+        </div>
+        <div class="field">
+          <label>Max Points/Frame <span id="ppfMode" class="hint"></span> <span id="ppfTag"></span></label>
+          <input type="number" id="fPpf" value="1010" min="50" max="1300" step="1">
+          <div class="hint">Hard cap 1300 (device MAX_PTS_PER_FRAME_CEILING).</div>
+        </div>
+        <div class="budget-bar"><div class="fill" id="budgetFill" style="width:0%"></div></div>
+        <div class="budget-label" id="budgetLabel">0 / 1300 pts &mdash; estimated after optimizer: ~0</div>
+      </section>
+
+      <section>
+        <h2>Color</h2>
+        <label>Default / Active Color</label>
+        <div class="palette" id="palette"></div>
+        <label class="inline" style="margin-top:10px;">
+          <input type="checkbox" id="fColOverride"> Use col_override (intermediate values)
+        </label>
+        <div id="overrideRgb" hidden class="row" style="margin-top:6px;">
+          <div class="field"><label>R</label><input type="number" id="ovR" min="0" max="255" value="255"></div>
+          <div class="field"><label>G</label><input type="number" id="ovG" min="0" max="255" value="255"></div>
+          <div class="field"><label>B</label><input type="number" id="ovB" min="0" max="255" value="255"></div>
+        </div>
+        <div class="hint warn-text" id="ovWarn" hidden>col_override only valid if preset supports it in firmware.</div>
+      </section>
+
+      <section>
+        <h2>Metadata</h2>
+        <div class="field"><label>Preset Name *</label><input id="mName" value="My Preset"></div>
+        <div class="field"><label>Author</label><input id="mAuthor" value=""></div>
+        <label class="inline"><input type="checkbox" id="mHwTested"> HW Tested</label>
+        <div class="field"><label>Tested at kpps</label><input type="number" id="mTestedKpps" min="1" max="100"></div>
+        <div class="field"><label>Galvo Model</label><input id="mGalvo" value="Jolooyo JY-15K-BL"></div>
+        <div class="field"><label>Notes</label><textarea id="mNotes"></textarea></div>
+        <div class="field"><label>FW Version</label><input id="mFwVersion" value="6.07.0"></div>
+        <div class="field"><label>Based On</label><input id="mBasedOn" value="" readonly></div>
+      </section>
+
+      <section>
+        <h2>Export / Import</h2>
+        <div id="exportBanner" class="banner info" hidden></div>
+        <button id="btnExportJson" class="primary" style="width:100%;margin-bottom:6px;">Export Device JSON</button>
+        <button id="btnExportSnippet" style="width:100%;margin-bottom:6px;">Export C++ Snippet</button>
+        <button id="btnExportSession" style="width:100%;margin-bottom:6px;">Save Session JSON</button>
+        <button id="btnImport" style="width:100%;">Import JSON</button>
+        <input type="file" id="importFile" class="import-input" accept="application/json">
+        <div id="importWarnings"></div>
+      </section>
+    </aside>
+
+    <main>
+      <div class="mode-tabs">
+        <button id="tabSimple" class="active" data-mode="simple">Simple Mode</button>
+        <button id="tabAdvanced" data-mode="advanced">Advanced Mode</button>
+      </div>
+
+      <!-- ================= SIMPLE MODE ================= -->
+      <div id="simpleMode" class="panel">
+        <h3>Base Preset</h3>
+        <div class="field">
+          <label>Load Built-in Preset (81 available)</label>
+          <select id="sPreset"></select>
+        </div>
+        <div class="row">
+          <div class="field"><label>Speed</label><input type="range" id="sSpeed" min="0" max="255" value="140"><div class="hint" id="sSpeedVal">140</div></div>
+          <div class="field"><label>Size</label><input type="range" id="sSize" min="0" max="255" value="200"><div class="hint" id="sSizeVal">200</div></div>
+        </div>
+
+        <h3 style="margin-top:14px;">Optimizer Profile</h3>
+        <div class="field">
+          <label>Named Profile</label>
+          <select id="sProfile"></select>
+          <div class="hint">Real per-profile tuned defaults from firmware config.h. Pick "Custom" to edit raw fields.</div>
+        </div>
+        <fieldset id="rawFields" disabled>
+          <legend>Raw optimizer_profile fields</legend>
+          <div class="opt-grid" id="optGrid"></div>
+        </fieldset>
+      </div>
+
+      <!-- ================= ADVANCED MODE ================= -->
+      <div id="advancedMode" class="panel" hidden style="flex:1;display:flex;flex-direction:column;">
+        <div class="banner warn">Point Sequence / Math Function output has no on-device format &mdash; built-in presets are fixed C++ generators. Use <b>Export C++ Snippet</b> to hand-paste into <code>preset_patterns.cpp</code>, or <b>Save Session JSON</b> to keep working on it later.</div>
+
+        <fieldset>
+          <legend>Math Function Editor (X/Y parametric, t &isin; [0, 2&pi;])</legend>
+          <div class="row">
+            <div class="field"><label>X(t)</label><input id="fnX" value="sin(3*t)"></div>
+            <div class="field"><label>Y(t)</label><input id="fnY" value="cos(2*t)"></div>
+          </div>
+          <div class="field"><label>Sample Points <span id="fnCountVal"></span></label><input type="range" id="fnCount" min="8" max="512" value="64"></div>
+          <div class="fn-presets" id="fnPresets"></div>
+          <div class="row">
+            <button id="btnFnPreview" class="small">Live Preview</button>
+            <button id="btnFnConvert" class="small primary">Convert to Point List</button>
+          </div>
+          <div class="hint" id="fnError"></div>
+        </fieldset>
+
+        <div class="editor-wrap">
+          <div class="canvas-col">
+            <div class="canvas-toolbar">
+              <label class="inline"><input type="checkbox" id="ovSnap"> Snap to grid</label>
+              <select id="snapStep" style="width:auto;"><option value="500">500</option><option value="1000">1000</option></select>
+              <label class="inline"><input type="checkbox" id="ovClose"> Close path</label>
+              <label class="inline"><input type="checkbox" id="ovIndex" checked> Point indices</label>
+              <label class="inline"><input type="checkbox" id="ovCorner" checked> Corner dwell warnings</label>
+              <label class="inline"><input type="checkbox" id="ovGhost"> Optimizer ghost preview</label>
+              <button id="btnClearPts" class="small danger">Clear</button>
+            </div>
+            <canvas id="cnv" width="700" height="700"></canvas>
+            <div class="hint">Click empty space: add point &middot; drag: move &middot; right-click: delete &middot; shift+click an edge: insert &middot; scroll: zoom &middot; middle-drag: pan</div>
+          </div>
+          <div class="point-col">
+            <h3 style="padding:8px 8px 0;">Points (<span id="ptCount">0</span>)</h3>
+            <div class="point-list" id="pointList"></div>
+            <div class="point-props" id="pointProps"><div class="hint">Select a point to edit it.</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="snippetPanel" class="panel" hidden>
+        <h3>C++ Snippet</h3>
+        <pre class="snippet" id="snippetOut"></pre>
+        <button id="btnCopySnippet" class="small">Copy to clipboard</button>
+      </div>
+    </main>
+  </div>
+  <footer>Standalone tool &middot; works offline &middot; no cookies, no localStorage, no external calls.</footer>
+</div>
+
+<script>
+'use strict';
+
+// ───────────────────────── Real firmware data (source of truth: src/patterns/preset_patterns.cpp, src/net/community_presets.cpp, include/config.h) ─────────────────────────
+
+const SCHEMA_VERSION = 1;
+const MAX_ID_LEN = 64;
+const MAX_PTS_PER_FRAME_CEILING = 1300;
+
+const PRESETS = [
+  ["Circle","Geometry"],["Square","Geometry"],["Triangle","Geometry"],["Pentagon","Geometry"],["Hexagon","Geometry"],
+  ["Octagon","Geometry"],["Star 4","Geometry"],["Star 5","Geometry"],["Star 6","Geometry"],["Star 8","Geometry"],
+  ["Cross +","Lines"],["X Shape","Lines"],["Grid 3x3","Lines"],["H Line","Lines"],["Diagonal","Lines"],
+  ["Archimedean Spiral","Spirals"],["Lissajous 1:2","Spirals"],["Lissajous 2:3","Spirals"],["Lissajous 3:4","Spirals"],
+  ["Lissajous 3:5","Spirals"],["Lissajous 5:6","Spirals"],["Double Spiral","Spirals"],["Rose 3","Spirals"],
+  ["Rose 4","Curves"],["Heart","Curves"],["Infinity","Curves"],["Astroid","Curves"],["Epitrochoid","Curves"],
+  ["Rotating Cube","3D"],["Static Cube","3D"],["Pyramid","3D"],["Octahedron","3D"],["Tetrahedron","3D"],
+  ["Sine Wave","Waves"],["Standing Wave","Waves"],["Multi Wave","Waves"],["Ocean Wave","Waves"],["Wave Interference","Waves"],
+  ["Sawtooth","Waves"],["Square Wave","Waves"],["Wave Packet","Waves"],["Beat Wave","Waves"],["Radial Waves","Waves"],
+  ["FM Wave","Waves"],["Vortex","Waves"],["Sine Helix","Waves"],["Wave Field","Waves"],["Fourier Square","Waves"],
+  ["Gravity Waves","Waves"],["Tsunami","Waves"],["Wave Spectrum","Waves"],
+  ["Hypotrochoid","Complex"],["Butterfly","Complex"],["Spirograph 5/3","Complex"],["Concentric Rings","Complex"],
+  ["Nested Squares","Complex"],["Pulsing Circle","Complex"],
+  ["Starburst","Combo"],["Chaos Bouncer","Combo"],["Laser Diamond","Combo"],["Confetti Burst","Combo"],["Disco Ball","Combo"],
+  ["Hibiscus","Party"],["Starburst Party","Party"],
+  ["Starfield","Scenes"],
+  ["Countdown Timer","Timers"],
+  ["Pentagram","Geometry"],["DNA Helix","Complex"],["Yin Yang","Symbols"],
+  ["Random Points","Scenes"],
+  ["Three Circles","Geometry"],["Point Spread","Scenes"],
+  ["Solar System","Scenes"],
+  ["Bouncing Points","Scenes"],
+  ["Shooting Stars","Scenes"],
+  ["Pythagoras Tree","Scenes"],
+  ["Endless Spiral","Scenes"],
+  ["Endless Tunnel","Scenes"],
+  ["Explosion Spread","Scenes"],
+  ["Fireworks","Scenes"],
+  ["Milky Way","Scenes"],
+];
+if (PRESETS.length !== 81) console.error('PRESETS table drifted from firmware PRESET_COUNT', PRESETS.length);
+
+// OPT_PROFILE_DEFAULTS from include/config.h, order: cad,mincp,maxcp,p/1k,blank,minbl,s1tgt,blppu,minip,maxppf
+const OPTIMIZER_PROFILES = [
+  {name:"Vector",      cad:30, mincp:2, maxcp:8, ppk:9,  blank:16, minbl:6, s1tgt:12, blppu:8,  minip:8, maxppf:1300},
+  {name:"Smooth",      cad:60, mincp:2, maxcp:3, ppk:11, blank:16, minbl:6, s1tgt:12, blppu:8,  minip:8, maxppf:1300},
+  {name:"Waves",       cad:35, mincp:2, maxcp:6, ppk:8,  blank:16, minbl:6, s1tgt:12, blppu:8,  minip:8, maxppf:1300},
+  {name:"Wireframe",   cad:25, mincp:2, maxcp:8, ppk:6,  blank:12, minbl:6, s1tgt:10, blppu:10, minip:6, maxppf:1300},
+  {name:"MultiObject", cad:25, mincp:2, maxcp:6, ppk:5,  blank:12, minbl:6, s1tgt:10, blppu:10, minip:6, maxppf:1300},
+  {name:"Particles",   cad:25, mincp:2, maxcp:4, ppk:6,  blank:10, minbl:6, s1tgt:8,  blppu:12, minip:4, maxppf:1300},
+  {name:"Trails",      cad:60, mincp:3, maxcp:3, ppk:11, blank:16, minbl:6, s1tgt:12, blppu:8,  minip:8, maxppf:880},
+  {name:"Text",        cad:28, mincp:2, maxcp:5, ppk:6,  blank:10, minbl:4, s1tgt:7,  blppu:9,  minip:1, maxppf:1300},
+];
+// Generic OPT_DEFAULT_* fallback for fields the per-profile table doesn't override.
+const OPT_GENERIC_MIN_SEGMENT_PTS = 2;
+const OPT_GENERIC_TAIL = {
+  resample_enabled:false, resample_spacing_units:160.0,
+  ringing_comp_enabled:false, ring_freq_hz:200.0, ring_damping_ratio:0.15,
+  vel_clamp_enabled:false, max_step_units:200.0,
+  accel_clamp_enabled:false, max_accel_units:800.0,
+};
+
+// Field bounds mirror checkOptimizerProfile() in community_presets.cpp exactly.
+const OPT_FIELD_DEFS = [
+  {key:'corner_angle_deg', kind:'f', lo:0, hi:180, label:'Corner Angle (deg)'},
+  {key:'min_corner_pts', kind:'i', lo:1, hi:20, label:'Min Corner Pts'},
+  {key:'max_corner_pts', kind:'i', lo:1, hi:20, label:'Max Corner Pts'},
+  {key:'pts_per_1000_units', kind:'f', lo:0.1, hi:50, label:'Pts / 1000 Units'},
+  {key:'min_segment_pts', kind:'i', lo:2, hi:20, label:'Min Segment Pts'},
+  {key:'blank_samples', kind:'i', lo:1, hi:100, label:'Blank Samples'},
+  {key:'max_pts_per_frame', kind:'i', lo:50, hi:1300, label:'Max Pts/Frame'},
+  {key:'min_blank_samples', kind:'i', lo:1, hi:100, label:'Min Blank Samples'},
+  {key:'blank_pts_per_1000_units', kind:'f', lo:0.1, hi:50, label:'Blank Pts / 1000 Units'},
+  {key:'min_interior_pts_per_segment', kind:'i', lo:0, hi:50, label:'Min Interior Pts/Seg'},
+  {key:'stage1_blank_target', kind:'i', lo:1, hi:100, label:'Stage1 Blank Target'},
+  {key:'resample_enabled', kind:'b', label:'Resample Enabled'},
+  {key:'resample_spacing_units', kind:'f', lo:10, hi:2000, label:'Resample Spacing'},
+  {key:'ringing_comp_enabled', kind:'b', label:'Ringing Comp Enabled'},
+  {key:'ring_freq_hz', kind:'f', lo:1, hi:2000, label:'Ring Freq (Hz)'},
+  {key:'ring_damping_ratio', kind:'f', lo:0, hi:0.9, label:'Ring Damping Ratio'},
+  {key:'vel_clamp_enabled', kind:'b', label:'Velocity Clamp Enabled'},
+  {key:'max_step_units', kind:'f', lo:50, hi:32767, label:'Max Step Units'},
+  {key:'accel_clamp_enabled', kind:'b', label:'Accel Clamp Enabled'},
+  {key:'max_accel_units', kind:'f', lo:10, hi:32767, label:'Max Accel Units'},
+];
+
+const PALETTE = [
+  {name:'R',   rgb:[255,0,0]},
+  {name:'G',   rgb:[0,255,0]},
+  {name:'B',   rgb:[0,0,255]},
+  {name:'RG',  rgb:[255,255,0]},
+  {name:'RB',  rgb:[255,0,255]},
+  {name:'GB',  rgb:[0,255,255]},
+  {name:'RGB', rgb:[255,255,255]},
+  {name:'OFF', rgb:[0,0,0]},
+];
+
+// ───────────────────────── Safe expression parser (t-only, no eval) ─────────────────────────
+// Deliberately not mathjs-via-CDN: this keeps the tool 100% offline/self-contained,
+// which the spec's own "works offline" constraint wants more than CDN parity.
+function compileExpr(src) {
+  const toks = [];
+  let i = 0;
+  const isDigit = c => c >= '0' && c <= '9';
+  const isAlpha = c => /[a-zA-Z_]/.test(c);
+  while (i < src.length) {
+    const c = src[i];
+    if (c === ' ' || c === '\t') { i++; continue; }
+    if (isDigit(c) || (c === '.' && isDigit(src[i+1]))) {
+      let j = i; while (j < src.length && (isDigit(src[j]) || src[j] === '.')) j++;
+      toks.push({t:'num', v:parseFloat(src.slice(i,j))}); i = j; continue;
+    }
+    if (isAlpha(c)) {
+      let j = i; while (j < src.length && /[a-zA-Z0-9_]/.test(src[j])) j++;
+      toks.push({t:'id', v:src.slice(i,j)}); i = j; continue;
+    }
+    if ('+-*/^(),'.includes(c)) { toks.push({t:c}); i++; continue; }
+    throw new Error('unexpected character: ' + c);
+  }
+  toks.push({t:'eof'});
+
+  const FUNCS = {
+    sin:Math.sin, cos:Math.cos, tan:Math.tan, asin:Math.asin, acos:Math.acos, atan:Math.atan,
+    sqrt:Math.sqrt, abs:Math.abs, exp:Math.exp, log:Math.log, floor:Math.floor, ceil:Math.ceil,
+    sign:Math.sign, pow:Math.pow, min:Math.min, max:Math.max,
+  };
+  const CONSTS = { pi: Math.PI, e: Math.E };
+
+  let p = 0;
+  const peek = () => toks[p];
+  const eat = (t) => { if (toks[p].t !== t) throw new Error('expected ' + t + ' got ' + toks[p].t); return toks[p++]; };
+
+  function parseExpr() { return parseAdd(); }
+  function parseAdd() {
+    let n = parseMul();
+    while (peek().t === '+' || peek().t === '-') {
+      const op = eat(peek().t).t; const rhs = parseMul();
+      const l = n; n = (t) => op === '+' ? l(t) + rhs(t) : l(t) - rhs(t);
+    }
+    return n;
+  }
+  function parseMul() {
+    let n = parseUnary();
+    while (peek().t === '*' || peek().t === '/') {
+      const op = eat(peek().t).t; const rhs = parseUnary();
+      const l = n; n = (t) => op === '*' ? l(t) * rhs(t) : l(t) / rhs(t);
+    }
+    return n;
+  }
+  function parseUnary() {
+    if (peek().t === '-') { eat('-'); const n = parseUnary(); return (t) => -n(t); }
+    if (peek().t === '+') { eat('+'); return parseUnary(); }
+    return parsePow();
+  }
+  function parsePow() {
+    let n = parsePrimary();
+    if (peek().t === '^') { eat('^'); const rhs = parseUnary(); const l = n; n = (t) => Math.pow(l(t), rhs(t)); }
+    return n;
+  }
+  function parsePrimary() {
+    const tk = peek();
+    if (tk.t === 'num') { eat('num'); return () => tk.v; }
+    if (tk.t === '(') { eat('('); const n = parseExpr(); eat(')'); return n; }
+    if (tk.t === 'id') {
+      eat('id');
+      if (peek().t === '(') {
+        eat('(');
+        const args = [];
+        if (peek().t !== ')') { args.push(parseExpr()); while (peek().t === ',') { eat(','); args.push(parseExpr()); } }
+        eat(')');
+        const fn = FUNCS[tk.v];
+        if (!fn) throw new Error('unknown function: ' + tk.v);
+        return (t) => fn(...args.map(a => a(t)));
+      }
+      if (tk.v === 't') return (t) => t;
+      if (tk.v in CONSTS) { const v = CONSTS[tk.v]; return () => v; }
+      throw new Error('unknown identifier: ' + tk.v);
+    }
+    throw new Error('unexpected token: ' + tk.t);
+  }
+  const fn = parseExpr();
+  eat('eof');
+  return fn;
+}
+
+// ───────────────────────── State ─────────────────────────
+const state = {
+  kpps: 30, fps: 30, ppf: 1010, ppfManual: false,
+  color: {r:255,g:0,b:0}, colOverride: false, overrideRgb: {r:255,g:255,b:255},
+  meta: { author:'', hwTested:false, testedKpps:30, galvoModel:'Jolooyo JY-15K-BL', notes:'', fwVersion:'6.07.0', name:'My Preset', basedOn:'' },
+  mode: 'simple',
+  simple: { presetIdx: 74, speed: 140, size: 200, profileIdx: 6 /* Trails, matches Shooting Stars sample */ },
+  optimizer: {}, // active raw optimizer_profile fields, populated from profile or custom edits
+  profileMode: 'named', // 'named' | 'custom'
+  points: [], // {x,y,type:'on'|'off',r,g,b,colOverride}
+  closePath: false,
+  selectedPoint: -1,
+  view: { zoom: 1, panX: 0, panY: 0 },
+  seed: 42,
+};
+
+function applyProfile(idx) {
+  const p = OPTIMIZER_PROFILES[idx];
+  state.optimizer = {
+    corner_angle_deg: p.cad, min_corner_pts: p.mincp, max_corner_pts: p.maxcp,
+    pts_per_1000_units: p.ppk, min_segment_pts: OPT_GENERIC_MIN_SEGMENT_PTS,
+    blank_samples: p.blank, max_pts_per_frame: p.maxppf, min_blank_samples: p.minbl,
+    blank_pts_per_1000_units: p.blppu, min_interior_pts_per_segment: p.minip,
+    stage1_blank_target: p.s1tgt, ...OPT_GENERIC_TAIL,
+  };
+}
+applyProfile(state.simple.profileIdx);
+
+// ───────────────────────── LCG randomizer (reproducible) ─────────────────────────
+function makeLcg(seed) {
+  let s = seed >>> 0;
+  return () => { s = (1103515245 * s + 12345) >>> 0; return s / 4294967296; };
+}
+function randInt(rng, lo, hi) { return lo + Math.floor(rng() * (hi - lo + 1)); }
+function randFloat(rng, lo, hi) { return lo + rng() * (hi - lo); }
+
+// ───────────────────────── DOM refs ─────────────────────────
+const $ = (id) => document.getElementById(id);
+const el = {
+  kpps: $('fKpps'), fps: $('fFps'), ppf: $('fPpf'), kppsWarn: $('kppsWarn'), ppfMode: $('ppfMode'), ppfTag: $('ppfTag'),
+  budgetFill: $('budgetFill'), budgetLabel: $('budgetLabel'),
+  palette: $('palette'), colOverride: $('fColOverride'), overrideRgb: $('overrideRgb'), ovR: $('ovR'), ovG: $('ovG'), ovB: $('ovB'), ovWarn: $('ovWarn'),
+  mName: $('mName'), mAuthor: $('mAuthor'), mHwTested: $('mHwTested'), mTestedKpps: $('mTestedKpps'),
+  mGalvo: $('mGalvo'), mNotes: $('mNotes'), mFwVersion: $('mFwVersion'), mBasedOn: $('mBasedOn'),
+  tabSimple: $('tabSimple'), tabAdvanced: $('tabAdvanced'), simpleMode: $('simpleMode'), advancedMode: $('advancedMode'),
+  sPreset: $('sPreset'), sSpeed: $('sSpeed'), sSpeedVal: $('sSpeedVal'), sSize: $('sSize'), sSizeVal: $('sSizeVal'),
+  sProfile: $('sProfile'), rawFields: $('rawFields'), optGrid: $('optGrid'),
+  exportBanner: $('exportBanner'), btnExportJson: $('btnExportJson'), btnExportSnippet: $('btnExportSnippet'),
+  btnExportSession: $('btnExportSession'), btnImport: $('btnImport'), importFile: $('importFile'), importWarnings: $('importWarnings'),
+  fnX: $('fnX'), fnY: $('fnY'), fnCount: $('fnCount'), fnCountVal: $('fnCountVal'), fnPresets: $('fnPresets'),
+  btnFnPreview: $('btnFnPreview'), btnFnConvert: $('btnFnConvert'), fnError: $('fnError'),
+  ovSnap: $('ovSnap'), snapStep: $('snapStep'), ovClose: $('ovClose'), ovIndex: $('ovIndex'), ovCorner: $('ovCorner'), ovGhost: $('ovGhost'),
+  btnClearPts: $('btnClearPts'), cnv: $('cnv'), ptCount: $('ptCount'), pointList: $('pointList'), pointProps: $('pointProps'),
+  snippetPanel: $('snippetPanel'), snippetOut: $('snippetOut'), btnCopySnippet: $('btnCopySnippet'),
+  btnSurprise: $('btnSurprise'),
+};
+const ctx = el.cnv.getContext('2d');
+
+// ───────────────────────── Scanner Settings ─────────────────────────
+function recalcPpf() {
+  if (!state.ppfManual) {
+    state.ppf = Math.min(MAX_PTS_PER_FRAME_CEILING, Math.floor((state.kpps * 1000) / state.fps));
+    el.ppf.value = state.ppf;
+  }
+  el.kppsWarn.hidden = state.kpps <= 30;
+  el.ppfMode.textContent = state.ppfManual ? '(custom)' : '(auto)';
+  el.ppfTag.innerHTML = state.ppf > 1010 ? '<span class="tag exp">near device ceiling</span>' : '';
+  updateBudget();
+}
+el.kpps.addEventListener('input', () => { state.kpps = parseFloat(el.kpps.value) || 1; state.ppfManual = false; recalcPpf(); });
+el.fps.addEventListener('input', () => { state.fps = parseFloat(el.fps.value) || 1; recalcPpf(); });
+el.ppf.addEventListener('input', () => {
+  state.ppf = Math.max(50, Math.min(MAX_PTS_PER_FRAME_CEILING, parseInt(el.ppf.value) || 50));
+  state.ppfManual = true;
+  el.ppfMode.textContent = '(custom)';
+  el.ppfTag.innerHTML = state.ppf > 1010 ? '<span class="tag exp">near device ceiling</span>' : '';
+  updateBudget();
+});
+
+function updateBudget() {
+  const raw = state.mode === 'advanced' ? state.points.length : 0;
+  const spacing = state.optimizer.resample_spacing_units || 160;
+  // Rough client-side estimate only -- the real optimizer runs on-device.
+  let estimate = raw;
+  if (state.mode === 'advanced' && raw > 1) {
+    let totalLen = 0;
+    for (let i = 1; i < state.points.length; i++) {
+      const a = state.points[i-1], b = state.points[i];
+      totalLen += Math.hypot(b.x - a.x, b.y - a.y);
+    }
+    estimate = Math.min(state.ppf, Math.round(totalLen / Math.max(20, spacing / 4)));
+  }
+  const pct = Math.min(100, (estimate / state.ppf) * 100);
+  el.budgetFill.style.width = pct + '%';
+  el.budgetFill.classList.toggle('over', estimate > state.ppf);
+  el.budgetLabel.textContent = `${raw} / ${state.ppf} pts — estimated after optimizer: ~${estimate}`;
+}
+
+// ───────────────────────── Color panel ─────────────────────────
+function renderPalette() {
+  el.palette.innerHTML = '';
+  PALETTE.forEach(p => {
+    const b = document.createElement('div');
+    b.className = 'swatch' + (sameColor(p.rgb, [state.color.r,state.color.g,state.color.b]) && !state.colOverride ? ' selected' : '');
+    b.style.background = `rgb(${p.rgb.join(',')})`;
+    b.style.borderColor = p.rgb.join(',') === '0,0,0' ? '#555' : 'var(--border)';
+    b.title = p.name;
+    b.innerHTML = `<span>${p.name}</span>`;
+    b.addEventListener('click', () => {
+      state.color = {r:p.rgb[0], g:p.rgb[1], b:p.rgb[2]};
+      state.colOverride = false;
+      el.colOverride.checked = false;
+      el.overrideRgb.hidden = true;
+      renderPalette();
+      applyColorToSelectedPoint();
+      renderCanvas();
+    });
+    el.palette.appendChild(b);
+  });
+}
+function sameColor(a,b){ return a[0]===b[0] && a[1]===b[1] && a[2]===b[2]; }
+el.colOverride.addEventListener('change', () => {
+  state.colOverride = el.colOverride.checked;
+  el.overrideRgb.hidden = !state.colOverride;
+  el.ovWarn.hidden = !state.colOverride;
+  if (state.colOverride) {
+    state.color = {...state.overrideRgb};
+    syncOverrideInputs();
+  }
+  renderPalette();
+  applyColorToSelectedPoint();
+});
+[['ovR','r'],['ovG','g'],['ovB','b']].forEach(([id,k]) => {
+  el[id].addEventListener('input', () => {
+    state.overrideRgb[k] = Math.max(0, Math.min(255, parseInt(el[id].value) || 0));
+    if (state.colOverride) { state.color = {...state.overrideRgb}; applyColorToSelectedPoint(); renderCanvas(); }
+  });
+});
+function syncOverrideInputs(){ el.ovR.value = state.overrideRgb.r; el.ovG.value = state.overrideRgb.g; el.ovB.value = state.overrideRgb.b; }
+function applyColorToSelectedPoint() {
+  if (state.mode === 'advanced' && state.selectedPoint >= 0) {
+    const pt = state.points[state.selectedPoint];
+    pt.r = state.color.r; pt.g = state.color.g; pt.b = state.color.b;
+    renderPointList(); renderCanvas();
+  }
+}
+
+// ───────────────────────── Metadata panel ─────────────────────────
+function bindMeta(elm, key, isCheckbox) {
+  elm.addEventListener('input', () => { state.meta[key] = isCheckbox ? elm.checked : elm.value; });
+  elm.addEventListener('change', () => { state.meta[key] = isCheckbox ? elm.checked : elm.value; });
+}
+bindMeta(el.mName, 'name'); bindMeta(el.mAuthor, 'author'); bindMeta(el.mHwTested, 'hwTested', true);
+bindMeta(el.mTestedKpps, 'testedKpps'); bindMeta(el.mGalvo, 'galvoModel'); bindMeta(el.mNotes, 'notes'); bindMeta(el.mFwVersion, 'fwVersion');
+el.mTestedKpps.value = state.kpps;
+el.kpps.addEventListener('input', () => { if (!el.mTestedKpps.dataset.touched) { el.mTestedKpps.value = state.kpps; state.meta.testedKpps = state.kpps; } });
+el.mTestedKpps.addEventListener('input', () => { el.mTestedKpps.dataset.touched = '1'; });
+
+// ───────────────────────── Mode tabs ─────────────────────────
+function setMode(mode) {
+  state.mode = mode;
+  el.tabSimple.classList.toggle('active', mode === 'simple');
+  el.tabAdvanced.classList.toggle('active', mode === 'advanced');
+  el.simpleMode.hidden = mode !== 'simple';
+  el.advancedMode.hidden = mode !== 'advanced';
+  el.snippetPanel.hidden = mode !== 'advanced' || !el.snippetOut.textContent;
+  el.btnExportJson.disabled = mode === 'advanced';
+  el.btnExportJson.title = mode === 'advanced' ? 'Custom points have no on-device format — use C++ Snippet or Save Session' : '';
+  el.exportBanner.hidden = mode !== 'advanced';
+  if (mode === 'advanced') { el.exportBanner.textContent = 'Advanced mode: "Export Device JSON" is disabled (no on-device format for custom geometry).'; }
+  updateBudget();
+  if (mode === 'advanced') renderCanvas();
+}
+el.tabSimple.addEventListener('click', () => setMode('simple'));
+el.tabAdvanced.addEventListener('click', () => setMode('advanced'));
+
+// ───────────────────────── Simple Mode: preset select ─────────────────────────
+function renderPresetSelect() {
+  const groups = {};
+  PRESETS.forEach(([name,cat], idx) => { (groups[cat] = groups[cat] || []).push({name, idx}); });
+  el.sPreset.innerHTML = '';
+  Object.keys(groups).forEach(cat => {
+    const og = document.createElement('optgroup'); og.label = cat;
+    groups[cat].forEach(p => {
+      const o = document.createElement('option'); o.value = p.idx; o.textContent = `${p.name} (#${p.idx})`;
+      og.appendChild(o);
+    });
+    el.sPreset.appendChild(og);
+  });
+  el.sPreset.value = state.simple.presetIdx;
+}
+el.sPreset.addEventListener('change', () => {
+  state.simple.presetIdx = parseInt(el.sPreset.value);
+  state.meta.basedOn = 'builtin:' + PRESETS[state.simple.presetIdx][0];
+  el.mBasedOn.value = state.meta.basedOn;
+});
+el.sSpeed.addEventListener('input', () => { state.simple.speed = parseInt(el.sSpeed.value); el.sSpeedVal.textContent = state.simple.speed; });
+el.sSize.addEventListener('input', () => { state.simple.size = parseInt(el.sSize.value); el.sSizeVal.textContent = state.simple.size; });
+
+function renderProfileSelect() {
+  el.sProfile.innerHTML = '';
+  OPTIMIZER_PROFILES.forEach((p,i) => {
+    const o = document.createElement('option'); o.value = i; o.textContent = p.name; el.sProfile.appendChild(o);
+  });
+  const custom = document.createElement('option'); custom.value = 'custom'; custom.textContent = 'Custom (raw sliders)';
+  el.sProfile.appendChild(custom);
+  el.sProfile.value = state.simple.profileIdx;
+}
+el.sProfile.addEventListener('change', () => {
+  if (el.sProfile.value === 'custom') {
+    state.profileMode = 'custom';
+    el.rawFields.disabled = false;
+  } else {
+    state.profileMode = 'named';
+    state.simple.profileIdx = parseInt(el.sProfile.value);
+    applyProfile(state.simple.profileIdx);
+    el.rawFields.disabled = true;
+    renderOptGrid();
+  }
+  updateBudget();
+});
+
+function renderOptGrid() {
+  el.optGrid.innerHTML = '';
+  OPT_FIELD_DEFS.forEach(f => {
+    const wrap = document.createElement('div');
+    const label = document.createElement('label'); label.textContent = f.label; label.style.margin = '2px 0 0';
+    wrap.appendChild(label);
+    let input;
+    if (f.kind === 'b') {
+      input = document.createElement('select');
+      ['false','true'].forEach(v => { const o=document.createElement('option'); o.value=v; o.textContent=v; input.appendChild(o); });
+      input.value = String(!!state.optimizer[f.key]);
+      input.addEventListener('change', () => { state.optimizer[f.key] = input.value === 'true'; });
+    } else {
+      input = document.createElement('input');
+      input.type = 'number'; input.min = f.lo; input.max = f.hi; input.step = f.kind === 'f' ? 'any' : '1';
+      input.value = state.optimizer[f.key];
+      input.addEventListener('input', () => {
+        let v = f.kind === 'f' ? parseFloat(input.value) : parseInt(input.value);
+        if (isNaN(v)) return;
+        v = Math.max(f.lo, Math.min(f.hi, v));
+        state.optimizer[f.key] = v;
+        if (f.key === 'max_pts_per_frame') { state.ppf = v; el.ppf.value = v; updateBudget(); }
+      });
+    }
+    wrap.appendChild(input);
+    el.optGrid.appendChild(wrap);
+  });
+}
+
+// ───────────────────────── Randomizer ─────────────────────────
+el.btnSurprise.addEventListener('click', () => {
+  const rng = makeLcg(state.seed);
+  state.simple.presetIdx = randInt(rng, 0, PRESETS.length - 1);
+  state.simple.speed = randInt(rng, 20, 235);
+  state.simple.size = randInt(rng, 60, 255);
+  state.simple.profileIdx = randInt(rng, 0, OPTIMIZER_PROFILES.length - 1);
+  const palPick = PALETTE[randInt(rng, 0, PALETTE.length - 2)]; // skip OFF
+  state.color = {r:palPick.rgb[0], g:palPick.rgb[1], b:palPick.rgb[2]};
+  state.colOverride = false;
+  state.profileMode = 'named';
+  applyProfile(state.simple.profileIdx);
+  el.sPreset.value = state.simple.presetIdx;
+  state.meta.basedOn = 'builtin:' + PRESETS[state.simple.presetIdx][0];
+  el.mBasedOn.value = state.meta.basedOn;
+  el.sSpeed.value = state.simple.speed; el.sSpeedVal.textContent = state.simple.speed;
+  el.sSize.value = state.simple.size; el.sSizeVal.textContent = state.simple.size;
+  el.sProfile.value = state.simple.profileIdx;
+  el.rawFields.disabled = true;
+  el.colOverride.checked = false; el.overrideRgb.hidden = true;
+  renderPalette(); renderOptGrid(); updateBudget();
+  state.seed = (state.seed * 1103515245 + 12345) >>> 0;
+});
+
+// ───────────────────────── Point Sequence Editor (canvas) ─────────────────────────
+const WORLD_MIN = -32768, WORLD_MAX = 32767, WORLD_SPAN = WORLD_MAX - WORLD_MIN;
+function baseScale() { return el.cnv.width / WORLD_SPAN; }
+function worldToScreen(x, y) {
+  const s = baseScale() * state.view.zoom;
+  return [el.cnv.width/2 + (x - state.view.panX) * s, el.cnv.height/2 + (y - state.view.panY) * s];
+}
+function screenToWorld(px, py) {
+  const s = baseScale() * state.view.zoom;
+  return [(px - el.cnv.width/2)/s + state.view.panX, (py - el.cnv.height/2)/s + state.view.panY];
+}
+function snap(v, step) { return Math.round(v/step)*step; }
+
+function renderCanvas() {
+  const w = el.cnv.width, h = el.cnv.height;
+  ctx.clearRect(0,0,w,h);
+  ctx.fillStyle = '#05070a'; ctx.fillRect(0,0,w,h);
+
+  // grid
+  if (el.ovSnap.checked) {
+    const step = parseInt(el.snapStep.value);
+    ctx.strokeStyle = '#1a212c'; ctx.lineWidth = 1;
+    for (let gx = WORLD_MIN; gx <= WORLD_MAX; gx += step) {
+      const [sx] = worldToScreen(gx, 0);
+      if (sx >= 0 && sx <= w) { ctx.beginPath(); ctx.moveTo(sx,0); ctx.lineTo(sx,h); ctx.stroke(); }
+    }
+    for (let gy = WORLD_MIN; gy <= WORLD_MAX; gy += step) {
+      const [,sy] = worldToScreen(0, gy);
+      if (sy >= 0 && sy <= h) { ctx.beginPath(); ctx.moveTo(0,sy); ctx.lineTo(w,sy); ctx.stroke(); }
+    }
+  }
+  // axes
+  ctx.strokeStyle = '#2a3140';
+  const [ox, oy] = worldToScreen(0,0);
+  ctx.beginPath(); ctx.moveTo(ox,0); ctx.lineTo(ox,h); ctx.moveTo(0,oy); ctx.lineTo(w,oy); ctx.stroke();
+
+  const pts = state.points;
+  const segCount = pts.length - (state.closePath ? 0 : 1);
+
+  // ghost optimizer estimate
+  if (el.ovGhost.checked && pts.length > 1) {
+    const spacing = state.optimizer.resample_spacing_units || 160;
+    ctx.fillStyle = 'rgba(150,150,150,0.35)';
+    for (let i = 0; i < segCount; i++) {
+      const a = pts[i], b = pts[(i+1)%pts.length];
+      const len = Math.hypot(b.x-a.x, b.y-a.y);
+      const n = Math.max(0, Math.floor(len / spacing));
+      for (let k = 1; k < n; k++) {
+        const t = k/n;
+        const [sx,sy] = worldToScreen(a.x + (b.x-a.x)*t, a.y + (b.y-a.y)*t);
+        ctx.beginPath(); ctx.arc(sx,sy,1.5,0,7); ctx.fill();
+      }
+    }
+  }
+
+  // segments (color-accurate: segment uses start point's color)
+  for (let i = 0; i < segCount; i++) {
+    const a = pts[i], b = pts[(i+1)%pts.length];
+    const [ax,ay] = worldToScreen(a.x,a.y), [bx,by] = worldToScreen(b.x,b.y);
+    ctx.strokeStyle = b.type === 'off' ? '#333' : `rgb(${a.r},${a.g},${a.b})`;
+    ctx.lineWidth = b.type === 'off' ? 1 : 2;
+    if (b.type === 'off') ctx.setLineDash([4,4]); else ctx.setLineDash([]);
+    ctx.beginPath(); ctx.moveTo(ax,ay); ctx.lineTo(bx,by); ctx.stroke();
+  }
+  ctx.setLineDash([]);
+
+  // corner dwell warnings
+  if (el.ovCorner.checked && pts.length > 2) {
+    for (let i = 0; i < pts.length; i++) {
+      if (!state.closePath && (i === 0 || i === pts.length-1)) continue;
+      const prev = pts[(i - 1 + pts.length) % pts.length];
+      const cur = pts[i];
+      const next = pts[(i + 1) % pts.length];
+      const v1x = prev.x-cur.x, v1y = prev.y-cur.y, v2x = next.x-cur.x, v2y = next.y-cur.y;
+      const l1 = Math.hypot(v1x,v1y), l2 = Math.hypot(v2x,v2y);
+      if (l1 < 1e-6 || l2 < 1e-6) continue;
+      const cosA = Math.max(-1,Math.min(1,(v1x*v2x+v1y*v2y)/(l1*l2)));
+      const angleDeg = Math.acos(cosA) * 180/Math.PI;
+      if (angleDeg < 45) {
+        const [sx,sy] = worldToScreen(cur.x,cur.y);
+        ctx.strokeStyle = angleDeg < 20 ? '#ff5555' : '#e6a23c';
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(sx,sy,9,0,7); ctx.stroke();
+      }
+    }
+  }
+
+  // points
+  pts.forEach((p, i) => {
+    const [sx,sy] = worldToScreen(p.x,p.y);
+    ctx.fillStyle = `rgb(${p.r},${p.g},${p.b})`;
+    ctx.strokeStyle = i === state.selectedPoint ? '#4da3ff' : '#0b0e13';
+    ctx.lineWidth = i === state.selectedPoint ? 2.5 : 1;
+    ctx.beginPath();
+    if (p.type === 'off') { ctx.arc(sx,sy,5,0,7); ctx.stroke(); }
+    else { ctx.arc(sx,sy,5,0,7); ctx.fill(); ctx.stroke(); }
+    if (el.ovIndex.checked) {
+      ctx.fillStyle = '#8b96a5'; ctx.font = '10px monospace';
+      ctx.fillText(String(i), sx+7, sy-7);
+    }
+  });
+  el.ptCount.textContent = pts.length;
+  updateBudget();
+}
+
+let drag = null; // {type:'point'|'pan', idx, startPx, startPy, startPanX, startPanY}
+el.cnv.addEventListener('contextmenu', (e) => e.preventDefault());
+el.cnv.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  const factor = e.deltaY < 0 ? 1.1 : 0.9;
+  state.view.zoom = Math.max(0.2, Math.min(20, state.view.zoom * factor));
+  renderCanvas();
+}, {passive:false});
+
+function hitTestPoint(px, py) {
+  for (let i = state.points.length - 1; i >= 0; i--) {
+    const [sx,sy] = worldToScreen(state.points[i].x, state.points[i].y);
+    if (Math.hypot(sx-px, sy-py) <= 7) return i;
+  }
+  return -1;
+}
+function hitTestEdge(px, py) {
+  const pts = state.points;
+  const segCount = pts.length - (state.closePath ? 0 : 1);
+  for (let i = 0; i < segCount; i++) {
+    const a = pts[i], b = pts[(i+1)%pts.length];
+    const [ax,ay] = worldToScreen(a.x,a.y), [bx,by] = worldToScreen(b.x,b.y);
+    const len = Math.hypot(bx-ax,by-ay);
+    if (len < 1e-6) continue;
+    const t = Math.max(0, Math.min(1, ((px-ax)*(bx-ax)+(py-ay)*(by-ay))/(len*len)));
+    const px2 = ax + (bx-ax)*t, py2 = ay + (by-ay)*t;
+    if (Math.hypot(px-px2, py-py2) <= 6) return {segIdx: i, t};
+  }
+  return null;
+}
+function newPoint(x, y) {
+  return { x: Math.round(x), y: Math.round(y), type: 'on', r: state.color.r, g: state.color.g, b: state.color.b, colOverride: state.colOverride };
+}
+el.cnv.addEventListener('mousedown', (e) => {
+  const rect = el.cnv.getBoundingClientRect();
+  const px = e.clientX - rect.left, py = e.clientY - rect.top;
+  if (e.button === 1) { drag = {type:'pan', startPx:px, startPy:py, startPanX:state.view.panX, startPanY:state.view.panY}; e.preventDefault(); return; }
+  if (e.button === 2) {
+    const hit = hitTestPoint(px,py);
+    if (hit >= 0) { state.points.splice(hit,1); state.selectedPoint = -1; renderPointList(); renderPointProps(); renderCanvas(); }
+    return;
+  }
+  const hit = hitTestPoint(px,py);
+  if (hit >= 0) { drag = {type:'point', idx:hit}; state.selectedPoint = hit; renderPointList(); renderPointProps(); renderCanvas(); return; }
+  if (e.shiftKey) {
+    const edge = hitTestEdge(px,py);
+    if (edge) {
+      const [wx,wy] = screenToWorld(px,py);
+      const p = newPoint(wx,wy);
+      state.points.splice(edge.segIdx+1, 0, p);
+      state.selectedPoint = edge.segIdx+1;
+      renderPointList(); renderPointProps(); renderCanvas();
+      return;
+    }
+  }
+  const [wx,wy] = screenToWorld(px,py);
+  let x = wx, y = wy;
+  if (el.ovSnap.checked) { const step = parseInt(el.snapStep.value); x = snap(x,step); y = snap(y,step); }
+  state.points.push(newPoint(x,y));
+  state.selectedPoint = state.points.length - 1;
+  renderPointList(); renderPointProps(); renderCanvas();
+});
+window.addEventListener('mousemove', (e) => {
+  if (!drag) return;
+  const rect = el.cnv.getBoundingClientRect();
+  const px = e.clientX - rect.left, py = e.clientY - rect.top;
+  if (drag.type === 'pan') {
+    const s = baseScale() * state.view.zoom;
+    state.view.panX = drag.startPanX - (px - drag.startPx)/s;
+    state.view.panY = drag.startPanY - (py - drag.startPy)/s;
+    renderCanvas();
+  } else if (drag.type === 'point') {
+    let [wx,wy] = screenToWorld(px,py);
+    if (el.ovSnap.checked) { const step = parseInt(el.snapStep.value); wx = snap(wx,step); wy = snap(wy,step); }
+    wx = Math.max(WORLD_MIN, Math.min(WORLD_MAX, wx)); wy = Math.max(WORLD_MIN, Math.min(WORLD_MAX, wy));
+    state.points[drag.idx].x = Math.round(wx); state.points[drag.idx].y = Math.round(wy);
+    renderPointList(); renderCanvas();
+  }
+});
+window.addEventListener('mouseup', () => { drag = null; });
+
+el.ovSnap.addEventListener('change', renderCanvas);
+el.snapStep.addEventListener('change', renderCanvas);
+el.ovClose.addEventListener('change', () => { state.closePath = el.ovClose.checked; renderCanvas(); });
+el.ovIndex.addEventListener('change', renderCanvas);
+el.ovCorner.addEventListener('change', renderCanvas);
+el.ovGhost.addEventListener('change', renderCanvas);
+el.btnClearPts.addEventListener('click', () => { state.points = []; state.selectedPoint = -1; renderPointList(); renderPointProps(); renderCanvas(); });
+
+function renderPointList() {
+  el.pointList.innerHTML = '';
+  state.points.forEach((p,i) => {
+    const row = document.createElement('div');
+    row.className = 'point-row' + (i === state.selectedPoint ? ' selected' : '');
+    row.draggable = true;
+    row.innerHTML = `<span class="idx">${i}</span><span class="sw" style="background:rgb(${p.r},${p.g},${p.b})"></span><span>${p.x}, ${p.y}</span><span class="badge ${p.type==='on'?'on':''}">${p.type.toUpperCase()}</span>`;
+    row.addEventListener('click', () => { state.selectedPoint = i; renderPointList(); renderPointProps(); renderCanvas(); });
+    row.addEventListener('dragstart', (e) => { e.dataTransfer.setData('text/plain', String(i)); });
+    row.addEventListener('dragover', (e) => e.preventDefault());
+    row.addEventListener('drop', (e) => {
+      e.preventDefault();
+      const from = parseInt(e.dataTransfer.getData('text/plain'));
+      const to = i;
+      if (from === to) return;
+      const [moved] = state.points.splice(from,1);
+      state.points.splice(to,0,moved);
+      state.selectedPoint = to;
+      renderPointList(); renderPointProps(); renderCanvas();
+    });
+    el.pointList.appendChild(row);
+  });
+}
+function renderPointProps() {
+  const i = state.selectedPoint;
+  if (i < 0 || !state.points[i]) { el.pointProps.innerHTML = '<div class="hint">Select a point to edit it.</div>'; return; }
+  const p = state.points[i];
+  el.pointProps.innerHTML = `
+    <div class="row">
+      <div class="field"><label>X</label><input type="number" id="ppX" value="${p.x}" min="${WORLD_MIN}" max="${WORLD_MAX}"></div>
+      <div class="field"><label>Y</label><input type="number" id="ppY" value="${p.y}" min="${WORLD_MIN}" max="${WORLD_MAX}"></div>
+    </div>
+    <div class="field"><label>Type</label>
+      <select id="ppType"><option value="on" ${p.type==='on'?'selected':''}>LASER_ON</option><option value="off" ${p.type==='off'?'selected':''}>LASER_OFF (blank)</option></select>
+    </div>
+    <label class="inline"><input type="checkbox" id="ppColOv" ${p.colOverride?'checked':''} ${state.colOverride?'':'disabled'}> per-point col_override</label>
+    <div class="palette" id="ppPalette" style="margin-top:6px;"></div>
+  `;
+  $('ppX').addEventListener('input', (e) => { p.x = Math.max(WORLD_MIN, Math.min(WORLD_MAX, parseInt(e.target.value)||0)); renderPointList(); renderCanvas(); });
+  $('ppY').addEventListener('input', (e) => { p.y = Math.max(WORLD_MIN, Math.min(WORLD_MAX, parseInt(e.target.value)||0)); renderPointList(); renderCanvas(); });
+  $('ppType').addEventListener('change', (e) => { p.type = e.target.value; renderPointList(); renderCanvas(); });
+  $('ppColOv').addEventListener('change', (e) => { p.colOverride = e.target.checked; });
+  const pal = $('ppPalette');
+  PALETTE.forEach(pp => {
+    const b = document.createElement('div');
+    b.className = 'swatch' + (sameColor(pp.rgb,[p.r,p.g,p.b]) ? ' selected' : '');
+    b.style.background = `rgb(${pp.rgb.join(',')})`;
+    b.title = pp.name;
+    b.addEventListener('click', () => { p.r=pp.rgb[0]; p.g=pp.rgb[1]; p.b=pp.rgb[2]; renderPointList(); renderPointProps(); renderCanvas(); });
+    pal.appendChild(b);
+  });
+}
+
+// ───────────────────────── Math Function Editor ─────────────────────────
+const FN_PRESETS = {
+  Lissajous: {x:'sin(3*t)', y:'cos(2*t)'},
+  Rose:      {x:'cos(4*t)*cos(t)', y:'cos(4*t)*sin(t)'},
+  Spirograph:{x:'(5-3)*cos(t)+3*cos((5/3-1)*t)', y:'(5-3)*sin(t)-3*sin((5/3-1)*t)'},
+  Circle:    {x:'cos(t)', y:'sin(t)'},
+  Star:      {x:'(0.5+0.5*cos(5*t))*cos(t)', y:'(0.5+0.5*cos(5*t))*sin(t)'},
+};
+Object.keys(FN_PRESETS).forEach(name => {
+  const b = document.createElement('button'); b.className='small'; b.textContent = name;
+  b.addEventListener('click', () => { el.fnX.value = FN_PRESETS[name].x; el.fnY.value = FN_PRESETS[name].y; previewFn(); });
+  el.fnPresets.appendChild(b);
+});
+el.fnCount.addEventListener('input', () => { el.fnCountVal.textContent = el.fnCount.value; });
+el.fnCountVal.textContent = el.fnCount.value;
+
+function evalFn() {
+  const fx = compileExpr(el.fnX.value);
+  const fy = compileExpr(el.fnY.value);
+  const n = parseInt(el.fnCount.value);
+  const pts = [];
+  for (let i = 0; i < n; i++) {
+    const t = (i / n) * Math.PI * 2;
+    pts.push([fx(t), fy(t)]);
+  }
+  return pts;
+}
+function previewFn() {
+  try {
+    const raw = evalFn();
+    el.fnError.textContent = '';
+    // scale to ~80% of world range, preview-only (not committed to state.points)
+    const maxAbs = Math.max(1e-6, ...raw.map(([x,y]) => Math.max(Math.abs(x),Math.abs(y))));
+    const scale = (WORLD_MAX * 0.8) / maxAbs;
+    const w = el.cnv.width, h = el.cnv.height;
+    ctx.clearRect(0,0,w,h); ctx.fillStyle = '#05070a'; ctx.fillRect(0,0,w,h);
+    ctx.strokeStyle = `rgb(${state.color.r},${state.color.g},${state.color.b})`;
+    ctx.lineWidth = 2; ctx.beginPath();
+    raw.forEach(([x,y],i) => {
+      const [sx,sy] = worldToScreen(x*scale, y*scale);
+      if (i===0) ctx.moveTo(sx,sy); else ctx.lineTo(sx,sy);
+    });
+    ctx.closePath(); ctx.stroke();
+  } catch (err) {
+    el.fnError.textContent = 'Parse error: ' + err.message;
+  }
+}
+el.btnFnPreview.addEventListener('click', previewFn);
+el.fnX.addEventListener('input', previewFn);
+el.fnY.addEventListener('input', previewFn);
+el.btnFnConvert.addEventListener('click', () => {
+  try {
+    const raw = evalFn();
+    el.fnError.textContent = '';
+    const maxAbs = Math.max(1e-6, ...raw.map(([x,y]) => Math.max(Math.abs(x),Math.abs(y))));
+    const scale = (WORLD_MAX * 0.8) / maxAbs;
+    state.points = raw.map(([x,y]) => newPoint(x*scale, y*scale));
+    state.closePath = true; el.ovClose.checked = true;
+    state.selectedPoint = -1;
+    renderPointList(); renderPointProps(); renderCanvas();
+  } catch (err) {
+    el.fnError.textContent = 'Parse error: ' + err.message;
+  }
+});
+
+// ───────────────────────── Export: Device JSON ─────────────────────────
+function slugify(name) {
+  let s = name.toLowerCase().replace(/[^a-z0-9-]/g,'-').replace(/-+/g,'-').replace(/^-|-$/g,'');
+  return s.slice(0, MAX_ID_LEN) || ('preset-' + Date.now());
+}
+function buildDeviceJson() {
+  const id = slugify(state.meta.name || 'preset');
+  return {
+    meta: {
+      id, name: state.meta.name || 'My Preset', author: state.meta.author,
+      description: state.meta.notes, tags: [], schema_version: SCHEMA_VERSION,
+      hw_tested: !!state.meta.hwTested, tested_kpps: state.meta.testedKpps || state.kpps,
+      galvo_model: state.meta.galvoModel, fw_version: state.meta.fwVersion,
+      created: new Date().toISOString().slice(0,10), based_on: state.meta.basedOn,
+    },
+    optimizer_profile: { ...state.optimizer },
+    preset_params: {
+      preset_idx: state.simple.presetIdx,
+      col_r: state.color.r, col_g: state.color.g, col_b: state.color.b,
+      speed: state.simple.speed, size_val: state.simple.size,
+    },
+  };
+}
+function downloadJson(obj, filename) {
+  const blob = new Blob([JSON.stringify(obj, null, 2)], {type:'application/json'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(a.href);
+}
+el.btnExportJson.addEventListener('click', () => {
+  if (state.mode === 'advanced') return;
+  const doc = buildDeviceJson();
+  downloadJson(doc, slugify(state.meta.name) + '.json');
+});
+el.btnExportSession.addEventListener('click', () => {
+  const doc = buildDeviceJson();
+  doc.builder_session = true;
+  doc.preset_params.preset_idx = state.mode === 'advanced' ? -1 : state.simple.presetIdx;
+  if (state.mode === 'advanced') {
+    doc.preset_params.points = state.points.map(p => ({x:p.x,y:p.y,type:p.type,r:p.r,g:p.g,b:p.b,col_override:p.colOverride}));
+    doc.preset_params.close_path = state.closePath;
+    doc.preset_params.math = { x_expr: el.fnX.value, y_expr: el.fnY.value, samples: parseInt(el.fnCount.value) };
+  }
+  doc.scanner = { kpps: state.kpps, fps: state.fps, ppf: state.ppf, ppf_manual: state.ppfManual };
+  downloadJson(doc, slugify(state.meta.name) + '.session.json');
+});
+
+// ───────────────────────── C++ snippet export ─────────────────────────
+function buildSnippet() {
+  const fnName = 'pCustom' + (state.meta.name || 'Preset').replace(/[^a-zA-Z0-9]/g,'');
+  const lines = state.points.map(p => `        { ${String(p.x).padStart(6)}, ${String(p.y).padStart(6)}, ${p.r}, ${p.g}, ${p.b}, ${p.type==='off'?1:0} },`);
+  const segCount = state.points.length - (state.closePath ? 0 : 1);
+  let extra = '';
+  if (state.closePath && state.points.length > 0) {
+    const first = state.points[0];
+    extra = `\n        { ${String(first.x).padStart(6)}, ${String(first.y).padStart(6)}, ${first.r}, ${first.g}, ${first.b}, 0 }, // close path`;
+  }
+  return `// GalvOS Community Preset Builder — generated snippet
+// name: ${state.meta.name}   author: ${state.meta.author || '(unset)'}
+// fw_version: ${state.meta.fwVersion}   hw_tested: ${state.meta.hwTested}   tested_kpps: ${state.meta.testedKpps || state.kpps}
+//
+// This is a fixed point-list generator, NOT auto-registered. To wire it in:
+//   1. Paste this function above PRESETS[]/DISPATCH[] in preset_patterns.cpp
+//   2. Add {"${state.meta.name}", "Custom"} to PRESETS[] and bump PRESET_COUNT in preset_patterns.h
+//   3. Add pCustom${(state.meta.name||'Preset').replace(/[^a-zA-Z0-9]/g,'')} to DISPATCH[] at the matching index
+static size_t ${fnName}(LaserPoint* o, size_t m, uint32_t ph, uint8_t sp, uint8_t sz) {
+    static const LaserPoint kPts[] = {
+${lines.join('\n')}${extra}
+    };
+    size_t n = sizeof(kPts) / sizeof(kPts[0]);
+    if (n > m) n = m;
+    memcpy(o, kPts, n * sizeof(LaserPoint));
+    return n;
+}
+`;
+}
+el.btnExportSnippet.addEventListener('click', () => {
+  if (state.points.length === 0) { alert('No points to export — add points in Advanced Mode first.'); return; }
+  const snippet = buildSnippet();
+  el.snippetOut.textContent = snippet;
+  el.snippetPanel.hidden = false;
+  el.snippetOut.scrollIntoView({behavior:'smooth', block:'nearest'});
+});
+el.btnCopySnippet.addEventListener('click', () => { navigator.clipboard.writeText(el.snippetOut.textContent); });
+
+// ───────────────────────── Import ─────────────────────────
+el.btnImport.addEventListener('click', () => el.importFile.click());
+el.importFile.addEventListener('change', () => {
+  const file = el.importFile.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const doc = JSON.parse(reader.result);
+      applyImportedDoc(doc);
+    } catch (err) {
+      el.importWarnings.innerHTML = `<div class="banner warn">Failed to parse JSON: ${err.message}</div>`;
+    }
+  };
+  reader.readAsText(file);
+  el.importFile.value = '';
+});
+function applyImportedDoc(doc) {
+  const warnings = [];
+  const meta = doc.meta || {};
+  state.meta.name = meta.name || state.meta.name;
+  state.meta.author = meta.author || '';
+  state.meta.hwTested = !!meta.hw_tested;
+  state.meta.testedKpps = meta.tested_kpps || state.kpps;
+  state.meta.galvoModel = meta.galvo_model || state.meta.galvoModel;
+  state.meta.notes = meta.description || meta.notes || '';
+  state.meta.fwVersion = meta.fw_version || state.meta.fwVersion;
+  state.meta.basedOn = meta.based_on || '';
+  el.mName.value = state.meta.name; el.mAuthor.value = state.meta.author; el.mHwTested.checked = state.meta.hwTested;
+  el.mTestedKpps.value = state.meta.testedKpps; el.mGalvo.value = state.meta.galvoModel; el.mNotes.value = state.meta.notes;
+  el.mFwVersion.value = state.meta.fwVersion; el.mBasedOn.value = state.meta.basedOn;
+
+  if (meta.hw_tested === false) warnings.push('Imported preset is marked <b>not HW-tested</b> — verify on real hardware before trusting it.');
+  if (meta.tested_kpps && meta.tested_kpps > state.kpps) warnings.push(`Imported preset was tested at ${meta.tested_kpps} kpps, above current Scanner Settings (${state.kpps} kpps).`);
+
+  const op = doc.optimizer_profile;
+  if (op) {
+    state.optimizer = {};
+    OPT_FIELD_DEFS.forEach(f => { if (f.key in op) state.optimizer[f.key] = op[f.key]; });
+    state.profileMode = 'custom';
+    el.sProfile.value = 'custom';
+    el.rawFields.disabled = false;
+    renderOptGrid();
+    // never auto-apply max_pts_per_frame from a file -- suggestion only
+    if (op.max_pts_per_frame) warnings.push(`Imported optimizer_profile.max_pts_per_frame is ${op.max_pts_per_frame} — not auto-applied to Scanner Settings; shown as suggestion only.`);
+  }
+  const pp = doc.preset_params || {};
+  if (typeof pp.col_r === 'number') {
+    state.color = {r:pp.col_r, g:pp.col_g||0, b:pp.col_b||0};
+  }
+  if (Array.isArray(pp.points)) {
+    setMode('advanced');
+    state.points = pp.points.map(p => ({x:p.x,y:p.y,type:p.type||'on',r:p.r,g:p.g,b:p.b,colOverride:!!p.col_override}));
+    state.closePath = !!pp.close_path; el.ovClose.checked = state.closePath;
+    if (pp.math) { el.fnX.value = pp.math.x_expr || el.fnX.value; el.fnY.value = pp.math.y_expr || el.fnY.value; if (pp.math.samples) el.fnCount.value = pp.math.samples; el.fnCountVal.textContent = el.fnCount.value; }
+    const hasOverride = state.points.some(p => p.colOverride);
+    if (hasOverride) { state.colOverride = true; el.colOverride.checked = true; el.overrideRgb.hidden = false; el.ovWarn.hidden = false; }
+    renderPointList(); renderPointProps(); renderCanvas();
+  } else if (typeof pp.preset_idx === 'number' && pp.preset_idx >= 0) {
+    setMode('simple');
+    state.simple.presetIdx = pp.preset_idx; el.sPreset.value = pp.preset_idx;
+    state.simple.speed = typeof pp.speed === 'number' ? pp.speed : state.simple.speed; el.sSpeed.value = state.simple.speed; el.sSpeedVal.textContent = state.simple.speed;
+    state.simple.size = typeof pp.size_val === 'number' ? pp.size_val : state.simple.size; el.sSize.value = state.simple.size; el.sSizeVal.textContent = state.simple.size;
+  }
+  if (doc.scanner) {
+    // Explicitly NOT auto-applied per spec -- surfaced as a warning/suggestion only.
+    warnings.push(`Session was authored at ${doc.scanner.kpps} kpps / ${doc.scanner.fps} fps / ppf ${doc.scanner.ppf} — current Scanner Settings left untouched.`);
+  }
+  renderPalette();
+  el.importWarnings.innerHTML = warnings.length ? `<div class="banner warn">${warnings.join('<br>')}</div>` : '<div class="banner info">Import successful.</div>';
+}
+
+// ───────────────────────── Init ─────────────────────────
+renderPalette();
+renderPresetSelect();
+renderProfileSelect();
+renderOptGrid();
+el.rawFields.disabled = true;
+el.sSpeedVal.textContent = state.simple.speed;
+el.sSizeVal.textContent = state.simple.size;
+el.mBasedOn.value = 'builtin:' + PRESETS[state.simple.presetIdx][0];
+state.meta.basedOn = el.mBasedOn.value;
+el.mTestedKpps.value = state.kpps;
+recalcPpf();
+setMode('simple');
+</script>
+</body>
+</html>
