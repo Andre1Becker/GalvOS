@@ -583,55 +583,76 @@ size_t generate(LaserPoint* out, size_t max_pts, const TextConfig& cfg, uint32_t
             // point at the top. DAC space: +y = up = screen top, -y = down =
             // screen bottom (ground truth, confirmed via the Corner Color Map
             // calibration pattern; no invert_y dependency here).
+            //
+            // yBase IS the final screen Y (there is no separate projection
+            // stage), so it must stay within +/-SCREEN_EDGE or its points
+            // get DAC-rail-clamped and drawn LIT at the edge -- a smear. The
+            // old two-copy version offset the 2nd copy by a fixed 75000, so
+            // that copy's yBase sat at 35000-70000 for its entire life --
+            // always past the top edge, i.e. always clamped-and-drawn as a
+            // bright horizontal line at the top, for ~44% of every cycle.
+            // Fixed by wrapping yBase over exactly the visible span so a
+            // single instance re-enters at the bottom the instant it exits
+            // the top: no gap, and no permanently-offscreen 2nd copy left
+            // painting the rail.
+            const float SCREEN_EDGE = 32767.f;
+            const float SPAN = 2.f * SCREEN_EDGE;
             float scroll_speed = 8000.f;
-            float yPos = -40000.f + fmodf(t * scroll_speed, 80000.f);  // scrolls -40k..+40k (bottom -> top)
+            float yBase = -SCREEN_EDGE + fmodf(t * scroll_speed, SPAN);  // wraps -32767..+32767
+
+            // Perspective: -y (screen bottom, near viewer) = large;
+            // +y (screen top, far/vanishing point) = small.
+            float persp = (SCREEN_EDGE - yBase) / SPAN;  // 1=bottom(near), 0=top(far)
+            persp = fmaxf(0.05f, fminf(1.0f, persp));
+            float scaleP = display_sc * (0.2f + persp * 0.8f);
+            float twP    = textWidth(cfg.text, full_len) * scaleP;
+            float startXP = -twP * 0.5f;
+
+            // Backward tilt: scaleP + twP already narrow the whole line's
+            // width as it recedes, but every glyph still keeps its normal
+            // height/width ratio -- it just shrinks in place. Squashing the
+            // glyph's height *harder* than its width as persp drops makes
+            // the letters flatten the way text lying on a ramp tilted away
+            // from the viewer would, instead of merely zooming out.
+            // squeeze=1 at the near/bottom edge (no extra squash), down to
+            // ~0.55 near the vanishing point.
+            float squeeze = 0.55f + 0.45f * persp;
 
             size_t total = 0;
 
-            for (int copy = 0; copy < 2; copy++) {
-                float yBase = yPos + copy * 75000.f;
+            // Render a single line of text at this y position and scale.
+            // Split the whole buffer evenly across letters so no single
+            // glyph can eat the whole frame. The old hard 80 pts/glyph
+            // ceiling on top of that was tighter than the Text profile's
+            // own blank overhead (blank_samples+min_blank_samples per
+            // pen-lift run, times up to 4 runs for a multi-stroke glyph
+            // like 'B'/'E'/'K' -- 14*4=56 alone), so most glyphs had
+            // only a handful of points left for corners+interior and
+            // collapsed to isolated dots ("Star Wars shows only dots/
+            // fragments"). Let the per-letter share of the buffer (already
+            // a real bound) govern it instead.
+            size_t letters = (size_t)full_len > 0 ? (size_t)full_len : 1;
+            size_t glyph_cap = max_pts / letters;
 
-                if (yBase > 70000.f || yBase < -36000.f) continue;
-
-                // Perspective: -y (screen bottom, near viewer) = large;
-                // +y (screen top, far/vanishing point) = small.
-                float persp = (32767.f - yBase) / 65534.f;  // 1=bottom(near), 0=top(far)
-                persp = fmaxf(0.05f, fminf(1.0f, persp));
-                float scaleP = display_sc * (0.2f + persp * 0.8f);
-                float twP    = textWidth(cfg.text, full_len) * scaleP;
-                float startXP = -twP * 0.5f;
-
-                // Render a single line of text at this y position and scale.
-                // Split remaining space evenly across letters so no single
-                // glyph can eat the whole frame. The old hard 80 pts/glyph
-                // ceiling on top of that was tighter than the Text profile's
-                // own blank overhead (blank_samples+min_blank_samples per
-                // pen-lift run, times up to 4 runs for a multi-stroke glyph
-                // like 'B'/'E'/'K' -- 14*4=56 alone), so most glyphs had
-                // only a handful of points left for corners+interior and
-                // collapsed to isolated dots ("Star Wars shows only dots/
-                // fragments"). Let the per-letter share of the remaining
-                // buffer (already a real bound) govern it instead.
-                size_t letters = (size_t)full_len > 0 ? (size_t)full_len : 1;
-                size_t glyph_cap = (max_pts > total) ? (max_pts - total) / letters : 0;
-
-                float cx2 = startXP;
-                for (int ci = 0; ci < full_len && cfg.text[ci]; ci++) {
-                    char ch = toupper((unsigned char)cfg.text[ci]);
-                    const FontGlyph* g2 = nullptr;
-                    for (int i = 0; i < GLYPH_COUNT; i++) {
-                        if (GLYPHS[i].ch == (uint8_t)ch) { g2 = &GLYPHS[i]; break; }
-                    }
-                    if (!g2) { cx2 += 10.f * scaleP; continue; }
-
-                    size_t cap = total + glyph_cap < max_pts ? total + glyph_cap : max_pts;
-                    addPt(out, total, cap, cx2, yBase, 0, 0, 0, 1);
-                    renderGlyph(out, total, cap, g2->strokes,
-                                cx2 + g2->advance * 0.5f * scaleP, yBase, scaleP,
-                                cfg.col_r, cfg.col_g, cfg.col_b);
-                    cx2 += g2->advance * scaleP;
-                    if (total >= max_pts - 16) break;
+            float cx2 = startXP;
+            for (int ci = 0; ci < full_len && cfg.text[ci]; ci++) {
+                char ch = toupper((unsigned char)cfg.text[ci]);
+                const FontGlyph* g2 = nullptr;
+                for (int i = 0; i < GLYPH_COUNT; i++) {
+                    if (GLYPHS[i].ch == (uint8_t)ch) { g2 = &GLYPHS[i]; break; }
                 }
+                if (!g2) { cx2 += 10.f * scaleP; continue; }
+
+                size_t cap = total + glyph_cap < max_pts ? total + glyph_cap : max_pts;
+                addPt(out, total, cap, cx2, yBase, 0, 0, 0, 1);
+                size_t before = total;
+                renderGlyph(out, total, cap, g2->strokes,
+                            cx2 + g2->advance * 0.5f * scaleP, yBase, scaleP,
+                            cfg.col_r, cfg.col_g, cfg.col_b);
+                for (size_t i = before; i < total; i++)
+                    out[i].y = (int16_t)(yBase + (out[i].y - yBase) * squeeze);
+                cx2 += g2->advance * scaleP;
+                if (total >= max_pts - 16) break;
             }
             return total;
         }
