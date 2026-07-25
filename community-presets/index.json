@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "presets": [
+    {
+      "id": "shooting-stars-v1",
+      "name": "Shooting Stars",
+      "author": "Andre1Becker",
+      "description": "Meteors streak diagonally across the sky with fading trails -- tuned for the Trails optimizer profile.",
+      "tags": ["particles", "trails"],
+      "file": "shooting-stars-v1.json"
+    }
+  ]
+}

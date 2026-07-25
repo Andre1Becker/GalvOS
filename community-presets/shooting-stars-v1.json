@@ -1,0 +1,40 @@
+{
+  "meta": {
+    "id": "shooting-stars-v1",
+    "name": "Shooting Stars",
+    "author": "Andre1Becker",
+    "description": "Meteors streak diagonally across the sky with fading trails -- tuned for the Trails optimizer profile.",
+    "tags": ["particles", "trails"],
+    "schema_version": 1
+  },
+  "optimizer_profile": {
+    "corner_angle_deg": 60.0,
+    "min_corner_pts": 3,
+    "max_corner_pts": 3,
+    "pts_per_1000_units": 11.0,
+    "min_segment_pts": 2,
+    "blank_samples": 16,
+    "max_pts_per_frame": 880,
+    "min_blank_samples": 6,
+    "blank_pts_per_1000_units": 8.0,
+    "min_interior_pts_per_segment": 8,
+    "stage1_blank_target": 12,
+    "resample_enabled": false,
+    "resample_spacing_units": 100.0,
+    "ringing_comp_enabled": false,
+    "ring_freq_hz": 200.0,
+    "ring_damping_ratio": 0.15,
+    "vel_clamp_enabled": false,
+    "max_step_units": 200.0,
+    "accel_clamp_enabled": false,
+    "max_accel_units": 800.0
+  },
+  "preset_params": {
+    "preset_idx": 74,
+    "col_r": 255,
+    "col_g": 255,
+    "col_b": 255,
+    "speed": 140,
+    "size_val": 200
+  }
+}

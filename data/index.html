@@ -621,6 +621,7 @@
   <button data-tab="dashboard" class="active">Dashboard</button>
   <button data-tab="dmx">DMX Live</button>
   <button data-tab="presets">🎭 Presets</button>
+  <button data-tab="preset-manager">🌐 Preset Manager</button>
   <button data-tab="text">✏️ Text</button>
   <button data-tab="paint">🖌 Paint</button>
   <button data-tab="ilda">💿 ILDA / SD</button>
@@ -1273,6 +1274,69 @@
     </div>
 
   </div><!-- /Preset Units grid -->
+
+  <!-- ══ COMMUNITY PRESETS ══════════════════════════════════════════════════ -->
+  <div class="card" style="padding:14px;margin-top:14px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+      <h2 style="margin:0">🌐 Community Presets</h2>
+      <button class="btn secondary" onclick="switchTab('preset-manager')" style="padding:4px 10px;font-size:13px">＋ Browse / Manage</button>
+    </div>
+    <div id="community-preset-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px"></div>
+    <div id="community-preset-empty" style="display:none;color:var(--dim);font-size:14px;padding:10px 0">
+      No community presets saved yet — browse in the Preset Manager tab.
+    </div>
+  </div>
+
+</section>
+
+<!-- ============= PRESET MANAGER ============= -->
+<section id="tab-preset-manager" class="tab">
+
+  <div class="card" style="padding:14px;margin-bottom:14px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+      <h2 style="margin:0">☁ GitHub Browser</h2>
+      <button class="btn secondary" onclick="browseGithubPresets()" style="padding:4px 10px;font-size:13px">⟳ Browse GitHub</button>
+    </div>
+    <p style="color:var(--dim);font-size:14px;margin:0 0 12px">
+      Fetches the community preset index straight from GitHub. Download saves the preset to the
+      device's LittleFS storage — it then shows up under Presets → Community Presets.
+    </p>
+    <div id="github-browser-status" style="color:var(--dim);font-size:14px;display:none;padding:10px 0"></div>
+    <div id="github-browser-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px"></div>
+  </div>
+
+  <div class="card" style="padding:14px;margin-bottom:14px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+      <h2 style="margin:0">🗂 Local Manager</h2>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="btn secondary" id="pm-bulk-delete-btn" style="padding:4px 10px;font-size:13px;display:none" onclick="bulkDeleteCommunityPresets()">🗑 Delete selected</button>
+        <button class="btn secondary" onclick="loadCommunityPresets()" style="padding:4px 10px;font-size:13px">⟳ Refresh</button>
+      </div>
+    </div>
+    <table style="width:100%;border-collapse:collapse;font-size:14px">
+      <thead>
+        <tr style="text-align:left;color:var(--dim);border-bottom:1px solid var(--border)">
+          <th style="padding:6px 4px;width:26px"></th>
+          <th style="padding:6px 4px">Name</th>
+          <th style="padding:6px 4px">Author</th>
+          <th style="padding:6px 4px">Size</th>
+          <th style="padding:6px 4px;text-align:right">Actions</th>
+        </tr>
+      </thead>
+      <tbody id="pm-local-table-body"></tbody>
+    </table>
+    <div id="pm-local-empty" style="display:none;color:var(--dim);font-size:14px;padding:10px 0">
+      No community presets stored on this device yet.
+    </div>
+  </div>
+
+  <div class="card" style="padding:14px">
+    <h2 style="margin:0 0 10px">📦 Storage Monitor</h2>
+    <div style="background:rgba(0,0,0,0.5);border:1px solid var(--border);border-radius:6px;height:18px;overflow:hidden;margin-bottom:8px">
+      <div id="pm-storage-bar" style="height:100%;width:0%;background:linear-gradient(90deg,var(--accent),var(--cyan));transition:width 0.3s"></div>
+    </div>
+    <div id="pm-storage-label" style="font-size:13px;color:var(--dim)">-- presets · -- MB used of -- MB</div>
+  </div>
 
 </section>
 
@@ -2278,6 +2342,11 @@ function toast(msg, isError = false) {
 // ============================================================
 // Tab Navigation
 // ============================================================
+function switchTab(name) {
+  const btn = document.querySelector(`nav button[data-tab="${name}"]`);
+  if (btn) btn.click();
+}
+
 document.querySelectorAll('nav button').forEach(btn => {
   btn.addEventListener('click', () => {
     document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
@@ -2288,6 +2357,7 @@ document.querySelectorAll('nav button').forEach(btn => {
     const t = btn.dataset.tab;
     if (t === 'projection') loadProjection();
     if (t === 'presets' && g_curve_defs.length === 0) loadCurveDefs();
+    if (t === 'presets' || t === 'preset-manager') loadCommunityPresets();
     if (t === 'thermal')  { buildTempSensors(); buildSensorNameEditor(); }
     if (t === 'paint') initPaintTab();
     if (t !== 'calib') { stopThreshTest(); stopThreeCirclePattern(); }
@@ -4536,6 +4606,209 @@ function updatePresetHint(idx) {
             if (dr) dr.style.display = this.checked ? 'none' : 'block';
         });
     }
+}
+
+// ============================================================
+// Community Presets (GitHub browser + LittleFS local manager)
+// ============================================================
+const GITHUB_PRESETS_BASE = 'https://raw.githubusercontent.com/Andre1Becker/GalvOS/main/community-presets/';
+
+let g_community_presets = [];   // [{id,name,author,size_bytes}], from /api/community/list
+let g_github_index      = null; // {version, presets:[...]}, cached after first successful browse
+let g_pm_selected        = new Set();
+
+function escapeHtml(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[c]));
+}
+
+async function loadCommunityPresets() {
+    try {
+        const r = await fetch('/api/community/list');
+        const j = r.ok ? await r.json() : null;
+        g_community_presets = (j && Array.isArray(j.presets)) ? j.presets : [];
+    } catch (e) { g_community_presets = []; }
+    renderCommunityPresetGrid();
+    renderLocalManagerTable();
+    if (document.getElementById('tab-preset-manager').classList.contains('active')) refreshStorageMonitor();
+}
+
+function renderCommunityPresetGrid() {
+    const grid = document.getElementById('community-preset-grid');
+    const empty = document.getElementById('community-preset-empty');
+    if (!grid || !empty) return;
+    if (g_community_presets.length === 0) {
+        grid.innerHTML = '';
+        empty.style.display = 'block';
+        return;
+    }
+    empty.style.display = 'none';
+    grid.innerHTML = g_community_presets.map(p => `
+      <div onclick="activateCommunityPreset('${p.id}')"
+        style="background:#1a1a2e;border:2px solid transparent;border-radius:8px;cursor:pointer;
+               padding:10px;transition:all 0.15s"
+        onmouseover="this.style.borderColor='var(--cyan)'" onmouseout="this.style.borderColor='transparent'">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px;margin-bottom:4px">
+          <span style="font-weight:600;font-size:13px;color:#e8e8e8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(p.name)}</span>
+          <span style="background:var(--cyan);color:#000;font-size:9px;font-weight:700;padding:2px 5px;border-radius:3px;letter-spacing:0.05em;flex-shrink:0">COMMUNITY</span>
+        </div>
+        <div style="font-size:11px;color:var(--dim)">by ${escapeHtml(p.author || 'unknown')}</div>
+      </div>`).join('');
+}
+
+async function activateCommunityPreset(id) {
+    const r = await apiCall('POST', '/api/community/activate', { id });
+    if (r !== null) {
+        s_activePresetIdx = r.idx;
+        document.getElementById('preset-active-name').textContent = `${r.name} (Community)`;
+        renderAllPresetGrids();
+        updatePresetHint(r.idx);
+        toast(`Preset: ${r.name}`);
+        sendLiveControls();
+    }
+}
+
+// ── GitHub Browser ──────────────────────────────────────────────────────────
+async function browseGithubPresets() {
+    const status = document.getElementById('github-browser-status');
+    const grid   = document.getElementById('github-browser-grid');
+    status.style.display = 'block';
+    status.style.color = 'var(--dim)';
+    status.textContent = 'Fetching index from GitHub…';
+    grid.innerHTML = '';
+    try {
+        const r = await fetch(GITHUB_PRESETS_BASE + 'index.json', { cache: 'no-store' });
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        const j = await r.json();
+        g_github_index = j;
+        status.style.display = 'none';
+        renderGithubBrowserGrid();
+    } catch (e) {
+        status.style.color = 'var(--bad)';
+        status.textContent = '⚠ Could not reach GitHub — check your internet connection and try again.';
+    }
+}
+
+function renderGithubBrowserGrid() {
+    const grid = document.getElementById('github-browser-grid');
+    if (!g_github_index || !Array.isArray(g_github_index.presets)) { grid.innerHTML = ''; return; }
+    const savedIds = new Set(g_community_presets.map(p => p.id));
+    grid.innerHTML = g_github_index.presets.map(p => {
+        const saved = savedIds.has(p.id);
+        return `
+      <div class="card" style="padding:12px;margin:0">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px;margin-bottom:4px">
+          <span style="font-weight:600;font-size:14px">${escapeHtml(p.name)}</span>
+        </div>
+        <div style="font-size:12px;color:var(--dim);margin-bottom:6px">by ${escapeHtml(p.author || 'unknown')}</div>
+        <div style="font-size:13px;color:var(--text);margin-bottom:8px;min-height:34px">${escapeHtml(p.description || '')}</div>
+        <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px">
+          ${(p.tags || []).map(t => `<span style="background:#222;color:var(--dim);font-size:11px;padding:2px 6px;border-radius:3px">${escapeHtml(t)}</span>`).join('')}
+        </div>
+        ${saved
+          ? `<button class="btn secondary" disabled style="width:100%;font-size:13px;opacity:0.6">✓ Saved</button>`
+          : `<button class="btn ok" style="width:100%;font-size:13px" onclick="downloadCommunityPreset('${escapeHtml(p.id)}','${escapeHtml(p.file)}')">⬇ Download</button>`}
+      </div>`;
+    }).join('');
+}
+
+async function downloadCommunityPreset(id, file) {
+    try {
+        const r = await fetch(GITHUB_PRESETS_BASE + file, { cache: 'no-store' });
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        const preset = await r.json();
+        const save = await apiCall('POST', '/api/community/save', preset);
+        if (save !== null) {
+            toast(`Saved: ${preset.meta ? preset.meta.name : id}`);
+            await loadCommunityPresets();
+            renderGithubBrowserGrid();
+        }
+    } catch (e) {
+        toast('Download failed — check your internet connection', true);
+    }
+}
+
+// ── Local Manager ────────────────────────────────────────────────────────────
+function renderLocalManagerTable() {
+    const body  = document.getElementById('pm-local-table-body');
+    const empty = document.getElementById('pm-local-empty');
+    const bulkBtn = document.getElementById('pm-bulk-delete-btn');
+    if (!body) return;
+    g_pm_selected = new Set([...g_pm_selected].filter(id => g_community_presets.some(p => p.id === id)));
+    if (g_community_presets.length === 0) {
+        body.innerHTML = '';
+        empty.style.display = 'block';
+        bulkBtn.style.display = 'none';
+        return;
+    }
+    empty.style.display = 'none';
+    bulkBtn.style.display = g_pm_selected.size > 0 ? 'inline-block' : 'none';
+    body.innerHTML = g_community_presets.map(p => `
+      <tr style="border-bottom:1px solid var(--border)">
+        <td style="padding:6px 4px">
+          <input type="checkbox" ${g_pm_selected.has(p.id) ? 'checked' : ''} onchange="togglePmSelect('${p.id}', this.checked)">
+        </td>
+        <td style="padding:6px 4px" id="pm-name-${p.id}">${escapeHtml(p.name)}</td>
+        <td style="padding:6px 4px;color:var(--dim)">${escapeHtml(p.author || '')}</td>
+        <td style="padding:6px 4px;color:var(--dim)">${fmtBytes(p.size_bytes)}</td>
+        <td style="padding:6px 4px;text-align:right;white-space:nowrap">
+          <button class="btn secondary" style="padding:3px 8px;font-size:12px" onclick="startRenamePreset('${p.id}')">✎ Rename</button>
+          <button class="btn danger" style="padding:3px 8px;font-size:12px" onclick="deleteCommunityPreset('${p.id}')">🗑</button>
+        </td>
+      </tr>`).join('');
+}
+
+function togglePmSelect(id, checked) {
+    if (checked) g_pm_selected.add(id); else g_pm_selected.delete(id);
+    document.getElementById('pm-bulk-delete-btn').style.display = g_pm_selected.size > 0 ? 'inline-block' : 'none';
+}
+
+function startRenamePreset(id) {
+    const cell = document.getElementById(`pm-name-${id}`);
+    if (!cell) return;
+    const current = (g_community_presets.find(p => p.id === id) || {}).name || '';
+    cell.innerHTML = `<input type="text" value="${escapeHtml(current)}" style="width:100%"
+        onkeydown="if(event.key==='Enter')confirmRenamePreset('${id}',this.value)"
+        id="pm-rename-input-${id}">
+      <button class="btn ok" style="padding:2px 6px;font-size:11px;margin-left:4px" onclick="confirmRenamePreset('${id}', document.getElementById('pm-rename-input-${id}').value)">✓</button>`;
+    document.getElementById(`pm-rename-input-${id}`).focus();
+}
+
+async function confirmRenamePreset(id, newName) {
+    newName = (newName || '').trim();
+    if (!newName) { renderLocalManagerTable(); return; }
+    const r = await apiCall('POST', '/api/community/rename', { id, name: newName });
+    if (r !== null) { toast('Renamed'); await loadCommunityPresets(); }
+    else renderLocalManagerTable();
+}
+
+async function deleteCommunityPreset(id) {
+    if (!confirm('Delete this community preset?')) return;
+    const r = await apiCall('DELETE', '/api/community/delete', { id });
+    if (r !== null) { toast('Deleted'); await loadCommunityPresets(); }
+}
+
+async function bulkDeleteCommunityPresets() {
+    const ids = [...g_pm_selected];
+    if (ids.length === 0) return;
+    if (!confirm(`Delete ${ids.length} selected preset(s)?`)) return;
+    for (const id of ids) {
+        await apiCall('DELETE', '/api/community/delete', { id });
+    }
+    g_pm_selected.clear();
+    toast(`Deleted ${ids.length} preset(s)`);
+    await loadCommunityPresets();
+}
+
+// ── Storage Monitor ──────────────────────────────────────────────────────────
+async function refreshStorageMonitor() {
+    const r = await apiCall('GET', '/api/community/fs-info');
+    if (!r) return;
+    const pct = r.total_bytes > 0 ? Math.min(100, (r.used_bytes / r.total_bytes) * 100) : 0;
+    document.getElementById('pm-storage-bar').style.width = pct.toFixed(1) + '%';
+    document.getElementById('pm-storage-label').textContent =
+        `${r.preset_count} preset${r.preset_count === 1 ? '' : 's'} · ${fmtBytes(r.used_bytes)} used of ${fmtBytes(r.total_bytes)}`;
 }
 
 async function deactivatePreset() {

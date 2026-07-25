@@ -22,6 +22,7 @@
 #include "util/mem_registry.h"
 #include "net/ntp_client.h"
 #include "net/backup_manager.h"
+#include "net/community_presets.h"
 #include "patterns/preset_patterns.h"
 #include "patterns/countdown_timer.h"
 #include <Arduino.h>
@@ -729,8 +730,10 @@ void init() {
 
     if (!LittleFS.begin(true))
         ESP_LOGE(TAG, "LittleFS mount failed");
-    else
+    else {
         loadIndexGzToPsram();
+        community_presets::init();
+    }
 
     // ---- Statische SPA ----
     // "/" and "/index.html" are served from the PSRAM cache (see
@@ -2233,6 +2236,146 @@ void init() {
             sendJsonPsram(req, result);
             vTaskDelay(pdMS_TO_TICKS(800));
             ESP.restart();
+        });
+
+    // ── Community Presets (/api/community/*) ─────────────────────────────────
+    // GitHub-hosted preset JSONs (optimizer tuning + preset playback params),
+    // downloaded by the browser and POSTed here for validation + LittleFS
+    // storage. See community_presets.h for the on-disk schema/bounds; the
+    // firmware never talks to GitHub itself, only the browser does.
+
+    // ---- GET /api/community/fs-info ----
+    s_server.on("/api/community/fs-info", HTTP_GET, [](AsyncWebServerRequest* req) {
+        JsonDocument doc(&jsonAllocator());
+        community_presets::fsInfo(doc.to<JsonObject>());
+        sendJsonPsram(req, doc);
+    });
+
+    // ---- GET /api/community/list ----
+    s_server.on("/api/community/list", HTTP_GET, [](AsyncWebServerRequest* req) {
+        JsonDocument doc(&jsonAllocator());
+        JsonObject root = doc.to<JsonObject>();
+        community_presets::list(root["presets"].to<JsonArray>());
+        sendJsonPsram(req, doc);
+    });
+
+    // ---- POST /api/community/save ---- validate + write to LittleFS
+    s_server.on("/api/community/save", HTTP_POST,
+        [](AsyncWebServerRequest* req) {},
+        nullptr,
+        [](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t, size_t) {
+            if (len > community_presets::MAX_FILE_BYTES) {
+                req->send(413, "application/json", "{\"error\":\"preset too large\"}");
+                return;
+            }
+            JsonDocument doc(&jsonAllocator());
+            if (deserializeJson(doc, data, len) != DeserializationError::Ok) {
+                req->send(400, "application/json", "{\"error\":\"bad json\"}");
+                return;
+            }
+            String reason;
+            if (!community_presets::validate(doc, reason)) {
+                JsonDocument err(&jsonAllocator());
+                err["error"] = reason;
+                sendJsonPsram(req, err, 400);
+                return;
+            }
+            if (!community_presets::save(doc)) {
+                req->send(500, "application/json", "{\"error\":\"write failed\"}");
+                return;
+            }
+            req->send(200, "text/plain", "OK");
+        });
+
+    // ---- DELETE /api/community/delete ---- body: {id}
+    s_server.on("/api/community/delete", HTTP_DELETE,
+        [](AsyncWebServerRequest* req) {},
+        nullptr,
+        [](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t, size_t) {
+            JsonDocument doc(&jsonAllocator());
+            if (deserializeJson(doc, data, len) != DeserializationError::Ok) {
+                req->send(400, "application/json", "{\"error\":\"bad json\"}");
+                return;
+            }
+            const char* id = doc["id"] | "";
+            if (!community_presets::remove(String(id))) {
+                req->send(404, "application/json", "{\"error\":\"not found\"}");
+                return;
+            }
+            req->send(200, "text/plain", "OK");
+        });
+
+    // ---- POST /api/community/rename ---- body: {id, name}
+    s_server.on("/api/community/rename", HTTP_POST,
+        [](AsyncWebServerRequest* req) {},
+        nullptr,
+        [](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t, size_t) {
+            JsonDocument doc(&jsonAllocator());
+            if (deserializeJson(doc, data, len) != DeserializationError::Ok) {
+                req->send(400, "application/json", "{\"error\":\"bad json\"}");
+                return;
+            }
+            const char* id   = doc["id"]   | "";
+            const char* name = doc["name"] | "";
+            if (!community_presets::rename(String(id), String(name))) {
+                req->send(404, "application/json", "{\"error\":\"not found\"}");
+                return;
+            }
+            req->send(200, "text/plain", "OK");
+        });
+
+    // ---- POST /api/community/activate ---- body: {id}
+    // Applies preset_params (which built-in preset + color/speed/size) then
+    // layers optimizer_profile on top of gOptimizerConfig as a RAM-only
+    // override -- same non-persisted pattern as the calib-cam session
+    // overrides above. Order matters: setPreset() re-syncs gOptimizerConfig
+    // from the preset's class profile, so the override must apply after it
+    // or it would be immediately clobbered.
+    s_server.on("/api/community/activate", HTTP_POST,
+        [](AsyncWebServerRequest* req) {},
+        nullptr,
+        [](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t, size_t) {
+            JsonDocument reqDoc(&jsonAllocator());
+            if (deserializeJson(reqDoc, data, len) != DeserializationError::Ok) {
+                req->send(400, "application/json", "{\"error\":\"bad json\"}");
+                return;
+            }
+            const char* id = reqDoc["id"] | "";
+            JsonDocument doc(&jsonAllocator());
+            if (!community_presets::load(String(id), doc)) {
+                req->send(404, "application/json", "{\"error\":\"not found\"}");
+                return;
+            }
+
+            JsonObjectConst pp = doc["preset_params"];
+            int idx = pp["preset_idx"] | -1;
+            presets::Preset p = presets::presetFromIndex(idx);
+            if (p == presets::Preset::None) {
+                req->send(400, "application/json", "{\"error\":\"invalid preset_idx\"}");
+                return;
+            }
+            if (pp["col_r"].is<int>())    gLivePreset.col_r    = constrain((int)pp["col_r"], 0, 255);
+            if (pp["col_g"].is<int>())    gLivePreset.col_g    = constrain((int)pp["col_g"], 0, 255);
+            if (pp["col_b"].is<int>())    gLivePreset.col_b    = constrain((int)pp["col_b"], 0, 255);
+            if (pp["speed"].is<int>())    gLivePreset.speed    = constrain((int)pp["speed"], 0, 255);
+            if (pp["size_val"].is<int>()) gLivePreset.size_val = constrain((int)pp["size_val"], 0, 255);
+
+            patterns::setPreset(p);
+
+            JsonObjectConst op = doc["optimizer_profile"];
+            if (!op.isNull()) {
+                JsonDocument scratch(&jsonAllocator());
+                JsonObject applied = scratch["applied"].to<JsonObject>();
+                JsonArray  ignored = scratch["ignored"].to<JsonArray>();
+                applyOptimizerOverrides(op, gOptimizerConfig, applied, ignored);
+                gPatternCacheGen++;
+            }
+
+            JsonDocument result(&jsonAllocator());
+            result["ok"]   = true;
+            result["idx"]  = idx;
+            result["name"] = doc["meta"]["name"] | id;
+            sendJsonPsram(req, result);
         });
 
     // WebSocket removed in 5.34.0 — unused (state is polled via /api/state).
