@@ -289,9 +289,13 @@ static const char* DMX_CHANNEL_NAMES[25] = {
     "Color Anim Speed",     // 25
 };
 
+// SRC_HELIOS: repurposed for the network Helios emulation (helios_net.cpp) --
+// the USB stub (helios_usb.cpp) never wired this up. SRC_SACN/SRC_OSC appended
+// at the end so existing numeric values (persisted nowhere, but mirrored in
+// data/index.html's srcNames[]) stay stable.
 enum ControlSource : uint8_t {
     SRC_NONE = 0, SRC_DMX, SRC_ARTNET, SRC_ETHERDREAM,
-    SRC_HELIOS, SRC_INTERNAL, SRC_WEBUI
+    SRC_HELIOS, SRC_INTERNAL, SRC_WEBUI, SRC_SACN, SRC_OSC
 };
 
 struct __attribute__((packed)) LaserPoint {
@@ -310,6 +314,14 @@ struct RuntimeConfig {
     uint8_t   version = 2;
     uint16_t  dmx_address    = DEFAULT_DMX_ADDRESS;
     uint16_t  artnet_universe = DEFAULT_DMX_UNIVERSE;
+
+    // Per-interface enable toggles (WebUI Config tab). Sockets/servers are
+    // still opened at boot (matches the existing Art-Net/EtherDream
+    // lifecycle, see main.cpp) -- disabling a feature stops it from acting
+    // on received data rather than tearing down its socket.
+    bool      osc_enabled        = true;
+    bool      sacn_enabled       = true;
+    bool      helios_net_enabled = true;
 
     int16_t   galvo_x_offset = 0;
     int16_t   galvo_y_offset = 0;

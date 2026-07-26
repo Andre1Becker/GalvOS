@@ -14,6 +14,10 @@
 #include "storage/playlist.h"
 #include "net/ota_update.h"
 #include "net/etherdream.h"
+#include "net/helios_net.h"
+#include "net/helios_usb.h"
+#include "net/osc_in.h"
+#include "net/sacn_in.h"
 #include "storage/sd_card.h"
 #include "sensors/temp_monitor.h"
 #include "util/log_buffer.h"
@@ -363,6 +367,9 @@ static void persistConfig() {
     s_prefs.putUChar("thresh_g",    gConfig.thresh_g);
     s_prefs.putUChar("thresh_b",    gConfig.thresh_b);
     s_prefs.putBool ("gamma_en",    gConfig.gamma_enable);
+    s_prefs.putBool("osc_en",       gConfig.osc_enabled);
+    s_prefs.putBool("sacn_en",      gConfig.sacn_enabled);
+    s_prefs.putBool("helios_en",    gConfig.helios_net_enabled);
     s_prefs.putUChar("gain_g",      gConfig.gain_g);
     s_prefs.putUChar("gain_b",      gConfig.gain_b);
     s_prefs.putString("ssid",       gConfig.wifi_ssid);
@@ -445,6 +452,13 @@ static void buildStateJson(JsonDocument& doc) {
     doc["playlist_active"] = playlist::isActive();
     doc["safety_override"] = gConfig.safety_override;
     doc["source"]          = (int)gState.source;
+    doc["etherdream_connected"] = etherdream::isConnected();
+    doc["etherdream_playing"]   = etherdream::isPlaying();
+    doc["helios_net_connected"] = helios_net::isConnected();
+    doc["helios_net_playing"]   = helios_net::isPlaying();
+    doc["helios_usb_connected"] = helios_usb::isConnected();
+    doc["osc_active"]           = osc_in::isActive();
+    doc["sacn_active"]          = sacn_in::isReceiving();
     { JsonArray off = doc["temp_offsets"].to<JsonArray>();
       JsonArray raw = doc["temp_raw"].to<JsonArray>();
       for (uint8_t i = 0; i < temp::NUM_SENSORS; i++) {
@@ -517,6 +531,9 @@ static void buildStateJson(JsonDocument& doc) {
 static void buildConfigJson(JsonDocument& doc) {
     doc["dmx_address"]     = gConfig.dmx_address;
     doc["artnet_universe"] = gConfig.artnet_universe;
+    doc["osc_enabled"]        = gConfig.osc_enabled;
+    doc["sacn_enabled"]       = gConfig.sacn_enabled;
+    doc["helios_net_enabled"] = gConfig.helios_net_enabled;
     doc["galvo_x_offset"]  = gConfig.galvo_x_offset;
     doc["galvo_y_offset"]  = gConfig.galvo_y_offset;
     doc["galvo_x_gain"]    = gConfig.galvo_x_gain;
@@ -774,6 +791,9 @@ void init() {
             if (doc["wifi_mask"].is<const char*>()) strlcpy(gConfig.wifi_mask, doc["wifi_mask"], sizeof(gConfig.wifi_mask));
             if (doc["wifi_dns"].is<const char*>())  strlcpy(gConfig.wifi_dns,  doc["wifi_dns"],  sizeof(gConfig.wifi_dns));
             if (doc["dac_debug_log"].is<bool>())    gConfig.dac_debug_log = doc["dac_debug_log"];
+            if (doc["osc_enabled"].is<bool>())        gConfig.osc_enabled        = doc["osc_enabled"];
+            if (doc["sacn_enabled"].is<bool>())       gConfig.sacn_enabled       = doc["sacn_enabled"];
+            if (doc["helios_net_enabled"].is<bool>()) gConfig.helios_net_enabled = doc["helios_net_enabled"];
             if (doc["galvo_rated_kpps"].is<int>()) {
                 int rk = constrain((int)doc["galvo_rated_kpps"], 1, 100);
                 gProjection.galvo_rated_kpps = (uint16_t)rk;
@@ -1881,6 +1901,11 @@ void init() {
         doc["dmx_address"]     = gConfig.dmx_address;
         doc["etherdream_connected"] = etherdream::isConnected();
         doc["etherdream_playing"]   = etherdream::isPlaying();
+        doc["helios_net_connected"] = helios_net::isConnected();
+        doc["helios_net_playing"]   = helios_net::isPlaying();
+        doc["helios_usb_connected"] = helios_usb::isConnected();
+        doc["osc_active"]           = osc_in::isActive();
+        doc["sacn_active"]          = sacn_in::isReceiving();
         sendJsonPsram(req, doc);
     });
 

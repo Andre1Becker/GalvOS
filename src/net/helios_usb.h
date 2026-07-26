@@ -20,4 +20,9 @@ namespace helios_usb {
 void init();
 void task(void*);
 
+// Always false -- TinyUSB vendor-class is not implemented yet (see stub
+// above). Exposed so the WebUI can show a "waiting" indicator instead of
+// silently omitting the interface.
+bool isConnected();
+
 }

@@ -1,7 +1,7 @@
 /**
  * main.cpp -- galvOS - A Mikoy Laser Replacement Firmware (WebUI-Focus)
  *
- * Core 0: WiFi, WebUI, Art-Net, Ether Dream, Safety, DMX
+ * Core 0: WiFi, WebUI, Art-Net, sACN, Ether Dream, Helios (net), OSC, Safety, DMX
  * Core 1: Galvo-Timer-ISR + Pattern-Engine
  */
 
@@ -27,6 +27,9 @@
 #include <esp_system.h>
 #include "net/ota_update.h"
 #include "net/etherdream.h"
+#include "net/helios_net.h"
+#include "net/osc_in.h"
+#include "net/sacn_in.h"
 #include "storage/playlist.h"
 #include "ilda/ilda_player.h"
 #include "net/artnet_in.h"
@@ -88,6 +91,9 @@ static void loadConfig() {
     gConfig.thresh_g        = s_prefs.getUChar("thresh_g", 144);
     gConfig.thresh_b        = s_prefs.getUChar("thresh_b", 169);
     gConfig.gamma_enable    = s_prefs.getBool ("gamma_en", true);
+    gConfig.osc_enabled        = s_prefs.getBool("osc_en",    true);
+    gConfig.sacn_enabled       = s_prefs.getBool("sacn_en",   true);
+    gConfig.helios_net_enabled = s_prefs.getBool("helios_en", true);
     // NVS suffixes are pinned to the profile index, not to its name, so the
     // v1 profile set (Simple/Curves/3D/Scenes/Solar) migrates in place onto
     // the renamed profiles instead of resetting. "_w" is new (Waves) and
@@ -269,8 +275,12 @@ static void wifiWatchdogTask(void*) {
                     artnet_in::init();
                     ntp_client::init();
                     etherdream::init();
+                    helios_net::init();
+                    osc_in::init();
+                    sacn_in::init();
                     xTaskCreatePinnedToCore(artnet_in::task,  "artnet", 4096, nullptr, 3, nullptr, 0);
                     xTaskCreatePinnedToCore(etherdream::task, "edream", 8192, nullptr, 3, nullptr, 0);
+                    xTaskCreatePinnedToCore(helios_net::task, "helios", 8192, nullptr, 3, nullptr, 0);
                     xTaskCreatePinnedToCore(ntp_client::task, "ntp",    4096, nullptr, 2, nullptr, 0);
                 }
                 // Switch off AP if STA is now up (clean up AP mode)
@@ -391,6 +401,9 @@ void setup() {
         artnet_in::init();
         ntp_client::init();
         etherdream::init();
+        helios_net::init();
+        osc_in::init();
+        sacn_in::init();
         s_wifi_services_started = true;  // prevent watchdog from re-starting tasks
         s_services_created      = true;  // tasks spawned below in setup(); block watchdog re-create
     } else {
@@ -434,6 +447,7 @@ void setup() {
     if (WiFi.status() == WL_CONNECTED) {
         startTask(artnet_in::task,  "artnet", 4096, 3, 0);
         startTask(etherdream::task, "edream", 8192, 3, 0);
+        startTask(helios_net::task, "helios", 8192, 3, 0);
         startTask(ntp_client::task, "ntp",    4096, 2, 0);
     }
     ESP_LOGI(TAG, "[heap] setup done: %u B free", ESP.getFreeHeap());

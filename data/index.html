@@ -663,6 +663,15 @@
       <div class="stat-row"><span>Last DMX activity</span><span id="v-lastdmx" class="val">--</span></div>
     </div>
 
+    <div class="card" style="grid-column:2">
+      <h2>Control Interfaces</h2>
+      <div class="stat-row"><span><span id="led-etherdream" class="led"></span>Ether Dream</span><span id="v-etherdream" class="val">--</span></div>
+      <div class="stat-row"><span><span id="led-helios-net" class="led"></span>Helios (network)</span><span id="v-helios-net" class="val">--</span></div>
+      <div class="stat-row"><span><span id="led-helios-usb" class="led"></span>Helios (USB)</span><span id="v-helios-usb" class="val">--</span></div>
+      <div class="stat-row"><span><span id="led-osc" class="led"></span>OSC</span><span id="v-osc" class="val">--</span></div>
+      <div class="stat-row"><span><span id="led-sacn" class="led"></span>sACN / E1.31</span><span id="v-sacn" class="val">--</span></div>
+    </div>
+
     <!-- System — right column, spans all rows -->
     <div class="card" style="grid-column:3;grid-row:1/5;align-self:start">
       <h2>⚙ System</h2>
@@ -1688,6 +1697,21 @@
     </div>
 
     <div class="card">
+      <h2>Control Interfaces</h2>
+      <label style="display:flex;align-items:center;gap:8px;margin-top:8px">
+        <input type="checkbox" id="cfg-osc-enabled"> OSC (UDP 9000)
+      </label>
+      <label style="display:flex;align-items:center;gap:8px;margin-top:8px">
+        <input type="checkbox" id="cfg-sacn-enabled"> sACN / E1.31 (UDP 5568, universe 1)
+      </label>
+      <label style="display:flex;align-items:center;gap:8px;margin-top:8px">
+        <input type="checkbox" id="cfg-helios-enabled"> Helios network DAC (TCP 7768)
+      </label>
+      <span style="font-size:12px;color:var(--dim)">Disabling a feature stops it from acting on received data (reduces CPU load); its listening socket stays open.</span>
+      <button class="btn" style="margin-top: 16px;" onclick="saveInterfacesConfig()">Save</button>
+    </div>
+
+    <div class="card">
       <h2>WiFi Connection</h2>
 
       <!-- Status line -->
@@ -2407,6 +2431,14 @@ function handleStateUpdate(s) {
   setLed('estop', s.estop_ok);
   setLed('scanfail', s.scanfail_ok);
 
+  // Control interface LEDs (active/idle, not fault indicators -- reuses the
+  // led.ok/led.bad colors purely as a visual on/off cue)
+  setIfaceLed('etherdream', s.etherdream_connected, s.etherdream_playing ? 'playing' : 'connected', 'waiting');
+  setIfaceLed('helios-net', s.helios_net_connected, s.helios_net_playing ? 'playing' : 'connected', 'waiting');
+  setIfaceLed('helios-usb', s.helios_usb_connected, 'connected', 'waiting');
+  setIfaceLed('osc',        s.osc_active,  'active', 'idle');
+  setIfaceLed('sacn',       s.sacn_active, 'active', 'idle');
+
   // FW-Version + OTA-Info
   const fwEl = document.getElementById('dash-fw-ver');
   if (fwEl && s.fw_version) fwEl.textContent = s.fw_version;
@@ -2494,7 +2526,7 @@ function handleStateUpdate(s) {
   }
 
   // Telemetry
-  const srcNames = ['--', 'DMX', 'Art-Net', 'Ether Dream', 'Helios USB', 'Internal', 'WebUI'];
+  const srcNames = ['--', 'DMX', 'Art-Net', 'Ether Dream', 'Helios', 'Internal', 'WebUI', 'sACN', 'OSC'];
   setText('v-source', srcNames[s.source] || '?');
   setText('v-dim', s.master_dimmer + ' / 255');
   setText('v-dmxcount', s.dmx_frame_count);
@@ -2682,6 +2714,14 @@ function handleStateUpdate(s) {
 function setLed(id, ok) {
   document.getElementById('led-' + id).className = 'led ' + (ok ? 'ok' : 'bad');
   document.getElementById('v-' + id).textContent = ok ? 'OK' : 'FAULT';
+}
+// Same led.ok/led.bad styling as setLed(), but for "active/idle" style
+// interfaces instead of "OK/FAULT" safety checks.
+function setIfaceLed(id, active, onText, offText) {
+  const led = document.getElementById('led-' + id);
+  const val = document.getElementById('v-' + id);
+  if (led) led.className = 'led ' + (active ? 'ok' : 'bad');
+  if (val) val.textContent = active ? onText : offText;
 }
 function setText(id, v) { const e = document.getElementById(id); if (e) e.textContent = v; }
 function formatUptime(s) {
@@ -3423,6 +3463,14 @@ async function saveDmxConfig() {
   });
   if (r !== null) toast('DMX-Config saved');
 }
+async function saveInterfacesConfig() {
+  const r = await apiCall('POST', '/api/config', {
+    osc_enabled:        document.getElementById('cfg-osc-enabled').checked,
+    sacn_enabled:       document.getElementById('cfg-sacn-enabled').checked,
+    helios_net_enabled: document.getElementById('cfg-helios-enabled').checked
+  });
+  if (r !== null) toast('Interface config saved');
+}
 async function saveNetConfig() {
   const body = {
     hostname: document.getElementById('cfg-host').value,
@@ -3446,6 +3494,9 @@ async function loadConfig() {
   if (!c) return;
   document.getElementById('cfg-addr').value = c.dmx_address || 1;
   document.getElementById('cfg-uni').value  = c.artnet_universe || 0;
+  document.getElementById('cfg-osc-enabled').checked    = c.osc_enabled !== false;
+  document.getElementById('cfg-sacn-enabled').checked   = c.sacn_enabled !== false;
+  document.getElementById('cfg-helios-enabled').checked = c.helios_net_enabled !== false;
   document.getElementById('cfg-host').value = c.hostname || '';
   const ntpSrv = document.getElementById('cfg-ntp-server');
   const ntpTz  = document.getElementById('cfg-ntp-tz');

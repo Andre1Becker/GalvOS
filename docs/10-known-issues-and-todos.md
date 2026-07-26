@@ -75,8 +75,9 @@ None atm ...
 
 ### Features Not Toggleable via UI
 
-**Status:** Planned  
+**Status:** Partially addressed  
 **Detail:** Some subsystems (e.g. Art-Net receiver) are always active after boot, regardless of whether they are in use. The ability to enable/disable individual features from the WebUI is planned. This would reduce background CPU load and Wi-Fi channel congestion in setups that only use DMX.
+OSC, sACN, and the Helios network DAC (Config tab → "Control Interfaces") already have this toggle: their sockets stay open at boot (same lifecycle as Art-Net/EtherDream), but a disabled feature ignores received data instead of acting on it. Art-Net/EtherDream/DMX still lack a toggle -- this issue stays open for those.
 
 ### Add a Restore button - not just text
 
@@ -95,10 +96,11 @@ These are features that are designed and intended, but not yet implemented.
 | Ether Dream (TCP) | ✅ Complete | Compatible with QLC+, Pangolin, LaserBoy, Shownet |
 | DMX512 (MAX485) | ✅ Complete | Hardware RX-only |
 | Art-Net (UDP) | ✅ Complete | DMX over IP |
+| Helios DAC (network) | ✅ Complete | `src/net/helios_net.cpp` — custom TCP framing (5-byte header + 7-byte points), not the official USB protocol; wired through the live optimizer transform + frame-budget clamp like the other render paths |
 | Helios DAC (USB) | ⚠️ Stub | `src/net/helios_usb.cpp` — TinyUSB vendor-class not wired up; USB-CDC conflict (Serial debug vs. Vendor-Class on same OTG controller) must be resolved first |
-| OSC (Open Sound Control) | ❌ Planned | UDP, port 9000; enables control from TouchDesigner, Resolume, TouchOSC without DMX hardware; low implementation effort |
+| OSC (Open Sound Control) | ✅ Complete | `src/net/osc_in.cpp` — UDP port 9000, OSC 1.0 (no bundles); `/galvos/preset`, `/galvos/color`, `/galvos/speed`, `/galvos/brightness`, `/galvos/enable` |
 | IDN (ILDA Digital Network) | ❌ Planned | UDP port 7255; discrete frame mode only (wave mode out of scope); requires IDN-Hello discovery + IDN-Stream frame parser |
-| sACN / E1.31 | ❌ Planned | ANSI DMX-over-IP standard; relevant for professional lighting console integration (MA, ETC) |
+| sACN / E1.31 | ✅ Complete | `src/net/sacn_in.cpp` — UDP multicast 239.255.0.1:5568, universe 1 only; lowest priority of the three DMX-shaped sources (Art-Net and DMX512 both win over it) |
 
 ### Multi-Controller
 

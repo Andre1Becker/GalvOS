@@ -9,6 +9,7 @@
 #include "ilda/ilda_player.h"
 #include "control/dmx_in.h"
 #include "net/artnet_in.h"
+#include "net/sacn_in.h"
 #include "output/galvo_out.h"
 #include "safety/safety.h"
 #include "util/log_buffer.h"
@@ -200,6 +201,11 @@ static void readDmx(DmxView& v) {
     } else if (dmx_in::isReceiving()) {
         dmx_in::getChannels(raw);
         gState.source = SRC_DMX;
+    } else if (sacn_in::isReceiving()) {
+        // Lowest priority of the three DMX-shaped network sources -- Art-Net
+        // (and DMX512) win if active at the same time, see sacn_in.h.
+        sacn_in::getChannels(raw);
+        gState.source = SRC_SACN;
     } else {
         // No Art-Net, no DMX and no UI override — use gOverride.values as safe defaults
         // (hmove=128=center, vmove=128=center, rotation=0, etc.)

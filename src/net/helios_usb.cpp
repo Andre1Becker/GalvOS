@@ -23,4 +23,6 @@ void task(void*) {
     }
 }
 
+bool isConnected() { return false; }  // no TinyUSB vendor-class yet
+
 }
