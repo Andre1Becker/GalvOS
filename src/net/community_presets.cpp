@@ -88,17 +88,32 @@ static bool checkOptimizerProfile(JsonObjectConst op, String& reason) {
     return true;
 }
 
+// name/author must be printable ASCII (0x20-0x7E) only, non-empty, capped at
+// MAX_META_LEN -- no silent truncation, a violation is an outright reject.
+static bool checkTextField(const char* value, const char* fieldName, String& reason) {
+    size_t len = strlen(value);
+    if (len == 0) { reason = String(fieldName) + " missing"; return false; }
+    if (len > MAX_META_LEN) { reason = String(fieldName) + " exceeds max length " + String(MAX_META_LEN); return false; }
+    for (size_t i = 0; i < len; i++) {
+        unsigned char c = (unsigned char)value[i];
+        if (c < 0x20 || c > 0x7E) { reason = String(fieldName) + " must be printable ASCII only"; return false; }
+    }
+    return true;
+}
+
 static bool checkPresetParams(JsonObjectConst pp, String& reason) {
     if (pp.isNull()) { reason = "preset_params missing"; return false; }
     if (!pp["preset_idx"].is<int>()) { reason = "preset_params.preset_idx missing/not an integer"; return false; }
     int idx = pp["preset_idx"];
     if (idx < 0 || idx >= (int)presets::PRESET_COUNT) { reason = "preset_params.preset_idx out of range"; return false; }
 
+    // Project rule: preset color channels are on/off only -- intermediate
+    // values only ever come from col_override, never a stored preset.
     static const char* colorKeys[] = {"col_r", "col_g", "col_b"};
     for (const char* k : colorKeys) {
         if (pp[k].is<int>()) {
             int v = pp[k];
-            if (v < 0 || v > 255) { reason = String("preset_params.") + k + " out of range"; return false; }
+            if (v != 0 && v != 255) { reason = String("preset_params.") + k + " must be 0 or 255"; return false; }
         }
     }
     if (pp["speed"].is<int>()) {
@@ -124,23 +139,65 @@ bool validate(JsonDocument& doc, String& reason) {
         reason = "meta.id must match [a-z0-9-]+, max " + String(MAX_ID_LEN) + " chars"; return false;
     }
     const char* name = meta["name"] | "";
-    if (strlen(name) == 0) { reason = "meta.name missing"; return false; }
+    if (!checkTextField(name, "meta.name", reason)) return false;
+
+    // author is optional -- only validate it when the key is actually present.
+    if (!meta["author"].isNull()) {
+        const char* author = meta["author"] | "";
+        if (!checkTextField(author, "meta.author", reason)) return false;
+    }
 
     if (!checkOptimizerProfile(doc["optimizer_profile"], reason)) return false;
     if (!checkPresetParams(doc["preset_params"], reason)) return false;
+
+    // Reject anything the schema doesn't know about rather than silently
+    // ignoring it -- keeps the on-disk format from drifting unnoticed.
+    for (JsonPairConst kv : doc.as<JsonObjectConst>()) {
+        const char* k = kv.key().c_str();
+        if (strcmp(k, "meta") != 0 && strcmp(k, "optimizer_profile") != 0 && strcmp(k, "preset_params") != 0) {
+            reason = String("unknown top-level key: ") + k;
+            return false;
+        }
+    }
     return true;
 }
 
-bool save(JsonDocument& doc) {
+bool save(JsonDocument& doc, String& reason) {
     const char* rawId = doc["meta"]["id"] | "";
     String id(rawId);
-    if (id.length() == 0) return false;
+    if (id.length() == 0) { reason = "meta.id missing"; return false; }
 
-    File f = LittleFS.open(pathFor(id), "w");
-    if (!f) { ESP_LOGE(TAG, "open for write failed: %s", id.c_str()); return false; }
+    String path = pathFor(id);
+    // Updates to an already-stored id don't count against the cap -- only
+    // reject when this would add a brand-new file past MAX_COMMUNITY_PRESETS.
+    if (!LittleFS.exists(path)) {
+        uint8_t count = 0;
+        File dir = LittleFS.open(DIR);
+        if (dir && dir.isDirectory()) {
+            File entry = dir.openNextFile();
+            while (entry) {
+                if (!entry.isDirectory()) {
+                    String fname = entry.name();
+                    int slash = fname.lastIndexOf('/');
+                    if (slash >= 0) fname = fname.substring(slash + 1);
+                    if (fname.endsWith(".json")) count++;
+                }
+                entry.close();
+                entry = dir.openNextFile();
+            }
+            dir.close();
+        }
+        if (count >= MAX_COMMUNITY_PRESETS) {
+            reason = "preset limit reached (" + String(MAX_COMMUNITY_PRESETS) + ")";
+            return false;
+        }
+    }
+
+    File f = LittleFS.open(path, "w");
+    if (!f) { reason = "open for write failed"; ESP_LOGE(TAG, "open for write failed: %s", id.c_str()); return false; }
     size_t written = serializeJson(doc, f);
     f.close();
-    if (written == 0) { ESP_LOGE(TAG, "write failed: %s", id.c_str()); return false; }
+    if (written == 0) { reason = "write failed"; ESP_LOGE(TAG, "write failed: %s", id.c_str()); return false; }
     return true;
 }
 
@@ -166,7 +223,8 @@ bool rename(const String& rawId, const String& newName) {
     JsonDocument doc(&jsonAllocator());
     if (!load(rawId, doc)) return false;
     doc["meta"]["name"] = newName;
-    return save(doc);
+    String reason;
+    return save(doc, reason);
 }
 
 void list(JsonArray arr) {

@@ -2280,8 +2280,10 @@ void init() {
                 sendJsonPsram(req, err, 400);
                 return;
             }
-            if (!community_presets::save(doc)) {
-                req->send(500, "application/json", "{\"error\":\"write failed\"}");
+            if (!community_presets::save(doc, reason)) {
+                JsonDocument err(&jsonAllocator());
+                err["error"] = reason;
+                sendJsonPsram(req, err, 500);
                 return;
             }
             req->send(200, "text/plain", "OK");

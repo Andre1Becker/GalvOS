@@ -28,6 +28,11 @@ constexpr size_t  MAX_ID_LEN     = 64;
 // = 2048) -- a downloaded preset shouldn't be able to request a frame budget
 // above the highest tuned default any built-in profile actually uses.
 constexpr uint16_t MAX_PTS_PER_FRAME_CEILING = 1300;
+// meta.name / meta.author length cap -- printable-ASCII only, see validate().
+constexpr size_t  MAX_META_LEN   = 32;
+// Cap on stored preset files in /presets/community -- LittleFS is small and
+// shared with the WebUI assets, so this is a hard ceiling, not a soft warning.
+constexpr uint8_t MAX_COMMUNITY_PRESETS = 20;
 
 // mkdir's /presets/community if missing. Call once, after LittleFS.begin().
 void init();
@@ -43,7 +48,9 @@ String sanitizeId(const String& raw);
 bool validate(JsonDocument& doc, String& reason);
 
 // Writes doc to /presets/community/<id>.json. Caller must validate() first.
-bool save(JsonDocument& doc);
+// Fails (with reason) if the preset count would exceed MAX_COMMUNITY_PRESETS,
+// unless doc's id already exists on disk (updates don't count against the cap).
+bool save(JsonDocument& doc, String& reason);
 
 // Loads and parses /presets/community/<id>.json into doc. Returns false if
 // the id is invalid, the file doesn't exist, or it fails to parse.
