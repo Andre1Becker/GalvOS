@@ -93,7 +93,22 @@ static bool loadILDA(const char* path) {
     if (s_point_pool){ heap_caps_free(s_point_pool); s_point_pool = nullptr; memreg::untrack("ILDA Point Pool"); }
     s_frame_count = 0;
 
-    LOCK_SD();
+    // LOCK_SD()'s default 50ms timeout is meant for short critical sections
+    // (gConfig/gState-style checks) -- nowhere near long enough to actually
+    // serialize against another in-flight load, and its result was never
+    // checked here. loadFile() can be entered from two independent tasks
+    // (the WebUI handler on async_tcp, and playlist::task() auto-advancing
+    // between entries): if the second caller timed out and proceeded
+    // anyway, both ended up doing real concurrent FATFS/SD access, which is
+    // what produced the newlib per-FILE-lock hang seen on device (stuck
+    // inside fread()'s own lock acquire, never even reaching the SD
+    // driver). Wait long enough for a normal load to finish, and bail out
+    // cleanly instead of ever proceeding unprotected.
+    mtx::Guard sdGuard(mtx::sd, pdMS_TO_TICKS(8000));
+    if (!sdGuard) {
+        ESP_LOGE(TAG, "SD busy (another load in progress?), aborting loadFile: %s", path);
+        return false;
+    }
     File f = SD.open(path);
     if (!f) {
         ESP_LOGE(TAG, "file not found: %s", path);
