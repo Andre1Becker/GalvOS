@@ -504,17 +504,29 @@ void setup() {
     startTask(patterns::task, "pattern", 12288, 2, 0); // p=2: pattern calculation -- v5.20.0: bumped 8192->12288 after stack-canary crash, exact allocation unconfirmed, see stack_mon
     galvo::start();   // starts galvoTask on core 1 at highest priority
 
-    // SD card init runs in a separate one-shot task on Core 0. SD is on
-    // its own independent SPI3 bus/GPIOs (see pinmap.h) -- this delay is
-    // just boot-sequencing hygiene, not a bus-conflict workaround.
+    // SD card init runs in a standing watcher task on Core 0, not a one-shot:
+    // a one-shot mount attempt only ever caught a card that was already in
+    // the slot before this fired. A card inserted a few seconds late (or
+    // after boot entirely) was never picked up again without pressing
+    // "Mount" in the WebUI by hand. Now it keeps retrying every 5s until
+    // the card mounts, so hot-plugging just works. eject() sets
+    // isUserEjected() so an intentional eject doesn't get instantly
+    // re-mounted by this same loop; remount() (the WebUI "Mount" button)
+    // clears it again. SD is on its own independent SPI3 bus/GPIOs (see
+    // pinmap.h), so this delay is boot-sequencing hygiene only, not a
+    // bus-conflict workaround.
     xTaskCreatePinnedToCore([](void*) {
         vTaskDelay(pdMS_TO_TICKS(5000));  // wait for galvoTask steady-state
-        if (sd_card::init()) {
-            ESP_LOGI("main", "SD card: %u ILDA files", sd_card::fileCount());
-        } else {
-            ESP_LOGW("main", "SD card unavailable -- ILDA playback disabled");
+        for (;;) {
+            if (!sd_card::isReady() && !sd_card::isUserEjected()) {
+                if (sd_card::init()) {
+                    ESP_LOGI("main", "SD card: %u ILDA files", sd_card::fileCount());
+                } else {
+                    ESP_LOGW("main", "SD card unavailable -- retrying...");
+                }
+            }
+            vTaskDelay(pdMS_TO_TICKS(5000));  // retry interval / idle poll once mounted
         }
-        vTaskDelete(nullptr);
     }, "sd_init", 4096, nullptr, 1, nullptr, 0);  // Core 0, low priority
 
     ESP_LOGI(TAG, "Ready. Heap=%u PSRAM=%u", ESP.getFreeHeap(), ESP.getFreePsram());

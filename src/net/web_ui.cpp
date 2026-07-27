@@ -1607,6 +1607,27 @@ void init() {
             req->send(ok ? 200 : 500, "text/plain", ok ? "OK" : "Error");
         });
 
+    // ---- POST /api/ilda/param ---- live-update speed/size/loop/color/invert
+    // without touching current playback (no reload, no stop) -- applied by
+    // getFrame()/ildaTask on the very next frame since they read gILDA directly
+    s_server.on("/api/ilda/param", HTTP_POST,
+        [](AsyncWebServerRequest* req) {},
+        nullptr,
+        [](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t, size_t) {
+            JsonDocument doc(&jsonAllocator());
+            if (deserializeJson(doc, data, len)) { req->send(400, "text/plain", "bad json"); return; }
+            if (doc["speed"].is<int>())         ilda::gILDA.speed        = doc["speed"];
+            if (doc["size"].is<int>())          ilda::gILDA.size_val     = doc["size"];
+            if (doc["loop"].is<bool>())         ilda::gILDA.loop         = doc["loop"];
+            if (doc["invert_x"].is<bool>())     ilda::gILDA.invert_x     = doc["invert_x"];
+            if (doc["invert_y"].is<bool>())     ilda::gILDA.invert_y     = doc["invert_y"];
+            if (doc["col_override"].is<bool>()) ilda::gILDA.col_override = doc["col_override"];
+            if (doc["col_r"].is<int>())         ilda::gILDA.col_r        = doc["col_r"];
+            if (doc["col_g"].is<int>())         ilda::gILDA.col_g        = doc["col_g"];
+            if (doc["col_b"].is<int>())         ilda::gILDA.col_b        = doc["col_b"];
+            req->send(200, "text/plain", "OK");
+        });
+
     // ---- POST /api/ilda/stop ---- stop ILDA
     s_server.on("/api/ilda/stop", HTTP_POST,
         [](AsyncWebServerRequest* req) { ilda::stop(); req->send(200,"text/plain","OK"); });
@@ -1644,6 +1665,12 @@ void init() {
         doc["speed"]   = ilda::gILDA.speed;
         doc["size"]    = ilda::gILDA.size_val;
         doc["loop"]    = ilda::gILDA.loop;
+        doc["invert_x"]     = ilda::gILDA.invert_x;
+        doc["invert_y"]     = ilda::gILDA.invert_y;
+        doc["col_override"] = ilda::gILDA.col_override;
+        doc["col_r"]   = ilda::gILDA.col_r;
+        doc["col_g"]   = ilda::gILDA.col_g;
+        doc["col_b"]   = ilda::gILDA.col_b;
         if (ilda::gILDA.file_idx >= 0 && ilda::gILDA.file_idx < sd_card::fileCount())
             doc["name"] = sd_card::fileName(ilda::gILDA.file_idx);
         sendJsonPsram(req, doc);

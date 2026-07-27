@@ -7117,6 +7117,27 @@ async function ildaPlayFile(idx) {
   await updateIldaPlayerUI();
 }
 
+// Push speed/size/loop/color-override/invert live to the running player --
+// applied on the very next frame, no reload/restart needed.
+function ildaParamChange() {
+  const speed = parseInt(document.getElementById('ip-sp')?.value || 128);
+  const size  = parseInt(document.getElementById('ip-sz')?.value || 128);
+  const loop  = document.getElementById('ip-loop')?.checked ?? true;
+  const colOv = document.getElementById('ip-colov')?.checked ?? false;
+  const color = document.getElementById('ip-col')?.value || '#ff0000';
+  const invX  = document.getElementById('ip-invx')?.checked ?? false;
+  const invY  = document.getElementById('ip-invy')?.checked ?? false;
+  apiCall('POST', '/api/ilda/param', {
+    speed, size, loop,
+    col_override: colOv,
+    col_r: parseInt(color.slice(1,3),16),
+    col_g: parseInt(color.slice(3,5),16),
+    col_b: parseInt(color.slice(5,7),16),
+    invert_x: invX,
+    invert_y: invY
+  });
+}
+
 // Global on/off switch for the ILDA player -- independent of any single
 // file's play/pause state. Disabling also force-stops current playback
 // and ignores the DMX ILDA-select channel until re-enabled.
@@ -7135,6 +7156,30 @@ async function updateIldaPlayerUI() {
   const s = await apiCall('GET', '/api/ilda/status');
   if (!s) return;
   if (chk) chk.checked = s.enabled !== false;
+
+  // Sync speed/size/loop/color-override/invert controls from device state,
+  // but don't fight the user while they're actively using one of them --
+  // this poll runs every 1s while the tab is open.
+  const ildaControlIds = ['ip-sp','ip-sz','ip-loop','ip-colov','ip-col','ip-invx','ip-invy'];
+  if (!ildaControlIds.includes(document.activeElement?.id)) {
+    const spEl = document.getElementById('ip-sp'), spV = document.getElementById('ip-sp-v');
+    const szEl = document.getElementById('ip-sz'), szV = document.getElementById('ip-sz-v');
+    if (spEl && s.speed != null) { spEl.value = s.speed; if (spV) spV.textContent = s.speed; }
+    if (szEl && s.size  != null) { szEl.value = s.size;  if (szV) szV.textContent = s.size; }
+    const loopEl = document.getElementById('ip-loop');
+    if (loopEl && s.loop != null) loopEl.checked = s.loop;
+    const colOvEl = document.getElementById('ip-colov');
+    if (colOvEl && s.col_override != null) colOvEl.checked = s.col_override;
+    const colEl = document.getElementById('ip-col');
+    if (colEl && s.col_r != null) {
+      colEl.value = '#' + [s.col_r, s.col_g, s.col_b].map(v => v.toString(16).padStart(2, '0')).join('');
+    }
+    const invXEl = document.getElementById('ip-invx');
+    if (invXEl && s.invert_x != null) invXEl.checked = s.invert_x;
+    const invYEl = document.getElementById('ip-invy');
+    if (invYEl && s.invert_y != null) invYEl.checked = s.invert_y;
+  }
+
   if (!s.enabled) {
     el.textContent = 'Player disabled';
     bar.style.width = '0%';
@@ -7269,6 +7314,26 @@ async function saveNtpConfig() {
         <input type="checkbox" id="ip-loop" checked onchange="ildaParamChange()">
         <span class="slider"></span>🔁 Loop (repeat indefinitely)
       </label>
+
+      <label class="toggle" style="margin-top:12px">
+        <input type="checkbox" id="ip-colov" onchange="ildaParamChange()">
+        <span class="slider"></span>🎨 Color Override
+      </label>
+      <div style="display:flex;align-items:center;gap:8px;margin:6px 0 4px">
+        <input type="color" id="ip-col" value="#ff0000" oninput="ildaParamChange()">
+        <span style="font-size:12px;color:var(--dim)">replaces the file's own point colors</span>
+      </div>
+
+      <div style="display:flex;gap:16px;margin-top:8px">
+        <label class="toggle">
+          <input type="checkbox" id="ip-invx" onchange="ildaParamChange()">
+          <span class="slider"></span>↔ Invert X
+        </label>
+        <label class="toggle">
+          <input type="checkbox" id="ip-invy" onchange="ildaParamChange()">
+          <span class="slider"></span>↕ Invert Y
+        </label>
+      </div>
 
       <div class="btns" style="margin-top:16px">
         <button class="btn danger" onclick="ildaPlayerStop()">⏹ Stop</button>

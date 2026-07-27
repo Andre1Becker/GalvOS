@@ -24,6 +24,10 @@ struct ILDAConfig {
     bool      loop       = true;   // repeat indefinitely
     bool      active     = false;  // ILDA mode active
     bool      enabled    = true;   // master on/off -- while false, loadFile()/setFromDMX() are no-ops
+    bool      invert_x   = false;  // mirror X axis
+    bool      invert_y   = false;  // mirror Y axis
+    bool      col_override = false; // replace file's own colors with col_r/g/b
+    uint8_t   col_r = 255, col_g = 255, col_b = 255;
     // Statistik (read-only)
     uint16_t  total_frames = 0;
     uint16_t  current_frame = 0;

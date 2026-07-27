@@ -12,6 +12,8 @@ bool    init();                          // SPI + mount, returns false if no car
 bool    isReady();
 bool    remount();                       // SD.end() + re-init (hot-swap support)
 void    eject();                         // SD.end() cleanly — safe to remove card
+bool    isUserEjected();                 // true after eject(), until remount()/init() clears it --
+                                          // tells the boot-time auto-mount watcher to back off
 
 // File list: build .ild files in the /ilda/ directory
 // Returns count of found files (max ILDA_MAX_FILES)

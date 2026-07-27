@@ -43,6 +43,8 @@ static const char* TAG = "sd_card";
 static SPIClass s_sd_spi(HSPI);  // HSPI = SPI3_HOST on ESP32-S3
 
 static bool     s_ready      = false;
+static bool     s_user_ejected = false;  // set by eject(), cleared by remount() -- tells the
+                                          // boot-time auto-mount watcher to leave the card alone
 static uint8_t  s_file_count = 0;
 static char     s_error_msg[64] = "Not initialized";
 static char     s_fs_type[8]    = "-";
@@ -141,6 +143,7 @@ bool init() {
 }
 
 bool isReady() { return s_ready; }
+bool isUserEjected() { return s_user_ejected; }
 
 void eject() {
     LOCK_SD();
@@ -150,12 +153,14 @@ void eject() {
         strlcpy(s_error_msg, "Ejected - safe to remove", sizeof(s_error_msg));
         strlcpy(s_fs_type, "-", sizeof(s_fs_type));
         s_file_count = 0;
+        s_user_ejected = true;
         ESP_LOGI(TAG, "SD card ejected safely");
         LOG_I(logbuf::CAT_SYSTEM, "SD: ejected - safe to remove card");
     }
 }
 
 bool remount() {
+    s_user_ejected = false;
     if (s_ready) {
         LOCK_SD();
         SD.end();

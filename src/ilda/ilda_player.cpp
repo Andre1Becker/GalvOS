@@ -346,11 +346,20 @@ size_t getFrame(LaserPoint* out, size_t max_pts) {
 
     // apply scaling (ILDA coordinates +-32767 -> galvo +-32767)
     float scale = 0.25f + (gILDA.size_val / 255.f) * 1.5f;
+    bool invX = gILDA.invert_x, invY = gILDA.invert_y;
+    bool colOv = gILDA.col_override;
     for (size_t i = 0; i < n; i++) {
         out[i] = fr.points[i];
         if (scale != 1.0f && !out[i].blank) {
             out[i].x = (int16_t)constrain(out[i].x * scale, -32767.f, 32767.f);
             out[i].y = (int16_t)constrain(out[i].y * scale, -32767.f, 32767.f);
+        }
+        if (invX) out[i].x = (int16_t)(-out[i].x);
+        if (invY) out[i].y = (int16_t)(-out[i].y);
+        if (colOv && !out[i].blank) {
+            out[i].r = gILDA.col_r;
+            out[i].g = gILDA.col_g;
+            out[i].b = gILDA.col_b;
         }
     }
     s_has_new = false;
