@@ -1545,6 +1545,17 @@ void init() {
     s_server.on("/api/ilda/stop", HTTP_POST,
         [](AsyncWebServerRequest* req) { ilda::stop(); req->send(200,"text/plain","OK"); });
 
+    // ---- POST /api/ilda/enable ---- master on/off, disabling also force-stops
+    s_server.on("/api/ilda/enable", HTTP_POST,
+        [](AsyncWebServerRequest* req) {},
+        nullptr,
+        [](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t, size_t) {
+            JsonDocument doc(&jsonAllocator());
+            if (deserializeJson(doc, data, len)) { req->send(400, "text/plain", "bad json"); return; }
+            ilda::setEnabled(doc["enabled"] | false);
+            req->send(200, "text/plain", "OK");
+        });
+
     // ---- POST /api/ilda/pause ---- pause ILDA
     s_server.on("/api/ilda/pause", HTTP_POST,
         [](AsyncWebServerRequest* req) {},
@@ -1559,6 +1570,7 @@ void init() {
     s_server.on("/api/ilda/status", HTTP_GET, [](AsyncWebServerRequest* req) {
         JsonDocument doc(&jsonAllocator());
         doc["active"]  = ilda::gILDA.active;
+        doc["enabled"] = ilda::gILDA.enabled;
         doc["paused"]  = ilda::isPaused();
         doc["file_idx"]= ilda::gILDA.file_idx;
         doc["frame"]   = ilda::gILDA.current_frame;

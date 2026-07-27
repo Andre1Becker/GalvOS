@@ -1050,19 +1050,30 @@ void task(void*) {
         { LOCK_STATE(); optimizer::gLiveTransform = optimizer::AffineTransform(); }
 
         // ---- ILDA SD-card mode (highest priority) ----
-        if (ilda::gILDA.active && ilda::hasNewFrame()) {
-            size_t n = ilda::getFrame(s_frame, PATTERN_POINTS_MAX);
-            if (n > 0) {
-                applyCalibration(s_frame, n);
-                if (gState.master_dimmer.load() > 0) {
-                    { uint32_t _t0=millis(); while (!galvo::pushFrame(s_frame, n)) { if (millis()-_t0 > 500) { safety::emergencyStop(); LOG_E(logbuf::CAT_SAFETY,"Pattern engine: pushFrame timeout, emergency stop"); break; } vTaskDelay(pdMS_TO_TICKS(2)); } }
-                } else {
-                    static LaserPoint blank_pt = {0,0,0,0,0,1};
-                    galvo::pushFrame(&blank_pt, 1);
+        // Gate on gILDA.active alone and always `continue` below -- the ILDA
+        // task only flips hasNewFrame() at its own playback rate (5-60fps per
+        // gILDA.speed), far slower than this loop. Previously the `continue`
+        // was inside the `hasNewFrame()` branch, so every tick without a
+        // fresh frame fell through to the DMX/preset fallback pattern below,
+        // making the beam flicker between the ILDA frame and e.g. the DMX
+        // circle. The galvo output task keeps scanning the last pushed frame
+        // on its own, so skipping the push on a stale frame is fine -- we
+        // just must not render anything else while ILDA is active.
+        if (ilda::gILDA.active) {
+            if (ilda::hasNewFrame()) {
+                size_t n = ilda::getFrame(s_frame, PATTERN_POINTS_MAX);
+                if (n > 0) {
+                    applyCalibration(s_frame, n);
+                    if (gState.master_dimmer.load() > 0) {
+                        { uint32_t _t0=millis(); while (!galvo::pushFrame(s_frame, n)) { if (millis()-_t0 > 500) { safety::emergencyStop(); LOG_E(logbuf::CAT_SAFETY,"Pattern engine: pushFrame timeout, emergency stop"); break; } vTaskDelay(pdMS_TO_TICKS(2)); } }
+                    } else {
+                        static LaserPoint blank_pt = {0,0,0,0,0,1};
+                        galvo::pushFrame(&blank_pt, 1);
+                    }
                 }
-                vTaskDelay(pdMS_TO_TICKS(5));
-                continue;
             }
+            vTaskDelay(pdMS_TO_TICKS(5));
+            continue;
         }
 
         // ---- calibration-Pattern-Modus ----
