@@ -628,7 +628,6 @@
   <button data-tab="calib">⊹ Calibration</button>
   <button data-tab="optimizer">📐 Optimizer</button>
   <button data-tab="projection">📐 Projection</button>
-  <button data-tab="playlist">▶ Playlist</button>
   <button data-tab="thermal">🌡 Thermal</button>
   <button data-tab="log">📋 Log</button>
   <button data-tab="config">⚙ Configuration</button>
@@ -7078,8 +7077,8 @@ function renderIldaFileList(files, activeIdx, active) {
         '</div>' +
       '</span>' +
       '<span style="display:flex;align-items:center;gap:10px">' +
-        '<span style="color:var(--dim);font-size:13px">DMX ' + f.dmx + '</span>' +
-        '<button class="btn ' + (isPlaying ? 'secondary' : 'ok') + '" style="padding:3px 10px;font-size:13px" onclick="ildaPlayFile(' + f.idx + ')">' +
+        '<span id="ilda-dmx-' + f.idx + '" style="color:var(--dim);font-size:13px">DMX ' + f.dmx + '</span>' +
+        '<button id="ilda-playbtn-' + f.idx + '" class="btn ' + (isPlaying ? 'secondary' : 'ok') + '" style="padding:3px 10px;font-size:13px" onclick="ildaPlayFile(' + f.idx + ')">' +
           (isPlaying ? '↺ Restart' : '▶ Play') +
         '</button>' +
       '</span>' +
@@ -7087,13 +7086,25 @@ function renderIldaFileList(files, activeIdx, active) {
   }).join('');
 }
 
-// Start playback of an SD file by index, using the current speed/size/loop controls
+// Start playback of an SD file by index, using the current speed/size/loop controls.
+// Loading a large file takes noticeably long (SD read + PSRAM parse), and
+// /api/ilda/play doesn't respond until it's done -- swap that row's DMX
+// badge for a loading/done indicator so it's not just a frozen UI.
 async function ildaPlayFile(idx) {
   const speed = parseInt(document.getElementById('ip-sp')?.value || 128);
   const size  = parseInt(document.getElementById('ip-sz')?.value || 128);
   const loop  = document.getElementById('ip-loop')?.checked ?? true;
+
+  const dmxEl = document.getElementById('ilda-dmx-' + idx);
+  const btnEl = document.getElementById('ilda-playbtn-' + idx);
+  if (dmxEl) dmxEl.textContent = '⏳ Loading...';
+  if (btnEl) btnEl.disabled = true;
+
   const r = await apiCall('POST', '/api/ilda/play', { idx, speed, size, loop });
+
+  if (dmxEl) dmxEl.textContent = r !== null ? '✓ Done' : '✗ Error';
   if (r !== null) toast('▶ Playing');
+  await new Promise(res => setTimeout(res, 400));  // let "Done"/"Error" be seen before the list re-renders
   await loadSdStatus();
   await updateIldaPlayerUI();
 }
@@ -7259,6 +7270,33 @@ async function saveNtpConfig() {
         <button class="btn secondary" onclick="ildaPlayPause(true)">⏸ Pause</button>
         <button class="btn ok" onclick="ildaPlayPause(false)">▶ Resume</button>
       </div>
+    </div>
+
+    <div class="card">
+      <h2>▶ Show-Playlist</h2>
+      <div id="pl-status" style="font-family:monospace;font-size:14px;color:var(--dim);margin-bottom:12px">Not active</div>
+      <div class="btns">
+        <button class="btn ok"     onclick="plStart()">▶ Start</button>
+        <button class="btn danger" onclick="plStop()">⏹ Stop</button>
+        <button class="btn secondary" onclick="plReload()">🔄 Reload SD</button>
+      </div>
+      <hr style="border-color:var(--border);margin:14px 0">
+      <h3 style="font-size:15px;margin-bottom:8px">entries (<span id="pl-count">0</span>)</h3>
+      <div id="pl-list" style="font-family:monospace;font-size:13px;color:var(--dim);max-height:300px;overflow-y:auto"></div>
+      <hr style="border-color:var(--border);margin:14px 0">
+      <div style="font-family:monospace;font-size:12px;color:var(--dim)">
+        SD: <code>/playlist.json</code><br>
+        Format: <code>[{"file":0,"loop":2,"pause_ms":500},...]</code>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>📤 ILDA Upload</h2>
+      <div style="margin-bottom:12px;font-family:monospace;font-size:13px;color:var(--dim)">
+        Upload .ild file directly to SD card (max. 40 files)
+      </div>
+      <button class="btn ok" onclick="uploadILDA()">⬆ Upload</button>
+      <div id="upload-progress" style="margin-top:10px;font-family:monospace;font-size:13px;color:var(--dim)"></div>
     </div>
 
   </div>
@@ -8252,38 +8290,6 @@ document.addEventListener('wheel', (e) => {
     </aside>
   </div><!-- /opt-layout -->
 </section>
-
-<section id="tab-playlist" class="tab">
-  <div class="grid cols-2">
-    <div class="card">
-      <h2>▶ Show-Playlist</h2>
-      <div id="pl-status" style="font-family:monospace;font-size:14px;color:var(--dim);margin-bottom:12px">Not active</div>
-      <div class="btns">
-        <button class="btn ok"     onclick="plStart()">▶ Start</button>
-        <button class="btn danger" onclick="plStop()">⏹ Stop</button>
-        <button class="btn secondary" onclick="plReload()">🔄 Reload SD</button>
-      </div>
-      <hr style="border-color:var(--border);margin:14px 0">
-      <h3 style="font-size:15px;margin-bottom:8px">entries (<span id="pl-count">0</span>)</h3>
-      <div id="pl-list" style="font-family:monospace;font-size:13px;color:var(--dim);max-height:300px;overflow-y:auto"></div>
-      <hr style="border-color:var(--border);margin:14px 0">
-      <div style="font-family:monospace;font-size:12px;color:var(--dim)">
-        SD: <code>/playlist.json</code><br>
-        Format: <code>[{"file":0,"loop":2,"pause_ms":500},...]</code>
-      </div>
-    </div>
-    <div class="card">
-      <h2>📤 ILDA Upload</h2>
-      <div style="margin-bottom:12px;font-family:monospace;font-size:13px;color:var(--dim)">
-        Upload .ild file directly to SD card (max. 40 files)
-      </div>
-      <button class="btn ok" onclick="uploadILDA()">⬆ Upload</button>
-      <div id="upload-progress" style="margin-top:10px;font-family:monospace;font-size:13px;color:var(--dim)"></div>
-    </div>
-  </div>
-</section>
-
-
 
 </body>
 </html>
