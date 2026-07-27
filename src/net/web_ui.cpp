@@ -1461,6 +1461,23 @@ void init() {
         doc["file_count"]= sd_card::fileCount();
         doc["free_kb"]   = sd_card::freeKB();
         doc["total_kb"]  = sd_card::totalKB();
+
+        // loadILDA() needs sizeof(LaserPoint)==8 bytes of PSRAM per point,
+        // plus whatever else is already resident (WebUI buffers, WiFi scan
+        // cache, ...). We don't know a file's point format without parsing
+        // it, so assume the worst case (format 1, 2D indexed = 6 bytes/pt,
+        // the smallest on-disk point size -> the most points per byte) to
+        // get an upper bound on the PSRAM a file could require:
+        //   required ~= file_size * (sizeof(LaserPoint) / 6)
+        // Reserve 1MB of headroom below the actual free PSRAM for other
+        // allocations that happen concurrently with a load.
+        constexpr size_t kPsramReserve   = 1024 * 1024;
+        constexpr size_t kWorstPtSize    = 6;
+        size_t free_psram = heap_caps_get_free_size(MALLOC_CAP_SPIRAM);
+        size_t budget      = (free_psram > kPsramReserve) ? (free_psram - kPsramReserve) : 0;
+        size_t max_ilda_bytes = budget * kWorstPtSize / sizeof(LaserPoint);
+        doc["ilda_max_kb"] = max_ilda_bytes / 1024;
+
         JsonArray files  = doc["files"].to<JsonArray>();
         for (uint8_t i = 0; i < sd_card::fileCount(); i++) {
             JsonObject fo = files.add<JsonObject>();
@@ -1469,7 +1486,7 @@ void init() {
             fo["path"]  = sd_card::filePath(i);
             fo["size"]  = sd_card::fileSize(i);
             fo["mtime"] = sd_card::fileMTime(i);
-            fo["dmx"]   = i + 1;  // DMX-value = Index + 1
+            fo["too_large"] = sd_card::fileSize(i) > max_ilda_bytes;
         }
         doc["ilda_active"]  = ilda::gILDA.active;
         doc["ilda_file"]    = ilda::gILDA.file_idx;

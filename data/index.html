@@ -7067,18 +7067,22 @@ function renderIldaFileList(files, activeIdx, active) {
   }
   el.innerHTML = files.map(f => {
     const isPlaying = !!active && f.idx === activeIdx;
+    const tooLarge  = !!f.too_large;
     const dateStr = f.mtime ? new Date(f.mtime * 1000).toLocaleString() : '-';
     return '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;border-bottom:1px solid var(--border)' +
-        (isPlaying ? ';background:rgba(0,255,255,0.08)' : '') + '">' +
+        (isPlaying ? ';background:rgba(0,255,255,0.08)' : '') + (tooLarge ? ';opacity:0.45' : '') + '"' +
+        (tooLarge ? ' title="Too large to load into available PSRAM"' : '') + '>' +
       '<span style="font-family:monospace' + (isPlaying ? ';color:var(--accent)' : '') + '">' +
         (isPlaying ? '▶ ' : '') + f.name +
         '<div style="color:var(--dim);font-size:12px;font-weight:normal">' +
           formatFileSize(f.size) + ' &middot; ' + dateStr +
+          (tooLarge ? ' &middot; <span style="color:var(--warn,#e55)">too large for PSRAM</span>' : '') +
         '</div>' +
       '</span>' +
       '<span style="display:flex;align-items:center;gap:10px">' +
-        '<span id="ilda-dmx-' + f.idx + '" style="color:var(--dim);font-size:13px">DMX ' + f.dmx + '</span>' +
-        '<button id="ilda-playbtn-' + f.idx + '" class="btn ' + (isPlaying ? 'secondary' : 'ok') + '" style="padding:3px 10px;font-size:13px" onclick="ildaPlayFile(' + f.idx + ')">' +
+        '<span id="ilda-dmx-' + f.idx + '" style="color:var(--dim);font-size:13px"></span>' +
+        '<button id="ilda-playbtn-' + f.idx + '" class="btn ' + (isPlaying ? 'secondary' : 'ok') + '" style="padding:3px 10px;font-size:13px"' +
+          (tooLarge ? ' disabled' : ' onclick="ildaPlayFile(' + f.idx + ')"') + '>' +
           (isPlaying ? '↺ Restart' : '▶ Play') +
         '</button>' +
       '</span>' +
