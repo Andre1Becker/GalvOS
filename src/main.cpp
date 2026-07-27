@@ -451,6 +451,22 @@ void setup() {
         startTask(ntp_client::task, "ntp",    4096, 2, 0);
     }
     ESP_LOGI(TAG, "[heap] setup done: %u B free", ESP.getFreeHeap());
+    // Default TWDT timeout is 5s (CONFIG_ESP_TASK_WDT_TIMEOUT_S). That's too
+    // tight for large ILDA loads: the Arduino SD driver reads sectors via
+    // spi_device_polling_transmit(), which busy-polls the CPU for the full
+    // duration of one SPI transaction with no yield point we can add from
+    // our own code. Real SD cards occasionally stall a single read for
+    // several seconds during internal housekeeping (wear-leveling/GC),
+    // especially under the kind of sustained sequential access a multi-MB
+    // ILDA file does -- seen live tripping IDLE0's watchdog mid-read even
+    // after fixing the starvation bugs in our own loadILDA() loop.
+    // Widening the margin here doesn't weaken the actual laser interlocks:
+    // safety::task (prio 6) and dmx_rx (prio 5) both outrank every task
+    // that could be stuck on SD, so FreeRTOS keeps preempting to run them
+    // on schedule regardless -- E-Stop/scanfail/NE555 watchdog-pulse
+    // monitoring is unaffected. This only widens the grace period before a
+    // genuine software livelock (not a slow card) forces a safety reboot.
+    esp_task_wdt_init(15, true);
     // Galvo task on core 1 uses busy-wait (50 kHz, 20us loop).
     // IDLE1 (Core 1) gets almost no CPU time → WDT would fire.
     // Solution: remove IDLE1 from WDT monitoring.
