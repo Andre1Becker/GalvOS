@@ -7069,11 +7069,15 @@ function renderIldaFileList(files, activeIdx, active) {
     const isPlaying = !!active && f.idx === activeIdx;
     const tooLarge  = !!f.too_large;
     const dateStr = f.mtime ? new Date(f.mtime * 1000).toLocaleString() : '-';
+    const slashPos  = f.name.lastIndexOf('/');
+    const nameHtml  = slashPos >= 0
+        ? '<span style="color:var(--cyan)">' + f.name.slice(0, slashPos + 1) + '</span>' + f.name.slice(slashPos + 1)
+        : f.name;
     return '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;border-bottom:1px solid var(--border)' +
         (isPlaying ? ';background:rgba(0,255,255,0.08)' : '') + (tooLarge ? ';opacity:0.45' : '') + '"' +
         (tooLarge ? ' title="Too large to load into available PSRAM"' : '') + '>' +
       '<span style="font-family:monospace' + (isPlaying ? ';color:var(--accent)' : '') + '">' +
-        (isPlaying ? '▶ ' : '') + f.name +
+        (isPlaying ? '▶ ' : '') + nameHtml +
         '<div style="color:var(--dim);font-size:12px;font-weight:normal">' +
           formatFileSize(f.size) + ' &middot; ' + dateStr +
           (tooLarge ? ' &middot; <span style="color:var(--warn,#e55)">too large for PSRAM</span>' : '') +
