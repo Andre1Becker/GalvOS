@@ -30,6 +30,7 @@
  */
 #include "sacn_in.h"
 #include "config.h"
+#include "util/log_buffer.h"
 #include <Arduino.h>
 #include <AsyncUDP.h>
 #include <esp_log.h>
@@ -72,6 +73,11 @@ static void handlePacket(const uint8_t* d, size_t len) {
         xSemaphoreGive(s_mux);
     }
     s_last_packet_ms = millis();
+
+    if (gConfig.debug_log_sacn) {
+        ESP_LOGI(TAG, "RX universe=%u len=%u", SACN_UNIVERSE, (unsigned)len);
+        LOG_I(logbuf::CAT_WIFI, "sACN RX universe=%u len=%u", SACN_UNIVERSE, (unsigned)len);
+    }
 }
 
 void init() {

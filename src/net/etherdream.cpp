@@ -152,7 +152,15 @@ static void sendResponse(uint8_t cmd, uint8_t response, const DACStatus* st) {
     s_resp[0] = response;  // RESP_ACK / RESP_FULL / RESP_INVALID / RESP_ESTOP
     s_resp[1] = cmd;
     memcpy(&s_resp[2], &use_st, sizeof(DACStatus));
-    s_client.write(s_resp, 2 + sizeof(DACStatus));
+    size_t written = s_client.write(s_resp, 2 + sizeof(DACStatus));
+
+    if (gConfig.debug_log_etherdream) {
+        ESP_LOGI(TAG, "TX resp=0x%02X cmd=0x%02X wrote=%u/%u state=%u playback=%u",
+                 response, cmd, (unsigned)written, (unsigned)(2 + sizeof(DACStatus)),
+                 use_st.light_engine_state, use_st.playback_state);
+        LOG_I(logbuf::CAT_WIFI, "EtherDream TX resp=0x%02X cmd=0x%02X wrote=%u/%u",
+              response, cmd, (unsigned)written, (unsigned)(2 + sizeof(DACStatus)));
+    }
 }
 
 // ── send beacon ───────────────────────────────────────────────
@@ -281,6 +289,13 @@ static void handleClient() {
 
     while (s_client.available() >= 1) {
         uint8_t cmd = s_client.read();
+
+        if (gConfig.debug_log_etherdream) {
+            ESP_LOGI(TAG, "RX cmd=0x%02X ('%c') avail=%d", cmd,
+                     (cmd >= 0x20 && cmd < 0x7F) ? (char)cmd : '.', s_client.available());
+            LOG_I(logbuf::CAT_WIFI, "EtherDream RX cmd=0x%02X avail=%d", cmd, s_client.available());
+        }
+
         switch (cmd) {
 
             case CMD_PING:
@@ -298,7 +313,13 @@ static void handleClient() {
             case CMD_BEGIN: {
                 // BEGIN payload: low_water_mark(u32) + point_rate(u32)
                 uint8_t args[8];
-                if (s_client.readBytes(args, 8) == 8) {
+                uint32_t bt0 = millis();
+                size_t got_args = s_client.readBytes(args, 8);
+                if (gConfig.debug_log_etherdream) {
+                    ESP_LOGI(TAG, "BEGIN args read=%u/8 took=%ums", (unsigned)got_args, (unsigned)(millis() - bt0));
+                    LOG_I(logbuf::CAT_WIFI, "EtherDream BEGIN args=%u/8 took=%ums", (unsigned)got_args, (unsigned)(millis() - bt0));
+                }
+                if (got_args == 8) {
                     uint32_t rate;
                     memcpy(&rate, &args[4], 4);
                     ESP_LOGI(TAG, "BEGIN @ %u pps", rate);
@@ -309,10 +330,17 @@ static void handleClient() {
             }
 
             case CMD_DATA: {
+                uint32_t dt0 = millis();
                 // read DATA header
                 DataHeader hdr;
-                if (s_client.readBytes((uint8_t*)&hdr, sizeof(hdr)) != sizeof(hdr))
+                size_t got_hdr = s_client.readBytes((uint8_t*)&hdr, sizeof(hdr));
+                if (got_hdr != sizeof(hdr)) {
+                    if (gConfig.debug_log_etherdream) {
+                        ESP_LOGW(TAG, "DATA header read=%u/%u took=%ums",
+                                 (unsigned)got_hdr, (unsigned)sizeof(hdr), (unsigned)(millis() - dt0));
+                    }
                     break;
+                }
 
                 size_t pt_bytes = hdr.point_count * sizeof(DataPoint);
                 if (pt_bytes > 8192) {
@@ -331,6 +359,13 @@ static void handleClient() {
                     int n = s_client.read(pt_buf + got, pt_bytes - got);
                     if (n > 0) got += n;
                     else vTaskDelay(1);
+                }
+
+                if (gConfig.debug_log_etherdream) {
+                    ESP_LOGI(TAG, "DATA pts=%u bytes=%u/%u total_took=%ums",
+                             hdr.point_count, (unsigned)got, (unsigned)pt_bytes, (unsigned)(millis() - dt0));
+                    LOG_I(logbuf::CAT_WIFI, "EtherDream DATA pts=%u bytes=%u/%u took=%ums",
+                          hdr.point_count, (unsigned)got, (unsigned)pt_bytes, (unsigned)(millis() - dt0));
                 }
 
                 if (got == pt_bytes) {

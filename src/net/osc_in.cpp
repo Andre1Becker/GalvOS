@@ -65,6 +65,11 @@ static void handlePacket(const uint8_t* data, size_t len) {
 
     s_last_packet_ms = millis();
 
+    if (gConfig.debug_log_osc) {
+        ESP_LOGI(TAG, "RX %s %s len=%u", addr.c_str(), types.c_str(), (unsigned)len);
+        LOG_I(logbuf::CAT_WIFI, "OSC RX %s %s", addr.c_str(), types.c_str());
+    }
+
     if (addr == "/galvos/preset") {
         if (types.length() < 2 || types[1] != 'i' || off + 4 > len) return;
         int idx = (int)readInt32BE(data + off);

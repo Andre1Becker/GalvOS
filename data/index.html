@@ -1694,27 +1694,55 @@
       <input id="cfg-addr" type="number" min="1" max="497">
       <label>Art-Net Universe (0–32767)</label>
       <input id="cfg-uni" type="number" min="0" max="32767">
+      <label style="display:flex;align-items:center;gap:8px;margin-top:12px;font-size:13px;color:var(--dim)">
+        <input type="checkbox" id="cfg-dmx-debug"> Debug log (DMX RX -- Serial + Log tab)
+      </label>
       <button class="btn" style="margin-top: 16px;" onclick="saveDmxConfig()">Save</button>
     </div>
 
     <div class="card">
       <h2>Control Interfaces</h2>
-      <label style="display:flex;align-items:center;gap:8px;margin-top:8px">
-        <input type="checkbox" id="cfg-artnet-enabled"> Art-Net (UDP 6454)
-      </label>
-      <label style="display:flex;align-items:center;gap:8px;margin-top:8px">
-        <input type="checkbox" id="cfg-etherdream-enabled"> Ether Dream (UDP 7654 / TCP 7765)
-      </label>
-      <label style="display:flex;align-items:center;gap:8px;margin-top:8px">
-        <input type="checkbox" id="cfg-osc-enabled"> OSC (UDP 9000)
-      </label>
-      <label style="display:flex;align-items:center;gap:8px;margin-top:8px">
-        <input type="checkbox" id="cfg-sacn-enabled"> sACN / E1.31 (UDP 5568, universe 1)
-      </label>
-      <label style="display:flex;align-items:center;gap:8px;margin-top:8px">
-        <input type="checkbox" id="cfg-helios-enabled"> Helios network DAC (TCP 7768)
-      </label>
-      <span style="font-size:12px;color:var(--dim)">Disabling a feature stops it from acting on received data (reduces CPU load); its listening socket stays open.</span>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px">
+        <label style="display:flex;align-items:center;gap:8px">
+          <input type="checkbox" id="cfg-artnet-enabled"> Art-Net (UDP 6454)
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--dim)">
+          <input type="checkbox" id="cfg-artnet-debug"> Debug log
+        </label>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px">
+        <label style="display:flex;align-items:center;gap:8px">
+          <input type="checkbox" id="cfg-etherdream-enabled"> Ether Dream (UDP 7654 / TCP 7765)
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--dim)">
+          <input type="checkbox" id="cfg-etherdream-debug"> Debug log
+        </label>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px">
+        <label style="display:flex;align-items:center;gap:8px">
+          <input type="checkbox" id="cfg-osc-enabled"> OSC (UDP 9000)
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--dim)">
+          <input type="checkbox" id="cfg-osc-debug"> Debug log
+        </label>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px">
+        <label style="display:flex;align-items:center;gap:8px">
+          <input type="checkbox" id="cfg-sacn-enabled"> sACN / E1.31 (UDP 5568, universe 1)
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--dim)">
+          <input type="checkbox" id="cfg-sacn-debug"> Debug log
+        </label>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px">
+        <label style="display:flex;align-items:center;gap:8px">
+          <input type="checkbox" id="cfg-helios-enabled"> Helios network DAC (TCP 7768)
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--dim)">
+          <input type="checkbox" id="cfg-helios-debug"> Debug log
+        </label>
+      </div>
+      <span style="font-size:12px;color:var(--dim)">Disabling a feature stops it from acting on received data (reduces CPU load); its listening socket stays open. Debug log writes every received command/frame to Serial and the Log tab.</span>
       <button class="btn" style="margin-top: 16px;" onclick="saveInterfacesConfig()">Save</button>
     </div>
 
@@ -3467,7 +3495,8 @@ document.getElementById('btn-disarm').onclick = async () => {
 async function saveDmxConfig() {
   const r = await apiCall('POST', '/api/config', {
     dmx_address: +document.getElementById('cfg-addr').value,
-    artnet_universe: +document.getElementById('cfg-uni').value
+    artnet_universe: +document.getElementById('cfg-uni').value,
+    debug_log_dmx: document.getElementById('cfg-dmx-debug').checked
   });
   if (r !== null) toast('DMX-Config saved');
 }
@@ -3477,7 +3506,12 @@ async function saveInterfacesConfig() {
     etherdream_enabled: document.getElementById('cfg-etherdream-enabled').checked,
     osc_enabled:        document.getElementById('cfg-osc-enabled').checked,
     sacn_enabled:       document.getElementById('cfg-sacn-enabled').checked,
-    helios_net_enabled: document.getElementById('cfg-helios-enabled').checked
+    helios_net_enabled: document.getElementById('cfg-helios-enabled').checked,
+    debug_log_artnet:     document.getElementById('cfg-artnet-debug').checked,
+    debug_log_etherdream: document.getElementById('cfg-etherdream-debug').checked,
+    debug_log_osc:        document.getElementById('cfg-osc-debug').checked,
+    debug_log_sacn:       document.getElementById('cfg-sacn-debug').checked,
+    debug_log_helios_net: document.getElementById('cfg-helios-debug').checked
   });
   if (r !== null) toast('Interface config saved');
 }
@@ -3504,11 +3538,17 @@ async function loadConfig() {
   if (!c) return;
   document.getElementById('cfg-addr').value = c.dmx_address || 1;
   document.getElementById('cfg-uni').value  = c.artnet_universe || 0;
+  document.getElementById('cfg-dmx-debug').checked = c.debug_log_dmx === true;
   document.getElementById('cfg-artnet-enabled').checked     = c.artnet_enabled !== false;
   document.getElementById('cfg-etherdream-enabled').checked = c.etherdream_enabled !== false;
   document.getElementById('cfg-osc-enabled').checked    = c.osc_enabled !== false;
   document.getElementById('cfg-sacn-enabled').checked   = c.sacn_enabled !== false;
   document.getElementById('cfg-helios-enabled').checked = c.helios_net_enabled !== false;
+  document.getElementById('cfg-artnet-debug').checked     = c.debug_log_artnet === true;
+  document.getElementById('cfg-etherdream-debug').checked = c.debug_log_etherdream === true;
+  document.getElementById('cfg-osc-debug').checked        = c.debug_log_osc === true;
+  document.getElementById('cfg-sacn-debug').checked       = c.debug_log_sacn === true;
+  document.getElementById('cfg-helios-debug').checked     = c.debug_log_helios_net === true;
   document.getElementById('cfg-host').value = c.hostname || '';
   const ntpSrv = document.getElementById('cfg-ntp-server');
   const ntpTz  = document.getElementById('cfg-ntp-tz');

@@ -325,6 +325,16 @@ struct RuntimeConfig {
     bool      artnet_enabled     = true;
     bool      etherdream_enabled = true;
 
+    // Per-protocol verbose logging (WebUI Config tab). Off by default --
+    // logs every received command/frame to Serial and the WebUI log buffer,
+    // which is too noisy to leave on permanently at frame rate.
+    bool      debug_log_dmx        = false;
+    bool      debug_log_artnet     = false;
+    bool      debug_log_etherdream = false;
+    bool      debug_log_helios_net = false;
+    bool      debug_log_osc        = false;
+    bool      debug_log_sacn       = false;
+
     int16_t   galvo_x_offset = 0;
     int16_t   galvo_y_offset = 0;
     int16_t   galvo_x_gain   = 32767;

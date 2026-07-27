@@ -374,6 +374,12 @@ static void persistConfig() {
     s_prefs.putBool("helios_en",    gConfig.helios_net_enabled);
     s_prefs.putBool("artnet_en",    gConfig.artnet_enabled);
     s_prefs.putBool("edream_en",    gConfig.etherdream_enabled);
+    s_prefs.putBool("dbg_dmx",      gConfig.debug_log_dmx);
+    s_prefs.putBool("dbg_artnet",   gConfig.debug_log_artnet);
+    s_prefs.putBool("dbg_edream",   gConfig.debug_log_etherdream);
+    s_prefs.putBool("dbg_helios",   gConfig.debug_log_helios_net);
+    s_prefs.putBool("dbg_osc",      gConfig.debug_log_osc);
+    s_prefs.putBool("dbg_sacn",     gConfig.debug_log_sacn);
     s_prefs.putUChar("gain_g",      gConfig.gain_g);
     s_prefs.putUChar("gain_b",      gConfig.gain_b);
     s_prefs.putString("ssid",       gConfig.wifi_ssid);
@@ -542,6 +548,12 @@ static void buildConfigJson(JsonDocument& doc) {
     doc["helios_net_enabled"] = gConfig.helios_net_enabled;
     doc["artnet_enabled"]     = gConfig.artnet_enabled;
     doc["etherdream_enabled"] = gConfig.etherdream_enabled;
+    doc["debug_log_dmx"]        = gConfig.debug_log_dmx;
+    doc["debug_log_artnet"]     = gConfig.debug_log_artnet;
+    doc["debug_log_etherdream"] = gConfig.debug_log_etherdream;
+    doc["debug_log_helios_net"] = gConfig.debug_log_helios_net;
+    doc["debug_log_osc"]        = gConfig.debug_log_osc;
+    doc["debug_log_sacn"]       = gConfig.debug_log_sacn;
     doc["galvo_x_offset"]  = gConfig.galvo_x_offset;
     doc["galvo_y_offset"]  = gConfig.galvo_y_offset;
     doc["galvo_x_gain"]    = gConfig.galvo_x_gain;
@@ -851,6 +863,12 @@ void init() {
             if (doc["helios_net_enabled"].is<bool>()) gConfig.helios_net_enabled = doc["helios_net_enabled"];
             if (doc["artnet_enabled"].is<bool>())     gConfig.artnet_enabled     = doc["artnet_enabled"];
             if (doc["etherdream_enabled"].is<bool>()) gConfig.etherdream_enabled = doc["etherdream_enabled"];
+            if (doc["debug_log_dmx"].is<bool>())        gConfig.debug_log_dmx        = doc["debug_log_dmx"];
+            if (doc["debug_log_artnet"].is<bool>())     gConfig.debug_log_artnet     = doc["debug_log_artnet"];
+            if (doc["debug_log_etherdream"].is<bool>()) gConfig.debug_log_etherdream = doc["debug_log_etherdream"];
+            if (doc["debug_log_helios_net"].is<bool>()) gConfig.debug_log_helios_net = doc["debug_log_helios_net"];
+            if (doc["debug_log_osc"].is<bool>())        gConfig.debug_log_osc        = doc["debug_log_osc"];
+            if (doc["debug_log_sacn"].is<bool>())       gConfig.debug_log_sacn       = doc["debug_log_sacn"];
             if (doc["galvo_rated_kpps"].is<int>()) {
                 int rk = constrain((int)doc["galvo_rated_kpps"], 1, 100);
                 gProjection.galvo_rated_kpps = (uint16_t)rk;

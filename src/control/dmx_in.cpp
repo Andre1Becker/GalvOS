@@ -1,6 +1,8 @@
 #include <Arduino.h>
 #include "dmx_in.h"
 #include "pinmap.h"
+#include "config.h"
+#include "util/log_buffer.h"
 #include <esp_dmx.h>
 #include <esp_log.h>
 
@@ -53,6 +55,12 @@ void task(void*) {
         s_last_packet_ms = millis();
         gState.last_dmx_ms = s_last_packet_ms;
         gState.dmx_frame_count++;
+
+        if (gConfig.debug_log_dmx) {
+            ESP_LOGI(TAG, "RX size=%u addr=%u ch0..3=%u,%u,%u,%u",
+                     (unsigned)size, addr, buf[addr], buf[addr+1], buf[addr+2], buf[addr+3]);
+            LOG_I(logbuf::CAT_DMX, "DMX RX size=%u addr=%u", (unsigned)size, addr);
+        }
     }
 }
 

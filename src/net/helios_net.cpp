@@ -106,6 +106,13 @@ static void handleClient() {
 
         s_playing = (hdr.flags & 0x01) && hdr.point_count > 0;
 
+        if (gConfig.debug_log_helios_net) {
+            ESP_LOGI(TAG, "Frame rate=%u pts=%u flags=0x%02X playing=%d",
+                     hdr.point_rate, hdr.point_count, hdr.flags, s_playing);
+            LOG_I(logbuf::CAT_WIFI, "Helios net: pts=%u flags=0x%02X playing=%d",
+                  hdr.point_count, hdr.flags, s_playing);
+        }
+
         if (hdr.point_count == 0) continue;
         if (hdr.point_count > MAX_RAW_PTS) {
             ESP_LOGW(TAG, "Frame too large: %u points, dropping client", hdr.point_count);
@@ -132,6 +139,10 @@ static void handleClient() {
 
         if (got == pt_bytes) {
             processFramePoints(pt_buf, hdr.point_count);
+            if (gConfig.debug_log_helios_net) {
+                ESP_LOGI(TAG, "Frame OK pts=%u bytes=%u took=%ums",
+                         hdr.point_count, (unsigned)got, (unsigned)(millis() - t0));
+            }
         } else {
             ESP_LOGW(TAG, "Frame timeout: %u/%u bytes", (unsigned)got, (unsigned)pt_bytes);
         }
