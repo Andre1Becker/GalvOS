@@ -23,6 +23,7 @@ struct ILDAConfig {
     uint8_t   size_val   = 128;    // scaling 0-255
     bool      loop       = true;   // repeat indefinitely
     bool      active     = false;  // ILDA mode active
+    bool      enabled    = true;   // master on/off -- while false, loadFile()/setFromDMX() are no-ops
     // Statistik (read-only)
     uint16_t  total_frames = 0;
     uint16_t  current_frame = 0;
@@ -37,6 +38,10 @@ bool loadFile(uint8_t idx);  // loads file into PSRAM, starts playback task
 void stop();
 void pause(bool paused);
 bool isPaused();
+
+/* Master enable/disable -- disabling force-stops current playback and
+ * makes loadFile()/setFromDMX() no-ops until re-enabled. */
+void setEnabled(bool en);
 
 /* Get next frame (called by pattern_engine task) */
 size_t getFrame(LaserPoint* out, size_t max_pts);

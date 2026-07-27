@@ -262,6 +262,10 @@ void init() {
 }
 
 bool loadFile(uint8_t idx) {
+    if (!gILDA.enabled) {
+        ESP_LOGW(TAG, "loadFile ignored: player disabled");
+        return false;
+    }
     const char* path = sd_card::filePath(idx);
     if (!path) {
         ESP_LOGW(TAG, "file index %u invalid (max %u)", idx, sd_card::fileCount()-1);
@@ -292,6 +296,11 @@ void stop() {
 void pause(bool p) { s_paused = p; }
 bool isPaused() { return s_paused; }
 
+void setEnabled(bool en) {
+    gILDA.enabled = en;
+    if (!en) stop();
+}
+
 size_t getFrame(LaserPoint* out, size_t max_pts) {
     if (!gILDA.active || !s_frames || s_frame_count == 0) return 0;
     uint16_t fi = s_play_frame;
@@ -316,6 +325,7 @@ size_t getFrame(LaserPoint* out, size_t max_pts) {
 bool hasNewFrame() { return s_has_new; }
 
 void setFromDMX(uint8_t dmx_val) {
+    if (!gILDA.enabled) return;
     if (dmx_val == 0) {
         if (gILDA.active) stop();
         return;

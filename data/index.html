@@ -2386,7 +2386,7 @@ document.querySelectorAll('nav button').forEach(btn => {
     if (t === 'presets' || t === 'preset-manager') loadCommunityPresets();
     if (t === 'thermal')  { buildTempSensors(); buildSensorNameEditor(); }
     if (t === 'paint') initPaintTab();
-    if (t === 'ilda') { updateIldaPlayerUI(); loadDmxChannelTable(); }
+    if (t === 'ilda') updateIldaPlayerUI();
     if (t !== 'calib') { stopThreshTest(); stopThreeCirclePattern(); }
   });
 });
@@ -7098,13 +7098,30 @@ async function ildaPlayFile(idx) {
   await updateIldaPlayerUI();
 }
 
+// Global on/off switch for the ILDA player -- independent of any single
+// file's play/pause state. Disabling also force-stops current playback
+// and ignores the DMX ILDA-select channel until re-enabled.
+async function ildaSetEnabled(enabled) {
+  const r = await apiCall('POST', '/api/ilda/enable', { enabled });
+  if (r !== null) toast(enabled ? 'ILDA player enabled' : 'ILDA player disabled');
+  await updateIldaPlayerUI();
+}
+
 // Poll /api/ilda/status and reflect it in the "now playing" line + progress bar
 async function updateIldaPlayerUI() {
   const el   = document.getElementById('ilda-now-playing');
   const bar  = document.getElementById('ilda-progress');
+  const chk  = document.getElementById('ilda-enabled');
   if (!el || !bar) return;
   const s = await apiCall('GET', '/api/ilda/status');
-  if (!s || !s.active) {
+  if (!s) return;
+  if (chk) chk.checked = s.enabled !== false;
+  if (!s.enabled) {
+    el.textContent = 'Player disabled';
+    bar.style.width = '0%';
+    return;
+  }
+  if (!s.active) {
     el.textContent = 'No ILDA active';
     bar.style.width = '0%';
     return;
@@ -7121,22 +7138,6 @@ function startIldaRefresh() {
     const t = document.getElementById('tab-ilda');
     if (t && t.classList.contains('active')) updateIldaPlayerUI();
   }, 1000);
-}
-
-// Fill the "DMX Channel Assignment" reference table from /api/dmx/channels
-let s_dmxChannelsLoaded = false;
-async function loadDmxChannelTable() {
-  if (s_dmxChannelsLoaded) return;
-  const el = document.getElementById('dmx-channel-table');
-  if (!el) return;
-  const r = await apiCall('GET', '/api/dmx/channels');
-  if (!r || !r.channels) { el.textContent = 'Failed to load channel list'; return; }
-  el.innerHTML = r.channels.map(c =>
-    '<div style="display:flex;justify-content:space-between' + (c.ilda ? ';color:var(--accent)' : '') + '">' +
-      '<span>CH ' + c.ch + '</span><span>' + c.name + '</span>' +
-    '</div>'
-  ).join('');
-  s_dmxChannelsLoaded = true;
 }
 
 // Rescan SD card for ILDA files and refresh the list + status
@@ -7226,6 +7227,12 @@ async function saveNtpConfig() {
 
     <div class="card">
       <h2>▶ ILDA-Player</h2>
+
+      <label class="toggle" style="margin-bottom:12px">
+        <input type="checkbox" id="ilda-enabled" checked onchange="ildaSetEnabled(this.checked)">
+        <span class="slider"></span>⏻ Player enabled
+      </label>
+
       <div id="ilda-now-playing" style="font-family:monospace;font-size:14px;color:var(--accent);margin-bottom:12px;min-height:20px">
         No ILDA active
       </div>
@@ -7248,15 +7255,9 @@ async function saveNtpConfig() {
       </label>
 
       <div class="btns" style="margin-top:16px">
-        <button class="btn danger" onclick="ildaStop()">⏹ Stop</button>
+        <button class="btn danger" onclick="ildaPlayerStop()">⏹ Stop</button>
         <button class="btn secondary" onclick="ildaPlayPause(true)">⏸ Pause</button>
         <button class="btn ok" onclick="ildaPlayPause(false)">▶ Resume</button>
-      </div>
-
-      <hr style="border-color:var(--border);margin:16px 0">
-      <h3 style="font-size:15px;margin-bottom:10px">DMX Channel Assignment</h3>
-      <div id="dmx-channel-table" style="font-family:monospace;font-size:13px;color:var(--dim);line-height:2">
-        Loading...
       </div>
     </div>
 
