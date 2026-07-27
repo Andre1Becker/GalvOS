@@ -322,6 +322,8 @@ struct RuntimeConfig {
     bool      osc_enabled        = true;
     bool      sacn_enabled       = true;
     bool      helios_net_enabled = true;
+    bool      artnet_enabled     = true;
+    bool      etherdream_enabled = true;
 
     int16_t   galvo_x_offset = 0;
     int16_t   galvo_y_offset = 0;

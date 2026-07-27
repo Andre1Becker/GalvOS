@@ -35,9 +35,11 @@ static const uint16_t PORT_DISC = 7654;   // UDP Broadcast Discovery
 static const uint16_t PORT_DATA = 7765;   // TCP Data/Control
 
 // ── EtherDream protocol structures ──────────────────────────────
+// light_engine_state: 0=ready, 1=warmup, 2=cooldown, 3=e-stop
+// playback_state:     0=idle,  1=prepared, 2=playing
 struct __attribute__((packed)) DACStatus {
     uint8_t  protocol          = 0;
-    uint8_t  light_engine_state= 1;  // ready
+    uint8_t  light_engine_state= 0;  // ready
     uint8_t  playback_state    = 0;  // idle
     uint8_t  source            = 0;  // network
     uint16_t light_engine_flags= 0;
@@ -50,9 +52,9 @@ struct __attribute__((packed)) DACStatus {
 
 struct __attribute__((packed)) DACBroadcast {
     uint8_t  mac[6];
-    uint8_t  hw_rev = 0x12;
-    uint8_t  sw_rev = 0x10;
-    uint32_t buffer_capacity = 1800;
+    uint16_t hw_rev = 0x12;
+    uint16_t sw_rev = 0x10;
+    uint16_t buffer_capacity = 1800;
     uint32_t max_point_rate  = 100000;
     DACStatus status;
 };
@@ -72,6 +74,14 @@ enum ECmd : uint8_t {
     CMD_CLEAR_ESTOP = 0x63,  // 'c'
     CMD_PING        = 0x3F,  // '?'
     CMD_VERSION     = 0x56,  // 'V'
+};
+
+// EtherDream response codes (byte 0 of the response packet)
+enum EResp : uint8_t {
+    RESP_ACK     = 0x61,  // 'a' - command executed
+    RESP_FULL    = 0x46,  // 'F' - NAK, buffer full
+    RESP_INVALID = 0x49,  // 'I' - NAK, invalid command
+    RESP_ESTOP   = 0x21,  // '!' - NAK, DAC in emergency-stop condition
 };
 
 struct __attribute__((packed)) DataPoint {
@@ -115,20 +125,34 @@ static void trackScratch(size_t bytes) {
     memreg::track("EtherDream Scratch", s_scratchBytes, true);
 }
 
+// light_engine_state was previously defaulting to 1 ("warmup") forever --
+// a real client (e.g. laser show software) waits for it to report 0
+// ("ready") before ever sending PREPARE/BEGIN, and gives up with a read
+// timeout when it never does. There is no warmup/cooldown delay on this
+// hardware, so the only non-ready state that actually applies is e-stop.
+static inline uint8_t currentLightEngineState() {
+    return gState.estop_ok.load() ? 0 : 3;
+}
+
 // ── send response ──────────────────────────────────────────────
+// Wire format is exactly: response(1) + command(1) + dac_status(20) = 22
+// bytes. There is no separate framing/marker byte -- a stray extra byte
+// here desyncs every subsequent response on the stream by one byte, which
+// is what a real Ether Dream client (e.g. laser show software) reports as
+// "received response to unexpected command".
 static void sendResponse(uint8_t cmd, uint8_t response, const DACStatus* st) {
     DACStatus cur_st{};
-    cur_st.playback_state = s_running ? 1 : 0;
+    cur_st.light_engine_state = currentLightEngineState();
+    cur_st.playback_state = s_running ? 2 : (s_prepared ? 1 : 0);
     cur_st.fullness = (uint16_t)(s_total_pts % 1800);
     cur_st.point_count = s_total_pts;
 
     const DACStatus& use_st = st ? *st : cur_st;
 
-    s_resp[0] = 0x21;  // '!'  response marker
+    s_resp[0] = response;  // RESP_ACK / RESP_FULL / RESP_INVALID / RESP_ESTOP
     s_resp[1] = cmd;
-    s_resp[2] = response;  // 0x00 = ACK
-    memcpy(&s_resp[3], &use_st, sizeof(DACStatus));
-    s_client.write(s_resp, 3 + sizeof(DACStatus));
+    memcpy(&s_resp[2], &use_st, sizeof(DACStatus));
+    s_client.write(s_resp, 2 + sizeof(DACStatus));
 }
 
 // ── send beacon ───────────────────────────────────────────────
@@ -155,7 +179,8 @@ static void sendBeacon() {
     DACBroadcast bc{};
     uint64_t mac = ESP.getEfuseMac();
     memcpy(bc.mac, &mac, 6);
-    bc.status.playback_state = s_running ? 1 : 0;
+    bc.status.light_engine_state = currentLightEngineState();
+    bc.status.playback_state = s_running ? 2 : (s_prepared ? 1 : 0);
     bc.status.fullness = (uint16_t)(s_total_pts % 1800);
 
     if (!s_udp.beginPacket("255.255.255.255", PORT_DISC)) {
@@ -243,7 +268,7 @@ static void processDataPoints(uint8_t* buf, uint16_t count) {
         };
     }
 
-    if (n > 0 && s_running) {
+    if (n > 0 && s_running && gConfig.etherdream_enabled) {
         galvo::applyCalibration(pts, n);
         galvo::pushFrame(pts, n);
         s_total_pts += n;
@@ -259,14 +284,14 @@ static void handleClient() {
         switch (cmd) {
 
             case CMD_PING:
-                sendResponse(CMD_PING, 0x00, nullptr);
+                sendResponse(CMD_PING, RESP_ACK, nullptr);
                 break;
 
             case CMD_PREPARE:
                 s_prepared = true;
                 s_running  = false;
                 s_total_pts = 0;
-                sendResponse(CMD_PREPARE, 0x00, nullptr);
+                sendResponse(CMD_PREPARE, RESP_ACK, nullptr);
                 ESP_LOGI(TAG, "PREPARE");
                 break;
 
@@ -279,7 +304,7 @@ static void handleClient() {
                     ESP_LOGI(TAG, "BEGIN @ %u pps", rate);
                 }
                 s_running = true;
-                sendResponse(CMD_BEGIN, 0x00, nullptr);
+                sendResponse(CMD_BEGIN, RESP_ACK, nullptr);
                 break;
             }
 
@@ -310,17 +335,17 @@ static void handleClient() {
 
                 if (got == pt_bytes) {
                     processDataPoints(pt_buf, hdr.point_count);
-                    sendResponse(CMD_DATA, 0x00, nullptr);
+                    sendResponse(CMD_DATA, RESP_ACK, nullptr);
                 } else {
                     ESP_LOGW(TAG, "DATA Timeout: %u/%u Bytes", got, pt_bytes);
-                    sendResponse(CMD_DATA, 0x01, nullptr);
+                    sendResponse(CMD_DATA, RESP_INVALID, nullptr);
                 }
                 break;
             }
 
             case CMD_STOP:
                 s_running = false;
-                sendResponse(CMD_STOP, 0x00, nullptr);
+                sendResponse(CMD_STOP, RESP_ACK, nullptr);
                 ESP_LOGI(TAG, "STOP");
                 break;
 
@@ -328,12 +353,12 @@ static void handleClient() {
             case CMD_ESTOP2:
                 s_running = false;
                 safety::emergencyStop();
-                sendResponse(cmd, 0x00, nullptr);
+                sendResponse(cmd, RESP_ACK, nullptr);
                 ESP_LOGW(TAG, "E-STOP from network");
                 break;
 
             case CMD_CLEAR_ESTOP:
-                sendResponse(CMD_CLEAR_ESTOP, 0x00, nullptr);
+                sendResponse(CMD_CLEAR_ESTOP, RESP_ACK, nullptr);
                 break;
 
             case CMD_VERSION:
@@ -370,11 +395,12 @@ void task(void*) {
         if (!s_client.connected()) {
             s_client = s_tcp.available();
             if (s_client) {
-                s_running = false;
+                s_running  = false;
+                s_prepared = false;
                 ESP_LOGI(TAG, "Client connected: %s",
                          s_client.remoteIP().toString().c_str());
                 // Send initial status response (protocol requires it)
-                sendResponse(0x00, 0x00, nullptr);
+                sendResponse(0x00, RESP_ACK, nullptr);
             }
         }
 

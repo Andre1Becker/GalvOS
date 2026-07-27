@@ -14,6 +14,7 @@ static SemaphoreHandle_t s_mux;
 static volatile uint32_t s_last_packet_ms = 0;
 
 extern "C" void artnetFrameCb(uint16_t universe, uint16_t length, uint8_t /*sequence*/, uint8_t* data) {
+    if (!gConfig.artnet_enabled) return;   // WebUI Config tab toggle
     if (universe != gConfig.artnet_universe) return;
     uint16_t addr = gConfig.dmx_address;
     if (addr == 0 || addr + DMX_CHANNELS_USED - 1 > length) return;

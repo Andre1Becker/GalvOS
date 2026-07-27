@@ -94,6 +94,8 @@ static void loadConfig() {
     gConfig.osc_enabled        = s_prefs.getBool("osc_en",    true);
     gConfig.sacn_enabled       = s_prefs.getBool("sacn_en",   true);
     gConfig.helios_net_enabled = s_prefs.getBool("helios_en", true);
+    gConfig.artnet_enabled     = s_prefs.getBool("artnet_en", true);
+    gConfig.etherdream_enabled = s_prefs.getBool("edream_en", true);
     // NVS suffixes are pinned to the profile index, not to its name, so the
     // v1 profile set (Simple/Curves/3D/Scenes/Solar) migrates in place onto
     // the renamed profiles instead of resetting. "_w" is new (Waves) and

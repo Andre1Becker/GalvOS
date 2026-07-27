@@ -372,6 +372,8 @@ static void persistConfig() {
     s_prefs.putBool("osc_en",       gConfig.osc_enabled);
     s_prefs.putBool("sacn_en",      gConfig.sacn_enabled);
     s_prefs.putBool("helios_en",    gConfig.helios_net_enabled);
+    s_prefs.putBool("artnet_en",    gConfig.artnet_enabled);
+    s_prefs.putBool("edream_en",    gConfig.etherdream_enabled);
     s_prefs.putUChar("gain_g",      gConfig.gain_g);
     s_prefs.putUChar("gain_b",      gConfig.gain_b);
     s_prefs.putString("ssid",       gConfig.wifi_ssid);
@@ -538,6 +540,8 @@ static void buildConfigJson(JsonDocument& doc) {
     doc["osc_enabled"]        = gConfig.osc_enabled;
     doc["sacn_enabled"]       = gConfig.sacn_enabled;
     doc["helios_net_enabled"] = gConfig.helios_net_enabled;
+    doc["artnet_enabled"]     = gConfig.artnet_enabled;
+    doc["etherdream_enabled"] = gConfig.etherdream_enabled;
     doc["galvo_x_offset"]  = gConfig.galvo_x_offset;
     doc["galvo_y_offset"]  = gConfig.galvo_y_offset;
     doc["galvo_x_gain"]    = gConfig.galvo_x_gain;
@@ -845,6 +849,8 @@ void init() {
             if (doc["osc_enabled"].is<bool>())        gConfig.osc_enabled        = doc["osc_enabled"];
             if (doc["sacn_enabled"].is<bool>())       gConfig.sacn_enabled       = doc["sacn_enabled"];
             if (doc["helios_net_enabled"].is<bool>()) gConfig.helios_net_enabled = doc["helios_net_enabled"];
+            if (doc["artnet_enabled"].is<bool>())     gConfig.artnet_enabled     = doc["artnet_enabled"];
+            if (doc["etherdream_enabled"].is<bool>()) gConfig.etherdream_enabled = doc["etherdream_enabled"];
             if (doc["galvo_rated_kpps"].is<int>()) {
                 int rk = constrain((int)doc["galvo_rated_kpps"], 1, 100);
                 gProjection.galvo_rated_kpps = (uint16_t)rk;

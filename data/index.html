@@ -1700,6 +1700,12 @@
     <div class="card">
       <h2>Control Interfaces</h2>
       <label style="display:flex;align-items:center;gap:8px;margin-top:8px">
+        <input type="checkbox" id="cfg-artnet-enabled"> Art-Net (UDP 6454)
+      </label>
+      <label style="display:flex;align-items:center;gap:8px;margin-top:8px">
+        <input type="checkbox" id="cfg-etherdream-enabled"> Ether Dream (UDP 7654 / TCP 7765)
+      </label>
+      <label style="display:flex;align-items:center;gap:8px;margin-top:8px">
         <input type="checkbox" id="cfg-osc-enabled"> OSC (UDP 9000)
       </label>
       <label style="display:flex;align-items:center;gap:8px;margin-top:8px">
@@ -3467,6 +3473,8 @@ async function saveDmxConfig() {
 }
 async function saveInterfacesConfig() {
   const r = await apiCall('POST', '/api/config', {
+    artnet_enabled:     document.getElementById('cfg-artnet-enabled').checked,
+    etherdream_enabled: document.getElementById('cfg-etherdream-enabled').checked,
     osc_enabled:        document.getElementById('cfg-osc-enabled').checked,
     sacn_enabled:       document.getElementById('cfg-sacn-enabled').checked,
     helios_net_enabled: document.getElementById('cfg-helios-enabled').checked
@@ -3496,6 +3504,8 @@ async function loadConfig() {
   if (!c) return;
   document.getElementById('cfg-addr').value = c.dmx_address || 1;
   document.getElementById('cfg-uni').value  = c.artnet_universe || 0;
+  document.getElementById('cfg-artnet-enabled').checked     = c.artnet_enabled !== false;
+  document.getElementById('cfg-etherdream-enabled').checked = c.etherdream_enabled !== false;
   document.getElementById('cfg-osc-enabled').checked    = c.osc_enabled !== false;
   document.getElementById('cfg-sacn-enabled').checked   = c.sacn_enabled !== false;
   document.getElementById('cfg-helios-enabled').checked = c.helios_net_enabled !== false;
