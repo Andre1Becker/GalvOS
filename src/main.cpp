@@ -508,7 +508,7 @@ void setup() {
     // its own independent SPI3 bus/GPIOs (see pinmap.h) -- this delay is
     // just boot-sequencing hygiene, not a bus-conflict workaround.
     xTaskCreatePinnedToCore([](void*) {
-        vTaskDelay(pdMS_TO_TICKS(500));  // wait for galvoTask steady-state
+        vTaskDelay(pdMS_TO_TICKS(5000));  // wait for galvoTask steady-state
         if (sd_card::init()) {
             ESP_LOGI("main", "SD card: %u ILDA files", sd_card::fileCount());
         } else {

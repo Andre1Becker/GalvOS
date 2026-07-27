@@ -7194,10 +7194,7 @@ async function loadSdStatus() {
       '</div>';
   } else {
     el.innerHTML =
-      '<div style="color:var(--bad)">✗ ' + (d.error || 'SD card not available') + '</div>' +
-      '<div style="font-size:13px;color:var(--dim);margin-top:4px">' +
-        'Check card insertion and SPI wiring (SCK=12 MOSI=11 MISO=GPIO2 CS=' + (d.cs_pin||'9') + ')' +
-      '</div>';
+      '<div style="color:var(--bad)">✗ ' + (d.error || 'SD card not available') + '</div>';
   }
 }
 

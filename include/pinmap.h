@@ -160,10 +160,16 @@
 
 /* ILDA player config */
 #define ILDA_MAX_FILES   40   /* Maximum count of .ild files on SD */
-#define ILDA_MAX_PATH   128   /* maximum path length */
+#define ILDA_MAX_PATH   255   /* maximum path length -- matches CONFIG_FATFS_MAX_LFN (255),
+                                  the actual FAT long-filename limit. A file legally on the
+                                  card can use every one of those 255 chars, so this buffer
+                                  must fit them uncut or scanFiles() truncates the indexed
+                                  path and playback of an otherwise-valid file fails with
+                                  "file not found" */
 #define ILDA_MAX_UPLOAD_NAME 60   /* max sanitized upload basename (excl. extension) --
-                                      keeps "/ilda/" + name + ext well under ILDA_MAX_PATH
-                                      so scanFiles() never has to silently truncate it */
+                                      new uploads get capped well below the FAT limit for
+                                      sane display/logging; ILDA_MAX_PATH just has to be
+                                      able to round-trip whatever's already on the card */
 
 /* ── alias definitions for legacy code references ──────────────────── */
 #define PIN_LASER_EN     PIN_LASER_ENABLE   /* emergencyStop alias */

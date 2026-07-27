@@ -49,7 +49,7 @@ static char     s_fs_type[8]    = "-";
 
 // File tables (~7.7 KB) in PSRAM -- lazily allocated in init(), was DRAM .bss
 typedef char PathRow[ILDA_MAX_PATH];
-typedef char NameRow[64];
+typedef char NameRow[128];
 static PathRow*   s_paths  = nullptr;
 static NameRow*   s_names  = nullptr;   // display name, includes subfolder (e.g. "sub/file.ild")
 static uint32_t*  s_sizes  = nullptr;   // file size in bytes
@@ -107,7 +107,7 @@ bool init() {
     }
     if (!mounted) {
         strlcpy(s_error_msg,
-            "Mount failed - card in slot? Check SPI2 wiring.",
+            "Mount failed - card in slot? Check SPI3 wiring.",
             sizeof(s_error_msg));
         ESP_LOGE(TAG, "SD: %s", s_error_msg);
         LOG_W(logbuf::CAT_SYSTEM, "SD: Mount failed");
@@ -190,7 +190,7 @@ static void scanDirRecursive(const char* dirPath, const char* relPrefix, int dep
         bool isDir = f.isDirectory();
         char subPath[ILDA_MAX_PATH];
         int subPathLen = snprintf(subPath, sizeof(subPath), "%s/%s", dirPath, name);
-        char subRel[64];
+        char subRel[128];
         if (relPrefix[0]) snprintf(subRel, sizeof(subRel), "%s/%s", relPrefix, name);
         else              strlcpy(subRel, name, sizeof(subRel));
 
