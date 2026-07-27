@@ -54,7 +54,8 @@ Curves: if once active, need to manually turned of so other presets could start.
 
 ## Text Mode Issues
 
-None atm ...
+None known at least...
+
 ---
 
 ## Calibration Issues
