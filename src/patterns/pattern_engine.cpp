@@ -1063,6 +1063,31 @@ void task(void*) {
             if (ilda::hasNewFrame()) {
                 size_t n = ilda::getFrame(s_frame, PATTERN_POINTS_MAX);
                 if (n > 0) {
+                    // Affine transform: WebUI/DMX position + rotation controls
+                    // (same post-generate pass Preset mode uses, see
+                    // applyTransform() above). ILDA frames are pre-rendered
+                    // points straight from the .ild file -- they never go
+                    // through optimizer::optimize(), so this is the only
+                    // place those controls can reach ILDA playback.
+                    applyTransform(s_frame, n, v, phase);
+
+                    // Velocity clamp only -- protects the galvo if galvo_kpps
+                    // is set low and the file contains point-to-point jumps
+                    // too large for that speed. Resample / corner dwell / ZV
+                    // blanking deliberately stay off: ILDA blanking is
+                    // already encoded by the file's author, and resampling
+                    // would destroy timing-dependent effects (flicker,
+                    // strobes) baked into the original point spacing.
+                    optimizer::OptimizerConfig clampCfg;
+                    clampCfg.vel_clamp_enabled   = gOptimizerConfig.vel_clamp_enabled;
+                    clampCfg.max_step_units      = gOptimizerConfig.max_step_units;
+                    clampCfg.accel_clamp_enabled = gOptimizerConfig.accel_clamp_enabled;
+                    clampCfg.max_accel_units     = gOptimizerConfig.max_accel_units;
+                    clampCfg.galvo_kpps          = gProjection.galvo_kpps;
+                    optimizer::applyPpsScaling(clampCfg, gProjection.galvo_rated_kpps,
+                                               gProjection.galvo_kpps);
+                    n = optimizer::clampScannerLimits(s_frame, n, clampCfg, PATTERN_POINTS_MAX);
+
                     applyCalibration(s_frame, n);
                     if (gState.master_dimmer.load() > 0) {
                         { uint32_t _t0=millis(); while (!galvo::pushFrame(s_frame, n)) { if (millis()-_t0 > 500) { safety::emergencyStop(); LOG_E(logbuf::CAT_SAFETY,"Pattern engine: pushFrame timeout, emergency stop"); break; } vTaskDelay(pdMS_TO_TICKS(2)); } }

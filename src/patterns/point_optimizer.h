@@ -240,4 +240,15 @@ inline void applyPpsScaling(OptimizerConfig& cfg,
 void emitBlankTo(LaserPoint* out, size_t& n, size_t max,
                  float x1, float y1, const OptimizerConfig& cfg);
 
+// Velocity / Acceleration clamp (Phase 4) post-pass, exposed directly for
+// callers that own an already-emitted LaserPoint stream instead of
+// PathSegment geometry -- e.g. ILDA playback, whose frames come pre-
+// rendered from the .ild file and never go through optimize(). Subdivides
+// lit-to-lit steps exceeding cfg.max_step_units / cfg.max_accel_units;
+// blank-adjacent steps are exempt (see point_optimizer.cpp). No-op
+// (byte-identical, returns n unchanged) unless cfg.vel_clamp_enabled /
+// cfg.accel_clamp_enabled are set. Returns the new point count (<= max_out).
+size_t clampScannerLimits(LaserPoint* out, size_t n,
+                          const OptimizerConfig& cfg, size_t max_out);
+
 }  // namespace optimizer

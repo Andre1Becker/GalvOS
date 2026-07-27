@@ -571,8 +571,8 @@ static inline void lerpPoint(const LaserPoint& a, const LaserPoint& b,
     dst.blank = b.blank;   // an inserted point on a lit step is lit
 }
 
-static size_t clampScannerLimits(LaserPoint* out, size_t n,
-                                 const OptimizerConfig& cfg, size_t max_out) {
+size_t clampScannerLimits(LaserPoint* out, size_t n,
+                          const OptimizerConfig& cfg, size_t max_out) {
     if (n < 2) return n;
     const bool doVel   = cfg.vel_clamp_enabled   && cfg.max_step_units  > 0.5f;
     const bool doAccel = cfg.accel_clamp_enabled && cfg.max_accel_units > 0.5f;
