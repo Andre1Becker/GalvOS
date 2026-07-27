@@ -36,6 +36,7 @@ void init();
 bool loadFile(uint8_t idx);  // loads file into PSRAM, starts playback task
 void stop();
 void pause(bool paused);
+bool isPaused();
 
 /* Get next frame (called by pattern_engine task) */
 size_t getFrame(LaserPoint* out, size_t max_pts);

@@ -2386,6 +2386,7 @@ document.querySelectorAll('nav button').forEach(btn => {
     if (t === 'presets' || t === 'preset-manager') loadCommunityPresets();
     if (t === 'thermal')  { buildTempSensors(); buildSensorNameEditor(); }
     if (t === 'paint') initPaintTab();
+    if (t === 'ilda') { updateIldaPlayerUI(); loadDmxChannelTable(); }
     if (t !== 'calib') { stopThreshTest(); stopThreeCirclePattern(); }
   });
 });
@@ -6178,6 +6179,7 @@ initFrameGraph();
     await loadMemInfo();
     startMemRefresh();
     await loadPresets();
+    startIldaRefresh();
 })();
 
 // ============================================================
@@ -7048,6 +7050,14 @@ function uploadILDA() {
 }
 
 
+// Human-readable file size (bytes -> B/KB/MB)
+function formatFileSize(bytes) {
+  if (!bytes) return '0 B';
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+}
+
 // Render the ILDA file list from /api/sd (files[] array)
 function renderIldaFileList(files, activeIdx, active) {
   const el = document.getElementById('ilda-file-list');
@@ -7058,10 +7068,14 @@ function renderIldaFileList(files, activeIdx, active) {
   }
   el.innerHTML = files.map(f => {
     const isPlaying = !!active && f.idx === activeIdx;
+    const dateStr = f.mtime ? new Date(f.mtime * 1000).toLocaleString() : '-';
     return '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;border-bottom:1px solid var(--border)' +
         (isPlaying ? ';background:rgba(0,255,255,0.08)' : '') + '">' +
       '<span style="font-family:monospace' + (isPlaying ? ';color:var(--accent)' : '') + '">' +
         (isPlaying ? '▶ ' : '') + f.name +
+        '<div style="color:var(--dim);font-size:12px;font-weight:normal">' +
+          formatFileSize(f.size) + ' &middot; ' + dateStr +
+        '</div>' +
       '</span>' +
       '<span style="display:flex;align-items:center;gap:10px">' +
         '<span style="color:var(--dim);font-size:13px">DMX ' + f.dmx + '</span>' +
@@ -7081,6 +7095,48 @@ async function ildaPlayFile(idx) {
   const r = await apiCall('POST', '/api/ilda/play', { idx, speed, size, loop });
   if (r !== null) toast('▶ Playing');
   await loadSdStatus();
+  await updateIldaPlayerUI();
+}
+
+// Poll /api/ilda/status and reflect it in the "now playing" line + progress bar
+async function updateIldaPlayerUI() {
+  const el   = document.getElementById('ilda-now-playing');
+  const bar  = document.getElementById('ilda-progress');
+  if (!el || !bar) return;
+  const s = await apiCall('GET', '/api/ilda/status');
+  if (!s || !s.active) {
+    el.textContent = 'No ILDA active';
+    bar.style.width = '0%';
+    return;
+  }
+  el.textContent = (s.paused ? '⏸ Paused: ' : '▶ Playing: ') + (s.name || '?') +
+    ' (frame ' + (s.frame + 1) + '/' + s.total + ')';
+  bar.style.width = (s.total > 0 ? ((s.frame + 1) / s.total * 100) : 0) + '%';
+}
+
+let s_ildaTimer = null;
+function startIldaRefresh() {
+  if (s_ildaTimer) clearInterval(s_ildaTimer);
+  s_ildaTimer = setInterval(() => {
+    const t = document.getElementById('tab-ilda');
+    if (t && t.classList.contains('active')) updateIldaPlayerUI();
+  }, 1000);
+}
+
+// Fill the "DMX Channel Assignment" reference table from /api/dmx/channels
+let s_dmxChannelsLoaded = false;
+async function loadDmxChannelTable() {
+  if (s_dmxChannelsLoaded) return;
+  const el = document.getElementById('dmx-channel-table');
+  if (!el) return;
+  const r = await apiCall('GET', '/api/dmx/channels');
+  if (!r || !r.channels) { el.textContent = 'Failed to load channel list'; return; }
+  el.innerHTML = r.channels.map(c =>
+    '<div style="display:flex;justify-content:space-between' + (c.ilda ? ';color:var(--accent)' : '') + '">' +
+      '<span>CH ' + c.ch + '</span><span>' + c.name + '</span>' +
+    '</div>'
+  ).join('');
+  s_dmxChannelsLoaded = true;
 }
 
 // Rescan SD card for ILDA files and refresh the list + status
@@ -7547,8 +7603,11 @@ async function ildaPlayerStop() {
   }
 }
 async function ildaPlayPause(pause) {
-  const r = await apiCall('POST', '/api/ilda/pause', { pause });
-  if (r !== null) toast(pause ? 'ILDA paused' : 'ILDA resumed');
+  const r = await apiCall('POST', '/api/ilda/pause', { paused: pause });
+  if (r !== null) {
+    toast(pause ? 'ILDA paused' : 'ILDA resumed');
+    await updateIldaPlayerUI();
+  }
 }
 async function ildaTestStop(){await apiCall('POST','/api/calib-pattern/stop');document.getElementById('ilda-status').textContent='Pattern inactive';if(document.getElementById('btn-ilda-play'))document.getElementById('btn-ilda-play').style.opacity='1';}
 async function ildaTestSend(){if(document.getElementById('ilda-status').textContent.startsWith('▶')){await ildaTestPlay();}}

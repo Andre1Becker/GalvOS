@@ -50,18 +50,22 @@ static char     s_fs_type[8]    = "-";
 // File tables (~7.7 KB) in PSRAM -- lazily allocated in init(), was DRAM .bss
 typedef char PathRow[ILDA_MAX_PATH];
 typedef char NameRow[64];
-static PathRow* s_paths = nullptr;
-static NameRow* s_names = nullptr;
+static PathRow*   s_paths  = nullptr;
+static NameRow*   s_names  = nullptr;   // display name, includes subfolder (e.g. "sub/file.ild")
+static uint32_t*  s_sizes  = nullptr;   // file size in bytes
+static uint32_t*  s_mtimes = nullptr;   // last-write time, unix epoch seconds (0 if unknown)
 
 namespace sd_card {
 
 bool init() {
-    if (!psScratch(s_paths, ILDA_MAX_FILES) || !psScratch(s_names, ILDA_MAX_FILES)) {
+    if (!psScratch(s_paths, ILDA_MAX_FILES) || !psScratch(s_names, ILDA_MAX_FILES) ||
+        !psScratch(s_sizes, ILDA_MAX_FILES) || !psScratch(s_mtimes, ILDA_MAX_FILES)) {
         strlcpy(s_error_msg, "File table alloc failed", sizeof(s_error_msg));
         ESP_LOGE(TAG, "SD: %s", s_error_msg);
         return false;
     }
-    memreg::track("SD File Table", ILDA_MAX_FILES * (sizeof(PathRow) + sizeof(NameRow)), true);
+    memreg::track("SD File Table", ILDA_MAX_FILES *
+        (sizeof(PathRow) + sizeof(NameRow) + sizeof(uint32_t) + sizeof(uint32_t)), true);
 
     // SD runs on SPI3 via Arduino's SPIClass(HSPI) -- a completely
     // independent hardware peripheral from the DAC's SPI2, on its own
@@ -170,42 +174,60 @@ bool remount() {
 }
 
 
+// Recursively walk dirPath (real SD path) / relPrefix (display path relative to
+// /ilda, "" at the root) collecting .ild files into the flat s_paths/s_names
+// tables. Depth-limited to guard against pathological symlink-free FAT trees
+// and runaway recursion depth on the ESP32-S3's small task stacks.
+static void scanDirRecursive(const char* dirPath, const char* relPrefix, int depth) {
+    if (depth > 4 || s_file_count >= ILDA_MAX_FILES) return;
+
+    File dir = SD.open(dirPath);
+    if (!dir || !dir.isDirectory()) { if (dir) dir.close(); return; }
+
+    File f = dir.openNextFile();
+    while (f && s_file_count < ILDA_MAX_FILES) {
+        const char* name = f.name();  // basename only
+        bool isDir = f.isDirectory();
+        char subPath[ILDA_MAX_PATH];
+        snprintf(subPath, sizeof(subPath), "%s/%s", dirPath, name);
+        char subRel[64];
+        if (relPrefix[0]) snprintf(subRel, sizeof(subRel), "%s/%s", relPrefix, name);
+        else              strlcpy(subRel, name, sizeof(subRel));
+
+        if (isDir) {
+            f.close();
+            scanDirRecursive(subPath, subRel, depth + 1);
+        } else {
+            size_t len = strlen(name);
+            // Only .ild files (case-insensitive)
+            if (len > 4 && strcasecmp(name + len - 4, ".ild") == 0) {
+                strlcpy(s_paths[s_file_count], subPath, ILDA_MAX_PATH);
+                strlcpy(s_names[s_file_count], subRel, sizeof(NameRow));
+                s_sizes[s_file_count]  = (uint32_t)f.size();
+                s_mtimes[s_file_count] = (uint32_t)f.getLastWrite();
+                ESP_LOGI(TAG, "  [%u] %s (%u bytes)", s_file_count, s_names[s_file_count], s_sizes[s_file_count]);
+                s_file_count++;
+            }
+            f.close();
+        }
+        if (s_file_count >= ILDA_MAX_FILES) break;
+        f = dir.openNextFile();
+    }
+    dir.close();
+}
+
 uint8_t scanFiles() {
     LOCK_SD();
     if (!s_ready) return 0;
     s_file_count = 0;
-    memset(s_paths, 0, ILDA_MAX_FILES * sizeof(PathRow));
-    memset(s_names, 0, ILDA_MAX_FILES * sizeof(NameRow));
+    memset(s_paths,  0, ILDA_MAX_FILES * sizeof(PathRow));
+    memset(s_names,  0, ILDA_MAX_FILES * sizeof(NameRow));
+    memset(s_sizes,  0, ILDA_MAX_FILES * sizeof(uint32_t));
+    memset(s_mtimes, 0, ILDA_MAX_FILES * sizeof(uint32_t));
 
-    File root = SD.open("/ilda");
-    if (!root || !root.isDirectory()) {
-        ESP_LOGW(TAG, "/ilda directory unreadable");
-        return 0;
-    }
+    scanDirRecursive("/ilda", "", 0);
 
-    File f = root.openNextFile();
-    while (f && s_file_count < ILDA_MAX_FILES) {
-        if (!f.isDirectory()) {
-            const char* name = f.name();
-            size_t len = strlen(name);
-            // Only .ild files (case-insensitive)
-            if (len > 4) {
-                const char* ext = name + len - 4;
-                if (strcasecmp(ext, ".ild") == 0) {
-                    // full path
-                    snprintf(s_paths[s_file_count], ILDA_MAX_PATH, "/ilda/%s", name);
-                    strncpy(s_names[s_file_count], name, 63);
-                    s_names[s_file_count][63] = '\0';
-                    ESP_LOGI(TAG, "  [%u] %s", s_file_count, s_names[s_file_count]);
-                    s_file_count++;
-                }
-            }
-        }
-        f.close();
-        f = root.openNextFile();
-    }
-    root.close();
-    ESP_LOGI(TAG, "SD scan: %u ILDA files found", s_file_count);
+    ESP_LOGI(TAG, "SD scan: %u ILDA files found (incl. subfolders)", s_file_count);
     return s_file_count;
 }
 
@@ -216,6 +238,14 @@ const char* filePath(uint8_t idx) {
 const char* fileName(uint8_t idx) {
     if (idx >= s_file_count) return nullptr;
     return s_names[idx];
+}
+uint32_t fileSize(uint8_t idx) {
+    if (idx >= s_file_count) return 0;
+    return s_sizes[idx];
+}
+uint32_t fileMTime(uint8_t idx) {
+    if (idx >= s_file_count) return 0;
+    return s_mtimes[idx];
 }
 uint8_t  fileCount()    { return s_file_count; }
 uint32_t freeKB()       { return s_ready ? (uint32_t)((SD.totalBytes()-SD.usedBytes())/1024) : 0; }

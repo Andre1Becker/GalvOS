@@ -19,7 +19,9 @@ uint8_t scanFiles();
 
 // Path for index i (0-based) -> full path "/ilda/name.ild"
 const char* filePath(uint8_t idx);
-const char* fileName(uint8_t idx);      // filename only, without path
+const char* fileName(uint8_t idx);      // display name, incl. subfolder (e.g. "sub/file.ild")
+uint32_t    fileSize(uint8_t idx);      // file size in bytes
+uint32_t    fileMTime(uint8_t idx);     // last-write time, unix epoch seconds (0 if unknown)
 uint8_t     fileCount();
 
 // Free space on card in kB

@@ -220,12 +220,18 @@ static void readDmx(DmxView& v) {
     v.hflip = raw[DMX_HFLIP]; v.vflip = raw[DMX_VFLIP];
     v.hmove = raw[DMX_HMOVE]; v.vmove = raw[DMX_VMOVE];
     v.wave_x = raw[DMX_WAVE_AMP]; v.tapered = raw[DMX_WAVE_FREQ];
-    // Pass ILDA DMX channels directly to the player
-    ilda::setFromDMX(raw[DMX_ILDA_SELECT]);
-    if (ilda::gILDA.active) {
-        ilda::gILDA.speed    = raw[DMX_ILDA_SPEED]   ? raw[DMX_ILDA_SPEED]   : 128;
-        ilda::gILDA.size_val = raw[DMX_ILDA_SIZE]    ? raw[DMX_ILDA_SIZE]    : 128;
-        ilda::gILDA.loop     = (raw[DMX_ILDA_LOOP]  > 0);
+    // Pass ILDA DMX channels directly to the player -- but only when a real
+    // DMX/Art-Net/sACN source is live. On SRC_WEBUI, raw[] is gOverride.values,
+    // whose DMX_ILDA_SELECT fallback is 0 -- calling setFromDMX(0) every frame
+    // would stop() playback the frame after /api/ilda/play started it, since
+    // this runs at pattern-engine rate regardless of who started playback.
+    if (gState.source == SRC_DMX || gState.source == SRC_ARTNET || gState.source == SRC_SACN) {
+        ilda::setFromDMX(raw[DMX_ILDA_SELECT]);
+        if (ilda::gILDA.active) {
+            ilda::gILDA.speed    = raw[DMX_ILDA_SPEED]   ? raw[DMX_ILDA_SPEED]   : 128;
+            ilda::gILDA.size_val = raw[DMX_ILDA_SIZE]    ? raw[DMX_ILDA_SIZE]    : 128;
+            ilda::gILDA.loop     = (raw[DMX_ILDA_LOOP]  > 0);
+        }
     }
     // Color-Animation DMX channels (CH23-25). Only applied on real DMX/Art-Net
     // input -- WebUI sets gLivePreset.col_anim_* directly (/api/preset) and

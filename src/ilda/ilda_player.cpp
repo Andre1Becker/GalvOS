@@ -290,6 +290,7 @@ void stop() {
 }
 
 void pause(bool p) { s_paused = p; }
+bool isPaused() { return s_paused; }
 
 size_t getFrame(LaserPoint* out, size_t max_pts) {
     if (!gILDA.active || !s_frames || s_frame_count == 0) return 0;

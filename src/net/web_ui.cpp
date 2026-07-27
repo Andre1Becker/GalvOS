@@ -1464,10 +1464,12 @@ void init() {
         JsonArray files  = doc["files"].to<JsonArray>();
         for (uint8_t i = 0; i < sd_card::fileCount(); i++) {
             JsonObject fo = files.add<JsonObject>();
-            fo["idx"]  = i;
-            fo["name"] = sd_card::fileName(i);
-            fo["path"] = sd_card::filePath(i);
-            fo["dmx"]  = i + 1;  // DMX-value = Index + 1
+            fo["idx"]   = i;
+            fo["name"]  = sd_card::fileName(i);
+            fo["path"]  = sd_card::filePath(i);
+            fo["size"]  = sd_card::fileSize(i);
+            fo["mtime"] = sd_card::fileMTime(i);
+            fo["dmx"]   = i + 1;  // DMX-value = Index + 1
         }
         doc["ilda_active"]  = ilda::gILDA.active;
         doc["ilda_file"]    = ilda::gILDA.file_idx;
@@ -1557,6 +1559,7 @@ void init() {
     s_server.on("/api/ilda/status", HTTP_GET, [](AsyncWebServerRequest* req) {
         JsonDocument doc(&jsonAllocator());
         doc["active"]  = ilda::gILDA.active;
+        doc["paused"]  = ilda::isPaused();
         doc["file_idx"]= ilda::gILDA.file_idx;
         doc["frame"]   = ilda::gILDA.current_frame;
         doc["total"]   = ilda::gILDA.total_frames;
