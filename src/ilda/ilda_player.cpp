@@ -100,12 +100,30 @@ static bool loadILDA(const char* path) {
         return false;
     }
 
+    // Large/multi-frame files mean thousands of tiny SD/SPI reads back to
+    // back with no natural blocking point in between -- left unchecked this
+    // starves the IDLE0 task long enough to trip the task watchdog (seen
+    // live with async_tcp holding the CPU while servicing /api/ilda/play).
+    // A count-based yield (e.g. every N frames) isn't reliable: it doesn't
+    // bound wall-clock time when the SD card is slow or a file has many
+    // more sections than expected, and it can be skipped entirely by loop
+    // paths that `continue` before the counter increments (e.g. unknown
+    // format sections). Yield on elapsed time instead, checked at the top
+    // of every loop iteration, so worst-case starvation is bounded no
+    // matter the file's size or structure.
+    uint32_t last_yield = millis();
+    auto wdtYield = [&]() {
+        uint32_t now = millis();
+        if (now - last_yield >= 15) { vTaskDelay(1); last_yield = now; }
+    };
+
     // ── Pass 1: count (total frames + points) ────────────────────
     uint16_t total_frames = 0;
     uint32_t total_points = 0;
     uint8_t  hdr_buf[32];
 
     while (f.available() >= 32) {
+        wdtYield();
         if (f.read(hdr_buf, 32) != 32) break;
         if (memcmp(hdr_buf, "ILDA", 4) != 0) break;
 
@@ -128,14 +146,6 @@ static bool loadILDA(const char* path) {
         total_frames++;
         total_points += npts;
         f.seek(f.position() + npts * pt_size);
-
-        // Large multi-frame files mean thousands of tiny SD/SPI reads back
-        // to back with no natural blocking point in between -- left
-        // unchecked this starves the IDLE0 task long enough to trip the
-        // task watchdog (seen live with async_tcp holding the CPU while
-        // servicing /api/ilda/play). Yield periodically so the scheduler
-        // gets a look-in.
-        if ((total_frames & 0x3F) == 0) vTaskDelay(1);
     }
 
     if (total_frames == 0) {
@@ -165,6 +175,7 @@ static bool loadILDA(const char* path) {
     uint16_t fi = 0;
 
     while (f.available() >= 32 && fi < total_frames) {
+        wdtYield();
         if (f.read(hdr_buf, 32) != 32) break;
         if (memcmp(hdr_buf, "ILDA", 4) != 0) break;
 
@@ -179,10 +190,8 @@ static bool loadILDA(const char* path) {
         uint8_t pt_size = (fmt==0)?8 : (fmt==1)?6 : (fmt==4)?10 : 8;
 
         for (uint16_t pi = 0; pi < npts; pi++) {
+            wdtYield();
             if (f.read(raw, pt_size) != pt_size) break;
-            // same watchdog-starvation guard as Pass 1, but keyed to points
-            // since a single frame can carry up to 65535 of them.
-            if ((pi & 0xFF) == 0) vTaskDelay(1);
             LaserPoint& lp = s_point_pool[pool_offset + pi];
 
             int16_t x, y;
@@ -228,10 +237,6 @@ static bool loadILDA(const char* path) {
 
         pool_offset += npts;
         fi++;
-        // Covers frames with few points, where the per-point yield above
-        // rarely triggers -- a file with thousands of sparse frames would
-        // otherwise still starve the watchdog.
-        if ((fi & 0x3F) == 0) vTaskDelay(1);
     }
 
     f.close();
