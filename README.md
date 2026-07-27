@@ -152,6 +152,8 @@ Need a good sleep aid? This is the one for you here:
 
 ## Hardware at a Glance
 
+Don't like one's and zero's that much? Well, this one is for you then:
+
 | Component | Part |
 | --- | --- |
 | MCU | ESP32-S3-WROOM-1 N16R8 (16 MB Flash, 8 MB OPI PSRAM) |
