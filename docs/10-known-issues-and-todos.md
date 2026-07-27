@@ -5,6 +5,7 @@
 ## Table of Contents
 
 - [Critical Issues](#critical-issues)
+- [Resolved Issues](#resolved-issues)
 - [Hardware Issues](#hardware-issues)
 - [Pattern Issues](#pattern-issues)
 - [Text Mode Issues](#text-mode-issues)
@@ -19,15 +20,20 @@
 
 These affect core functionality and should be resolved before relying on those features in production.
 
-### SD Card Causes Galvo Malfunction
+None currently open.
 
-**Severity:** Critical  
-**Status:** Fixed in firmware v5.90.0 — **hardware rewire still pending**  
-**Symptom:** If an SD card is inserted, the galvos behave erratically — incorrect output, uncontrolled movement.  
-**Root cause:** Found. Not bus contention — the SD card was wired onto the DAC8562's SPI2 pins (SCK=GPIO12, MOSI=GPIO11, MISO=GPIO2, CS=GPIO9) under the assumption that Arduino's `SPIClass(HSPI)` attaches to SPI2_HOST on ESP32-S3. It does not: `HSPI` is bound to the independent SPI3 peripheral. Routing SPI3 onto SPI2's GPIOs meant two different peripherals both drove the same pins through the GPIO matrix, which only lets one peripheral own a pin's output at a time — `SPIClass::begin()` silently stole GPIO12/GPIO11 away from the DAC every time SD init ran, and real SD card traffic then appeared on the DAC's own clock/data lines, corrupting its output.  
-**Fix:** SD moved to fully independent GPIOs (SCK=GPIO5, MOSI=GPIO6, MISO=GPIO1, CS=GPIO42) on SPI3, with zero pin overlap with the DAC's SPI2 — see `include/pinmap.h` and `hardware/netlist.txt`. **The perfboard has not been rewired yet** — until the 4 SD wires are physically moved to GPIO5/6/1/42, `sd_card::init()` will simply fail to find a card (safe, but SD stays non-functional).  
-**Impact:** ILDA file playback from SD card is non-functional until the rewire is done. ILDA files loaded via other means (Art-Net, Ether Dream) are unaffected.  
-**Workaround (until rewired):** Leave the SD card slot empty. All other features (presets, WebUI, DMX, Art-Net) work normally.
+---
+
+## Resolved Issues
+
+### SD Card Caused Galvo Malfunction (resolved v6.09.0)
+
+**Severity:** Was Critical  
+**Status:** Resolved — perfboard rewired, SD/ILDA confirmed working (galvo output unaffected by card access)  
+**Symptom:** If an SD card was inserted, the galvos behaved erratically — incorrect output, uncontrolled movement.  
+**Root cause:** Not bus contention — the SD card was wired onto the DAC8562's SPI2 pins (SCK=GPIO12, MOSI=GPIO11, MISO=GPIO2, CS=GPIO9) under the assumption that Arduino's `SPIClass(HSPI)` attaches to SPI2_HOST on ESP32-S3. It does not: `HSPI` is bound to the independent SPI3 peripheral. Routing SPI3 onto SPI2's GPIOs meant two different peripherals both drove the same pins through the GPIO matrix, which only lets one peripheral own a pin's output at a time — `SPIClass::begin()` silently stole GPIO12/GPIO11 away from the DAC every time SD init ran, and real SD card traffic then appeared on the DAC's own clock/data lines, corrupting its output.  
+**Fix:** SD moved to fully independent GPIOs (SCK=GPIO5, MOSI=GPIO6, MISO=GPIO1, CS=GPIO42) on SPI3, with zero pin overlap with the DAC's SPI2, in firmware v5.90.0 — see `include/pinmap.h` and `hardware/netlist.txt`. The 4 SD wires on the perfboard have since been physically moved to GPIO5/6/1/42; `sd_card::init()` now finds the card and the WebUI ILDA/SD tab lists files correctly.  
+**Impact:** ILDA file playback from SD card works. Playlist tab is functional.
 
 ---
 

@@ -111,8 +111,7 @@ If the ESP32 crashes with a Guru Meditation error, the serial monitor prints a b
 
 ### Galvos go crazy when SD card is inserted
 
-**Cause:** SD card wired onto the DAC8562's SPI2 pins; the GPIO matrix let SD's real SPI3 traffic overwrite the DAC's clock/data lines. Fixed in firmware v5.90.0, but requires a physical rewire (SD → GPIO5/6/1/42) — see [Known Issues](10-known-issues-and-todos.md).  
-**Fix (until rewired):** Do not insert the SD card.
+**Cause:** SD card wired onto the DAC8562's SPI2 pins; the GPIO matrix let SD's real SPI3 traffic overwrite the DAC's clock/data lines. Fixed in firmware v5.90.0 (SD moved to its own SPI3 bus, GPIO5/6/1/42) and the perfboard has since been rewired to match — see [Known Issues](10-known-issues-and-todos.md#resolved-issues). If you still see this on your own build, verify your SD wiring matches GPIO5/6/1/42, not the old GPIO12/11/2/9.
 
 ### Output is mirrored horizontally
 
@@ -322,8 +321,7 @@ If the ESP32 crashes with a Guru Meditation error, the serial monitor prints a b
 
 ### SD card causes galvo malfunction
 
-**Cause:** SD card wired onto the DAC8562's SPI2 pins; the GPIO matrix let SD's real SPI3 traffic overwrite the DAC's clock/data lines. Fixed in firmware v5.90.0, but requires a physical rewire (SD → GPIO5/6/1/42) — see [Known Issues](10-known-issues-and-todos.md).  
-**Fix (until rewired):** Remove the SD card. All other features work normally without it.
+**Cause:** SD card wired onto the DAC8562's SPI2 pins; the GPIO matrix let SD's real SPI3 traffic overwrite the DAC's clock/data lines. Fixed in firmware v5.90.0 (SD moved to its own SPI3 bus, GPIO5/6/1/42) and the perfboard has since been rewired to match — see [Known Issues](10-known-issues-and-todos.md#resolved-issues). Galvo output is unaffected by SD access now; if this still happens on your build, check your SD wiring against GPIO5/6/1/42.
 
 ### ILDA files not listed in the ILDA tab
 
@@ -411,7 +409,6 @@ A quick-reference index of open issues documented in [Chapter 10](10-known-issue
 
 | Issue | Impact | Workaround |
 | --- | --- | --- |
-| SD card causes galvo malfunction (fixed in fw, perfboard rewire pending) | ILDA playback non-functional | Remove SD card |
 | Curves stay active until manually stopped | Minor | Press ⏹ Off in the Mathematical Curves panel before selecting a preset |
 | Calibration channel selector not working | Minor | Calibrate with RGB combined |
 | ILDA Standard Test Pattern bad output | Minor | Use Crosshair/Grid patterns instead |

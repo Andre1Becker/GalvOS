@@ -85,7 +85,7 @@ Yes, all of this is real, and yes, it's all running on a 6 Freedom Money ($) mic
 | --- | --- |
 | ILDA file playback from SD card | Plays the industry-standard laser show format straight off a memory card. |
 | Playlist manager | Queue multiple ILDA files with per-entry loop count and pause duration. |
-| Independent SPI3 bus for SD | SD reads no longer corrupt the DAC output mid-frame (see [Known Issues](docs/10-known-issues-and-todos.md) for the physical rewire still pending). |
+| Independent SPI3 bus for SD | SD reads no longer corrupt the DAC output mid-frame — SD card lives on its own SPI3 bus (GPIO5/6/1/42), fully independent of the DAC's SPI2. |
 
 ### Calibration & Tuning
 

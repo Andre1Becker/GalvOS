@@ -484,6 +484,8 @@ static void buildStateJson(JsonDocument& doc) {
     doc["starfield_stars"] = presets::gStarfieldStarCount.load();
     doc["dmx_frame_count"] = gState.dmx_frame_count.load();
     doc["master_dimmer"]   = gState.master_dimmer.load();
+    doc["ui_override"]        = gState.ui_override.load();
+    doc["ui_master_dimmer"]   = gState.ui_master_dimmer.load();
     doc["points_per_sec"]  = galvo::pointsPerSec();
     doc["fps"]              = galvo::fps();
     doc["frame_n"]          = gState.frame_n.load();
@@ -2649,9 +2651,7 @@ void init() {
             JsonDocument resp(&jsonAllocator());
             resp["ui_override"]    = ui_override;
             resp["master_dimmer"]  = master_dim;
-            String out;
-            serializeJson(resp, out);
-            req->send(200, "application/json", out);
+            sendJsonPsram(req, resp);
         }
     );
 

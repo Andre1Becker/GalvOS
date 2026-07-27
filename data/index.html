@@ -663,35 +663,37 @@
       <div class="stat-row"><span>Last DMX activity</span><span id="v-lastdmx" class="val">--</span></div>
     </div>
 
-    <div class="card" style="grid-column:2">
-      <h2>Control Interfaces</h2>
-      <div class="stat-row"><span><span id="led-etherdream" class="led"></span>Ether Dream</span><span id="v-etherdream" class="val">--</span></div>
-      <div class="stat-row"><span><span id="led-helios-net" class="led"></span>Helios (network)</span><span id="v-helios-net" class="val">--</span></div>
-      <div class="stat-row"><span><span id="led-helios-usb" class="led"></span>Helios (USB)</span><span id="v-helios-usb" class="val">--</span></div>
-      <div class="stat-row"><span><span id="led-osc" class="led"></span>OSC</span><span id="v-osc" class="val">--</span></div>
-      <div class="stat-row"><span><span id="led-sacn" class="led"></span>sACN / E1.31</span><span id="v-sacn" class="val">--</span></div>
-    </div>
+    <!-- System + Control Interfaces — right column, spans rows 1-3, stacked -->
+    <div style="grid-column:3;grid-row:1/4;align-self:start;display:flex;flex-direction:column;gap:16px">
+      <div class="card">
+        <h2>⚙ System</h2>
+        <div class="stat-row"><span>Firmware</span><span id="dash-fw-ver" class="val" style="font-family:monospace">--</span></div>
+        <div class="stat-row"><span>Hostname</span><span id="v-host" class="val">--</span></div>
+        <div class="stat-row"><span>IP Address</span><span id="v-ip" class="val">--</span></div>
+        <div class="stat-row"><span>WiFi-Signal</span><span id="v-rssi" class="val">--</span></div>
+        <div class="stat-row"><span>Uptime</span><span id="v-uptime" class="val">--</span></div>
+        <div class="stat-row"><span>Free Heap</span><span id="v-heap" class="val">--</span></div>
+        <div class="stat-row"><span>Free PSRAM</span><span id="v-psram" class="val">--</span></div>
+        <div class="stat-row"><span>NTP Time</span><span id="v-ntp" class="val" style="font-family:monospace">--</span></div>
+        <div class="stat-row"><span>DAC / Galvo</span><span id="v-dac" class="val">--</span></div>
+        <div class="stat-row"><span>SD Card</span><span id="v-sd" class="val">--</span></div>
+        <div class="stat-row"><span>SD Type</span><span id="v-sd-type" class="val">--</span></div>
+        <div class="stat-row"><span>SD Size</span><span id="v-sd-size" class="val">--</span></div>
+        <div class="stat-row"><span>SD Free</span><span id="v-sd-free" class="val">--</span></div>
+        <div class="stat-row"><span>SD Files</span><span id="v-sd-files" class="val">--</span></div>
+        <div style="display:flex;gap:8px;margin-top:6px">
+          <button class="btn js-sd-remount" id="btn-sd-remount" onclick="sdRemount()" style="flex:1;font-size:14px;padding:5px 8px">⟳ Mount</button>
+          <button class="btn js-sd-eject"   id="btn-sd-eject"   onclick="sdEject()"   style="flex:1;font-size:14px;padding:5px 8px;background:var(--warn);color:#000">⏏ Eject</button>
+        </div>
+      </div>
 
-    <!-- System — right column, spans all rows -->
-    <div class="card" style="grid-column:3;grid-row:1/5;align-self:start">
-      <h2>⚙ System</h2>
-      <div class="stat-row"><span>Firmware</span><span id="dash-fw-ver" class="val" style="font-family:monospace">--</span></div>
-      <div class="stat-row"><span>Hostname</span><span id="v-host" class="val">--</span></div>
-      <div class="stat-row"><span>IP Address</span><span id="v-ip" class="val">--</span></div>
-      <div class="stat-row"><span>WiFi-Signal</span><span id="v-rssi" class="val">--</span></div>
-      <div class="stat-row"><span>Uptime</span><span id="v-uptime" class="val">--</span></div>
-      <div class="stat-row"><span>Free Heap</span><span id="v-heap" class="val">--</span></div>
-      <div class="stat-row"><span>Free PSRAM</span><span id="v-psram" class="val">--</span></div>
-      <div class="stat-row"><span>NTP Time</span><span id="v-ntp" class="val" style="font-family:monospace">--</span></div>
-      <div class="stat-row"><span>DAC / Galvo</span><span id="v-dac" class="val">--</span></div>
-      <div class="stat-row"><span>SD Card</span><span id="v-sd" class="val">--</span></div>
-      <div class="stat-row"><span>SD Type</span><span id="v-sd-type" class="val">--</span></div>
-      <div class="stat-row"><span>SD Size</span><span id="v-sd-size" class="val">--</span></div>
-      <div class="stat-row"><span>SD Free</span><span id="v-sd-free" class="val">--</span></div>
-      <div class="stat-row"><span>SD Files</span><span id="v-sd-files" class="val">--</span></div>
-      <div style="display:flex;gap:8px;margin-top:6px">
-        <button class="btn" id="btn-sd-remount" onclick="sdRemount()" style="flex:1;font-size:14px;padding:5px 8px">⟳ Mount</button>
-        <button class="btn" id="btn-sd-eject"   onclick="sdEject()"   style="flex:1;font-size:14px;padding:5px 8px;background:var(--warn);color:#000">⏏ Eject</button>
+      <div class="card">
+        <h2>Control Interfaces</h2>
+        <div class="stat-row"><span><span id="led-etherdream" class="led"></span>Ether Dream</span><span id="v-etherdream" class="val">--</span></div>
+        <div class="stat-row"><span><span id="led-helios-net" class="led"></span>Helios (network)</span><span id="v-helios-net" class="val">--</span></div>
+        <div class="stat-row"><span><span id="led-helios-usb" class="led"></span>Helios (USB)</span><span id="v-helios-usb" class="val">--</span></div>
+        <div class="stat-row"><span><span id="led-osc" class="led"></span>OSC</span><span id="v-osc" class="val">--</span></div>
+        <div class="stat-row"><span><span id="led-sacn" class="led"></span>sACN / E1.31</span><span id="v-sacn" class="val">--</span></div>
       </div>
     </div>
 
@@ -7047,19 +7049,38 @@ function uploadILDA() {
 
 
 // Render the ILDA file list from /api/sd (files[] array)
-function renderIldaFileList(files) {
+function renderIldaFileList(files, activeIdx, active) {
   const el = document.getElementById('ilda-file-list');
   if (!el) return;
   if (!files || files.length === 0) {
     el.innerHTML = '<div style="color:var(--dim)">No files or SD not ready</div>';
     return;
   }
-  el.innerHTML = files.map(f =>
-    '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;border-bottom:1px solid var(--border)">' +
-      '<span style="font-family:monospace">' + f.name + '</span>' +
-      '<span style="color:var(--dim);font-size:13px">DMX ' + f.dmx + '</span>' +
-    '</div>'
-  ).join('');
+  el.innerHTML = files.map(f => {
+    const isPlaying = !!active && f.idx === activeIdx;
+    return '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;border-bottom:1px solid var(--border)' +
+        (isPlaying ? ';background:rgba(0,255,255,0.08)' : '') + '">' +
+      '<span style="font-family:monospace' + (isPlaying ? ';color:var(--accent)' : '') + '">' +
+        (isPlaying ? '▶ ' : '') + f.name +
+      '</span>' +
+      '<span style="display:flex;align-items:center;gap:10px">' +
+        '<span style="color:var(--dim);font-size:13px">DMX ' + f.dmx + '</span>' +
+        '<button class="btn ' + (isPlaying ? 'secondary' : 'ok') + '" style="padding:3px 10px;font-size:13px" onclick="ildaPlayFile(' + f.idx + ')">' +
+          (isPlaying ? '↺ Restart' : '▶ Play') +
+        '</button>' +
+      '</span>' +
+    '</div>';
+  }).join('');
+}
+
+// Start playback of an SD file by index, using the current speed/size/loop controls
+async function ildaPlayFile(idx) {
+  const speed = parseInt(document.getElementById('ip-sp')?.value || 128);
+  const size  = parseInt(document.getElementById('ip-sz')?.value || 128);
+  const loop  = document.getElementById('ip-loop')?.checked ?? true;
+  const r = await apiCall('POST', '/api/ilda/play', { idx, speed, size, loop });
+  if (r !== null) toast('▶ Playing');
+  await loadSdStatus();
 }
 
 // Rescan SD card for ILDA files and refresh the list + status
@@ -7076,7 +7097,7 @@ async function loadSdStatus() {
 
   // Fetch file list separately (api/sd has the files[] array)
   const sd = await apiCall('GET', '/api/sd');
-  if (sd) renderIldaFileList(sd.files);
+  if (sd) renderIldaFileList(sd.files, sd.ilda_file, sd.ilda_active);
 
   if (!el) return;
   if (d.ready) {
@@ -7137,6 +7158,8 @@ async function saveNtpConfig() {
       <div class="btns">
         <button class="btn ok" onclick="sdScan()">🔄 Rescan</button>
         <button class="btn secondary" onclick="loadSdStatus()">↺ Refresh</button>
+        <button class="btn js-sd-remount" onclick="sdRemount()">⟳ Mount</button>
+        <button class="btn secondary js-sd-eject" style="background:var(--warn);color:#000" onclick="sdEject()">⏏ Eject</button>
       </div>
       <hr style="border-color:var(--border);margin:14px 0">
       <h3 style="font-size:15px;margin-bottom:10px">ILDA Files on SD</h3>
@@ -7539,33 +7562,21 @@ document.querySelectorAll('[data-tab]').forEach(btn=>{btn.addEventListener('clic
 
 
 async function sdRemount() {
-  const btn = document.getElementById('btn-sd-remount');
-  const sts = document.getElementById('v-sd-status');
-  if (btn) { btn.disabled = true; btn.textContent = '\u23f3 Mounting...'; }
-  if (sts) { sts.textContent = 'Mounting SD card...'; sts.style.color = 'var(--dim)'; }
+  const btns = document.querySelectorAll('.js-sd-remount');
+  btns.forEach(b => { b.disabled = true; b.textContent = '\u23f3 Mounting...'; });
   const r = await apiCall('POST', '/api/sd/remount');
-  if (btn) { btn.disabled = false; btn.textContent = '\u27f3 Mount'; }
-  if (r !== null) {
-    if (r.ok) {
-      if (sts) { sts.textContent = '\u2713 Mount OK'; sts.style.color = 'var(--ok)'; }
-      toast('SD card mounted successfully');
-    } else {
-      if (sts) { sts.textContent = '\u2717 Mount failed — check card'; sts.style.color = 'var(--bad)'; }
-      toast('SD mount failed');
-    }
-  }
-  setTimeout(() => { if (sts) sts.textContent = ''; }, 4000);
+  btns.forEach(b => { b.disabled = false; b.textContent = '\u27f3 Mount'; });
+  if (r !== null) toast(r.ok ? 'SD card mounted successfully' : 'SD mount failed');
+  loadSdStatus();
 }
 
 async function sdEject() {
-  const btn = document.getElementById('btn-sd-eject');
-  const sts = document.getElementById('v-sd-status');
-  if (btn) { btn.disabled = true; btn.textContent = '\u23f3 Ejecting...'; }
+  const btns = document.querySelectorAll('.js-sd-eject');
+  btns.forEach(b => { b.disabled = true; b.textContent = '⏳ Ejecting...'; });
   await apiCall('POST', '/api/sd/eject');
-  if (btn) { btn.disabled = false; btn.textContent = '\u23cf Eject'; }
-  if (sts) { sts.textContent = '\u2713 Safe to remove card'; sts.style.color = 'var(--ok)'; }
-  toast('\u23cf SD ejected — safe to remove');
-  setTimeout(() => { if (sts) sts.textContent = ''; }, 6000);
+  btns.forEach(b => { b.disabled = false; b.textContent = '⏏ Eject'; });
+  toast('⏏ SD ejected — safe to remove');
+  loadSdStatus();
 }
 
 async function setNoHwMode(enabled) {

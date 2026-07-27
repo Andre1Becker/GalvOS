@@ -334,13 +334,11 @@ ILDA file playback from an SD card.
 
 ![image](https://github.com/user-attachments/assets/b11c18f6-d442-4fe2-a1ab-6a8d6dffa5f7)
 
-> ⚠️ **Known issue:** The galvo-corruption-on-SD-insert bug is fixed in firmware (v5.90.0 moved the SD card to its own SPI3 bus, fully independent of the DAC's SPI2) — but the **perfboard has not been physically rewired yet**. Until the 4 SD wires are moved to GPIO5/6/1/42, `sd_card::init()` simply finds no card and this tab stays non-functional. See [Known Issues](10-known-issues-and-todos.md#critical-issues).
-
-- **File list** — lists `.ild` files found on the SD card (up to 40 files).
+- **File list** — lists `.ild` files found on the SD card (up to 40 files); each entry has a ▶ Play button to start it directly.
 - **Playback controls** — select a file, set loop mode, and play/stop.
 - **ILDA Speed / Size / Brightness** — override the ILDA file's built-in parameters.
 - **SD card status** — shows card type, total size, free space, and file count.
-- **⟳ Mount / ⏏ Eject** — remount or safely eject the SD card (Dashboard tab, System card).
+- **⟳ Mount / ⏏ Eject** — remount or safely eject the SD card (available both here and on the Dashboard tab, System card).
 
 ---
 
@@ -498,9 +496,7 @@ A simplified laser hazard summary based on configured power and angles: laser cl
 
 ## Tab: Playlist
 
-Build and manage playlists of ILDA files for automated sequential playback.
-
-> ⚠️ Requires SD card — non-functional until the SD card is physically rewired to its independent SPI3 bus. See [Known Issues](10-known-issues-and-todos.md#critical-issues).
+Build and manage playlists of ILDA files for automated sequential playback. Requires an SD card with `.ild` files on it.
 
 ![image](https://github.com/user-attachments/assets/bd9287c3-497c-4dbb-b504-e3c09c62a1ab)
 
