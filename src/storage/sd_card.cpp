@@ -189,10 +189,20 @@ static void scanDirRecursive(const char* dirPath, const char* relPrefix, int dep
         const char* name = f.name();  // basename only
         bool isDir = f.isDirectory();
         char subPath[ILDA_MAX_PATH];
-        snprintf(subPath, sizeof(subPath), "%s/%s", dirPath, name);
+        int subPathLen = snprintf(subPath, sizeof(subPath), "%s/%s", dirPath, name);
         char subRel[64];
         if (relPrefix[0]) snprintf(subRel, sizeof(subRel), "%s/%s", relPrefix, name);
         else              strlcpy(subRel, name, sizeof(subRel));
+
+        // A truncated path would silently point loadFile() at a name that
+        // doesn't exist on disk (real file has the untruncated name) --
+        // skip rather than index a path we know is wrong.
+        if (subPathLen < 0 || (size_t)subPathLen >= sizeof(subPath)) {
+            ESP_LOGW(TAG, "skipping entry, path too long: %s/%s", dirPath, name);
+            f.close();
+            f = dir.openNextFile();
+            continue;
+        }
 
         if (isDir) {
             f.close();

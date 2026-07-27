@@ -161,6 +161,9 @@
 /* ILDA player config */
 #define ILDA_MAX_FILES   40   /* Maximum count of .ild files on SD */
 #define ILDA_MAX_PATH   128   /* maximum path length */
+#define ILDA_MAX_UPLOAD_NAME 60   /* max sanitized upload basename (excl. extension) --
+                                      keeps "/ilda/" + name + ext well under ILDA_MAX_PATH
+                                      so scanFiles() never has to silently truncate it */
 
 /* ── alias definitions for legacy code references ──────────────────── */
 #define PIN_LASER_EN     PIN_LASER_ENABLE   /* emergencyStop alias */

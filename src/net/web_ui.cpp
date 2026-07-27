@@ -19,6 +19,7 @@
 #include "net/osc_in.h"
 #include "net/sacn_in.h"
 #include "storage/sd_card.h"
+#include "pinmap.h"
 #include "sensors/temp_monitor.h"
 #include "util/log_buffer.h"
 #include "util/cpu_monitor.h"
@@ -32,6 +33,7 @@
 #include <Arduino.h>
 #include <math.h>
 #include <string.h>
+#include <ctype.h>
 #include <memory>
 #include <atomic>
 #include <ESPAsyncWebServer.h>
@@ -722,6 +724,53 @@ static void wifiScanTask(void*) {
         ESP_LOGI(TAG, "WiFi-Scan: %d networks found", s_scan_results);
     }
     vTaskDelete(nullptr);
+}
+
+// Sanitizes a client-supplied upload filename before it ever touches the SD
+// card: drops any directory components (path traversal via "../" or "\"),
+// replaces characters FAT LFN doesn't like, and caps the basename length so
+// "/ilda/<name>" can never exceed ILDA_MAX_PATH. An oversized/unsanitized
+// name used to get silently truncated by scanFiles()'s fixed-size buffers,
+// pointing the file index at a path that no longer matched the real file on
+// disk -- loadILDA() then failed with "file not found" and /api/ilda/play
+// surfaced that as a bare HTTP 500.
+static bool s_upload_ok = false;
+
+static String sanitizeIldaFilename(const String& rawIn) {
+    String raw = rawIn;
+    int slash  = raw.lastIndexOf('/');
+    int bslash = raw.lastIndexOf('\\');
+    int cut    = slash > bslash ? slash : bslash;
+    if (cut >= 0) raw = raw.substring(cut + 1);
+
+    // Split off the extension so it survives truncation below (scanFiles()
+    // only indexes names ending in .ild/.ilda).
+    String base = raw;
+    String ext  = "";
+    int dot = raw.lastIndexOf('.');
+    if (dot > 0 && raw.length() - dot <= 6) {
+        base = raw.substring(0, dot);
+        ext  = raw.substring(dot);
+    }
+
+    for (size_t i = 0; i < base.length(); i++) {
+        char c = base[i];
+        if (!(isalnum((unsigned char)c) || c == '_' || c == '-' || c == ' ' || c == '.'))
+            base.setCharAt(i, '_');
+    }
+    for (size_t i = 0; i < ext.length(); i++) {
+        char c = ext[i];
+        if (!(isalnum((unsigned char)c) || c == '.'))
+            ext.setCharAt(i, '_');
+    }
+
+    if (base.length() > ILDA_MAX_UPLOAD_NAME) base = base.substring(0, ILDA_MAX_UPLOAD_NAME);
+    while (base.length() && (base[base.length() - 1] == ' ' || base[base.length() - 1] == '.'))
+        base.remove(base.length() - 1);
+    if (ext == ".") ext = "";
+
+    if (base.length() == 0) base = "upload_" + String((uint32_t)millis());
+    return base + ext;
 }
 
 /* ============================================================
@@ -1999,22 +2048,20 @@ void init() {
     // ── Feature 11: ILDA file upload via HTTP ────────────────
     s_server.on("/api/ilda/upload", HTTP_POST,
         [](AsyncWebServerRequest* req) {
-            bool ok = !req->hasParam("error");
-            req->send(ok ? 200 : 500, "application/json",
-                ok ? "{\"status\":\"ok\",\"rescan\":true}" : "{\"error\":\"upload failed\"}");
-            if (ok) sd_card::scanFiles();  // SD neu scannen
+            req->send(s_upload_ok ? 200 : 400, "application/json",
+                s_upload_ok ? "{\"status\":\"ok\",\"rescan\":true}"
+                            : "{\"error\":\"upload failed (could not create file on SD)\"}");
+            if (s_upload_ok) sd_card::scanFiles();  // SD neu scannen
         },
         [](AsyncWebServerRequest* req, String filename, size_t index,
            uint8_t* data, size_t len, bool final) {
             static File s_upload_file;
             if (index == 0) {
-                String path = "/ilda/" + filename;
-                ESP_LOGI("upload", "Start: %s", path.c_str());
+                String path = "/ilda/" + sanitizeIldaFilename(filename);
+                ESP_LOGI("upload", "Start: %s (orig: %s)", path.c_str(), filename.c_str());
                 { LOCK_SD(); s_upload_file = SD.open(path, FILE_WRITE); }
-                if (!s_upload_file) {
-                    ESP_LOGE("upload", "could not create file");
-                    req->params();  // setze error-flag
-                }
+                s_upload_ok = (bool)s_upload_file;
+                if (!s_upload_file) ESP_LOGE("upload", "could not create file: %s", path.c_str());
             }
             if (s_upload_file && len)
                 s_upload_file.write(data, len);
