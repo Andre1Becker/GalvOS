@@ -159,7 +159,7 @@ The positive supply voltage for a digital circuit. VCC historically refers to bi
 A C++ abstraction layer over the ESP-IDF that provides familiar `setup()` / `loop()` structure and a large ecosystem of libraries. GalvOS uses the Arduino framework via PlatformIO, but accesses hardware directly where performance requires it (SPI register writes for the DAC, hardware timer for the galvo ISR).
 
 **Core 0 / Core 1**
-The two Xtensa LX7 CPU cores in the ESP32-S3. In GalvOS: Core 0 runs the Wi-Fi stack, WebUI, DMX, Art-Net, NTP, and safety monitoring. Core 1 runs the galvo ISR and pattern engine. FreeRTOS assigns tasks to cores at creation time.
+The two Xtensa LX7 CPU cores in the ESP32-S3. In GalvOS: Core 0 runs the Wi-Fi stack, WebUI, all network receivers (DMX, Art-Net, sACN, OSC, Ether Dream, Helios-net), NTP, and safety monitoring. Core 1 runs the galvo ISR and pattern engine. FreeRTOS assigns tasks to cores at creation time.
 
 **ESP32-S3**
 The Espressif microcontroller at the heart of GalvOS. Dual-core Xtensa LX7 at 240 MHz, with built-in Wi-Fi and Bluetooth, 512 KB internal SRAM, and OPI PSRAM support up to 8 MB. The N16R8 module variant adds 16 MB SPI flash and 8 MB octal PSRAM.
@@ -227,7 +227,16 @@ A royalty-free protocol for transmitting DMX-512 data over Ethernet/UDP/IP netwo
 Automatically assigns IP addresses to devices joining a network. GalvOS uses DHCP by default in STA mode; a static IP can be configured in the WebUI Configuration tab.
 
 **Ether Dream**
-An open-source laser DAC protocol over Ethernet. GalvOS includes experimental Ether Dream receiver support, allowing compatible laser software (Pangolin, BEYOND, etc.) to send ILDA-style point streams to GalvOS over the network.
+An open-source laser DAC protocol over Ethernet. GalvOS includes an Ether Dream receiver, allowing compatible laser software (Pangolin, BEYOND, etc.) to send ILDA-style point streams to GalvOS over the network.
+
+**Helios DAC**
+A popular open-source USB laser DAC. GalvOS emulates its point-stream protocol **over the network** (TCP port 7768, since v6.08.0) so laser software that speaks Helios can stream to GalvOS; the original USB variant remains an unimplemented stub. See [Chapter 8 — Network Control Protocols](08-api-reference.md#network-control-protocols-non-http).
+
+**OSC (Open Sound Control)**
+A UDP message protocol popular in audio/VJ software (TouchOSC, Max/MSP, Ableton bridges). GalvOS listens on UDP port 9000 (since v6.08.0) for `/galvos/{preset,color,speed,brightness,enable}` messages — remote control of the basics without touching the HTTP API. Single messages only, no bundles.
+
+**sACN (Streaming ACN / E1.31)**
+The ANSI E1.31 standard for transporting DMX-512 universes over IP multicast — Art-Net's younger, standards-blessed sibling. GalvOS receives universe 1 on multicast 239.255.0.1:5568 (since v6.08.0), with the same channel map as DMX/Art-Net and the lowest priority of the three DMX-shaped sources.
 
 **IP address**
 The numerical identifier for a device on a network. In AP mode, GalvOS always uses 192.168.4.1. In STA mode, the assigned address is shown in the Dashboard → System card and in the serial boot log.

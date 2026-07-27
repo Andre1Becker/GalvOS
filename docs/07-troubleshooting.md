@@ -411,10 +411,9 @@ A quick-reference index of open issues documented in [Chapter 10](10-known-issue
 
 | Issue | Impact | Workaround |
 | --- | --- | --- |
-| SD card causes galvo malfunction | ILDA playback non-functional | Remove SD card |
-| Text: Bounce has no effect | Minor | Use Scroll or Static |
-| Text: Typewriter runs once only | Minor | — |
-| Text: Star Wars Scroll direction wrong | Minor | Use Scroll Left/Right |
-| Text: Star Wars renders as dots | Minor | — |
+| SD card causes galvo malfunction (fixed in fw, perfboard rewire pending) | ILDA playback non-functional | Remove SD card |
+| Curves stay active until manually stopped | Minor | Press ⏹ Off in the Mathematical Curves panel before selecting a preset |
 | Calibration channel selector not working | Minor | Calibrate with RGB combined |
 | ILDA Standard Test Pattern bad output | Minor | Use Crosshair/Grid patterns instead |
+
+All text-mode animation bugs from earlier releases (Bounce, Typewriter, Star Wars direction/dots) were fixed by v6.05.7; the scrolling-text edge streaks and the Star Wars rooftop lines went in v6.07.1/v6.07.2.

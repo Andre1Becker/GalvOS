@@ -21,7 +21,7 @@ The origin story: the stock firmware couldn't dim the laser — it was full-brig
 
 - 16-bit galvo DAC (vs. OEM 12-bit) via SPI DAC8562
 - Browser-based WebUI — no app install, works from any phone or desktop
-- DMX-512 and Art-Net input
+- DMX-512, Art-Net, sACN/E1.31, and OSC input; Ether Dream and Helios (network) DAC protocols
 - ILDA file playback from SD card
 - Per-point laser modulation with full RGB PWM control
 - Hardware safety interlocks (scan-fail detection, watchdog, E-Stop, opto-isolated TTL)
@@ -71,6 +71,10 @@ Yes, all of this is real, and yes, it's all running on a 6 Freedom Money ($) mic
 | --- | --- |
 | DMX-512 input (MAX485, 25 channels) | Talks to any real lighting desk like a grown-up fixture. |
 | Art-Net input | DMX over Ethernet/Wi-Fi for the desk-less crowd. |
+| sACN / E1.31 input (v6.08.0) | The standards-blessed way to do DMX over IP multicast. Same channel map, lowest priority of the three DMX-shaped sources. |
+| OSC input (v6.08.0) | `/galvos/*` on UDP 9000 — preset, color, speed, brightness, and override from TouchOSC & friends. |
+| Ether Dream protocol receiver | Laser software that speaks Ether Dream can stream point data straight to the projector. |
+| Helios DAC network emulation (v6.08.0) | Helios point-stream framing over TCP 7768 — the USB variant stays a stub, the network one actually works. |
 | Live software DMX console (WebUI) | 25 sliders, no physical desk required, with instant test patterns (red circle, rainbow). |
 | WebUI override priority | WebUI wins over DMX on demand — for when you need to grab manual control mid-show. |
 | Master dimmer (WebUI + DMX CH1 combined) | One dial to rule the overall brightness, regardless of source. |
@@ -178,7 +182,7 @@ GalvOS/
 ├── src/                    # Firmware source (C++, Arduino/PlatformIO)
 │   ├── control/            # DMX, Art-Net, safety control
 │   ├── ilda/               # ILDA file parser
-│   ├── net/                # WebUI server, REST API
+│   ├── net/                # WebUI server, REST API, Art-Net/sACN/OSC/Ether Dream/Helios receivers
 │   ├── output/             # Galvo ISR, DAC output, RGB PWM
 │   ├── patterns/           # Pattern engine, presets, optimizer
 │   ├── safety/             # E-Stop, watchdog, scan-fail

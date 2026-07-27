@@ -92,7 +92,7 @@ Shows the state of the hardware safety interlocks:
 
 Live readouts updated every second:
 
-- **Source** — which control input is currently driving the output: `WEBUI`, `DMX`, `ARTNET`, `ILDA`, or `INTERNAL` (preset).
+- **Source** — which control input is currently driving the output: `WebUI`, `DMX`, `Art-Net`, `Ether Dream`, `Helios`, `sACN`, `OSC`, or `Internal` (preset).
 - **Master Dimmer** — effective master brightness (0–255), combining DMX CH1 and the WebUI override.
 - **DMX Frames** — running count of DMX frames received. Useful to confirm DMX signal is arriving.
 - **Galvo Rate** — current output rate in points-per-second with a visual bar. The bar fills relative to the configured `galvo_kpps` maximum.
@@ -139,6 +139,18 @@ Shows how each rendered frame's points split between **Lit** (green) and **Blank
 ![image](https://github.com/user-attachments/assets/06d69469-fd72-4210-bd7e-4626f60f170a)
 
 Static system information: firmware version, hostname, IP address, Wi-Fi signal strength (RSSI), uptime, free heap (internal DRAM), free PSRAM, NTP time, DAC/galvo status, and SD card status. The API auth token moved to the **Access Credentials** card on the Configuration tab.
+
+### Control Interfaces Card
+
+Added in v6.08.0 — one LED per network DAC/control interface, so you can see at a glance which of them is actually talking to the device:
+
+- **Ether Dream** — `connected` / `playing` / `waiting`
+- **Helios (network)** — `connected` / `playing` / `waiting` (TCP emulation, see below)
+- **Helios (USB)** — always `waiting`; the USB protocol is a stub (see [Known Issues](10-known-issues-and-todos.md))
+- **OSC** — `active` when OSC packets have arrived recently, `idle` otherwise
+- **sACN / E1.31** — `active` / `idle`
+
+The LEDs are activity indicators, not fault indicators — a red/dim LED just means nobody is using that interface right now. Enable/disable lives on the Configuration tab ([Control Interfaces](#control-interfaces)).
 
 ---
 
@@ -259,7 +271,7 @@ A table of every community preset stored on the device (Name, Author, Size):
 
 ### Storage Monitor
 
-A usage bar showing LittleFS storage: preset count and used/total space. Each preset is capped at 10 KB, so filling this up would take genuine dedication.
+A usage bar showing LittleFS storage: preset count and used/total space. Each preset is capped at 10 KB and the device stores at most **20 community presets** (since v6.07.6; updating an existing one doesn't count against the limit), so filling this up would take genuine dedication.
 
 > **Note:** Activating a community preset applies its optimizer tuning as a session-only override — it is not persisted. Selecting another preset or rebooting returns to the built-in optimizer profile for that preset class.
 
@@ -545,6 +557,16 @@ Network, DMX, safety, IP, and debug settings.
 - **DMX Start Address** (1–512) — first DMX channel GalvOS responds to.
 - **Art-Net Universe** (0–32767) — Art-Net universe number.
 
+### Control Interfaces
+
+Added in v6.08.0 — per-interface enable/disable for the three newest network inputs:
+
+- **OSC** (UDP 9000) — Open Sound Control 1.0 receiver, `/galvos/*` address space (see [Chapter 8 — Network Control Protocols](08-api-reference.md#network-control-protocols-non-http)).
+- **sACN / E1.31** (UDP 5568, universe 1) — streaming-DMX over multicast.
+- **Helios network DAC** (TCP 7768) — Helios DAC network emulation for laser software that speaks its point-stream framing.
+
+Disabling an interface makes it ignore received data (reduces CPU load); its listening socket stays open until the next reboot. Ether Dream, Art-Net, and DMX have no toggle yet — see [Known Issues](10-known-issues-and-todos.md#ui-issues). Press **Save** to persist.
+
 ### WiFi Connection
 
 - Scan for available networks or enter SSID manually.
@@ -567,9 +589,9 @@ Network, DMX, safety, IP, and debug settings.
 
 Added in v6.06.0 — because "I remember my DAC limits" is not a disaster recovery plan.
 
-- **⬇ Download Backup** — downloads a JSON snapshot of galvo calibration, all 8 optimizer profiles, network settings, and system/thermal thresholds (`galvos_backup.json`).
-- **⬆ Choose Backup File** — pick a previously downloaded backup. GalvOS does a quick JSON-syntax check in the browser, then shows an **⚠ Restore & Reboot** button once the file looks like valid JSON.
-- **⚠ Restore & Reboot** — asks for confirmation, then uploads the file. The firmware validates every single value against the same bounds the live config endpoints enforce before touching anything — if even one field is out of range, the whole restore is rejected and nothing is applied. On success it persists the config and reboots automatically.
+- **⬇ Download Backup** — downloads a JSON snapshot of galvo calibration, all 8 optimizer profiles, network settings, and system/thermal thresholds. Since v6.07.4 the filename carries the firmware version and a timestamp (`galvos_backup_v6.08.0_2026-07-25-13-19-06.json`) instead of the eternal `galvos_backup.json`, so a folder full of backups actually tells you which is which.
+- **⬆ Choose Backup File** — pick a previously downloaded backup. GalvOS does a quick JSON-syntax check in the browser, then enables the **⚠ Restore Settings** button (visible from the start since v6.07.5, just disabled/dimmed until a valid file is picked).
+- **⚠ Restore Settings** — asks for confirmation, then uploads the file. The firmware validates every single value against the same bounds the live config endpoints enforce before touching anything — if even one field is out of range, the whole restore is rejected and nothing is applied. On success it persists the config and reboots automatically.
 - Restore is blocked while the laser is **armed** — disarm first.
 - Not a substitute for the calibration workflow — it restores *previous* known-good values, it doesn't calibrate for you. See [Tab: Calibration](#tab-calibration) if you're setting up a projector for the first time.
 

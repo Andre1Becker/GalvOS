@@ -20,6 +20,7 @@ The GalvOS REST API is served by the ESP32 WebUI server (ESPAsyncWebServer) at `
 - [Text Mode](#text-mode)
 - [Paint Mode](#paint-mode)
 - [DMX & Art-Net](#dmx--art-net)
+- [Network Control Protocols (non-HTTP)](#network-control-protocols-non-http)
 - [ILDA & SD Card](#ilda--sd-card)
 - [Playlist](#playlist)
 - [Zone (Projection Clipping)](#zone-projection-clipping)
@@ -96,7 +97,7 @@ Full system state. Polled by the WebUI every second.
 | `ilda_active` | bool | ILDA player currently active |
 | `playlist_active` | bool | Playlist currently running |
 | `safety_override` | bool | Safety override enabled |
-| `source` | int | Active control source: 0=none, 1=DMX, 2=ArtNet, 3=EtherDream, 4=Helios, 5=Internal, 6=WebUI |
+| `source` | int | Active control source: 0=none, 1=DMX, 2=ArtNet, 3=EtherDream, 4=Helios (network), 5=Internal, 6=WebUI, 7=sACN, 8=OSC |
 | `master_dimmer` | int | Effective master brightness (0–255) |
 | `dmx_frame_count` | int | Running count of received DMX frames |
 | `points_per_sec` | int | Current galvo output rate (pps) |
@@ -130,6 +131,11 @@ Full system state. Polled by the WebUI every second.
 | `sd_file_count` | int | Number of `.ild` files indexed |
 | `ntp_synced` | bool | NTP time synchronized |
 | `found` | int | Number of DS18B20 sensors found on 1-Wire bus |
+| `etherdream_connected` / `etherdream_playing` | bool | Ether Dream client TCP-connected / actively streaming points (since v6.08.0) |
+| `helios_net_connected` / `helios_net_playing` | bool | Helios network-DAC client TCP-connected / actively streaming (since v6.08.0) |
+| `helios_usb_connected` | bool | Always `false` — the Helios USB protocol is a stub (since v6.08.0) |
+| `osc_active` | bool | OSC packets received recently (since v6.08.0) |
+| `sacn_active` | bool | sACN/E1.31 frames received recently (since v6.08.0) |
 
 ---
 
@@ -179,6 +185,14 @@ Write one or more `RuntimeConfig` fields. Only fields present in the body are up
 ```json
 {"thresh_r": 143, "thresh_g": 144, "thresh_b": 169}
 ```
+
+**Example — enable/disable control interfaces (since v6.08.0):**
+
+```json
+{"osc_enabled": true, "sacn_enabled": false, "helios_net_enabled": true}
+```
+
+All three default to enabled and are persisted to NVS immediately. A disabled interface ignores received data; its listening socket stays open until the next reboot. The current values are returned by `GET /api/config` as `osc_enabled` / `sacn_enabled` / `helios_net_enabled`.
 
 ---
 
@@ -363,7 +377,9 @@ LittleFS storage stats for the Storage Monitor card.
 
 Body: a full preset document (see above). Validates and writes it to LittleFS.
 
-**Errors:** `413` preset too large, `400` bad JSON or a validation failure (the `error` field carries a human-readable reason), `500` write failed.
+Validation was hardened in v6.07.6: `meta.name` and `meta.author` must be non-empty printable ASCII under a length cap, unknown top-level JSON keys are rejected outright (instead of silently ignored), and storage is capped at **20 presets** — updating an existing `id` doesn't count against the limit.
+
+**Errors:** `413` preset too large, `400` bad JSON or a validation failure (the `error` field carries a human-readable reason, including "storage full" when the 20-preset cap is hit), `500` write failed.
 
 ---
 
@@ -596,7 +612,7 @@ Restore validates every recognized key against the same bounds the live `/api/ca
 
 ### `GET /api/backup`
 
-Downloads the full config snapshot as `application/json` with `Content-Disposition: attachment; filename="galvos_backup.json"`.
+Downloads the full config snapshot as `application/json`. The WebUI names the file `galvos_backup_v<fw>_<yyyy-mm-dd-hh-mm-ss>.json` (since v6.07.4), so backups sort by date and identify their firmware version.
 
 ---
 
@@ -927,6 +943,32 @@ Returns Art-Net and Ether Dream connection status.
   "etherdream_playing": false
 }
 ```
+
+---
+
+## Network Control Protocols (non-HTTP)
+
+Added in v6.08.0. These are not REST endpoints — they are raw network listeners that run alongside the HTTP API. Each can be individually enabled/disabled via `POST /api/config` (see [Configuration](#configuration)) or the Configuration tab's Control Interfaces card; per-interface activity is reported in `/api/state`.
+
+### OSC (Open Sound Control 1.0) — UDP port 9000
+
+Single messages only, no `#bundle` support. Address space:
+
+| Address | Arguments | Effect |
+| --- | --- | --- |
+| `/galvos/preset` | `i` (int32) | Activate preset by index |
+| `/galvos/color` | `fff` (float32 ×3, 0.0–1.0) | Color override (RGB) |
+| `/galvos/speed` | `f` (0.0–1.0) | Pattern speed |
+| `/galvos/brightness` | `f` (0.0–1.0) | Master dimmer (`ui_master_dimmer`) |
+| `/galvos/enable` | `i` (0/1) | Sets `ui_override` — the same arbitration the WebUI uses, taking priority over DMX/Art-Net. **Does not arm the laser** — arming stays a deliberate, separate safety action. |
+
+### sACN / E1.31 — UDP multicast 239.255.0.1:5568
+
+Streaming-DMX receiver, **universe 1 only**. Channel map is identical to DMX-512/Art-Net. It is the lowest-priority of the three DMX-shaped sources: Art-Net and DMX512 both win over it when active simultaneously.
+
+### Helios DAC (network emulation) — TCP port 7768
+
+Emulates a Helios DAC's point-stream framing over TCP (5-byte header + 7-byte points; port 7768 because the Ether Dream listener already owns 7654/7765) for laser software that speaks the Helios protocol. Incoming frames are routed through the same live optimizer transform and clamped to the active profile's `max_pts_per_frame`, exactly like the preset/paint/calib render paths. The original Helios **USB** protocol remains a stub — see [Known Issues](10-known-issues-and-todos.md).
 
 ---
 

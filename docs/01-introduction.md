@@ -147,10 +147,13 @@ GalvOS runs two FreeRTOS cores in parallel:
 - WebUI HTTP server (ESPAsyncWebServer)
 - Art-Net UDP receiver
 - DMX-512 receiver (MAX485)
+- sACN / E1.31 multicast receiver (v6.08.0)
+- OSC 1.0 receiver, UDP 9000 (v6.08.0)
+- Ether Dream protocol receiver
+- Helios DAC network emulation, TCP 7768 (v6.08.0; the Helios USB protocol remains a stub)
 - Safety monitor task
 - Temperature monitoring
 - NTP client
-- Ether Dream / Helios protocol (experimental)
 
 **Core 1 — Real-Time Output:**
 

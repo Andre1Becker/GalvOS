@@ -50,7 +50,12 @@ GalvOS/
 │   │   ├── web_ui.{cpp,h}          # WebUI HTTP server — all API routes
 │   │   ├── artnet_in.{cpp,h}       # Art-Net UDP receiver
 │   │   ├── etherdream.{cpp,h}      # Ether Dream protocol
-│   │   ├── helios_usb.{cpp,h}      # Helios USB DAC protocol
+│   │   ├── helios_net.{cpp,h}      # Helios DAC network emulation (TCP 7768)
+│   │   ├── helios_usb.{cpp,h}      # Helios USB DAC protocol (stub)
+│   │   ├── osc_in.{cpp,h}          # OSC 1.0 receiver (UDP 9000)
+│   │   ├── sacn_in.{cpp,h}         # sACN/E1.31 receiver (multicast, universe 1)
+│   │   ├── community_presets.{cpp,h} # Community preset storage (LittleFS)
+│   │   ├── backup_manager.{cpp,h}  # Config backup/restore (JSON snapshot)
 │   │   ├── ota_update.{cpp,h}      # Over-the-air firmware update
 │   │   └── ntp_client.{cpp,h}      # NTP time sync
 │   ├── output/
@@ -89,6 +94,7 @@ GalvOS/
 ├── scripts/
 │   ├── upload_all.py               # Custom PlatformIO target: flash firmware + LittleFS
 │   ├── gzip_assets.py              # Pre-build hook: gzip data/ assets
+│   ├── ov9281_probe.py             # Standalone OV9281 camera capability probe
 │   └── optimizeGalvo/              # Host-side camera-in-the-loop auto-tuning tool (see Chapter 6)
 │       └── optimizeGalvo.py        # OpenCV + Optuna, drives /api/calib-cam/*
 ├── hardware/
