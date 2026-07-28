@@ -59,6 +59,12 @@ struct __attribute__((packed)) DACBroadcast {
     DACStatus status;
 };
 
+// Must match DACBroadcast::buffer_capacity above -- clients pace DATA writes
+// off the advertised buffer capacity, so accepting fewer points per DATA
+// command than we advertise causes every oversized frame to hit the "too
+// large" guard in the CMD_DATA handler below.
+static const uint16_t MAX_DATA_PTS = 1800;
+
 struct __attribute__((packed)) CommandHeader {
     uint8_t command;
 };
@@ -257,8 +263,10 @@ static void sendBeacon() {
 
 // ── process point data ───────────────────────────────────────
 static void processDataPoints(uint8_t* buf, uint16_t count) {
-    // Frame scratch (2 KB) in PSRAM -- was DRAM .bss ("static: not on stack")
-    const size_t MAX_PTS = 256;
+    // Frame scratch in PSRAM -- was DRAM .bss ("static: not on stack"). Sized
+    // to MAX_DATA_PTS (matches the read buffer above) so a full-size DATA
+    // frame doesn't get silently truncated on its way to galvo::pushFrame().
+    const size_t MAX_PTS = MAX_DATA_PTS;
     static LaserPoint* pts = nullptr;
     if (!pts && psScratch(pts, MAX_PTS)) trackScratch(MAX_PTS * sizeof(LaserPoint));
     if (!pts) return;
@@ -343,15 +351,25 @@ static void handleClient() {
                 }
 
                 size_t pt_bytes = hdr.point_count * sizeof(DataPoint);
-                if (pt_bytes > 8192) {
-                    ESP_LOGW(TAG, "DATA too large: %u points", hdr.point_count);
+                if (hdr.point_count > MAX_DATA_PTS) {
+                    // Client claims more points than our advertised buffer_capacity
+                    // allows -- either a bug or a non-conforming implementation.
+                    // Must still send a response (client is blocked waiting for
+                    // one) and must not try to resync by draining an unbounded
+                    // byte count -- dropping the connection is the only way to
+                    // guarantee the stream doesn't desync for every command after.
+                    ESP_LOGW(TAG, "DATA too large: %u points, dropping client", hdr.point_count);
+                    sendResponse(CMD_DATA, RESP_INVALID, nullptr);
+                    s_client.stop();
                     break;
                 }
 
-                // Read point data (with timeout). 8 KB RX buffer in PSRAM --
-                // was DRAM .bss ("static: not on task stack").
+                // Read point data (with timeout). RX buffer in PSRAM sized to
+                // MAX_DATA_PTS (matches the advertised buffer_capacity) -- was
+                // DRAM .bss ("static: not on task stack").
                 static uint8_t* pt_buf = nullptr;
-                if (!pt_buf && psScratch(pt_buf, 8192)) trackScratch(8192);
+                if (!pt_buf && psScratch(pt_buf, MAX_DATA_PTS * sizeof(DataPoint)))
+                    trackScratch(MAX_DATA_PTS * sizeof(DataPoint));
                 if (!pt_buf) break;
                 size_t got = 0;
                 uint32_t t0 = millis();
