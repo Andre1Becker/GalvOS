@@ -1,6 +1,7 @@
 #include "galvo_out.h"
 #include "mutex.h"
 #include "safety/safety.h"
+#include "bpm_clock.h"
 #include <Arduino.h>
 #include <SPI.h>
 #include <esp_log.h>
@@ -454,6 +455,11 @@ static inline void updateSnapshot() {
     if (kpps > 60) kpps = 60;
     s_snap.period_us = 1000000UL / ((uint32_t)kpps * 1000UL);
     // If mutex not immediately available: keep old snapshot (safe)
+
+    // BPM clock: resolves active source (DMX > Tap > Manual) and caches the
+    // beat phase for this frame. Lock-free (see bpm_clock.h), safe to call
+    // from here alongside the rest of the per-frame snapshot.
+    bpm_clock::tickMs();
 }
 
 // Forward declaration: defined after galvoTask, called from within it.

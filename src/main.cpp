@@ -19,6 +19,7 @@
 #include "safety/safety.h"
 #include "output/galvo_out.h"
 #include "control/dmx_in.h"
+#include "bpm_clock.h"
 #include "patterns/pattern_engine.h"
 #include "patterns/point_optimizer.h"
 #include "storage/sd_card.h"
@@ -373,6 +374,7 @@ void setup() {
     // sd_card.cpp), so unlike before, there is no longer a correctness
     // requirement for this ordering -- it is boot-sequencing hygiene only.
     dmx_in::init();
+    bpm_clock::init();
     patterns::init();
     ESP_LOGI(TAG, "[heap] after patterns::init: %u B free", ESP.getFreeHeap());
     temp::init();   // DS18B20 + Fan-PWM

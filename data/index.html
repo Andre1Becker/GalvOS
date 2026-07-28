@@ -821,6 +821,7 @@
 <nav>
   <button data-tab="dashboard" class="active">Dashboard</button>
   <button data-tab="dmx">DMX Live</button>
+  <button data-tab="modulators">🥁 Modulators</button>
   <button data-tab="presets">🎭 Presets</button>
   <button data-tab="preset-manager">🌐 Preset Manager</button>
   <button data-tab="text">✏️ Text</button>
@@ -1568,6 +1569,39 @@
       <button class="btn secondary" onclick="presetCircle()">Test: Red circle</button>
       <button class="btn secondary" onclick="presetRainbow()">Test: Rainbow</button>
     </div>
+  </div>
+</section>
+
+<!-- ============= MODULATORS (BPM Clock) ============= -->
+<section id="tab-modulators" class="tab">
+  <div class="grid cols-2">
+
+    <div class="card">
+      <h2>🥁 BPM Clock</h2>
+      <div class="stat-row"><span>Active BPM</span><span id="bpm-value" class="val" style="font-family:monospace;font-size:20px;color:var(--accent)">-- </span></div>
+      <div class="stat-row"><span>Active Source</span><span id="bpm-source-pill" class="pill">--</span></div>
+
+      <label style="margin-top:16px">Manual BPM (20-300)</label>
+      <input type="number" id="bpm-manual" min="20" max="300" step="0.1" value="120"
+             onchange="bpmSetManual()" style="font-family:monospace;font-size:18px">
+
+      <button id="bpm-tap-btn" class="btn ok" onclick="bpmTap()"
+              style="width:100%;font-size:26px;padding:22px 0;margin-top:18px">TAP</button>
+      <div id="bpm-tap-hint" style="color:var(--dim);font-size:13px;margin-top:8px;text-align:center">
+        Tap at least twice to set tempo
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>DMX Source</h2>
+      <p style="color:var(--dim);font-size:14px;margin-bottom:12px">
+        Priority: DMX &gt; Tap &gt; Manual. DMX only takes over while a signal is
+        actually present on the channel below; value 0-255 maps linearly to 20-300 BPM.
+      </p>
+      <label>DMX Channel (1-512, absolute)</label>
+      <input type="number" id="bpm-dmx-ch" min="1" max="512" value="237" onchange="bpmSetDmxChannel()">
+    </div>
+
   </div>
 </section>
 
@@ -2809,6 +2843,8 @@ function handleStateUpdate(s) {
   setLed('estop', s.estop_ok);
   setLed('scanfail', s.scanfail_ok);
 
+  handleBpmState(s);
+
   // Control interface LEDs (active/idle, not fault indicators -- reuses the
   // led.ok/led.bad colors purely as a visual on/off cue)
   setIfaceLed('etherdream', s.etherdream_connected, s.etherdream_playing ? 'playing' : 'connected', 'waiting');
@@ -3608,6 +3644,42 @@ function setSliders(vals) {
 }
 
 // ============================================================
+// BPM Clock (Modulators tab)
+// ============================================================
+const BPM_SOURCE_NAMES = ['Manual', 'Tap', 'DMX'];
+
+function bpmSetManual() {
+  const v = parseFloat(document.getElementById('bpm-manual').value);
+  if (isNaN(v)) return;
+  apiCall('POST', '/api/bpm', { bpm: v });
+}
+
+function bpmSetDmxChannel() {
+  const v = parseInt(document.getElementById('bpm-dmx-ch').value);
+  if (isNaN(v)) return;
+  apiCall('POST', '/api/bpm', { dmx_channel: v });
+}
+
+var bpmTapCount = 0;
+function bpmTap() {
+  bpmTapCount++;
+  const hint = document.getElementById('bpm-tap-hint');
+  if (hint) hint.textContent = bpmTapCount >= 2 ? 'Tap again to refine tempo…' : 'Tap once more to set tempo';
+  apiCall('POST', '/api/bpm/tap');
+}
+
+function handleBpmState(s) {
+  if (typeof s.bpm === 'undefined') return;
+  const bpmEl = document.getElementById('bpm-value');
+  if (bpmEl) bpmEl.textContent = s.bpm.toFixed(1) + ' BPM';
+  const srcEl = document.getElementById('bpm-source-pill');
+  if (srcEl) {
+    srcEl.textContent = BPM_SOURCE_NAMES[s.bpm_source] || '--';
+    srcEl.className = 'pill' + (s.bpm_source === 2 ? ' armed' : '');
+  }
+}
+
+// ============================================================
 // Calibration
 // ============================================================
 var gainLinked = true;
@@ -3880,6 +3952,10 @@ async function loadConfig() {
   if (!c) return;
   document.getElementById('cfg-addr').value = c.dmx_address || 1;
   document.getElementById('cfg-uni').value  = c.artnet_universe || 0;
+  const bpmManualEl = document.getElementById('bpm-manual');
+  if (bpmManualEl && typeof c.bpm_manual !== 'undefined') bpmManualEl.value = c.bpm_manual;
+  const bpmChEl = document.getElementById('bpm-dmx-ch');
+  if (bpmChEl && typeof c.bpm_dmx_channel !== 'undefined') bpmChEl.value = c.bpm_dmx_channel;
   document.getElementById('cfg-dmx-debug').checked = c.debug_log_dmx === true;
   document.getElementById('cfg-artnet-enabled').checked     = c.artnet_enabled !== false;
   document.getElementById('cfg-etherdream-enabled').checked = c.etherdream_enabled !== false;

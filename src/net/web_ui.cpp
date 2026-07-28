@@ -27,6 +27,7 @@
 #include "util/mem_registry.h"
 #include "net/ntp_client.h"
 #include "net/backup_manager.h"
+#include "bpm_clock.h"
 #include "net/community_presets.h"
 #include "patterns/preset_patterns.h"
 #include "patterns/countdown_timer.h"
@@ -538,11 +539,17 @@ static void buildStateJson(JsonDocument& doc) {
     doc["fan2_duty"]  = temp::gTempState.fan2_duty;
     doc["temp_alert"] = temp::gTempState.any_alert;
     doc["temp_crit"]  = temp::gTempState.any_crit;
+
+    // BPM clock (0=Manual, 1=Tap, 2=DMX -- see bpm_clock::Source)
+    doc["bpm"]        = bpm_clock::gBpm.bpm;
+    doc["bpm_source"] = (int)bpm_clock::gBpm.source;
 }
 
 static void buildConfigJson(JsonDocument& doc) {
     doc["dmx_address"]     = gConfig.dmx_address;
     doc["artnet_universe"] = gConfig.artnet_universe;
+    doc["bpm_manual"]      = bpm_clock::manualBpm();
+    doc["bpm_dmx_channel"] = bpm_clock::dmxChannel();
     doc["osc_enabled"]        = gConfig.osc_enabled;
     doc["sacn_enabled"]       = gConfig.sacn_enabled;
     doc["helios_net_enabled"] = gConfig.helios_net_enabled;
@@ -891,6 +898,27 @@ void init() {
             persistConfig();
             req->send(200, "text/plain", "OK");
         });
+
+    // ---- POST /api/bpm ---- manual BPM + DMX channel selector ----
+    // body: {"bpm": 128.0, "dmx_channel": 237} -- both fields optional
+    s_server.on("/api/bpm", HTTP_POST,
+        [](AsyncWebServerRequest* req) {},
+        nullptr,
+        [](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t, size_t) {
+            JsonDocument doc(&jsonAllocator());
+            if (deserializeJson(doc, data, len)) { req->send(400, "text/plain", "bad json"); return; }
+            if (doc["bpm"].is<float>() || doc["bpm"].is<int>())
+                bpm_clock::setManualBpm((float)doc["bpm"]);
+            if (doc["dmx_channel"].is<int>())
+                bpm_clock::setDmxChannel((uint16_t)constrain((int)doc["dmx_channel"], 1, 512));
+            req->send(200, "text/plain", "OK");
+        });
+
+    // ---- POST /api/bpm/tap ---- tap tempo, no body ----
+    s_server.on("/api/bpm/tap", HTTP_POST, [](AsyncWebServerRequest* req) {
+        bpm_clock::tap();
+        req->send(200, "text/plain", "OK");
+    });
 
     // ---- POST /api/arm ----
     s_server.on("/api/arm", HTTP_POST,
