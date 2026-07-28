@@ -409,7 +409,6 @@ A quick-reference index of open issues documented in [Chapter 10](10-known-issue
 
 | Issue | Impact | Workaround |
 | --- | --- | --- |
-| Curves stay active until manually stopped | Minor | Press ⏹ Off in the Mathematical Curves panel before selecting a preset |
 | Calibration channel selector not working | Minor | Calibrate with RGB combined |
 | ILDA Standard Test Pattern bad output | Minor | Use Crosshair/Grid patterns instead |
 

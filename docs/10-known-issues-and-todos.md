@@ -48,7 +48,14 @@ None currently open.
 
 ## Pattern Issues
 
-Curves: if once active, need to manually turned of so other presets could start.
+### Curves backend is now dead code (WebUI card removed)
+
+**Status:** Open — cleanup TODO  
+**Detail:** The "∿ Curves" WebUI card (live parametric curve generator, distinct from the
+"Curves" preset category which stays) was removed from `data/index.html` — no UI can reach it
+anymore. `src/patterns/curve_patterns.cpp/.h`, the `pattern_engine.cpp` integration, and the
+`/api/curves` GET/POST routes in `src/net/web_ui.cpp` were intentionally left in place for this
+pass and are now unreferenced from the frontend. Remove them in a follow-up firmware cleanup.
 
 ---
 

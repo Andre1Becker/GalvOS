@@ -171,6 +171,9 @@ A 5-column card that applies to every active preset in real time. Changes take e
 - **Size** — scales the pattern output (10–255). 255 = full scan range. Reduce to shrink the image. For Starfield (up to 150 stars, since v6.02.3), Size instead requests a star count — since v6.02.4 the readout shows the actual rendered count (`starfield_stars` in `/api/state`), which can be lower than requested if the Particles optimizer profile's `max_pts_per_frame` budget caps it first.
 - **Auto-Scaling speed** — oscillates size between 0 and the Size value at the set rate. Three modes: Small→Big→Small, Small→Big, Big→Small.
 - **Rotation (Z)** — static Z-axis rotation offset (−180° to +180°).
+- **Wave Parameters** — only meaningful for Waves-category presets:
+  - **Amplitude** (0.1–2.0×) — scales the wave height.
+  - **Frequency ×** (0.25–4.0×) — scales the wave frequency.
 
 **Column 2 — Auto-Rotation:**
 
@@ -178,22 +181,12 @@ A 5-column card that applies to every active preset in real time. Changes take e
 - **Z / Y / X axis speed** — independent speed for each rotation axis (0–100).
 - **Master speed** — global multiplier applied on top of per-axis speeds.
 
-**Column 3 — Color & Color Animations:**
+**Column 3 — Color:**
 
 - **Color Override toggle** — when on, the color picker overrides the preset's built-in color.
 - **Color wheel** — click or drag to select hue and saturation. A vertical brightness slider is on the right.
 - **Hex input** — type a hex color code directly (`ffc96e` etc.).
 - **Quick color buttons** — one-tap access to R, G, B, Magenta, Yellow, Cyan, White.
-- **Color Animations** — seven animation modes applied on top of any color override:
-  - **Gradient** — smooth color cycle through a selected sequence. Choose a sequence (0–9) and set direction and speed.
-  - **Chase** — one color at a time, cycling through a sequence.
-  - **Strobe** — rapid on/off at the set speed in the selected color.
-  - **Pulse** — sine-wave brightness oscillation in the selected color.
-  - **Twinkle** — random brightness spikes; simulates a glitter/spark effect.
-  - **Flip** — hard cuts between R, G, B, W at the set speed.
-  - **Seg** — divides the pattern's points into segments, each painted a different color from the selected palette. Segment count and direction are adjustable.
-- **⏹ Stop Animation** — stops any running color animation and returns to the last static color.
-- **↺ Reset Colors** — clears any color override and returns to the preset's built-in color. Use this if colors appear washed out after a color animation.
 
 **Column 4 — Points-Only Mode:**
 Converts any preset into a dot-cloud: instead of drawing connected lines, the optimizer samples points from the pattern and dwells on each one as a lit dot.
@@ -209,9 +202,23 @@ Converts any preset into a dot-cloud: instead of drawing connected lines, the op
 - **Kaleidoscope** — replicates the pattern into N rotationally symmetric segments (2–16). Mirror H and Mirror V options alternate between original and mirrored copies of each segment.
 - **Mirror** — simpler reflection: Off, ↔ X (horizontal flip), ↕ Y (vertical flip), ✳ Radial4 (4-fold copy without reflection).
 
+### Color Animations
+
+Its own full-width card directly below Global Controls. Seven animation modes applied on top of any color override, laid out as a type selector (left), the active mode's panel (middle — color sequence grid or swatches), and speed/direction/actions (right):
+
+- **Gradient** — smooth color cycle through a selected sequence. Choose a sequence (0–9) and set direction and speed.
+- **Chase** — one color at a time, cycling through a sequence.
+- **Strobe** — rapid on/off at the set speed in the selected color.
+- **Pulse** — sine-wave brightness oscillation in the selected color.
+- **Twinkle** — random brightness spikes; simulates a glitter/spark effect.
+- **Color Flip** — hard cuts between R, G, B, W at the set speed.
+- **Segment** — divides the pattern's points into segments, each painted a different color from the selected palette. Segment count and direction are adjustable.
+- **⏹ Stop Animation** — stops any running color animation and returns to the last static color.
+- **↺ Reset Colors** — clears any color override and returns to the preset's built-in color. Use this if colors appear washed out after a color animation.
+
 ### Preset Grid
 
-The main preset library, fetched from `/api/presets` on tab load. Each preset is shown as a tile with an SVG thumbnail and name.
+The main preset library, fetched from `/api/presets` on tab load. Each preset is shown as a tile with an SVG thumbnail and name. Waves and 3D presets live here too — they're just categories in the same grid, not separate cards.
 
 ![image](https://github.com/user-attachments/assets/48c361fb-c441-4e64-9ef4-f27be0febf44)
 
@@ -219,33 +226,19 @@ The main preset library, fetched from `/api/presets` on tab load. Each preset is
 - **Click a preset** — activates it immediately. The active preset name is shown in the Global Controls header.
 - **⏹ Off** — stops the current preset (laser off).
 - **↺ Reset all** — resets all Global Controls sliders to their defaults without changing the active preset.
-
-### Waves Sub-Grid
-
-A separate section for wave presets, with two additional parameters:
-
-- **Amplitude** (0.1–2.0×) — scales the wave height.
-- **Frequency ×** (0.25–4.0×) — scales the wave frequency.
-
-### 3D Presets Sub-Grid
-
-3D presets use the Auto-Rotation controls in Column 2 for movement. Rotation is not built into each preset — enable Auto-Rotation in Global Controls to spin them.
-
-### Mathematical Curves
-
-A panel for parametric mathematical curves (Lissajous, spirographs, epicycloids, etc.). Each curve exposes its own parameter sliders (up to 5 per curve), a color picker, and a reset button. Select a curve by clicking it; click **⏹ Off** to return to preset mode.
-
-### Countdown Timer
-
-A standalone utility embedded in the Presets tab. Set hours/minutes/seconds, then Start/Pause/Stop. On expiry: do nothing, show a text message (Text mode), or play an ILDA file.
+- Waves presets pick up their **Amplitude** / **Frequency ×** from Global Controls Column 1. 3D presets use the **Auto-Rotation** controls in Column 2 for movement — rotation is not built into each preset, enable Auto-Rotation in Global Controls to spin them.
 
 ### Community Presets
 
-A card at the bottom of the Presets tab showing every community preset stored on the device, each tile marked with a **COMMUNITY** badge.
+A full-width card directly below the Preset Grid, showing every community preset stored on the device, each tile marked with a **COMMUNITY** badge.
 
 - **Click a tile** — activates the preset: applies its playback params (built-in preset, color, speed, size) and layers its optimizer tuning on top of the live optimizer config. The active preset name shows as "Name (Community)".
 - **＋ Browse / Manage** — jumps to the Preset Manager tab.
 - If nothing is stored yet, the card tells you to go browse in the Preset Manager tab. It's not wrong.
+
+### Countdown Timer
+
+A standalone utility embedded in the Presets tab, below Community Presets. Set hours/minutes/seconds, then Start/Pause/Stop. On expiry: do nothing, show a text message (Text mode), or play an ILDA file.
 
 ---
 

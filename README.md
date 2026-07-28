@@ -54,7 +54,6 @@ Yes, all of this is real, and yes, it's all running on a 6 Freedom Money ($) mic
 | Feature | What it does |
 | --- | --- |
 | Built-in preset library (Geometry, Waves, 3D, Scenes, math curves) | A whole gallery of shapes so you don't have to parametrize a Lissajous curve at 2 AM. |
-| Mathematical curve engine | Lissajous, spirographs, epicycloids — up to 5 live parameter sliders each. |
 | Auto-rotation (independent X/Y/Z) + static rotation offset | Spin any pattern on any axis, at its own speed, because static geometry is for cowards. |
 | 7 color animation modes (Gradient, Chase, Strobe, Pulse, Twinkle, Flip, Seg) | Layer a light show on top of any preset's own color without touching its code. |
 | Points-Only Mode | Turns any pattern into a dot cloud with configurable fade-in/out and fade direction — instant particle show. |

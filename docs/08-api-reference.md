@@ -431,15 +431,15 @@ To stop an animation and clear the color override:
 {"col_override": false, "col_anim_type": 0}
 ```
 
-### `GET /api/curves`
+### `GET /api/curves` / `POST /api/curves`
 
-Returns the mathematical curve definitions and current parameter values.
+> **Note:** The "∿ Curves" WebUI card was removed — no frontend code calls these routes anymore.
+> The backend (`src/patterns/curve_patterns.cpp/.h`, `pattern_engine.cpp`, and these two routes
+> in `web_ui.cpp`) is still present but unreferenced; see
+> [Chapter 10 — Known Issues & Todos](10-known-issues-and-todos.md) for the cleanup TODO.
 
----
-
-### `POST /api/curves`
-
-Activate a curve and/or set its parameters.
+`GET` returns the mathematical curve definitions and current parameter values. `POST` activates
+a curve and/or sets its parameters:
 
 ```json
 {

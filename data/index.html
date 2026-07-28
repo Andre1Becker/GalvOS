@@ -1117,6 +1117,21 @@
           </div>
           <input type="range" id="lv-rot" min="-180" max="180" value="0" oninput="liveSlider()">
         </div>
+        <div style="margin-top:6px;padding-top:8px;border-top:1px solid var(--border)">
+          <div style="font-family:monospace;font-size:11px;color:var(--accent);margin-bottom:6px">WAVE PARAMETERS</div>
+          <div>
+            <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:2px">
+              <span>Amplitude</span><span id="lv-amp-val" style="color:var(--accent);font-family:monospace">1.00</span>
+            </div>
+            <input type="range" id="lv-amp" min="10" max="200" value="100" oninput="liveSlider()">
+          </div>
+          <div style="margin-top:6px">
+            <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:2px">
+              <span>Frequency ×</span><span id="lv-freq-val" style="color:var(--accent);font-family:monospace">1.00</span>
+            </div>
+            <input type="range" id="lv-freq" min="25" max="400" value="100" oninput="liveSlider()">
+          </div>
+        </div>
       </div>
 
       <!-- Col 2: Auto-Rotation -->
@@ -1158,9 +1173,8 @@
         </div>
       </div>
 
-      <!-- Col 3: Color + Color Animations -->
-      <div style="display:flex;flex-direction:column;gap:8px">
-        <div style="padding:10px;background:var(--surface);border:1px solid var(--border);border-radius:6px">
+      <!-- Col 3: Color -->
+      <div style="padding:10px;background:var(--surface);border:1px solid var(--border);border-radius:6px">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
           <span style="font-size:12px;color:var(--dim);font-family:monospace">COLOR</span>
           <label class="toggle" style="margin:0">
@@ -1214,88 +1228,6 @@
         <span id="lv-r-val" style="display:none">255</span>
         <span id="lv-g-val" style="display:none">255</span>
         <span id="lv-b-val" style="display:none">255</span>
-      </div>
-        <!-- Color Animations (embedded) -->
-        <div style="padding:10px;background:var(--surface);border:1px solid var(--border);border-radius:6px">
-        <h2 style="margin:0 0 10px">🎬 Color Animations</h2>
-        <div style="display:flex;gap:3px;flex-wrap:wrap;margin-bottom:8px" id="anim-type-btns">
-          <button onclick="setAnimType('gradient')" id="anim-btn-gradient" class="btn secondary" style="flex:1;font-size:12px;padding:4px 2px;min-width:0">Gradient</button>
-          <button onclick="setAnimType('chase')"    id="anim-btn-chase"    class="btn secondary" style="flex:1;font-size:12px;padding:4px 2px;min-width:0">Chase</button>
-          <button onclick="setAnimType('strobe')"   id="anim-btn-strobe"   class="btn secondary" style="flex:1;font-size:12px;padding:4px 2px;min-width:0">Strobe</button>
-          <button onclick="setAnimType('pulse')"    id="anim-btn-pulse"    class="btn secondary" style="flex:1;font-size:12px;padding:4px 2px;min-width:0">Pulse</button>
-          <button onclick="setAnimType('twinkle')"  id="anim-btn-twinkle"  class="btn secondary" style="flex:1;font-size:12px;padding:4px 2px;min-width:0">Twinkle</button>
-          <button onclick="setAnimType('colorflip')"id="anim-btn-colorflip"class="btn secondary" style="flex:1;font-size:12px;padding:4px 2px;min-width:0">Flip</button>
-          <button onclick="setAnimType('segment')"  id="anim-btn-segment"  class="btn secondary" style="flex:1;font-size:12px;padding:4px 2px;min-width:0">Seg</button>
-        </div>
-
-        <div id="anim-panel-gradient">
-          <div id="grad-seq-grid" style="display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-bottom:8px"></div>
-        </div>
-
-        <div id="anim-panel-chase" style="display:none">
-          <div style="font-size:12px;color:var(--dim);margin-bottom:5px">Color sequence for Chase</div>
-          <div id="chase-seq-grid" style="display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-bottom:8px"></div>
-        </div>
-
-        <div id="anim-panel-strobe" style="display:none">
-          <div style="font-size:12px;color:var(--dim);margin-bottom:5px">Strobe color</div>
-          <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px">
-            <div onclick="setStrobeColor(255,201,110)" style="width:28px;height:22px;background:#ffc96e;border-radius:3px;cursor:pointer;border:2px solid transparent" id="sc-w"></div>
-            <div onclick="setStrobeColor(255,0,0)"     style="width:28px;height:22px;background:#f00;border-radius:3px;cursor:pointer;border:2px solid transparent" id="sc-r"></div>
-            <div onclick="setStrobeColor(0,255,0)"     style="width:28px;height:22px;background:#0f0;border-radius:3px;cursor:pointer;border:2px solid transparent" id="sc-g"></div>
-            <div onclick="setStrobeColor(0,0,255)"     style="width:28px;height:22px;background:#00f;border-radius:3px;cursor:pointer;border:2px solid transparent" id="sc-b"></div>
-            <div onclick="setStrobeColor(255,0,142)"   style="width:28px;height:22px;background:#ff008e;border-radius:3px;cursor:pointer;border:2px solid transparent" id="sc-m"></div>
-            <div onclick="setStrobeColor(0,255,255)"   style="width:28px;height:22px;background:#0ff;border-radius:3px;cursor:pointer;border:2px solid transparent" id="sc-c"></div>
-            <div onclick="setStrobeColor(255,167,0)"   style="width:28px;height:22px;background:#ffa700;border-radius:3px;cursor:pointer;border:2px solid transparent" id="sc-y"></div>
-          </div>
-        </div>
-
-        <div id="anim-panel-pulse" style="display:none">
-          <div style="font-size:12px;color:var(--dim);margin-bottom:5px">Pulse color</div>
-          <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px">
-            <div onclick="setPulseColor(255,201,110)" style="width:28px;height:22px;background:#ffc96e;border-radius:3px;cursor:pointer;border:2px solid transparent" id="pc-w"></div>
-            <div onclick="setPulseColor(255,0,0)"     style="width:28px;height:22px;background:#f00;border-radius:3px;cursor:pointer;border:2px solid transparent" id="pc-r"></div>
-            <div onclick="setPulseColor(0,255,0)"     style="width:28px;height:22px;background:#0f0;border-radius:3px;cursor:pointer;border:2px solid transparent" id="pc-g"></div>
-            <div onclick="setPulseColor(0,0,255)"     style="width:28px;height:22px;background:#00f;border-radius:3px;cursor:pointer;border:2px solid transparent" id="pc-b"></div>
-            <div onclick="setPulseColor(255,0,142)"   style="width:28px;height:22px;background:#ff008e;border-radius:3px;cursor:pointer;border:2px solid transparent" id="pc-m"></div>
-            <div onclick="setPulseColor(0,255,255)"   style="width:28px;height:22px;background:#0ff;border-radius:3px;cursor:pointer;border:2px solid transparent" id="pc-c"></div>
-            <div onclick="setPulseColor(255,167,0)"   style="width:28px;height:22px;background:#ffa700;border-radius:3px;cursor:pointer;border:2px solid transparent" id="pc-y"></div>
-          </div>
-        </div>
-
-        <div id="anim-panel-twinkle"   style="display:none">
-          <div style="font-size:12px;color:var(--dim);margin-bottom:8px">Random brightness spikes on current color — simulates spark/glitter effect.</div>
-        </div>
-        <div id="anim-panel-colorflip" style="display:none">
-          <div style="font-size:12px;color:var(--dim);margin-bottom:8px">Hard cuts between R, G, B, W at the set speed.</div>
-        </div>
-        <div id="anim-panel-segment" style="display:none">
-          <div style="font-size:12px;color:var(--dim);margin-bottom:5px">Color palette for segments</div>
-          <div id="seg-seq-grid" style="display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-bottom:8px"></div>
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-            <span style="font-size:13px;color:var(--dim);white-space:nowrap">Segments</span>
-            <input type="range" id="seg-count-slider" min="1" max="10" value="4"
-              oninput="document.getElementById('seg-count-val').textContent=this.value;applyGradient()">
-            <span id="seg-count-val" style="color:var(--accent);font-family:monospace;min-width:16px">4</span>
-          </div>
-        </div>
-
-        <div style="margin-bottom:6px">
-          <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:3px">
-            <span>Speed</span><span id="grad-speed-val" style="color:var(--accent);font-family:monospace">50</span>
-          </div>
-          <input type="range" id="grad-speed" min="0" max="255" value="60"
-            oninput="document.getElementById('grad-speed-val').textContent=this.value;applyGradient()">
-        </div>
-        <div style="display:flex;gap:10px;margin-bottom:8px" id="anim-dir-row">
-          <label style="font-size:13px;cursor:pointer"><input type="radio" name="grad-dir" value="1"  checked onchange="applyGradient()"> → Fwd</label>
-          <label style="font-size:13px;cursor:pointer"><input type="radio" name="grad-dir" value="-1"        onchange="applyGradient()"> ← Rev</label>
-        </div>
-        <div style="display:flex;gap:6px">
-          <button class="btn secondary" onclick="stopGradient()" style="flex:1;font-size:13px;padding:5px">⏹ Stop Animation</button>
-          <button class="btn secondary" onclick="resetColorOverride()" style="flex:1;font-size:13px;padding:5px">↺ Reset Colors</button>
-        </div>
-        </div>
       </div>
 
       <!-- Col 4: Points-Only Mode -->
@@ -1385,6 +1317,100 @@
     </div>
   </div><!-- /Global Controls card -->
 
+  <!-- ══ COLOR ANIMATIONS — own row, widened ═══════════════════════════════ -->
+  <div class="card" style="padding:14px;margin-bottom:14px">
+    <h2 style="margin:0 0 12px">🎬 Color Animations</h2>
+    <div style="display:grid;grid-template-columns:180px 1fr 240px;gap:16px;align-items:start">
+
+      <!-- Type selector -->
+      <div style="display:flex;flex-direction:column;gap:5px" id="anim-type-btns">
+        <button onclick="setAnimType('gradient')" id="anim-btn-gradient" class="btn secondary" style="font-size:13px;padding:6px 10px;text-align:left">Gradient</button>
+        <button onclick="setAnimType('chase')"    id="anim-btn-chase"    class="btn secondary" style="font-size:13px;padding:6px 10px;text-align:left">Chase</button>
+        <button onclick="setAnimType('strobe')"   id="anim-btn-strobe"   class="btn secondary" style="font-size:13px;padding:6px 10px;text-align:left">Strobe</button>
+        <button onclick="setAnimType('pulse')"    id="anim-btn-pulse"    class="btn secondary" style="font-size:13px;padding:6px 10px;text-align:left">Pulse</button>
+        <button onclick="setAnimType('twinkle')"  id="anim-btn-twinkle"  class="btn secondary" style="font-size:13px;padding:6px 10px;text-align:left">Twinkle</button>
+        <button onclick="setAnimType('colorflip')"id="anim-btn-colorflip"class="btn secondary" style="font-size:13px;padding:6px 10px;text-align:left">Color Flip</button>
+        <button onclick="setAnimType('segment')"  id="anim-btn-segment"  class="btn secondary" style="font-size:13px;padding:6px 10px;text-align:left">Segment</button>
+      </div>
+
+      <!-- Active-type panel -->
+      <div style="padding:10px;background:var(--surface);border:1px solid var(--border);border-radius:6px">
+        <div id="anim-panel-gradient">
+          <div style="font-size:12px;color:var(--dim);margin-bottom:5px">Color sequence for Gradient</div>
+          <div id="grad-seq-grid" style="display:grid;grid-template-columns:repeat(10,1fr);gap:6px;margin-bottom:8px"></div>
+        </div>
+
+        <div id="anim-panel-chase" style="display:none">
+          <div style="font-size:12px;color:var(--dim);margin-bottom:5px">Color sequence for Chase</div>
+          <div id="chase-seq-grid" style="display:grid;grid-template-columns:repeat(10,1fr);gap:6px;margin-bottom:8px"></div>
+        </div>
+
+        <div id="anim-panel-strobe" style="display:none">
+          <div style="font-size:12px;color:var(--dim);margin-bottom:5px">Strobe color</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
+            <div onclick="setStrobeColor(255,201,110)" style="width:36px;height:26px;background:#ffc96e;border-radius:3px;cursor:pointer;border:2px solid transparent" id="sc-w"></div>
+            <div onclick="setStrobeColor(255,0,0)"     style="width:36px;height:26px;background:#f00;border-radius:3px;cursor:pointer;border:2px solid transparent" id="sc-r"></div>
+            <div onclick="setStrobeColor(0,255,0)"     style="width:36px;height:26px;background:#0f0;border-radius:3px;cursor:pointer;border:2px solid transparent" id="sc-g"></div>
+            <div onclick="setStrobeColor(0,0,255)"     style="width:36px;height:26px;background:#00f;border-radius:3px;cursor:pointer;border:2px solid transparent" id="sc-b"></div>
+            <div onclick="setStrobeColor(255,0,142)"   style="width:36px;height:26px;background:#ff008e;border-radius:3px;cursor:pointer;border:2px solid transparent" id="sc-m"></div>
+            <div onclick="setStrobeColor(0,255,255)"   style="width:36px;height:26px;background:#0ff;border-radius:3px;cursor:pointer;border:2px solid transparent" id="sc-c"></div>
+            <div onclick="setStrobeColor(255,167,0)"   style="width:36px;height:26px;background:#ffa700;border-radius:3px;cursor:pointer;border:2px solid transparent" id="sc-y"></div>
+          </div>
+        </div>
+
+        <div id="anim-panel-pulse" style="display:none">
+          <div style="font-size:12px;color:var(--dim);margin-bottom:5px">Pulse color</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
+            <div onclick="setPulseColor(255,201,110)" style="width:36px;height:26px;background:#ffc96e;border-radius:3px;cursor:pointer;border:2px solid transparent" id="pc-w"></div>
+            <div onclick="setPulseColor(255,0,0)"     style="width:36px;height:26px;background:#f00;border-radius:3px;cursor:pointer;border:2px solid transparent" id="pc-r"></div>
+            <div onclick="setPulseColor(0,255,0)"     style="width:36px;height:26px;background:#0f0;border-radius:3px;cursor:pointer;border:2px solid transparent" id="pc-g"></div>
+            <div onclick="setPulseColor(0,0,255)"     style="width:36px;height:26px;background:#00f;border-radius:3px;cursor:pointer;border:2px solid transparent" id="pc-b"></div>
+            <div onclick="setPulseColor(255,0,142)"   style="width:36px;height:26px;background:#ff008e;border-radius:3px;cursor:pointer;border:2px solid transparent" id="pc-m"></div>
+            <div onclick="setPulseColor(0,255,255)"   style="width:36px;height:26px;background:#0ff;border-radius:3px;cursor:pointer;border:2px solid transparent" id="pc-c"></div>
+            <div onclick="setPulseColor(255,167,0)"   style="width:36px;height:26px;background:#ffa700;border-radius:3px;cursor:pointer;border:2px solid transparent" id="pc-y"></div>
+          </div>
+        </div>
+
+        <div id="anim-panel-twinkle"   style="display:none">
+          <div style="font-size:12px;color:var(--dim);margin-bottom:8px">Random brightness spikes on current color — simulates spark/glitter effect.</div>
+        </div>
+        <div id="anim-panel-colorflip" style="display:none">
+          <div style="font-size:12px;color:var(--dim);margin-bottom:8px">Hard cuts between R, G, B, W at the set speed.</div>
+        </div>
+        <div id="anim-panel-segment" style="display:none">
+          <div style="font-size:12px;color:var(--dim);margin-bottom:5px">Color palette for segments</div>
+          <div id="seg-seq-grid" style="display:grid;grid-template-columns:repeat(10,1fr);gap:6px;margin-bottom:8px"></div>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+            <span style="font-size:13px;color:var(--dim);white-space:nowrap">Segments</span>
+            <input type="range" id="seg-count-slider" min="1" max="10" value="4"
+              oninput="document.getElementById('seg-count-val').textContent=this.value;applyGradient()">
+            <span id="seg-count-val" style="color:var(--accent);font-family:monospace;min-width:16px">4</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Speed / Direction / Actions -->
+      <div style="display:flex;flex-direction:column;gap:10px;padding:10px;background:var(--surface);border:1px solid var(--border);border-radius:6px">
+        <div>
+          <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:3px">
+            <span>Speed</span><span id="grad-speed-val" style="color:var(--accent);font-family:monospace">50</span>
+          </div>
+          <input type="range" id="grad-speed" min="0" max="255" value="60"
+            oninput="document.getElementById('grad-speed-val').textContent=this.value;applyGradient()">
+        </div>
+        <div style="display:flex;gap:10px" id="anim-dir-row">
+          <label style="font-size:13px;cursor:pointer"><input type="radio" name="grad-dir" value="1"  checked onchange="applyGradient()"> → Fwd</label>
+          <label style="font-size:13px;cursor:pointer"><input type="radio" name="grad-dir" value="-1"        onchange="applyGradient()"> ← Rev</label>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <button class="btn secondary" onclick="stopGradient()" style="font-size:13px;padding:6px">⏹ Stop Animation</button>
+          <button class="btn secondary" onclick="resetColorOverride()" style="font-size:13px;padding:6px">↺ Reset Colors</button>
+        </div>
+      </div>
+
+    </div>
+  </div><!-- /Color Animations card -->
+
   <!-- ══ PRESET UNITS ═══════════════════════════════════════════════════════ -->
   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;align-items:start">
 
@@ -1397,59 +1423,17 @@
       <div id="preset-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:7px;max-height:420px;overflow-y:auto;padding-right:2px"></div>
     </div>
 
-    <!-- Waves: selector + own parameters -->
-    <div class="card" style="padding:14px">
-      <h2 style="margin:0 0 10px">〰 Waves</h2>
-      <div id="waves-preset-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:6px;max-height:260px;overflow-y:auto;margin-bottom:10px"></div>
-      <div style="padding:10px;background:var(--surface);border:1px solid var(--border);border-radius:6px">
-        <div style="font-family:monospace;font-size:12px;color:var(--accent);margin-bottom:8px">WAVE PARAMETERS</div>
-        <div>
-          <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:2px">
-            <span>Amplitude</span><span id="lv-amp-val" style="color:var(--accent);font-family:monospace">1.00</span>
-          </div>
-          <input type="range" id="lv-amp" min="10" max="200" value="100" oninput="liveSlider()">
-        </div>
-        <div style="margin-top:6px">
-          <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:2px">
-            <span>Frequency ×</span><span id="lv-freq-val" style="color:var(--accent);font-family:monospace">1.00</span>
-          </div>
-          <input type="range" id="lv-freq" min="25" max="400" value="100" oninput="liveSlider()">
-        </div>
+    <!-- Community Presets: directly under the main Presets grid -->
+    <div class="card" style="padding:14px;grid-column:1 / -1">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+        <h2 style="margin:0">🌐 Community Presets</h2>
+        <button class="btn secondary" onclick="switchTab('preset-manager')" style="padding:4px 10px;font-size:13px">＋ Browse / Manage</button>
+      </div>
+      <div id="community-preset-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px"></div>
+      <div id="community-preset-empty" style="display:none;color:var(--dim);font-size:14px;padding:10px 0">
+        No community presets saved yet — browse in the Preset Manager tab.
       </div>
     </div>
-
-    <!-- 3D Presets: selector, rotation via global Auto-Rotation -->
-    <div class="card" style="padding:14px">
-      <h2 style="margin:0 0 10px">◆ 3D Presets</h2>
-      <div id="td-preset-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:6px;max-height:260px;overflow-y:auto"></div>
-      <div style="margin-top:8px;font-size:13px;color:var(--dim)">Rotation is controlled by Auto-Rotation above.</div>
-    </div>
-
-    <!-- Mathematical Curves -->
-    <div class="card" style="padding:14px">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px">
-        <h2 style="margin:0">∿ Curves</h2>
-        <div style="display:flex;gap:8px;align-items:center">
-          <span id="curve-active-name" style="color:var(--accent);font-weight:600;font-size:14px">-- none --</span>
-          <button class="btn secondary" onclick="selectCurve(-1)" style="padding:4px 10px;font-size:13px">⏹ Off</button>
-        </div>
-      </div>
-      <div id="curve-btn-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:6px;margin-bottom:10px;max-height:200px;overflow-y:auto"></div>
-      <div id="curve-param-panel" style="display:none">
-        <hr style="border:0;border-top:1px solid var(--border);margin:0 0 10px">
-        <p id="curve-desc" style="color:var(--dim);font-size:14px;margin:0 0 10px;font-style:italic"></p>
-        <div id="curve-sliders" style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px"></div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
-          <span style="font-size:13px;color:var(--dim)">Color:</span>
-          <label style="font-size:13px">R <input type="range" min="0" max="255" id="curve-col-r" style="width:60px;vertical-align:middle" oninput="updateCurveColor()"></label>
-          <label style="font-size:13px">G <input type="range" min="0" max="255" id="curve-col-g" style="width:60px;vertical-align:middle" oninput="updateCurveColor()"></label>
-          <label style="font-size:13px">B <input type="range" min="0" max="255" id="curve-col-b" style="width:60px;vertical-align:middle" oninput="updateCurveColor()"></label>
-          <div id="curve-col-swatch" style="width:26px;height:18px;border-radius:3px;border:1px solid var(--border)"></div>
-        </div>
-        <button class="btn ok" onclick="resetCurveParams()" style="padding:4px 10px;font-size:13px">↺ Reset</button>
-      </div>
-    </div>
-
 
     <!-- Countdown Timer (standalone utility) -->
     <div class="card" style="padding:14px">
@@ -1495,18 +1479,6 @@
     </div>
 
   </div><!-- /Preset Units grid -->
-
-  <!-- ══ COMMUNITY PRESETS ══════════════════════════════════════════════════ -->
-  <div class="card" style="padding:14px;margin-top:14px">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
-      <h2 style="margin:0">🌐 Community Presets</h2>
-      <button class="btn secondary" onclick="switchTab('preset-manager')" style="padding:4px 10px;font-size:13px">＋ Browse / Manage</button>
-    </div>
-    <div id="community-preset-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px"></div>
-    <div id="community-preset-empty" style="display:none;color:var(--dim);font-size:14px;padding:10px 0">
-      No community presets saved yet — browse in the Preset Manager tab.
-    </div>
-  </div>
 
 </section>
 
@@ -2869,7 +2841,6 @@ document.querySelectorAll('nav button').forEach(btn => {
     if (t === 'projection') loadProjection();
     if (t === 'layer') loadLayers();
     if (t === 'modulators') { loadSequencer(); loadModulators(); }
-    if (t === 'presets' && g_curve_defs.length === 0) loadCurveDefs();
     if (t === 'presets' || t === 'preset-manager') loadCommunityPresets();
     if (t === 'thermal')  { buildTempSensors(); buildSensorNameEditor(); }
     if (t === 'paint') initPaintTab();
@@ -3233,190 +3204,6 @@ function formatUptime(s) {
 // ============================================================
 // DMX Sliders
 // ============================================================
-
-// ════════════════════════════════════════════════════════════════
-// MATHEMATICAL CURVES
-// ════════════════════════════════════════════════════════════════
-
-let g_curve_defs   = [];   // from /api/curves
-let g_curve_params = [];   // current params per curve
-let g_active_curve = -1;   // -1 = off
-
-async function loadCurveDefs() {
-  const d = await apiCall('GET', '/api/curves');
-  if (!d) return;
-  g_curve_defs   = d.defs   || [];
-  g_active_curve = d.active ?? -1;
-
-  // Merge server params with local
-  if (d.params && d.params.length) {
-    g_curve_params = d.params.map((cp, i) => ({
-      p: [...cp.p], r: cp.r, g: cp.g, b: cp.b
-    }));
-  } else {
-    g_curve_params = g_curve_defs.map(cd => ({
-      p: cd.params.map(pd => pd.def),
-      r: cd.dr, g: cd.dg, b: cd.db
-    }));
-  }
-
-  buildCurveBtns();
-  updateCurveActiveLabel();
-}
-
-const CURVE_COLORS = [
-  '#00b4ff','#ff00b4','#00ff50','#ffb000',
-  '#9600ff','#ff2800','#ff7800','#00dcff','#78ff00'
-];
-
-function buildCurveBtns() {
-  const grid = document.getElementById('curve-btn-grid');
-  if (!grid) return;
-  grid.innerHTML = '';
-  g_curve_defs.forEach((d, i) => {
-    const btn = document.createElement('button');
-    btn.id = 'curve-btn-' + i;
-    btn.style.cssText =
-      'padding:10px 6px;border-radius:6px;border:1px solid var(--border);' +
-      'background:var(--panel2);color:var(--text);cursor:pointer;font-size:15px;' +
-      'text-align:left;transition:all .15s';
-    btn.innerHTML =
-      '<span style="display:block;font-weight:600;color:' + CURVE_COLORS[i] + '">' +
-      d.name + '</span>';
-    btn.onclick = () => selectCurve(i);
-    grid.appendChild(btn);
-  });
-  highlightCurveBtn(g_active_curve);
-}
-
-function highlightCurveBtn(idx) {
-  g_curve_defs.forEach((_, i) => {
-    const btn = document.getElementById('curve-btn-' + i);
-    if (!btn) return;
-    if (i === idx) {
-      btn.style.background = CURVE_COLORS[i] + '30';
-      btn.style.borderColor = CURVE_COLORS[i];
-    } else {
-      btn.style.background = 'var(--panel2)';
-      btn.style.borderColor = 'var(--border)';
-    }
-  });
-}
-
-async function selectCurve(idx) {
-  g_active_curve = idx;
-  await apiCall('POST', '/api/curves', { curve: idx });
-  // Deactivate presets if curve selected
-  if (idx >= 0 && typeof deactivatePreset === 'function') {
-    await apiCall('POST', '/api/preset', { idx: -1 });
-    const el = document.getElementById('preset-active-name');
-    if (el) el.textContent = '-- none --';
-  }
-  updateCurveActiveLabel();
-  highlightCurveBtn(idx);
-  buildCurveParamPanel(idx);
-}
-
-function updateCurveActiveLabel() {
-  const el = document.getElementById('curve-active-name');
-  if (!el) return;
-  if (g_active_curve < 0 || g_active_curve >= g_curve_defs.length) {
-    el.textContent = '-- none --';
-  } else {
-    el.textContent = g_curve_defs[g_active_curve].name;
-  }
-  const panel = document.getElementById('curve-param-panel');
-  if (panel) panel.style.display = (g_active_curve >= 0) ? 'block' : 'none';
-}
-
-function buildCurveParamPanel(idx) {
-  const panel = document.getElementById('curve-param-panel');
-  if (!panel || idx < 0 || idx >= g_curve_defs.length) {
-    if (panel) panel.style.display = 'none';
-    return;
-  }
-  panel.style.display = 'block';
-
-  const def = g_curve_defs[idx];
-  const cur = g_curve_params[idx];
-
-  // Description
-  const desc = document.getElementById('curve-desc');
-  if (desc) desc.textContent = def.desc || '';
-
-  // Sliders
-  const sc = document.getElementById('curve-sliders');
-  sc.innerHTML = '';
-  def.params.forEach((pd, pi) => {
-    const val = cur.p[pi] ?? pd.def;
-    const row = document.createElement('div');
-    row.style.cssText = 'display:flex;align-items:center;gap:8px;flex-wrap:wrap';
-    row.innerHTML =
-      '<span style="font-size:14px;color:var(--dim);min-width:110px">' + pd.label + '</span>' +
-      '<input type="range" id="cp-' + pi + '" min="' + pd.min + '" max="' + pd.max + '"' +
-        ' step="' + pd.step + '" value="' + val.toFixed(4) + '"' +
-        ' style="flex:1;min-width:100px"' +
-        ' oninput="onCurveSlider(' + idx + ',' + pi + ',this.value)">' +
-      '<span id="cp-val-' + pi + '" style="font-size:13px;color:var(--accent);' +
-        'font-family:monospace;min-width:44px;text-align:right">' + val.toFixed(2) + '</span>';
-    sc.appendChild(row);
-  });
-
-  // Color
-  document.getElementById('curve-col-r').value = cur.r;
-  document.getElementById('curve-col-g').value = cur.g;
-  document.getElementById('curve-col-b').value = cur.b;
-  updateColorSwatch();
-}
-
-let _curve_debounce = null;
-function onCurveSlider(ci, pi, val) {
-  const vf = parseFloat(val);
-  const vEl = document.getElementById('cp-val-' + pi);
-  if (vEl) vEl.textContent = vf.toFixed(2);
-  if (g_curve_params[ci]) g_curve_params[ci].p[pi] = vf;
-  clearTimeout(_curve_debounce);
-  _curve_debounce = setTimeout(() => pushCurveParams(ci), 60);
-}
-
-function updateCurveColor() {
-  const ci = g_active_curve;
-  if (ci < 0 || !g_curve_params[ci]) return;
-  g_curve_params[ci].r = parseInt(document.getElementById('curve-col-r').value);
-  g_curve_params[ci].g = parseInt(document.getElementById('curve-col-g').value);
-  g_curve_params[ci].b = parseInt(document.getElementById('curve-col-b').value);
-  updateColorSwatch();
-  clearTimeout(_curve_debounce);
-  _curve_debounce = setTimeout(() => pushCurveParams(ci), 80);
-}
-
-function updateColorSwatch() {
-  const ci = g_active_curve;
-  if (ci < 0 || !g_curve_params[ci]) return;
-  const c = g_curve_params[ci];
-  const sw = document.getElementById('curve-col-swatch');
-  if (sw) sw.style.background = 'rgb(' + c.r + ',' + c.g + ',' + c.b + ')';
-}
-
-async function pushCurveParams(ci) {
-  if (ci < 0 || !g_curve_params[ci]) return;
-  const cp = g_curve_params[ci];
-  await apiCall('POST', '/api/curves', {
-    ci, params: cp.p, r: cp.r, g: cp.g, b: cp.b
-  });
-}
-
-function resetCurveParams() {
-  const ci = g_active_curve;
-  if (ci < 0 || ci >= g_curve_defs.length) return;
-  const def = g_curve_defs[ci];
-  const newP = { p: def.params.map(pd => pd.def), r: def.dr, g: def.dg, b: def.db };
-  g_curve_params[ci] = newP;
-  pushCurveParams(ci);
-  buildCurveParamPanel(ci);
-  toast('Reset to defaults: ' + def.name);
-}
-
 
 // ════════════════════════════════════════════════════════════════════════════
 // PROJECTION & GALVO RATE
@@ -4040,7 +3827,7 @@ function layerToggleEnabled(i, checked) {
 
 // Patches a single field (or several at once via an object) on layer `idx`,
 // updates local state immediately (snappy UI) and persists via PATCH,
-// debounced the same way onCurveSlider()/pushCurveParams() debounce theirs --
+// debounced for the same reason --
 // each PATCH triggers a synchronous LittleFS flash write server-side
 // (layers::save()), so firing one per oninput event during a slider drag
 // stalls the WiFi stack badly enough to time out unrelated requests.
@@ -5803,8 +5590,7 @@ async function loadPresets() {
 }
 
 function buildCatFilters() {
-    const cats = [...new Set(PRESET_DEFS.map(p => p.cat))]
-        .filter(cat => cat !== 'Waves' && cat !== '3D');
+    const cats = [...new Set(PRESET_DEFS.map(p => p.cat))];
     const root = document.getElementById('cat-filters');
     root.innerHTML = `<button class="btn ${s_activeCat===''?'':'secondary'}"
       style="padding:6px 12px;font-size:14px" onclick="filterCat('')">All</button>`;
@@ -5826,23 +5612,13 @@ function filterCat(cat) {
 
 function renderPresets() {
     const grid = document.getElementById('preset-grid');
-    const generalPresets = PRESET_DEFS.filter(p => p.cat !== 'Waves' && p.cat !== '3D');
     const filtered = s_activeCat
-        ? generalPresets.filter(p => p.cat === s_activeCat)
-        : generalPresets;
+        ? PRESET_DEFS.filter(p => p.cat === s_activeCat)
+        : PRESET_DEFS;
     grid.innerHTML = filtered.map(p => {
         const bg = CAT_COLORS_PRESET[p.cat] || '#1f1f1f';
         return presetTileHtml(p, bg);
     }).join('');
-}
-
-// Dedicated grid for a single category, used by units that bundle their
-// own controls (Waves, 3D) instead of sharing the general filterable grid.
-function renderPresetCategoryGrid(containerId, cat) {
-    const grid = document.getElementById(containerId);
-    if (!grid) return;
-    const filtered = PRESET_DEFS.filter(p => p.cat === cat);
-    grid.innerHTML = filtered.map(p => presetTileHtml(p, '#1f1f1f')).join('');
 }
 
 function presetTileHtml(p, bg) {
@@ -5868,8 +5644,6 @@ function presetTileHtml(p, bg) {
 
 function renderAllPresetGrids() {
     renderPresets();
-    renderPresetCategoryGrid('waves-preset-grid', 'Waves');
-    renderPresetCategoryGrid('td-preset-grid', '3D');
     // Optimizer member list mirrors the same active-preset highlight; refresh
     // it here so selecting a preset anywhere updates it too. Guarded inside
     // renderOptimizerMembers via element lookups.
@@ -6161,10 +5935,6 @@ async function refreshStorageMonitor() {
 }
 
 async function deactivatePreset() {
-    g_active_curve = -1;
-    updateCurveActiveLabel();
-    highlightCurveBtn(-1);
-    await apiCall('POST', '/api/curves', { curve: -1 });
     const r = await apiCall('POST', '/api/preset', { idx: -1 });
     if (r !== null) {
         s_activePresetIdx = -1;
@@ -7454,7 +7224,6 @@ initFrameGraph();
 // lwIP's shared memory pool enough to fail outgoing Art-Net/EtherDream
 // UDP sends (endPacket ENOMEM) during page load.
 (async function bootSequence() {
-    await loadCurveDefs();
     await loadProjection();
     await loadConfig();
     await refreshWifiStatus();
