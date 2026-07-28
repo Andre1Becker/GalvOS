@@ -10,23 +10,84 @@
 <title id="page-title">GalvOS — Laser Controller</title>
 <link rel="icon" type="image/svg+xml" href="galvos-logo.svg">
 <link rel="icon" type="image/png" href="favicon.png" sizes="32x32">
+<script>
+// Applies the saved theme before first paint (no flash-of-default-theme).
+// Slot 0 (vaporwave) needs no work — it's the :root default. Slot 1 (classic-dark)
+// is a built-in duplicated here since the main <script> block below hasn't run yet.
+// Slots 2/3 are user-uploaded themes read straight from localStorage.
+(function() {
+  try {
+    var CLASSIC_DARK_TOKENS = {
+      '--bg': '#12141c', '--bg-rgb': '18,20,28',
+      '--panel': 'rgba(30,33,44,0.9)', '--panel2': 'rgba(24,26,36,0.92)',
+      '--border': '#333846', '--border-rgb': '51,56,70',
+      '--text': '#e4e6eb',
+      '--dim': '#8a90a3', '--dim-rgb': '138,144,163',
+      '--accent': '#4f8cff', '--accent-rgb': '79,140,255',
+      '--cyan': '#38d9d9', '--cyan-rgb': '56,217,217',
+      '--orange': '#ffa94d', '--orange-rgb': '255,169,77',
+      '--ok': '#4fd67a', '--ok-rgb': '79,214,122',
+      '--bad': '#ff5c5c', '--bad-rgb': '255,92,92',
+      '--warn': '#ffa94d', '--blue': '#4f8cff', '--danger': '#ff5c5c',
+      '--surface': 'rgba(0,0,0,0.35)', '--input-bg': '#1a1d27', '--void': '#05060a',
+      '--chart-bg-top': '#10121c', '--chart-bg-bottom': '#05060a', '--chart-total-rgb': '130,140,170',
+      '--glow-magenta': '0 0 6px #4f8cff, 0 0 14px rgba(79,140,255,0.35)',
+      '--glow-cyan':    '0 0 6px #38d9d9, 0 0 14px rgba(56,217,217,0.3)',
+      '--glow-orange':  '0 0 6px #ffa94d, 0 0 14px rgba(255,169,77,0.3)',
+      '--glow-ok':      '0 0 6px #4fd67a, 0 0 12px rgba(79,214,122,0.25)',
+      '--glow-bad':     '0 0 6px #ff5c5c, 0 0 12px rgba(255,92,92,0.25)'
+    };
+    var slotIdx = parseInt(localStorage.getItem('galvos_active_theme'), 10);
+    if (!(slotIdx >= 0 && slotIdx <= 3)) slotIdx = 0;
+    var tokens = null;
+    if (slotIdx === 1) {
+      tokens = CLASSIC_DARK_TOKENS;
+    } else if (slotIdx >= 2) {
+      var slots = JSON.parse(localStorage.getItem('galvos_themes') || 'null');
+      if (Array.isArray(slots) && slots[slotIdx] && slots[slotIdx].tokens) tokens = slots[slotIdx].tokens;
+    }
+    if (tokens) {
+      var root = document.documentElement;
+      for (var k in tokens) root.style.setProperty(k, tokens[k]);
+    }
+  } catch (e) { /* localStorage unavailable or corrupt — fall back to default vaporwave :root */ }
+})();
+</script>
 <style>
   :root {
-    /* ── Vaporwave / Outrun Design System ── */
+    /* ── Vaporwave / Outrun Design System (theme: vaporwave, built-in default) ── */
     --bg: #090014;
+    --bg-rgb: 9,0,20;
     --panel: rgba(26,16,60,0.85);
     --panel2: rgba(20,10,48,0.9);
     --border: #2D1B4E;
+    --border-rgb: 45,27,78;
     --text: #E0E0E0;
     --dim: #7a6a9a;
+    --dim-rgb: 122,106,154;
     --accent: #FF00FF;   /* magenta primary */
+    --accent-rgb: 255,0,255;
     --cyan: #00FFFF;     /* secondary */
+    --cyan-rgb: 0,255,255;
     --orange: #FF9900;   /* accent */
+    --orange-rgb: 255,153,0;
     --ok: #00FF88;
+    --ok-rgb: 0,255,136;
     --bad: #FF2244;
+    --bad-rgb: 255,34,68;
     --warn: #FF9900;
     --blue: #00FFFF;
     --danger: #FF2244;
+
+    /* ── Surfaces (sub-panel backgrounds, inputs, pure black) ── */
+    --surface: var(--surface);
+    --input-bg: var(--input-bg);
+    --void: #000000;
+
+    /* ── Chart chrome — canvas draw functions read these via getComputedStyle ── */
+    --chart-bg-top: #0a0020;
+    --chart-bg-bottom: #000008;
+    --chart-total-rgb: 150,100,200;
 
     /* ── Glow shadows ── */
     --glow-magenta: 0 0 8px #FF00FF, 0 0 20px rgba(255,0,255,0.4);
@@ -39,6 +100,10 @@
     --font-head: 'Orbitron', sans-serif;
     --font-mono: 'Share Tech Mono', 'Courier New', monospace;
   }
+  /* NOTE: data-identity colors (SENSOR_COLORS, log-level/category badges, RGB laser
+     color-picker swatches, named gradient presets, preset-icon strokes) intentionally
+     stay hardcoded — they encode real laser/data meaning, not UI chrome, and must not
+     shift when the UI theme changes. */
   * { box-sizing: border-box; }
 
   /* ── CRT scanlines + grid overlay ── */
@@ -58,8 +123,8 @@
     content: '';
     position: fixed; inset: 0; z-index: 0; pointer-events: none;
     background:
-      radial-gradient(ellipse 80% 50% at 50% 100%, rgba(255,0,255,0.12) 0%, transparent 70%),
-      radial-gradient(ellipse 60% 40% at 80% 20%, rgba(0,255,255,0.07) 0%, transparent 60%);
+      radial-gradient(ellipse 80% 50% at 50% 100%, rgba(var(--accent-rgb),0.12) 0%, transparent 70%),
+      radial-gradient(ellipse 60% 40% at 80% 20%, rgba(var(--cyan-rgb),0.07) 0%, transparent 60%);
   }
 
   body {
@@ -72,10 +137,10 @@
     position: sticky; top: 0; z-index: 100;
   }
   header {
-    background: rgba(9,0,20,0.95);
+    background: rgba(var(--bg-rgb),0.95);
     padding: 12px 20px;
     border-bottom: 2px solid var(--accent);
-    box-shadow: 0 2px 20px rgba(255,0,255,0.3), 0 0 40px rgba(255,0,255,0.08);
+    box-shadow: 0 2px 20px rgba(var(--accent-rgb),0.3), 0 0 40px rgba(var(--accent-rgb),0.08);
     display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;
     backdrop-filter: blur(12px);
   }
@@ -86,7 +151,7 @@
     background: linear-gradient(90deg, var(--orange), var(--accent), var(--cyan));
     -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
     text-shadow: none;
-    filter: drop-shadow(0 0 8px rgba(255,0,255,0.6));
+    filter: drop-shadow(0 0 8px rgba(var(--accent-rgb),0.6));
   }
   header .status { display: flex; gap: 12px; align-items: center; font-size: 15px; }
   .pill {
@@ -104,10 +169,10 @@
   .pill.disarmed { border-color: var(--border); color: var(--dim); }
   .pill.conn-ok  { border-color: var(--ok); color: var(--ok); box-shadow: var(--glow-ok); }
   .pill.conn-bad { border-color: var(--bad); color: var(--bad); box-shadow: var(--glow-bad); }
-  @keyframes pulse { 0%, 100% { opacity: 1; box-shadow: var(--glow-magenta); } 50% { opacity: 0.7; box-shadow: 0 0 4px rgba(255,0,255,0.2); } }
+  @keyframes pulse { 0%, 100% { opacity: 1; box-shadow: var(--glow-magenta); } 50% { opacity: 0.7; box-shadow: 0 0 4px rgba(var(--accent-rgb),0.2); } }
 
   nav {
-    background: rgba(9,0,20,0.9);
+    background: rgba(var(--bg-rgb),0.9);
     border-bottom: 1px solid var(--border);
     display: flex; overflow-x: auto;
     backdrop-filter: blur(8px);
@@ -142,7 +207,7 @@
     border-radius: 0;
     padding: 16px; margin-bottom: 16px;
     backdrop-filter: blur(6px);
-    box-shadow: 0 0 20px rgba(0,255,255,0.06), inset 0 0 40px rgba(255,0,255,0.02);
+    box-shadow: 0 0 20px rgba(var(--cyan-rgb),0.06), inset 0 0 40px rgba(var(--accent-rgb),0.02);
     position: relative;
   }
   .card::before {
@@ -168,7 +233,7 @@
   .grid.cols-3 { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
 
   /* Status table */
-  .stat-row { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid rgba(45,27,78,0.5); font-size: 15px; }
+  .stat-row { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid rgba(var(--border-rgb),0.5); font-size: 15px; }
   .stat-row:last-child { border: 0; }
   .stat-row .label { color: var(--dim); }
   .stat-row .val { font-family: var(--font-mono); color: var(--cyan); }
@@ -177,10 +242,10 @@
   .mem-bar {
     position: relative; display: flex; height: 30px;
     border-radius: 4px; overflow: hidden;
-    background: #000; border: 1px solid var(--border);
+    background: var(--void); border: 1px solid var(--border);
     margin-bottom: 10px;
   }
-  .mem-seg { height: 100%; box-sizing: border-box; border-right: 2px solid #000; transition: width .4s; }
+  .mem-seg { height: 100%; box-sizing: border-box; border-right: 2px solid var(--void); transition: width .4s; }
   .mem-seg:last-child { border-right: 0; }
   .mem-seg.free { background: rgba(255,255,255,0.05); }
   .mem-tick {
@@ -189,7 +254,7 @@
   }
   .mem-owner-row {
     display: flex; align-items: center; gap: 8px; padding: 4px 0;
-    border-bottom: 1px solid rgba(45,27,78,0.35); font-size: 13px;
+    border-bottom: 1px solid rgba(var(--border-rgb),0.35); font-size: 13px;
   }
   .mem-owner-row:last-child { border-bottom: 0; }
   .mem-owner-row .swatch { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
@@ -216,11 +281,11 @@
     text-transform: uppercase; letter-spacing: 0.08em;
     transform: skewX(-8deg);
     transition: all 0.15s ease-linear;
-    box-shadow: 0 0 10px rgba(255,0,255,0.2);
+    box-shadow: 0 0 10px rgba(var(--accent-rgb),0.2);
   }
   button.btn > * { display: inline-block; transform: skewX(8deg); }
   button.btn:hover {
-    background: var(--accent); color: #000;
+    background: var(--accent); color: var(--void);
     transform: skewX(0deg) scale(1.03);
     box-shadow: var(--glow-magenta);
   }
@@ -228,18 +293,18 @@
   button.btn:disabled { opacity: 0.3; cursor: not-allowed; transform: skewX(-8deg); box-shadow: none; }
   button.btn.secondary {
     color: var(--cyan); border-color: var(--cyan);
-    box-shadow: 0 0 10px rgba(0,255,255,0.15);
+    box-shadow: 0 0 10px rgba(var(--cyan-rgb),0.15);
   }
-  button.btn.secondary:hover { background: var(--cyan); color: #000; box-shadow: var(--glow-cyan); }
-  button.btn.danger  { color: var(--bad); border-color: var(--bad); box-shadow: 0 0 10px rgba(255,34,68,0.2); }
+  button.btn.secondary:hover { background: var(--cyan); color: var(--void); box-shadow: var(--glow-cyan); }
+  button.btn.danger  { color: var(--bad); border-color: var(--bad); box-shadow: 0 0 10px rgba(var(--bad-rgb),0.2); }
   button.btn.danger:hover  { background: var(--bad); color: #fff; box-shadow: var(--glow-bad); }
-  button.btn.ok      { color: var(--ok); border-color: var(--ok); box-shadow: 0 0 10px rgba(0,255,136,0.2); }
-  button.btn.ok:hover { background: var(--ok); color: #000; box-shadow: var(--glow-ok); }
+  button.btn.ok      { color: var(--ok); border-color: var(--ok); box-shadow: 0 0 10px rgba(var(--ok-rgb),0.2); }
+  button.btn.ok:hover { background: var(--ok); color: var(--void); box-shadow: var(--glow-ok); }
 
   /* Inputs */
   input:not([type=range]):not([type=checkbox]), select {
     width: 100%; padding: 7px 10px;
-    background: #000;
+    background: var(--void);
     color: var(--cyan);
     border: none; border-bottom: 1px solid var(--border);
     border-radius: 0;
@@ -250,11 +315,11 @@
   select:focus {
     outline: 0;
     border-bottom-color: var(--cyan);
-    box-shadow: 0 2px 0 var(--cyan), 0 4px 12px rgba(0,255,255,0.2);
+    box-shadow: 0 2px 0 var(--cyan), 0 4px 12px rgba(var(--cyan-rgb),0.2);
   }
-  input:not([type=range]):not([type=checkbox])::placeholder { color: rgba(255,0,255,0.5); }
+  input:not([type=range]):not([type=checkbox])::placeholder { color: rgba(var(--accent-rgb),0.5); }
   select { cursor: pointer; }
-  select option { background: #0a0018; color: var(--text); }
+  select option { background: var(--input-bg); color: var(--text); }
   label {
     display: block; color: var(--dim); margin: 10px 0 4px;
     font-size: 12px; font-family: var(--font-mono);
@@ -295,7 +360,7 @@
   }
   .opt-profile-btn:hover { border-color:var(--cyan); color:var(--cyan); }
   .opt-profile-btn.active {
-    background:rgba(255,0,255,0.15); color:var(--accent);
+    background:rgba(var(--accent-rgb),0.15); color:var(--accent);
     border-color:var(--accent); font-weight:700;
     box-shadow: var(--glow-magenta);
   }
@@ -305,12 +370,12 @@
   .opt-members { position:sticky; top:12px; }
   .opt-member-item {
     font-size:13px; font-family:var(--font-mono); color:var(--dim);
-    padding:3px 6px; border-bottom:1px solid rgba(45,27,78,0.4); cursor:pointer;
+    padding:3px 6px; border-bottom:1px solid rgba(var(--border-rgb),0.4); cursor:pointer;
     border-radius:0; transition:background 0.12s, color 0.12s;
     display:flex; gap:6px; align-items:baseline; }
   .opt-member-item:last-child { border-bottom:0; }
-  .opt-member-item:hover { background:rgba(0,255,255,0.06); color:var(--cyan); }
-  .opt-member-item.active { color:var(--accent); background:rgba(255,0,255,0.1); text-shadow: 0 0 6px rgba(255,0,255,0.5); }
+  .opt-member-item:hover { background:rgba(var(--cyan-rgb),0.06); color:var(--cyan); }
+  .opt-member-item.active { color:var(--accent); background:rgba(var(--accent-rgb),0.1); text-shadow: 0 0 6px rgba(var(--accent-rgb),0.5); }
   .opt-member-item .idx { color:rgba(255,255,255,0.25); font-size:12px; }
   .opt-member-item.unknown { cursor:default; opacity:0.4; }
   .opt-member-item.unknown:hover { background:none; color:var(--dim); }
@@ -368,7 +433,7 @@
   .toggle {
     display: inline-flex; align-items: center; gap: 8px; cursor: pointer;
     padding: 6px 12px;
-    background: rgba(0,0,0,0.5);
+    background: var(--surface);
     border: 1px solid var(--border);
     border-radius: 0;
     transition: border-color 0.15s;
@@ -386,7 +451,7 @@
     transition: transform 0.2s, background 0.2s;
   }
   .toggle input:checked ~ .slider {
-    background: rgba(255,0,255,0.2); border-color: var(--accent);
+    background: rgba(var(--accent-rgb),0.2); border-color: var(--accent);
   }
   .toggle input:checked ~ .slider::after {
     transform: translateX(16px); background: var(--accent);
@@ -395,13 +460,13 @@
 
   /* Modal */
   .modal-bg {
-    position: fixed; inset: 0; background: rgba(9,0,20,0.85);
+    position: fixed; inset: 0; background: rgba(var(--bg-rgb),0.85);
     display: none; align-items: center; justify-content: center; z-index: 1000;
     backdrop-filter: blur(8px);
   }
   .modal-bg.show { display: flex; }
   .modal {
-    background: rgba(20,10,48,0.97);
+    background: var(--panel2);
     border: 1px solid var(--border);
     border-top: 2px solid var(--accent);
     border-radius: 0;
@@ -423,7 +488,7 @@
   /* Toast */
   #toast {
     position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
-    background: rgba(9,0,20,0.95);
+    background: rgba(var(--bg-rgb),0.95);
     border: 1px solid var(--cyan);
     border-radius: 0;
     padding: 10px 20px;
@@ -447,7 +512,7 @@
   .pps-bar > div {
     height: 100%;
     background: linear-gradient(90deg, var(--orange), var(--accent));
-    box-shadow: 0 0 8px rgba(255,0,255,0.5);
+    box-shadow: 0 0 8px rgba(var(--accent-rgb),0.5);
     transition: width 0.3s;
   }
 
@@ -493,10 +558,10 @@
   #telemetry-bar #sb-psram { color: var(--accent) !important; }
 
   /* ── Canvas backgrounds ── */
-  #cpu-canvas { background: #000 !important; border: 1px solid #2D1B4E !important; box-shadow: 0 0 16px rgba(0,255,255,0.08); }
+  #cpu-canvas { background: var(--void) !important; border: 1px solid var(--border) !important; box-shadow: 0 0 16px rgba(var(--cyan-rgb),0.08); }
   #temp-chart, #kpps-chart, #frame-chart {
     border: 1px solid var(--border) !important;
-    box-shadow: inset 0 0 20px rgba(0,255,255,0.03);
+    box-shadow: inset 0 0 20px rgba(var(--cyan-rgb),0.03);
   }
 
   /* ── Scrollbars ── */
@@ -512,13 +577,13 @@
   }
   .preset-cell:hover {
     border-color: var(--cyan) !important;
-    box-shadow: 0 0 12px rgba(0,255,255,0.2) !important;
+    box-shadow: 0 0 12px rgba(var(--cyan-rgb),0.2) !important;
   }
 
   /* ── Code / pre blocks ── */
   pre, code {
     font-family: var(--font-mono);
-    background: rgba(0,0,0,0.5);
+    background: var(--surface);
     border: 1px solid var(--border);
     color: var(--cyan);
     padding: 2px 6px;
@@ -528,6 +593,32 @@
   /* ── Section headings inside tabs ── */
   h2, h3 {
     font-family: var(--font-head);
+  }
+
+  /* ── Theme switcher (navbar, top-right of .status) ── */
+  #theme-switcher { display: flex; gap: 4px; margin-left: 8px; align-items: center; }
+  .theme-slot-btn {
+    position: relative;
+    padding: 3px 9px; border-radius: 0;
+    background: transparent; border: 1px solid var(--border);
+    color: var(--dim); cursor: pointer;
+    font-size: 11px; font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 0.05em;
+    max-width: 84px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    transition: all 0.15s;
+  }
+  .theme-slot-btn:hover { border-color: var(--cyan); color: var(--cyan); }
+  .theme-slot-btn.active {
+    border-color: var(--accent); color: var(--accent);
+    box-shadow: var(--glow-magenta);
+    font-weight: 700;
+  }
+  .theme-slot-btn.empty { font-style: italic; opacity: 0.7; }
+  .theme-slot-btn .slot-del {
+    margin-left: 5px; opacity: 0.6; cursor: pointer;
+  }
+  .theme-slot-btn .slot-del:hover { opacity: 1; color: var(--bad); }
+  @media (max-width: 700px) {
+    #theme-switcher { display: none; }
   }
 
   /* ── Ensure all z-index layering above grid ── */
@@ -541,9 +632,9 @@
 <svg viewBox="0 0 100 50" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
   <defs>
     <linearGradient id="gridFade" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#FF00FF" stop-opacity="0"/>
-      <stop offset="60%" stop-color="#FF00FF" stop-opacity="0.8"/>
-      <stop offset="100%" stop-color="#00FFFF" stop-opacity="1"/>
+      <stop offset="0%" style="stop-color:var(--accent)" stop-opacity="0"/>
+      <stop offset="60%" style="stop-color:var(--accent)" stop-opacity="0.8"/>
+      <stop offset="100%" style="stop-color:var(--cyan)" stop-opacity="1"/>
     </linearGradient>
   </defs>
   <!-- Horizontal lines (perspective) -->
@@ -574,6 +665,8 @@
     <span id="active-mode-pill" class="pill" style="display:none"></span>
     <span id="preset-pill" class="pill" style="display:none" title="Active preset">🎭 <span id="preset-pill-name">--</span></span>
     <span id="ui-override-pill" class="pill" style="display:none;background:var(--accent);color:#fff">🖥 UI</span>
+    <div id="theme-switcher" role="group" aria-label="Theme switcher"></div>
+    <input type="file" id="theme-upload-input" accept="application/json" style="display:none">
   </div>
   <div style="display:flex;align-items:center;gap:10px;margin-top:6px;flex-wrap:wrap">
     <label style="display:flex;align-items:center;gap:6px;font-size:14px;cursor:pointer;white-space:nowrap">
@@ -682,7 +775,7 @@
         <div class="stat-row"><span>SD Files</span><span id="v-sd-files" class="val">--</span></div>
         <div style="display:flex;gap:8px;margin-top:6px">
           <button class="btn js-sd-remount" id="btn-sd-remount" onclick="sdRemount()" style="flex:1;font-size:14px;padding:5px 8px">⟳ Mount</button>
-          <button class="btn js-sd-eject"   id="btn-sd-eject"   onclick="sdEject()"   style="flex:1;font-size:14px;padding:5px 8px;background:var(--warn);color:#000">⏏ Eject</button>
+          <button class="btn js-sd-eject"   id="btn-sd-eject"   onclick="sdEject()"   style="flex:1;font-size:14px;padding:5px 8px;background:var(--warn);color:var(--void)">⏏ Eject</button>
         </div>
       </div>
 
@@ -702,11 +795,11 @@
       <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px;flex-wrap:wrap;gap:8px">
         <h2 style="margin:0">&#9099; CPU Load</h2>
         <div style="display:flex;gap:16px;font-size:14px;flex-wrap:wrap">
-          <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#0cf;margin-right:4px"></span>Core 0 (Net/DMX/UI)</span>
+          <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--cyan);margin-right:4px"></span>Core 0 (Net/DMX/UI)</span>
         </div>
       </div>
       <canvas id="cpu-canvas" height="160"
-              style="width:100%;display:block;border:1px solid #2D1B4E;background:#000;cursor:crosshair;box-shadow:0 0 16px rgba(0,255,255,0.08)"></canvas>
+              style="width:100%;display:block;border:1px solid var(--border);background:var(--void);cursor:crosshair;box-shadow:0 0 16px rgba(var(--cyan-rgb),0.08)"></canvas>
       <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--dim);margin-top:4px">
         <span>60 s ago</span>
         <span id="cpu-hover-info" style="color:var(--accent)"></span>
@@ -715,13 +808,13 @@
       <!-- Current load readout -->
       <div style="display:flex;gap:24px;align-items:center;margin-top:10px;flex-wrap:wrap">
         <div style="display:flex;align-items:center;gap:8px">
-          <span style="width:10px;height:10px;border-radius:2px;background:#0cf;display:inline-block"></span>
+          <span style="width:10px;height:10px;border-radius:2px;background:var(--cyan);display:inline-block"></span>
           <span style="font-size:15px;color:var(--dim)">Core 0</span>
-          <span id="cpu-load-0" style="font-family:monospace;font-size:20px;color:#0cf;min-width:52px;text-align:right">-- %</span>
+          <span id="cpu-load-0" style="font-family:monospace;font-size:20px;color:var(--cyan);min-width:52px;text-align:right">-- %</span>
         </div>
         <div style="margin-left:auto;display:flex;gap:16px;font-size:13px;color:var(--dim);align-items:center;flex-wrap:wrap">
-          <span style="display:flex;align-items:center;gap:5px"><span style="width:18px;border-bottom:1.5px dashed #fc0"></span>Warn &ge;70%</span>
-          <span style="display:flex;align-items:center;gap:5px"><span style="width:18px;border-bottom:1.5px dashed #f44"></span>Critical &ge;90%</span>
+          <span style="display:flex;align-items:center;gap:5px"><span style="width:18px;border-bottom:1.5px dashed var(--warn)"></span>Warn &ge;70%</span>
+          <span style="display:flex;align-items:center;gap:5px"><span style="width:18px;border-bottom:1.5px dashed var(--bad)"></span>Critical &ge;90%</span>
         </div>
       </div>
     </div>
@@ -735,7 +828,7 @@
         </div>
       </div>
       <canvas id="temp-chart"
-              style="width:100%;height:160px;display:block;background:#000;border:1px solid #2D1B4E;cursor:crosshair;box-shadow:0 0 16px rgba(0,255,255,0.08)"></canvas>
+              style="width:100%;height:160px;display:block;background:var(--void);border:1px solid var(--border);cursor:crosshair;box-shadow:0 0 16px rgba(var(--cyan-rgb),0.08)"></canvas>
       <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--dim);margin-top:4px">
         <span>5 min ago</span>
         <span id="temp-hover-info" style="color:var(--accent)"></span>
@@ -752,7 +845,7 @@
         <div style="font-size:13px;color:var(--dim)">kpps</div>
       </div>
       <canvas id="kpps-chart"
-              style="width:100%;height:160px;display:block;background:#000;border:1px solid #2D1B4E;cursor:crosshair;box-shadow:0 0 16px rgba(255,0,255,0.08)"></canvas>
+              style="width:100%;height:160px;display:block;background:var(--void);border:1px solid var(--border);cursor:crosshair;box-shadow:0 0 16px rgba(var(--accent-rgb),0.08)"></canvas>
       <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--dim);margin-top:4px">
         <span>5 min ago</span>
         <span id="kpps-hover-info" style="color:var(--accent)"></span>
@@ -765,13 +858,13 @@
       <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px;flex-wrap:wrap;gap:8px">
         <h2 style="margin:0">&#9654; Frame Composition</h2>
         <div style="font-size:13px;color:var(--dim)">
-          <span style="color:#4caf50">&#9644;</span> Lit (lit) &nbsp;
-          <span style="color:#ff8c00">&#9644;</span> Blank (blank) &nbsp;
-          <span style="color:#444">&#9644;</span> Total (n)
+          <span style="color:var(--ok)">&#9644;</span> Lit (lit) &nbsp;
+          <span style="color:var(--orange)">&#9644;</span> Blank (blank) &nbsp;
+          <span style="color:rgb(var(--chart-total-rgb))">&#9644;</span> Total (n)
         </div>
       </div>
       <canvas id="frame-chart"
-              style="width:100%;height:160px;display:block;background:#000;border:1px solid #2D1B4E;cursor:crosshair;box-shadow:0 0 16px rgba(255,153,0,0.08)"></canvas>
+              style="width:100%;height:160px;display:block;background:var(--void);border:1px solid var(--border);cursor:crosshair;box-shadow:0 0 16px rgba(var(--orange-rgb),0.08)"></canvas>
       <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--dim);margin-top:4px">
         <span>5 min ago</span>
         <span id="frame-hover-info" style="color:var(--accent)"></span>
@@ -801,7 +894,7 @@
     <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;align-items:start">
 
       <!-- Col 1: Speed / Size / Rotation Z -->
-      <div style="padding:10px;background:rgba(0,0,0,0.5);border:1px solid var(--border);border-top:1px solid rgba(0,255,255,0.2)">
+      <div style="padding:10px;background:var(--surface);border:1px solid var(--border);border-top:1px solid rgba(0,255,255,0.2)">
         <div style="margin-bottom:8px">
           <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:3px">
             <span id="lv-sp-label">Speed</span><span id="lv-sp-val" style="color:var(--accent);font-family:monospace">80</span>
@@ -825,13 +918,13 @@
             <span>Auto-Scaling speed</span><span id="lv-ascale-val" style="color:var(--accent);font-family:monospace">0%</span>
           </div>
           <input type="range" id="lv-ascale" min="0" max="100" value="0" oninput="liveSlider()">
-          <select id="lv-ascale-mode" onchange="liveSlider()" style="width:100%;margin-top:4px;background:#0a0a18;color:var(--fg);border:1px solid var(--border);border-radius:4px;padding:4px">
+          <select id="lv-ascale-mode" onchange="liveSlider()" style="width:100%;margin-top:4px;background:var(--input-bg);color:var(--fg);border:1px solid var(--border);border-radius:4px;padding:4px">
             <option value="0">Small → Big → Small</option>
             <option value="1">Small → Big</option>
             <option value="2">Big → Small</option>
           </select>
         </div>
-        <div id="lv-preset-hint" style="display:none;margin:0 0 8px;padding:8px;background:#050514;border:1px solid var(--border);border-radius:5px;font-size:13px;color:var(--dim);line-height:1.5"></div>
+        <div id="lv-preset-hint" style="display:none;margin:0 0 8px;padding:8px;background:var(--input-bg);border:1px solid var(--border);border-radius:5px;font-size:13px;color:var(--dim);line-height:1.5"></div>
         <div id="lv-randompts-row" style="display:none;margin-bottom:8px">
           <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:3px">
             <span>Duration</span><span id="lv-randompts-val" style="color:var(--accent);font-family:monospace">500ms</span>
@@ -909,7 +1002,7 @@
       </div>
 
       <!-- Col 2: Auto-Rotation -->
-      <div style="padding:10px;background:rgba(0,0,0,0.5);border:1px solid var(--border);border-radius:6px">
+      <div style="padding:10px;background:var(--surface);border:1px solid var(--border);border-radius:6px">
         <div style="font-family:monospace;font-size:12px;color:var(--accent);margin-bottom:8px">AUTO-ROTATION</div>
         <label class="toggle" style="margin-bottom:8px">
           <input type="checkbox" id="lv-autorot" onchange="toggleAutoRed(this.checked)">
@@ -949,7 +1042,7 @@
 
       <!-- Col 3: Color + Color Animations -->
       <div style="display:flex;flex-direction:column;gap:8px">
-        <div style="padding:10px;background:rgba(0,0,0,0.5);border:1px solid var(--border);border-radius:6px">
+        <div style="padding:10px;background:var(--surface);border:1px solid var(--border);border-radius:6px">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
           <span style="font-size:12px;color:var(--dim);font-family:monospace">COLOR</span>
           <label class="toggle" style="margin:0">
@@ -1005,7 +1098,7 @@
         <span id="lv-b-val" style="display:none">255</span>
       </div>
         <!-- Color Animations (embedded) -->
-        <div style="padding:10px;background:rgba(0,0,0,0.5);border:1px solid var(--border);border-radius:6px">
+        <div style="padding:10px;background:var(--surface);border:1px solid var(--border);border-radius:6px">
         <h2 style="margin:0 0 10px">🎬 Color Animations</h2>
         <div style="display:flex;gap:3px;flex-wrap:wrap;margin-bottom:8px" id="anim-type-btns">
           <button onclick="setAnimType('gradient')" id="anim-btn-gradient" class="btn secondary" style="flex:1;font-size:12px;padding:4px 2px;min-width:0">Gradient</button>
@@ -1088,7 +1181,7 @@
       </div>
 
       <!-- Col 4: Points-Only Mode -->
-      <div style="padding:10px;background:rgba(0,0,0,0.5);border:1px solid var(--border);border-radius:6px">
+      <div style="padding:10px;background:var(--surface);border:1px solid var(--border);border-radius:6px">
         <label class="toggle" style="margin-bottom:8px">
           <input type="checkbox" id="lv-pm-on" onchange="liveSlider()">
           <span class="slider"></span><span style="font-size:14px">Points-Only Mode</span>
@@ -1122,7 +1215,7 @@
           </div>
           <div>
             <div style="font-size:13px;color:var(--dim);margin-bottom:2px">Fade direction</div>
-            <select id="lv-pm-dir" onchange="liveSlider()" style="width:100%;background:#0a0a18;color:var(--fg);border:1px solid var(--border);border-radius:4px;padding:4px">
+            <select id="lv-pm-dir" onchange="liveSlider()" style="width:100%;background:var(--input-bg);color:var(--fg);border:1px solid var(--border);border-radius:4px;padding:4px">
               <option value="0">Inside → Outside</option>
               <option value="1">Outside → Inside</option>
               <option value="2">Left → Right</option>
@@ -1141,7 +1234,7 @@
       <!-- Col 5: Kaleidoscope + Mirror stacked -->
       <div style="display:flex;flex-direction:column;gap:8px">
         <!-- Kaleidoscope -->
-        <div style="padding:10px;background:rgba(0,0,0,0.5);border:1px solid var(--border);border-radius:6px">
+        <div style="padding:10px;background:var(--surface);border:1px solid var(--border);border-radius:6px">
           <label class="toggle" style="margin-bottom:6px">
             <input type="checkbox" id="lv-kal-on" onchange="liveSlider()">
             <span class="slider"></span><span style="font-size:14px">Kaleidoscope</span>
@@ -1160,7 +1253,7 @@
           </div>
         </div>
         <!-- Mirror -->
-        <div style="padding:10px;background:rgba(0,0,0,0.5);border:1px solid var(--border);border-radius:6px">
+        <div style="padding:10px;background:var(--surface);border:1px solid var(--border);border-radius:6px">
           <div style="font-size:14px;margin-bottom:6px">Mirror</div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px" id="lv-mirror-btns">
             <button class="btn secondary" id="lv-mirror-off"     onclick="setLiveMirror(0)" style="font-size:13px;padding:4px 6px">Off</button>
@@ -1190,7 +1283,7 @@
     <div class="card" style="padding:14px">
       <h2 style="margin:0 0 10px">〰 Waves</h2>
       <div id="waves-preset-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:6px;max-height:260px;overflow-y:auto;margin-bottom:10px"></div>
-      <div style="padding:10px;background:rgba(0,0,0,0.5);border:1px solid var(--border);border-radius:6px">
+      <div style="padding:10px;background:var(--surface);border:1px solid var(--border);border-radius:6px">
         <div style="font-family:monospace;font-size:12px;color:var(--accent);margin-bottom:8px">WAVE PARAMETERS</div>
         <div>
           <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:2px">
@@ -1267,7 +1360,7 @@
         <button class="btn danger"    onclick="timerStop()"  style="flex:1;font-size:13px;padding:5px 4px">■ Stop</button>
         <button class="btn secondary" onclick="timerReset()" style="flex:1;font-size:13px;padding:5px 4px">↺</button>
       </div>
-      <div style="padding:8px;background:rgba(0,0,0,0.5);border:1px solid var(--border);border-radius:5px">
+      <div style="padding:8px;background:var(--surface);border:1px solid var(--border);border-radius:5px">
         <div style="font-family:monospace;font-size:12px;color:var(--accent);margin-bottom:6px">ON EXPIRE</div>
         <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:5px">
           <label style="font-size:13px;cursor:pointer"><input type="radio" name="timer-expire" value="none" checked> Nothing</label>
@@ -1342,7 +1435,7 @@
 
   <div class="card" style="padding:14px">
     <h2 style="margin:0 0 10px">📦 Storage Monitor</h2>
-    <div style="background:rgba(0,0,0,0.5);border:1px solid var(--border);border-radius:6px;height:18px;overflow:hidden;margin-bottom:8px">
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;height:18px;overflow:hidden;margin-bottom:8px">
       <div id="pm-storage-bar" style="height:100%;width:0%;background:linear-gradient(90deg,var(--accent),var(--cyan));transition:width 0.3s"></div>
     </div>
     <div id="pm-storage-label" style="font-size:13px;color:var(--dim)">-- presets · -- MB used of -- MB</div>
@@ -1444,7 +1537,7 @@
         <span class="slider"></span>🔄 Reverse Spin (Orbit)
       </label>
 
-      <div style="margin-top:16px;padding:12px;background:#000;border:1px solid var(--border);border-radius:4px;font-family:monospace;font-size:13px;color:var(--dim)">
+      <div style="margin-top:16px;padding:12px;background:var(--void);border:1px solid var(--border);border-radius:4px;font-family:monospace;font-size:13px;color:var(--dim)">
         API: <span style="color:var(--accent)">POST /api/text</span><br>
         {text, font, anim, speed, size, col_r/g/b, rainbow, flip_x, flip_y, orbit_reverse, active}
       </div>
@@ -1490,7 +1583,7 @@
     </div>
 
     <!-- Color Animation: Segment -->
-    <div style="padding:10px;background:rgba(0,0,0,0.5);border:1px solid var(--border);border-radius:6px">
+    <div style="padding:10px;background:var(--surface);border:1px solid var(--border);border-radius:6px">
       <label class="toggle" style="margin-bottom:8px">
         <input type="checkbox" id="pt-seg-on" onchange="paintToggleSegment(this.checked)">
         <span class="slider"></span><span style="font-size:14px">🎬 Segment Color Animation</span>
@@ -1554,12 +1647,12 @@
       <div style="display:flex;align-items:center;gap:6px;margin-top:8px;flex-wrap:wrap">
         <span style="font-size:12px;color:var(--dim);font-family:monospace">TEXT</span>
         <input type="text" id="pt-text-input" placeholder="TEXT" maxlength="24"
-          style="flex:1;min-width:100px;padding:4px 8px;font-size:14px;background:rgba(0,0,0,0.5);border:1px solid var(--border);border-radius:4px;color:inherit">
+          style="flex:1;min-width:100px;padding:4px 8px;font-size:14px;background:var(--surface);border:1px solid var(--border);border-radius:4px;color:inherit">
         <input type="range" id="pt-text-size" min="0" max="255" value="128" style="width:80px" title="Size">
         <button class="btn secondary" onclick="paintInsertText()" style="font-size:13px;padding:5px 8px">➕ Insert</button>
       </div>
       <canvas id="pt-canvas" width="700" height="700"
-        style="width:100%;aspect-ratio:1/1;background:#000;border-radius:6px;border:1px solid var(--border);touch-action:none;cursor:crosshair;display:block"></canvas>
+        style="width:100%;aspect-ratio:1/1;background:var(--void);border-radius:6px;border:1px solid var(--border);touch-action:none;cursor:crosshair;display:block"></canvas>
       <div style="margin-top:8px;font-size:13px;color:var(--dim);display:flex;justify-content:space-between;flex-wrap:wrap;gap:4px">
         <span id="pt-status">0 shapes · 0 points</span>
         <span>drag body = move · drag handles = resize</span>
@@ -1603,7 +1696,7 @@
             oninput="document.getElementById('pt-rspd-val').textContent=this.value;paintSendRotation()">
         </div>
       </div>
-      <div style="margin-top:16px;padding:10px;background:rgba(0,0,0,0.5);border:1px solid var(--border);border-radius:6px;font-size:13px;color:var(--dim);line-height:1.6">
+      <div style="margin-top:16px;padding:10px;background:var(--surface);border:1px solid var(--border);border-radius:6px;font-size:13px;color:var(--dim);line-height:1.6">
         <b style="color:var(--accent)">Tips</b><br>
         Pen = freehand draw.<br>
         Shape tools = drag on canvas to size &amp; place.<br>
@@ -1650,7 +1743,7 @@
     </div>
 
     <div id="log-container" style="
-      height:520px; overflow-y:auto; background:#000;
+      height:520px; overflow-y:auto; background:var(--void);
       border:1px solid var(--border); border-radius:6px;
       font-family:'SF Mono',Menlo,Consolas,monospace; font-size:13px;
       padding:8px; color:#ccc; line-height:1.5;
@@ -1833,7 +1926,7 @@
           <span class="slider"></span>
           <span id="cfg-safety-lbl"><strong>Safety Override OFF</strong></span>
         </label>
-        <div id="cfg-safety-status" style="font-size:14px;color:var(--dim);padding:8px 12px;background:#0a0a14;border-radius:4px;border:1px solid var(--border)">
+        <div id="cfg-safety-status" style="font-size:14px;color:var(--dim);padding:8px 12px;background:var(--input-bg);border-radius:4px;border:1px solid var(--border)">
           Normal safety logic active — e-stop and scan-fail are enforced.
         </div>
       </div>
@@ -1860,7 +1953,7 @@
         <button id="restore-btn" class="btn danger" disabled onclick="confirmRestore()">⚠ Restore Settings</button>
       </div>
       <div id="restore-filename" style="font-size:13px;color:var(--dim);margin-bottom:8px"></div>
-      <div id="restore-result" style="font-size:14px;display:none;padding:10px 12px;border-radius:4px;margin-bottom:12px;background:#0a0a14;border:1px solid var(--border)"></div>
+      <div id="restore-result" style="font-size:14px;display:none;padding:10px 12px;border-radius:4px;margin-bottom:12px;background:var(--input-bg);border:1px solid var(--border)"></div>
     </div>
 
     <div class="card">
@@ -1886,7 +1979,7 @@
           <span class="slider"></span>
           <span id="nohw-label"><strong>No-HW Mode OFF</strong></span>
         </label>
-        <div id="nohw-status" style="font-size:14px;color:var(--dim);padding:8px 12px;background:#0a0a14;border-radius:4px;border:1px solid var(--border)">
+        <div id="nohw-status" style="font-size:14px;color:var(--dim);padding:8px 12px;background:var(--input-bg);border-radius:4px;border:1px solid var(--border)">
           Normal mode — SPI/DAC active after boot.
         </div>
       </div>
@@ -1934,9 +2027,9 @@
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
         <label class="lbl" style="margin:0">Hold duration (s):</label>
         <input type="number" id="dac-hold-secs" min="1" max="60" value="5"
-               style="width:60px;background:#0a0a14;border:1px solid var(--border);color:var(--text);padding:3px 6px;border-radius:4px;font-family:monospace">
+               style="width:60px;background:var(--input-bg);border:1px solid var(--border);color:var(--text);padding:3px 6px;border-radius:4px;font-family:monospace">
       </div>
-<div id="dac-cmd-status" style="font-size:14px;color:var(--dim);padding:8px 12px;background:#0a0a14;border-radius:4px;border:1px solid var(--border);min-height:18px"></div>
+<div id="dac-cmd-status" style="font-size:14px;color:var(--dim);padding:8px 12px;background:var(--input-bg);border-radius:4px;border:1px solid var(--border);min-height:18px"></div>
     </div>
 <div class="card">
       <h2>🛠 Hardware Test (direct galvo / laser)</h2>
@@ -1997,7 +2090,7 @@
         <button class="btn danger" onclick="hwDebugCmd('exit')">⏏ Exit debug</button>
       </div>
 
-      <div id="hw-debug-status" style="font-size:14px;color:var(--dim);padding:8px 12px;background:#0a0a14;border-radius:4px;border:1px solid var(--border);min-height:18px;font-family:monospace"></div>
+      <div id="hw-debug-status" style="font-size:14px;color:var(--dim);padding:8px 12px;background:var(--input-bg);border-radius:4px;border:1px solid var(--border);min-height:18px;font-family:monospace"></div>
     </div>
 
   </div>
@@ -2017,7 +2110,7 @@
       </p>
 
       <!-- Galvo spec input — basis for all calculations -->
-      <div style="padding:10px;background:rgba(0,0,0,0.5);border:1px solid var(--border);border-radius:6px;margin-bottom:14px">
+      <div style="padding:10px;background:var(--surface);border:1px solid var(--border);border-radius:6px;margin-bottom:14px">
         <div style="font-family:monospace;font-size:12px;color:var(--accent);margin-bottom:8px">GALVO SPECIFICATION</div>
         <label style="font-size:13px;color:var(--dim);display:block;margin-bottom:4px">
           Galvo rated speed (kpps) — from datasheet
@@ -2064,7 +2157,7 @@
       </div>
 
       <!-- Sample-Rate Autotune -->
-      <div style="padding:10px;background:rgba(0,0,0,0.5);border:1px solid var(--border);border-radius:6px;margin-top:14px">
+      <div style="padding:10px;background:var(--surface);border:1px solid var(--border);border-radius:6px;margin-top:14px">
         <div style="font-family:monospace;font-size:12px;color:var(--accent);margin-bottom:8px">AUTOTUNE</div>
         <p style="color:var(--dim);font-size:13px;margin-bottom:8px">
           Finds the highest kpps that runs without "Ring buffer overflow" by
@@ -2119,7 +2212,7 @@
         <input type="range" id="proj-pwr-r" min="0" max="10000" step="50" value="1000" style="flex:1"
                oninput="syncPwr('r',this.value)">
         <input type="number" id="proj-pwr-r-n" min="0" max="10000" step="50" value="1000"
-               style="width:75px;text-align:right;font-family:monospace;font-size:14px;background:#111;border:1px solid var(--border);color:var(--text);padding:3px 6px;border-radius:4px"
+               style="width:75px;text-align:right;font-family:monospace;font-size:14px;background:var(--input-bg);border:1px solid var(--border);color:var(--text);padding:3px 6px;border-radius:4px"
                oninput="syncPwr('r',this.value)">
       </div>
 
@@ -2130,7 +2223,7 @@
         <input type="range" id="proj-pwr-g" min="0" max="10000" step="50" value="1000" style="flex:1"
                oninput="syncPwr('g',this.value)">
         <input type="number" id="proj-pwr-g-n" min="0" max="10000" step="50" value="1000"
-               style="width:75px;text-align:right;font-family:monospace;font-size:14px;background:#111;border:1px solid var(--border);color:var(--text);padding:3px 6px;border-radius:4px"
+               style="width:75px;text-align:right;font-family:monospace;font-size:14px;background:var(--input-bg);border:1px solid var(--border);color:var(--text);padding:3px 6px;border-radius:4px"
                oninput="syncPwr('g',this.value)">
       </div>
 
@@ -2141,11 +2234,11 @@
         <input type="range" id="proj-pwr-b" min="0" max="10000" step="50" value="3000" style="flex:1"
                oninput="syncPwr('b',this.value)">
         <input type="number" id="proj-pwr-b-n" min="0" max="10000" step="50" value="3000"
-               style="width:75px;text-align:right;font-family:monospace;font-size:14px;background:#111;border:1px solid var(--border);color:var(--text);padding:3px 6px;border-radius:4px"
+               style="width:75px;text-align:right;font-family:monospace;font-size:14px;background:var(--input-bg);border:1px solid var(--border);color:var(--text);padding:3px 6px;border-radius:4px"
                oninput="syncPwr('b',this.value)">
       </div>
 
-      <div style="margin-top:10px;background:#0a0a14;border:1px solid var(--border);border-radius:6px;padding:10px;font-size:13px;font-family:monospace;line-height:2">
+      <div style="margin-top:10px;background:var(--input-bg);border:1px solid var(--border);border-radius:6px;padding:10px;font-size:13px;font-family:monospace;line-height:2">
         <div style="display:flex;justify-content:space-between">
           <span style="color:var(--dim)">Total</span><span id="proj-total-mw" style="color:var(--text)">5000 mW</span>
         </div>
@@ -2168,7 +2261,7 @@
       <input type="range" id="proj-dist" min="0.5" max="30" step="0.5" value="3"
              oninput="document.getElementById('proj-dist-v').textContent=parseFloat(this.value).toFixed(1)+' m'; calcProjection()">
 
-      <div style="margin-top:16px;background:#0a0a14;border:1px solid var(--border);border-radius:6px;padding:14px">
+      <div style="margin-top:16px;background:var(--input-bg);border:1px solid var(--border);border-radius:6px;padding:14px">
         <div style="font-family:monospace;font-size:14px;line-height:2.4">
           <div style="display:flex;justify-content:space-between">
             <span style="color:var(--dim)">Image width</span>
@@ -2202,7 +2295,7 @@
         Simplified irradiance estimate based on configured power and scan angle.
       </p>
 
-      <div id="safety-box" style="background:#0a0a14;border-radius:6px;
+      <div id="safety-box" style="background:var(--input-bg);border-radius:6px;
            border:1px solid var(--border);padding:12px;font-size:14px;
            font-family:monospace;line-height:2.2">
         <div style="display:flex;justify-content:space-between">
@@ -2236,7 +2329,7 @@
         </div>
       </div>
 
-      <div style="margin-top:12px;padding:10px;background:#0a0a0a;border-radius:4px;
+      <div style="margin-top:12px;padding:10px;background:var(--input-bg);border-radius:4px;
            font-size:12px;color:#555;line-height:1.7">
         ⚠ This device is a <strong style="color:#888">laser</strong>.<br>
         All figures are estimates based on configured values. Consult your local
@@ -2257,7 +2350,7 @@
       <div id="temp-sensors"></div>
 
       <!-- Sensor-Namen Editor -->
-      <div style="margin-top:12px;padding:10px;background:rgba(0,0,0,0.5);border:1px solid var(--border);border-radius:6px">
+      <div style="margin-top:12px;padding:10px;background:var(--surface);border:1px solid var(--border);border-radius:6px">
         <div style="font-family:monospace;font-size:12px;color:var(--accent);margin-bottom:8px">
           SENSOR NAMES &nbsp;<span id="sensor-found-info" style="color:var(--dim)"></span>
         </div>
@@ -2322,6 +2415,202 @@
 <div id="toast"></div>
 
 <script>
+// ============================================================
+// Theme Switcher — 4 localStorage slots, slots 0+1 are built-ins
+// ============================================================
+const THEME_STORAGE_KEY = 'galvos_themes';
+const THEME_ACTIVE_KEY  = 'galvos_active_theme';
+
+const BUILTIN_THEMES = [
+  {
+    id: 'vaporwave', name: 'Vaporwave', builtin: true,
+    tokens: {
+      '--bg': '#090014', '--bg-rgb': '9,0,20',
+      '--panel': 'rgba(26,16,60,0.85)', '--panel2': 'rgba(20,10,48,0.9)',
+      '--border': '#2D1B4E', '--border-rgb': '45,27,78',
+      '--text': '#E0E0E0',
+      '--dim': '#7a6a9a', '--dim-rgb': '122,106,154',
+      '--accent': '#FF00FF', '--accent-rgb': '255,0,255',
+      '--cyan': '#00FFFF', '--cyan-rgb': '0,255,255',
+      '--orange': '#FF9900', '--orange-rgb': '255,153,0',
+      '--ok': '#00FF88', '--ok-rgb': '0,255,136',
+      '--bad': '#FF2244', '--bad-rgb': '255,34,68',
+      '--warn': '#FF9900', '--blue': '#00FFFF', '--danger': '#FF2244',
+      '--surface': 'rgba(0,0,0,0.5)', '--input-bg': '#0a0a14', '--void': '#000000',
+      '--chart-bg-top': '#0a0020', '--chart-bg-bottom': '#000008', '--chart-total-rgb': '150,100,200',
+      '--glow-magenta': '0 0 8px #FF00FF, 0 0 20px rgba(255,0,255,0.4)',
+      '--glow-cyan':    '0 0 8px #00FFFF, 0 0 20px rgba(0,255,255,0.4)',
+      '--glow-orange':  '0 0 8px #FF9900, 0 0 20px rgba(255,153,0,0.4)',
+      '--glow-ok':      '0 0 8px #00FF88, 0 0 16px rgba(0,255,136,0.3)',
+      '--glow-bad':     '0 0 8px #FF2244, 0 0 16px rgba(255,34,68,0.3)'
+    }
+  },
+  {
+    id: 'classic-dark', name: 'Classic Dark', builtin: true,
+    tokens: {
+      '--bg': '#12141c', '--bg-rgb': '18,20,28',
+      '--panel': 'rgba(30,33,44,0.9)', '--panel2': 'rgba(24,26,36,0.92)',
+      '--border': '#333846', '--border-rgb': '51,56,70',
+      '--text': '#e4e6eb',
+      '--dim': '#8a90a3', '--dim-rgb': '138,144,163',
+      '--accent': '#4f8cff', '--accent-rgb': '79,140,255',
+      '--cyan': '#38d9d9', '--cyan-rgb': '56,217,217',
+      '--orange': '#ffa94d', '--orange-rgb': '255,169,77',
+      '--ok': '#4fd67a', '--ok-rgb': '79,214,122',
+      '--bad': '#ff5c5c', '--bad-rgb': '255,92,92',
+      '--warn': '#ffa94d', '--blue': '#4f8cff', '--danger': '#ff5c5c',
+      '--surface': 'rgba(0,0,0,0.35)', '--input-bg': '#1a1d27', '--void': '#05060a',
+      '--chart-bg-top': '#10121c', '--chart-bg-bottom': '#05060a', '--chart-total-rgb': '130,140,170',
+      '--glow-magenta': '0 0 6px #4f8cff, 0 0 14px rgba(79,140,255,0.35)',
+      '--glow-cyan':    '0 0 6px #38d9d9, 0 0 14px rgba(56,217,217,0.3)',
+      '--glow-orange':  '0 0 6px #ffa94d, 0 0 14px rgba(255,169,77,0.3)',
+      '--glow-ok':      '0 0 6px #4fd67a, 0 0 12px rgba(79,214,122,0.25)',
+      '--glow-bad':     '0 0 6px #ff5c5c, 0 0 12px rgba(255,92,92,0.25)'
+    }
+  }
+];
+
+const THEME_REQUIRED_KEYS = Object.keys(BUILTIN_THEMES[0].tokens);
+let themeUploadTargetSlot = null;
+
+function themeLoadSlots() {
+  let slots;
+  try { slots = JSON.parse(localStorage.getItem(THEME_STORAGE_KEY) || 'null'); } catch (e) { slots = null; }
+  if (!Array.isArray(slots) || slots.length !== 4) slots = [null, null, null, null];
+  slots[0] = BUILTIN_THEMES[0];
+  slots[1] = BUILTIN_THEMES[1];
+  return slots;
+}
+
+// Only user slots (2/3) are persisted — built-ins are static and always re-derived.
+function themeSaveSlots(slots) {
+  localStorage.setItem(THEME_STORAGE_KEY, JSON.stringify([null, null, slots[2] || null, slots[3] || null]));
+}
+
+function themeGetActiveSlot() {
+  const v = parseInt(localStorage.getItem(THEME_ACTIVE_KEY), 10);
+  return (v >= 0 && v <= 3) ? v : 0;
+}
+
+function themeApply(theme) {
+  const root = document.documentElement;
+  Object.entries(theme.tokens).forEach(([k, v]) => root.style.setProperty(k, v));
+}
+
+// Rejects anything that isn't a plain {id, name, tokens:{...}} object carrying
+// every token the built-in themes define — prevents partially-styled UI from a
+// malformed upload silently mixing with the previous theme's leftover values.
+function themeValidate(json) {
+  if (!json || typeof json !== 'object' || Array.isArray(json)) return 'Not a JSON object';
+  if (typeof json.id !== 'string' || !json.id) return 'Missing "id"';
+  if (typeof json.name !== 'string' || !json.name) return 'Missing "name"';
+  if (!json.tokens || typeof json.tokens !== 'object' || Array.isArray(json.tokens)) return 'Missing "tokens" object';
+  const missing = THEME_REQUIRED_KEYS.filter(k => !(k in json.tokens));
+  if (missing.length) return 'Missing token(s): ' + missing.join(', ');
+  for (const k in json.tokens) {
+    if (typeof json.tokens[k] !== 'string') return 'Token "' + k + '" must be a string';
+  }
+  return null;
+}
+
+let themeSlots = themeLoadSlots();
+let themeActiveSlot = themeGetActiveSlot();
+
+function renderThemeSwitcher() {
+  const bar = document.getElementById('theme-switcher');
+  if (!bar) return;
+  bar.innerHTML = '';
+  themeSlots.forEach((slot, i) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'theme-slot-btn' + (i === themeActiveSlot ? ' active' : '') + (!slot ? ' empty' : '');
+    if (slot) {
+      btn.title = slot.name;
+      btn.append(slot.name);
+      if (i >= 2) {
+        const reupload = document.createElement('span');
+        reupload.className = 'slot-del';
+        reupload.textContent = '⟳';
+        reupload.title = 'Overwrite (re-upload)';
+        reupload.onclick = (e) => {
+          e.stopPropagation();
+          themeUploadTargetSlot = i;
+          document.getElementById('theme-upload-input').click();
+        };
+        btn.appendChild(reupload);
+        const del = document.createElement('span');
+        del.className = 'slot-del';
+        del.textContent = '✕';
+        del.title = 'Remove theme';
+        del.onclick = (e) => { e.stopPropagation(); themeDeleteSlot(i); };
+        btn.appendChild(del);
+        // Right-click also overwrites — matches the ✕ delete affordance's discoverability.
+        btn.oncontextmenu = (e) => {
+          e.preventDefault();
+          themeUploadTargetSlot = i;
+          document.getElementById('theme-upload-input').click();
+        };
+      }
+      btn.onclick = () => themeSelectSlot(i);
+    } else {
+      btn.textContent = '+ Upload';
+      btn.title = 'Upload a theme JSON';
+      btn.onclick = () => {
+        themeUploadTargetSlot = i;
+        document.getElementById('theme-upload-input').click();
+      };
+    }
+    bar.appendChild(btn);
+  });
+}
+
+function themeSelectSlot(i) {
+  const slot = themeSlots[i];
+  if (!slot) return;
+  themeActiveSlot = i;
+  localStorage.setItem(THEME_ACTIVE_KEY, String(i));
+  themeApply(slot);
+  renderThemeSwitcher();
+  toast('Theme: ' + slot.name);
+}
+
+function themeDeleteSlot(i) {
+  if (i < 2 || !themeSlots[i]) return;
+  themeSlots[i] = null;
+  themeSaveSlots(themeSlots);
+  if (themeActiveSlot === i) themeSelectSlot(0);
+  else renderThemeSwitcher();
+}
+
+function themeInitUpload() {
+  const input = document.getElementById('theme-upload-input');
+  if (!input) return;
+  input.addEventListener('change', () => {
+    const file = input.files && input.files[0];
+    input.value = '';
+    if (!file || themeUploadTargetSlot === null) return;
+    const targetSlot = themeUploadTargetSlot;
+    const reader = new FileReader();
+    reader.onload = () => {
+      let json;
+      try { json = JSON.parse(reader.result); }
+      catch (e) { toast('Invalid theme JSON: ' + e.message, true); return; }
+      const err = themeValidate(json);
+      if (err) { toast('Theme rejected: ' + err, true); return; }
+      themeSlots[targetSlot] = { id: json.id, name: json.name, tokens: json.tokens };
+      themeSaveSlots(themeSlots);
+      themeSelectSlot(targetSlot);
+    };
+    reader.onerror = () => toast('Could not read theme file', true);
+    reader.readAsText(file);
+  });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  renderThemeSwitcher();
+  themeInitUpload();
+});
+
 // ============================================================
 // DMX Channel Layout
 // ============================================================
@@ -3729,7 +4018,7 @@ function buildSensorNameEditor() {
     row.innerHTML =
       '<span style="font-size:12px;color:var(--dim);width:14px">' + i + '</span>' +
       '<input id="sname-' + i + '" value="' + name.replace(/"/g,'&quot;') + '" ' +
-        'style="flex:1;background:#0a0a14;border:1px solid var(--border);color:var(--text);' +
+        'style="flex:1;background:var(--input-bg);border:1px solid var(--border);color:var(--text);' +
                'padding:3px 8px;border-radius:4px;font-size:14px;font-family:monospace">' +
       '<span style="font-size:14px">' + dot + '</span>' +
       '<button onclick="saveSensorName(' + i + ')" ' +
@@ -3816,11 +4105,11 @@ function updateTempDisplay(temps, names, ok, found) {
       badge.textContent = '🔴 KRIT'; badge.style.background='var(--bad)'; badge.style.color='#fff'; badge.style.display='';
       val.style.color = 'var(--bad)';
     } else if (t >= thr.alert) {
-      badge.textContent = '🟠 ALERT'; badge.style.background='#c73'; badge.style.color='#fff'; badge.style.display='';
-      val.style.color = '#fa3';
+      badge.textContent = '🟠 ALERT'; badge.style.background='rgba(var(--orange-rgb),0.55)'; badge.style.color='#fff'; badge.style.display='';
+      val.style.color = 'var(--orange)';
     } else if (t >= thr.warn) {
-      badge.textContent = '⚠ WARN'; badge.style.background='#554'; badge.style.color='#fa3'; badge.style.display='';
-      val.style.color = '#fa3';
+      badge.textContent = '⚠ WARN'; badge.style.background='rgba(var(--orange-rgb),0.25)'; badge.style.color='var(--orange)'; badge.style.display='';
+      val.style.color = 'var(--orange)';
     } else {
       badge.style.display = 'none';
       val.style.color = 'var(--ok)';
@@ -3858,6 +4147,11 @@ async function saveThresholds() {
 
 // Shared hover-crosshair renderer for the timestamped history charts
 // (temp/kpps/frame). `hoverFrac` is 0..1 across the graph width, -1 = none.
+// Reads a CSS custom property from :root so canvas draw calls follow the active theme.
+function themeColor(name) {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+}
+
 function drawHoverCrosshair(ctx, PL, PT, gW, gH, oldest, recent, hoverFrac, infoElId, formatFn) {
   const infoEl = document.getElementById(infoElId);
   if (hoverFrac < 0 || recent.length < 2) {
@@ -3870,7 +4164,7 @@ function drawHoverCrosshair(ctx, PL, PT, gW, gH, oldest, recent, hoverFrac, info
     if (Math.abs(p.ts - hoveredTs) < Math.abs(nearest.ts - hoveredTs)) nearest = p;
   }
   const x = PL + ((nearest.ts - oldest) / (HISTORY_SECS * 1000)) * gW;
-  ctx.strokeStyle = 'rgba(255,0,255,0.4)'; ctx.lineWidth = 1; ctx.setLineDash([3, 3]);
+  ctx.strokeStyle = 'rgba(' + themeColor('--accent-rgb') + ',0.4)'; ctx.lineWidth = 1; ctx.setLineDash([3, 3]);
   ctx.beginPath(); ctx.moveTo(x, PT); ctx.lineTo(x, PT + gH); ctx.stroke();
   ctx.setLineDash([]);
   const now = recent[recent.length - 1].ts;
@@ -3888,7 +4182,7 @@ function drawTempChart() {
 
   // Background gradient
   const bgGrad = ctx.createLinearGradient(0, 0, 0, H);
-  bgGrad.addColorStop(0, '#0a0020'); bgGrad.addColorStop(1, '#000008');
+  bgGrad.addColorStop(0, themeColor('--chart-bg-top')); bgGrad.addColorStop(1, themeColor('--chart-bg-bottom'));
   ctx.fillStyle = bgGrad; ctx.fillRect(0, 0, W, H);
   for (let y = 0; y < H; y += 4) { ctx.fillStyle = 'rgba(0,0,0,0.18)'; ctx.fillRect(0, y, W, 2); }
 
@@ -3914,14 +4208,15 @@ function drawTempChart() {
   const mapX = ts => PL + ((ts - oldest) / (HISTORY_SECS * 1000)) * gW;
 
   // Grid
-  ctx.strokeStyle = 'rgba(45,27,78,0.5)'; ctx.lineWidth = 0.5;
+  const gridRgb = themeColor('--border-rgb'), dimCol = themeColor('--dim'), cyanRgb = themeColor('--cyan-rgb');
+  ctx.strokeStyle = 'rgba(' + gridRgb + ',0.5)'; ctx.lineWidth = 0.5;
   [20,40,60,80].forEach(t => {
     const y = mapY(t);
     ctx.beginPath(); ctx.moveTo(PL, y); ctx.lineTo(W - PR, y); ctx.stroke();
-    ctx.fillStyle = '#7a6a9a'; ctx.font = '11px "Share Tech Mono", monospace'; ctx.textAlign = 'right';
+    ctx.fillStyle = dimCol; ctx.font = '11px "Share Tech Mono", monospace'; ctx.textAlign = 'right';
     ctx.fillText(t+'°', PL - 4, y + 4);
   });
-  ctx.strokeStyle = 'rgba(0,255,255,0.3)'; ctx.lineWidth = 1;
+  ctx.strokeStyle = 'rgba(' + cyanRgb + ',0.3)'; ctx.lineWidth = 1;
   ctx.beginPath(); ctx.moveTo(PL, PT); ctx.lineTo(PL, PT + gH); ctx.stroke();
 
   // Lines with glow
@@ -3947,7 +4242,7 @@ function drawKppsChart() {
   const ctx = canvas.getContext('2d');
 
   const bgGrad = ctx.createLinearGradient(0, 0, 0, H);
-  bgGrad.addColorStop(0, '#0a0020'); bgGrad.addColorStop(1, '#000008');
+  bgGrad.addColorStop(0, themeColor('--chart-bg-top')); bgGrad.addColorStop(1, themeColor('--chart-bg-bottom'));
   ctx.fillStyle = bgGrad; ctx.fillRect(0, 0, W, H);
   for (let y = 0; y < H; y += 4) { ctx.fillStyle = 'rgba(0,0,0,0.18)'; ctx.fillRect(0, y, W, 2); }
 
@@ -3973,41 +4268,43 @@ function drawKppsChart() {
   const mapX = ts => PL + ((ts - oldest) / (HISTORY_SECS * 1000)) * gW;
 
   // Grid
-  ctx.strokeStyle = 'rgba(45,27,78,0.5)'; ctx.lineWidth = 0.5;
+  const gridRgb = themeColor('--border-rgb'), dimCol = themeColor('--dim');
+  const accentRgb = themeColor('--accent-rgb'), accentCol = themeColor('--accent');
+  ctx.strokeStyle = 'rgba(' + gridRgb + ',0.5)'; ctx.lineWidth = 0.5;
   [15, 30, 45, 60].forEach(v => {
     const y = mapY(v);
     ctx.beginPath(); ctx.moveTo(PL, y); ctx.lineTo(W - PR, y); ctx.stroke();
-    ctx.fillStyle = '#7a6a9a'; ctx.font = '11px "Share Tech Mono", monospace'; ctx.textAlign = 'right';
+    ctx.fillStyle = dimCol; ctx.font = '11px "Share Tech Mono", monospace'; ctx.textAlign = 'right';
     ctx.fillText(v + 'k', PL - 4, y + 4);
   });
-  ctx.strokeStyle = 'rgba(255,0,255,0.3)'; ctx.lineWidth = 1;
+  ctx.strokeStyle = 'rgba(' + accentRgb + ',0.3)'; ctx.lineWidth = 1;
   ctx.beginPath(); ctx.moveTo(PL, PT); ctx.lineTo(PL, PT + gH); ctx.stroke();
 
-  // Fill area — magenta gradient
+  // Fill area — accent gradient
   ctx.beginPath();
   recent.forEach((pt, idx) => { const x = mapX(pt.ts), y = mapY(pt.kpps); idx === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); });
   ctx.lineTo(mapX(recent[recent.length - 1].ts), PT + gH);
   ctx.lineTo(mapX(recent[0].ts), PT + gH);
   ctx.closePath();
   const fillG = ctx.createLinearGradient(0, PT, 0, PT + gH);
-  fillG.addColorStop(0, 'rgba(255,0,255,0.25)');
-  fillG.addColorStop(1, 'rgba(255,0,255,0)');
+  fillG.addColorStop(0, 'rgba(' + accentRgb + ',0.25)');
+  fillG.addColorStop(1, 'rgba(' + accentRgb + ',0)');
   ctx.fillStyle = fillG; ctx.fill();
 
   // Glow line
   ctx.beginPath();
   recent.forEach((pt, idx) => { const x = mapX(pt.ts), y = mapY(pt.kpps); idx === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); });
-  ctx.strokeStyle = 'rgba(255,0,255,0.2)'; ctx.lineWidth = 5; ctx.stroke();
+  ctx.strokeStyle = 'rgba(' + accentRgb + ',0.2)'; ctx.lineWidth = 5; ctx.stroke();
   // Sharp line
   ctx.beginPath();
   recent.forEach((pt, idx) => { const x = mapX(pt.ts), y = mapY(pt.kpps); idx === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); });
-  ctx.strokeStyle = '#FF00FF'; ctx.lineWidth = 1.8; ctx.stroke();
+  ctx.strokeStyle = accentCol; ctx.lineWidth = 1.8; ctx.stroke();
 
   // Current value label
   const last = recent[recent.length - 1].kpps;
   ctx.font = 'bold 13px "Share Tech Mono", monospace'; ctx.textAlign = 'right';
-  ctx.fillStyle = 'rgba(255,0,255,0.3)'; ctx.fillText(last.toFixed(1) + ' kpps', W - PR + 2, PT + 14);
-  ctx.fillStyle = '#FF00FF'; ctx.fillText(last.toFixed(1) + ' kpps', W - PR, PT + 13);
+  ctx.fillStyle = 'rgba(' + accentRgb + ',0.3)'; ctx.fillText(last.toFixed(1) + ' kpps', W - PR + 2, PT + 14);
+  ctx.fillStyle = accentCol; ctx.fillText(last.toFixed(1) + ' kpps', W - PR, PT + 13);
 
   drawHoverCrosshair(ctx, PL, PT, gW, gH, oldest, recent, sKppsHoverFrac, 'kpps-hover-info',
     pt => pt.kpps.toFixed(1) + ' kpps');
@@ -4021,7 +4318,7 @@ function drawFrameChart() {
   const ctx = canvas.getContext('2d');
 
   const bgGrad = ctx.createLinearGradient(0, 0, 0, H);
-  bgGrad.addColorStop(0, '#0a0020'); bgGrad.addColorStop(1, '#000008');
+  bgGrad.addColorStop(0, themeColor('--chart-bg-top')); bgGrad.addColorStop(1, themeColor('--chart-bg-bottom'));
   ctx.fillStyle = bgGrad; ctx.fillRect(0, 0, W, H);
   for (let y = 0; y < H; y += 4) { ctx.fillStyle = 'rgba(0,0,0,0.18)'; ctx.fillRect(0, y, W, 2); }
 
@@ -4047,57 +4344,61 @@ function drawFrameChart() {
   const mapX = ts => PL + ((ts - oldest) / (HISTORY_SECS * 1000)) * gW;
 
   // Grid lines
-  ctx.strokeStyle = 'rgba(45,27,78,0.5)'; ctx.lineWidth = 0.5;
+  const gridRgb = themeColor('--border-rgb'), dimCol = themeColor('--dim');
+  const orangeRgb = themeColor('--orange-rgb'), orangeCol = themeColor('--orange');
+  const okRgb = themeColor('--ok-rgb'), okCol = themeColor('--ok');
+  const totalRgb = themeColor('--chart-total-rgb');
+  ctx.strokeStyle = 'rgba(' + gridRgb + ',0.5)'; ctx.lineWidth = 0.5;
   [0.25, 0.5, 0.75, 1.0].forEach(f => {
     const y = mapY(yMax * f);
     ctx.beginPath(); ctx.moveTo(PL, y); ctx.lineTo(W - PR, y); ctx.stroke();
-    ctx.fillStyle = '#7a6a9a'; ctx.font = '11px "Share Tech Mono", monospace'; ctx.textAlign = 'right';
+    ctx.fillStyle = dimCol; ctx.font = '11px "Share Tech Mono", monospace'; ctx.textAlign = 'right';
     ctx.fillText(Math.round(yMax * f), PL - 4, y + 4);
   });
-  ctx.strokeStyle = 'rgba(255,153,0,0.3)'; ctx.lineWidth = 1;
+  ctx.strokeStyle = 'rgba(' + orangeRgb + ',0.3)'; ctx.lineWidth = 1;
   ctx.beginPath(); ctx.moveTo(PL, PT); ctx.lineTo(PL, PT + gH); ctx.stroke();
 
   // Fill: total n (dim purple)
   ctx.beginPath();
   recent.forEach((p, i) => { const x = mapX(p.ts), y = mapY(p.n); i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); });
   ctx.lineTo(mapX(recent[recent.length-1].ts), PT+gH); ctx.lineTo(mapX(recent[0].ts), PT+gH); ctx.closePath();
-  ctx.fillStyle = 'rgba(100,50,150,0.15)'; ctx.fill();
+  ctx.fillStyle = 'rgba(' + totalRgb + ',0.15)'; ctx.fill();
 
-  // Fill: lit (cyan)
+  // Fill: lit (ok)
   ctx.beginPath();
   recent.forEach((p, i) => { const x = mapX(p.ts), y = mapY(p.lit); i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); });
   ctx.lineTo(mapX(recent[recent.length-1].ts), PT+gH); ctx.lineTo(mapX(recent[0].ts), PT+gH); ctx.closePath();
   const litG = ctx.createLinearGradient(0, PT, 0, PT+gH);
-  litG.addColorStop(0, 'rgba(0,255,136,0.25)'); litG.addColorStop(1, 'rgba(0,255,136,0)');
+  litG.addColorStop(0, 'rgba(' + okRgb + ',0.25)'); litG.addColorStop(1, 'rgba(' + okRgb + ',0)');
   ctx.fillStyle = litG; ctx.fill();
 
   // Line: total n (dim, dashed)
-  ctx.strokeStyle = 'rgba(150,100,200,0.5)'; ctx.lineWidth = 1; ctx.setLineDash([4,4]);
+  ctx.strokeStyle = 'rgba(' + totalRgb + ',0.5)'; ctx.lineWidth = 1; ctx.setLineDash([4,4]);
   ctx.beginPath();
   recent.forEach((p, i) => { const x = mapX(p.ts), y = mapY(p.n); i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); });
   ctx.stroke(); ctx.setLineDash([]);
 
-  // Line: lit (neon green, glow)
+  // Line: lit (neon glow)
   ctx.beginPath();
   recent.forEach((p, i) => { const x = mapX(p.ts), y = mapY(p.lit); i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); });
-  ctx.strokeStyle = 'rgba(0,255,136,0.2)'; ctx.lineWidth = 5; ctx.stroke();
+  ctx.strokeStyle = 'rgba(' + okRgb + ',0.2)'; ctx.lineWidth = 5; ctx.stroke();
   ctx.beginPath();
   recent.forEach((p, i) => { const x = mapX(p.ts), y = mapY(p.lit); i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); });
-  ctx.strokeStyle = '#00FF88'; ctx.lineWidth = 1.8; ctx.stroke();
+  ctx.strokeStyle = okCol; ctx.lineWidth = 1.8; ctx.stroke();
 
   // Line: blank (orange, dashed)
   ctx.setLineDash([4, 3]);
   ctx.beginPath();
   recent.forEach((p, i) => { const x = mapX(p.ts), y = mapY(p.blank); i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); });
-  ctx.strokeStyle = '#FF9900'; ctx.lineWidth = 1.2; ctx.stroke();
+  ctx.strokeStyle = orangeCol; ctx.lineWidth = 1.2; ctx.stroke();
   ctx.setLineDash([]);
 
   // Labels top-right
   const last = recent[recent.length - 1];
   ctx.font = 'bold 12px "Share Tech Mono", monospace'; ctx.textAlign = 'left';
-  ctx.fillStyle = 'rgba(150,100,200,0.7)'; ctx.fillText('n=' + last.n,       PL + 4, PT + 14);
-  ctx.fillStyle = '#00FF88';               ctx.fillText('lit=' + last.lit,   PL + 4 + (W-PL-PR)*0.35, PT + 14);
-  ctx.fillStyle = '#FF9900';               ctx.fillText('blank=' + last.blank, PL + 4 + (W-PL-PR)*0.65, PT + 14);
+  ctx.fillStyle = 'rgba(' + totalRgb + ',0.7)'; ctx.fillText('n=' + last.n,       PL + 4, PT + 14);
+  ctx.fillStyle = okCol;                        ctx.fillText('lit=' + last.lit,   PL + 4 + (W-PL-PR)*0.35, PT + 14);
+  ctx.fillStyle = orangeCol;                    ctx.fillText('blank=' + last.blank, PL + 4 + (W-PL-PR)*0.65, PT + 14);
 
   drawHoverCrosshair(ctx, PL, PT, gW, gH, oldest, recent, sFrameHoverFrac, 'frame-hover-info',
     p => 'n=' + p.n + '  lit=' + p.lit + '  blank=' + p.blank);
@@ -6248,7 +6549,7 @@ function pushCpu(c0, c1) {
   // Update large current-load readout
   if (c0 != null) {
     const v0 = +c0;
-    const col0 = v0 >= CPU_CRIT ? 'var(--bad)' : v0 >= CPU_WARN ? 'var(--warn)' : '#0cf';
+    const col0 = v0 >= CPU_CRIT ? 'var(--bad)' : v0 >= CPU_WARN ? 'var(--warn)' : 'var(--cyan)';
     const el0 = document.getElementById('cpu-load-0');
     if (el0) { el0.textContent = v0 + ' %'; el0.style.color = col0; }
   }
@@ -6271,8 +6572,8 @@ function renderCpuGraph() {
 
   // Background gradient
   const bgGrad = ctx.createLinearGradient(0, 0, 0, H);
-  bgGrad.addColorStop(0, '#0a0020');
-  bgGrad.addColorStop(1, '#000008');
+  bgGrad.addColorStop(0, themeColor('--chart-bg-top'));
+  bgGrad.addColorStop(1, themeColor('--chart-bg-bottom'));
   ctx.fillStyle = bgGrad;
   ctx.fillRect(0, 0, W, H);
 
@@ -6282,18 +6583,22 @@ function renderCpuGraph() {
     ctx.fillRect(0, y, W, 2);
   }
 
+  const borderCol = themeColor('--border'), gridRgb = themeColor('--border-rgb'), dimCol = themeColor('--dim');
+  const cyanRgb = themeColor('--cyan-rgb'), cyanCol = themeColor('--cyan');
+  const orangeRgb = themeColor('--orange-rgb'), badRgb = themeColor('--bad-rgb'), accentRgb = themeColor('--accent-rgb');
+
   // Grid lines + Y labels
   [0, 25, 50, 75, 100].forEach(pct => {
     const y = PT + gH - (pct / 100) * gH;
-    ctx.strokeStyle = pct === 0 ? '#2D1B4E' : 'rgba(45,27,78,0.6)';
+    ctx.strokeStyle = pct === 0 ? borderCol : 'rgba(' + gridRgb + ',0.6)';
     ctx.lineWidth = pct === 0 ? 1 : 0.5;
     ctx.beginPath(); ctx.moveTo(PL, y); ctx.lineTo(W - PR, y); ctx.stroke();
-    ctx.fillStyle = '#7a6a9a'; ctx.font = '11px "Share Tech Mono", monospace'; ctx.textAlign = 'right';
+    ctx.fillStyle = dimCol; ctx.font = '11px "Share Tech Mono", monospace'; ctx.textAlign = 'right';
     ctx.fillText(pct + '%', PL - 5, y + 4);
   });
 
   // Threshold lines (warn/crit) — neon dashed
-  [[CPU_WARN, 'rgba(255,153,0,0.7)'], [CPU_CRIT, 'rgba(255,34,68,0.8)']].forEach(([pct, col]) => {
+  [[CPU_WARN, 'rgba(' + orangeRgb + ',0.7)'], [CPU_CRIT, 'rgba(' + badRgb + ',0.8)']].forEach(([pct, col]) => {
     const y = PT + gH - (pct / 100) * gH;
     ctx.strokeStyle = col; ctx.setLineDash([5, 4]); ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(PL, y); ctx.lineTo(W - PR, y); ctx.stroke();
@@ -6340,16 +6645,16 @@ function renderCpuGraph() {
     ctx.strokeStyle = lineCol; ctx.lineWidth = 1.8; ctx.stroke();
   }
 
-  drawSeries(sCpuData.c0, '#00FFFF', 'rgb(0,255,255)', 0.12);
+  drawSeries(sCpuData.c0, cyanCol, 'rgb(' + cyanRgb + ')', 0.12);
 
   // Left border accent line
-  ctx.strokeStyle = 'rgba(0,255,255,0.3)'; ctx.lineWidth = 1;
+  ctx.strokeStyle = 'rgba(' + cyanRgb + ',0.3)'; ctx.lineWidth = 1;
   ctx.beginPath(); ctx.moveTo(PL, PT); ctx.lineTo(PL, PT + gH); ctx.stroke();
 
   // Hover crosshair
   if (sCpuHoverIdx >= 0 && sCpuHoverIdx < CPU_HISTORY) {
     const x = PL + (sCpuHoverIdx / (CPU_HISTORY - 1)) * gW;
-    ctx.strokeStyle = 'rgba(255,0,255,0.4)'; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+    ctx.strokeStyle = 'rgba(' + accentRgb + ',0.4)'; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
     ctx.beginPath(); ctx.moveTo(x, PT); ctx.lineTo(x, PT+gH); ctx.stroke();
     ctx.setLineDash([]);
     const v0 = sCpuData.c0[sCpuHoverIdx];
@@ -7747,7 +8052,7 @@ async function saveNtpConfig() {
 
 <script>
 const CALIB_PREVIEW=['<svg viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg"><rect width="128" height="128" fill="#000"/><circle cx="64" cy="64" r="52" fill="none" stroke="#fff" stroke-width="7" stroke-dasharray="22 12"/></svg>','<svg viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg"><rect width="128" height="128" fill="#000"/><rect x="20" y="20" width="88" height="88" fill="none" stroke="#f00" stroke-width="2"/><circle cx="64" cy="64" r="44" fill="none" stroke="#0f0" stroke-width="2"/></svg>','<svg viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg"><rect width="128" height="128" fill="#000"/><rect x="8" y="8" width="112" height="112" fill="none" stroke="#f00" stroke-width="2"/><rect x="32" y="32" width="64" height="64" fill="none" stroke="#00f" stroke-width="2"/><circle cx="64" cy="64" r="32" fill="none" stroke="#00f" stroke-width="2"/><line x1="8" y1="64" x2="120" y2="64" stroke="#0f0" stroke-width="1"/><line x1="64" y1="8" x2="64" y2="120" stroke="#0f0" stroke-width="1"/></svg>','<svg viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg"><rect width="128" height="128" fill="#000"/><rect x="5" y="5" width="118" height="118" fill="none" stroke="#ff0" stroke-width="2"/><rect x="32" y="32" width="64" height="64" fill="none" stroke="#333" stroke-width="1" stroke-dasharray="4 3"/><circle cx="64" cy="64" r="59" fill="none" stroke="#0f0" stroke-width="2"/></svg>','<svg viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg"><rect width="128" height="128" fill="#000"/><polygon points="64,16 110,48 94,104 34,104 18,48" fill="none" stroke="#f00" stroke-width="2"/><circle cx="64" cy="16" r="4" fill="#0f0"/><circle cx="110" cy="48" r="4" fill="#0f0"/><circle cx="94" cy="104" r="4" fill="#0f0"/><circle cx="34" cy="104" r="4" fill="#0f0"/><circle cx="18" cy="48" r="4" fill="#0f0"/></svg>','<svg viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg"><rect width="128" height="128" fill="#000"/><rect x="16" y="16" width="96" height="96" fill="none" stroke="#333" stroke-width="1"/><circle cx="16" cy="16" r="10" fill="#f00"/><circle cx="112" cy="16" r="10" fill="#0f0"/><circle cx="112" cy="112" r="10" fill="#00f"/><circle cx="16" cy="112" r="10" fill="#fff"/></svg>','<svg viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg"><rect width="128" height="128" fill="#000"/><circle cx="26" cy="64" r="20" fill="none" stroke="#f00" stroke-width="3"/><circle cx="64" cy="64" r="20" fill="none" stroke="#0f0" stroke-width="3"/><circle cx="102" cy="64" r="20" fill="none" stroke="#00f" stroke-width="3"/></svg>','<svg viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg"><rect width="128" height="128" fill="#000"/><polyline points="2.0,84 8.0,82.5 14.0,84" fill="none" stroke="hsl(0,100%,55%)" stroke-width="1.5" stroke-linejoin="round"/><polyline points="18.1,84 24.0,80.2 29.9,84" fill="none" stroke="hsl(45,100%,55%)" stroke-width="1.5" stroke-linejoin="round"/><polyline points="34.3,84 40.0,77.4 45.7,84" fill="none" stroke="hsl(90,100%,55%)" stroke-width="1.5" stroke-linejoin="round"/><polyline points="50.7,84 56.0,73.8 61.3,84" fill="none" stroke="hsl(135,100%,55%)" stroke-width="1.5" stroke-linejoin="round"/><polyline points="67.4,84 72.0,69.9 76.6,84" fill="none" stroke="hsl(180,100%,55%)" stroke-width="1.5" stroke-linejoin="round"/><polyline points="84.6,84 88.0,66.0 91.4,84" fill="none" stroke="hsl(225,100%,55%)" stroke-width="1.5" stroke-linejoin="round"/><polyline points="102.2,84 104.0,63.0 105.8,84" fill="none" stroke="hsl(270,100%,55%)" stroke-width="1.5" stroke-linejoin="round"/><polyline points="119.7,84 120.0,62.0 120.3,84" fill="none" stroke="hsl(315,100%,55%)" stroke-width="1.5" stroke-linejoin="round"/></svg>','<svg viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg"><rect width="128" height="128" fill="#000"/><line x1="59" y1="20" x2="68" y2="20" stroke="hsl(0,100%,55%)" stroke-width="2.5"/><line x1="46" y1="42" x2="82" y2="42" stroke="hsl(72,100%,55%)" stroke-width="2.5"/><line x1="32" y1="64" x2="95" y2="64" stroke="hsl(144,100%,55%)" stroke-width="2.5"/><line x1="19" y1="86" x2="108" y2="86" stroke="hsl(216,100%,55%)" stroke-width="2.5"/><line x1="6" y1="108" x2="121" y2="108" stroke="hsl(288,100%,55%)" stroke-width="2.5"/></svg>','<svg viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg"><rect width="128" height="128" fill="#000"/><circle cx="8" cy="64" r="7" fill="none" stroke="hsl(0,100%,55%)" stroke-width="2"/><circle cx="25" cy="64" r="7" fill="none" stroke="hsl(72,100%,55%)" stroke-width="2"/><circle cx="66" cy="64" r="7" fill="none" stroke="hsl(144,100%,55%)" stroke-width="2"/><circle cx="129" cy="64" r="7" fill="none" stroke="hsl(216,100%,55%)" stroke-width="2"/><circle cx="215" cy="64" r="7" fill="none" stroke="hsl(288,100%,55%)" stroke-width="2"/><line x1="15" y1="64" x2="18" y2="64" stroke="#333" stroke-width="1" stroke-dasharray="3 2"/><line x1="32" y1="64" x2="58" y2="64" stroke="#333" stroke-width="1" stroke-dasharray="3 2"/><line x1="72" y1="64" x2="122" y2="64" stroke="#333" stroke-width="1" stroke-dasharray="3 2"/><line x1="136" y1="64" x2="208" y2="64" stroke="#333" stroke-width="1" stroke-dasharray="3 2"/></svg>','<svg viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg"><rect width="128" height="128" fill="#000"/><line x1="8" y1="8" x2="120" y2="120" stroke="#fff" stroke-width="2"/><polygon points="64.0,14.0 66.0,60.5 107.3,39.0 68.0,64.0 107.3,89.0 66.0,67.5 64.0,114.0 62.0,67.5 20.7,89.0 60.0,64.0 20.7,39.0 62.0,60.5" fill="none" stroke="#f80" stroke-width="1.5" stroke-linejoin="round"/></svg>'];
-async function loadCalibPatterns(){const res=await apiCall('GET','/api/calib-pattern/list');if(!res||!res.patterns)return;const list=document.getElementById('calib-pattern-list');list.innerHTML=res.patterns.map(p=>'<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;border:1px solid var(--border);border-radius:4px;cursor:pointer" id="calib-btn-'+p.idx+'" onclick="calibPlay('+p.idx+')"><span style="font-family:monospace;font-size:13px;color:var(--accent);min-width:20px">'+(res.active&&res.idx===p.idx?'▶':'○')+'</span><span style="flex:1"><div style="font-size:14px;color:var(--text)">'+p.name+'</div><div style="font-size:12px;color:var(--dim)">'+p.desc+'</div>'+(p.check?'<div style="font-size:12px;color:var(--accent);margin-top:2px">💡 '+p.check+'</div>':'')+'</span><span style="flex:0 0 128px;width:128px;height:128px;border:1px solid var(--border);border-radius:4px;overflow:hidden;background:#000" title="Expected output">'+(CALIB_PREVIEW[p.idx]||'')+'</span></div>').join('');}
+async function loadCalibPatterns(){const res=await apiCall('GET','/api/calib-pattern/list');if(!res||!res.patterns)return;const list=document.getElementById('calib-pattern-list');list.innerHTML=res.patterns.map(p=>'<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;border:1px solid var(--border);border-radius:4px;cursor:pointer" id="calib-btn-'+p.idx+'" onclick="calibPlay('+p.idx+')"><span style="font-family:monospace;font-size:13px;color:var(--accent);min-width:20px">'+(res.active&&res.idx===p.idx?'▶':'○')+'</span><span style="flex:1"><div style="font-size:14px;color:var(--text)">'+p.name+'</div><div style="font-size:12px;color:var(--dim)">'+p.desc+'</div>'+(p.check?'<div style="font-size:12px;color:var(--accent);margin-top:2px">💡 '+p.check+'</div>':'')+'</span><span style="flex:0 0 128px;width:128px;height:128px;border:1px solid var(--border);border-radius:4px;overflow:hidden;background:var(--void)" title="Expected output">'+(CALIB_PREVIEW[p.idx]||'')+'</span></div>').join('');}
 let calibActiveIdx=-1,calibPatterns=[];
 async function calibPlay(idx){calibActiveIdx=idx;calibPatterns=calibPatterns||[];await calibSend();document.getElementById('calib-status').textContent='▶ Pattern '+idx;loadCalibPatterns();}
 async function calibSend(){await apiCall('POST','/api/calib-pattern',{active:calibActiveIdx>=0,idx:Math.max(0,calibActiveIdx)});}
@@ -7998,7 +8303,7 @@ function enhanceSliders(root) {
     num.step = slider.step || '1';
     num.value = slider.value;
     num.style.cssText = 'width:60px;margin-left:8px;font-family:monospace;font-size:14px;'
-      + 'background:#0a0a14;color:var(--text);border:1px solid var(--border);'
+      + 'background:var(--input-bg);color:var(--text);border:1px solid var(--border);'
       + 'border-radius:4px;padding:2px 4px;vertical-align:middle';
 
     // Slider -> number field
