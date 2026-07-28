@@ -684,6 +684,40 @@ struct SequencerConfig {
 };
 extern SequencerConfig gSequencer;
 
+/* ============================================================
+ * Layer Engine -- parametric Shape/Color/Transform stack (layers.cpp)
+ * `shape` stores a patterns::layer_shapes::ShapeType, kept as a plain
+ * uint8_t here so config.h doesn't have to include layer_shapes.h (which
+ * itself includes config.h) -- cast at the layers.cpp/pattern_engine.cpp
+ * call sites that actually dispatch on shape type.
+ * ============================================================ */
+constexpr uint8_t LAYER_MAX = 4;
+struct Layer {
+    bool    enabled    = false;
+    uint8_t shape       = 0;      // layer_shapes::ShapeType::Circle
+    uint8_t shapeParam  = 5;      // sides / points / petals / lobes / rings, meaning is per-shape
+    float   scaleX      = 0.5f;   // Shape panel: 0..1 fraction of full radius
+    float   scaleY      = 0.5f;
+    bool    hsv         = false;  // false = HSL, true = HSV (Color panel Mode toggle)
+    float   hue         = 0.0f;   // 0..360
+    float   sat         = 1.0f;   // 0..1
+    float   light       = 0.5f;   // 0..1 (Lightness or Value, per hsv)
+    uint8_t fadeEnds    = 0;      // 0..100%, brightness ramp near each path end
+    bool    scaleLinked = true;   // Transform panel: Scale X/Y slider-link toggle
+    float   xScaleX     = 1.0f;   // Transform panel: additional post-shape scale/shift/rotate
+    float   xScaleY     = 1.0f;
+    float   xShiftX     = 0.0f;
+    float   xShiftY     = 0.0f;
+    float   xRotation   = 0.0f;   // degrees
+};
+struct LayerStack {
+    Layer   layers[LAYER_MAX];
+    uint8_t count    = 0;
+    bool    active   = false;   // Layer mode on/off (mutually exclusive w/ Curve/Paint/Preset)
+    uint8_t selected = 0;       // which layer the WebUI is currently editing
+};
+extern LayerStack gLayerStack;   // guarded by mtx::state, same convention as gSequencer/gLivePreset
+
 // ── Mathematical Curve Mode ──────────────────────────────────────────────────
 struct CurveConfig {
     int8_t  active_curve = -1;             // -1 = off, 0..8 = curve index

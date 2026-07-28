@@ -29,7 +29,9 @@ void init();
 void tick();
 
 // True while a transitionBeats blank window is active -- pattern_engine.cpp
-// short-circuits the Preset-mode branch on this instead of rendering.
+// keeps rendering/animating normally (so color/rotation/modulator state
+// doesn't freeze) but forces the frame's points blank right before push, so
+// the beam output alone goes dark for the transition.
 bool isBlanking();
 
 // Transport. All hard-cut immediately (no transition blank) except the

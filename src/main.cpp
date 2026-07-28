@@ -49,6 +49,7 @@ RuntimeState     gState;
 SafetyConfig     gSafety;
 PlaylistConfig   gPlaylist;
 SequencerConfig  gSequencer;
+LayerStack       gLayerStack;
 WebOverride      gOverride;
 LivePresetControls gLivePreset;
 TextConfig       gTextConfig;

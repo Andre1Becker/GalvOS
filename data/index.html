@@ -821,6 +821,7 @@
 <nav>
   <button data-tab="dashboard" class="active">Dashboard</button>
   <button data-tab="dmx">DMX Live</button>
+  <button data-tab="layer">🧬 Layer</button>
   <button data-tab="modulators">🥁 Modulators</button>
   <button data-tab="presets">🎭 Presets</button>
   <button data-tab="preset-manager">🌐 Preset Manager</button>
@@ -1570,6 +1571,27 @@
       <button class="btn secondary" onclick="presetRainbow()">Test: Rainbow</button>
     </div>
   </div>
+</section>
+
+<!-- ============= LAYER ENGINE ============= -->
+<section id="tab-layer" class="tab">
+  <div class="card" style="margin-bottom:16px">
+    <h2>🧬 Layer Engine
+      <label style="float:right;display:flex;align-items:center;gap:8px;font-size:14px;font-weight:normal">
+        <input type="checkbox" id="layer-active-toggle" onchange="layerSetActive(this.checked)">
+        Active
+      </label>
+    </h2>
+    <p style="color:var(--dim);font-size:14px;margin:4px 0 14px">
+      Up to 4 parametric layers (Shape + Color + Transform), stacked and rendered together.
+      Enabling Active overrides Preset/Curve/Paint output, same as those modes already do for
+      each other.
+    </p>
+    <div id="layer-list" style="display:flex;flex-direction:column;gap:6px"></div>
+    <button class="btn secondary" onclick="layerAdd()" style="width:100%;margin-top:10px">+ Add Layer</button>
+  </div>
+
+  <div id="layer-editor" class="grid cols-3"></div>
 </section>
 
 <!-- ============= MODULATORS (BPM Clock) ============= -->
@@ -2837,6 +2859,7 @@ document.querySelectorAll('nav button').forEach(btn => {
     // Lazy-load tab data on first visit
     const t = btn.dataset.tab;
     if (t === 'projection') loadProjection();
+    if (t === 'layer') loadLayers();
     if (t === 'modulators') { loadSequencer(); loadModulators(); }
     if (t === 'presets' && g_curve_defs.length === 0) loadCurveDefs();
     if (t === 'presets' || t === 'preset-manager') loadCommunityPresets();
@@ -2858,7 +2881,14 @@ async function apiCall(method, url, body) {
       opts.headers['Content-Type'] = 'application/json';
       opts.body = typeof body === 'string' ? body : JSON.stringify(body);
     }
-    const r = await fetch(url, opts);
+    // Bounded timeout so one stuck request (e.g. a transient firmware hiccup)
+    // can't tie up the browser's per-origin connection pool and delay every
+    // other control the user clicks afterward -- was silently unbounded.
+    const ac = new AbortController();
+    const to = setTimeout(() => ac.abort(), 10000);
+    opts.signal = ac.signal;
+    let r;
+    try { r = await fetch(url, opts); } finally { clearTimeout(to); }
     if (!r.ok) {
       // Try to extract a structured error message from the response body
       // ({"error":"..."}); fall back to generic "Error <status>".
@@ -2881,7 +2911,7 @@ async function apiCall(method, url, body) {
     }
     const ct = r.headers.get('content-type') || '';
     return ct.includes('json') ? await r.json() : await r.text();
-  } catch(e) { toast('Network error', true); return null; }
+  } catch(e) { toast(e.name === 'AbortError' ? 'Request timed out' : 'Network error', true); return null; }
 }
 
 function handleStateUpdate(s) {
@@ -3931,6 +3961,212 @@ var MOD_WAVE_ICONS = [
   '<svg viewBox="0 0 32 16" width="20" height="12"><path d="M0 2 L0 2 L8 2 L8 14 L16 14 L16 2 L24 2 L24 14 L32 14" fill="none" stroke="currentColor" stroke-width="2"/></svg>',
   '<svg viewBox="0 0 32 16" width="20" height="12"><path d="M0 14 L16 2 L16 14 L32 2" fill="none" stroke="currentColor" stroke-width="2"/></svg>'
 ];
+
+// ============================================================
+// Layer Engine (Phase 1 -- Shape / Color / Transform, see
+// plans/mutable-dreaming-candy.md; Camera / Dotter / Duplicator / 3D
+// shapes are later phases and have no UI yet)
+// ============================================================
+var layerState = { active: false, selected: 0, layers: [] };
+var LAYER_SHAPES = [
+  {v:0,label:'Circle'}, {v:1,label:'Square'}, {v:2,label:'Polygon'}, {v:3,label:'Star'},
+  {v:4,label:'Wave'}, {v:5,label:'Rose'}, {v:6,label:'Spiral'}, {v:7,label:'Spirograph'},
+  {v:8,label:'Rosette'}, {v:9,label:'Waveform Tunnel'}
+];
+
+function loadLayers() {
+  apiCall('GET', '/api/layers').then(function(r) {
+    if (!r) return;
+    layerState.active   = !!r.active;
+    layerState.selected = r.selected || 0;
+    layerState.layers   = r.layers || [];
+    var toggle = document.getElementById('layer-active-toggle');
+    if (toggle) toggle.checked = layerState.active;
+    renderLayerList();
+    renderLayerEditor();
+  });
+}
+
+function layerPersistStack() {
+  apiCall('POST', '/api/layers', { layers: layerState.layers, active: layerState.active, selected: layerState.selected });
+}
+
+function layerSetActive(active) {
+  layerState.active = !!active;
+  apiCall('POST', '/api/layers/active', { active: layerState.active });
+}
+
+function layerAdd() {
+  if (layerState.layers.length >= 4) { toast('Max 4 layers', true); return; }
+  layerState.layers.push({
+    enabled: true, shape: 0, shapeParam: 5, scaleX: 0.5, scaleY: 0.5,
+    hsv: false, hue: 0, sat: 1, light: 0.5, fadeEnds: 0,
+    scaleLinked: true, xScaleX: 1, xScaleY: 1, xShiftX: 0, xShiftY: 0, xRotation: 0
+  });
+  layerState.selected = layerState.layers.length - 1;
+  layerPersistStack();
+  renderLayerList();
+  renderLayerEditor();
+}
+
+function layerRemove(i) {
+  layerState.layers.splice(i, 1);
+  if (layerState.selected >= layerState.layers.length) layerState.selected = Math.max(0, layerState.layers.length - 1);
+  layerPersistStack();
+  renderLayerList();
+  renderLayerEditor();
+}
+
+function layerSelect(i) {
+  layerState.selected = i;
+  layerPersistStack();
+  renderLayerList();
+  renderLayerEditor();
+}
+
+function layerToggleEnabled(i, checked) {
+  layerState.layers[i].enabled = !!checked;
+  layerPatch(i, { enabled: !!checked });
+  renderLayerList();
+}
+
+// Patches a single field (or several at once via an object) on layer `idx`,
+// updates local state immediately (snappy UI) and persists via PATCH --
+// same split as modPatch()/modSetField() above.
+function layerPatch(idx, fields) {
+  var l = layerState.layers[idx];
+  if (!l) return;
+  for (var k in fields) if (fields.hasOwnProperty(k)) l[k] = fields[k];
+  apiCall('PATCH', '/api/layers?idx=' + idx, fields);
+}
+
+function layerSetField(idx, field, value, isFloat) {
+  var v = isFloat ? parseFloat(value) : parseInt(value, 10);
+  if (isNaN(v)) return;
+  var fields = {};
+  fields[field] = v;
+  layerPatch(idx, fields);
+}
+
+function layerSetBool(idx, field, checked) {
+  var fields = {};
+  fields[field] = !!checked;
+  layerPatch(idx, fields);
+  renderLayerEditor();
+}
+
+function layerSetShape(idx, shapeVal) {
+  layerPatch(idx, { shape: shapeVal });
+  renderLayerList();
+  renderLayerEditor();
+}
+
+// Transform panel's Scale X/Y link: dragging X also pushes Y while linked,
+// so the beam scales uniformly instead of the user having to match two
+// sliders by eye.
+function layerSetScaleX(idx, value) {
+  var v = parseFloat(value);
+  if (isNaN(v)) return;
+  var l = layerState.layers[idx];
+  var fields = { xScaleX: v };
+  if (l && l.scaleLinked) fields.xScaleY = v;
+  layerPatch(idx, fields);
+}
+
+function layerShapeName(v) {
+  for (var i = 0; i < LAYER_SHAPES.length; i++) if (LAYER_SHAPES[i].v === v) return LAYER_SHAPES[i].label;
+  return '?';
+}
+
+function renderLayerList() {
+  var root = document.getElementById('layer-list');
+  if (!root) return;
+  if (layerState.layers.length === 0) { root.innerHTML = '<p style="color:var(--dim);font-size:14px">No layers yet -- Add Layer below.</p>'; return; }
+  var html = '';
+  for (var i = 0; i < layerState.layers.length; i++) {
+    var l = layerState.layers[i];
+    var sel = (i === layerState.selected);
+    html += '<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:8px;'
+          + 'background:' + (sel ? 'var(--bg2)' : 'transparent') + ';'
+          + 'border:1px solid ' + (sel ? 'var(--accent)' : 'var(--border)') + '">';
+    html += '<input type="checkbox" ' + (l.enabled ? 'checked' : '') +
+            ' onclick="event.stopPropagation();layerToggleEnabled(' + i + ',this.checked)">';
+    html += '<span style="flex:1;cursor:pointer" onclick="layerSelect(' + i + ')">Layer ' + (i + 1) +
+            ' — ' + layerShapeName(l.shape) + '</span>';
+    html += '<button class="btn danger" style="padding:4px 8px" onclick="layerRemove(' + i + ')">&#10005;</button>';
+    html += '</div>';
+  }
+  root.innerHTML = html;
+}
+
+function layerShapeTileHtml(l, idx, shapeDef) {
+  var active = (l.shape === shapeDef.v);
+  return '<div onclick="layerSetShape(' + idx + ',' + shapeDef.v + ')" '
+       + 'style="cursor:pointer;text-align:center;padding:10px 4px;border-radius:8px;'
+       + 'border:2px solid ' + (active ? 'var(--accent)' : 'var(--border)') + ';background:var(--bg2);font-size:12px">'
+       + shapeDef.label + '</div>';
+}
+
+function renderLayerEditor() {
+  var root = document.getElementById('layer-editor');
+  if (!root) return;
+  var i = layerState.selected;
+  var l = layerState.layers[i];
+  if (!l) { root.innerHTML = '<p style="color:var(--dim)">No layer selected -- add one above.</p>'; return; }
+
+  var html = '';
+
+  // ---- Shape ----
+  html += '<div class="card"><h3>Shape</h3>';
+  html += '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:12px">';
+  for (var s = 0; s < LAYER_SHAPES.length; s++) html += layerShapeTileHtml(l, i, LAYER_SHAPES[s]);
+  html += '</div>';
+  if (l.shape !== 0 && l.shape !== 1) {
+    html += '<label>Param (sides / points / petals / lobes / rings)</label>';
+    html += '<input type="range" min="1" max="20" step="1" value="' + l.shapeParam + '" ' +
+            'oninput="layerSetField(' + i + ',' + Q + 'shapeParam' + Q + ',this.value,false)">';
+  }
+  html += '<label>Scale X</label><input type="range" min="0.05" max="1" step="0.01" value="' + l.scaleX + '" ' +
+          'oninput="layerSetField(' + i + ',' + Q + 'scaleX' + Q + ',this.value,true)">';
+  html += '<label>Scale Y</label><input type="range" min="0.05" max="1" step="0.01" value="' + l.scaleY + '" ' +
+          'oninput="layerSetField(' + i + ',' + Q + 'scaleY' + Q + ',this.value,true)">';
+  html += '</div>';
+
+  // ---- Color ----
+  html += '<div class="card"><h3>Color</h3>';
+  html += '<div style="display:flex;gap:8px;margin-bottom:10px">';
+  html += '<button class="btn ' + (!l.hsv ? 'ok' : 'secondary') + '" style="flex:1" onclick="layerSetBool(' + i + ',' + Q + 'hsv' + Q + ',false)">HSL</button>';
+  html += '<button class="btn ' + (l.hsv ? 'ok' : 'secondary') + '" style="flex:1" onclick="layerSetBool(' + i + ',' + Q + 'hsv' + Q + ',true)">HSV</button>';
+  html += '</div>';
+  html += '<label>Hue</label><input type="range" min="0" max="360" step="1" value="' + l.hue + '" ' +
+          'oninput="layerSetField(' + i + ',' + Q + 'hue' + Q + ',this.value,true)">';
+  html += '<label>Saturation</label><input type="range" min="0" max="1" step="0.01" value="' + l.sat + '" ' +
+          'oninput="layerSetField(' + i + ',' + Q + 'sat' + Q + ',this.value,true)">';
+  html += '<label>' + (l.hsv ? 'Value' : 'Lightness') + '</label><input type="range" min="0" max="1" step="0.01" value="' + l.light + '" ' +
+          'oninput="layerSetField(' + i + ',' + Q + 'light' + Q + ',this.value,true)">';
+  html += '<label>Fade Ends (%)</label><input type="range" min="0" max="100" step="1" value="' + l.fadeEnds + '" ' +
+          'oninput="layerSetField(' + i + ',' + Q + 'fadeEnds' + Q + ',this.value,false)">';
+  html += '</div>';
+
+  // ---- Transform ----
+  html += '<div class="card"><h3>Transform</h3>';
+  html += '<label style="display:flex;align-items:center;gap:8px"><input type="checkbox" ' + (l.scaleLinked ? 'checked' : '') +
+          ' onchange="layerSetBool(' + i + ',' + Q + 'scaleLinked' + Q + ',this.checked)"> Link Scale X/Y</label>';
+  html += '<label>Scale X</label><input type="range" min="0.1" max="4" step="0.01" value="' + l.xScaleX + '" ' +
+          'oninput="layerSetScaleX(' + i + ',this.value)">';
+  html += '<label>Scale Y</label><input type="range" min="0.1" max="4" step="0.01" value="' + l.xScaleY + '" ' +
+          (l.scaleLinked ? 'disabled' : '') + ' oninput="layerSetField(' + i + ',' + Q + 'xScaleY' + Q + ',this.value,true)">';
+  html += '<label>Shift X</label><input type="range" min="-20000" max="20000" step="100" value="' + l.xShiftX + '" ' +
+          'oninput="layerSetField(' + i + ',' + Q + 'xShiftX' + Q + ',this.value,true)">';
+  html += '<label>Shift Y</label><input type="range" min="-20000" max="20000" step="100" value="' + l.xShiftY + '" ' +
+          'oninput="layerSetField(' + i + ',' + Q + 'xShiftY' + Q + ',this.value,true)">';
+  html += '<label>Rotation (°)</label><input type="range" min="0" max="360" step="1" value="' + l.xRotation + '" ' +
+          'oninput="layerSetField(' + i + ',' + Q + 'xRotation' + Q + ',this.value,true)">';
+  html += '</div>';
+
+  root.innerHTML = html;
+  enhanceSliders(root);
+}
 
 var modState = { modulators: [], bindings: [] };
 
@@ -8826,15 +9062,25 @@ function setConnPill(connected) {
   el.classList.toggle('conn-ok', connected);
   el.classList.toggle('conn-bad', !connected);
 }
+// Guards against overlapping polls: if one /api/state request stalls (or a
+// slow response arrives late), skip the next tick(s) instead of piling up
+// fetches -- a stuck poll used to compound with the user's own click into a
+// multi-second perceived UI freeze even after the request itself finished.
+let s_pollInFlight = false;
 async function pollState() {
+  if (s_pollInFlight) return;
+  s_pollInFlight = true;
+  const ac = new AbortController();
+  const to = setTimeout(() => ac.abort(), 5000);
   try {
-    const r = await fetch('/api/state');
+    const r = await fetch('/api/state', {signal: ac.signal});
     if (!r.ok) { setConnPill(false); return; }
     const s = await r.json();
     setConnPill(true);
     handleStateUpdate(s);
     handleTempState(s);
-  } catch(e) { setConnPill(false); /* ESP busy -- retry in 1s */ }
+  } catch(e) { setConnPill(false); /* ESP busy -- retry next tick */ }
+  finally { clearTimeout(to); s_pollInFlight = false; }
 }
 // Immediately + then every 1500ms
 pollState();
