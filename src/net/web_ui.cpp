@@ -28,6 +28,7 @@
 #include "net/ntp_client.h"
 #include "net/backup_manager.h"
 #include "bpm_clock.h"
+#include "../sequencer.h"
 #include "net/community_presets.h"
 #include "patterns/preset_patterns.h"
 #include "patterns/countdown_timer.h"
@@ -543,6 +544,15 @@ static void buildStateJson(JsonDocument& doc) {
     // BPM clock (0=Manual, 1=Tap, 2=DMX -- see bpm_clock::Source)
     doc["bpm"]        = bpm_clock::gBpm.bpm;
     doc["bpm_source"] = (int)bpm_clock::gBpm.source;
+    doc["bpm_phase"]  = bpm_clock::gBpm.phase_ms;  // 0-999, for WebUI beat-flash indicators
+
+    // Preset Sequencer -- lightweight transport status only; the full
+    // playlist (steps[]) is fetched separately via GET /api/sequencer, the
+    // same split /api/state vs /api/playlist already uses for Playlist.
+    doc["seq_running"]    = gSequencer.running;
+    doc["seq_loop"]       = gSequencer.loop;
+    doc["seq_current"]    = gSequencer.currentStep;
+    doc["seq_stepcount"]  = gSequencer.stepCount;
 }
 
 static void buildConfigJson(JsonDocument& doc) {
@@ -824,6 +834,7 @@ void init() {
     else {
         loadIndexGzToPsram();
         community_presets::init();
+        sequencer::init();
     }
 
     // ---- Statische SPA ----
@@ -2123,6 +2134,54 @@ void init() {
             req->send(200, "application/json",
                 String("{\"count\":") + gPlaylist.count + "}");
         });
+
+    // ── Preset Sequencer (BPM-synced preset playlist) ────────
+    // NOTE: the /api/sequencer/* action routes are registered before the
+    // bare /api/sequencer route, matching this file's existing convention
+    // (see /api/text vs /api/text/vertices above) even though ESPAsyncWebServer
+    // matches these particular URLs by exact string, not prefix.
+    s_server.on("/api/sequencer/start", HTTP_POST, [](AsyncWebServerRequest* req) {
+        sequencer::start();
+        req->send(200, "text/plain", "OK");
+    });
+    s_server.on("/api/sequencer/stop", HTTP_POST, [](AsyncWebServerRequest* req) {
+        sequencer::stop();
+        req->send(200, "text/plain", "OK");
+    });
+    s_server.on("/api/sequencer/next", HTTP_POST, [](AsyncWebServerRequest* req) {
+        sequencer::next();
+        req->send(200, "text/plain", "OK");
+    });
+    s_server.on("/api/sequencer/prev", HTTP_POST, [](AsyncWebServerRequest* req) {
+        sequencer::prev();
+        req->send(200, "text/plain", "OK");
+    });
+    s_server.on("/api/sequencer/step", HTTP_POST,
+        [](AsyncWebServerRequest* req) {}, nullptr,
+        [](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t, size_t) {
+            JsonDocument doc(&jsonAllocator());
+            if (deserializeJson(doc, data, len)) { req->send(400, "text/plain", "bad json"); return; }
+            sequencer::jumpTo((uint8_t)constrain((int)(doc["step"] | 0), 0, 255));
+            req->send(200, "text/plain", "OK");
+        });
+    s_server.on("/api/sequencer", HTTP_GET, [](AsyncWebServerRequest* req) {
+        JsonDocument doc(&jsonAllocator());
+        JsonObject root = doc.to<JsonObject>();
+        sequencer::fillStateJson(root);
+        sendJsonPsram(req, doc);
+    });
+    s_server.on("/api/sequencer", HTTP_POST,
+        [](AsyncWebServerRequest* req) {}, nullptr,
+        [](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t, size_t) {
+            JsonDocument doc(&jsonAllocator());
+            if (deserializeJson(doc, data, len)) { req->send(400, "text/plain", "bad json"); return; }
+            sequencer::setPlaylist(doc["steps"].as<JsonArrayConst>(), doc["loop"] | true);
+            req->send(200, "text/plain", "OK");
+        });
+    s_server.on("/api/sequencer", HTTP_DELETE, [](AsyncWebServerRequest* req) {
+        sequencer::clear();
+        req->send(200, "text/plain", "OK");
+    });
 
     // ── Feature 11: ILDA file upload via HTTP ────────────────
     s_server.on("/api/ilda/upload", HTTP_POST,

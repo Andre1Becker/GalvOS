@@ -32,6 +32,7 @@
 #include "net/osc_in.h"
 #include "net/sacn_in.h"
 #include "storage/playlist.h"
+#include "sequencer.h"
 #include "ilda/ilda_player.h"
 #include "net/artnet_in.h"
 #include "net/ntp_client.h"
@@ -47,6 +48,7 @@ RuntimeConfig    gConfig;
 RuntimeState     gState;
 SafetyConfig     gSafety;
 PlaylistConfig   gPlaylist;
+SequencerConfig  gSequencer;
 WebOverride      gOverride;
 LivePresetControls gLivePreset;
 TextConfig       gTextConfig;

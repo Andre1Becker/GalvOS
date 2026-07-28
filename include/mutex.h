@@ -18,7 +18,7 @@ namespace mtx {
 
 // Mutex handles — initialized in main.cpp
 extern SemaphoreHandle_t config;   // gConfig, gSafety
-extern SemaphoreHandle_t state;    // gState, gLivePreset, gTextConfig
+extern SemaphoreHandle_t state;    // gState, gLivePreset, gTextConfig, gSequencer
 extern SemaphoreHandle_t sd;       // SD card (all SD.open / scanFiles)
 extern SemaphoreHandle_t zone;     // gZone (projection zone polygon)
 extern SemaphoreHandle_t paint;    // gPaint (paint-by-finger canvas)

@@ -17,6 +17,7 @@
 #include "util/log_buffer.h"
 #include "util/mem_registry.h"
 #include "net/web_ui.h"
+#include "../sequencer.h"
 #include <Arduino.h>
 #include <math.h>
 #include <esp_log.h>
@@ -1022,6 +1023,13 @@ void task(void*) {
             web_ui::calibCamForceStop();
         }
 
+        // Preset Sequencer: beat-synced playlist advance. Runs every
+        // iteration regardless of current mode so a beat is never missed
+        // while e.g. ILDA/Text/Paint happen to be active; the actual preset
+        // switch (patterns::setPreset()) it may trigger only becomes visible
+        // once Preset mode is reached below.
+        sequencer::tick();
+
         if (s_test_pattern >= 0) {
             size_t n = 0;
             switch (s_test_pattern) {
@@ -1354,6 +1362,17 @@ void task(void*) {
                   vTaskDelay(pdMS_TO_TICKS(drain_ms + drain_ms / 4)); }
                 continue;
             }
+        }
+
+        // Sequencer transition blank: pen-up for transitionBeats before the
+        // next step's preset loads, hard-cut otherwise (see sequencer.cpp).
+        // Placed after ILDA/Text/Paint/Curve so it only ever overrides
+        // Preset-mode rendering, never another active mode.
+        if (sequencer::isBlanking()) {
+            static LaserPoint blank_pt = {0,0,0,0,0,1};
+            galvo::pushFrame(&blank_pt, 1);
+            vTaskDelay(pdMS_TO_TICKS(10));
+            continue;
         }
 
         // ---- Preset Mode (overrride DMX) ----

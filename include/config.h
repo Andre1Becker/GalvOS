@@ -665,6 +665,25 @@ struct PlaylistConfig {
 };
 extern PlaylistConfig gPlaylist;
 
+/* ============================================================
+ * Preset Sequencer -- BPM-synced preset playlist (sequencer.cpp)
+ * ============================================================ */
+#define SEQUENCER_MAX_STEPS 32
+struct SequencerStep {
+    uint8_t presetIdx       = 0;     // index into presets::PRESETS[]
+    uint8_t beats           = 4;     // step duration in beats (UI offers 1/2/4/8/16/32)
+    uint8_t transitionBeats = 0;     // blank window before next step, 0 = hard cut
+    bool    enabled         = true;
+};
+struct SequencerConfig {
+    SequencerStep steps[SEQUENCER_MAX_STEPS];
+    uint8_t       stepCount   = 0;
+    uint8_t       currentStep = 0;
+    bool          running     = false;
+    bool          loop        = true;
+};
+extern SequencerConfig gSequencer;
+
 // ── Mathematical Curve Mode ──────────────────────────────────────────────────
 struct CurveConfig {
     int8_t  active_curve = -1;             // -1 = off, 0..8 = curve index

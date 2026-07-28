@@ -1602,6 +1602,33 @@
       <input type="number" id="bpm-dmx-ch" min="1" max="512" value="237" onchange="bpmSetDmxChannel()">
     </div>
 
+    <div class="card" style="grid-column:1 / -1">
+      <h2>🎬 Sequencer
+        <span id="seq-beat-dot" style="display:inline-block;width:12px;height:12px;border-radius:50%;
+              background:var(--dim);margin-left:10px;vertical-align:middle"></span>
+      </h2>
+      <div class="stat-row">
+        <span>Status</span>
+        <span id="seq-status-pill" class="pill">Stopped</span>
+      </div>
+
+      <div style="display:flex;gap:8px;margin:14px 0">
+        <button class="btn ok" onclick="seqStart()" style="flex:1">▶ Start</button>
+        <button class="btn danger" onclick="seqStop()" style="flex:1">■ Stop</button>
+        <button class="btn secondary" onclick="seqPrev()" style="flex:1">⏮ Prev</button>
+        <button class="btn secondary" onclick="seqNext()" style="flex:1">⏭ Next</button>
+      </div>
+
+      <label style="display:flex;align-items:center;gap:8px">
+        <input type="checkbox" id="seq-loop" onchange="seqSetLoop()">
+        Loop playlist
+      </label>
+
+      <div id="seq-steps" style="margin-top:14px;display:flex;flex-direction:column;gap:6px"></div>
+
+      <button class="btn secondary" onclick="seqAddStep()" style="width:100%;margin-top:10px">+ Add Step</button>
+    </div>
+
   </div>
 </section>
 
@@ -2791,6 +2818,7 @@ document.querySelectorAll('nav button').forEach(btn => {
     // Lazy-load tab data on first visit
     const t = btn.dataset.tab;
     if (t === 'projection') loadProjection();
+    if (t === 'modulators') loadSequencer();
     if (t === 'presets' && g_curve_defs.length === 0) loadCurveDefs();
     if (t === 'presets' || t === 'preset-manager') loadCommunityPresets();
     if (t === 'thermal')  { buildTempSensors(); buildSensorNameEditor(); }
@@ -2844,6 +2872,7 @@ function handleStateUpdate(s) {
   setLed('scanfail', s.scanfail_ok);
 
   handleBpmState(s);
+  handleSequencerState(s);
 
   // Control interface LEDs (active/idle, not fault indicators -- reuses the
   // led.ok/led.bad colors purely as a visual on/off cue)
@@ -3678,6 +3707,183 @@ function handleBpmState(s) {
     srcEl.className = 'pill' + (s.bpm_source === 2 ? ' armed' : '');
   }
 }
+
+// ============================================================
+// Preset Sequencer (Modulators tab)
+// ============================================================
+var seqSteps = [];
+var seqLoop = true;
+var seqRunning = false;
+var seqCurrentStep = -1;
+var seqStepCount = 0;
+var seqBpmSnapshot = { bpm: 120, phase: 0, t: 0 };
+var SEQ_BEAT_CHOICES = [1, 2, 4, 8, 16, 32];
+var SEQ_TRANSITION_CHOICES = [0, 1, 2, 4, 8, 16, 32];
+
+function loadSequencer() {
+  apiCall('GET', '/api/sequencer').then(function(r) {
+    if (!r) return;
+    seqLoop  = !!r.loop;
+    seqSteps = r.steps || [];
+    var loopEl = document.getElementById('seq-loop');
+    if (loopEl) loopEl.checked = seqLoop;
+    renderSequencerSteps();
+  });
+}
+
+function seqPersist() {
+  apiCall('POST', '/api/sequencer', { loop: seqLoop, steps: seqSteps }).then(function() {
+    renderSequencerSteps();
+  });
+}
+
+function seqSetLoop() {
+  var loopEl = document.getElementById('seq-loop');
+  seqLoop = loopEl ? loopEl.checked : true;
+  seqPersist();
+}
+
+function seqAddStep() {
+  seqSteps.push({ presetIdx: 0, beats: 4, transitionBeats: 0, enabled: true });
+  seqPersist();
+}
+
+function seqRemoveStep(i) {
+  seqSteps.splice(i, 1);
+  seqPersist();
+}
+
+function seqMove(i, dir) {
+  var j = i + dir;
+  if (j < 0 || j >= seqSteps.length) return;
+  var tmp = seqSteps[i];
+  seqSteps[i] = seqSteps[j];
+  seqSteps[j] = tmp;
+  seqPersist();
+}
+
+function seqUpdateStep(i, field, value) {
+  if (!seqSteps[i]) return;
+  seqSteps[i][field] = (field === 'enabled') ? !!value : parseInt(value, 10);
+  seqPersist();
+}
+
+function seqStart() { apiCall('POST', '/api/sequencer/start'); }
+function seqStop()  { apiCall('POST', '/api/sequencer/stop'); }
+function seqNext()  { apiCall('POST', '/api/sequencer/next'); }
+function seqPrev()  { apiCall('POST', '/api/sequencer/prev'); }
+function seqJumpTo(i) { apiCall('POST', '/api/sequencer/step', { step: i }); }
+
+function seqPresetOptionsHtml(selectedIdx) {
+  var html = '';
+  for (var i = 0; i < PRESET_DEFS.length; i++) {
+    var p = PRESET_DEFS[i];
+    html += '<option value="' + p.idx + '"' + (p.idx === selectedIdx ? ' selected' : '') + '>' + p.name + '</option>';
+  }
+  return html;
+}
+
+function seqBeatOptionsHtml(selected) {
+  var html = '';
+  for (var i = 0; i < SEQ_BEAT_CHOICES.length; i++) {
+    var b = SEQ_BEAT_CHOICES[i];
+    html += '<option value="' + b + '"' + (b === selected ? ' selected' : '') + '>' + b + '</option>';
+  }
+  return html;
+}
+
+function seqTransitionOptionsHtml(selected) {
+  var html = '';
+  for (var i = 0; i < SEQ_TRANSITION_CHOICES.length; i++) {
+    var b = SEQ_TRANSITION_CHOICES[i];
+    html += '<option value="' + b + '"' + (b === selected ? ' selected' : '') + '>' +
+            (b === 0 ? 'Hard cut' : b + ' beats') + '</option>';
+  }
+  return html;
+}
+
+// Single-quote char, kept in a var so the row-builder below can compose
+// onchange="fn(i,'field',this.value)" attributes via plain concatenation
+// instead of juggling escaped/mixed string delimiters.
+var Q = String.fromCharCode(39);
+
+function seqOnchangeAttr(i, field) {
+  return 'onchange="seqUpdateStep(' + i + ',' + Q + field + Q + ',this.' +
+         (field === 'enabled' ? 'checked' : 'value') + ')"';
+}
+
+function renderSequencerSteps() {
+  var root = document.getElementById('seq-steps');
+  if (!root) return;
+  var html = '';
+  for (var i = 0; i < seqSteps.length; i++) {
+    var st = seqSteps[i];
+    html += '<div class="seq-step-row" data-idx="' + i + '" style="display:flex;align-items:center;gap:8px;' +
+            'padding:8px 10px;border:2px solid transparent;border-radius:8px;background:var(--bg2)">';
+    html += '<span style="width:18px;text-align:center;color:var(--dim);font-size:13px">' + (i + 1) + '</span>';
+    html += '<select style="flex:2" ' + seqOnchangeAttr(i, 'presetIdx') + '>' +
+            seqPresetOptionsHtml(st.presetIdx) + '</select>';
+    html += '<select style="width:76px" ' + seqOnchangeAttr(i, 'beats') + '>' +
+            seqBeatOptionsHtml(st.beats) + '</select>';
+    html += '<select style="width:110px" ' + seqOnchangeAttr(i, 'transitionBeats') + '>' +
+            seqTransitionOptionsHtml(st.transitionBeats) + '</select>';
+    html += '<input type="checkbox" title="Enabled" ' + seqOnchangeAttr(i, 'enabled') +
+            (st.enabled ? ' checked' : '') + '>';
+    html += '<button class="btn secondary" style="padding:4px 8px" onclick="seqMove(' + i + ',-1)">&#9650;</button>';
+    html += '<button class="btn secondary" style="padding:4px 8px" onclick="seqMove(' + i + ',1)">&#9660;</button>';
+    html += '<button class="btn danger" style="padding:4px 8px" onclick="seqRemoveStep(' + i + ')">&#10005;</button>';
+    html += '</div>';
+  }
+  root.innerHTML = html || '<p style="color:var(--dim);font-size:14px">No steps yet — click "Add Step" below.</p>';
+  highlightActiveStep();
+}
+
+function highlightActiveStep() {
+  var rows = document.querySelectorAll('#seq-steps .seq-step-row');
+  rows.forEach(function(row) {
+    var i = parseInt(row.dataset.idx, 10);
+    row.style.borderColor = (seqRunning && i === seqCurrentStep) ? 'var(--accent)' : 'transparent';
+  });
+}
+
+function seqUpdateStatusPill() {
+  var pill = document.getElementById('seq-status-pill');
+  if (!pill) return;
+  if (seqRunning) {
+    pill.textContent = 'Running — step ' + (seqCurrentStep + 1) + '/' + seqStepCount;
+    pill.className = 'pill armed';
+  } else {
+    pill.textContent = 'Stopped';
+    pill.className = 'pill';
+  }
+}
+
+function handleSequencerState(s) {
+  if (typeof s.seq_running === 'undefined') return;
+  seqRunning     = s.seq_running;
+  seqCurrentStep = s.seq_current;
+  seqStepCount   = s.seq_stepcount;
+  seqUpdateStatusPill();
+  highlightActiveStep();
+  if (typeof s.bpm !== 'undefined') {
+    seqBpmSnapshot = { bpm: s.bpm || 120, phase: s.bpm_phase || 0, t: performance.now() };
+  }
+}
+
+// Client-side beat flash: avoids depending on the 1500ms poll interval for
+// visual accuracy -- interpolates from the last known bpm/phase snapshot
+// instead of round-tripping to the device every frame.
+function seqBeatFlashLoop() {
+  var dot = document.getElementById('seq-beat-dot');
+  if (dot) {
+    var beatMs  = 60000 / (seqBpmSnapshot.bpm || 120);
+    var elapsed = performance.now() - seqBpmSnapshot.t;
+    var phase   = (seqBpmSnapshot.phase + (elapsed / beatMs) * 1000) % 1000;
+    dot.style.background = (phase < 90) ? 'var(--accent)' : 'var(--dim)';
+  }
+  requestAnimationFrame(seqBeatFlashLoop);
+}
+requestAnimationFrame(seqBeatFlashLoop);
 
 // ============================================================
 // Calibration
