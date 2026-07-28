@@ -27,6 +27,7 @@
 #include <esp_heap_caps.h>
 #include <string.h>
 #include <errno.h>
+#include <lwip/sockets.h>
 
 namespace etherdream {
 
@@ -110,6 +111,7 @@ static WiFiClient s_client;
 
 static bool     s_running     = false;
 static bool     s_prepared    = false;
+static bool     s_was_connected = false;  // edge-detects the disconnect connected() otherwise hides
 static uint32_t s_total_pts   = 0;
 static uint32_t s_last_beacon = 0;
 static uint32_t s_beacon_fail_count = 0;
@@ -446,12 +448,32 @@ void task(void*) {
 
         // accept new client
         if (!s_client.connected()) {
+            // Edge-detect the disconnect of whatever client we had before this
+            // -- connected() only ever reports the current state, so without
+            // this we never learn whether the peer closed cleanly (FIN, no
+            // sockerr) or the socket errored out (RST/timeout), nor when that
+            // happened relative to our last TX. Needed to tell "client gave up
+            // waiting for a reply we did send" apart from "client just closed
+            // the idle connection on its own schedule".
+            if (s_was_connected) {
+                int sockerr = 0;
+                socklen_t slen = sizeof(sockerr);
+                int fd = s_client.fd();
+                if (fd >= 0) getsockopt(fd, SOL_SOCKET, SO_ERROR, &sockerr, &slen);
+                ESP_LOGW(TAG, "Client disconnected sockerr=%d prepared=%d running=%d total_pts=%u",
+                         sockerr, s_prepared, s_running, s_total_pts);
+                LOG_W(logbuf::CAT_WIFI, "EtherDream client disconnected sockerr=%d prepared=%d running=%d pts=%u",
+                      sockerr, s_prepared, s_running, s_total_pts);
+            }
+            s_was_connected = false;
+
             s_client = s_tcp.available();
             if (s_client) {
                 s_running  = false;
                 s_prepared = false;
-                ESP_LOGI(TAG, "Client connected: %s",
-                         s_client.remoteIP().toString().c_str());
+                s_was_connected = true;
+                ESP_LOGI(TAG, "Client connected: %s:%u",
+                         s_client.remoteIP().toString().c_str(), s_client.remotePort());
                 // Send initial status response (protocol requires it)
                 sendResponse(0x00, RESP_ACK, nullptr);
             }
