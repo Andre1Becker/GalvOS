@@ -5,46 +5,90 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&family=JetBrains+Mono:wght@400;500;700;800&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
 
 <title id="page-title">GalvOS — Laser Controller</title>
 <link rel="icon" type="image/svg+xml" href="galvos-logo.svg">
 <link rel="icon" type="image/png" href="favicon.png" sizes="32x32">
 <script>
 // Applies the saved theme before first paint (no flash-of-default-theme).
-// Slot 0 (vaporwave) needs no work — it's the :root default. Slot 1 (classic-dark)
-// is a built-in duplicated here since the main <script> block below hasn't run yet.
-// Slots 2/3 are user-uploaded themes read straight from localStorage.
+// Slot 0 (vaporwave) needs no work — it's the :root default. Slots 1 (kinetic-typography),
+// 2 (terminal-cli) and 3 (minimal) are built-ins duplicated here since the main
+// <script> block below hasn't run yet. All 4 themes are fixed — no custom upload.
 (function() {
   try {
-    var CLASSIC_DARK_TOKENS = {
-      '--bg': '#12141c', '--bg-rgb': '18,20,28',
-      '--panel': 'rgba(30,33,44,0.9)', '--panel2': 'rgba(24,26,36,0.92)',
-      '--border': '#333846', '--border-rgb': '51,56,70',
-      '--text': '#e4e6eb',
-      '--dim': '#8a90a3', '--dim-rgb': '138,144,163',
-      '--accent': '#4f8cff', '--accent-rgb': '79,140,255',
-      '--cyan': '#38d9d9', '--cyan-rgb': '56,217,217',
-      '--orange': '#ffa94d', '--orange-rgb': '255,169,77',
-      '--ok': '#4fd67a', '--ok-rgb': '79,214,122',
-      '--bad': '#ff5c5c', '--bad-rgb': '255,92,92',
-      '--warn': '#ffa94d', '--blue': '#4f8cff', '--danger': '#ff5c5c',
-      '--surface': 'rgba(0,0,0,0.35)', '--input-bg': '#1a1d27', '--void': '#05060a',
-      '--chart-bg-top': '#10121c', '--chart-bg-bottom': '#05060a', '--chart-total-rgb': '130,140,170',
-      '--glow-magenta': '0 0 6px #4f8cff, 0 0 14px rgba(79,140,255,0.35)',
-      '--glow-cyan':    '0 0 6px #38d9d9, 0 0 14px rgba(56,217,217,0.3)',
-      '--glow-orange':  '0 0 6px #ffa94d, 0 0 14px rgba(255,169,77,0.3)',
-      '--glow-ok':      '0 0 6px #4fd67a, 0 0 12px rgba(79,214,122,0.25)',
-      '--glow-bad':     '0 0 6px #ff5c5c, 0 0 12px rgba(255,92,92,0.25)'
+    var KINETIC_TOKENS = {
+      '--bg': '#09090B', '--bg-rgb': '9,9,11',
+      '--panel': 'rgba(9,9,11,0.97)', '--panel2': 'rgba(20,20,23,0.97)',
+      '--border': '#3F3F46', '--border-rgb': '63,63,70',
+      '--text': '#FAFAFA',
+      '--dim': '#A1A1AA', '--dim-rgb': '161,161,170',
+      '--accent': '#DFE104', '--accent-rgb': '223,225,4',
+      '--cyan': '#DFE104', '--cyan-rgb': '223,225,4',
+      '--orange': '#DFE104', '--orange-rgb': '223,225,4',
+      '--ok': '#6FCF97', '--ok-rgb': '111,207,151',
+      '--bad': '#FF5C5C', '--bad-rgb': '255,92,92',
+      '--warn': '#DFE104', '--blue': '#DFE104', '--danger': '#FF5C5C',
+      '--surface': 'rgba(0,0,0,0.4)', '--input-bg': '#09090B', '--void': '#000000',
+      '--chart-bg-top': '#09090B', '--chart-bg-bottom': '#000000', '--chart-total-rgb': '161,161,170',
+      '--glow-magenta': 'none', '--glow-cyan': 'none', '--glow-orange': 'none',
+      '--glow-ok': 'none', '--glow-bad': 'none',
+      '--font-head': "'Space Grotesk', 'Inter', sans-serif",
+      '--font-mono': "'Space Grotesk', 'Inter', sans-serif"
+    };
+    var TERMINAL_CLI_TOKENS = {
+      '--bg': '#0a0a0a', '--bg-rgb': '10,10,10',
+      '--panel': 'rgba(8,12,8,0.94)', '--panel2': 'rgba(5,8,5,0.96)',
+      '--border': '#1f521f', '--border-rgb': '31,82,31',
+      '--text': '#33ff00',
+      '--dim': '#1f521f', '--dim-rgb': '31,82,31',
+      '--accent': '#33ff00', '--accent-rgb': '51,255,0',
+      '--cyan': '#ffb000', '--cyan-rgb': '255,176,0',
+      '--orange': '#ffb000', '--orange-rgb': '255,176,0',
+      '--ok': '#33ff00', '--ok-rgb': '51,255,0',
+      '--bad': '#ff3333', '--bad-rgb': '255,51,51',
+      '--warn': '#ffb000', '--blue': '#33ff00', '--danger': '#ff3333',
+      '--surface': 'rgba(0,0,0,0.6)', '--input-bg': '#0a0a0a', '--void': '#000000',
+      '--chart-bg-top': '#0a0a0a', '--chart-bg-bottom': '#000000', '--chart-total-rgb': '51,255,0',
+      '--glow-magenta': '0 0 5px rgba(51,255,0,0.5), 0 0 10px rgba(51,255,0,0.25)',
+      '--glow-cyan':    '0 0 5px rgba(255,176,0,0.5), 0 0 10px rgba(255,176,0,0.25)',
+      '--glow-orange':  '0 0 5px rgba(255,176,0,0.5), 0 0 10px rgba(255,176,0,0.25)',
+      '--glow-ok':      '0 0 5px rgba(51,255,0,0.5), 0 0 10px rgba(51,255,0,0.25)',
+      '--glow-bad':     '0 0 5px rgba(255,51,51,0.5), 0 0 10px rgba(255,51,51,0.25)',
+      '--font-head': "'JetBrains Mono', 'Fira Code', monospace",
+      '--font-mono': "'JetBrains Mono', 'Fira Code', monospace"
+    };
+    var MINIMAL_TOKENS = {
+      '--bg': '#16171a', '--bg-rgb': '22,23,26',
+      '--panel': 'rgba(28,29,33,0.92)', '--panel2': 'rgba(24,25,28,0.94)',
+      '--border': '#2c2d31', '--border-rgb': '44,45,49',
+      '--text': '#e7e7ea',
+      '--dim': '#8a8b90', '--dim-rgb': '138,139,144',
+      '--accent': '#6e8fff', '--accent-rgb': '110,143,255',
+      '--cyan': '#9db4ff', '--cyan-rgb': '157,180,255',
+      '--orange': '#d9a154', '--orange-rgb': '217,161,84',
+      '--ok': '#6fcf97', '--ok-rgb': '111,207,151',
+      '--bad': '#e56b6b', '--bad-rgb': '229,107,107',
+      '--warn': '#d9a154', '--blue': '#6e8fff', '--danger': '#e56b6b',
+      '--surface': 'rgba(0,0,0,0.25)', '--input-bg': '#1c1d21', '--void': '#0c0d0f',
+      '--chart-bg-top': '#1a1b1e', '--chart-bg-bottom': '#0c0d0f', '--chart-total-rgb': '140,142,148',
+      '--glow-magenta': 'none', '--glow-cyan': 'none', '--glow-orange': 'none',
+      '--glow-ok': 'none', '--glow-bad': 'none',
+      '--font-head': "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
+      '--font-mono': "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
     };
     var slotIdx = parseInt(localStorage.getItem('galvos_active_theme'), 10);
     if (!(slotIdx >= 0 && slotIdx <= 3)) slotIdx = 0;
     var tokens = null;
     if (slotIdx === 1) {
-      tokens = CLASSIC_DARK_TOKENS;
-    } else if (slotIdx >= 2) {
-      var slots = JSON.parse(localStorage.getItem('galvos_themes') || 'null');
-      if (Array.isArray(slots) && slots[slotIdx] && slots[slotIdx].tokens) tokens = slots[slotIdx].tokens;
+      tokens = KINETIC_TOKENS;
+      document.documentElement.setAttribute('data-theme-mode', 'kinetic');
+    } else if (slotIdx === 2) {
+      tokens = TERMINAL_CLI_TOKENS;
+      document.documentElement.setAttribute('data-theme-mode', 'terminal-cli');
+    } else if (slotIdx === 3) {
+      tokens = MINIMAL_TOKENS;
+      document.documentElement.setAttribute('data-theme-mode', 'minimal');
     }
     if (tokens) {
       var root = document.documentElement;
@@ -105,6 +149,76 @@
      stay hardcoded — they encode real laser/data meaning, not UI chrome, and must not
      shift when the UI theme changes. */
   * { box-sizing: border-box; }
+
+  /* Terminal CLI theme: brutalist flat-grid look, no rounded corners anywhere. */
+  html[data-theme-mode="terminal-cli"] * { border-radius: 0 !important; }
+
+  /* Terminal CLI decorations — bracket buttons, ASCII pane framing, boot-sequence
+     header. Layered on top of the shared markup via attribute selectors + generated
+     content, so no HTML/JS forking is needed per theme. */
+  html[data-theme-mode="terminal-cli"] button.btn::before { content: '[ '; }
+  html[data-theme-mode="terminal-cli"] button.btn::after  { content: ' ]'; }
+  html[data-theme-mode="terminal-cli"] .card h2::before { content: '┌─ '; opacity: 0.75; }
+  html[data-theme-mode="terminal-cli"] .card h2::after  { content: ' ─'; opacity: 0.75; }
+  html[data-theme-mode="terminal-cli"] header h1 {
+    background: none; -webkit-text-fill-color: var(--accent); color: var(--accent);
+    filter: none; letter-spacing: normal;
+    display: inline-block; max-width: 100%;
+    overflow: hidden; white-space: nowrap; vertical-align: bottom;
+    border-right: 2px solid var(--accent);
+    width: 24ch;
+    animation: termType 1.6s steps(24,end) 1 both, termCaret .8s step-end infinite;
+  }
+  @keyframes termType { from { width: 0; } }
+  @keyframes termCaret { 50% { border-color: transparent; } }
+  /* Spec calls for deep black + scanlines only — no vaporwave-style ambient color
+     wash. Scanlines (body::before) stay; the radial glow blobs (body::after) go. */
+  html[data-theme-mode="terminal-cli"] body::after { content: none; }
+
+  /* Minimal theme: strips the vaporwave/terminal decoration back to flat, borderless panels. */
+  html[data-theme-mode="minimal"] body::before,
+  html[data-theme-mode="minimal"] body::after { content: none; }
+  html[data-theme-mode="minimal"] header,
+  html[data-theme-mode="minimal"] nav {
+    background: transparent; box-shadow: none; backdrop-filter: none;
+  }
+  html[data-theme-mode="minimal"] header h1 {
+    background: none; -webkit-text-fill-color: var(--text); color: var(--text);
+    filter: none;
+  }
+  html[data-theme-mode="minimal"] .card {
+    background: transparent; box-shadow: none; backdrop-filter: none;
+  }
+  html[data-theme-mode="minimal"] .card::before { content: none; }
+  html[data-theme-mode="minimal"] .card h2 { text-shadow: none; color: var(--text); }
+  html[data-theme-mode="minimal"] nav button:hover,
+  html[data-theme-mode="minimal"] nav button.active { text-shadow: none; }
+  html[data-theme-mode="minimal"] button.btn,
+  html[data-theme-mode="minimal"] button.btn > *,
+  html[data-theme-mode="minimal"] button.btn:hover,
+  html[data-theme-mode="minimal"] button.btn:active,
+  html[data-theme-mode="minimal"] button.btn:disabled { transform: none; }
+
+  /* Kinetic Typography theme: brutalist poster energy — flat, sharp, acid-yellow
+     accent, no gradients/blur/glow, hard scale-punch on buttons instead of skew. */
+  html[data-theme-mode="kinetic"] * { border-radius: 0 !important; }
+  html[data-theme-mode="kinetic"] body::before,
+  html[data-theme-mode="kinetic"] body::after { content: none; }
+  html[data-theme-mode="kinetic"] header,
+  html[data-theme-mode="kinetic"] .card { box-shadow: none; backdrop-filter: none; }
+  html[data-theme-mode="kinetic"] header h1 {
+    background: none; -webkit-text-fill-color: var(--accent); color: var(--accent);
+    filter: none; letter-spacing: -0.02em; font-weight: 700;
+  }
+  html[data-theme-mode="kinetic"] .card::before { content: none; }
+  html[data-theme-mode="kinetic"] .card h2 { letter-spacing: -0.02em; font-weight: 700; }
+  html[data-theme-mode="kinetic"] nav button:hover,
+  html[data-theme-mode="kinetic"] nav button.active { text-shadow: none; }
+  html[data-theme-mode="kinetic"] button.btn,
+  html[data-theme-mode="kinetic"] button.btn > *,
+  html[data-theme-mode="kinetic"] button.btn:disabled { transform: none; }
+  html[data-theme-mode="kinetic"] button.btn:hover  { transform: scale(1.05); }
+  html[data-theme-mode="kinetic"] button.btn:active { transform: scale(0.95); }
 
   /* ── CRT scanlines + grid overlay ── */
   body::before {
@@ -599,11 +713,11 @@
   #theme-switcher { display: flex; gap: 4px; margin-left: 8px; align-items: center; }
   .theme-slot-btn {
     position: relative;
-    padding: 3px 9px; border-radius: 0;
+    padding: 3px 12px; border-radius: 0;
     background: transparent; border: 1px solid var(--border);
     color: var(--dim); cursor: pointer;
     font-size: 11px; font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 0.05em;
-    max-width: 84px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    white-space: nowrap;
     transition: all 0.15s;
   }
   .theme-slot-btn:hover { border-color: var(--cyan); color: var(--cyan); }
@@ -612,11 +726,6 @@
     box-shadow: var(--glow-magenta);
     font-weight: 700;
   }
-  .theme-slot-btn.empty { font-style: italic; opacity: 0.7; }
-  .theme-slot-btn .slot-del {
-    margin-left: 5px; opacity: 0.6; cursor: pointer;
-  }
-  .theme-slot-btn .slot-del:hover { opacity: 1; color: var(--bad); }
   @media (max-width: 700px) {
     #theme-switcher { display: none; }
   }
@@ -666,7 +775,6 @@
     <span id="preset-pill" class="pill" style="display:none" title="Active preset">🎭 <span id="preset-pill-name">--</span></span>
     <span id="ui-override-pill" class="pill" style="display:none;background:var(--accent);color:#fff">🖥 UI</span>
     <div id="theme-switcher" role="group" aria-label="Theme switcher"></div>
-    <input type="file" id="theme-upload-input" accept="application/json" style="display:none">
   </div>
   <div style="display:flex;align-items:center;gap:10px;margin-top:6px;flex-wrap:wrap">
     <label style="display:flex;align-items:center;gap:6px;font-size:14px;cursor:pointer;white-space:nowrap">
@@ -2416,10 +2524,9 @@
 
 <script>
 // ============================================================
-// Theme Switcher — 4 localStorage slots, slots 0+1 are built-ins
+// Theme Switcher — 4 fixed built-in themes, no custom upload
 // ============================================================
-const THEME_STORAGE_KEY = 'galvos_themes';
-const THEME_ACTIVE_KEY  = 'galvos_active_theme';
+const THEME_ACTIVE_KEY = 'galvos_active_theme';
 
 const BUILTIN_THEMES = [
   {
@@ -2446,46 +2553,75 @@ const BUILTIN_THEMES = [
     }
   },
   {
-    id: 'classic-dark', name: 'Classic Dark', builtin: true,
+    id: 'kinetic-typography', name: 'Kinetic Typography', builtin: true, mode: 'kinetic',
     tokens: {
-      '--bg': '#12141c', '--bg-rgb': '18,20,28',
-      '--panel': 'rgba(30,33,44,0.9)', '--panel2': 'rgba(24,26,36,0.92)',
-      '--border': '#333846', '--border-rgb': '51,56,70',
-      '--text': '#e4e6eb',
-      '--dim': '#8a90a3', '--dim-rgb': '138,144,163',
-      '--accent': '#4f8cff', '--accent-rgb': '79,140,255',
-      '--cyan': '#38d9d9', '--cyan-rgb': '56,217,217',
-      '--orange': '#ffa94d', '--orange-rgb': '255,169,77',
-      '--ok': '#4fd67a', '--ok-rgb': '79,214,122',
-      '--bad': '#ff5c5c', '--bad-rgb': '255,92,92',
-      '--warn': '#ffa94d', '--blue': '#4f8cff', '--danger': '#ff5c5c',
-      '--surface': 'rgba(0,0,0,0.35)', '--input-bg': '#1a1d27', '--void': '#05060a',
-      '--chart-bg-top': '#10121c', '--chart-bg-bottom': '#05060a', '--chart-total-rgb': '130,140,170',
-      '--glow-magenta': '0 0 6px #4f8cff, 0 0 14px rgba(79,140,255,0.35)',
-      '--glow-cyan':    '0 0 6px #38d9d9, 0 0 14px rgba(56,217,217,0.3)',
-      '--glow-orange':  '0 0 6px #ffa94d, 0 0 14px rgba(255,169,77,0.3)',
-      '--glow-ok':      '0 0 6px #4fd67a, 0 0 12px rgba(79,214,122,0.25)',
-      '--glow-bad':     '0 0 6px #ff5c5c, 0 0 12px rgba(255,92,92,0.25)'
+      '--bg': '#09090B', '--bg-rgb': '9,9,11',
+      '--panel': 'rgba(9,9,11,0.97)', '--panel2': 'rgba(20,20,23,0.97)',
+      '--border': '#3F3F46', '--border-rgb': '63,63,70',
+      '--text': '#FAFAFA',
+      '--dim': '#A1A1AA', '--dim-rgb': '161,161,170',
+      '--accent': '#DFE104', '--accent-rgb': '223,225,4',
+      '--cyan': '#DFE104', '--cyan-rgb': '223,225,4',
+      '--orange': '#DFE104', '--orange-rgb': '223,225,4',
+      '--ok': '#6FCF97', '--ok-rgb': '111,207,151',
+      '--bad': '#FF5C5C', '--bad-rgb': '255,92,92',
+      '--warn': '#DFE104', '--blue': '#DFE104', '--danger': '#FF5C5C',
+      '--surface': 'rgba(0,0,0,0.4)', '--input-bg': '#09090B', '--void': '#000000',
+      '--chart-bg-top': '#09090B', '--chart-bg-bottom': '#000000', '--chart-total-rgb': '161,161,170',
+      '--glow-magenta': 'none', '--glow-cyan': 'none', '--glow-orange': 'none',
+      '--glow-ok': 'none', '--glow-bad': 'none',
+      '--font-head': "'Space Grotesk', 'Inter', sans-serif",
+      '--font-mono': "'Space Grotesk', 'Inter', sans-serif"
+    }
+  },
+  {
+    id: 'terminal-cli', name: 'Terminal CLI', builtin: true, mode: 'terminal-cli',
+    tokens: {
+      '--bg': '#0a0a0a', '--bg-rgb': '10,10,10',
+      '--panel': 'rgba(8,12,8,0.94)', '--panel2': 'rgba(5,8,5,0.96)',
+      '--border': '#1f521f', '--border-rgb': '31,82,31',
+      '--text': '#33ff00',
+      '--dim': '#1f521f', '--dim-rgb': '31,82,31',
+      '--accent': '#33ff00', '--accent-rgb': '51,255,0',
+      '--cyan': '#ffb000', '--cyan-rgb': '255,176,0',
+      '--orange': '#ffb000', '--orange-rgb': '255,176,0',
+      '--ok': '#33ff00', '--ok-rgb': '51,255,0',
+      '--bad': '#ff3333', '--bad-rgb': '255,51,51',
+      '--warn': '#ffb000', '--blue': '#33ff00', '--danger': '#ff3333',
+      '--surface': 'rgba(0,0,0,0.6)', '--input-bg': '#0a0a0a', '--void': '#000000',
+      '--chart-bg-top': '#0a0a0a', '--chart-bg-bottom': '#000000', '--chart-total-rgb': '51,255,0',
+      '--glow-magenta': '0 0 5px rgba(51,255,0,0.5), 0 0 10px rgba(51,255,0,0.25)',
+      '--glow-cyan':    '0 0 5px rgba(255,176,0,0.5), 0 0 10px rgba(255,176,0,0.25)',
+      '--glow-orange':  '0 0 5px rgba(255,176,0,0.5), 0 0 10px rgba(255,176,0,0.25)',
+      '--glow-ok':      '0 0 5px rgba(51,255,0,0.5), 0 0 10px rgba(51,255,0,0.25)',
+      '--glow-bad':     '0 0 5px rgba(255,51,51,0.5), 0 0 10px rgba(255,51,51,0.25)',
+      '--font-head': "'JetBrains Mono', 'Fira Code', monospace",
+      '--font-mono': "'JetBrains Mono', 'Fira Code', monospace"
+    }
+  },
+  {
+    id: 'minimal', name: 'Minimal', builtin: true, mode: 'minimal',
+    tokens: {
+      '--bg': '#16171a', '--bg-rgb': '22,23,26',
+      '--panel': 'rgba(28,29,33,0.92)', '--panel2': 'rgba(24,25,28,0.94)',
+      '--border': '#2c2d31', '--border-rgb': '44,45,49',
+      '--text': '#e7e7ea',
+      '--dim': '#8a8b90', '--dim-rgb': '138,139,144',
+      '--accent': '#6e8fff', '--accent-rgb': '110,143,255',
+      '--cyan': '#9db4ff', '--cyan-rgb': '157,180,255',
+      '--orange': '#d9a154', '--orange-rgb': '217,161,84',
+      '--ok': '#6fcf97', '--ok-rgb': '111,207,151',
+      '--bad': '#e56b6b', '--bad-rgb': '229,107,107',
+      '--warn': '#d9a154', '--blue': '#6e8fff', '--danger': '#e56b6b',
+      '--surface': 'rgba(0,0,0,0.25)', '--input-bg': '#1c1d21', '--void': '#0c0d0f',
+      '--chart-bg-top': '#1a1b1e', '--chart-bg-bottom': '#0c0d0f', '--chart-total-rgb': '140,142,148',
+      '--glow-magenta': 'none', '--glow-cyan': 'none', '--glow-orange': 'none',
+      '--glow-ok': 'none', '--glow-bad': 'none',
+      '--font-head': "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
+      '--font-mono': "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
     }
   }
 ];
-
-const THEME_REQUIRED_KEYS = Object.keys(BUILTIN_THEMES[0].tokens);
-let themeUploadTargetSlot = null;
-
-function themeLoadSlots() {
-  let slots;
-  try { slots = JSON.parse(localStorage.getItem(THEME_STORAGE_KEY) || 'null'); } catch (e) { slots = null; }
-  if (!Array.isArray(slots) || slots.length !== 4) slots = [null, null, null, null];
-  slots[0] = BUILTIN_THEMES[0];
-  slots[1] = BUILTIN_THEMES[1];
-  return slots;
-}
-
-// Only user slots (2/3) are persisted — built-ins are static and always re-derived.
-function themeSaveSlots(slots) {
-  localStorage.setItem(THEME_STORAGE_KEY, JSON.stringify([null, null, slots[2] || null, slots[3] || null]));
-}
 
 function themeGetActiveSlot() {
   const v = parseInt(localStorage.getItem(THEME_ACTIVE_KEY), 10);
@@ -2495,77 +2631,29 @@ function themeGetActiveSlot() {
 function themeApply(theme) {
   const root = document.documentElement;
   Object.entries(theme.tokens).forEach(([k, v]) => root.style.setProperty(k, v));
+  if (theme.mode) root.setAttribute('data-theme-mode', theme.mode);
+  else root.removeAttribute('data-theme-mode');
 }
 
-// Rejects anything that isn't a plain {id, name, tokens:{...}} object carrying
-// every token the built-in themes define — prevents partially-styled UI from a
-// malformed upload silently mixing with the previous theme's leftover values.
-function themeValidate(json) {
-  if (!json || typeof json !== 'object' || Array.isArray(json)) return 'Not a JSON object';
-  if (typeof json.id !== 'string' || !json.id) return 'Missing "id"';
-  if (typeof json.name !== 'string' || !json.name) return 'Missing "name"';
-  if (!json.tokens || typeof json.tokens !== 'object' || Array.isArray(json.tokens)) return 'Missing "tokens" object';
-  const missing = THEME_REQUIRED_KEYS.filter(k => !(k in json.tokens));
-  if (missing.length) return 'Missing token(s): ' + missing.join(', ');
-  for (const k in json.tokens) {
-    if (typeof json.tokens[k] !== 'string') return 'Token "' + k + '" must be a string';
-  }
-  return null;
-}
-
-let themeSlots = themeLoadSlots();
 let themeActiveSlot = themeGetActiveSlot();
 
 function renderThemeSwitcher() {
   const bar = document.getElementById('theme-switcher');
   if (!bar) return;
   bar.innerHTML = '';
-  themeSlots.forEach((slot, i) => {
+  BUILTIN_THEMES.forEach((slot, i) => {
     const btn = document.createElement('button');
     btn.type = 'button';
-    btn.className = 'theme-slot-btn' + (i === themeActiveSlot ? ' active' : '') + (!slot ? ' empty' : '');
-    if (slot) {
-      btn.title = slot.name;
-      btn.append(slot.name);
-      if (i >= 2) {
-        const reupload = document.createElement('span');
-        reupload.className = 'slot-del';
-        reupload.textContent = '⟳';
-        reupload.title = 'Overwrite (re-upload)';
-        reupload.onclick = (e) => {
-          e.stopPropagation();
-          themeUploadTargetSlot = i;
-          document.getElementById('theme-upload-input').click();
-        };
-        btn.appendChild(reupload);
-        const del = document.createElement('span');
-        del.className = 'slot-del';
-        del.textContent = '✕';
-        del.title = 'Remove theme';
-        del.onclick = (e) => { e.stopPropagation(); themeDeleteSlot(i); };
-        btn.appendChild(del);
-        // Right-click also overwrites — matches the ✕ delete affordance's discoverability.
-        btn.oncontextmenu = (e) => {
-          e.preventDefault();
-          themeUploadTargetSlot = i;
-          document.getElementById('theme-upload-input').click();
-        };
-      }
-      btn.onclick = () => themeSelectSlot(i);
-    } else {
-      btn.textContent = '+ Upload';
-      btn.title = 'Upload a theme JSON';
-      btn.onclick = () => {
-        themeUploadTargetSlot = i;
-        document.getElementById('theme-upload-input').click();
-      };
-    }
+    btn.className = 'theme-slot-btn' + (i === themeActiveSlot ? ' active' : '');
+    btn.title = slot.name;
+    btn.textContent = slot.name;
+    btn.onclick = () => themeSelectSlot(i);
     bar.appendChild(btn);
   });
 }
 
 function themeSelectSlot(i) {
-  const slot = themeSlots[i];
+  const slot = BUILTIN_THEMES[i];
   if (!slot) return;
   themeActiveSlot = i;
   localStorage.setItem(THEME_ACTIVE_KEY, String(i));
@@ -2574,42 +2662,7 @@ function themeSelectSlot(i) {
   toast('Theme: ' + slot.name);
 }
 
-function themeDeleteSlot(i) {
-  if (i < 2 || !themeSlots[i]) return;
-  themeSlots[i] = null;
-  themeSaveSlots(themeSlots);
-  if (themeActiveSlot === i) themeSelectSlot(0);
-  else renderThemeSwitcher();
-}
-
-function themeInitUpload() {
-  const input = document.getElementById('theme-upload-input');
-  if (!input) return;
-  input.addEventListener('change', () => {
-    const file = input.files && input.files[0];
-    input.value = '';
-    if (!file || themeUploadTargetSlot === null) return;
-    const targetSlot = themeUploadTargetSlot;
-    const reader = new FileReader();
-    reader.onload = () => {
-      let json;
-      try { json = JSON.parse(reader.result); }
-      catch (e) { toast('Invalid theme JSON: ' + e.message, true); return; }
-      const err = themeValidate(json);
-      if (err) { toast('Theme rejected: ' + err, true); return; }
-      themeSlots[targetSlot] = { id: json.id, name: json.name, tokens: json.tokens };
-      themeSaveSlots(themeSlots);
-      themeSelectSlot(targetSlot);
-    };
-    reader.onerror = () => toast('Could not read theme file', true);
-    reader.readAsText(file);
-  });
-}
-
-document.addEventListener('DOMContentLoaded', () => {
-  renderThemeSwitcher();
-  themeInitUpload();
-});
+document.addEventListener('DOMContentLoaded', renderThemeSwitcher);
 
 // ============================================================
 // DMX Channel Layout
