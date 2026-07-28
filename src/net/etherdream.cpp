@@ -81,6 +81,7 @@ enum ECmd : uint8_t {
     CMD_CLEAR_ESTOP = 0x63,  // 'c'
     CMD_PING        = 0x3F,  // '?'
     CMD_VERSION     = 0x56,  // 'V'
+    CMD_VERSION2    = 0x76,  // 'v' - some clients send lowercase
 };
 
 // EtherDream response codes (byte 0 of the response packet)
@@ -417,11 +418,13 @@ static void handleClient() {
                 break;
 
             case CMD_VERSION:
+            case CMD_VERSION2:
                 s_client.print("ESP32-Laser-v1.4\n");
                 break;
 
             default:
                 ESP_LOGW(TAG, "Unknown command: 0x%02X", cmd);
+                sendResponse(cmd, RESP_INVALID, nullptr);
                 break;
         }
     }
