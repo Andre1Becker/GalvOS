@@ -63,6 +63,23 @@ bool setStack(JsonArrayConst arr, bool active, uint8_t selected) {
     return true;
 }
 
+static volatile bool     s_dirty       = false;
+static volatile uint32_t s_dirty_since = 0;
+
+// PATCH /api/layers?idx=N (see web_ui.cpp) runs on AsyncTCP's single
+// async_tcp task, which also dispatches every other connection's events
+// system-wide, including tcp_accept for brand new ones (see AsyncTCP.cpp's
+// own comment on _get_async_event(): a callback that "runs too long...
+// will fill the queue with events until it deadlocks"). A live slider drag
+// fires this dozens of times a second; save() is a synchronous LittleFS
+// flash write, and stacking that many of them inline serialized ~10s of
+// flash I/O through that one task, during which nothing else on the WebUI
+// (nor any brand-new TCP connection anywhere -- EtherDream/Helios/the
+// WebUI itself) could be serviced, observed as "tcp_accept(): pcb is NULL"
+// floods and 10s-late slider feedback. Applying the field is still
+// immediate (cheap, in-RAM, under LOCK_STATE) -- only the flash write is
+// deferred to maybeFlush(), polled from safety::task() well off both the
+// network stack and the render loop.
 bool setLayer(uint8_t idx, JsonObjectConst obj) {
     bool ok;
     {
@@ -70,8 +87,14 @@ bool setLayer(uint8_t idx, JsonObjectConst obj) {
         ok = idx < gLayerStack.count;
         if (ok) applyLayerFields(gLayerStack.layers[idx], obj);
     }
-    if (ok) save();
+    if (ok) { s_dirty = true; s_dirty_since = millis(); }
     return ok;
+}
+
+void maybeFlush() {
+    if (!s_dirty || millis() - s_dirty_since < 400) return;
+    s_dirty = false;
+    save();
 }
 
 // Layer mode sits alongside Paint/Curve in task() priority (see

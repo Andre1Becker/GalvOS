@@ -304,11 +304,26 @@ static void applyModulatorFields(Modulator& m, JsonObjectConst obj) {
     else if (m.noiseSeed == 0 && m.type == ModType::NOISE) m.noiseSeed = esp_random();
 }
 
+static volatile bool     s_dirty       = false;
+static volatile uint32_t s_dirty_since = 0;
+
+// See modulator_engine.h's maybeFlush() comment / layers::setLayer() for
+// why this defers save() instead of calling it inline: PATCH
+// /api/modulators?idx=N runs on AsyncTCP's single async_tcp task, shared
+// system-wide with every other connection's events (including tcp_accept
+// for brand new ones); a live slider drag fires this dozens of times a
+// second, and save() is a synchronous LittleFS flash write.
 bool setModulator(uint8_t idx, JsonObjectConst obj) {
     if (!s_mods || idx >= MOD_SLOTS) return false;
     { LOCK_MOD(); applyModulatorFields(s_mods[idx], obj); }
-    save();
+    s_dirty = true; s_dirty_since = millis();
     return true;
+}
+
+void maybeFlush() {
+    if (!s_dirty || millis() - s_dirty_since < 400) return;
+    s_dirty = false;
+    save();
 }
 
 // Caller holds mtx::modulator. Split out so load() can apply bindings under

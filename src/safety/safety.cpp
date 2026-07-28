@@ -5,6 +5,9 @@
 #include <esp_heap_caps.h>
 #include <string.h>
 #include "util/log_buffer.h"
+#include "net/web_ui.h"
+#include "../layers.h"
+#include "../modulator_engine.h"
 
 namespace safety {
 
@@ -174,13 +177,26 @@ void task(void*) {
             // Lifetime low-water mark -- reveals dips this 2.5s sampling
             // interval would otherwise miss between two ticks.
             size_t min_ever = heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL);
-            ESP_LOGI(TAG, "[heap] int_free=%u largest=%u min_ever=%u limit=%u",
+            // http_inflight: requests currently open through web_ui's
+            // AsyncWebServer, sharing the system-wide lwIP TCP pcb pool with
+            // AsyncTCP's own listener (see web_ui.cpp's s_active_requests
+            // comment) -- logged here on the same cadence as heap so a
+            // climbing count can be lined up against "tcp_accept(): pcb is
+            // NULL" in the serial log instead of guessing which endpoint
+            // is leaking a connection.
+            ESP_LOGI(TAG, "[heap] int_free=%u largest=%u min_ever=%u limit=%u http_inflight=%d",
                      (unsigned)free_int, (unsigned)largest, (unsigned)min_ever,
-                     (unsigned)gConfig.heap_critical_bytes);
+                     (unsigned)gConfig.heap_critical_bytes, web_ui::activeRequests());
             if (largest < gConfig.heap_critical_bytes) {
                 failsafeReboot("HEAP_CRITICAL");
             }
         }
+
+        // Off the network stack and the render loop on purpose -- see
+        // layers::setLayer()'s comment for why the flash write can't run
+        // inline on the AsyncTCP request path.
+        layers::maybeFlush();
+        modulator::maybeFlush();
 
         vTaskDelay(pdMS_TO_TICKS(20));  // 50 Hz safety loop
     }

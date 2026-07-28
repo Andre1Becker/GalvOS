@@ -540,6 +540,14 @@
   input[type=range]::-moz-range-thumb {
     width: 12px; height: 12px; background: var(--accent); border: 0; border-radius: 0;
   }
+  /* Custom-styled range inputs strip the native appearance entirely, which
+     also strips the browser's default disabled look -- without this, a
+     disabled slider (e.g. Layer Transform's Scale Y while "Link Scale X/Y"
+     is checked) renders pixel-identical to an enabled one, so dragging it
+     silently does nothing with no visual cue why. */
+  input[type=range]:disabled { opacity: 0.35; }
+  input[type=range]:disabled::-webkit-slider-thumb { cursor: not-allowed; box-shadow: none; }
+  input[type=range]:disabled::-moz-range-thumb { cursor: not-allowed; }
   .channel-row input[type=range] { width: 100%; }
   .channel-row .val-num { font-family: monospace; color: var(--text); text-align: right; }
 
@@ -4031,13 +4039,27 @@ function layerToggleEnabled(i, checked) {
 }
 
 // Patches a single field (or several at once via an object) on layer `idx`,
-// updates local state immediately (snappy UI) and persists via PATCH --
-// same split as modPatch()/modSetField() above.
+// updates local state immediately (snappy UI) and persists via PATCH,
+// debounced the same way onCurveSlider()/pushCurveParams() debounce theirs --
+// each PATCH triggers a synchronous LittleFS flash write server-side
+// (layers::save()), so firing one per oninput event during a slider drag
+// stalls the WiFi stack badly enough to time out unrelated requests.
+var _layerDebounce = null;
+var _layerPending = {};
 function layerPatch(idx, fields) {
   var l = layerState.layers[idx];
   if (!l) return;
   for (var k in fields) if (fields.hasOwnProperty(k)) l[k] = fields[k];
-  apiCall('PATCH', '/api/layers?idx=' + idx, fields);
+  var pending = _layerPending[idx] || {};
+  for (var k in fields) if (fields.hasOwnProperty(k)) pending[k] = fields[k];
+  _layerPending[idx] = pending;
+  clearTimeout(_layerDebounce);
+  _layerDebounce = setTimeout(flushLayerPatch, 80);
+}
+function flushLayerPatch() {
+  var pending = _layerPending;
+  _layerPending = {};
+  for (var idx in pending) if (pending.hasOwnProperty(idx)) apiCall('PATCH', '/api/layers?idx=' + idx, pending[idx]);
 }
 
 function layerSetField(idx, field, value, isFloat) {
@@ -9225,6 +9247,7 @@ function enhanceSliders(root) {
     num.max  = slider.max;
     num.step = slider.step || '1';
     num.value = slider.value;
+    num.disabled = slider.disabled;
     num.style.cssText = 'width:60px;margin-left:8px;font-family:monospace;font-size:14px;'
       + 'background:var(--input-bg);color:var(--text);border:1px solid var(--border);'
       + 'border-radius:4px;padding:2px 4px;vertical-align:middle';

@@ -51,4 +51,11 @@ void fillStateJson(JsonObject& out);
 bool save();
 bool load();
 
+// Flushes a pending save() queued by setLayer() once ~400ms have passed
+// since the last field write, so a continuous slider drag serializes at
+// most one flash write instead of one per PATCH. Call periodically from a
+// task that is neither the network stack nor the render loop (currently
+// safety::task()) -- see setLayer()'s comment for why.
+void maybeFlush();
+
 }  // namespace layers
