@@ -4253,16 +4253,16 @@ function renderModBindings() {
     var i = idxs[k];
     var b = modState.bindings[i];
     html += '<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--bg2);border-radius:8px">';
-    html += '<select onchange="modBindingSet(' + i + ',' + Q + 'modulatorIdx' + Q + ',this.value,false)">';
+    html += '<select style="max-width:16ch;flex:0 0 auto" onchange="modBindingSet(' + i + ',' + Q + 'modulatorIdx' + Q + ',this.value,false)">';
     for (var mi = 0; mi < modState.modulators.length; mi++)
       html += '<option value="' + mi + '"' + (b.modulatorIdx === mi ? ' selected' : '') + '>' + modName(mi) + '</option>';
     html += '</select>';
-    html += '<select style="flex:1" onchange="modBindingSet(' + i + ',' + Q + 'targetParam' + Q + ',this.value,false)">';
+    html += '<select style="min-width:25ch;flex:1" onchange="modBindingSet(' + i + ',' + Q + 'targetParam' + Q + ',this.value,false)">';
     for (var tg = 0; tg < MOD_TARGETS.length; tg++)
       html += '<option value="' + MOD_TARGETS[tg].v + '"' + (b.targetParam === MOD_TARGETS[tg].v ? ' selected' : '') + '>' + MOD_TARGETS[tg].label + '</option>';
     html += '</select>';
     html += 'Depth <input type="range" min="-1" max="1" step="0.05" value="' + b.depth +
-            '" oninput="modBindingSet(' + i + ',' + Q + 'depth' + Q + ',this.value,true)">';
+            '" style="width:80px" oninput="modBindingSet(' + i + ',' + Q + 'depth' + Q + ',this.value,true)">';
     html += 'Offset <input type="number" step="1" value="' + b.offset + '" style="width:70px" ' +
             'onchange="modBindingSet(' + i + ',' + Q + 'offset' + Q + ',this.value,true)">';
     html += '<button class="btn danger" style="padding:4px 8px" onclick="modBindingRemove(' + i + ')">&#10005;</button>';

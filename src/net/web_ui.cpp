@@ -917,6 +917,20 @@ void init() {
             req->send(200, "text/plain", "OK");
         });
 
+    // ---- POST /api/bpm/tap ---- tap tempo, no body ----
+    // Registered BEFORE the bare /api/bpm route below: ESPAsyncWebServer's
+    // default URI matcher for a plain string is "BackwardCompatible"
+    // (^{uri}(/.*)?$), so /api/bpm alone would otherwise also match
+    // /api/bpm/tap and -- being first in registration order -- silently
+    // swallow every tap request into its empty onRequest no-op (real logic
+    // lives in that route's body callback, which never fires for a bodyless
+    // POST). That left every tap unanswered, surfacing as a bare library
+    // fallback 501 "Handler did not handle the request" with BPM frozen.
+    s_server.on("/api/bpm/tap", HTTP_POST, [](AsyncWebServerRequest* req) {
+        bpm_clock::tap();
+        req->send(200, "text/plain", "OK");
+    });
+
     // ---- POST /api/bpm ---- manual BPM + DMX channel selector ----
     // body: {"bpm": 128.0, "dmx_channel": 237} -- both fields optional
     s_server.on("/api/bpm", HTTP_POST,
@@ -931,12 +945,6 @@ void init() {
                 bpm_clock::setDmxChannel((uint16_t)constrain((int)doc["dmx_channel"], 1, 512));
             req->send(200, "text/plain", "OK");
         });
-
-    // ---- POST /api/bpm/tap ---- tap tempo, no body ----
-    s_server.on("/api/bpm/tap", HTTP_POST, [](AsyncWebServerRequest* req) {
-        bpm_clock::tap();
-        req->send(200, "text/plain", "OK");
-    });
 
     // ---- POST /api/arm ----
     s_server.on("/api/arm", HTTP_POST,
