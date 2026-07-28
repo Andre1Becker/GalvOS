@@ -10,6 +10,8 @@
 #include "control/dmx_in.h"
 #include "net/artnet_in.h"
 #include "net/sacn_in.h"
+#include "net/etherdream.h"
+#include "net/helios_net.h"
 #include "output/galvo_out.h"
 #include "safety/safety.h"
 #include "util/log_buffer.h"
@@ -1101,8 +1103,22 @@ void task(void*) {
             continue;
         }
 
+        // ---- Network point streaming (EtherDream / Helios Net) ----
+        // Both protocol tasks push frames straight into galvo::pushFrame()'s
+        // ring buffer from their own core-0 task, independently of this loop.
+        // If this loop kept rendering Preset/DMX in parallel, the two tasks'
+        // frames interleave in the ring and the beam visibly overlaps/flickers
+        // between the streamed shape and the DMX/preset pattern -- same class
+        // of bug the ILDA gate above fixes for ILDA vs. DMX. Skip rendering
+        // entirely while a client is actively streaming; the galvo output
+        // task keeps scanning whatever frame the network task last pushed.
+        if (etherdream::isPlaying() || helios_net::isPlaying()) {
+            vTaskDelay(pdMS_TO_TICKS(5));
+            continue;
+        }
+
         // ---- calibration-Pattern-Modus ----
-        // Priority: ILDA > Calib > Text > Preset > DMX
+        // Priority: ILDA > Network > Calib > Text > Preset > DMX
         if (gState.calib_active) {
             const uint32_t safe_ph = phase % 0xFFFFFF;
             size_t n = calib_patterns::generate(
