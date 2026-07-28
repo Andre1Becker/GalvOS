@@ -18,6 +18,7 @@
 #include "util/mem_registry.h"
 #include "net/web_ui.h"
 #include "../sequencer.h"
+#include "../modulator_engine.h"
 #include <Arduino.h>
 #include <math.h>
 #include <esp_log.h>
@@ -590,6 +591,54 @@ static void applyColorAnim(size_t n) {
             if (s_frame[i].blank) continue;
             s_frame[i].r = ar; s_frame[i].g = ag; s_frame[i].b = ab;
         }
+    }
+}
+
+// ── Modulator Color Engine ────────────────────────────────────────────────────
+// COLOR_HUE/SATURATION/BRIGHTNESS bindings, applied as an RGB->HSV->RGB
+// post-pass over whatever applyColorAnim() (or the preset itself) already
+// wrote. Cheap early-out via modulator::apply()'s "no matching binding"
+// path -- skips the whole frame loop when nothing is bound.
+static void applyColorModulation(size_t n) {
+    float hueShift = modulator::apply(modulator::ModTarget::COLOR_HUE, 0.0f);
+    float satMul    = modulator::apply(modulator::ModTarget::COLOR_SATURATION, 1.0f);
+    float briMul     = modulator::apply(modulator::ModTarget::COLOR_BRIGHTNESS, 1.0f);
+    if (hueShift == 0.0f && satMul == 1.0f && briMul == 1.0f) return;
+
+    for (size_t i = 0; i < n; i++) {
+        if (s_frame[i].blank) continue;
+        float r = s_frame[i].r / 255.0f, g = s_frame[i].g / 255.0f, b = s_frame[i].b / 255.0f;
+        float mx = fmaxf(r, fmaxf(g, b)), mn = fminf(r, fminf(g, b));
+        float v = mx;
+        float d = mx - mn;
+        float s = (mx <= 0.0f) ? 0.0f : d / mx;
+        float h;
+        if (d <= 0.0f)       h = 0.0f;
+        else if (mx == r)    h = fmodf((g - b) / d, 6.0f) / 6.0f;
+        else if (mx == g)    h = ((b - r) / d + 2.0f) / 6.0f;
+        else                 h = ((r - g) / d + 4.0f) / 6.0f;
+        if (h < 0.0f) h += 1.0f;
+
+        h = h + hueShift; h = h - floorf(h);
+        s = fminf(1.0f, fmaxf(0.0f, s * satMul));
+        v = fminf(1.0f, fmaxf(0.0f, v * briMul));
+
+        float c = v * s;
+        float x = c * (1.0f - fabsf(fmodf(h * 6.0f, 2.0f) - 1.0f));
+        float m = v - c;
+        float rr, gg, bb;
+        int   seg = (int)(h * 6.0f) % 6;
+        switch (seg) {
+            case 0: rr = c; gg = x; bb = 0; break;
+            case 1: rr = x; gg = c; bb = 0; break;
+            case 2: rr = 0; gg = c; bb = x; break;
+            case 3: rr = 0; gg = x; bb = c; break;
+            case 4: rr = x; gg = 0; bb = c; break;
+            default: rr = c; gg = 0; bb = x; break;
+        }
+        s_frame[i].r = (uint8_t)constrain((rr + m) * 255.0f, 0.0f, 255.0f);
+        s_frame[i].g = (uint8_t)constrain((gg + m) * 255.0f, 0.0f, 255.0f);
+        s_frame[i].b = (uint8_t)constrain((bb + m) * 255.0f, 0.0f, 255.0f);
     }
 }
 
@@ -1377,7 +1426,12 @@ void task(void*) {
 
         // ---- Preset Mode (overrride DMX) ----
         if (s_preset_idx != presets::Preset::None) {
-            uint8_t speed   = gLivePreset.speed;
+            uint8_t speed = gLivePreset.speed;
+            // Modulator engine: OPT_SPEED binding nudges the animation speed
+            // before it is baked into this frame's generate() call. apply()
+            // is a cheap no-op (returns speed unchanged) when nothing binds
+            // to OPT_SPEED, so this is safe to call unconditionally.
+            speed = (uint8_t)modulator::apply(modulator::ModTarget::OPT_SPEED, (float)speed);
             float   scaleFrac;
             uint8_t sz      = computeAutoScaleSize(gLivePreset.size_val, &scaleFrac);
 
@@ -1422,22 +1476,45 @@ void task(void*) {
             const bool isParticle = (presets::presetClassOf(
                                          static_cast<presets::Preset>(s_preset_idx))
                                      == presets::PresetClass::Particles);
+
+            // Modulator engine: TRANSFORM_SCALE_X/Y, TRANSFORM_SHIFT_X/Y and
+            // TRANSFORM_ROTATION bindings fold into the same affine that
+            // carries the Z-rotation above -- apply() returns the neutral
+            // baseValue (1.0 / 0.0 / 0.0) untouched when nothing is bound,
+            // so an idle modulator engine costs 5 cheap no-op calls/frame.
+            float modScaleX = modulator::apply(modulator::ModTarget::TRANSFORM_SCALE_X, 1.0f);
+            float modScaleY = modulator::apply(modulator::ModTarget::TRANSFORM_SCALE_Y, 1.0f);
+            float modShiftX = modulator::apply(modulator::ModTarget::TRANSFORM_SHIFT_X, 0.0f);
+            float modShiftY = modulator::apply(modulator::ModTarget::TRANSFORM_SHIFT_Y, 0.0f);
+            float modRotRad = modulator::apply(modulator::ModTarget::TRANSFORM_ROTATION, 0.0f) * (float)(M_PI / 180.0);
+            float totalAngle = zRad + modRotRad;
+            const bool modTransformActive = modScaleX != 1.0f || modScaleY != 1.0f ||
+                                             modShiftX != 0.0f || modShiftY != 0.0f || modRotRad != 0.0f;
+
             { LOCK_STATE();
-              optimizer::gLiveTransform = isParticle
-                  ? optimizer::makeTransform(0.f, 0.f, 0.f)  // identity; Z applied post-generate
-                  : optimizer::makeTransform(zRad, 0.f, 0.f); }
+              if (isParticle) {
+                  optimizer::gLiveTransform = optimizer::makeTransform(0.f, 0.f, 0.f);  // identity; applied post-generate below
+              } else {
+                  float ca = cosf(totalAngle), sa = sinf(totalAngle);
+                  optimizer::gLiveTransform = optimizer::AffineTransform(
+                      modScaleX * ca, -modScaleY * sa, modShiftX,
+                      modScaleX * sa,  modScaleY * ca, modShiftY);
+              }
+            }
 
             size_t n = presets::generate(static_cast<uint8_t>(s_preset_idx), s_frame,
                                          PATTERN_POINTS_MAX, phase, speed, sz);
 
-            // For Particle presets: apply Z-rotation as a post-generate point pass
-            // (optimizer never ran, so gLiveTransform was not applied above).
-            if (isParticle && fabsf(zRad) > 0.001f) {
-                float cz = cosf(zRad), sz2 = sinf(zRad);
+            // For Particle presets: apply Z-rotation + modulator scale/shift
+            // as a post-generate point pass (optimizer never ran, so
+            // gLiveTransform was not applied above).
+            if (isParticle && (fabsf(totalAngle) > 0.001f || modTransformActive)) {
+                float cz = cosf(totalAngle), sz2 = sinf(totalAngle);
                 for (size_t i = 0; i < n; i++) {
-                    int16_t nx = (int16_t)(s_frame[i].x * cz - s_frame[i].y * sz2);
-                    int16_t ny = (int16_t)(s_frame[i].x * sz2 + s_frame[i].y * cz);
-                    s_frame[i].x = nx; s_frame[i].y = ny;
+                    float rx = (s_frame[i].x * cz - s_frame[i].y * sz2) * modScaleX + modShiftX;
+                    float ry = (s_frame[i].x * sz2 + s_frame[i].y * cz) * modScaleY + modShiftY;
+                    s_frame[i].x = (int16_t)constrain(rx, -32767.0f, 32767.0f);
+                    s_frame[i].y = (int16_t)constrain(ry, -32767.0f, 32767.0f);
                 }
             }
 
@@ -1459,6 +1536,7 @@ void task(void*) {
             
             // Apply color animation / override
             applyColorAnim(n);
+            applyColorModulation(n);   // Modulator engine: COLOR_HUE/SATURATION/BRIGHTNESS
 
             // Z-rotation is now applied via optimizer::gLiveTransform (Phase 3),
             // published above before generate(). Only the non-affine Y/X

@@ -29,6 +29,7 @@
 #include "net/backup_manager.h"
 #include "bpm_clock.h"
 #include "../sequencer.h"
+#include "../modulator_engine.h"
 #include "net/community_presets.h"
 #include "patterns/preset_patterns.h"
 #include "patterns/countdown_timer.h"
@@ -835,6 +836,7 @@ void init() {
         loadIndexGzToPsram();
         community_presets::init();
         sequencer::init();
+        modulator::init();
     }
 
     // ---- Statische SPA ----
@@ -2180,6 +2182,80 @@ void init() {
         });
     s_server.on("/api/sequencer", HTTP_DELETE, [](AsyncWebServerRequest* req) {
         sequencer::clear();
+        req->send(200, "text/plain", "OK");
+    });
+
+    // ── Modulator Engine (LFO/Noise/Envelope/Sequencer parameter matrix) ──
+    // Slot index addressed via ?idx=N (query param) rather than a /:id path
+    // segment -- ESPAsyncWebServer routes in this file are always matched
+    // as exact strings (see the /api/sequencer/step precedent above), so a
+    // path-param style route would need a regex pattern nothing else here
+    // uses; req->hasParam()/getParam() (already used for ?token=/?after=)
+    // is the established way this codebase reads request-scoped indices.
+    //
+    // NOTE: the /api/modulators/* action routes are registered before the
+    // bare /api/modulators route, matching this file's existing convention.
+    s_server.on("/api/modulators/trigger", HTTP_POST, [](AsyncWebServerRequest* req) {
+        if (!req->hasParam("idx")) { req->send(400, "text/plain", "missing idx"); return; }
+        modulator::trigger((uint8_t)atoi(req->getParam("idx")->value().c_str()));
+        req->send(200, "text/plain", "OK");
+    });
+    s_server.on("/api/modulators/reset", HTTP_POST, [](AsyncWebServerRequest* req) {
+        modulator::resetAll();
+        req->send(200, "text/plain", "OK");
+    });
+    s_server.on("/api/modulators/bindings", HTTP_GET, [](AsyncWebServerRequest* req) {
+        JsonDocument doc(&jsonAllocator());
+        JsonArray arr = doc.to<JsonArray>();
+        modulator::fillBindingsJson(arr);
+        sendJsonPsram(req, doc);
+    });
+    s_server.on("/api/modulators/bindings", HTTP_POST,
+        [](AsyncWebServerRequest* req) {}, nullptr,
+        [](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t, size_t) {
+            JsonDocument doc(&jsonAllocator());
+            if (deserializeJson(doc, data, len)) { req->send(400, "text/plain", "bad json"); return; }
+            modulator::setBindings(doc["bindings"].as<JsonArrayConst>());
+            req->send(200, "text/plain", "OK");
+        });
+    s_server.on("/api/modulators", HTTP_GET, [](AsyncWebServerRequest* req) {
+        JsonDocument doc(&jsonAllocator());
+        JsonObject root = doc.to<JsonObject>();
+        modulator::fillStateJson(root);
+        JsonArray binds = root["bindings"].to<JsonArray>();
+        modulator::fillBindingsJson(binds);
+        sendJsonPsram(req, doc);
+    });
+    s_server.on("/api/modulators", HTTP_POST,
+        [](AsyncWebServerRequest* req) {}, nullptr,
+        [](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t, size_t) {
+            JsonDocument doc(&jsonAllocator());
+            if (deserializeJson(doc, data, len)) { req->send(400, "text/plain", "bad json"); return; }
+            JsonArrayConst mods = doc["modulators"].as<JsonArrayConst>();
+            uint8_t i = 0;
+            for (JsonObjectConst o : mods) {
+                if (i >= modulator::MOD_SLOTS) break;
+                modulator::setModulator(i, o);
+                i++;
+            }
+            for (; i < modulator::MOD_SLOTS; i++) modulator::clearModulator(i);
+            req->send(200, "text/plain", "OK");
+        });
+    s_server.on("/api/modulators", HTTP_PATCH,
+        [](AsyncWebServerRequest* req) {}, nullptr,
+        [](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t, size_t) {
+            if (!req->hasParam("idx")) { req->send(400, "text/plain", "missing idx"); return; }
+            uint8_t idx = (uint8_t)atoi(req->getParam("idx")->value().c_str());
+            JsonDocument doc(&jsonAllocator());
+            if (deserializeJson(doc, data, len)) { req->send(400, "text/plain", "bad json"); return; }
+            if (!modulator::setModulator(idx, doc.as<JsonObjectConst>())) {
+                req->send(400, "text/plain", "bad idx"); return;
+            }
+            req->send(200, "text/plain", "OK");
+        });
+    s_server.on("/api/modulators", HTTP_DELETE, [](AsyncWebServerRequest* req) {
+        if (!req->hasParam("idx")) { req->send(400, "text/plain", "missing idx"); return; }
+        modulator::clearModulator((uint8_t)atoi(req->getParam("idx")->value().c_str()));
         req->send(200, "text/plain", "OK");
     });
 

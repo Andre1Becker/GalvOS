@@ -2,6 +2,7 @@
 #include "mutex.h"
 #include "safety/safety.h"
 #include "bpm_clock.h"
+#include "modulator_engine.h"
 #include <Arduino.h>
 #include <SPI.h>
 #include <esp_log.h>
@@ -460,6 +461,11 @@ static inline void updateSnapshot() {
     // beat phase for this frame. Lock-free (see bpm_clock.h), safe to call
     // from here alongside the rest of the per-frame snapshot.
     bpm_clock::tickMs();
+
+    // Modulator engine: recomputes all 8 slots' outputs for this frame
+    // (NOT per point -- see modulator_engine.h). Non-blocking internally,
+    // safe alongside the rest of this per-frame snapshot.
+    modulator::tick(millis());
 }
 
 // Forward declaration: defined after galvoTask, called from within it.

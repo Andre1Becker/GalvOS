@@ -8,15 +8,17 @@ SemaphoreHandle_t state   = nullptr;
 SemaphoreHandle_t sd      = nullptr;
 SemaphoreHandle_t zone    = nullptr;
 SemaphoreHandle_t paint   = nullptr;
+SemaphoreHandle_t modulator = nullptr;
 
 void init() {
-    config  = xSemaphoreCreateMutex();
-    state   = xSemaphoreCreateMutex();
-    sd      = xSemaphoreCreateMutex();
-    zone    = xSemaphoreCreateMutex();
-    paint   = xSemaphoreCreateMutex();
-    ESP_LOGI("mtx", "5 Mutexes created");
-    configASSERT(config && state && sd && zone && paint);
+    config    = xSemaphoreCreateMutex();
+    state     = xSemaphoreCreateMutex();
+    sd        = xSemaphoreCreateMutex();
+    zone      = xSemaphoreCreateMutex();
+    paint     = xSemaphoreCreateMutex();
+    modulator = xSemaphoreCreateMutex();
+    ESP_LOGI("mtx", "6 Mutexes created");
+    configASSERT(config && state && sd && zone && paint && modulator);
 }
 
 } // namespace mtx

@@ -1629,6 +1629,25 @@
       <button class="btn secondary" onclick="seqAddStep()" style="width:100%;margin-top:10px">+ Add Step</button>
     </div>
 
+    <div class="card" style="grid-column:1 / -1">
+      <h2>🎛️ Parameter Modulators
+        <button class="btn danger" style="float:right;padding:4px 10px;font-size:12px" onclick="modResetAll()">Reset All</button>
+      </h2>
+      <p style="color:var(--dim);font-size:14px;margin:4px 0 14px">
+        8 LFO/Noise/Envelope/Sequencer slots drive pattern parameters (scale, shift, rotation,
+        color, speed, density) via the binding matrix below. BPM-synced slots follow the clock
+        above; Free-mode slots run on their own rate.
+      </p>
+      <div id="mod-slots" style="display:flex;flex-direction:column;gap:10px"></div>
+
+      <h3 style="margin-top:22px">Bindings</h3>
+      <p style="color:var(--dim);font-size:13px;margin:2px 0 10px">
+        Routes a modulator's output onto a pattern parameter. Depth scales the effect
+        (negative inverts); Offset nudges the parameter's base value independent of modulation.
+      </p>
+      <div id="mod-bindings" style="display:flex;flex-direction:column;gap:6px"></div>
+    </div>
+
   </div>
 </section>
 
@@ -2818,7 +2837,7 @@ document.querySelectorAll('nav button').forEach(btn => {
     // Lazy-load tab data on first visit
     const t = btn.dataset.tab;
     if (t === 'projection') loadProjection();
-    if (t === 'modulators') loadSequencer();
+    if (t === 'modulators') { loadSequencer(); loadModulators(); }
     if (t === 'presets' && g_curve_defs.length === 0) loadCurveDefs();
     if (t === 'presets' || t === 'preset-manager') loadCommunityPresets();
     if (t === 'thermal')  { buildTempSensors(); buildSensorNameEditor(); }
@@ -3884,6 +3903,329 @@ function seqBeatFlashLoop() {
   requestAnimationFrame(seqBeatFlashLoop);
 }
 requestAnimationFrame(seqBeatFlashLoop);
+
+// ============================================================
+// Modulator Engine (Modulators tab)
+// ============================================================
+var MOD_SLOTS      = 8;
+var MOD_BINDINGS   = 16;
+var MOD_SEQ_STEPS  = 16;
+var MOD_TYPE_NAMES  = ['Oscillator', 'Noise', 'Envelope', 'Sequencer'];
+var MOD_SHAPE_NAMES = ['Sine', 'Triangle', 'Square', 'Saw'];
+var MOD_BPMDIV_NAMES = ['1/1', '1/2', '1/4', '1/8', '1/16'];
+var MOD_TARGETS = [
+  { v: 0, label: 'Transform: Scale X' },
+  { v: 1, label: 'Transform: Scale Y' },
+  { v: 2, label: 'Transform: Shift X' },
+  { v: 3, label: 'Transform: Shift Y' },
+  { v: 4, label: 'Transform: Rotation' },
+  { v: 5, label: 'Color: Hue' },
+  { v: 6, label: 'Color: Saturation' },
+  { v: 7, label: 'Color: Brightness' },
+  { v: 8, label: 'Optimizer: Speed' },
+  { v: 9, label: 'Optimizer: Density' }
+];
+var MOD_WAVE_ICONS = [
+  '<svg viewBox="0 0 32 16" width="20" height="12"><path d="M0 8 Q8 0 16 8 T32 8" fill="none" stroke="currentColor" stroke-width="2"/></svg>',
+  '<svg viewBox="0 0 32 16" width="20" height="12"><path d="M0 14 L8 2 L16 14 L24 2 L32 14" fill="none" stroke="currentColor" stroke-width="2"/></svg>',
+  '<svg viewBox="0 0 32 16" width="20" height="12"><path d="M0 2 L0 2 L8 2 L8 14 L16 14 L16 2 L24 2 L24 14 L32 14" fill="none" stroke="currentColor" stroke-width="2"/></svg>',
+  '<svg viewBox="0 0 32 16" width="20" height="12"><path d="M0 14 L16 2 L16 14 L32 2" fill="none" stroke="currentColor" stroke-width="2"/></svg>'
+];
+
+var modState = { modulators: [], bindings: [] };
+
+function loadModulators() {
+  apiCall('GET', '/api/modulators').then(function(r) {
+    if (!r) return;
+    modState.modulators = r.modulators || [];
+    modState.bindings   = r.bindings || [];
+    renderModulators();
+    renderModBindings();
+  });
+}
+
+function modName(idx) {
+  var m = modState.modulators[idx];
+  if (!m) return 'Mod ' + (idx + 1);
+  return (m.name && m.name.length) ? m.name : ('Mod ' + (idx + 1));
+}
+
+// Patches a single field (or several at once via an object) on slot `idx`,
+// updates local state immediately (snappy UI) and persists via PATCH.
+function modPatch(idx, fields) {
+  var m = modState.modulators[idx];
+  if (!m) return;
+  for (var k in fields) if (fields.hasOwnProperty(k)) m[k] = fields[k];
+  apiCall('PATCH', '/api/modulators?idx=' + idx, fields);
+}
+
+function modSetField(idx, field, value, isFloat) {
+  var v = isFloat ? parseFloat(value) : parseInt(value, 10);
+  if (isNaN(v)) return;
+  var fields = {};
+  fields[field] = v;
+  modPatch(idx, fields);
+  renderModSlotPreview(idx);
+}
+
+function modSetBool(idx, field, checked) {
+  var fields = {};
+  fields[field] = !!checked;
+  modPatch(idx, fields);
+  renderModulators();
+}
+
+function modSetName(idx, value) {
+  modPatch(idx, { name: value });
+}
+
+function modSetSeqValue(idx, step, value) {
+  var m = modState.modulators[idx];
+  if (!m) return;
+  if (!m.seqValues) m.seqValues = [];
+  m.seqValues[step] = parseFloat(value);
+  apiCall('PATCH', '/api/modulators?idx=' + idx, { seqValues: m.seqValues });
+  renderModSlotPreview(idx);
+}
+
+function modTypeChanged(idx, value) {
+  modSetField(idx, 'type', value, false);
+  renderModulators();   // type-specific controls (shape/env/seq) need a full re-render
+}
+
+function modTrigger(idx) {
+  apiCall('POST', '/api/modulators/trigger?idx=' + idx);
+}
+
+function modClear(idx) {
+  apiCall('DELETE', '/api/modulators?idx=' + idx).then(function() { loadModulators(); });
+}
+
+function modResetAll() {
+  apiCall('POST', '/api/modulators/reset').then(function() { loadModulators(); });
+}
+
+// Client-side shape preview -- draws the SAME curve the firmware LUT would
+// produce (Oscillator), a representative squiggle (Noise), an ADSR-style
+// ramp (Envelope) or a step bar chart (Sequencer) from the slot's own
+// params. Static (param-accurate), not a running clock -- see modulator
+// engine notes: avoids depending on a client/firmware time sync that would
+// drift, while still needing no extra API round-trip.
+function modWaveY(shape, t) {
+  if (shape === 0) return Math.sin(2 * Math.PI * t) * 0.5 + 0.5;
+  if (shape === 1) return (t < 0.5 ? (4 * t - 1) : (3 - 4 * t)) * 0.5 + 0.5;
+  if (shape === 2) return (t < 0.5 ? 1 : -1) * 0.5 + 0.5;
+  return (2 * t - 1) * 0.5 + 0.5;
+}
+
+function modHash(seed, i) {
+  var h = (Math.imul(i | 0, 2654435761) + Math.imul(seed | 0, 0x9E3779B1)) >>> 0;
+  h ^= h >>> 15; h = Math.imul(h, 0x85EBCA6B) >>> 0;
+  h ^= h >>> 13; h = Math.imul(h, 0xC2B2AE35) >>> 0;
+  h ^= h >>> 16;
+  return (h / 4294967295) * 2 - 1;
+}
+
+function renderModSlotPreview(idx) {
+  var m = modState.modulators[idx];
+  var cv = document.getElementById('mod-preview-' + idx);
+  if (!m || !cv) return;
+  var ctx = cv.getContext('2d');
+  var w = cv.width, h = cv.height;
+  ctx.clearRect(0, 0, w, h);
+  ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--accent') || '#4af';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+
+  if (m.type === 3) {   // Sequencer: step bars
+    var n = m.seqStepCount || 8;
+    var vals = m.seqValues || [];
+    var bw = w / n;
+    ctx.fillStyle = ctx.strokeStyle;
+    for (var s = 0; s < n; s++) {
+      var vv = (vals[s] || 0) * 0.5 + 0.5;
+      var bh = vv * (h - 2);
+      ctx.fillRect(s * bw + 1, h - bh, bw - 2, bh);
+    }
+    return;
+  }
+
+  var N = 64;
+  for (var i = 0; i <= N; i++) {
+    var t = i / N;
+    var y;
+    if (m.type === 0) {
+      y = modWaveY(m.shape || 0, t);
+    } else if (m.type === 1) {
+      y = modHash(m.noiseSeed || 0, i) * 0.5 + 0.5;
+    } else {   // Envelope: attack/sustain/release ramp, relative durations
+      var a = m.envAttackMs || 1, su = m.envSustainMs || 1, r = m.envReleaseMs || 1;
+      var total = a + su + r;
+      var tm = t * total;
+      if (tm < a) y = tm / a;
+      else if (tm < a + su) y = 1;
+      else y = 1 - (tm - a - su) / r;
+    }
+    var px = t * w, py = h - y * (h - 2) - 1;
+    if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+  }
+  ctx.stroke();
+}
+
+function modSlotHtml(m, i) {
+  var open = m.enabled;
+  var html = '<div class="card" style="background:var(--bg2);padding:12px">';
+  html += '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">';
+  html += '<input type="checkbox" title="Enabled" ' + (m.enabled ? 'checked' : '') +
+          ' onchange="modSetBool(' + i + ',' + Q + 'enabled' + Q + ',this.checked)">';
+  html += '<input type="text" value="' + (m.name || '') + '" placeholder="Mod ' + (i + 1) + '" maxlength="15" ' +
+          'style="width:110px" onchange="modSetName(' + i + ',this.value)">';
+  html += '<select onchange="modTypeChanged(' + i + ',this.value)">';
+  for (var ti = 0; ti < MOD_TYPE_NAMES.length; ti++)
+    html += '<option value="' + ti + '"' + (m.type === ti ? ' selected' : '') + '>' + MOD_TYPE_NAMES[ti] + '</option>';
+  html += '</select>';
+  html += '<canvas id="mod-preview-' + i + '" width="120" height="34" style="background:var(--bg1);border-radius:4px;color:var(--accent)"></canvas>';
+  if (m.type === 2) html += '<button class="btn ok" style="padding:4px 10px" onclick="modTrigger(' + i + ')">Trigger</button>';
+  html += '<button class="btn danger" style="padding:4px 10px;margin-left:auto" onclick="modClear(' + i + ')">Clear</button>';
+  html += '</div>';
+
+  if (open) {
+    html += '<div style="display:flex;flex-wrap:wrap;gap:16px;margin-top:12px">';
+
+    if (m.type === 0) {
+      html += '<div>Shape<br>';
+      for (var si = 0; si < MOD_WAVE_ICONS.length; si++) {
+        html += '<button class="btn ' + (m.shape === si ? 'ok' : 'secondary') + '" style="padding:4px 8px;margin-right:4px" ' +
+                'onclick="modSetField(' + i + ',' + Q + 'shape' + Q + ',' + si + ',false);renderModulators()" title="' + MOD_SHAPE_NAMES[si] + '">' +
+                MOD_WAVE_ICONS[si] + '</button>';
+      }
+      html += '</div>';
+    }
+
+    html += '<div>Cycles<br><input type="range" min="0.01" max="32" step="0.01" value="' + m.cycles +
+            '" oninput="modSetField(' + i + ',' + Q + 'cycles' + Q + ',this.value,true);renderModSlotPreview(' + i + ')"></div>';
+    html += '<div>Phase<br><input type="range" min="0" max="1" step="0.01" value="' + m.phaseOffset +
+            '" oninput="modSetField(' + i + ',' + Q + 'phaseOffset' + Q + ',this.value,true);renderModSlotPreview(' + i + ')"></div>';
+    html += '<div>Level<br><input type="range" min="0" max="1" step="0.01" value="' + m.level +
+            '" oninput="modSetField(' + i + ',' + Q + 'level' + Q + ',this.value,true)"></div>';
+
+    html += '<div>' +
+            '<label style="display:flex;align-items:center;gap:6px">' +
+            '<input type="checkbox" ' + (m.bpmSync ? 'checked' : '') +
+            ' onchange="modSetBool(' + i + ',' + Q + 'bpmSync' + Q + ',this.checked);renderModulators()">BPM Sync</label>';
+    if (m.bpmSync) {
+      html += '<select onchange="modSetField(' + i + ',' + Q + 'bpmDiv' + Q + ',this.value,false)" style="margin-top:4px">';
+      for (var bd = 0; bd < MOD_BPMDIV_NAMES.length; bd++)
+        html += '<option value="' + bd + '"' + (m.bpmDiv === bd ? ' selected' : '') + '>' + MOD_BPMDIV_NAMES[bd] + '</option>';
+      html += '</select>';
+    } else {
+      html += '<br>Free Hz<br><input type="range" min="0.01" max="20" step="0.01" value="' + m.phaseSpeed +
+              '" oninput="modSetField(' + i + ',' + Q + 'phaseSpeed' + Q + ',this.value,true)">';
+    }
+    html += '</div>';
+
+    if (m.type === 2) {
+      html += '<div>Attack (ms)<br><input type="range" min="0" max="5000" step="10" value="' + m.envAttackMs +
+              '" oninput="modSetField(' + i + ',' + Q + 'envAttackMs' + Q + ',this.value,true);renderModSlotPreview(' + i + ')"></div>';
+      html += '<div>Sustain (ms)<br><input type="range" min="0" max="5000" step="10" value="' + m.envSustainMs +
+              '" oninput="modSetField(' + i + ',' + Q + 'envSustainMs' + Q + ',this.value,true);renderModSlotPreview(' + i + ')"></div>';
+      html += '<div>Release (ms)<br><input type="range" min="0" max="5000" step="10" value="' + m.envReleaseMs +
+              '" oninput="modSetField(' + i + ',' + Q + 'envReleaseMs' + Q + ',this.value,true);renderModSlotPreview(' + i + ')"></div>';
+    }
+
+    if (m.type === 3) {
+      html += '<div style="width:100%">Steps (' + (m.seqStepCount || 8) + ')<br>' +
+              '<input type="range" min="1" max="' + MOD_SEQ_STEPS + '" step="1" value="' + (m.seqStepCount || 8) +
+              '" oninput="modSetField(' + i + ',' + Q + 'seqStepCount' + Q + ',this.value,false);renderModulators()">';
+      html += '<div style="display:flex;gap:4px;margin-top:6px">';
+      var stepN = m.seqStepCount || 8;
+      var seqVals = m.seqValues || [];
+      for (var st = 0; st < stepN; st++) {
+        html += '<input type="range" min="-1" max="1" step="0.05" value="' + (seqVals[st] || 0) + '" ' +
+                'orient="vertical" style="writing-mode:vertical-lr;direction:rtl;width:16px;height:60px" ' +
+                'oninput="modSetSeqValue(' + i + ',' + st + ',this.value)" title="Step ' + (st + 1) + '">';
+      }
+      html += '</div></div>';
+    }
+
+    html += '</div>';
+  }
+  html += '</div>';
+  return html;
+}
+
+function renderModulators() {
+  var root = document.getElementById('mod-slots');
+  if (!root) return;
+  var html = '';
+  for (var i = 0; i < modState.modulators.length; i++) html += modSlotHtml(modState.modulators[i], i);
+  root.innerHTML = html;
+  enhanceSliders(root);
+  for (var j = 0; j < modState.modulators.length; j++) renderModSlotPreview(j);
+}
+
+function modBindingActiveList() {
+  var idxs = [];
+  for (var i = 0; i < modState.bindings.length; i++) if (modState.bindings[i].active) idxs.push(i);
+  return idxs;
+}
+
+function modPersistBindings() {
+  apiCall('POST', '/api/modulators/bindings', { bindings: modState.bindings });
+}
+
+function modBindingSet(i, field, value, isFloat) {
+  var b = modState.bindings[i];
+  if (!b) return;
+  b[field] = isFloat ? parseFloat(value) : parseInt(value, 10);
+  modPersistBindings();
+}
+
+function modBindingAdd() {
+  for (var i = 0; i < modState.bindings.length; i++) {
+    if (!modState.bindings[i].active) {
+      modState.bindings[i] = { active: true, modulatorIdx: 0, targetParam: 0, depth: 0.5, offset: 0 };
+      modPersistBindings();
+      renderModBindings();
+      return;
+    }
+  }
+  toast('All 16 binding slots are in use', true);
+}
+
+function modBindingRemove(i) {
+  modState.bindings[i] = { active: false, modulatorIdx: 0, targetParam: 0, depth: 0, offset: 0 };
+  modPersistBindings();
+  renderModBindings();
+}
+
+function renderModBindings() {
+  var root = document.getElementById('mod-bindings');
+  if (!root) return;
+  var idxs = modBindingActiveList();
+  var html = '';
+  for (var k = 0; k < idxs.length; k++) {
+    var i = idxs[k];
+    var b = modState.bindings[i];
+    html += '<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--bg2);border-radius:8px">';
+    html += '<select onchange="modBindingSet(' + i + ',' + Q + 'modulatorIdx' + Q + ',this.value,false)">';
+    for (var mi = 0; mi < modState.modulators.length; mi++)
+      html += '<option value="' + mi + '"' + (b.modulatorIdx === mi ? ' selected' : '') + '>' + modName(mi) + '</option>';
+    html += '</select>';
+    html += '<select style="flex:1" onchange="modBindingSet(' + i + ',' + Q + 'targetParam' + Q + ',this.value,false)">';
+    for (var tg = 0; tg < MOD_TARGETS.length; tg++)
+      html += '<option value="' + MOD_TARGETS[tg].v + '"' + (b.targetParam === MOD_TARGETS[tg].v ? ' selected' : '') + '>' + MOD_TARGETS[tg].label + '</option>';
+    html += '</select>';
+    html += 'Depth <input type="range" min="-1" max="1" step="0.05" value="' + b.depth +
+            '" oninput="modBindingSet(' + i + ',' + Q + 'depth' + Q + ',this.value,true)">';
+    html += 'Offset <input type="number" step="1" value="' + b.offset + '" style="width:70px" ' +
+            'onchange="modBindingSet(' + i + ',' + Q + 'offset' + Q + ',this.value,true)">';
+    html += '<button class="btn danger" style="padding:4px 8px" onclick="modBindingRemove(' + i + ')">&#10005;</button>';
+    html += '</div>';
+  }
+  root.innerHTML = html + '<button class="btn secondary" onclick="modBindingAdd()" style="width:100%;margin-top:4px">+ Add Binding</button>';
+  enhanceSliders(root);
+}
 
 // ============================================================
 // Calibration

@@ -3,6 +3,7 @@
 #include "point_optimizer.h"
 #include "util/mem_registry.h"
 #include "util/ps_scratch.h"
+#include "../modulator_engine.h"
 #include <math.h>
 #include <string.h>
 #include <Arduino.h>
@@ -92,6 +93,10 @@ static inline optimizer::OptimizerConfig liveOptimizerConfig() {
     cfg.max_accel_units              = gOptimizerConfig.max_accel_units;
     // PPS-derived scaling: density + both clamps from rated/output kpps.
     optimizer::applyPpsScaling(cfg, gProjection.galvo_rated_kpps, gProjection.galvo_kpps);
+    // Modulator engine: OPT_DENSITY binding, applied last so it scales the
+    // PPS-derived density rather than being overwritten by it. No-op when
+    // nothing is bound (apply() returns the 1.0 baseValue unchanged).
+    cfg.pts_per_1000_units *= modulator::apply(modulator::ModTarget::OPT_DENSITY, 1.0f);
     return cfg;
 }
 
