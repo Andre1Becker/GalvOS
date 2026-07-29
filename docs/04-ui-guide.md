@@ -503,7 +503,7 @@ Per-preset-class optimizer profile management. See [Chapter 5 — The Optimizer]
 Six optimizer profiles, one per preset class:
 
 | Profile | Preset class | Scanner workload |
-|---------|--------------|------------------|
+| --- | --- | --- |
 
 | Vector | Closed polygons, straight runs | Corner dwell |
 | Smooth | Continuous closed curves | Interior density |
