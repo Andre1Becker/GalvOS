@@ -600,9 +600,9 @@ static void applyColorAnim(size_t n) {
 // wrote. Cheap early-out via modulator::apply()'s "no matching binding"
 // path -- skips the whole frame loop when nothing is bound.
 static void applyColorModulation(size_t n) {
-    float hueShift = modulator::apply(modulator::ModTarget::COLOR_HUE, 0.0f);
-    float satMul    = modulator::apply(modulator::ModTarget::COLOR_SATURATION, 1.0f);
-    float briMul     = modulator::apply(modulator::ModTarget::COLOR_BRIGHTNESS, 1.0f);
+    float hueShift = modulator::apply(modulator::target_id::COLOR_HUE, 0.0f);
+    float satMul    = modulator::apply(modulator::target_id::COLOR_SATURATION, 1.0f);
+    float briMul     = modulator::apply(modulator::target_id::COLOR_BRIGHTNESS, 1.0f);
     if (hueShift == 0.0f && satMul == 1.0f && briMul == 1.0f) return;
 
     for (size_t i = 0; i < n; i++) {
@@ -1430,7 +1430,7 @@ void task(void*) {
             // before it is baked into this frame's generate() call. apply()
             // is a cheap no-op (returns speed unchanged) when nothing binds
             // to OPT_SPEED, so this is safe to call unconditionally.
-            speed = (uint8_t)modulator::apply(modulator::ModTarget::OPT_SPEED, (float)speed);
+            speed = (uint8_t)modulator::apply(modulator::target_id::OPT_SPEED, (float)speed);
             float   scaleFrac;
             uint8_t sz      = computeAutoScaleSize(gLivePreset.size_val, &scaleFrac);
 
@@ -1481,11 +1481,11 @@ void task(void*) {
             // carries the Z-rotation above -- apply() returns the neutral
             // baseValue (1.0 / 0.0 / 0.0) untouched when nothing is bound,
             // so an idle modulator engine costs 5 cheap no-op calls/frame.
-            float modScaleX = modulator::apply(modulator::ModTarget::TRANSFORM_SCALE_X, 1.0f);
-            float modScaleY = modulator::apply(modulator::ModTarget::TRANSFORM_SCALE_Y, 1.0f);
-            float modShiftX = modulator::apply(modulator::ModTarget::TRANSFORM_SHIFT_X, 0.0f);
-            float modShiftY = modulator::apply(modulator::ModTarget::TRANSFORM_SHIFT_Y, 0.0f);
-            float modRotRad = modulator::apply(modulator::ModTarget::TRANSFORM_ROTATION, 0.0f) * (float)(M_PI / 180.0);
+            float modScaleX = modulator::apply(modulator::target_id::TRANSFORM_SCALE_X, 1.0f);
+            float modScaleY = modulator::apply(modulator::target_id::TRANSFORM_SCALE_Y, 1.0f);
+            float modShiftX = modulator::apply(modulator::target_id::TRANSFORM_SHIFT_X, 0.0f);
+            float modShiftY = modulator::apply(modulator::target_id::TRANSFORM_SHIFT_Y, 0.0f);
+            float modRotRad = modulator::apply(modulator::target_id::TRANSFORM_ROTATION, 0.0f) * (float)(M_PI / 180.0);
             float totalAngle = zRad + modRotRad;
             const bool modTransformActive = modScaleX != 1.0f || modScaleY != 1.0f ||
                                              modShiftX != 0.0f || modShiftY != 0.0f || modRotRad != 0.0f;

@@ -3721,36 +3721,81 @@ requestAnimationFrame(seqBeatFlashLoop);
 var MOD_SLOTS      = 8;
 var MOD_BINDINGS   = 16;
 var MOD_SEQ_STEPS  = 16;
-var MOD_TYPE_NAMES  = ['Oscillator', 'Noise', 'Envelope', 'Sequencer'];
-var MOD_SHAPE_NAMES = ['Sine', 'Triangle', 'Square', 'Saw'];
 var MOD_BPMDIV_NAMES = ['1/1', '1/2', '1/4', '1/8', '1/16'];
-var MOD_TARGETS = [
-  { v: 0, label: 'Transform: Scale X' },
-  { v: 1, label: 'Transform: Scale Y' },
-  { v: 2, label: 'Transform: Shift X' },
-  { v: 3, label: 'Transform: Shift Y' },
-  { v: 4, label: 'Transform: Rotation' },
-  { v: 5, label: 'Color: Hue' },
-  { v: 6, label: 'Color: Saturation' },
-  { v: 7, label: 'Color: Brightness' },
-  { v: 8, label: 'Optimizer: Speed' },
-  { v: 9, label: 'Optimizer: Density' }
-];
 var MOD_WAVE_ICONS = [
   '<svg viewBox="0 0 32 16" width="20" height="12"><path d="M0 8 Q8 0 16 8 T32 8" fill="none" stroke="currentColor" stroke-width="2"/></svg>',
   '<svg viewBox="0 0 32 16" width="20" height="12"><path d="M0 14 L8 2 L16 14 L24 2 L32 14" fill="none" stroke="currentColor" stroke-width="2"/></svg>',
   '<svg viewBox="0 0 32 16" width="20" height="12"><path d="M0 2 L0 2 L8 2 L8 14 L16 14 L16 2 L24 2 L24 14 L32 14" fill="none" stroke="currentColor" stroke-width="2"/></svg>',
   '<svg viewBox="0 0 32 16" width="20" height="12"><path d="M0 14 L16 2 L16 14 L32 2" fill="none" stroke="currentColor" stroke-width="2"/></svg>'
 ];
+
+// modMeta describes the modulator registry (types/shapes/targets/curve
+// types/loop modes) -- this default is a literal mirror of the firmware's
+// built-in registerBuiltins() (modulator_engine.cpp), used as the initial
+// paint before loadModulatorMeta()'s /api/modulators/meta fetch resolves
+// (and as a fallback if that fetch ever fails). Once the fetch resolves,
+// modMeta is replaced wholesale with the server's live registry -- so a
+// future module that calls modulator::registerModTarget() etc. from its
+// own init() shows up here with ZERO changes to this file.
+var modMeta = {
+  types: [
+    { id: 0, key: 'oscillator', label: 'Oscillator', usesShape: true,  usesEnvelope: false, usesSequencer: false, supportsTrigger: false },
+    { id: 1, key: 'noise',      label: 'Noise',      usesShape: false, usesEnvelope: false, usesSequencer: false, supportsTrigger: false },
+    { id: 2, key: 'envelope',   label: 'Envelope',   usesShape: false, usesEnvelope: true,  usesSequencer: false, supportsTrigger: true  },
+    { id: 3, key: 'sequencer',  label: 'Sequencer',  usesShape: false, usesEnvelope: false, usesSequencer: true,  supportsTrigger: false }
+  ],
+  shapes: [
+    { id: 0, key: 'sine',     label: 'Sine',     supportsShapeParam: false },
+    { id: 1, key: 'triangle', label: 'Triangle', supportsShapeParam: true  },
+    { id: 2, key: 'square',   label: 'Square',   supportsShapeParam: true  },
+    { id: 3, key: 'saw',      label: 'Saw',      supportsShapeParam: false }
+  ],
+  targets: [
+    { id: 0, key: 'transform_scale_x',  label: 'Scale X',       category: 'Transform', min: 0.1,    max: 3,     wraps: false },
+    { id: 1, key: 'transform_scale_y',  label: 'Scale Y',       category: 'Transform', min: 0.1,    max: 3,     wraps: false },
+    { id: 2, key: 'transform_shift_x',  label: 'Shift X',       category: 'Transform', min: -20000, max: 20000, wraps: false },
+    { id: 3, key: 'transform_shift_y',  label: 'Shift Y',       category: 'Transform', min: -20000, max: 20000, wraps: false },
+    { id: 4, key: 'transform_rotation', label: 'Rotation',      category: 'Transform', min: -3600,  max: 3600,  wraps: false },
+    { id: 5, key: 'color_hue',          label: 'Hue',           category: 'Color',     min: 0,       max: 1,     wraps: true  },
+    { id: 6, key: 'color_saturation',   label: 'Saturation',    category: 'Color',     min: 0,       max: 2,     wraps: false },
+    { id: 7, key: 'color_brightness',   label: 'Brightness',    category: 'Color',     min: 0,       max: 2,     wraps: false },
+    { id: 8, key: 'opt_speed',          label: 'Speed',         category: 'Optimizer', min: 0,       max: 255,   wraps: false },
+    { id: 9, key: 'opt_density',        label: 'Point Density', category: 'Optimizer', min: 0.1,     max: 5,     wraps: false }
+  ],
+  curveTypes: [
+    { id: 0, label: 'Linear' }, { id: 1, label: 'Ease In' }, { id: 2, label: 'Ease Out' },
+    { id: 3, label: 'Exponential' }, { id: 4, label: 'Logarithmic' }, { id: 5, label: 'S-Curve' }
+  ],
+  loopModes: [
+    { id: 0, label: 'One Shot' }, { id: 1, label: 'Loop' }, { id: 2, label: 'Ping-Pong' }, { id: 3, label: 'Trigger' }
+  ]
+};
+var modMetaLoaded = false;
+
+function modFindById(list, id) {
+  for (var i = 0; i < list.length; i++) if (list[i].id === id) return list[i];
+  return null;
+}
+
+function loadModulatorMeta() {
+  return apiCall('GET', '/api/modulators/meta').then(function(r) {
+    if (r && r.types && r.types.length) modMeta = r;
+    modMetaLoaded = true;
+  });
+}
+
 var modState = { modulators: [], bindings: [] };
 
 function loadModulators() {
-  apiCall('GET', '/api/modulators').then(function(r) {
-    if (!r) return;
-    modState.modulators = r.modulators || [];
-    modState.bindings   = r.bindings || [];
-    renderModulators();
-    renderModBindings();
+  var metaP = modMetaLoaded ? Promise.resolve() : loadModulatorMeta();
+  metaP.then(function() {
+    apiCall('GET', '/api/modulators').then(function(r) {
+      if (!r) return;
+      modState.modulators = r.modulators || [];
+      modState.bindings   = r.bindings || [];
+      renderModulators();
+      renderModBindings();
+    });
   });
 }
 
@@ -3815,17 +3860,104 @@ function modResetAll() {
   apiCall('POST', '/api/modulators/reset').then(function() { loadModulators(); });
 }
 
-// Client-side shape preview -- draws the SAME curve the firmware LUT would
-// produce (Oscillator), a representative squiggle (Noise), an ADSR-style
-// ramp (Envelope) or a step bar chart (Sequencer) from the slot's own
+// ── Multi-point envelope editing ────────────────────────────────────────
+// envData.pointCount === 0 means "use the legacy envAttackMs/envSustainMs/
+// envReleaseMs ramp instead" (both here and in the firmware -- see
+// modulator_engine.h's EnvelopeData comment), so these functions are the
+// opt-in/opt-out gate between the simple 3-slider UI and the breakpoint
+// editor.
+function modEnvPatch(idx, env) {
+  apiCall('PATCH', '/api/modulators?idx=' + idx, { envData: env });
+}
+
+// Seeds a 4-point breakpoint curve from the current legacy Attack/Sustain/
+// Release values -- the same shape the firmware's own /modulators.json
+// migration produces (modulator_engine.cpp's load()) -- then switches this
+// slot into breakpoint-editor mode.
+function modEnvUseMultiPoint(idx) {
+  var m = modState.modulators[idx];
+  if (!m) return;
+  var a = m.envAttackMs || 0, su = m.envSustainMs || 0, r = m.envReleaseMs || 0;
+  var pts = [
+    { t: 0,          v: 0, c: 0 },
+    { t: a,          v: 1, c: 0 },
+    { t: a + su,     v: 1, c: 0 },
+    { t: a + su + r, v: 0, c: 0 }
+  ];
+  m.envData = { points: pts, pointCount: 4, loopMode: 3 };
+  modEnvPatch(idx, { points: pts, loopMode: 3 });
+  renderModulators();
+}
+
+// Sends an empty points array -- the firmware treats pointCount === 0 as
+// "use the legacy ramp", so this is the reverse of modEnvUseMultiPoint().
+function modEnvUseLegacy(idx) {
+  var m = modState.modulators[idx];
+  if (!m) return;
+  var keepLoop = (m.envData && m.envData.loopMode != null) ? m.envData.loopMode : 3;
+  m.envData = { points: [], pointCount: 0, loopMode: keepLoop };
+  modEnvPatch(idx, { points: [] });
+  renderModulators();
+}
+
+function modEnvAddPoint(idx) {
+  var m = modState.modulators[idx];
+  if (!m || !m.envData) return;
+  var pts = m.envData.points || [];
+  if (pts.length >= 8) return;
+  var lastT = pts.length ? pts[pts.length - 1].t : 0;
+  pts.push({ t: lastT + 100, v: 0, c: 0 });
+  m.envData.points = pts;
+  m.envData.pointCount = pts.length;
+  modEnvPatch(idx, { points: pts, loopMode: m.envData.loopMode });
+  renderModulators();
+}
+
+function modEnvRemovePoint(idx, pointIdx) {
+  var m = modState.modulators[idx];
+  if (!m || !m.envData || !m.envData.points) return;
+  m.envData.points.splice(pointIdx, 1);
+  m.envData.pointCount = m.envData.points.length;
+  modEnvPatch(idx, { points: m.envData.points, loopMode: m.envData.loopMode });
+  renderModulators();
+}
+
+function modEnvSetPoint(idx, pointIdx, field, value) {
+  var m = modState.modulators[idx];
+  if (!m || !m.envData || !m.envData.points || !m.envData.points[pointIdx]) return;
+  var v = (field === 'c') ? parseInt(value, 10) : parseFloat(value);
+  if (isNaN(v)) return;
+  m.envData.points[pointIdx][field] = v;
+  modEnvPatch(idx, { points: m.envData.points, loopMode: m.envData.loopMode });
+  renderModSlotPreview(idx);
+}
+
+function modEnvSetLoopMode(idx, value) {
+  var m = modState.modulators[idx];
+  if (!m || !m.envData) return;
+  m.envData.loopMode = parseInt(value, 10);
+  modEnvPatch(idx, { loopMode: m.envData.loopMode });
+}
+
+// Client-side shape preview -- draws the SAME curve the firmware would
+// produce (Oscillator LUT/closed-form, breakpoint Envelope), a
+// representative squiggle (Noise), a legacy ADSR-style ramp (Envelope with
+// no breakpoints) or a step bar chart (Sequencer) from the slot's own
 // params. Static (param-accurate), not a running clock -- see modulator
 // engine notes: avoids depending on a client/firmware time sync that would
 // drift, while still needing no extra API round-trip.
-function modWaveY(shape, t) {
+function modWaveY(shape, t, shapeParam) {
+  var sp = (shapeParam == null) ? 0.5 : shapeParam;
   if (shape === 0) return Math.sin(2 * Math.PI * t) * 0.5 + 0.5;
-  if (shape === 1) return (t < 0.5 ? (4 * t - 1) : (3 - 4 * t)) * 0.5 + 0.5;
-  if (shape === 2) return (t < 0.5 ? 1 : -1) * 0.5 + 0.5;
-  return (2 * t - 1) * 0.5 + 0.5;
+  if (shape === 1) {
+    var peak = Math.min(0.98, Math.max(0.02, sp));
+    return (t < peak ? (-1 + 2 * (t / peak)) : (1 - 2 * ((t - peak) / (1 - peak)))) * 0.5 + 0.5;
+  }
+  if (shape === 2) {
+    var duty = Math.min(0.98, Math.max(0.02, sp));
+    return (t < duty ? 1 : -1) * 0.5 + 0.5;
+  }
+  return (2 * t - 1) * 0.5 + 0.5;   // saw: shapeParam intentionally ignored, matches firmware
 }
 
 function modHash(seed, i) {
@@ -3834,6 +3966,40 @@ function modHash(seed, i) {
   h ^= h >>> 13; h = Math.imul(h, 0xC2B2AE35) >>> 0;
   h ^= h >>> 16;
   return (h / 4294967295) * 2 - 1;
+}
+
+// Mirrors modulator_engine.cpp's applyCurve() -- same 6 polynomials, same
+// smootherstep for S_CURVE.
+function modCurve(c, t) {
+  if (c === 1) return t * t;                                    // Ease In
+  if (c === 2) return t * (2 - t);                               // Ease Out
+  if (c === 3) return t * t * t;                                 // Exponential
+  if (c === 4) { var u = 1 - t; return 1 - u * u * u; }          // Logarithmic
+  if (c === 5) return t * t * t * (t * (t * 6 - 15) + 10);       // S-Curve
+  return t;                                                       // Linear
+}
+
+// Mirrors modulator_engine.cpp's evalEnvCurve() -- `t` is normalized [0..1]
+// across the envelope's total duration (preview always draws one traversal
+// regardless of loopMode, matching this function's "static, not a running
+// clock" contract).
+function modEnvCurveY(env, t) {
+  var pts = env.points, n = env.pointCount;
+  if (!pts || !n) return 0.5;
+  if (n === 1) return pts[0].v * 0.5 + 0.5;
+  var total = pts[n - 1].t || 1;
+  var tm = t * total;
+  if (tm <= pts[0].t) return pts[0].v * 0.5 + 0.5;
+  for (var i = 1; i < n; i++) {
+    if (tm <= pts[i].t) {
+      var p0 = pts[i - 1], p1 = pts[i];
+      var span = p1.t - p0.t;
+      var frac = span > 0 ? (tm - p0.t) / span : 1;
+      frac = modCurve(p1.c, frac);
+      return (p0.v + (p1.v - p0.v) * frac) * 0.5 + 0.5;
+    }
+  }
+  return pts[n - 1].v * 0.5 + 0.5;
 }
 
 function renderModSlotPreview(idx) {
@@ -3865,10 +4031,12 @@ function renderModSlotPreview(idx) {
     var t = i / N;
     var y;
     if (m.type === 0) {
-      y = modWaveY(m.shape || 0, t);
+      y = modWaveY(m.shape || 0, t, m.shapeParam);
     } else if (m.type === 1) {
       y = modHash(m.noiseSeed || 0, i) * 0.5 + 0.5;
-    } else {   // Envelope: attack/sustain/release ramp, relative durations
+    } else if (m.envData && m.envData.pointCount > 0) {   // Envelope: multi-point breakpoint curve
+      y = modEnvCurveY(m.envData, t);
+    } else {   // Envelope: legacy attack/sustain/release ramp, relative durations
       var a = m.envAttackMs || 1, su = m.envSustainMs || 1, r = m.envReleaseMs || 1;
       var total = a + su + r;
       var tm = t * total;
@@ -3884,6 +4052,7 @@ function renderModSlotPreview(idx) {
 
 function modSlotHtml(m, i) {
   var open = m.enabled;
+  var typeDesc = modFindById(modMeta.types, m.type) || modMeta.types[0];
   var html = '<div class="card" style="background:var(--bg2);padding:12px">';
   html += '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">';
   html += '<input type="checkbox" title="Enabled" ' + (m.enabled ? 'checked' : '') +
@@ -3891,25 +4060,33 @@ function modSlotHtml(m, i) {
   html += '<input type="text" value="' + (m.name || '') + '" placeholder="Mod ' + (i + 1) + '" maxlength="15" ' +
           'style="width:110px" onchange="modSetName(' + i + ',this.value)">';
   html += '<select onchange="modTypeChanged(' + i + ',this.value)">';
-  for (var ti = 0; ti < MOD_TYPE_NAMES.length; ti++)
-    html += '<option value="' + ti + '"' + (m.type === ti ? ' selected' : '') + '>' + MOD_TYPE_NAMES[ti] + '</option>';
+  for (var ti = 0; ti < modMeta.types.length; ti++)
+    html += '<option value="' + modMeta.types[ti].id + '"' + (m.type === modMeta.types[ti].id ? ' selected' : '') + '>' + modMeta.types[ti].label + '</option>';
   html += '</select>';
   html += '<canvas id="mod-preview-' + i + '" width="120" height="34" style="background:var(--bg1);border-radius:4px;color:var(--accent)"></canvas>';
-  if (m.type === 2) html += '<button class="btn ok" style="padding:4px 10px" onclick="modTrigger(' + i + ')">Trigger</button>';
+  if (typeDesc.supportsTrigger) html += '<button class="btn ok" style="padding:4px 10px" onclick="modTrigger(' + i + ')">Trigger</button>';
   html += '<button class="btn danger" style="padding:4px 10px;margin-left:auto" onclick="modClear(' + i + ')">Clear</button>';
   html += '</div>';
 
   if (open) {
     html += '<div style="display:flex;flex-wrap:wrap;gap:16px;margin-top:12px">';
 
-    if (m.type === 0) {
+    if (typeDesc.usesShape) {
       html += '<div>Shape<br>';
-      for (var si = 0; si < MOD_WAVE_ICONS.length; si++) {
-        html += '<button class="btn ' + (m.shape === si ? 'ok' : 'secondary') + '" style="padding:4px 8px;margin-right:4px" ' +
-                'onclick="modSetField(' + i + ',' + Q + 'shape' + Q + ',' + si + ',false);renderModulators()" title="' + MOD_SHAPE_NAMES[si] + '">' +
-                MOD_WAVE_ICONS[si] + '</button>';
+      for (var si = 0; si < modMeta.shapes.length; si++) {
+        var sd = modMeta.shapes[si];
+        var icon = MOD_WAVE_ICONS[sd.id] || MOD_WAVE_ICONS[0];
+        html += '<button class="btn ' + (m.shape === sd.id ? 'ok' : 'secondary') + '" style="padding:4px 8px;margin-right:4px" ' +
+                'onclick="modSetField(' + i + ',' + Q + 'shape' + Q + ',' + sd.id + ',false);renderModulators()" title="' + sd.label + '">' +
+                icon + '</button>';
       }
       html += '</div>';
+      var curShape = modFindById(modMeta.shapes, m.shape);
+      if (curShape && curShape.supportsShapeParam) {
+        var spVal = (m.shapeParam == null) ? 0.5 : m.shapeParam;
+        html += '<div>Slope/Shape<br><input type="range" min="0" max="1" step="0.01" value="' + spVal +
+                '" oninput="modSetField(' + i + ',' + Q + 'shapeParam' + Q + ',this.value,true);renderModSlotPreview(' + i + ')"></div>';
+      }
     }
 
     html += '<div>Cycles<br><input type="range" min="0.01" max="32" step="0.01" value="' + m.cycles +
@@ -3934,16 +4111,48 @@ function modSlotHtml(m, i) {
     }
     html += '</div>';
 
-    if (m.type === 2) {
-      html += '<div>Attack (ms)<br><input type="range" min="0" max="5000" step="10" value="' + m.envAttackMs +
-              '" oninput="modSetField(' + i + ',' + Q + 'envAttackMs' + Q + ',this.value,true);renderModSlotPreview(' + i + ')"></div>';
-      html += '<div>Sustain (ms)<br><input type="range" min="0" max="5000" step="10" value="' + m.envSustainMs +
-              '" oninput="modSetField(' + i + ',' + Q + 'envSustainMs' + Q + ',this.value,true);renderModSlotPreview(' + i + ')"></div>';
-      html += '<div>Release (ms)<br><input type="range" min="0" max="5000" step="10" value="' + m.envReleaseMs +
-              '" oninput="modSetField(' + i + ',' + Q + 'envReleaseMs' + Q + ',this.value,true);renderModSlotPreview(' + i + ')"></div>';
+    if (typeDesc.usesEnvelope) {
+      var env = m.envData || { points: [], pointCount: 0, loopMode: 3 };
+      if (!env.pointCount) {
+        html += '<div>Attack (ms)<br><input type="range" min="0" max="5000" step="10" value="' + m.envAttackMs +
+                '" oninput="modSetField(' + i + ',' + Q + 'envAttackMs' + Q + ',this.value,true);renderModSlotPreview(' + i + ')"></div>';
+        html += '<div>Sustain (ms)<br><input type="range" min="0" max="5000" step="10" value="' + m.envSustainMs +
+                '" oninput="modSetField(' + i + ',' + Q + 'envSustainMs' + Q + ',this.value,true);renderModSlotPreview(' + i + ')"></div>';
+        html += '<div>Release (ms)<br><input type="range" min="0" max="5000" step="10" value="' + m.envReleaseMs +
+                '" oninput="modSetField(' + i + ',' + Q + 'envReleaseMs' + Q + ',this.value,true);renderModSlotPreview(' + i + ')"></div>';
+        html += '<div style="align-self:flex-end"><button class="btn secondary" style="padding:4px 10px" ' +
+                'onclick="modEnvUseMultiPoint(' + i + ')">Use Breakpoint Editor</button></div>';
+      } else {
+        html += '<div style="width:100%">';
+        html += '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px">';
+        html += 'Loop Mode <select onchange="modEnvSetLoopMode(' + i + ',this.value)">';
+        for (var lm = 0; lm < modMeta.loopModes.length; lm++)
+          html += '<option value="' + modMeta.loopModes[lm].id + '"' + (env.loopMode === modMeta.loopModes[lm].id ? ' selected' : '') + '>' + modMeta.loopModes[lm].label + '</option>';
+        html += '</select>';
+        html += '<button class="btn secondary" style="padding:4px 10px" onclick="modEnvUseLegacy(' + i + ')">Revert to Simple</button>';
+        html += '</div>';
+        html += '<div style="display:flex;flex-direction:column;gap:4px">';
+        for (var pi = 0; pi < env.pointCount; pi++) {
+          var pt = env.points[pi];
+          html += '<div style="display:flex;align-items:center;gap:6px">';
+          html += 'Pt ' + (pi + 1) + ' t(ms) <input type="number" min="0" max="60000" step="10" value="' + pt.t + '" style="width:70px" ' +
+                  'onchange="modEnvSetPoint(' + i + ',' + pi + ',' + Q + 't' + Q + ',this.value)">';
+          html += 'v <input type="range" min="-1" max="1" step="0.05" value="' + pt.v + '" style="width:70px" ' +
+                  'oninput="modEnvSetPoint(' + i + ',' + pi + ',' + Q + 'v' + Q + ',this.value)">';
+          html += 'curve <select onchange="modEnvSetPoint(' + i + ',' + pi + ',' + Q + 'c' + Q + ',this.value)">';
+          for (var ct = 0; ct < modMeta.curveTypes.length; ct++)
+            html += '<option value="' + modMeta.curveTypes[ct].id + '"' + (pt.c === modMeta.curveTypes[ct].id ? ' selected' : '') + '>' + modMeta.curveTypes[ct].label + '</option>';
+          html += '</select>';
+          if (env.pointCount > 1) html += '<button class="btn danger" style="padding:2px 8px" onclick="modEnvRemovePoint(' + i + ',' + pi + ')">&#10005;</button>';
+          html += '</div>';
+        }
+        html += '</div>';
+        if (env.pointCount < 8) html += '<button class="btn secondary" style="padding:4px 10px;margin-top:6px" onclick="modEnvAddPoint(' + i + ')">+ Add Point</button>';
+        html += '</div>';
+      }
     }
 
-    if (m.type === 3) {
+    if (typeDesc.usesSequencer) {
       html += '<div style="width:100%">Steps (' + (m.seqStepCount || 8) + ')<br>' +
               '<input type="range" min="1" max="' + MOD_SEQ_STEPS + '" step="1" value="' + (m.seqStepCount || 8) +
               '" oninput="modSetField(' + i + ',' + Q + 'seqStepCount' + Q + ',this.value,false);renderModulators()">';
@@ -4023,8 +4232,10 @@ function renderModBindings() {
       html += '<option value="' + mi + '"' + (b.modulatorIdx === mi ? ' selected' : '') + '>' + modName(mi) + '</option>';
     html += '</select>';
     html += '<select style="min-width:25ch;flex:1" onchange="modBindingSet(' + i + ',' + Q + 'targetParam' + Q + ',this.value,false)">';
-    for (var tg = 0; tg < MOD_TARGETS.length; tg++)
-      html += '<option value="' + MOD_TARGETS[tg].v + '"' + (b.targetParam === MOD_TARGETS[tg].v ? ' selected' : '') + '>' + MOD_TARGETS[tg].label + '</option>';
+    for (var tg = 0; tg < modMeta.targets.length; tg++) {
+      var td = modMeta.targets[tg];
+      html += '<option value="' + td.id + '"' + (b.targetParam === td.id ? ' selected' : '') + '>' + td.category + ': ' + td.label + '</option>';
+    }
     html += '</select>';
     html += 'Depth <input type="range" min="-1" max="1" step="0.05" value="' + b.depth +
             '" style="width:80px" oninput="modBindingSet(' + i + ',' + Q + 'depth' + Q + ',this.value,true)">';
@@ -8762,6 +8973,88 @@ function hwDebugLaser(r, g, b) {
   document.getElementById('dbg-b-val').textContent = b;
   hwDebugSend();
 }
+
+// ============================================================
+// Presets-tab sidebar: collapsible / reorderable card groups
+// Wraps each direct child .card of a container (BPM Clock, Parameter
+// Modulators, and any future sidebar card) with a collapse chevron + drag
+// handle, persisting collapsed-state and order in localStorage. Pure
+// client display preference -- no firmware route involved.
+// ============================================================
+function sidebarWrapCollapsible(container) {
+  if (!container || container.dataset.collapsibleReady) return;
+  container.dataset.collapsibleReady = '1';
+
+  var KEY_COLLAPSED = 'sidebarCollapsed';
+  var KEY_ORDER      = 'sidebarOrder';
+  var collapsed = {};
+  var order = null;
+  try { collapsed = JSON.parse(localStorage.getItem(KEY_COLLAPSED) || '{}'); } catch (e) {}
+  try { order = JSON.parse(localStorage.getItem(KEY_ORDER) || 'null'); } catch (e) {}
+
+  var cards = Array.prototype.slice.call(container.children);
+  cards.forEach(function(card, idx) {
+    var h2 = card.querySelector('h2');
+    var id = h2 ? h2.textContent.replace(/[^a-zA-Z0-9]+/g, '_') : ('card' + idx);
+    card.setAttribute('data-sidebar-id', id);
+  });
+
+  if (order && order.length) {
+    order.forEach(function(id) {
+      var el = container.querySelector('[data-sidebar-id="' + id + '"]');
+      if (el) container.appendChild(el);
+    });
+  }
+
+  Array.prototype.forEach.call(container.children, function(card) {
+    var id = card.getAttribute('data-sidebar-id');
+    var h2 = card.querySelector('h2');
+    if (!h2 || !id) return;
+
+    var body = document.createElement('div');
+    while (h2.nextSibling) body.appendChild(h2.nextSibling);
+    card.appendChild(body);
+    if (collapsed[id]) body.style.display = 'none';
+
+    var chevron = document.createElement('span');
+    chevron.textContent = collapsed[id] ? String.fromCharCode(0x25B8) : String.fromCharCode(0x25BE);
+    chevron.style.cssText = 'cursor:pointer;margin-right:8px;user-select:none;display:inline-block';
+    h2.insertBefore(chevron, h2.firstChild);
+    chevron.onclick = function() {
+      var hidden = body.style.display === 'none';
+      body.style.display = hidden ? '' : 'none';
+      chevron.textContent = hidden ? String.fromCharCode(0x25BE) : String.fromCharCode(0x25B8);
+      collapsed[id] = !hidden;
+      localStorage.setItem(KEY_COLLAPSED, JSON.stringify(collapsed));
+    };
+
+    var handle = document.createElement('span');
+    handle.textContent = String.fromCharCode(0x2630);
+    handle.title = 'Drag to reorder';
+    handle.draggable = true;
+    handle.style.cssText = 'cursor:grab;float:right;opacity:.5;user-select:none;margin-left:8px';
+    h2.appendChild(handle);
+
+    handle.addEventListener('dragstart', function(e) {
+      e.dataTransfer.setData('text/plain', id);
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    card.addEventListener('dragover', function(e) { e.preventDefault(); });
+    card.addEventListener('drop', function(e) {
+      e.preventDefault();
+      var draggedId = e.dataTransfer.getData('text/plain');
+      if (!draggedId || draggedId === id) return;
+      var draggedEl = container.querySelector('[data-sidebar-id="' + draggedId + '"]');
+      if (!draggedEl) return;
+      container.insertBefore(draggedEl, card);
+      var newOrder = Array.prototype.map.call(container.children, function(c) { return c.getAttribute('data-sidebar-id'); });
+      localStorage.setItem(KEY_ORDER, JSON.stringify(newOrder));
+    });
+  });
+}
+document.addEventListener('DOMContentLoaded', function() {
+  sidebarWrapCollapsible(document.getElementById('presets-side-col'));
+});
 
 // ============================================================
 // Generic slider -> number input enhancer

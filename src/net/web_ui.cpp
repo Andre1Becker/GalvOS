@@ -2228,6 +2228,17 @@ void init() {
             modulator::setBindings(doc["bindings"].as<JsonArrayConst>());
             req->send(200, "text/plain", "OK");
         });
+    // Registry metadata (types/shapes/targets/curveTypes/loopModes) --
+    // boot-once fetch, cached client-side. Doesn't change at runtime in
+    // Phase 1, but is served fresh (not statically embedded) so a future
+    // module that calls modulator::registerModTarget() etc. from its own
+    // init() shows up in the WebUI without any WebUI code change.
+    s_server.on("/api/modulators/meta", HTTP_GET, [](AsyncWebServerRequest* req) {
+        JsonDocument doc(&jsonAllocator());
+        JsonObject root = doc.to<JsonObject>();
+        modulator::fillMetaJson(root);
+        sendJsonPsram(req, doc);
+    });
     s_server.on("/api/modulators", HTTP_GET, [](AsyncWebServerRequest* req) {
         JsonDocument doc(&jsonAllocator());
         JsonObject root = doc.to<JsonObject>();

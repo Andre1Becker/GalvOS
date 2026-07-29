@@ -96,7 +96,7 @@ static inline optimizer::OptimizerConfig liveOptimizerConfig() {
     // Modulator engine: OPT_DENSITY binding, applied last so it scales the
     // PPS-derived density rather than being overwritten by it. No-op when
     // nothing is bound (apply() returns the 1.0 baseValue unchanged).
-    cfg.pts_per_1000_units *= modulator::apply(modulator::ModTarget::OPT_DENSITY, 1.0f);
+    cfg.pts_per_1000_units *= modulator::apply(modulator::target_id::OPT_DENSITY, 1.0f);
     return cfg;
 }
 
