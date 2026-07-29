@@ -7,6 +7,7 @@
 #include "paint_patterns.h"
 #include "point_optimizer.h"
 #include "duplicator.h"
+#include "dotter.h"
 #include "ilda/ilda_player.h"
 #include "control/dmx_in.h"
 #include "net/artnet_in.h"
@@ -1095,11 +1096,18 @@ static void applyPointsOnlyMode(size_t& n) {
     cfg.ring_damping_ratio       = gOptimizerConfig.ring_damping_ratio;
     cfg.galvo_kpps               = gProjection.galvo_kpps;
 
+    // Dotter (point distribution) -- scatters each dwelling dot away from its
+    // sampled outline position; 0 (no modulator bound) leaves this pixel-
+    // identical to pre-Dotter behavior. See dotter.h.
+    float dotSpread = dotter::apply();
+
     size_t o = 0;
     for (uint8_t k = 0; k < count; k++) {
         if (o + (size_t)dwell + (size_t)cfg.blank_samples + 1 > PATTERN_POINTS_MAX) break;
         size_t src_idx = (size_t)((uint32_t)k * nl / count);
         const LaserPoint& src = s_pm_lit[src_idx];
+        int16_t px = src.x, py = src.y;
+        dotter::scatter(px, py, k, dotSpread);
 
         float v = 1.0f;
         if (!gLivePreset.points_static_on) {
@@ -1123,9 +1131,9 @@ static void applyPointsOnlyMode(size_t& n) {
         uint8_t g = (uint8_t)(src.g * v);
         uint8_t b = (uint8_t)(src.b * v);
 
-        optimizer::emitBlankTo(s_frame, o, PATTERN_POINTS_MAX, src.x, src.y, cfg);
+        optimizer::emitBlankTo(s_frame, o, PATTERN_POINTS_MAX, px, py, cfg);
         for (int d = 0; d < dwell; d++)
-            s_frame[o++] = LaserPoint(src.x, src.y, r, g, b, 0);
+            s_frame[o++] = LaserPoint(px, py, r, g, b, 0);
     }
     n = o;
 }

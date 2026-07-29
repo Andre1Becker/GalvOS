@@ -33,6 +33,7 @@
 #include "../patterns/camera.h"
 #include "../patterns/duplicator.h"
 #include "../patterns/spatial_noise.h"
+#include "../patterns/dotter.h"
 #include "net/community_presets.h"
 #include "patterns/preset_patterns.h"
 #include "patterns/countdown_timer.h"
@@ -859,6 +860,7 @@ void init() {
         camera::init();
         duplicator::init();
         spatial_noise::init();
+        dotter::init();
     }
 
     // ---- Statische SPA ----
