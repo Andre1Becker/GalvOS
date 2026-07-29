@@ -13,7 +13,9 @@
 <script>
 // Applies the saved theme before first paint (no flash-of-default-theme).
 // Slot 0 (cyberpunk) needs no work -- it's the :root default. Slots 1 (terminal)
-// and 2 (minimal) are duplicated here since the main script hasn't run yet.
+// and 2 (minimal) are defined here (single source of truth, exposed on
+// window.THEME_TOKENS) since this runs before the main script has loaded;
+// themeApplyTokensForSlot() in the main script reuses the same object.
 (function() {
   try {
     var TERMINAL_TOKENS = {
@@ -52,6 +54,7 @@
       '--glow-bad': '0 0 20px rgba(229,107,107,0.35)',
       '--card-shadow': '0 8px 30px rgba(0,0,0,0.35)'
     };
+    window.THEME_TOKENS = {terminal: TERMINAL_TOKENS, minimal: MINIMAL_TOKENS};
     var slot = parseInt(localStorage.getItem('galvos_theme'), 10);
     if (!(slot >= 0 && slot <= 2)) slot = 0;
     var tokens = null;
@@ -178,14 +181,23 @@ h1, h2, h3 { font-family: var(--font-head); margin: 0 0 8px; color: var(--text);
 p { margin: 0 0 8px; color: var(--text-dim); }
 .hidden { display: none !important; }
 
+/* Banner + topbar are stacked inside one sticky wrapper (#topbar-wrap) instead
+   of each carrying its own `position: sticky; top: 0`. Two sibling sticky
+   elements both pinned to top:0 fight over the same viewport slot once both
+   are stuck, so the second (topbar) painted over the first (banner). Sticking
+   the shared wrapper once and leaving its children in normal flow makes the
+   pair stick together, banner-then-topbar, with no overlap regardless of
+   banner height. */
+#topbar-wrap { position: sticky; top: 0; z-index: 500; }
+
 #safety-banner {
   background: var(--bad); color: #000; font-family: var(--font-head); font-weight: 700;
-  text-align: center; padding: 6px 12px; position: sticky; top: 0; z-index: 500;
+  text-align: center; padding: 6px 12px;
   box-shadow: var(--glow-bad);
 }
 
 #topbar {
-  position: sticky; top: 0; z-index: 400; display: flex; align-items: center; gap: 14px;
+  display: flex; align-items: center; gap: 14px;
   padding: 8px 16px; background: var(--card); border-bottom: 1px solid var(--border);
   flex-wrap: wrap; min-height: 56px;
 }
@@ -224,7 +236,8 @@ button.btn:disabled { opacity: 0.4; cursor: not-allowed; }
 button.btn.primary { background: var(--accent); color: var(--bg); border-color: var(--accent); font-weight: 700; }
 button.btn.danger { border-color: var(--bad); color: var(--bad); }
 button.btn.danger:hover { background: var(--bad); color: #000; }
-button.btn.sm, .btn-sm { padding: 4px 10px; min-height: 32px; font-size: 0.75rem; }
+button.btn.sm, .btn-sm { padding: 4px 10px; min-height: 44px; min-width: 44px; font-size: 0.75rem; }
+label.row { min-height: 44px; cursor: pointer; }
 #btn-arm.armed { background: var(--accent); color: var(--bg); box-shadow: var(--glow-accent); }
 #btn-disarm { border-color: var(--bad); color: var(--bad); }
 
@@ -265,7 +278,18 @@ button.btn.sm, .btn-sm { padding: 4px 10px; min-height: 32px; font-size: 0.75rem
   #bottom-tabs { display: flex; }
   #app { padding-bottom: 60px; }
   #sidebar { display: none; }
-  .tb-center, .tb-right .stat-chip:not(#tb-dimmer-chip), .tb-right .bpm-chip { display: none; }
+  /* ARM/DISARM stay visible & reachable on mobile -- E-Stop control must
+     never be hidden, even in the collapsed top bar. armed-pill is dropped
+     here (not just narrower) since #btn-arm.armed already carries the same
+     armed/disarmed state via its own fill color -- keeping both was what
+     overflowed the 3-element row past narrow viewports. Forced onto its own
+     full-width row (flex-basis:100%) so ARM/DISARM always have room. */
+  .tb-center > *:not(#btn-arm):not(#btn-disarm),
+  .tb-right .stat-chip:not(#tb-dimmer-chip), .tb-right .bpm-chip { display: none; }
+  .tb-center { flex-basis: 100%; justify-content: center; order: 3; }
+  .tb-center button.btn { padding: 6px 10px; font-size: 0.75rem; }
+  .tb-center { gap: 6px; }
+  #topbar { padding-left: 8px; padding-right: 8px; }
 }
 #bottom-tabs button {
   flex: 1; background: transparent; border: none; color: var(--text-dim); padding: 8px 4px;
@@ -350,7 +374,8 @@ canvas { max-width: 100%; display: block; }
 <div class="orb orb-a"></div>
 <div class="orb orb-b"></div>
 
-<div id="safety-banner" class="hidden">&#9888; SAFETY OVERRIDE ACTIVE &mdash; E-STOP / SCAN-FAIL BYPASSED</div>
+<div id="topbar-wrap">
+<div id="safety-banner" class="hidden" role="alert">&#9888; SAFETY OVERRIDE ACTIVE &mdash; E-STOP / SCAN-FAIL BYPASSED</div>
 
 <header id="topbar">
   <div class="tb-left">
@@ -376,11 +401,12 @@ canvas { max-width: 100%; display: block; }
       <span id="tb-bpm">--</span> BPM
       <button id="btn-tap" class="btn sm">TAP</button>
     </div>
-    <span id="beam-dot" class="beam-dot" title="Beam / active output"></span>
+    <span id="beam-dot" class="beam-dot" role="status" title="Beam / active output" aria-label="Beam output: idle"></span>
     <div id="theme-picker" class="row"></div>
     <button id="rightpanel-toggle" class="icon-btn" title="Toggle status panel">&#9638;</button>
   </div>
 </header>
+</div>
 
 <div id="app">
   <nav id="sidebar"></nav>
@@ -393,17 +419,14 @@ canvas { max-width: 100%; display: block; }
           <h2>Safety &amp; Arm</h2>
           <div class="row" style="margin-bottom:10px">
             <span id="dash-arm-cta" class="pill bad" style="font-size:1rem;padding:10px 18px">DISARMED</span>
-            <span id="beam-dot-2" class="beam-dot" title="Beam / active output"></span>
+            <span id="beam-dot-2" class="beam-dot" role="status" title="Beam / active output" aria-label="Beam output: idle"></span>
           </div>
           <div class="row" style="gap:16px">
-            <div class="row"><span id="led-estop" class="beam-dot"></span><span>E-Stop</span></div>
-            <div class="row"><span id="led-scanfail" class="beam-dot"></span><span>Scan-Fail</span></div>
+            <div class="row"><span id="led-estop" class="beam-dot" role="status" aria-label="E-Stop: fault"></span><span>E-Stop</span></div>
+            <div class="row"><span id="led-scanfail" class="beam-dot" role="status" aria-label="Scan-Fail: fault"></span><span>Scan-Fail</span></div>
           </div>
           <p id="dash-fault-reason" class="hidden" style="color:var(--bad);margin-top:8px"></p>
-          <div class="row" style="margin-top:10px">
-            <button class="btn primary" onclick="document.getElementById('btn-arm').click()">ARM</button>
-            <button class="btn danger" onclick="document.getElementById('btn-disarm').click()">DISARM</button>
-          </div>
+          <p style="font-size:0.75rem;margin-top:10px">ARM / DISARM control lives in the top bar &#8593; (always visible, incl. mobile)</p>
           <label class="row" style="margin-top:10px"><input type="checkbox" id="dash-safety-override" onchange="setSafetyOverride(this.checked)"> Safety Override</label>
         </div>
 
@@ -504,7 +527,7 @@ canvas { max-width: 100%; display: block; }
 
             <h3>Color</h3>
             <div class="row" style="align-items:flex-start">
-              <canvas id="lv-color-wheel" width="180" height="180" style="cursor:crosshair"
+              <canvas id="lv-color-wheel" width="180" height="180" style="cursor:crosshair;width:100%;max-width:180px;height:auto;aspect-ratio:1"
                 onmousedown="colorWheelClick(event)" onmousemove="colorWheelDrag(event)"
                 ontouchstart="colorWheelClick(event)" ontouchmove="colorWheelDrag(event)"></canvas>
               <div>
@@ -609,7 +632,7 @@ canvas { max-width: 100%; display: block; }
 
           <div class="card">
             <h2>Sequencer</h2>
-            <div class="row"><span id="seq-status">Stopped</span><span id="seq-beat-dot" class="beam-dot on" style="margin-left:auto"></span></div>
+            <div class="row"><span id="seq-status">Stopped</span><span id="seq-beat-dot" class="beam-dot on" role="status" aria-label="Sequencer beat" style="margin-left:auto"></span></div>
             <div class="row" style="margin-top:8px">
               <button class="btn sm" onclick="seqTransport('prev')">&#9198;</button>
               <button class="btn sm primary" onclick="seqTransport('start')">&#9654;</button>
@@ -1153,7 +1176,7 @@ canvas { max-width: 100%; display: block; }
 
       <div class="card">
         <h2>WiFi Connection</h2>
-        <div class="row"><span id="cfg-wifi-led" class="beam-dot"></span><span id="cfg-wifi-status-text">--</span></div>
+        <div class="row"><span id="cfg-wifi-led" class="beam-dot" role="status" aria-label="WiFi: disconnected"></span><span id="cfg-wifi-status-text">--</span></div>
         <div class="row">
           <select id="cfg-wifi-networks" style="min-width:200px"><option>Click Scan…</option></select>
           <button class="btn sm" onclick="startWifiScan()">Scan</button>
@@ -1390,35 +1413,12 @@ function themeApply(slot) {
   } else {
     // Re-run the same token application the boot IIFE used, so switching
     // themes at runtime (not just at load) applies identically.
-    document.head.querySelector('script').textContent; // no-op reference kept for clarity
     themeApplyTokensForSlot(slot);
   }
 }
 function themeApplyTokensForSlot(slot) {
-  var TERMINAL_TOKENS = {
-    '--bg': '#0a0a0a', '--bg-rgb': '10,10,10', '--card': 'rgba(8,12,8,0.94)', '--card2': 'rgba(5,8,5,0.97)',
-    '--muted': '#0f2a0f', '--border': '#1f521f', '--border-rgb': '31,82,31',
-    '--text': '#33ff00', '--text-dim': '#1f8f1f', '--accent': '#33ff00', '--accent-rgb': '51,255,0',
-    '--secondary': '#ffb000', '--secondary-rgb': '255,176,0', '--tertiary': '#ffb000', '--tertiary-rgb': '255,176,0',
-    '--ok': '#33ff00', '--warn': '#ffb000', '--bad': '#ff3333', '--bad-rgb': '255,51,51',
-    '--surface': 'rgba(0,0,0,0.6)', '--input-bg': '#0a0a0a', '--radius': '0px', '--radius-lg': '0px',
-    '--font-head': "'JetBrains Mono', 'VT323', monospace", '--font-mono': "'JetBrains Mono', 'VT323', monospace",
-    '--font-body': "'JetBrains Mono', 'VT323', monospace",
-    '--glow-accent': '0 0 5px rgba(51,255,0,0.5), 0 0 10px rgba(51,255,0,0.25)',
-    '--glow-bad': '0 0 5px rgba(255,51,51,0.5), 0 0 10px rgba(255,51,51,0.25)', '--card-shadow': 'none'
-  };
-  var MINIMAL_TOKENS = {
-    '--bg': '#0A0A0F', '--bg-rgb': '10,10,15', '--card': 'rgba(26,26,36,0.6)', '--card2': 'rgba(22,22,30,0.7)',
-    '--muted': '#1A1A24', '--border': 'rgba(255,255,255,0.08)', '--border-rgb': '255,255,255',
-    '--text': '#FAFAFA', '--text-dim': '#71717A', '--accent': '#F59E0B', '--accent-rgb': '245,158,11',
-    '--secondary': '#9db4ff', '--secondary-rgb': '157,180,255', '--tertiary': '#71717A', '--tertiary-rgb': '113,113,122',
-    '--ok': '#6FCF97', '--warn': '#d9a154', '--bad': '#e56b6b', '--bad-rgb': '229,107,107',
-    '--surface': 'rgba(0,0,0,0.25)', '--input-bg': 'rgba(255,255,255,0.04)', '--radius': '10px', '--radius-lg': '16px',
-    '--font-head': "'Space Grotesk', 'Inter', sans-serif", '--font-mono': "'JetBrains Mono', monospace",
-    '--font-body': "'Inter', sans-serif", '--glow-accent': '0 0 20px rgba(245,158,11,0.4)',
-    '--glow-bad': '0 0 20px rgba(229,107,107,0.35)', '--card-shadow': '0 8px 30px rgba(0,0,0,0.35)'
-  };
-  var tokens = (slot === 1) ? TERMINAL_TOKENS : (slot === 2) ? MINIMAL_TOKENS : null;
+  var t = window.THEME_TOKENS || {};
+  var tokens = (slot === 1) ? t.terminal : (slot === 2) ? t.minimal : null;
   if (!tokens) return;
   var root = document.documentElement;
   for (var k in tokens) root.style.setProperty(k, tokens[k]);
@@ -2084,8 +2084,11 @@ registerStateHandler(function(s) {
   else if (s.laser_armed && s.preset_idx >= 0) mode = 'Pattern';
   if (mode) { modeEl.textContent = mode; modeEl.classList.remove('hidden'); }
   else modeEl.classList.add('hidden');
-  document.getElementById('beam-dot').classList.toggle('on', !!mode);
-  var beamDot2 = document.getElementById('beam-dot-2'); if (beamDot2) beamDot2.classList.toggle('on', !!mode);
+  var beamLabel = 'Beam output: ' + (mode ? 'active' : 'idle');
+  var beamDot = document.getElementById('beam-dot');
+  beamDot.classList.toggle('on', !!mode); beamDot.setAttribute('aria-label', beamLabel);
+  var beamDot2 = document.getElementById('beam-dot-2');
+  if (beamDot2) { beamDot2.classList.toggle('on', !!mode); beamDot2.setAttribute('aria-label', beamLabel); }
 
   var banner = document.getElementById('safety-banner');
   banner.classList.toggle('hidden', !s.safety_override);
@@ -2148,10 +2151,12 @@ registerStateHandler(function(s) {
     var dimVal = document.getElementById('tb-dimmer-val'); if (dimVal) dimVal.textContent = s.ui_master_dimmer;
   }
 });
+var LED_LABELS = {estop: 'E-Stop', scanfail: 'Scan-Fail'};
 function setLed(name, ok) {
   var el = document.getElementById('led-' + name);
   if (!el) return;
   el.className = 'beam-dot' + (ok ? ' on' : '');
+  el.setAttribute('aria-label', (LED_LABELS[name] || name) + ': ' + (ok ? 'OK' : 'fault'));
   el.style.background = ok ? 'var(--ok)' : 'var(--bad)';
 }
 function trimHistory(arr) {
@@ -4298,7 +4303,10 @@ async function refreshWifiStatus() {
   if (!resp || !resp.ok) return;
   var r = await resp.json();
   var led = document.getElementById('cfg-wifi-led'); var txt = document.getElementById('cfg-wifi-status-text');
-  if (led) led.className = 'beam-dot' + (r.connected ? ' on' : '');
+  if (led) {
+    led.className = 'beam-dot' + (r.connected ? ' on' : '');
+    led.setAttribute('aria-label', 'WiFi: ' + (r.connected ? 'connected' : 'disconnected'));
+  }
   if (txt) txt.textContent = r.connected ? (r.ssid + ' — ' + r.ip + ' (' + r.rssi + ' dBm)') : 'Not connected';
 }
 async function wifiConnect() {
