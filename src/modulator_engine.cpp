@@ -307,9 +307,9 @@ static void applyModulatorFields(Modulator& m, JsonObjectConst obj) {
 static volatile bool     s_dirty       = false;
 static volatile uint32_t s_dirty_since = 0;
 
-// See modulator_engine.h's maybeFlush() comment / layers::setLayer() for
-// why this defers save() instead of calling it inline: PATCH
-// /api/modulators?idx=N runs on AsyncTCP's single async_tcp task, shared
+// See modulator_engine.h's maybeFlush() comment for why this defers save()
+// instead of calling it inline: PATCH /api/modulators?idx=N runs on
+// AsyncTCP's single async_tcp task, shared
 // system-wide with every other connection's events (including tcp_accept
 // for brand new ones); a live slider drag fires this dozens of times a
 // second, and save() is a synchronous LittleFS flash write.

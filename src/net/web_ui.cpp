@@ -30,7 +30,6 @@
 #include "bpm_clock.h"
 #include "../sequencer.h"
 #include "../modulator_engine.h"
-#include "../layers.h"
 #include "net/community_presets.h"
 #include "patterns/preset_patterns.h"
 #include "patterns/countdown_timer.h"
@@ -556,7 +555,6 @@ static void buildStateJson(JsonDocument& doc) {
       doc["seq_loop"]       = gSequencer.loop;
       doc["seq_current"]    = gSequencer.currentStep;
       doc["seq_stepcount"]  = gSequencer.stepCount;
-      doc["layer_active"]   = gLayerStack.active;
     }
 }
 
@@ -841,7 +839,6 @@ void init() {
         community_presets::init();
         sequencer::init();
         modulator::init();
-        layers::init();
     }
 
     // ---- Statische SPA ----
@@ -2269,51 +2266,6 @@ void init() {
     s_server.on("/api/modulators", HTTP_DELETE, [](AsyncWebServerRequest* req) {
         if (!req->hasParam("idx")) { req->send(400, "text/plain", "missing idx"); return; }
         modulator::clearModulator((uint8_t)atoi(req->getParam("idx")->value().c_str()));
-        req->send(200, "text/plain", "OK");
-    });
-
-    // ── Layer Engine (parametric Shape/Color/Transform stack, Phase 1) ──
-    // Same split as the Modulator routes above: GET/POST/DELETE for the
-    // whole stack, HTTP_PATCH + ?idx=N for a single layer's fields (cheap
-    // enough to call on every debounced slider drag without round-tripping
-    // the whole array).
-    s_server.on("/api/layers/active", HTTP_POST,
-        [](AsyncWebServerRequest* req) {}, nullptr,
-        [](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t, size_t) {
-            JsonDocument doc(&jsonAllocator());
-            if (deserializeJson(doc, data, len)) { req->send(400, "text/plain", "bad json"); return; }
-            layers::setActive(doc["active"] | false);
-            req->send(200, "text/plain", "OK");
-        });
-    s_server.on("/api/layers", HTTP_GET, [](AsyncWebServerRequest* req) {
-        JsonDocument doc(&jsonAllocator());
-        JsonObject root = doc.to<JsonObject>();
-        layers::fillStateJson(root);
-        sendJsonPsram(req, doc);
-    });
-    s_server.on("/api/layers", HTTP_POST,
-        [](AsyncWebServerRequest* req) {}, nullptr,
-        [](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t, size_t) {
-            JsonDocument doc(&jsonAllocator());
-            if (deserializeJson(doc, data, len)) { req->send(400, "text/plain", "bad json"); return; }
-            layers::setStack(doc["layers"].as<JsonArrayConst>(),
-                              doc["active"] | false, (uint8_t)(doc["selected"] | 0));
-            req->send(200, "text/plain", "OK");
-        });
-    s_server.on("/api/layers", HTTP_PATCH,
-        [](AsyncWebServerRequest* req) {}, nullptr,
-        [](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t, size_t) {
-            if (!req->hasParam("idx")) { req->send(400, "text/plain", "missing idx"); return; }
-            uint8_t idx = (uint8_t)atoi(req->getParam("idx")->value().c_str());
-            JsonDocument doc(&jsonAllocator());
-            if (deserializeJson(doc, data, len)) { req->send(400, "text/plain", "bad json"); return; }
-            if (!layers::setLayer(idx, doc.as<JsonObjectConst>())) {
-                req->send(400, "text/plain", "bad idx"); return;
-            }
-            req->send(200, "text/plain", "OK");
-        });
-    s_server.on("/api/layers", HTTP_DELETE, [](AsyncWebServerRequest* req) {
-        layers::clear();
         req->send(200, "text/plain", "OK");
     });
 

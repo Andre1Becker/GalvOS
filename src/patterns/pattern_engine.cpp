@@ -19,8 +19,6 @@
 #include "net/web_ui.h"
 #include "../sequencer.h"
 #include "../modulator_engine.h"
-#include "../layers.h"
-#include "layer_shapes.h"
 #include <Arduino.h>
 #include <math.h>
 #include <esp_log.h>
@@ -40,7 +38,6 @@ static const char* TAG = "pattern";
 static LaserPoint* s_frame = nullptr;   // PATTERN_POINTS_MAX points, PSRAM (init())
 static LaserPoint* s_pm_lit = nullptr;  // PSRAM buffer, allocated in init()
 static LaserPoint* s_pm_kaleido = nullptr;  // PSRAM buffer, allocated in init()
-static LaserPoint* s_layer_scratch = nullptr;  // Layer mode per-layer staging, PSRAM (init())
 static volatile int      s_test_pattern  = -1;
 static volatile uint32_t s_test_started  = 0;
 static volatile presets::Preset s_preset_idx = presets::Preset::None;
@@ -49,7 +46,7 @@ void setPreset(presets::Preset idx) {
     s_preset_idx = idx;
     s_test_pattern = -1;
     gState.calib_active = false;
-    if (idx != presets::Preset::None) { gPaint.active = false; gLayerStack.active = false; }
+    if (idx != presets::Preset::None) { gPaint.active = false; }
     // Switch optimizer profile to match the new preset's class.
     if (idx != presets::Preset::None) {
         uint8_t cls = static_cast<uint8_t>(presets::presetClassOf(idx));
@@ -339,35 +336,6 @@ static void applyCalibration(LaserPoint* pts, size_t n) {
     }
 }
 
-// Standard HSL/HSV -> RGB (h in degrees, s/l/v in 0..1) -- Layer Engine
-// Color panel (see layers.h). No existing helper does this in the codebase;
-// applyRainbow() below is a fixed S=1/V=1 special case, not reusable here.
-static void hueToRgbChroma(float h, float c, float x, float m,
-                            uint8_t& r, uint8_t& g, uint8_t& b) {
-    float rf, gf, bf;
-    if      (h <  60) { rf = c; gf = x; bf = 0; }
-    else if (h < 120) { rf = x; gf = c; bf = 0; }
-    else if (h < 180) { rf = 0; gf = c; bf = x; }
-    else if (h < 240) { rf = 0; gf = x; bf = c; }
-    else if (h < 300) { rf = x; gf = 0; bf = c; }
-    else              { rf = c; gf = 0; bf = x; }
-    r = (uint8_t)constrain((rf + m) * 255.0f, 0.0f, 255.0f);
-    g = (uint8_t)constrain((gf + m) * 255.0f, 0.0f, 255.0f);
-    b = (uint8_t)constrain((bf + m) * 255.0f, 0.0f, 255.0f);
-}
-static void hslToRgb(float h, float s, float l, uint8_t& r, uint8_t& g, uint8_t& b) {
-    h = fmodf(h, 360.0f); if (h < 0) h += 360.0f;
-    float c = (1.0f - fabsf(2.0f * l - 1.0f)) * s;
-    float x = c * (1.0f - fabsf(fmodf(h / 60.0f, 2.0f) - 1.0f));
-    hueToRgbChroma(h, c, x, l - c / 2.0f, r, g, b);
-}
-static void hsvToRgb(float h, float s, float v, uint8_t& r, uint8_t& g, uint8_t& b) {
-    h = fmodf(h, 360.0f); if (h < 0) h += 360.0f;
-    float c = v * s;
-    float x = c * (1.0f - fabsf(fmodf(h / 60.0f, 2.0f) - 1.0f));
-    hueToRgbChroma(h, c, x, v - c, r, g, b);
-}
-
 static void applyRainbow(LaserPoint* pts, size_t n, uint8_t speed, uint32_t phase) {
     if (speed < 10) return;
     float hue = (phase * (speed / 50.0f)) * 0.01f;
@@ -412,9 +380,6 @@ void init() {
     s_pm_kaleido = (LaserPoint*)ps_malloc(PATTERN_POINTS_MAX * sizeof(LaserPoint));
     if (!s_pm_kaleido) ESP_LOGE(TAG, "PSRAM alloc failed for kaleidoscope buffer");
     else memreg::track("Pattern Kaleido Buffer", PATTERN_POINTS_MAX * sizeof(LaserPoint), true);
-    s_layer_scratch = (LaserPoint*)ps_malloc(PATTERN_POINTS_MAX * sizeof(LaserPoint));
-    if (!s_layer_scratch) ESP_LOGE(TAG, "PSRAM alloc failed for layer-mode scratch buffer");
-    else memreg::track("Pattern Layer Scratch Buffer", PATTERN_POINTS_MAX * sizeof(LaserPoint), true);
 }
 void setManualMode(bool, uint8_t) {}
 
@@ -438,7 +403,6 @@ void setCurve(int8_t idx) {
         gTextConfig.active = false;
         gState.calib_active = false;
         gPaint.active = false;
-        gLayerStack.active = false;
     }
 }
 int8_t getCurve() { return gCurves.active_curve; }
@@ -456,7 +420,6 @@ void setPaintActive(bool active) {
         gTextConfig.active = false;
         s_preset_idx = presets::Preset::None;
         gCurves.active_curve = -1;
-        gLayerStack.active = false;
     }
 }
 bool getPaintActive() { return gPaint.active; }
@@ -1331,130 +1294,6 @@ void task(void*) {
             }
             applyCalibration(s_frame, n);
             if (dim > 0) {
-                { uint32_t _t0=millis(); while (!galvo::pushFrame(s_frame, n)) { if (millis()-_t0 > 500) { safety::emergencyStop(); LOG_E(logbuf::CAT_SAFETY,"Pattern engine: pushFrame timeout, emergency stop"); break; } vTaskDelay(pdMS_TO_TICKS(2)); } }
-            } else {
-                static LaserPoint blank_pt = {0,0,0,0,0,1};
-                galvo::pushFrame(&blank_pt, 1);
-            }
-            phase++;
-            { uint32_t drain_ms = n / (uint32_t)gProjection.galvo_kpps;
-              if (drain_ms < 10) drain_ms = 10;
-              vTaskDelay(pdMS_TO_TICKS(drain_ms + drain_ms / 4)); }
-            continue;
-        }
-
-        // ---- Layer Mode (parametric Shape/Color/Transform stack, Phase 1
-        // of the Layer Engine -- see plans/mutable-dreaming-candy.md) ----
-        // Sits at the same priority tier as Paint/Curve: manually toggled,
-        // mutually exclusive with every other mode (see setActive() in
-        // layers.cpp and the reciprocal clears in setPreset()/setCurve()/
-        // setPaintActive() above).
-        if (gLayerStack.active) {
-            Layer snap[LAYER_MAX];
-            uint8_t layerCount;
-            { LOCK_STATE();
-              layerCount = gLayerStack.count;
-              for (uint8_t i = 0; i < layerCount; i++) snap[i] = gLayerStack.layers[i];
-            }
-            uint8_t activeCount = 0;
-            for (uint8_t i = 0; i < layerCount; i++) if (snap[i].enabled) activeCount++;
-
-            // Same subset of gOptimizerConfig every other mode in this file
-            // snapshots for its own blank-jump/velocity-clamp needs (see the
-            // ILDA block above) -- avoids a hot-path TOCTOU vs. live WebUI
-            // writes without needing preset_patterns.cpp's TU-local
-            // liveOptimizerConfig().
-            optimizer::OptimizerConfig cfg;
-            cfg.blank_samples            = gOptimizerConfig.blank_samples;
-            cfg.min_blank_samples        = gOptimizerConfig.min_blank_samples;
-            cfg.blank_pts_per_1000_units = gOptimizerConfig.blank_pts_per_1000_units;
-            cfg.ringing_comp_enabled     = gOptimizerConfig.ringing_comp_enabled;
-            cfg.ring_freq_hz             = gOptimizerConfig.ring_freq_hz;
-            cfg.ring_damping_ratio       = gOptimizerConfig.ring_damping_ratio;
-            cfg.vel_clamp_enabled        = gOptimizerConfig.vel_clamp_enabled;
-            cfg.max_step_units           = gOptimizerConfig.max_step_units;
-            cfg.accel_clamp_enabled      = gOptimizerConfig.accel_clamp_enabled;
-            cfg.max_accel_units          = gOptimizerConfig.max_accel_units;
-            cfg.galvo_kpps               = gProjection.galvo_kpps;
-            optimizer::applyPpsScaling(cfg, gProjection.galvo_rated_kpps, gProjection.galvo_kpps);
-
-            size_t n = 0;
-            if (activeCount > 0 && s_layer_scratch) {
-                // Point budget split evenly across active layers -- same
-                // idiom applyRadialCopy() uses per-copy (Duplicator's future
-                // Phase-3 basis) so no single layer can starve the others.
-                size_t frameBudget = (size_t)gOptimizerConfig.max_pts_per_frame;
-                if (frameBudget > PATTERN_POINTS_MAX) frameBudget = PATTERN_POINTS_MAX;
-                size_t perLayerBudget = frameBudget / activeCount;
-
-                for (uint8_t i = 0; i < layerCount; i++) {
-                    const Layer& l = snap[i];
-                    if (!l.enabled) continue;
-                    if (n >= frameBudget || n >= PATTERN_POINTS_MAX) break;
-                    size_t budget = perLayerBudget;
-                    if (budget > PATTERN_POINTS_MAX - n) budget = PATTERN_POINTS_MAX - n;
-
-                    uint8_t cr, cg, cb;
-                    if (l.hsv) hsvToRgb(l.hue, l.sat, l.light, cr, cg, cb);
-                    else       hslToRgb(l.hue, l.sat, l.light, cr, cg, cb);
-
-                    size_t ln = layer_shapes::generate((layer_shapes::ShapeType)l.shape, l.shapeParam,
-                                                        l.scaleX, l.scaleY, s_layer_scratch, budget,
-                                                        cr, cg, cb);
-                    if (ln == 0) continue;
-
-                    // Transform panel: additional scale/shift/rotate on top
-                    // of the Shape panel's own scaleX/Y (kept as a separate
-                    // stage so the two panels stay independent, matching the
-                    // reference screenshots).
-                    float sx = l.xScaleX;
-                    float sy = l.scaleLinked ? l.xScaleX : l.xScaleY;
-                    float rad = l.xRotation * (float)(M_PI / 180.0);
-                    float ca = cosf(rad), sa = sinf(rad);
-                    for (size_t k = 0; k < ln; k++) {
-                        float px = s_layer_scratch[k].x, py = s_layer_scratch[k].y;
-                        float tx = (px * sx * ca - py * sy * sa) + l.xShiftX;
-                        float ty = (px * sx * sa + py * sy * ca) + l.xShiftY;
-                        s_layer_scratch[k].x = (int16_t)constrain(tx, -32000.0f, 32000.0f);
-                        s_layer_scratch[k].y = (int16_t)constrain(ty, -32000.0f, 32000.0f);
-                        // Fade Ends: brightness ramp near the start/end of
-                        // the point sequence (0% = hard edges, 100% = the
-                        // whole path ramps from dark ends to bright middle).
-                        if (l.fadeEnds > 0 && !s_layer_scratch[k].blank) {
-                            float span = ln > 1 ? (float)(ln - 1) : 1.0f;
-                            float distFromEnd = fminf((float)k, span - (float)k) / span;
-                            float fadeFrac = l.fadeEnds / 100.0f;
-                            if (distFromEnd < fadeFrac) {
-                                float v = fadeFrac > 0.0f ? distFromEnd / fadeFrac : 1.0f;
-                                s_layer_scratch[k].r = (uint8_t)(s_layer_scratch[k].r * v);
-                                s_layer_scratch[k].g = (uint8_t)(s_layer_scratch[k].g * v);
-                                s_layer_scratch[k].b = (uint8_t)(s_layer_scratch[k].b * v);
-                            }
-                        }
-                    }
-
-                    if (n > 0) optimizer::emitBlankTo(s_frame, n, PATTERN_POINTS_MAX,
-                                                       s_layer_scratch[0].x, s_layer_scratch[0].y, cfg);
-                    for (size_t k = 0; k < ln && n < PATTERN_POINTS_MAX; k++) s_frame[n++] = s_layer_scratch[k];
-                }
-            }
-
-            if (n == 0) { static LaserPoint blank_pt={0,0,0,0,0,1}; galvo::pushFrame(&blank_pt,1); vTaskDelay(pdMS_TO_TICKS(40)); continue; }
-
-            n = optimizer::clampScannerLimits(s_frame, n, cfg, PATTERN_POINTS_MAX);
-            {
-                // Same dashboard stats every other mode publishes (see the
-                // Preset-mode block above) -- was missing here, which left
-                // the WebUI's point-count readout stuck at its last value
-                // (or 0) while Layer mode was actually rendering fine.
-                size_t litCount = 0;
-                for (size_t k = 0; k < n; k++) if (!s_frame[k].blank) litCount++;
-                gState.frame_n.store((uint32_t)n);
-                gState.frame_lit.store((uint32_t)litCount);
-                gState.frame_blank.store((uint32_t)(n - litCount));
-            }
-            applyCalibration(s_frame, n);
-            if (gState.master_dimmer.load() > 0) {
                 { uint32_t _t0=millis(); while (!galvo::pushFrame(s_frame, n)) { if (millis()-_t0 > 500) { safety::emergencyStop(); LOG_E(logbuf::CAT_SAFETY,"Pattern engine: pushFrame timeout, emergency stop"); break; } vTaskDelay(pdMS_TO_TICKS(2)); } }
             } else {
                 static LaserPoint blank_pt = {0,0,0,0,0,1};

@@ -150,11 +150,10 @@ bool load();
 
 // Flushes a pending save() queued by setModulator() once ~400ms have passed
 // since the last field write, so a continuous slider drag serializes at
-// most one flash write instead of one per PATCH (see layers::maybeFlush()
-// for the identical rationale -- setModulator() used to call save()
-// synchronously on the AsyncTCP request path, which stalls the whole
-// system-wide TCP pcb pool for as long as the flash write takes). Call
-// periodically from a task that is neither the network stack nor the
+// most one flash write instead of one per PATCH (setModulator() used to
+// call save() synchronously on the AsyncTCP request path, which stalls the
+// whole system-wide TCP pcb pool for as long as the flash write takes).
+// Call periodically from a task that is neither the network stack nor the
 // render loop (currently safety::task()).
 void maybeFlush();
 

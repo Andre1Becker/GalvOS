@@ -6,7 +6,6 @@
 #include <string.h>
 #include "util/log_buffer.h"
 #include "net/web_ui.h"
-#include "../layers.h"
 #include "../modulator_engine.h"
 
 namespace safety {
@@ -193,9 +192,8 @@ void task(void*) {
         }
 
         // Off the network stack and the render loop on purpose -- see
-        // layers::setLayer()'s comment for why the flash write can't run
-        // inline on the AsyncTCP request path.
-        layers::maybeFlush();
+        // modulator::setModulator()'s comment for why the flash write can't
+        // run inline on the AsyncTCP request path.
         modulator::maybeFlush();
 
         vTaskDelay(pdMS_TO_TICKS(20));  // 50 Hz safety loop
