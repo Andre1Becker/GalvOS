@@ -24,6 +24,7 @@ The origin story: the stock firmware couldn't dim the laser — it was full-brig
 - DMX-512, Art-Net, sACN/E1.31, and OSC input; Ether Dream and Helios (network) DAC protocols
 - ILDA file playback from SD card
 - Per-point laser modulation with full RGB PWM control
+- BPM-synced show engine: global tempo clock (Tap/DMX/Manual), preset sequencer, and an 8-slot modulation matrix (LFO/Noise/Envelope/Step-Sequencer → any live pattern parameter)
 - Hardware safety interlocks (scan-fail detection, watchdog, E-Stop, opto-isolated TTL)
 - Point optimizer pipeline with adaptive density, S-curve blanking, and ringing compensation
 - Camera-in-the-loop auto-tuning of optimizer parameters via a companion Python tool (see [Chapter 6](docs/06-camera-autotuning.md))
@@ -57,7 +58,11 @@ Yes, all of this is real, and yes, it's all running on a 6 Freedom Money ($) mic
 | Auto-rotation (independent X/Y/Z) + static rotation offset | Spin any pattern on any axis, at its own speed, because static geometry is for cowards. |
 | 7 color animation modes (Gradient, Chase, Strobe, Pulse, Twinkle, Flip, Seg) | Layer a light show on top of any preset's own color without touching its code. |
 | Points-Only Mode | Turns any pattern into a dot cloud with configurable fade-in/out and fade direction — instant particle show. |
-| Kaleidoscope (2–16-fold) & Mirror | Symmetric multiplication of whatever's on screen, because one hexagon is never enough. |
+| Kaleidoscope (2–8-fold) & Mirror | Symmetric multiplication of whatever's on screen, because one hexagon is never enough. |
+| Global BPM clock (Manual / Tap Tempo / DMX) | The whole show keeps a beat — priority DMX > Tap > Manual, with a big satisfying TAP button. |
+| Preset Sequencer | A BPM-synced set list: walk presets step by step, beat-quantized, with optional blank transitions. Never auto-starts on boot — Class 4 lasers don't get autoplay. |
+| Modulation engine (8 slots × 16 bindings) | LFOs, noise, multi-point envelopes, and step sequencers routed onto scale, rotation, hue, speed, density... Patterns that breathe on their own. |
+| Modular modules: Camera, Duplicator, Spatial Noise, Dotter | Self-registering firmware modules that add 3D camera moves, frame cloning (grid/radial/spiral), organic wobble, and dot scatter — the UI discovers them automatically. |
 | Freehand Paint tab | Draw with your finger or mouse, project it as vectors. Shape tools included for people who can't draw circles. |
 | Laser Text mode | 3 fonts, 10 animations (scroll, bounce, typewriter, Star Wars crawl, ...), up to 127 characters. |
 | Countdown timer with laser payoff | Set a timer, and when it hits zero: show text or fire off an ILDA file. Genuinely useful for events. |
@@ -82,8 +87,10 @@ Yes, all of this is real, and yes, it's all running on a 6 Freedom Money ($) mic
 
 | Feature | What it does |
 | --- | --- |
-| ILDA file playback from SD card | Plays the industry-standard laser show format straight off a memory card. |
+| ILDA file playback from SD card | Plays the industry-standard laser show format straight off a memory card — subfolders, live speed/size/color-override controls, browser upload included. |
 | Playlist manager | Queue multiple ILDA files with per-entry loop count and pause duration. |
+| PSRAM budget guard for ILDA files | Files too big to load safely are grayed out *before* you play them, instead of rebooting the controller mid-show. |
+| SD auto-mount watcher | Insert a card whenever — it gets picked up within 5 seconds. Eject means eject, until you say otherwise. |
 | Independent SPI3 bus for SD | SD reads no longer corrupt the DAC output mid-frame — SD card lives on its own SPI3 bus (GPIO5/6/1/42), fully independent of the DAC's SPI2. |
 
 ### Calibration & Tuning
@@ -113,6 +120,9 @@ Yes, all of this is real, and yes, it's all running on a 6 Freedom Money ($) mic
 | Feature | What it does |
 | --- | --- |
 | Browser-based WebUI, installable as a PWA | No app store, no native install — works full-screen from any phone, tablet, or desktop. |
+| Three switchable themes | Cyberpunk/Glitch, Terminal CLI, Minimalist Dark — same controls, three personalities, zero flash-of-wrong-theme on reload. |
+| Mobile-first safety controls | ARM/DISARM and Master Dimmer pinned in an always-visible top bar, 44 px touch targets — the kill switch never scrolls away. |
+| Per-protocol debug logging | A "snitch switch" per network protocol (DMX, Art-Net, Ether Dream, Helios, OSC, sACN) — raw traffic straight into the Log tab. |
 | Live Dashboard | Safety status, telemetry, CPU load, temperature history, DAC output rate, and frame composition — all scrolling in real time. |
 | Live log console + memory viewer | Streamed over WebSocket, color-coded by severity, plus a heap/PSRAM breakdown by subsystem for hunting leaks. |
 | Wi-Fi AP + STA mode, mDNS | Boots as its own access point out of the box; joins your network and answers at `galvOS.local` once configured. |
@@ -201,6 +211,7 @@ GalvOS/
 ├── scripts/
 │   ├── upload_all.py       # PlatformIO target: flash firmware + LittleFS
 │   ├── gzip_assets.py      # Pre-build hook: gzip data/ assets
+│   ├── test_protocols.py   # Manual Ether Dream/Helios stream test client
 │   └── optimizeGalvo/      # Camera-in-the-loop auto-tuning tool (see docs/06)
 ├── docs/                   # Full documentation (you are here)
 ├── assets/                 # Screenshots, diagrams

@@ -37,7 +37,7 @@ The result is GalvOS — an open-source platform that replaces the OEM controlle
 
 - A complete firmware and hardware replacement for the Mikoy 5W RGB laser projector
 - An open-source ESP32-S3 platform that could in principle be adapted to other galvo laser projectors
-- A browser-based laser show controller with DMX, Art-Net, ILDA, and a rich WebUI
+- A browser-based laser show controller with DMX, Art-Net, sACN, OSC, Ether Dream/Helios streaming, ILDA playback, a BPM-synced sequencer and modulation engine, and a rich WebUI
 - A working project with real hardware-verified features — not a prototype
 
 **GalvOS is not:**
@@ -151,6 +151,7 @@ GalvOS runs two FreeRTOS cores in parallel:
 - OSC 1.0 receiver, UDP 9000 (v6.08.0)
 - Ether Dream protocol receiver
 - Helios DAC network emulation, TCP 7768 (v6.08.0; the Helios USB protocol remains a stub)
+- Preset Sequencer step advance (v6.22.0)
 - Safety monitor task
 - Temperature monitoring
 - NTP client
@@ -160,6 +161,7 @@ GalvOS runs two FreeRTOS cores in parallel:
 - Galvo timer ISR — fires at the configured sample rate (default 30,000 times/second)
 - Pattern engine — generates `LaserPoint` streams from active preset or ILDA file
 - Point optimizer pipeline — processes raw points before DAC output
+- BPM clock + modulator engine tick — resolved once per frame boundary (v6.21.0/v6.23.0), feeding beat-synced parameter modulation into the pattern engine
 - DAC8562 SPI writes — raw hardware register access, not IDF polling
 
 The two cores share data through a small set of carefully designed shared structures (`gConfig`, `gState`, `gLivePreset`, etc.) protected by atomic operations and dedicated mutexes where needed.

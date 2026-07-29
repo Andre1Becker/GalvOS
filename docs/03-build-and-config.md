@@ -105,7 +105,7 @@ These are the parameters in `platformio.ini` that you may want to adjust. Everyt
 
 | Parameter | Default | Description |
 | --- | --- | --- |
-| `LASER_FW_VERSION` | `"6.05.0"` | Version string shown in the WebUI header and serial log. Increment this when you modify the firmware (see [Version Bumps](#version-bumps)). |
+| `LASER_FW_VERSION` | `"6.36.0"` | Version string shown in the WebUI header and serial log. Increment this when you modify the firmware (see [Version Bumps](#version-bumps)). Since v6.35.0 the WebUI additionally carries its own independent `UI_VERSION` (in `data/index.html`). |
 | `GALVO_SAMPLE_RATE_HZ` | `30000` | The ISR tick rate — how many DAC samples are written per second. This is **not** the same as `galvo_kpps` in the WebUI (which controls how many of those ticks contain new pattern points). Default 30,000 Hz = 30 kpps effective output at full density. |
 | `DEFAULT_DMX_ADDRESS` | `1` | Default DMX start address on first boot (before any NVS config). |
 | `DEFAULT_DMX_UNIVERSE` | `0` | Default Art-Net universe on first boot. |
@@ -136,8 +136,8 @@ Update `LASER_FW_VERSION` in `platformio.ini` using Python string replacement (n
 
 ```python
 # In a patch script:
-content = content.replace('-D LASER_FW_VERSION=\\"6.05.0\\"',
-                          '-D LASER_FW_VERSION=\\"6.05.1\\"', 1)
+content = content.replace('-D LASER_FW_VERSION=\\"6.36.0\\"',
+                          '-D LASER_FW_VERSION=\\"6.36.1\\"', 1)
 ```
 
 ---

@@ -16,6 +16,7 @@ Terms are grouped by topic. If you are looking for a specific abbreviation, use 
 - [Memory Architecture](#memory-architecture)
 - [Networking & Protocols](#networking--protocols)
 - [Show Protocols & Standards](#show-protocols--standards)
+- [Timing & Modulation](#timing--modulation)
 - [Optimizer & Signal Processing](#optimizer--signal-processing)
 - [Color & Photometry](#color--photometry)
 - [Build System & Tools](#build-system--tools)
@@ -277,6 +278,34 @@ The trade association for the professional laser display industry. Also the name
 
 **Universe (DMX/Art-Net)**
 A group of 512 DMX channels. A single DMX cable carries one universe. Art-Net allows multiple universes over one IP network. GalvOS responds to one universe at a time, configurable via `artnet_universe` in the WebUI.
+
+---
+
+## Timing & Modulation
+
+**BPM (Beats Per Minute) / BPM Clock**
+Musical tempo. GalvOS's global BPM clock (`src/bpm_clock.*`, since v6.21.0) resolves the current tempo from three sources with fixed priority DMX > Tap > Manual, and exposes a per-frame beat phase that the Sequencer and Modulators sync to.
+
+**Tap Tempo**
+Setting a tempo by tapping a button in time with the music. GalvOS averages the intervals of the last few taps; a pause of more than 3 seconds resets the measurement.
+
+**Preset Sequencer**
+A BPM-synced playlist of built-in presets (`src/sequencer.*`, since v6.22.0). Each step has a preset, a duration in beats, and an optional blanked transition window. Deliberately never resumes playback on boot.
+
+**Modulator**
+A generator producing a continuously changing control value in the range −1..1 — an Oscillator (LFO), Noise source, Envelope, or Step Sequencer. GalvOS provides 8 slots (`src/modulator_engine.*`, since v6.23.0), each BPM-synced or free-running.
+
+**LFO (Low-Frequency Oscillator)**
+An oscillator running at sub-audio rates (fractions of a Hz to a few Hz), used not to make sound/light directly but to *modulate* another parameter — the classic synthesizer concept, applied here to laser pattern parameters.
+
+**Envelope**
+A one-shot (or looping) control curve triggered by an event, rather than cycling freely like an LFO. Classically Attack/Sustain/Release; since v6.27.0 GalvOS also supports multi-point breakpoint envelopes with per-segment curve shapes.
+
+**Binding**
+The routing entry that connects a modulator slot to a target parameter, with a depth (how strongly) and offset (around which center). GalvOS has 16 binding slots.
+
+**Modulator Registry**
+The extensibility mechanism (since v6.27.0) by which self-contained firmware modules register new modulator types and target parameters without modifying the engine or the WebUI. The Camera (3D view), Duplicator (frame cloning), Spatial Noise (2D value noise), and Dotter (dot scatter) modules all plug in this way — see [Chapter 9 — Adding a Modulator Module](09-contributing.md#adding-a-modulator-module).
 
 ---
 

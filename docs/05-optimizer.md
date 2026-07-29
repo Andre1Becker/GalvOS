@@ -400,3 +400,5 @@ Full table of all optimizer parameters, their defaults, valid ranges, and effect
 | `max_step_units` | 200.0 | 1–65535 | Maximum lit-step size in DAC units per tick. Steps exceeding this are linearly subdivided. After PPS scaling. |
 | `accel_clamp_enabled` | false | bool | Enable acceleration clamp post-pass. |
 | `max_accel_units` | 800.0 | 1–65535 | Maximum per-tick change in step magnitude (DAC units/tick²). After PPS scaling. |
+| `jitter_enabled` | false | bool | Point Distribution Modifier (v6.30.0): perpendicular displacement of interior points for a hand-drawn line texture. Disabled = output byte-identical to the pre-jitter optimizer. |
+| `jitter_amount_units` | 80.0 | 0–2000 | Maximum perpendicular jitter offset in DAC units. Deterministic per point (hash-based, not random per frame) — lines wobble, they don't shimmer. Corners, budgets, and dwell counts are computed *before* jitter, so it never destabilizes the pipeline. |

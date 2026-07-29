@@ -7,6 +7,7 @@ The GalvOS WebUI is a single-page application served directly from the ESP32's L
 - [Accessing the WebUI](#accessing-the-webui)
 - [Installing as a PWA](#installing-as-a-pwa)
 - [General Layout](#general-layout)
+- [Themes](#themes)
 - [Tab: Dashboard](#tab-dashboard)
 - [Tab: Presets](#tab-presets)
 - [Tab: Preset Manager](#tab-preset-manager)
@@ -17,10 +18,11 @@ The GalvOS WebUI is a single-page application served directly from the ESP32's L
 - [Tab: Calibration](#tab-calibration)
 - [Tab: Optimizer](#tab-optimizer)
 - [Tab: Projection](#tab-projection)
-- [Tab: Playlist](#tab-playlist)
 - [Tab: Thermal](#tab-thermal)
 - [Tab: Log](#tab-log)
 - [Tab: Configuration](#tab-configuration)
+
+> **A note on screenshots:** the WebUI was rebuilt from scratch in v6.32.0 (see [Themes](#themes)) and several tabs were reorganized in v6.33.0–v6.35.0. Some screenshots in this chapter still show the previous skin — the controls they show are the same, they just wear different clothes now.
 
 ---
 
@@ -65,26 +67,50 @@ GalvOS ships as a Progressive Web App (PWA). This means you can install it on yo
 
 ![image](https://github.com/user-attachments/assets/3a9fd575-9a98-4934-baa0-ceb1394cbb9c)
 
-The UI is divided into a **tab bar** at the top and a **content area** below. All tabs are accessible at any time — switching tabs does not stop the laser or change the active pattern.
+Since the v6.32.0 rewrite, the UI is a responsive shell around 13 tabs: a **collapsible sidebar** for tab navigation on desktop, a **bottom tab bar** on mobile, and a **content area** in the middle. All tabs are accessible at any time — switching tabs does not stop the laser or change the active pattern.
+
+The **top bar** stays pinned while you scroll (properly so since v6.33.0) and carries the controls that must never be more than one glance away:
+
+- **ARM / DISARM** — the laser arm control lives here, on its own always-visible row. Since v6.34.0 it is guaranteed on screen at every viewport width from 320 px up — it previously vanished on phones, which is exactly the wrong control to lose on the device you're most likely holding during a show.
+- **Master Dimmer** — global brightness as a top-bar chip (moved out of the Dashboard in v6.33.0), visible even on the narrowest mobile layout.
+- **Status dots** — beam, E-Stop, scan-fail, sequencer beat, and Wi-Fi state, each with proper `role=status`/`aria-label` for screen readers (v6.34.0).
+- The **safety banner** (shown when an interlock trips) stacks above the top bar instead of fighting it for the same pixels.
+
+The page title shows both version numbers as `FW: x.y.z - UI:X.Y.Z` — since v6.35.0 the WebUI carries its own version (`UI_VERSION`), independent of the firmware, so "which UI build am I actually looking at" has an answer.
+
+Touch targets (small buttons, checkbox/radio rows) meet the 44×44 px minimum for live/mobile control since v6.34.0.
+
+---
+
+## Themes
+
+The WebUI ships **three switchable themes** (v6.32.0, consolidated from the earlier v6.17.0/v6.20.1 theme experiments), driven by a CSS custom-property token engine:
+
+- **Cyberpunk / Glitch** (default) — neon glow, scanline decor, chromatic-aberration accents. The classic GalvOS look, turned up.
+- **Terminal CLI** — pure black, zero border radius, box-drawing card headers. For people who think a laser controller should look like `htop`.
+- **Minimalist Dark** — no glow, no decor, just controls. The theme you switch to when someone serious is watching.
+
+Pick a theme via the theme buttons in the navigation. The choice persists in the browser's localStorage and is applied by an inline boot script before first paint — no flash of the wrong theme on reload. Colors that encode real meaning (sensor chart lines, log severity, laser color swatches) are deliberately identical across all themes.
 
 ---
 
 ## Tab: Dashboard
 
-The Dashboard is the home screen and the first thing you see on load. It gives you a live status overview of the entire system.
+The Dashboard is the home screen and the first thing you see on load. Since the v6.33.0 reorg it is **status and monitoring only** — everything you *operate* (Preset Grid, Modulators, Color Override, Sequencer transport, BPM Clock, Countdown Timer) lives on the [Presets tab](#tab-presets), and ARM/DISARM plus Master Dimmer live in the always-visible top bar. Since v6.35.0 the top row holds Safety & Arm, System, and Telemetry side by side.
 
 ![image](https://github.com/user-attachments/assets/8cd5b835-76dd-4c52-abb8-f7ebc45a33d6)
 
-### Safety Status Card
+### Safety & Arm Card
 
 ![image](https://github.com/user-attachments/assets/962a2f9d-639f-4f64-b385-68ec8f451048)
 
 Shows the state of the hardware safety interlocks:
 
+- **ARM pill** — current armed state at a glance (the actual ARM/DISARM buttons are in the top bar).
 - **E-Stop** — green LED: E-Stop circuit is closed (not pressed), system can arm. Red: E-Stop is active, laser cannot arm.
 - **Scan-Fail HW** — green LED: the NE555 scan-fail circuit is detecting DAC activity. Red: scan-fail triggered (galvo has stopped or firmware hung).
 - **Fault reason** — if the system refused to arm, a text line appears here explaining which condition failed. This reads from the RTC memory value that survives restarts.
-- **ARM / DISARM buttons** — ARM requests the safety system to enable the laser power rail (all hardware conditions must also be satisfied). DISARM immediately cuts the laser rail regardless of pattern state.
+- **Safety Override checkbox** — mirrored with the Configuration tab's own checkbox (v6.33.0), so you don't have to leave the Dashboard to toggle it (you still shouldn't toggle it casually — see [Configuration → Safety](#safety-configuration)).
 
 ### Telemetry Card
 
@@ -98,6 +124,7 @@ Live readouts updated every second:
 - **Galvo Rate** — current output rate in points-per-second with a visual bar. The bar fills relative to the configured `galvo_kpps` maximum.
 - **Buffer fill level** — how full the DAC output ring buffer is. Sustained overflows cause flicker and are visible as "Ring buffer overflow" in the log.
 - **Last DMX activity** — time since the last DMX frame arrived. Goes red if DMX signal is lost.
+- **WebUI Override checkbox** — makes the WebUI take priority over DMX/Art-Net (the send-side wiring for this control was actually missing until the v6.32.0 rewrite closed the gap).
 
 ### CPU Load Graph
 
@@ -120,7 +147,7 @@ A colour-coded scrolling chart of all DS18B20 sensor readings:
 - 🟢 PSU
 - 🔵 Ambient / chassis
 
-Current temperatures are shown as a row of badges below the chart.
+Current temperatures are shown as a row of badges below the chart. Sensors that report as not connected are simply skipped (v6.33.0) instead of drawing a dead flatline and a "Not connected" badge.
 
 ### Galvo Output Rate
 
@@ -134,73 +161,66 @@ A scrolling 5-minute history of the actual DAC output rate in kpps (points-per-s
 
 Shows how each rendered frame's points split between **Lit** (green) and **Blank** (orange) against the **Total** point count (grey) over the same 5-minute window. A high blank-to-lit ratio usually means the optimizer is spending a lot of the frame budget on travel/jump moves between shapes rather than visible content — useful when tuning optimizer profiles (Tab: Optimizer) or diagnosing why a complex pattern looks dim or flickery.
 
+### Zone Clipping Card
+
+A one-checkbox quick toggle for projection zone clipping — the full zone editor (polygon, outline projection) stays on the [Calibration tab](#tab-calibration). Handy for flipping the safety fence on/off without leaving the Dashboard.
+
 ### System Card
 
 ![image](https://github.com/user-attachments/assets/06d69469-fd72-4210-bd7e-4626f60f170a)
 
-Static system information: firmware version, hostname, IP address, Wi-Fi signal strength (RSSI), uptime, free heap (internal DRAM), free PSRAM, NTP time, DAC/galvo status, and SD card status. The API auth token moved to the **Access Credentials** card on the Configuration tab.
+System information in a compact multi-column field grid (v6.35.0): firmware version, **UI version** (independent of firmware since v6.35.0), hostname, IP address, Wi-Fi signal strength (RSSI), uptime, free heap (internal DRAM), free PSRAM, NTP time, and DAC/galvo status. The **SD card status plus Mount/Eject controls** were folded into this card in v6.33.0 (they previously had their own card; the full SD toolset lives on the [ILDA / SD tab](#tab-ilda--sd)). The API auth token moved to the **Access Credentials** card on the Configuration tab.
 
-### Control Interfaces Card
-
-Added in v6.08.0 — one LED per network DAC/control interface, so you can see at a glance which of them is actually talking to the device:
-
-- **Ether Dream** — `connected` / `playing` / `waiting`
-- **Helios (network)** — `connected` / `playing` / `waiting` (TCP emulation, see below)
-- **Helios (USB)** — always `waiting`; the USB protocol is a stub (see [Known Issues](10-known-issues-and-todos.md))
-- **OSC** — `active` when OSC packets have arrived recently, `idle` otherwise
-- **sACN / E1.31** — `active` / `idle`
-
-The LEDs are activity indicators, not fault indicators — a red/dim LED just means nobody is using that interface right now. Enable/disable lives on the Configuration tab ([Control Interfaces](#control-interfaces)).
+> **Note:** the per-interface activity LED card ("Control Interfaces", added v6.08.0) did not survive the v6.32.0 rewrite — interface enable/disable and debug logging live on the Configuration tab ([Control Interfaces](#control-interfaces)), and per-interface activity is still reported by the API (`/api/state` → `etherdream_connected`, `osc_active`, …).
 
 ---
 
 ## Tab: Presets
 
-The Presets tab is the main performance control surface. It is split into two areas: **Global Controls** (always visible at the top) and the **Preset Grid** below.
+Since the v6.26.0/v6.33.0 reorgs, the Presets tab is the **complete performance control surface** — everything you touch during a show lives here. It is laid out as a wide main column (Global Controls, Color Animations, Preset Grid, Community Presets, Sequencer) plus a right-hand sidebar (BPM Clock, Countdown Timer, Parameter Modulators, Bindings).
 
 ### Global Controls
 
-A 5-column card that applies to every active preset in real time. Changes take effect immediately without reloading the pattern.
+A card that applies to every active preset in real time. Changes take effect immediately without reloading the pattern. Defaults and ranges got a sanity pass in v6.36.0 — sliders now start neutral and their travel matches what the firmware actually does.
 
 ![image](https://github.com/user-attachments/assets/ee1b1d09-49d1-4fe8-9067-cf5ebe6ecc95)
 
-**Column 1 — Speed / Size / Rotation:**
+**Speed / Size / Autoscale / Rotation:**
 
-- **Speed** — pattern animation speed (0–255). Meaning varies by preset: step increment, phase advance, or oscillation rate.
-- **Speed Multiplier** — shown for some presets that support a secondary speed factor.
-- **Size** — scales the pattern output (10–255). 255 = full scan range. Reduce to shrink the image. For Starfield (up to 150 stars, since v6.02.3), Size instead requests a star count — since v6.02.4 the readout shows the actual rendered count (`starfield_stars` in `/api/state`), which can be lower than requested if the Particles optimizer profile's `max_pts_per_frame` budget caps it first.
-- **Auto-Scaling speed** — oscillates size between 0 and the Size value at the set rate. Three modes: Small→Big→Small, Small→Big, Big→Small.
-- **Rotation (Z)** — static Z-axis rotation offset (−180° to +180°).
-- **Wave Parameters** — only meaningful for Waves-category presets:
-  - **Amplitude** (0.1–2.0×) — scales the wave height.
-  - **Frequency ×** (0.25–4.0×) — scales the wave frequency.
+- **Speed** — pattern animation speed (0–255, default 0 = static since v6.36.0). Meaning varies by preset: step increment, phase advance, or oscillation rate.
+- **Size** — scales the pattern output (0–255). 255 = full scan range. Reduce to shrink the image. For Starfield, Size instead requests a star count — the readout shows the actual rendered count (`starfield_stars` in `/api/state`), which can be lower than requested if the Particles optimizer profile's `max_pts_per_frame` budget caps it first.
+- **Autoscale Speed / Mode** — oscillates size at the set rate (default 0 = off). Modes: Off, Fit, Fill.
+- **Rotation** — static rotation offset (0–359°).
+- **Wave Amplitude** (0.1–2.0×) / **Wave Frequency** (0.25–4.0×) — only meaningful for Waves-category presets (moved into Global Controls in v6.25.0).
+- Some presets reveal **extra parameter rows** when active (e.g. Fireworks: Trail/Endless/Duration; Spiral: Arms; Spiderweb: Rings/Sides; Starburst: Rays; Matrix Rain: Dots/Tilt).
 
-**Column 2 — Auto-Rotation:**
+**Auto-Rotation:**
 
-- **Continuous rotation toggle** — enables continuously spinning rotation on any or all axes.
-- **Z / Y / X axis speed** — independent speed for each rotation axis (0–100).
-- **Master speed** — global multiplier applied on top of per-axis speeds.
+- **Master enable** plus per-axis **X / Y / Z** checkboxes — pick which axes spin.
+- **Rotation Speed** — one shared speed slider for all enabled axes, −0.5 to +0.5 (v6.36.0; the previous ±10 range was radians-per-frame in disguise — 0.3 already meant more than a full revolution per second, so 99% of the slider was a centrifuge).
 
-**Column 3 — Color:**
+**Kaleidoscope & Mirror:**
 
-- **Color Override toggle** — when on, the color picker overrides the preset's built-in color.
-- **Color wheel** — click or drag to select hue and saturation. A vertical brightness slider is on the right.
-- **Hex input** — type a hex color code directly (`ffc96e` etc.).
+- **Kaleidoscope** — replicates the pattern into N rotationally symmetric segments (2–8, default 3 since v6.36.0 — 8 already looks fully kaleidoscopic, higher counts just wasted slider travel). Mirror H and Mirror V options alternate between original and mirrored copies of each segment.
+- **Mirror** — simpler reflection: Off, X (horizontal flip), Y (vertical flip), Radial4 (4-fold copy without reflection).
+
+**Color:**
+
+- **Color wheel** — click or drag to select hue and saturation (properly round again since v6.34.0, even on narrow screens), with a brightness slider next to it.
+- **Hex input** — type a hex color code directly (`#ffc96e` etc.).
 - **Quick color buttons** — one-tap access to R, G, B, Magenta, Yellow, Cyan, White.
 
-**Column 4 — Points-Only Mode:**
+**Points-Only Mode:**
 Converts any preset into a dot-cloud: instead of drawing connected lines, the optimizer samples points from the pattern and dwells on each one as a lit dot.
 
-- **Points-Only Mode toggle** — on/off.
-- **Point count** — number of dots (2–80).
-- **Fade-in / Fade-out** — enable smooth brightness ramp at each dot, with configurable duration (0–5000 ms).
-- **Fade direction** — controls the order in which points fade: Inside→Outside, Outside→Inside, Left→Right, Right→Left, Top→Bottom, Bottom→Top.
+- **Enabled** — on/off.
+- **Point Count** — number of dots (2–50, default 12 since v6.36.0; the slider used to run to 200 while the firmware silently clamped at 80 — both now agree on 50).
+- **Fade In / Fade Out** — enable smooth brightness ramp at each dot, with configurable duration (0–5000 ms).
+- **Fade Direction** — controls the order in which points fade: Inside→Outside, Outside→Inside, Left→Right, Right→Left, Top→Bottom, Bottom→Top.
 - **Static Mode** — disables fading entirely; all dots at full brightness.
+- The **Dotter** module (v6.31.0) can scatter these dots via a modulator binding on the `DOT_SPREAD` target — see [Parameter Modulators & Bindings](#parameter-modulators--bindings-sidebar).
 
-**Column 5 — Kaleidoscope & Mirror:**
-
-- **Kaleidoscope** — replicates the pattern into N rotationally symmetric segments (2–16). Mirror H and Mirror V options alternate between original and mirrored copies of each segment.
-- **Mirror** — simpler reflection: Off, ↔ X (horizontal flip), ↕ Y (vertical flip), ✳ Radial4 (4-fold copy without reflection).
+**↺ Reset all** — resets all Global Controls sliders to their defaults without changing the active preset.
 
 ### Color Animations
 
@@ -216,9 +236,11 @@ Its own full-width card directly below Global Controls. Seven animation modes ap
 - **⏹ Stop Animation** — stops any running color animation and returns to the last static color.
 - **↺ Reset Colors** — clears any color override and returns to the preset's built-in color. Use this if colors appear washed out after a color animation.
 
+Since v6.36.0 the speed slider defaults to 1 — the lowest visible speed — instead of mid-speed. Note that speed 0 does **not** mean "paused": the animation phase always advances by a small fixed floor, so a near-zero setting reads as "slow", not "stuck".
+
 ### Preset Grid
 
-The main preset library, fetched from `/api/presets` on tab load. Each preset is shown as a tile with an SVG thumbnail and name. Waves and 3D presets live here too — they're just categories in the same grid, not separate cards.
+The main preset library, fetched from `/api/presets` on tab load. Each preset is shown as a tile with an SVG thumbnail and name. Waves and 3D presets live here too — they're just categories in the same grid, not separate cards. Since v6.36.0 each tile also carries a small per-category glyph that draws itself in on hover — a purely cosmetic flourish, but a satisfying one.
 
 ![image](https://github.com/user-attachments/assets/48c361fb-c441-4e64-9ef4-f27be0febf44)
 
@@ -236,9 +258,50 @@ A full-width card directly below the Preset Grid, showing every community preset
 - **＋ Browse / Manage** — jumps to the Preset Manager tab.
 - If nothing is stored yet, the card tells you to go browse in the Preset Manager tab. It's not wrong.
 
-### Countdown Timer
+### Sequencer
 
-A standalone utility embedded in the Presets tab, below Community Presets. Set hours/minutes/seconds, then Start/Pause/Stop. On expiry: do nothing, show a text message (Text mode), or play an ILDA file.
+Added in v6.22.0 — a BPM-synced preset playlist, directly below Community Presets. Build a list of steps (preset + duration in beats + optional transition), and the sequencer walks them in time with the [BPM Clock](#bpm-clock-sidebar):
+
+- **Step editor** — each step has a preset, a duration (1/2/4/8/16/32 beats), an optional **transition** (beats of blanked output before the next step — the beam goes dark, but colors/rotation/modulators keep animating underneath, so nothing freezes), and an enable checkbox.
+- **Transport** — status pill, a beat-flash dot, and Prev / Start / Stop / Next buttons. Start jumps to step 0; Prev/Next are hard cuts that ignore beat timing.
+- **Loop** — repeat the playlist indefinitely, or stop after the last step.
+- The playlist persists on the device — but playback **never auto-starts on boot**, by design. A Class 4 laser that resumes its show when the power comes back is nobody's idea of a feature.
+
+### BPM Clock (sidebar)
+
+Added in v6.21.0 — the global tempo everything beat-synced (Sequencer, Modulators) runs on. Three sources with fixed priority **DMX > Tap > Manual**:
+
+- **Manual** — type a BPM (20–300).
+- **TAP** — a big, satisfying tap-tempo button; tap along at least twice and the clock follows (resets after a 3 s pause). Actually works since v6.25.1 — before that, the tap route was silently swallowed by its own sibling endpoint and the BPM display just sat there judging you.
+- **DMX** — a configurable absolute DMX channel (default 237) drives the tempo; set the channel under Configuration → DMX BPM Source. Only active while a DMX/Art-Net signal is actually present.
+
+The source pill shows which input currently owns the clock.
+
+### Countdown Timer (sidebar)
+
+Set hours/minutes/seconds, then Start/Pause/Stop. On expiry: do nothing, show a text message (Text mode), or play an ILDA file.
+
+### Parameter Modulators & Bindings (sidebar)
+
+Added in v6.23.0 — the animation engine that makes patterns *move on their own*. Up to **8 modulator slots**, each generating a continuous control signal, routed to live pattern parameters through up to **16 bindings**. The sidebar cards are collapsible and reorderable (v6.27.0), and modulator slots follow an add-on-demand pattern (v6.33.0): only slots in use are rendered, with an **+ Add Modulator** button revealing the next free one.
+
+**Modulator types:**
+
+- **Oscillator** — Sine, Triangle, Square, or Saw wave. Triangle/Square gain a Slope/Shape control (square duty cycle, saw↔triangle↔ramp morph) since v6.27.0.
+- **Noise** — smooth random wander, with a persisted seed so a slot's curve survives reboots instead of reinventing itself.
+- **Envelope** — externally triggered ramp. Either the classic Attack/Sustain/Release, or (since v6.27.0) a multi-point breakpoint curve: up to 8 points, 6 curve types, One-Shot/Loop/Ping-Pong/Trigger modes.
+- **Step Sequencer** — up to 16 hand-set values stepped through in time.
+
+Each slot is BPM-synced (whole note down to sixteenth) or free-running in Hz, with level, phase offset, and a name.
+
+**Bindings** route a modulator onto a target parameter with **depth** and **offset**. Built-in targets: transform scale X/Y, shift X/Y, rotation, color hue/saturation/brightness, animation speed, and point density. Self-registering firmware modules add more (the dropdown picks them up automatically from the device):
+
+- **Camera** (v6.28.0) — yaw/pitch/roll/dolly/FOV on the five 3D wireframe presets (Cube, Pyramid, Octahedron, Tetrahedron & Co.), including an optional perspective divide. All neutral by default — nothing moves until you bind something.
+- **Duplicator** (v6.29.1) — clone the frame N times in a grid, radial, or spiral arrangement, with per-copy offset/angle/scale.
+- **Spatial Noise** (v6.30.0) — a 2D value-noise modulator *type* for organic, hand-drawn-looking wobble.
+- **Dotter** (v6.31.0) — scatter Points-Only-Mode dots (`DOT_SPREAD`), deterministic per dot so the cloud breathes instead of shimmering.
+
+Modulators currently act on Preset-mode rendering; Text/Paint/ILDA output is not modulated. Slider changes apply instantly but are written to flash lazily (400 ms idle debounce, v6.24.3/v6.29.1) — dragging a depth slider no longer flash-writes the device into a sulk.
 
 ---
 
@@ -323,15 +386,32 @@ Since v5.89.19, the canvas is scaled to match your configured **projection zone*
 
 ## Tab: ILDA / SD
 
-ILDA file playback from an SD card.
+ILDA file playback from an SD card. Since v6.11.0 this tab is the single home for everything SD/ILDA — the former standalone Playlist tab moved in here.
 
 ![image](https://github.com/user-attachments/assets/b11c18f6-d442-4fe2-a1ab-6a8d6dffa5f7)
 
-- **File list** — lists `.ild` files found on the SD card (up to 40 files); each entry has a ▶ Play button to start it directly.
-- **Playback controls** — select a file, set loop mode, and play/stop.
-- **ILDA Speed / Size / Brightness** — override the ILDA file's built-in parameters.
-- **SD card status** — shows card type, total size, free space, and file count.
-- **⟳ Mount / ⏏ Eject** — remount or safely eject the SD card (available both here and on the Dashboard tab, System card).
+### SD Card
+
+- **File list** — lists `.ild` files found on the SD card (up to 40 files), including **subfolders** (v6.10.0; folder prefixes are highlighted so `Fancy Show 295/opener.ild` reads at a glance) with per-file size and date. Each entry has a ▶ Play button; while a big file loads, the row shows a **Loading… → Done** indicator instead of playing dead (v6.11.0).
+- **Oversized files are grayed out** (v6.12.0) — the firmware estimates the worst-case PSRAM cost per file before you play it and disables Play for files that would blow the budget, with the reason on hover. Better a gray row than a watchdog reset mid-show.
+- **Rescan / Refresh / Mount / Eject** — full SD control right in the tab. Since v6.14.0 the card **auto-mounts on a standing 5-second retry** — insert a card whenever you like and it gets picked up; you no longer have to catch a one-shot mount window at boot. An intentional Eject disables the watcher (so the card isn't re-mounted behind your back) until you press Mount again.
+
+### ILDA Player
+
+- **Enabled** — master switch (v6.10.1); disabling force-stops playback and ignores both WebUI and DMX file-select until re-enabled.
+- **Now playing + progress bar** — file name and frame progress, live.
+- **Speed / Size** — apply live to the running file via `/api/ilda/param` (they genuinely do things since v6.14.0 — the slider handler had been calling a function that didn't exist since day one).
+- **Loop / Color Override / Invert X / Invert Y** — loop mode, a live color picker override, and per-axis mirroring (v6.14.0).
+- **Stop / Pause / Resume** — transport controls.
+- ILDA frames get only a light optimizer touch (v6.13.0): the live affine transform (your position/size/rotation) and a velocity clamp so a wild point jump baked into someone else's `.ild` can't blindside a low `galvo_kpps` setting. Resample, corner dwell, and blanking stay hands-off — the file's author already made those calls.
+
+### Show Playlist
+
+Sequential playback of multiple ILDA files (moved here from its own tab in v6.11.0): Start/Stop controls; entries are read from `/playlist.json` on the SD card, with per-entry loop count and pause duration (see [Chapter 8 — Playlist](08-api-reference.md#playlist)).
+
+### ILDA Upload
+
+Upload `.ild`/`.ilda` files to the SD card straight from the browser. Filenames are sanitized and length-capped server-side (v6.12.2/v6.12.3) — long names survive up to FAT's real 255-character limit, and hostile ones can't traverse directories or corrupt the index.
 
 ---
 
@@ -442,6 +522,8 @@ The active profile switches automatically when a preset is activated. You can al
 
 All sliders update the active profile live and show their **effective values** (`opt_eff_*`) after PPS scaling. The effective values are what the optimizer actually uses — they may differ from the raw slider values when `galvo_kpps` differs from `galvo_rated_kpps`.
 
+Since v6.30.0 the settings include a **Jitter** group (Point Distribution Modifier): deterministic perpendicular displacement of interior points (`jitter_enabled` / `jitter_amount_units`), for a hand-drawn line texture instead of laser-perfect edges. Persisted, backed up, and honored by community presets like every other optimizer field.
+
 See [Chapter 5 — The Optimizer → Parameter Reference](05-optimizer.md#parameter-reference) for a full table of all parameters.
 
 ---
@@ -484,18 +566,6 @@ Enter throw distance (0.5–30 m) to calculate projected image dimensions, area,
 ### Safety Assessment Card
 
 A simplified laser hazard summary based on configured power and angles: laser class, total/visible/BLH power, estimated minimum audience distance, NE555 scan-fail status, and rate-vs-angle adequacy.
-
----
-
-## Tab: Playlist
-
-Build and manage playlists of ILDA files for automated sequential playback. Requires an SD card with `.ild` files on it.
-
-![image](https://github.com/user-attachments/assets/bd9287c3-497c-4dbb-b504-e3c09c62a1ab)
-
-- Add ILDA files to the playlist, set loop count and pause duration per entry.
-- Loop All toggle — loops the entire playlist indefinitely.
-- Play / Stop controls.
 
 ---
 
@@ -545,16 +615,23 @@ Network, DMX, safety, IP, and debug settings.
 
 - **DMX Start Address** (1–512) — first DMX channel GalvOS responds to.
 - **Art-Net Universe** (0–32767) — Art-Net universe number.
+- **DMX Debug Log** — logs incoming DMX traffic to Serial and the Log tab (v6.16.0; off by default).
+
+### DMX BPM Source
+
+The absolute DMX channel (default 237) that drives the [BPM Clock](#bpm-clock-sidebar)'s DMX source (v6.21.0, moved here from the retired Modulators tab in v6.26.0). Independent of the fixture's own start address.
 
 ### Control Interfaces
 
-Added in v6.08.0 — per-interface enable/disable for the three newest network inputs:
+Per-interface enable/disable, one checkbox per network input (v6.08.0; Art-Net and Ether Dream joined in v6.15.1):
 
+- **Art-Net** (UDP 6454)
+- **Ether Dream** (UDP 7654 / TCP 7765)
 - **OSC** (UDP 9000) — Open Sound Control 1.0 receiver, `/galvos/*` address space (see [Chapter 8 — Network Control Protocols](08-api-reference.md#network-control-protocols-non-http)).
 - **sACN / E1.31** (UDP 5568, universe 1) — streaming-DMX over multicast.
 - **Helios network DAC** (TCP 7768) — Helios DAC network emulation for laser software that speaks its point-stream framing.
 
-Disabling an interface makes it ignore received data (reduces CPU load); its listening socket stays open until the next reboot. Ether Dream, Art-Net, and DMX have no toggle yet — see [Known Issues](10-known-issues-and-todos.md#ui-issues). Press **Save** to persist.
+Disabling an interface makes it ignore received data (reduces CPU load); its listening socket stays open until the next reboot. Each interface also has its own **Debug Log** toggle (v6.16.0) that writes protocol-level traffic to Serial and the Log tab — Ether Dream's is the most talkative, down to raw command bytes, for diagnosing client software that connects and then sulks. Press **Save** to persist.
 
 ### WiFi Connection
 

@@ -12,6 +12,9 @@ The GalvOS REST API is served by the ESP32 WebUI server (ESPAsyncWebServer) at `
 - [Safety & ARM](#safety--arm)
 - [Presets & Live Controls](#presets--live-controls)
 - [Community Presets](#community-presets)
+- [BPM Clock](#bpm-clock)
+- [Preset Sequencer](#preset-sequencer)
+- [Modulators](#modulators)
 - [Color Animations & Curves](#color-animations--curves)
 - [Calibration](#calibration)
 - [Backup & Restore](#backup--restore)
@@ -136,6 +139,12 @@ Full system state. Polled by the WebUI every second.
 | `helios_usb_connected` | bool | Always `false` — the Helios USB protocol is a stub (since v6.08.0) |
 | `osc_active` | bool | OSC packets received recently (since v6.08.0) |
 | `sacn_active` | bool | sACN/E1.31 frames received recently (since v6.08.0) |
+| `ui_override` / `ui_master_dimmer` | bool / int | WebUI-override state and WebUI master dimmer, echoed back so clients can stay in sync (since v6.09.0 — before that, only `/api/status` reported them) |
+| `bpm` | float | Effective BPM resolved from the active clock source (since v6.21.0) |
+| `bpm_source` | int | Active BPM source: 0=Manual, 1=Tap, 2=DMX (since v6.21.0) |
+| `bpm_phase` | int | Beat phase in permille (0–999) — drives the WebUI's beat-flash dot (since v6.21.0) |
+| `seq_running` / `seq_loop` | bool | Preset Sequencer transport state (since v6.22.0) |
+| `seq_current` / `seq_stepcount` | int | Current sequencer step / total steps — the full playlist comes from `GET /api/sequencer` (since v6.22.0) |
 
 ---
 
@@ -186,13 +195,25 @@ Write one or more `RuntimeConfig` fields. Only fields present in the body are up
 {"thresh_r": 143, "thresh_g": 144, "thresh_b": 169}
 ```
 
-**Example — enable/disable control interfaces (since v6.08.0):**
+**Example — enable/disable control interfaces (since v6.08.0; Art-Net and Ether Dream toggles since v6.15.1):**
 
 ```json
-{"osc_enabled": true, "sacn_enabled": false, "helios_net_enabled": true}
+{"osc_enabled": true, "sacn_enabled": false, "helios_net_enabled": true,
+ "artnet_enabled": true, "etherdream_enabled": true}
 ```
 
-All three default to enabled and are persisted to NVS immediately. A disabled interface ignores received data; its listening socket stays open until the next reboot. The current values are returned by `GET /api/config` as `osc_enabled` / `sacn_enabled` / `helios_net_enabled`.
+All five default to enabled and are persisted to NVS immediately. A disabled interface ignores received data; its listening socket stays open until the next reboot. The current values are returned by `GET /api/config` under the same field names.
+
+**Example — per-protocol debug logging (since v6.16.0):**
+
+```json
+{"debug_log_dmx": false, "debug_log_artnet": false, "debug_log_etherdream": true,
+ "debug_log_helios_net": false, "debug_log_osc": false, "debug_log_sacn": false}
+```
+
+All off by default. When enabled, the protocol's receiver logs its traffic to Serial and the WebUI Log tab — Ether Dream gets the deepest instrumentation (raw command bytes, TX write results, header/point timing). Useful for chasing "my laser software connects but nothing happens" reports without a logic analyzer.
+
+`GET /api/config` also reports `bpm_manual` and `bpm_dmx_channel` (see [BPM Clock](#bpm-clock)); both are set via `POST /api/bpm`, not `POST /api/config`.
 
 ---
 
@@ -418,6 +439,136 @@ Rewrites `meta.name` in place. The id and filename stay unchanged.
 ```
 
 Deletes the stored preset. Note the HTTP method: `DELETE` with a JSON body — one of the few non-GET/POST routes in the API.
+
+---
+
+## BPM Clock
+
+Added in v6.21.0 — a global tempo clock the Sequencer and Modulators sync to. Three input sources with fixed priority **DMX > Tap > Manual**: DMX counts only while a DMX signal is actually present, Tap only while a tempo has been established (≥2 taps) and the last tap is less than 3 s old. Otherwise the clock falls back to Manual. The resolved BPM, active source, and beat phase are reported in `/api/state` (`bpm`, `bpm_source`, `bpm_phase`).
+
+### `POST /api/bpm`
+
+Set the manual BPM and/or the DMX channel used as tempo source. Both fields optional.
+
+```json
+{"bpm": 128.0, "dmx_channel": 237}
+```
+
+- `bpm` — clamped to 20.0–300.0, persisted to NVS.
+- `dmx_channel` — absolute 1-based DMX address (1–512, default 237), independent of the fixture's own `dmx_address`. Persisted to NVS.
+
+Current values are readable via `GET /api/config` (`bpm_manual`, `bpm_dmx_channel`).
+
+---
+
+### `POST /api/bpm/tap`
+
+Register one tap of the Tap Tempo source. Body: empty. BPM is the average of the last up to 3 intervals; a gap of more than 3 s resets the tap history (and the clock falls back to DMX/Manual).
+
+> Historical footnote: until v6.25.1 this route was silently swallowed by `/api/bpm`'s prefix-matching registration and every tap returned 501. If your taps seem to be judged and ignored, update the firmware.
+
+---
+
+## Preset Sequencer
+
+Added in v6.22.0 — a BPM-synced playlist that walks built-in presets in order, advancing one beat-quantized step at a time, with an optional blank "transition" window before each advance. The sequencer **never auto-starts on boot**, no matter what state was persisted — a Class 4 laser resuming playback on power-up is not a feature anyone should want. Playlist persistence lives at `/sequencer.json` on LittleFS.
+
+Transport status (`seq_running`, `seq_loop`, `seq_current`, `seq_stepcount`) is included in `/api/state`; the full playlist is fetched separately here.
+
+### `GET /api/sequencer`
+
+Returns the full sequencer state: `running`, `loop`, `currentStep`, and the `steps[]` array.
+
+---
+
+### `POST /api/sequencer`
+
+Replace the whole playlist. Each step is validated and clamped; a malformed array leaves the stored playlist untouched.
+
+```json
+{
+  "loop": true,
+  "steps": [
+    {"presetIdx": 3, "beats": 4, "transitionBeats": 0, "enabled": true},
+    {"presetIdx": 7, "beats": 8, "transitionBeats": 1, "enabled": true}
+  ]
+}
+```
+
+- `beats` — step duration in beats (the WebUI offers 1/2/4/8/16/32).
+- `transitionBeats` — blank window before the next step; `0` = hard cut. During the blank the frame is forced dark right before output, but pattern/modulator state keeps advancing (so nothing "freezes" — see the v6.24.0 fix).
+
+---
+
+### `DELETE /api/sequencer`
+
+Empties the playlist, stops playback, persists the empty state.
+
+---
+
+### Transport: `POST /api/sequencer/start` / `stop` / `next` / `prev` / `step`
+
+All body-less except `step`:
+
+- `start` — jumps to step 0 and starts beat-driven playback.
+- `stop` — stops; the current preset stays on screen.
+- `next` / `prev` — manual advance/step back, hard cut, ignores beat and transition.
+- `step` — jump to a specific step (`{"step": 2}`).
+
+---
+
+## Modulators
+
+Added in v6.23.0, refactored into an extensible registry in v6.27.0 — the "Animation & Modulation System". **8 modulator slots** (Oscillator / Noise / Envelope / Step-Sequencer), each producing a per-frame value in [−1..1], routed onto live pattern parameters through **up to 16 bindings** (modulator → target, with depth + offset). BPM-synced (whole to sixteenth notes) or free-running in Hz. State persists at `/modulators.json` on LittleFS; old files auto-migrate on schema bumps.
+
+Since v6.27.0 the type/shape/target id-spaces are a registry: self-contained modules register their own targets without touching the engine. Currently registered on top of the 10 built-in targets (transform scale/shift/rotation, color hue/sat/brightness, animation speed, point density):
+
+- **Camera** (v6.28.0) — `CAMERA_YAW/PITCH/ROLL/DIST/FOV`, driving the five 3D wireframe presets' view transform. All default neutral.
+- **Duplicator** (v6.29.1) — `DUP_COUNT/OFFSET_X/OFFSET_Y/ANGLE/SCALE`, chains N transformed copies (grid/radial/spiral) onto the final frame.
+- **Spatial Noise** (v6.30.0) — `NOISE2D` modulator *type*: 2D value-noise sampled along a BPM-synced time axis.
+- **Dotter** (v6.31.0) — `DOT_SPREAD`, scatters Points-Only-Mode dots in stable pseudo-random directions. API-only so far (bindable via the generic Bindings UI).
+
+Modulators currently apply to the Preset render path (and `OPT_DENSITY`); Curve/Paint/Text/ILDA are not wired to them.
+
+### `GET /api/modulators/meta`
+
+Returns the registry: every registered modulator type, wave shape, and bindable target with names and value ranges. The WebUI builds its dropdowns from this — a new firmware module's targets show up with zero UI changes. Registered **before** the bare `/api/modulators` route (registration-order rule, see [Route Registration Order](#route-registration-order)).
+
+---
+
+### `GET /api/modulators`
+
+Returns all 8 slots plus the `bindings` array.
+
+---
+
+### `POST /api/modulators`
+
+Replace all slots at once (`{"modulators": [...]}`); slots beyond the array are cleared.
+
+---
+
+### `PATCH /api/modulators?idx=N` / `DELETE /api/modulators?idx=N`
+
+Update fields of, or clear, a single slot. Slot fields include `enabled`, `type`, `shape`, `cycles`, `phaseOffset`, `phaseSpeed` (Hz, free-run), `level`, `bpmSync`, `bpmDiv` (0=1/1 … 4=1/16), `name`, `shapeParam` (square duty / triangle-saw morph), the legacy envelope ramp (`envAttackMs`/`envSustainMs`/`envReleaseMs`), an optional multi-point envelope (`envData`: up to 8 breakpoints, 6 curve types, One-Shot/Loop/Ping-Pong/Trigger), step-sequencer values (`seqValues`, `seqStepCount`), and `noiseSeed`.
+
+---
+
+### `POST /api/modulators/trigger?idx=N`
+
+Fire an Envelope slot (the one genuinely stateful modulator type). Body: empty.
+
+---
+
+### `GET /api/modulators/bindings` / `POST /api/modulators/bindings`
+
+Read or replace the 16-slot binding matrix: `{"bindings": [{"enabled": true, "modIdx": 0, "target": 4, "depth": 0.5, "offset": 0.0}, ...]}`. Target ids come from `/api/modulators/meta`. Since v6.29.1, binding writes are flash-debounced (400 ms idle flush) — dragging a depth slider no longer fires dozens of blocking LittleFS writes per second.
+
+---
+
+### `POST /api/modulators/reset`
+
+Clears all slots and bindings. Body: empty.
 
 ---
 
@@ -976,7 +1127,14 @@ Emulates a Helios DAC's point-stream framing over TCP (5-byte header + 7-byte po
 
 ### `GET /api/sd`
 
-Returns the list of `.ild` files on the SD card.
+Returns SD status, the `.ild` file list, and current ILDA player state. Since v6.10.0 the scanner recurses into subfolders and reports per-file metadata:
+
+| Field | Description |
+| --- | --- |
+| `ready` / `file_count` / `free_kb` / `total_kb` | SD card status |
+| `ilda_max_kb` | Largest ILDA file the device could currently load (worst-case PSRAM estimate: free PSRAM minus 1 MB headroom, at the densest possible point format) — since v6.12.0 |
+| `files[]` | Per file: `idx`, `name`, `path` (may include a subfolder prefix), `size`, `mtime`, and `too_large` — `true` if the file exceeds `ilda_max_kb`; the WebUI grays those out instead of letting you play PSRAM roulette |
+| `ilda_active` / `ilda_file` / `ilda_frame` / `ilda_total` / `ilda_points` | Current player state |
 
 ---
 
@@ -988,7 +1146,7 @@ Returns SD card status (ready, type, total KB, free KB, file count, error messag
 
 ### `POST /api/sd/scan`
 
-Re-scan the SD card for `.ild` files. Body: empty.
+Re-scan the SD card for `.ild` files (recursive since v6.10.0). Body: empty.
 
 ---
 
@@ -1000,7 +1158,7 @@ Unmount and remount the SD card. Body: empty.
 
 ### `POST /api/sd/eject`
 
-Safely unmount the SD card. Body: empty.
+Safely unmount the SD card. Body: empty. Since v6.14.0 an eject also disables the standing auto-mount watcher (which otherwise retries a mount every 5 s until a card shows up), so an intentional eject doesn't get instantly re-mounted behind your back — pressing Mount (`/api/sd/remount`) re-enables it.
 
 ---
 
@@ -1018,6 +1176,8 @@ Start ILDA playback.
 }
 ```
 
+Large files take a few seconds to load (the response doesn't return until loading finishes — the WebUI shows a per-row "Loading…" indicator meanwhile). ILDA frames pass through only two optimizer stages: the live affine transform (position/size/rotation) and the velocity clamp derived from `galvo_kpps` — resample, corner dwell, and blanking stay untouched, on the theory that the `.ild` author already knew what they were doing (v6.13.0).
+
 ---
 
 ### `POST /api/ilda/stop`
@@ -1032,6 +1192,23 @@ Pause/resume ILDA playback. Body: empty.
 
 ---
 
+### `POST /api/ilda/param`
+
+Live playback parameter update — applied on the very next frame without reloading or stopping the file (since v6.14.0). All fields optional:
+
+```json
+{"speed": 128, "size": 200, "loop": true, "invert_x": false, "invert_y": true,
+ "col_override": true, "col_r": 255, "col_g": 0, "col_b": 128}
+```
+
+---
+
+### `POST /api/ilda/enable`
+
+Master enable/disable for the ILDA player (`{"enabled": false}`). Disabling force-stops playback and turns `loadFile()`/DMX file selection into no-ops until re-enabled (since v6.10.1).
+
+---
+
 ### `GET /api/ilda/status`
 
 Returns current ILDA player state (active, file index, frame count, loop mode).
@@ -1040,7 +1217,7 @@ Returns current ILDA player state (active, file index, frame count, loop mode).
 
 ### `POST /api/ilda/upload`
 
-Upload a `.ild` file directly to the SD card via HTTP multipart. Used for OTA ILDA file transfer.
+Upload a `.ild` file directly to the SD card via HTTP multipart. Used for OTA ILDA file transfer. Since v6.12.2, filenames are sanitized server-side (directory components stripped, unsafe characters replaced, basename length capped) so an over-long or path-traversing name can't corrupt the file index — genuinely failed SD writes now report an error instead of a cheerful false "ok".
 
 ---
 

@@ -315,6 +315,28 @@ If the ESP32 crashes with a Guru Meditation error, the serial monitor prints a b
 **Diagnosis:** Dashboard → System → WiFi Signal weaker than −70 dBm.  
 **Fix:** Move ESP32 or access point closer together, or switch Wi-Fi channels.
 
+**Cause C (historical, fixed in v6.24.3/v6.29.1):** on older firmware, dragging Modulator/Binding sliders fired a synchronous flash write per tick on the network task — a few seconds of slider action could starve the whole TCP stack (`tcp_accept(): pcb is NULL` in the log, 10-second-late slider feedback). Saves are debounced off the network path now; if you see this signature, update the firmware.
+
+### Dashboard shows almost nothing for the first minutes after boot
+
+**Cause:** fixed in v6.35.0 — a chart-rendering bug threw on the not-yet-filled CPU history and silently killed every Dashboard field update queued after it in the same handler, for ~3 minutes after boot. On current firmware the Dashboard populates from the first poll.  
+**Fix:** update the WebUI (`pio run --target uploadfs`).
+
+### Preset switching flashes a bright streak
+
+**Cause:** fixed in v6.33.0 — the seam bridge between frames tracked the galvo's last position per preset instead of as one physical position, so switching presets bridged from a stale point and fired the beam mid-jump.  
+**Fix:** update the firmware. If you still see flashes on switches, check `LASER_ON_HOLD_TICKS`-related tuning has not been modified.
+
+### Laser show software connects but times out / desyncs (Ether Dream)
+
+**Cause:** a family of Ether Dream emulation bugs, all fixed between v6.15.1 and v6.23.1 — response framing desync, a permanent "warming up" state real clients wait on forever, silently dropped DATA frames above ~455 points (fatal for clients that pace off the advertised 1800-point buffer, e.g. QLC+, Pangolin, Modulaser), and unanswered unknown/lowercase commands.  
+**Fix:** update the firmware. For anything that remains, enable the Ether Dream **Debug Log** toggle (Configuration → Control Interfaces, v6.16.0) — it logs raw command bytes and response timing to the Log tab.
+
+### Streamed frames (Ether Dream/Helios) flicker against a preset pattern
+
+**Cause:** fixed in v6.20.2 — network stream frames used to interleave with the DMX/preset render in the output ring. The pattern engine now yields while a network client is actively playing.  
+**Fix:** update the firmware. `scripts/test_protocols.py` can stream test frames for verification.
+
 ---
 
 ## ILDA & SD Card Issues
@@ -330,6 +352,23 @@ If the ESP32 crashes with a Guru Meditation error, the serial monitor prints a b
 
 **Cause B:** SD card speed class insufficient.  
 **Fix:** Use Class 10 UHS-I minimum. Class 4 cards are incompatible with reliable SPI access at DAC-sharing speeds.
+
+**Note:** since v6.14.0 the card auto-mounts on a standing 5-second retry — a card inserted after boot gets picked up automatically. If the list stays empty, press **Rescan** in the ILDA/SD tab and check the SD status line for an error message.
+
+### `task_wdt` reset while loading a big ILDA file
+
+**Cause:** fixed across v6.10.2–v6.10.5 — the load loop had no yield points (starving the idle task), the SD mutex wasn't actually enforced against concurrent playlist access, and real SD cards can stall a single read for seconds during internal housekeeping.  
+**Fix:** update the firmware — loads now yield on a wall-clock schedule, SD access is genuinely exclusive, and the task watchdog timeout is 15 s to accommodate genuine SD stalls (this does **not** weaken any laser interlock: the safety and DMX tasks outrank anything that can block on SD, and the NE555 hardware chain doesn't involve software at all).
+
+### ILDA playback stops by itself after a moment
+
+**Cause:** fixed in v6.10.0 — with no real DMX source connected, the DMX ILDA-select channel's fallback value (0 = stop) killed WebUI-started playback about 40 ms after it began. The select channel now only drives playback while a DMX/Art-Net/sACN source is actually live.  
+**Fix:** update the firmware. Also check the ILDA Player's **Enabled** master switch (v6.10.1) hasn't been turned off.
+
+### Playing a file returns an error / "file not found" for a file that's clearly there
+
+**Cause:** fixed in v6.12.2/v6.12.3 — over-long filenames were silently truncated in the index, so playback looked up a name that didn't exist on disk (uploads could even plant such names).  
+**Fix:** update the firmware — paths up to FAT's 255-character limit now work, uploads are sanitized. On old firmware: rename the file shorter.
 
 ---
 

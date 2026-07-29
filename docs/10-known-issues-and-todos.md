@@ -33,7 +33,7 @@ None currently open.
 **Symptom:** If an SD card was inserted, the galvos behaved erratically — incorrect output, uncontrolled movement.  
 **Root cause:** Not bus contention — the SD card was wired onto the DAC8562's SPI2 pins (SCK=GPIO12, MOSI=GPIO11, MISO=GPIO2, CS=GPIO9) under the assumption that Arduino's `SPIClass(HSPI)` attaches to SPI2_HOST on ESP32-S3. It does not: `HSPI` is bound to the independent SPI3 peripheral. Routing SPI3 onto SPI2's GPIOs meant two different peripherals both drove the same pins through the GPIO matrix, which only lets one peripheral own a pin's output at a time — `SPIClass::begin()` silently stole GPIO12/GPIO11 away from the DAC every time SD init ran, and real SD card traffic then appeared on the DAC's own clock/data lines, corrupting its output.  
 **Fix:** SD moved to fully independent GPIOs (SCK=GPIO5, MOSI=GPIO6, MISO=GPIO1, CS=GPIO42) on SPI3, with zero pin overlap with the DAC's SPI2, in firmware v5.90.0 — see `include/pinmap.h` and `hardware/netlist.txt`. The 4 SD wires on the perfboard have since been physically moved to GPIO5/6/1/42; `sd_card::init()` now finds the card and the WebUI ILDA/SD tab lists files correctly.  
-**Impact:** ILDA file playback from SD card works. Playlist tab is functional.
+**Impact:** ILDA file playback from SD card works. The Show Playlist card (ILDA/SD tab) is functional.
 
 ---
 
@@ -89,9 +89,13 @@ None known at least...
 
 ### Features Not Toggleable via UI
 
-**Status:** Partially addressed  
-**Detail:** Some subsystems (e.g. Art-Net receiver) are always active after boot, regardless of whether they are in use. The ability to enable/disable individual features from the WebUI is planned. This would reduce background CPU load and Wi-Fi channel congestion in setups that only use DMX.
-OSC, sACN, and the Helios network DAC (Config tab → "Control Interfaces") already have this toggle: their sockets stay open at boot (same lifecycle as Art-Net/EtherDream), but a disabled feature ignores received data instead of acting on it. Art-Net/EtherDream/DMX still lack a toggle -- this issue stays open for those.
+**Status:** Mostly resolved (v6.15.1)  
+**Detail:** OSC, sACN, Helios network DAC (v6.08.0) and Art-Net, Ether Dream (v6.15.1) all have enable/disable checkboxes in Config tab → "Control Interfaces", plus per-protocol Debug Log toggles (v6.16.0, DMX included). Sockets stay open at boot regardless; a disabled feature ignores received data instead of acting on it. Only DMX has no enable toggle — it is a hardware UART receiver with no radio/CPU cost worth toggling.
+
+### Telemetry "Source" label mismatch (since v6.32.0 rewrite)
+
+**Status:** Open  
+**Detail:** The Dashboard Telemetry card maps `state.source` through the array `['DMX','ArtNet','EtherDream','Helios','OSC','sACN','Internal']`, but the firmware's `ControlSource` enum is `0=none, 1=DMX, 2=ArtNet, 3=EtherDream, 4=Helios, 5=Internal, 6=WebUI, 7=sACN, 8=OSC` — so e.g. an active DMX source (1) displays as "ArtNet" and WebUI (6) displays as "Internal". One-line fix in `data/index.html` (`dash-source` handler).
 
 ### Add a Restore button - not just text
 

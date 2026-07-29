@@ -10,6 +10,7 @@ GalvOS is a one-person project that grew considerably beyond its original scope.
 - [Adding a New Preset Pattern](#adding-a-new-preset-pattern)
 - [Contributing a Community Preset](#contributing-a-community-preset)
 - [Adding a New Calibration Pattern](#adding-a-new-calibration-pattern)
+- [Adding a Modulator Module](#adding-a-modulator-module)
 - [Adding a New API Endpoint](#adding-a-new-api-endpoint)
 - [Modifying the WebUI](#modifying-the-webui)
 - [Patch Workflow](#patch-workflow)
@@ -23,12 +24,12 @@ GalvOS is a one-person project that grew considerably beyond its original scope.
 
 Browse [Chapter 10 — Known Issues & To-dos](10-known-issues-and-todos.md) for a current list of open bugs and planned features. Pick something that matches your skills and interests:
 
-- **C++ firmware bugs** — text animations (Bounce, Typewriter, Star Wars)
-- **C++ new features** — new patterns, extending the camera-in-the-loop auto-tuning API (Chapter 6) to more optimizer profiles
-- **JavaScript/HTML** — WebUI improvements, point limit in status bar
+- **C++ firmware bugs** — calibration pattern fixes, the `curve_patterns` dead-code cleanup
+- **C++ new features** — new patterns, new modulator modules (see [Adding a Modulator Module](#adding-a-modulator-module)), extending the camera-in-the-loop auto-tuning API (Chapter 6) to more optimizer profiles
+- **JavaScript/HTML** — WebUI improvements, a dedicated Dotter UI
 - **Python** — `scripts/optimizeGalvo/` (camera auto-tuning tool, see Chapter 6)
-- **Documentation** — screenshot capture, diagram creation, corrections
-- **Hardware** — the SD card / DAC SPI bus conflict is root-caused and fixed in firmware (v5.90.0, independent SPI3 bus); what remains is physically rewiring the perfboard, see [Known Issues](10-known-issues-and-todos.md#critical-issues)
+- **Documentation** — screenshot capture (the WebUI got a full visual rewrite in v6.32.0 — most screenshots want re-taking), diagram creation, corrections
+- **Hardware** — the Helios USB stub (TinyUSB vendor class vs. USB-CDC debug conflict), the planned ILDA output header
 
 Open an issue or a discussion on GitHub before starting larger changes — it avoids duplicate work.
 
@@ -41,6 +42,9 @@ Open an issue or a discussion on GitHub before starting larger changes — it av
 GalvOS/
 ├── src/
 │   ├── main.cpp                    # Entry point, global init, FreeRTOS task creation
+│   ├── bpm_clock.{cpp,h}           # Global BPM clock (Manual/Tap/DMX, v6.21.0)
+│   ├── sequencer.{cpp,h}           # BPM-synced preset sequencer (v6.22.0)
+│   ├── modulator_engine.{cpp,h}    # 8-slot modulation matrix + registry (v6.23.0/v6.27.0)
 │   ├── control/
 │   │   ├── dmx_in.{cpp,h}          # DMX-512 receive (UART1 + MAX485)
 │   │   └── encoder.{cpp,h}         # Rotary encoder (currently unconnected hardware)
@@ -63,9 +67,13 @@ GalvOS/
 │   ├── patterns/
 │   │   ├── pattern_engine.{cpp,h}  # Frame scheduler, transform, preset dispatch
 │   │   ├── point_optimizer.{cpp,h} # The optimizer pipeline (see Chapter 5)
-│   │   ├── preset_patterns.{cpp,h} # All 74 presets + PresetClass assignment
+│   │   ├── preset_patterns.{cpp,h} # All built-in presets + PresetClass assignment
 │   │   ├── calib_patterns.{cpp,h}  # Calibration patterns
-│   │   ├── curve_patterns.{cpp,h}  # Mathematical parametric curves
+│   │   ├── curve_patterns.{cpp,h}  # Mathematical parametric curves (backend only — WebUI card removed)
+│   │   ├── camera.{cpp,h}          # Camera module: 3D view targets for the modulator registry (v6.28.0)
+│   │   ├── duplicator.{cpp,h}      # Duplicator module: grid/radial/spiral frame cloning (v6.29.1)
+│   │   ├── dotter.{cpp,h}          # Dotter module: Points-Only dot scatter (v6.31.0)
+│   │   ├── spatial_noise.{cpp,h}   # NOISE2D modulator type (v6.30.0)
 │   │   ├── text_renderer.{cpp,h}   # Vector text glyph renderer
 │   │   ├── paint_patterns.{cpp,h}  # Paint-by-finger canvas renderer
 │   │   └── countdown_timer.{cpp,h} # Countdown timer preset
@@ -79,6 +87,7 @@ GalvOS/
 │   └── util/
 │       ├── log_buffer.{cpp,h}      # Ring log buffer (WebUI log stream)
 │       ├── cpu_monitor.{cpp,h}     # Per-core CPU load tracking
+│       ├── param_meta.{h}          # Parameter metadata for the modulator registry
 │       └── stack_mon.{cpp,h}       # FreeRTOS task stack monitoring
 ├── include/
 │   ├── config.h                    # RuntimeConfig, OptimizerLiveConfig, all shared types
@@ -95,6 +104,7 @@ GalvOS/
 │   ├── upload_all.py               # Custom PlatformIO target: flash firmware + LittleFS
 │   ├── gzip_assets.py              # Pre-build hook: gzip data/ assets
 │   ├── ov9281_probe.py             # Standalone OV9281 camera capability probe
+│   ├── test_protocols.py           # Manual Ether Dream/Helios stream test client (v6.20.2)
 │   └── optimizeGalvo/              # Host-side camera-in-the-loop auto-tuning tool (see Chapter 6)
 │       └── optimizeGalvo.py        # OpenCV + Optuna, drives /api/calib-cam/*
 ├── hardware/
@@ -276,6 +286,14 @@ Calibration patterns live in `src/patterns/calib_patterns.{cpp,h}`.
 Key rule: **do not call `applyGamma()` inside `colorOut()` if `rgbWrite()` in `galvo_out.cpp` will call it again.** Each color value must go through the gamma LUT exactly once. This is the double-gamma bug pattern — see [Chapter 7 — Troubleshooting](07-troubleshooting.md#color--calibration-issues).
 
 Register the new pattern in the calibration pattern list (returned by `/api/calib-pattern/list`) and add a dispatch case in the calibration pattern handler.
+
+---
+
+## Adding a Modulator Module
+
+Since v6.27.0 the modulator engine is registry-based, and this is the intended extension point for anything that should be *animatable*. A module lives in its own `.cpp/.h` under `src/patterns/` and registers its types/targets from its own `init()` (called after `modulator::init()` in `main.cpp`) via `registerModType()` / `registerWaveShape()` / `registerModTarget()` — **without editing `modulator_engine.h/.cpp` or the WebUI at all**. The WebUI's Bindings dropdown discovers new targets automatically through `GET /api/modulators/meta`.
+
+Study the four existing modules as templates, in increasing complexity: `dotter.cpp` (one target), `camera.cpp` / `duplicator.cpp` (five targets each, consuming `modulator::apply()` in their render hook), and `spatial_noise.cpp` (registers a whole modulator *type* and shares the engine's BPM time base via `modulator::totalCycles()`). Pick target id constants that don't collide with the ones already assigned (see the `target_id` namespaces across those headers — currently 0–20 are taken).
 
 ---
 
