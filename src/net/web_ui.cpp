@@ -30,6 +30,7 @@
 #include "bpm_clock.h"
 #include "../sequencer.h"
 #include "../modulator_engine.h"
+#include "../patterns/camera.h"
 #include "net/community_presets.h"
 #include "patterns/preset_patterns.h"
 #include "patterns/countdown_timer.h"
@@ -839,6 +840,7 @@ void init() {
         community_presets::init();
         sequencer::init();
         modulator::init();
+        camera::init();
     }
 
     // ---- Statische SPA ----

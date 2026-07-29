@@ -4,6 +4,7 @@
 #include "util/mem_registry.h"
 #include "util/ps_scratch.h"
 #include "../modulator_engine.h"
+#include "camera.h"
 #include <math.h>
 #include <string.h>
 #include <Arduino.h>
@@ -143,9 +144,17 @@ static size_t star(LaserPoint*o,size_t mx,int pts,float outer,float inner,float 
 }
 
 struct P3D{float x,y,z;};
-static void prj(P3D v,float ry,float rx,float sc,float&ox,float&oy){
-    float rx2=v.x*cosf(ry)+v.z*sinf(ry),rz=-v.x*sinf(ry)+v.z*cosf(ry);
-    ox=(rx2)*sc; oy=(v.y*cosf(rx)-rz*sinf(rx))*sc;
+// prj() -- GalvOS v6.28: Phase 2 Camera. Adds roll (screen-plane Z rotation)
+// + dist (dolly along view Z) + fov (perspective divide strength) on top of
+// the original yaw/pitch/scale projection. roll=0, dist=0, fov=0 reproduces
+// the pre-Phase-2 orthographic output exactly (see camera.h).
+static void prj(P3D v,float ry,float rx,float roll,float dist,float fov,float sc,float&ox,float&oy){
+    float x1=v.x*cosf(ry)+v.z*sinf(ry), z1=-v.x*sinf(ry)+v.z*cosf(ry);
+    float y2=v.y*cosf(rx)-z1*sinf(rx),  z2=v.y*sinf(rx)+z1*cosf(rx);
+    float x3=x1*cosf(roll)-y2*sinf(roll), y3=x1*sinf(roll)+y2*cosf(roll);
+    float persp=1.0f;
+    if (fov>0.0001f){ float d=1.0f+(z2+dist)*fov; if(d<0.1f)d=0.1f; persp=1.0f/d; }
+    ox=x3*sc*persp; oy=y3*sc*persp;
 }
 static const P3D CV[]={{-1,-1,-1},{1,-1,-1},{1,1,-1},{-1,1,-1},{-1,-1,1},{1,-1,1},{1,1,1},{-1,1,1}};
 static const int CE[][2]={{0,1},{1,2},{2,3},{3,0},{4,5},{5,6},{6,7},{7,4},{0,4},{1,5},{2,6},{3,7}};
@@ -235,7 +244,7 @@ static int buildWfChains(int nv, const int(*E)[2], int ne,
     return nchains;
 }
 
-static size_t wf(LaserPoint*o,size_t mx,const P3D*V,int nv,const int(*E)[2],int ne,float ry,float rx,float sc,uint8_t r,uint8_t g,uint8_t b){
+static size_t wf(LaserPoint*o,size_t mx,const P3D*V,int nv,const int(*E)[2],int ne,float ry,float rx,float sc,uint8_t r,uint8_t g,uint8_t b,float roll=0.0f,float dist=0.0f,float fov=0.0f){
     if (ne > WF_MAX_EDGES) ne = WF_MAX_EDGES;
     // chains (~8 KB) + verts (~25 KB) in PSRAM -- fully rewritten per call.
     typedef int ChainRow[WF_MAX_VERTS + 1];
@@ -258,7 +267,7 @@ static size_t wf(LaserPoint*o,size_t mx,const P3D*V,int nv,const int(*E)[2],int 
         int len = chain_len[c];
         for (int i = 0; i < len; i++) {
             float ox, oy;
-            prj(V[chains[c][i]], ry, rx, sc, ox, oy);
+            prj(V[chains[c][i]], ry, rx, roll, dist, fov, sc, ox, oy);
             verts[c][i].x = ox; verts[c][i].y = oy;
             verts[c][i].r = r;  verts[c][i].g = g;  verts[c][i].b = b;
             verts[c][i].lift = (i == 0);
@@ -715,8 +724,17 @@ static size_t p28(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
 }
 
 // ─── 3D 29-34 ────────────────────────────────────────────────
-static size_t p29(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){return wf(o,m,CV,8,CE,12,aang(ph,sp,1),aang(ph,sp,.4f),SC*ssc(sz)*.65f,0,255,255);}
-static size_t p30(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){return wf(o,m,CV,8,CE,12,.6f,.4f,SC*ssc(sz)*.65f,255,255,0);}
+// Phase 2 Camera: yaw/pitch get an additive modulator offset on top of each
+// preset's own animated orientation; roll/dist/fov are camera-only (0 =
+// pre-Phase-2 identical output). See camera.h.
+static size_t p29(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
+    float cy,cp,cr,cd,cf; camera::apply(cy,cp,cr,cd,cf);
+    return wf(o,m,CV,8,CE,12,aang(ph,sp,1)+cy,aang(ph,sp,.4f)+cp,SC*ssc(sz)*.65f,0,255,255,cr,cd,cf);
+}
+static size_t p30(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
+    float cy,cp,cr,cd,cf; camera::apply(cy,cp,cr,cd,cf);
+    return wf(o,m,CV,8,CE,12,.6f+cy,.4f+cp,SC*ssc(sz)*.65f,255,255,0,cr,cd,cf);
+}
 
 // p31 Pyramid -- GalvOS v5.3: migrated from raw ap() to wf().
 // Previously: separate loop for base quad + 4 apex edges with manual
@@ -736,18 +754,21 @@ static size_t p31(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
         {0,1},{1,2},{2,3},{3,0},  // base quad
         {0,4},{1,4},{2,4},{3,4}   // apex spokes
     };
-    return wf(o,m,V,5,E,8,aang(ph,sp),0.3f,SC*ssc(sz)*.65f,255,255,0);
+    float cy,cp,cr,cd,cf; camera::apply(cy,cp,cr,cd,cf);
+    return wf(o,m,V,5,E,8,aang(ph,sp)+cy,0.3f+cp,SC*ssc(sz)*.65f,255,255,0,cr,cd,cf);
 }
 
 static size_t p32(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     static const P3D V[]={{1,0,0},{-1,0,0},{0,1,0},{0,-1,0},{0,0,1},{0,0,-1}};
     static const int E[][2]={{0,2},{0,3},{1,2},{1,3},{0,4},{0,5},{1,4},{1,5},{2,4},{2,5},{3,4},{3,5}};
-    return wf(o,m,V,6,E,12,aang(ph,sp),.35f,SC*ssc(sz)*.7f,0,255,0);
+    float cy,cp,cr,cd,cf; camera::apply(cy,cp,cr,cd,cf);
+    return wf(o,m,V,6,E,12,aang(ph,sp)+cy,.35f+cp,SC*ssc(sz)*.7f,0,255,0,cr,cd,cf);
 }
 static size_t p33(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     static const P3D V[]={{0,1,0},{.943f,-.333f,0},{-.471f,-.333f,.816f},{-.471f,-.333f,-.816f}};
     static const int E[][2]={{0,1},{0,2},{0,3},{1,2},{1,3},{2,3}};
-    return wf(o,m,V,4,E,6,aang(ph,sp,1.2f),.4f,SC*ssc(sz)*.75f,0,0,255);
+    float cy,cp,cr,cd,cf; camera::apply(cy,cp,cr,cd,cf);
+    return wf(o,m,V,4,E,6,aang(ph,sp,1.2f)+cy,.4f+cp,SC*ssc(sz)*.75f,0,0,255,cr,cd,cf);
 }
 // ─── WELLEN 35-52 ────────────────────────────────────────────
 // Parametric continuous curves — not migrated to optimizer.
