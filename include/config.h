@@ -15,7 +15,7 @@ constexpr uint16_t GALVO_RATE_HZ      = GALVO_SAMPLE_RATE_HZ;
 constexpr size_t   PATTERN_POINTS_MAX = 2048;
 
 // Points-Only render mode (pattern_engine.cpp::applyPointsOnlyMode)
-constexpr uint8_t  POINTS_MODE_MAX_DOTS  = 80;  // UI slider ceiling
+constexpr uint8_t  POINTS_MODE_MAX_DOTS  = 50;  // UI slider ceiling
 constexpr uint8_t  POINTS_MODE_MIN_DWELL = 3;   // ticks; below this a dot is invisible
 constexpr uint8_t  POINTS_MODE_MAX_DWELL = 30;  // ticks; cap so few dots don't hog the whole frame
 
@@ -23,7 +23,7 @@ constexpr uint8_t  POINTS_MODE_MAX_DWELL = 30;  // ticks; cap so few dots don't 
 constexpr uint8_t  RANDOM_PTS_MAX_COUNT = 14;   // UI slider ceiling ("Amount")
 
 // Kaleidoscope effect (pattern_engine.cpp::applyKaleidoscope)
-constexpr uint8_t  KALEIDO_SEGMENTS_MAX = 16;  // UI slider ceiling
+constexpr uint8_t  KALEIDO_SEGMENTS_MAX = 8;   // UI slider ceiling
 
 // GalvOS v5 Point Optimizer (Pillar 1) -- runtime-tunable via WebUI slider.
 // Mirrors optimizer::OptimizerConfig field-for-field; kept as a separate
@@ -552,7 +552,7 @@ struct LivePresetControls {
     volatile bool     col_override  = false;
     volatile ColAnimType col_anim_type  = COL_ANIM_OFF;
     volatile uint8_t     col_anim_seq   = 0;    // 0-9 sequence index
-    volatile uint8_t     col_anim_speed = 128;  // 0-255
+    volatile uint8_t     col_anim_speed = 1;    // 0-255 (lowest visible speed, not 0/frozen)
     volatile uint8_t     col_seg_count  = 4;    // 1-10 color segments
     volatile int8_t      col_seg_dir    = 1;    // +1 forward, -1 reverse
     volatile int16_t  rotation   = 0;   // Z-axis (degrees)
@@ -572,7 +572,7 @@ struct LivePresetControls {
     volatile float    wave_freq  = 1.0f;  // 0.25 – 4.0 (frequency multiplier)
     // Points-Only render mode (global toggle, all presets)
     volatile bool     points_mode_enabled  = false;
-    volatile uint8_t  points_count         = 24;    // 2..POINTS_MODE_MAX_DOTS dots
+    volatile uint8_t  points_count         = 12;    // 2..POINTS_MODE_MAX_DOTS dots
     volatile bool     points_fade_in_on    = true;  // false = hard on, no ramp
     volatile bool     points_fade_out_on   = true;  // false = hard off, no ramp
     volatile uint16_t points_fade_in_ms    = 400;   // fade-in duration, ms
@@ -601,7 +601,7 @@ struct LivePresetControls {
     volatile uint8_t  mw_tilt            = 60;   // 20..80 % projection tilt (top-down slant)
     // Kaleidoscope effect (global toggle, Preset + Curve mode)
     volatile bool     kaleido_enabled   = false;
-    volatile uint8_t  kaleido_segments  = 6;      // 2..KALEIDO_SEGMENTS_MAX
+    volatile uint8_t  kaleido_segments  = 3;      // 2..KALEIDO_SEGMENTS_MAX
     volatile bool     kaleido_mirror_h  = false;  // alternate segments: flip X
     volatile bool     kaleido_mirror_v  = false;  // alternate segments: flip Y
     // Mirror effect (separate from Kaleidoscope) -- Off/X/Y/Radial4
