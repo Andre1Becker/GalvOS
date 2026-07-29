@@ -625,7 +625,12 @@ static void applyBindingsArray(JsonArrayConst arr) {
 bool setBindings(JsonArrayConst arr) {
     if (!s_binds) return false;
     { LOCK_MOD(); applyBindingsArray(arr); }
-    save();
+    // Deferred save (see maybeFlush()) -- a dragged depth/offset slider fires
+    // this dozens of times/sec; a synchronous save() per call used to stall
+    // the AsyncTCP task on back-to-back LittleFS writes long enough to
+    // exhaust the lwIP TCP-PCB pool (tcp_accept: pcb is NULL, client-side
+    // request timeout). setModulator() already avoided this; bindings didn't.
+    s_dirty = true; s_dirty_since = millis();
     return true;
 }
 

@@ -6,6 +6,7 @@
 #include "curve_patterns.h"
 #include "paint_patterns.h"
 #include "point_optimizer.h"
+#include "duplicator.h"
 #include "ilda/ilda_player.h"
 #include "control/dmx_in.h"
 #include "net/artnet_in.h"
@@ -706,6 +707,91 @@ static float fadeWipePosition(uint8_t dir, float x, float y, float cx, float cy,
             return clamp01(d / halfDiag);
         }
     }
+}
+
+// ── Duplicator (Phase 3) ──────────────────────────────────────────────────
+// Chains extraCopies transformed copies after the original, each one step
+// further along the same per-copy translate+rotate+scale as the previous
+// (matrix-power composition, not a fixed reflection rule) -- grid (offset
+// only), radial (angle only) and spiral (offset+angle+scale together) all
+// fall out of this one accumulator. Runs on the final post-optimizer
+// LaserPoint array, same stage as Mirror/Kaleidoscope below, and reuses
+// s_pm_kaleido as scratch (sequential-only use, never reentrant within a
+// frame). See duplicator.cpp for the modulator-target wiring.
+static void applyDuplicator(size_t& n) {
+    int   extraCopies; float offX, offY, angleRad, stepScale;
+    duplicator::apply(extraCopies, offX, offY, angleRad, stepScale);
+    if (extraCopies <= 0 || n == 0 || !s_pm_kaleido) return;
+
+    const uint8_t  blankSamples = gOptimizerConfig.min_blank_samples;
+    uint16_t budget = gOptimizerConfig.max_pts_per_frame;
+    if (budget > PATTERN_POINTS_MAX) budget = PATTERN_POINTS_MAX;
+
+    size_t srcN = (n > PATTERN_POINTS_MAX) ? PATTERN_POINTS_MAX : n;
+    size_t totalCopies = (size_t)extraCopies + 1;  // original + extras
+
+    size_t jumpCost = (totalCopies - 1) * blankSamples;
+    if (budget <= jumpCost) return;  // no room even for the jumps -- leave source untouched
+    size_t maxPerCopy = (budget - jumpCost) / totalCopies;
+    if (maxPerCopy < 2) return;  // degenerate -- no room for a visible copy
+
+    // Snapshot the source into PSRAM before overwriting s_frame in place.
+    memcpy(s_pm_kaleido, s_frame, srcN * sizeof(LaserPoint));
+    if (srcN > maxPerCopy) {
+        float  stride   = (float)srcN / (float)maxPerCopy;
+        float  nextPick = 0.0f;
+        size_t w        = 0;
+        for (size_t i = 0; i < srcN; i++) {
+            if (s_pm_kaleido[i].blank || (float)i >= nextPick) {
+                s_pm_kaleido[w++] = s_pm_kaleido[i];
+                nextPick += stride;
+            }
+        }
+        srcN = w;
+    }
+
+    const float stepCa = cosf(angleRad), stepSa = sinf(angleRad);
+    // (curCa,curSa,curScale) = this copy's rotate+scale = step^k (matrix
+    // power); (tx,ty) = this copy's translate = sum_{i<k} step^i * (offX,offY).
+    float curCa = 1.0f, curSa = 0.0f, curScale = 1.0f, tx = 0.0f, ty = 0.0f;
+    size_t o = 0;
+    for (size_t k = 0; k < totalCopies; k++) {
+        if (o + srcN + blankSamples > PATTERN_POINTS_MAX) break;
+
+        if (k > 0) {
+            const LaserPoint& first = s_pm_kaleido[0];
+            float fsx = first.x * curScale, fsy = first.y * curScale;
+            int16_t dstX = (int16_t)constrain(fsx * curCa - fsy * curSa + tx, -32760.0f, 32760.0f);
+            int16_t dstY = (int16_t)constrain(fsx * curSa + fsy * curCa + ty, -32760.0f, 32760.0f);
+            int16_t px = s_frame[o - 1].x, py = s_frame[o - 1].y;
+            for (uint8_t d = 0; d < blankSamples; d++) {
+                float t = (float)(d + 1) / (float)blankSamples;
+                s_frame[o++] = LaserPoint((int16_t)(px + (dstX - px) * t),
+                                          (int16_t)(py + (dstY - py) * t),
+                                          0, 0, 0, 1);
+            }
+        }
+
+        for (size_t i = 0; i < srcN; i++) {
+            const LaserPoint& src = s_pm_kaleido[i];
+            float sx = src.x * curScale, sy = src.y * curScale;
+            int16_t nx = (int16_t)constrain(sx * curCa - sy * curSa + tx, -32760.0f, 32760.0f);
+            int16_t ny = (int16_t)constrain(sx * curSa + sy * curCa + ty, -32760.0f, 32760.0f);
+            s_frame[o++] = LaserPoint(nx, ny, src.r, src.g, src.b, src.blank);
+        }
+
+        // Advance to the next copy's transform: b_{k+1} = step*b_k + offset,
+        // A_{k+1} = step*A_k (single-step rotate+scale composed onto the
+        // running accumulator, not squared -- see header comment above).
+        float newTx = stepScale * (tx * stepCa - ty * stepSa) + offX;
+        float newTy = stepScale * (tx * stepSa + ty * stepCa) + offY;
+        tx = newTx; ty = newTy;
+        float newCa = curCa * stepCa - curSa * stepSa;
+        float newSa = curCa * stepSa + curSa * stepCa;
+        curCa = newCa; curSa = newSa;
+        curScale *= stepScale;
+    }
+    n = o;
 }
 
 // ── Shared N-fold rotational copy core (Kaleidoscope + Mirror/Radial4) ───
@@ -1568,6 +1654,12 @@ void task(void*) {
                     s_frame[i].x = (int16_t)(s_frame[i].x/d);
                 }
             }
+
+            // Duplicator (Phase 3) -- generic N-copy chain, runs before the
+            // symmetry-specific Mirror/Kaleidoscope effects so those apply to
+            // the whole duplicated field.
+            applyDuplicator(n);
+            if (n == 0) { static LaserPoint blank_pt={0,0,0,0,0,1}; galvo::pushFrame(&blank_pt,1); vTaskDelay(pdMS_TO_TICKS(40)); continue; }  // guard: duplicator emptied frame
 
             // Mirror (separate from Kaleidoscope, see applyMirror())
             applyMirror(n);

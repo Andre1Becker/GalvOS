@@ -31,6 +31,7 @@
 #include "../sequencer.h"
 #include "../modulator_engine.h"
 #include "../patterns/camera.h"
+#include "../patterns/duplicator.h"
 #include "net/community_presets.h"
 #include "patterns/preset_patterns.h"
 #include "patterns/countdown_timer.h"
@@ -841,6 +842,7 @@ void init() {
         sequencer::init();
         modulator::init();
         camera::init();
+        duplicator::init();
     }
 
     // ---- Statische SPA ----
