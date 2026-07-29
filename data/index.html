@@ -93,7 +93,16 @@
 html, body { margin: 0; padding: 0; }
 body {
   background: var(--bg); color: var(--text); font-family: var(--font-body);
-  min-height: 100vh; position: relative; overflow-x: hidden;
+  min-height: 100vh; overflow-x: hidden;
+  /* No `position: relative` here: nothing in this stylesheet needs body as an
+     offset parent (fixed-position decor + .chart-wrap/.mem-tick carry their
+     own positioning context). A positioned body with overflow-x set also
+     disqualifies it from the standard HTML/BODY overflow-to-viewport
+     propagation quirk, which made body itself the sticky containing block
+     for #topbar/#safety-banner -- since body has no bounded height (only
+     min-height), that "scroll container" never actually clips/scrolls,
+     so position:sticky silently degraded to plain static/relative and the
+     top bar scrolled away with the page instead of pinning to the top. */
 }
 
 /* ================= Cyberpunk structural chrome ================= */
@@ -256,7 +265,7 @@ button.btn.sm, .btn-sm { padding: 4px 10px; min-height: 32px; font-size: 0.75rem
   #bottom-tabs { display: flex; }
   #app { padding-bottom: 60px; }
   #sidebar { display: none; }
-  .tb-center, .tb-right .stat-chip:not(:first-child), .tb-right .bpm-chip { display: none; }
+  .tb-center, .tb-right .stat-chip:not(#tb-dimmer-chip), .tb-right .bpm-chip { display: none; }
 }
 #bottom-tabs button {
   flex: 1; background: transparent; border: none; color: var(--text-dim); padding: 8px 4px;
@@ -356,6 +365,10 @@ canvas { max-width: 100%; display: block; }
     <span id="active-mode-pill" class="pill hidden"></span>
   </div>
   <div class="tb-right">
+    <span class="stat-chip" id="tb-dimmer-chip" title="Master Dimmer">&#128262;
+      <input type="range" id="cfg-master-dimmer" min="0" max="255" value="0" style="width:70px" oninput="document.getElementById('tb-dimmer-val').textContent = this.value; sendUiControl()">
+      <span id="tb-dimmer-val">0</span>
+    </span>
     <span class="stat-chip">&#127777; <span id="tb-temp">--&deg;C</span></span>
     <span class="stat-chip">&#9889; <span id="tb-cpu">--%</span></span>
     <span class="stat-chip">&#128200; <span id="tb-kpps">-- kpps</span></span>
@@ -391,24 +404,23 @@ canvas { max-width: 100%; display: block; }
             <button class="btn primary" onclick="document.getElementById('btn-arm').click()">ARM</button>
             <button class="btn danger" onclick="document.getElementById('btn-disarm').click()">DISARM</button>
           </div>
-        </div>
-
-        <div class="card">
-          <h2>SD Card</h2>
-          <p id="dash-sd-status">--</p>
-          <div class="row">
-            <button id="dash-sd-mount" class="btn" onclick="sdRemount('dash-sd-mount')">Mount</button>
-            <button id="dash-sd-eject" class="btn" onclick="sdEject('dash-sd-eject')">Eject</button>
-          </div>
+          <label class="row" style="margin-top:10px"><input type="checkbox" id="dash-safety-override" onchange="setSafetyOverride(this.checked)"> Safety Override</label>
         </div>
 
         <div class="card">
           <h2>System</h2>
           <div class="field"><label>Firmware</label><span id="dash-fw-ver">--</span></div>
-          <div class="field"><label>Host / IP</label><span id="dash-hostname">--</span> / <span id="dash-ip">--</span></div>
-          <div class="field"><label>RSSI / Uptime</label><span id="dash-rssi">--</span> / <span id="dash-uptime">--</span></div>
+          <div class="field"><label>Host</label><span id="dash-hostname">--</span></div>
+          <div class="field"><label>IP</label><span id="dash-ip">--</span></div>
+          <div class="field"><label>RSSI</label><span id="dash-rssi">--</span></div>
+          <div class="field"><label>Uptime</label><span id="dash-uptime">--</span></div>
           <div class="field"><label>Free Heap / PSRAM</label><span id="dash-heap">--</span> / <span id="dash-psram">--</span></div>
           <div class="field"><label>DAC / Galvo</label><span id="dash-dac-status">--</span></div>
+          <div class="field"><label>SD Card</label><span id="dash-sd-status">--</span></div>
+          <div class="row">
+            <button id="dash-sd-mount" class="btn sm" onclick="sdRemount('dash-sd-mount')">Mount</button>
+            <button id="dash-sd-eject" class="btn sm" onclick="sdEject('dash-sd-eject')">Eject</button>
+          </div>
         </div>
       </div>
 
@@ -433,7 +445,7 @@ canvas { max-width: 100%; display: block; }
         </div>
       </div>
 
-      <div class="grid grid-3">
+      <div class="grid grid-2">
         <div class="card">
           <h2>Telemetry</h2>
           <div class="field"><label>Source</label><span id="dash-source">--</span></div>
@@ -443,83 +455,12 @@ canvas { max-width: 100%; display: block; }
           <div class="field"><label>Buffer Fill</label><span id="dash-buffer-fill">--</span></div>
           <div class="field"><label>Last DMX Activity</label><span id="dash-dmx-age">--</span></div>
           <label class="row"><input type="checkbox" id="cfg-ui-override" onchange="sendUiControl()"> WebUI Override (takes priority over DMX)</label>
-          <div class="field"><label>Master Dimmer</label><input type="range" id="cfg-master-dimmer" min="0" max="255" value="0" oninput="sendUiControl()"></div>
+          <p style="font-size:0.75rem">Master Dimmer now lives in the top bar &#8593;</p>
         </div>
 
         <div class="card">
-          <h2>BPM Clock</h2>
-          <div class="row"><span id="dash-bpm-source" class="pill">Manual</span></div>
-          <div class="field">
-            <label>Manual BPM</label>
-            <input type="number" id="dash-bpm-manual" min="20" max="300" step="0.1" onchange="setBpmManual(this.value)">
-          </div>
-          <button class="btn" onclick="document.getElementById('btn-tap').click()">TAP</button>
-        </div>
-
-        <div class="card">
-          <h2>Sequencer</h2>
-          <div class="row"><span id="seq-status">Stopped</span><span id="seq-beat-dot" class="beam-dot on" style="margin-left:auto"></span></div>
-          <div class="row" style="margin-top:8px">
-            <button class="btn sm" onclick="seqTransport('prev')">&#9198;</button>
-            <button class="btn sm primary" onclick="seqTransport('start')">&#9654;</button>
-            <button class="btn sm" onclick="seqTransport('stop')">&#9632;</button>
-            <button class="btn sm" onclick="seqTransport('next')">&#9197;</button>
-          </div>
-        </div>
-      </div>
-
-      <div class="grid grid-2">
-        <div class="card">
-          <h2>Preset Grid</h2>
-          <div class="row" style="margin-bottom:8px">
-            <span class="active-preset-label">No preset active</span>
-            <button class="btn sm" style="margin-left:auto" onclick="deactivatePreset()">&#9209; Off</button>
-          </div>
-          <div class="preset-grid" id="dash-preset-grid"></div>
-        </div>
-
-        <div class="grid" style="grid-template-columns:1fr;gap:16px">
-          <div class="card">
-            <h2>Modulators</h2>
-            <div id="dash-mod-summary"><p>Loading&hellip;</p></div>
-          </div>
-          <div class="card">
-            <h2>Zone Clipping</h2>
-            <label class="row"><input type="checkbox" id="dash-zone-enable" onchange="zoneQuickToggle(this.checked)"> Enable projection zone clipping</label>
-          </div>
-          <div class="card">
-            <h2>Color Override</h2>
-            <label class="row"><input type="checkbox" id="lv-color-override" onchange="sendLiveControls()"> Override colors</label>
-            <div class="row">
-              <div class="field"><label>R</label><input type="range" id="lv-r" min="0" max="255" value="255" oninput="liveSlider('lv-r')"></div>
-              <div class="field"><label>G</label><input type="range" id="lv-g" min="0" max="255" value="255" oninput="liveSlider('lv-g')"></div>
-              <div class="field"><label>B</label><input type="range" id="lv-b" min="0" max="255" value="255" oninput="liveSlider('lv-b')"></div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="card">
-        <h2>Countdown Timer</h2>
-        <div class="row">
-          <div class="field"><label>H</label><input type="number" id="timer-h" value="0" min="0" oninput="updateTimerPreview()"></div>
-          <div class="field"><label>M</label><input type="number" id="timer-m" value="1" min="0" max="59" oninput="updateTimerPreview()"></div>
-          <div class="field"><label>S</label><input type="number" id="timer-s" value="0" min="0" max="59" oninput="updateTimerPreview()"></div>
-          <div class="field"><label>Remaining</label><span id="timer-display" style="font-family:var(--font-mono);font-size:1.3rem">00:01:00</span></div>
-        </div>
-        <div class="row">
-          <button class="btn" onclick="timerSet()">Set</button>
-          <button class="btn primary" onclick="timerStart()">Start</button>
-          <button class="btn" onclick="timerPause()">Pause</button>
-          <button class="btn" onclick="timerStop()">Stop</button>
-          <button class="btn" onclick="timerReset()">Reset</button>
-        </div>
-        <div class="row" style="margin-top:8px">
-          <label><input type="radio" name="timer-expire" value="nothing" checked> Nothing</label>
-          <label><input type="radio" name="timer-expire" value="text"> Text</label>
-          <input type="text" id="timer-expire-text" placeholder="DONE" style="max-width:140px">
-          <label><input type="radio" name="timer-expire" value="ilda"> ILDA file</label>
-          <select id="timer-ilda-file"></select>
+          <h2>Zone Clipping</h2>
+          <label class="row"><input type="checkbox" id="dash-zone-enable" onchange="zoneQuickToggle(this.checked)"> Enable projection zone clipping</label>
         </div>
       </div>
     </section>
@@ -668,7 +609,14 @@ canvas { max-width: 100%; display: block; }
 
           <div class="card">
             <h2>Sequencer</h2>
-            <label class="row"><input type="checkbox" id="seq-loop" checked onchange="seqSetLoop(this.checked)"> Loop playlist</label>
+            <div class="row"><span id="seq-status">Stopped</span><span id="seq-beat-dot" class="beam-dot on" style="margin-left:auto"></span></div>
+            <div class="row" style="margin-top:8px">
+              <button class="btn sm" onclick="seqTransport('prev')">&#9198;</button>
+              <button class="btn sm primary" onclick="seqTransport('start')">&#9654;</button>
+              <button class="btn sm" onclick="seqTransport('stop')">&#9632;</button>
+              <button class="btn sm" onclick="seqTransport('next')">&#9197;</button>
+            </div>
+            <label class="row" style="margin-top:8px"><input type="checkbox" id="seq-loop" checked onchange="seqSetLoop(this.checked)"> Loop playlist</label>
             <div id="seq-steps-list"></div>
             <button class="btn sm" onclick="seqAddStep()">&#65291; Add step</button>
           </div>
@@ -676,9 +624,46 @@ canvas { max-width: 100%; display: block; }
 
         <div id="presets-side-col">
           <div class="card">
+            <h2>BPM Clock</h2>
+            <div class="row"><span id="dash-bpm-source" class="pill">Manual</span></div>
+            <div class="field">
+              <label>Manual BPM</label>
+              <input type="number" id="dash-bpm-manual" min="20" max="300" step="0.1" onchange="setBpmManual(this.value)">
+            </div>
+            <button class="btn" onclick="document.getElementById('btn-tap').click()">TAP</button>
+          </div>
+
+          <div class="card">
+            <h2>Countdown Timer</h2>
+            <div class="row">
+              <div class="field"><label>H</label><input type="number" id="timer-h" value="0" min="0" oninput="updateTimerPreview()"></div>
+              <div class="field"><label>M</label><input type="number" id="timer-m" value="1" min="0" max="59" oninput="updateTimerPreview()"></div>
+              <div class="field"><label>S</label><input type="number" id="timer-s" value="0" min="0" max="59" oninput="updateTimerPreview()"></div>
+              <div class="field"><label>Remaining</label><span id="timer-display" style="font-family:var(--font-mono);font-size:1.3rem">00:01:00</span></div>
+            </div>
+            <div class="row">
+              <button class="btn sm" onclick="timerSet()">Set</button>
+              <button class="btn sm primary" onclick="timerStart()">Start</button>
+              <button class="btn sm" onclick="timerPause()">Pause</button>
+              <button class="btn sm" onclick="timerStop()">Stop</button>
+              <button class="btn sm" onclick="timerReset()">Reset</button>
+            </div>
+            <div class="row" style="margin-top:8px">
+              <label><input type="radio" name="timer-expire" value="nothing" checked> Nothing</label>
+              <label><input type="radio" name="timer-expire" value="text"> Text</label>
+              <input type="text" id="timer-expire-text" placeholder="DONE" style="max-width:100px">
+              <label><input type="radio" name="timer-expire" value="ilda"> ILDA file</label>
+              <select id="timer-ilda-file"></select>
+            </div>
+          </div>
+
+          <div class="card">
             <h2>Parameter Modulators</h2>
             <div id="mod-slots"></div>
-            <button class="btn sm danger" onclick="modResetAll()">Reset All</button>
+            <div class="row" style="margin-top:8px">
+              <button class="btn sm" onclick="modAdd()">&#65291; Add Modulator</button>
+              <button class="btn sm danger" onclick="modResetAll()">Reset All</button>
+            </div>
           </div>
           <div class="card">
             <h2>Bindings</h2>
@@ -1664,9 +1649,9 @@ function fmtUptime(s) {
 }
 
 /* =========================================================================
-   PRESETS CORE (shared by Dashboard's quick grid and the Presets tab's full
-   grid/community grid/sequencer -- s_activePresetIdx drives every registered
-   grid container so activating a preset anywhere highlights it everywhere)
+   PRESETS CORE (the Presets tab's full grid/community grid/sequencer --
+   s_activePresetIdx drives every registered grid container so activating a
+   preset anywhere highlights it everywhere)
    ========================================================================= */
 var STATIC_PRESET_DEFS = [
   {idx: 0, name: 'Circle', cat: 'Geometry'}, {idx: 1, name: 'Square', cat: 'Geometry'},
@@ -1879,8 +1864,10 @@ function resetLiveControls() {
 }
 
 /* =========================================================================
-   BPM / SEQUENCER cross-cutting (full editor lives on the Presets tab; the
-   live status + transport controls live on Dashboard)
+   BPM / SEQUENCER cross-cutting -- BPM Clock, Sequencer transport and full
+   editor all live in the Presets tab (sidebar for BPM Clock, main column
+   for the Sequencer card); this handler just wires the global status poll
+   to whichever of those DOM ids currently exist.
    ========================================================================= */
 var BPM_SOURCE_NAMES = ['Manual', 'Tap', 'DMX'];
 var seqRunning = false, seqCurrentStep = 0, seqStepCount = 0, seqLoop = true;
@@ -1994,20 +1981,7 @@ async function loadModulators() {
   var r = await apiCall('GET', '/api/modulators');
   if (!r) return;
   modState = r;
-  renderModSummary();
   if (typeof renderModEditor === 'function') renderModEditor();
-}
-function renderModSummary() {
-  var el = document.getElementById('dash-mod-summary');
-  if (!el) return;
-  var active = modState.modulators.filter(function(m) { return m.enabled; });
-  if (!active.length) { el.innerHTML = '<p>No modulators active.</p>'; return; }
-  el.innerHTML = active.map(function(m) {
-    var pct = Math.round(((m.output || 0) + 1) / 2 * 100);
-    return '<div class="row"><span style="min-width:80px">' + (m.name || ('Mod ' + m.idx)) + '</span>' +
-      '<div style="flex:1;height:6px;background:var(--muted);border-radius:3px;overflow:hidden">' +
-      '<div style="width:' + pct + '%;height:100%;background:var(--accent)"></div></div></div>';
-  }).join('');
 }
 async function modResetAll() { await apiCall('POST', '/api/modulators/reset'); loadModulators(); }
 
@@ -2117,6 +2091,8 @@ registerStateHandler(function(s) {
   banner.classList.toggle('hidden', !s.safety_override);
   var ovCb = document.getElementById('cfg-safety-override');
   if (ovCb && document.activeElement !== ovCb) ovCb.checked = !!s.safety_override;
+  var ovCb2 = document.getElementById('dash-safety-override');
+  if (ovCb2 && document.activeElement !== ovCb2) ovCb2.checked = !!s.safety_override;
 
   if (s.preset_idx !== undefined) {
     var starEl = document.getElementById('lv-points-count-val');
@@ -2167,7 +2143,10 @@ registerStateHandler(function(s) {
   var uiOvCb = document.getElementById('cfg-ui-override');
   if (uiOvCb && document.activeElement !== uiOvCb) uiOvCb.checked = !!s.ui_override;
   var dimSlider = document.getElementById('cfg-master-dimmer');
-  if (dimSlider && document.activeElement !== dimSlider) dimSlider.value = s.ui_master_dimmer;
+  if (dimSlider && document.activeElement !== dimSlider) {
+    dimSlider.value = s.ui_master_dimmer;
+    var dimVal = document.getElementById('tb-dimmer-val'); if (dimVal) dimVal.textContent = s.ui_master_dimmer;
+  }
 });
 function setLed(name, ok) {
   var el = document.getElementById('led-' + name);
@@ -2291,7 +2270,9 @@ function drawTempChart() {
   if (!TEMP_HISTORY.length) return;
   var t0 = TEMP_HISTORY[0].ts, t1 = TEMP_HISTORY[TEMP_HISTORY.length - 1].ts || t0 + 1;
   var span = Math.max(1, t1 - t0);
+  var lastOk = window.s_lastTempState && window.s_lastTempState.ok;
   for (var s = 0; s < 5; s++) {
+    if (lastOk && !lastOk[s]) continue;  // sensor not connected -- don't plot a flat/absent line
     var pts = TEMP_HISTORY.map(function(e) {
       var v = e.temps[s];
       if (v === null || v === undefined) return null;
@@ -2389,11 +2370,11 @@ registerTempHandler(function(s) {
   var badges = document.getElementById('dash-temp-badges');
   if (badges) {
     badges.innerHTML = s.temps.map(function(t, i) {
-      var name = (s.names && s.names[i]) || ('Sensor ' + (i + 1));
       var ok = s.ok && s.ok[i];
-      var val = ok ? t.toFixed(1) + '°C' : 'Not connected';
+      if (!ok) return '';  // not connected -- don't clutter the dashboard with dead sensors
+      var name = (s.names && s.names[i]) || ('Sensor ' + (i + 1));
       return '<div class="row"><span style="width:10px;height:10px;border-radius:50%;background:' + SENSOR_COLORS[i] + ';display:inline-block"></span>' +
-        '<span>' + name + '</span><span style="margin-left:auto;color:' + (ok ? 'var(--text)' : 'var(--text-dim)') + '">' + val + '</span></div>';
+        '<span>' + name + '</span><span style="margin-left:auto;color:var(--text)">' + t.toFixed(1) + '°C</span></div>';
     }).join('');
   }
   if (typeof handleThermalTabState === 'function') handleThermalTabState(s);
@@ -2670,9 +2651,18 @@ async function seqPersist() { await apiCall('POST', '/api/sequencer', {loop: seq
 /* ---- Modulator full editor ---- */
 function renderModEditor() {
   var el = document.getElementById('mod-slots'); if (!el) return;
-  el.innerHTML = modState.modulators.map(renderModSlot).join('');
-  modState.modulators.forEach(function(m) { renderModSlotPreview(m.idx); });
+  var used = modState.modulators.filter(function(m) { return m.enabled; });
+  el.innerHTML = used.length ? used.map(renderModSlot).join('')
+    : '<p style="color:var(--text-dim)">No modulators added yet.</p>';
+  used.forEach(function(m) { renderModSlotPreview(m.idx); });
   renderModBindings();
+}
+function modAdd() {
+  var free = modState.modulators.find(function(m) { return !m.enabled; });
+  if (!free) { toast('All ' + MOD_SLOTS + ' modulator slots are in use', true); return; }
+  free.enabled = true;
+  renderModEditor();
+  modPatch(free.idx, {enabled: true});
 }
 function renderModSlot(m) {
   var typeOpts = modMeta.types.map(function(t) { return '<option value="' + t.id + '"' + (t.id === m.type ? ' selected' : '') + '>' + t.label + '</option>'; }).join('');
@@ -4335,6 +4325,8 @@ async function saveStaticIp() {
 async function setSafetyOverride(v) {
   await apiCall('POST', '/api/safety-override', {enabled: v});
   var warn = document.getElementById('cfg-safety-override-warn'); if (warn) warn.classList.toggle('hidden', !v);
+  var cb1 = document.getElementById('cfg-safety-override'); if (cb1) cb1.checked = v;
+  var cb2 = document.getElementById('dash-safety-override'); if (cb2) cb2.checked = v;
 }
 async function doReboot() { if (confirm('Reboot the system now?')) await apiCall('POST', '/api/reboot'); }
 async function doFactoryReset() { if (confirm('Factory reset ALL settings? This cannot be undone.')) await apiCall('POST', '/api/factory-reset'); }
@@ -4412,7 +4404,6 @@ async function hwDebugCmd(cmd) { await apiCall('POST', '/api/debug/hw', {cmd: cm
 
 registerTabLoader('config', function() { loadConfig(); });
 
-registerPresetGrid('dash-preset-grid');
 registerPresetGrid('presets-preset-grid', 'presets-cat-filter');
 registerTabLoader('presets', function() { loadCommunityPresets(); loadSequencer(); loadModulators(); });
 registerTabLoader('preset-manager', function() { loadCommunityPresets(); });

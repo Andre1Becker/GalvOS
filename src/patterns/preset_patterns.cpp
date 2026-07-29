@@ -3036,19 +3036,30 @@ size_t generate(uint8_t idx, LaserPoint* out, size_t max_pts,
     // the dark. No up-front reservation: room made by evicting trailing
     // (overdense) points only when needed. #2 presets exempt (seam=0).
     // At speed 0 the jump is ~0 -> below threshold -> skipped (no cost).
-    static float sLastX[PRESET_COUNT] = {0};
-    static float sLastY[PRESET_COUNT] = {0};
-    static bool  sHas[PRESET_COUNT]   = {false};
+    //
+    // sLast* deliberately track ONE physical position, not one per preset
+    // idx: the galvo has a single real location regardless of which preset
+    // last drew it. A per-idx array bridged same-preset frame seams fine but
+    // went blind exactly on a preset SWITCH -- the newly selected idx either
+    // had no history yet (sHas[idx]==false) or held a stale position from
+    // the last time it ran, so out[f] got drawn straight from wherever THAT
+    // idx last was instead of from preset A's actual last point. With the
+    // laser's on-hold window (a few sample ticks, see galvo_out.cpp) far too
+    // short to cover a full-canvas jump, that gap opens the beam mid-jump --
+    // a bright streak across the frame when switching between two active
+    // presets. A single shared position fixes the bridge for every switch.
+    static float sLastX = 0, sLastY = 0;
+    static bool  sHas   = false;
     static constexpr float kSeamThresh2 = 100.f; // (10 units)^2, above noise only
     if (!isContinuous(idx) && n > 0) {
         size_t f = 0; while (f < n && out[f].blank) f++;
-        if (f < n && sHas[idx]) {
-            float dx = (float)out[f].x - sLastX[idx];
-            float dy = (float)out[f].y - sLastY[idx];
+        if (f < n && sHas) {
+            float dx = (float)out[f].x - sLastX;
+            float dy = (float)out[f].y - sLastY;
             if (dx*dx + dy*dy > kSeamThresh2) {
                 const optimizer::OptimizerConfig cfg = liveOptimizerConfig();
                 LaserPoint br[130];
-                br[0] = LaserPoint((int16_t)sLastX[idx], (int16_t)sLastY[idx], 0,0,0,1);
+                br[0] = LaserPoint((int16_t)sLastX, (int16_t)sLastY, 0,0,0,1);
                 size_t bn = 1;
                 optimizer::emitBlankTo(br, bn, 130, (float)out[f].x, (float)out[f].y, cfg);
                 size_t jc = bn - 1;
@@ -3061,7 +3072,7 @@ size_t generate(uint8_t idx, LaserPoint* out, size_t max_pts,
             }
         }
     }
-    if (n > 0) { sLastX[idx] = (float)out[n-1].x; sLastY[idx] = (float)out[n-1].y; sHas[idx] = true; }
+    if (n > 0) { sLastX = (float)out[n-1].x; sLastY = (float)out[n-1].y; sHas = true; }
     return n;
 }
 
