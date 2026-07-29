@@ -147,6 +147,8 @@ static void loadConfig() {
         LOAD_B("opt_rngen", ringing_comp_enabled,         OPT_DEFAULT_RINGING_COMP_ENABLED);
         LOAD_F("opt_rngfq", ring_freq_hz,                 OPT_DEFAULT_RING_FREQ_HZ);
         LOAD_F("opt_rngdr", ring_damping_ratio,           OPT_DEFAULT_RING_DAMPING_RATIO);
+        LOAD_B("opt_jten",  jitter_enabled,               OPT_DEFAULT_JITTER_ENABLED);
+        LOAD_F("opt_jtam",  jitter_amount_units,          OPT_DEFAULT_JITTER_AMOUNT_UNITS);
         LOAD_B("opt_vcen",  vel_clamp_enabled,            OPT_DEFAULT_VEL_CLAMP_ENABLED);
         LOAD_F("opt_vcstp", max_step_units,               OPT_DEFAULT_MAX_STEP_UNITS);
         LOAD_B("opt_acen",  accel_clamp_enabled,          OPT_DEFAULT_ACCEL_CLAMP_ENABLED);

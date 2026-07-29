@@ -57,7 +57,7 @@ const ModTypeDescriptor& modTypeAt(uint8_t idx) {
     uint8_t n = 0;
     for (uint8_t i = 0; i < MAX_MOD_TYPES; i++)
         if (s_modTypes[i]) { if (n == idx) return *s_modTypes[i]; n++; }
-    static const ModTypeDescriptor dummy{0, "", "", nullptr, nullptr, false, false, false};
+    static const ModTypeDescriptor dummy{0, "", "", nullptr, nullptr, false, false, false, false};
     return dummy;
 }
 uint8_t waveShapeCount() {
@@ -123,7 +123,7 @@ static inline float bpmDivBeats(BpmDiv d) {
 // Continuous, unwrapped cycle count since boot -- stateless (recomputed
 // fresh from nowMs every call, same trick bpm_clock::tickMs() uses for its
 // own phase_ms), so there is no accumulator to drift or race across cores.
-static inline float totalCycles(const Modulator& m, uint32_t nowMs) {
+float totalCycles(const Modulator& m, uint32_t nowMs) {
     if (m.bpmSync) {
         float bpm = bpm_clock::gBpm.bpm;
         if (bpm < 1.0f) bpm = 1.0f;
@@ -346,13 +346,13 @@ static void triggerEnvelopeType(Modulator& m, uint32_t nowMs) {
 // ── Built-in descriptor instances (static storage duration; only their
 // addresses are stored in the registry) ────────────────────────────────
 static const ModTypeDescriptor kTypeOscillator = {
-    type_id::OSCILLATOR, "oscillator", "Oscillator", tickOscillatorType, nullptr, true, false, false};
+    type_id::OSCILLATOR, "oscillator", "Oscillator", tickOscillatorType, nullptr, true, false, false, false};
 static const ModTypeDescriptor kTypeNoise = {
-    type_id::NOISE, "noise", "Noise", tickNoiseType, nullptr, false, false, false};
+    type_id::NOISE, "noise", "Noise", tickNoiseType, nullptr, false, false, false, false};
 static const ModTypeDescriptor kTypeEnvelope = {
-    type_id::ENVELOPE, "envelope", "Envelope", tickEnvelopeType, triggerEnvelopeType, false, true, false};
+    type_id::ENVELOPE, "envelope", "Envelope", tickEnvelopeType, triggerEnvelopeType, false, true, false, false};
 static const ModTypeDescriptor kTypeSequencer = {
-    type_id::SEQUENCER, "sequencer", "Sequencer", tickSequencerType, nullptr, false, false, true};
+    type_id::SEQUENCER, "sequencer", "Sequencer", tickSequencerType, nullptr, false, false, true, false};
 
 static const WaveShapeDescriptor kShapeSine = {
     shape_id::SINE, "sine", "Sine", true, nullptr, false};
@@ -578,7 +578,12 @@ static void applyModulatorFields(Modulator& m, JsonObjectConst obj) {
         }
     }
     if (!obj["noiseSeed"].isNull()) m.noiseSeed = obj["noiseSeed"] | 0;
-    else if (m.noiseSeed == 0 && m.type == type_id::NOISE) m.noiseSeed = esp_random();
+    // Auto-seed a never-set (still 0) seed regardless of m.type -- keeps
+    // this generic across any current/future noise-flavored ModType (built-in
+    // NOISE, Phase 4's foreign NOISE2D, ...) without modulator_engine.cpp
+    // needing to know their ids. Harmless no-op for types that never read
+    // noiseSeed (Oscillator/Envelope/Sequencer).
+    else if (m.noiseSeed == 0) m.noiseSeed = esp_random();
 }
 
 static volatile bool     s_dirty       = false;
@@ -724,6 +729,7 @@ void fillMetaJson(JsonObject& out) {
         o["usesShape"]        = d.usesShape;
         o["usesEnvelope"]     = d.usesEnvelope;
         o["usesSequencer"]    = d.usesSequencer;
+        o["usesShapeParam"]   = d.usesShapeParam;
         o["supportsTrigger"]  = (d.trigger != nullptr);
     }
     JsonArray shapes = out["shapes"].to<JsonArray>();

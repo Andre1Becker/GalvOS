@@ -75,6 +75,8 @@ void BackupManager::serializeToJson(JsonDocument& doc) {
         o["ringing_comp_enabled"]         = p.ringing_comp_enabled;
         o["ring_freq_hz"]                 = p.ring_freq_hz;
         o["ring_damping_ratio"]           = p.ring_damping_ratio;
+        o["jitter_enabled"]               = p.jitter_enabled;
+        o["jitter_amount_units"]          = p.jitter_amount_units;
         o["vel_clamp_enabled"]            = p.vel_clamp_enabled;
         o["max_step_units"]               = p.max_step_units;
         o["accel_clamp_enabled"]          = p.accel_clamp_enabled;
@@ -197,6 +199,8 @@ bool BackupManager::deserializeFromJson(JsonDocument& doc, JsonArray rejected) {
                     PCHECK("ringing_comp_enabled",           o["ringing_comp_enabled"].is<bool>());
                     PCHECK("ring_freq_hz",                  o["ring_freq_hz"].is<float>() && inRangeF(o["ring_freq_hz"].as<float>(), 1.0f, 2000.0f));
                     PCHECK("ring_damping_ratio",             o["ring_damping_ratio"].is<float>() && inRangeF(o["ring_damping_ratio"].as<float>(), 0.0f, 0.9f));
+                    PCHECK("jitter_enabled",                 o["jitter_enabled"].is<bool>());
+                    PCHECK("jitter_amount_units",            o["jitter_amount_units"].is<float>() && inRangeF(o["jitter_amount_units"].as<float>(), 0.0f, 2000.0f));
                     PCHECK("vel_clamp_enabled",              o["vel_clamp_enabled"].is<bool>());
                     PCHECK("max_step_units",                o["max_step_units"].is<float>() && inRangeF(o["max_step_units"].as<float>(), 50.0f, 32767.0f));
                     PCHECK("accel_clamp_enabled",            o["accel_clamp_enabled"].is<bool>());
@@ -322,6 +326,8 @@ bool BackupManager::deserializeFromJson(JsonDocument& doc, JsonArray rejected) {
                 if (!o["ringing_comp_enabled"].isNull())        P.ringing_comp_enabled = o["ringing_comp_enabled"];
                 if (!o["ring_freq_hz"].isNull())                P.ring_freq_hz = o["ring_freq_hz"];
                 if (!o["ring_damping_ratio"].isNull())          P.ring_damping_ratio = o["ring_damping_ratio"];
+                if (!o["jitter_enabled"].isNull())              P.jitter_enabled = o["jitter_enabled"];
+                if (!o["jitter_amount_units"].isNull())         P.jitter_amount_units = o["jitter_amount_units"];
                 if (!o["vel_clamp_enabled"].isNull())           P.vel_clamp_enabled = o["vel_clamp_enabled"];
                 if (!o["max_step_units"].isNull())              P.max_step_units = o["max_step_units"];
                 if (!o["accel_clamp_enabled"].isNull())         P.accel_clamp_enabled = o["accel_clamp_enabled"];

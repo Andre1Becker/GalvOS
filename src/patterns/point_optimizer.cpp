@@ -52,6 +52,21 @@ static inline float smoothstep(float t) {
     return t * t * (3.0f - 2.0f * t);
 }
 
+// Point Distribution Modifier -- Jitter (Phase 4, see plans/generic-roaming-
+// dahl.md). Deterministic integer hash -> [-1..1], same family as
+// modulator_engine.cpp's hashNoise() / spatial_noise.cpp's hash2() but a
+// separate copy here on purpose (self-contained .cpp, no new cross-module
+// dependency for a purely-cosmetic optimizer knob). Keyed by (edge index,
+// point-in-edge index) so the same shape wobbles identically every frame --
+// no flicker/shimmer -- while different edges/points get different offsets.
+static inline float jitterHash(uint32_t edgeIdx, uint32_t ptIdx) {
+    uint32_t h = edgeIdx * 2654435761u + ptIdx * 2246822519u + 0x9E3779B1u;
+    h ^= h >> 15; h *= 0x85EBCA6Bu;
+    h ^= h >> 13; h *= 0xC2B2AE35u;
+    h ^= h >> 16;
+    return ((float)h / 4294967295.0f) * 2.0f - 1.0f;
+}
+
 // PILLAR 3: Zero-Vibration (ZV) two-impulse input shaper. Cancels galvo
 // ringing by convolving the commanded trajectory with two impulses -- A1
 // at t=0, A2 at t=Td/2 -- sized so the plant's response to the first
@@ -400,10 +415,24 @@ static void emitSegment(const PathSegment& seg, const OptimizerConfig& cfg,
         for (uint16_t k = 1; k <= ipts; k++) {
             float tLin = (float)k / (ipts + 1);
             float t = shapeEdgeT(tLin, easeIn, easeOut);
+            float px = va.x + dx * t, py = va.y + dy * t;
+
+            // Jitter (Phase 4): perpendicular offset, interior points only --
+            // corner points stay exact so the shape's vertices remain
+            // recognizable. Applied here, after planning/severity/resample
+            // have already fixed point counts, so it's a pure emit-time
+            // perturbation (see config.h's OPT_DEFAULT_JITTER_* comment).
+            if (cfg.jitter_enabled && cfg.jitter_amount_units > 0.01f && len > 1e-3f) {
+                float nx = -dy / len, ny = dx / len;   // unit perpendicular
+                float j = jitterHash((uint32_t)e, (uint32_t)k) * cfg.jitter_amount_units;
+                px += nx * j;
+                py += ny * j;
+            }
+
             float rf = va.r + (float)(vb.r - va.r) * t;
             float gf = va.g + (float)(vb.g - va.g) * t;
             float bf = va.b + (float)(vb.b - va.b) * t;
-            emit(out, n, max, va.x + dx * t, va.y + dy * t,
+            emit(out, n, max, px, py,
                  (uint8_t)lroundf(rf), (uint8_t)lroundf(gf), (uint8_t)lroundf(bf), 0);
         }
     }
@@ -444,7 +473,7 @@ static void emitSegment(const PathSegment& seg, const OptimizerConfig& cfg,
 // ── Transform stage (Phase 1) ────────────────────────────────────────────
 //
 // Pipeline order: Primitive -> [Transform] -> Resample -> Corner Dwell ->
-// Blanking -> Velocity Clamp -> Acceleration Clamp -> DAC. This is the
+// Jitter -> Blanking -> Velocity Clamp -> Acceleration Clamp -> DAC. This is the
 // Transform stage: every input vertex is pushed through cfg.transform before
 // any scanner-dependent processing (corner detection, length-proportional
 // resampling, blank jumps) sees it. Corner severity and edge lengths are
@@ -877,6 +906,8 @@ size_t optimize(const PathSegment* segments, size_t segment_count,
     //     constant spacing (points = length / resample_spacing_units) when
     //     cfg.resample_enabled; feeds planSegment / emitSegment / cornerSeverity.
     //   - Corner Dwell: already active (cornerPtsAtVertex / emitSegment).
+    //   - Jitter (Phase 4): active. Deterministic perpendicular offset on
+    //     interior points, applied inline in emitSegment()'s interior loop.
     //   - Blanking: already active (emitBlankJump, Pillars 2/3).
     //   - Velocity Clamp / Acceleration Clamp (Phase 4): a post-pass over the
     //     emitted out[0..n-1] that inserts intermediate points where the

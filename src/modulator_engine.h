@@ -168,6 +168,23 @@ struct ModTypeDescriptor {
     float (*tick)(Modulator& m, uint32_t nowMs);     // raw [-1..1], pre-`level`
     void  (*trigger)(Modulator& m, uint32_t nowMs);   // nullptr if unsupported
     bool  usesShape, usesEnvelope, usesSequencer;     // UI hints
+    // Type-level UI hint: show the generic shapeParam slider for this type
+    // regardless of usesShape/wave-shape (Oscillator's shapeParam slider is
+    // instead gated per-WaveShape via WaveShapeDescriptor::supportsShapeParam
+    // -- this flag is for a type with no shape dropdown at all, e.g. Phase 4's
+    // NOISE2D, that still wants shapeParam exposed). Defaults false for all
+    // Phase 1-3 built-ins (trailing aggregate-init field -- see
+    // modulator_engine.cpp's kTypeOscillator/kTypeNoise/kTypeEnvelope/
+    // kTypeSequencer, each updated with an explicit trailing `false`).
+    //
+    // NOTE: no default member initializer here on purpose -- PlatformIO/
+    // Arduino-ESP32 builds under -std=gnu++11, where a struct with a default
+    // member initializer is no longer an aggregate and positional brace-init
+    // (`ModTypeDescriptor{...}`) stops compiling (see point_optimizer.h's
+    // PathVertex/PathSegment header comment for the same landmine). Every
+    // aggregate-init site (4 built-ins + the 2 dummy fallbacks in
+    // modulator_engine.cpp) must list this field explicitly.
+    bool  usesShapeParam;
 };
 
 struct WaveShapeDescriptor {
@@ -196,6 +213,13 @@ bool registerModTarget(const ModTargetDescriptor* d);
 const ModTypeDescriptor*   findModType  (ModType id);
 const WaveShapeDescriptor* findWaveShape(WaveShape id);
 const ModTargetDescriptor* findModTarget(ModTarget id);
+
+// Continuous, unwrapped cycle count since boot (BPM-synced or free-running
+// per m.bpmSync, scaled by m.cycles) -- the same stateless time-phase base
+// Oscillator/Noise/Sequencer tick() implementations use. Exported so a
+// foreign ModType producer (e.g. Phase 4's spatial_noise.cpp) can share the
+// exact same BPM-sync semantics instead of reimplementing them.
+float totalCycles(const Modulator& m, uint32_t nowMs);
 
 uint8_t  modTypeCount();
 const ModTypeDescriptor& modTypeAt(uint8_t i);

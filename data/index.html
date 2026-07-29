@@ -4027,12 +4027,17 @@ function renderModSlotPreview(idx) {
   }
 
   var N = 64;
+  var previewTypeDesc = modFindById(modMeta.types, m.type);
+  var previewKey = previewTypeDesc ? previewTypeDesc.key : '';
   for (var i = 0; i <= N; i++) {
     var t = i / N;
     var y;
     if (m.type === 0) {
       y = modWaveY(m.shape || 0, t, m.shapeParam);
-    } else if (m.type === 1) {
+    } else if (previewKey === 'noise' || previewKey === 'noise2d') {
+      // Approximate preview for any noise-flavored type (1D built-in NOISE,
+      // Phase 4's foreign NOISE2D) -- the small canvas doesn't need the
+      // real 2D lattice, just a representative wobble.
       y = modHash(m.noiseSeed || 0, i) * 0.5 + 0.5;
     } else if (m.envData && m.envData.pointCount > 0) {   // Envelope: multi-point breakpoint curve
       y = modEnvCurveY(m.envData, t);
@@ -4087,6 +4092,14 @@ function modSlotHtml(m, i) {
         html += '<div>Slope/Shape<br><input type="range" min="0" max="1" step="0.01" value="' + spVal +
                 '" oninput="modSetField(' + i + ',' + Q + 'shapeParam' + Q + ',this.value,true);renderModSlotPreview(' + i + ')"></div>';
       }
+    } else if (typeDesc.usesShapeParam) {
+      // Types with no shape dropdown (usesShape===false) but that still want
+      // the generic shapeParam slider -- currently only Phase 4's NOISE2D
+      // (see spatial_noise.cpp), which uses it as the noise field's Y-axis
+      // rate. Server-driven hint, same zero-WebUI-change promise as targets.
+      var spVal2 = (m.shapeParam == null) ? 0.5 : m.shapeParam;
+      html += '<div>Y-Axis Rate<br><input type="range" min="0" max="1" step="0.01" value="' + spVal2 +
+              '" oninput="modSetField(' + i + ',' + Q + 'shapeParam' + Q + ',this.value,true);renderModSlotPreview(' + i + ')"></div>';
     }
 
     html += '<div>Cycles<br><input type="range" min="0.01" max="32" step="0.01" value="' + m.cycles +
@@ -6023,6 +6036,7 @@ function optimizerSlider() {
     document.getElementById('opt-rssp-val').textContent   = document.getElementById('opt-rssp').value;
     document.getElementById('opt-rngfq-val').textContent  = (+document.getElementById('opt-rngfq').value).toFixed(1);
     document.getElementById('opt-rngdr-val').textContent  = (document.getElementById('opt-rngdr').value/100).toFixed(2);
+    document.getElementById('opt-jtam-val').textContent   = document.getElementById('opt-jtam').value;
     document.getElementById('opt-vcstp-val').textContent  = document.getElementById('opt-vcstp').value;
     document.getElementById('opt-acmax-val').textContent  = document.getElementById('opt-acmax').value;
     updateEffectivePpsDisplay();
@@ -6049,6 +6063,8 @@ async function sendOptimizerLive() {
         ringing_comp_enabled: document.getElementById('opt-ring-en').checked,
         ring_freq_hz:        +document.getElementById('opt-rngfq').value,
         ring_damping_ratio:  +document.getElementById('opt-rngdr').value/100,
+        jitter_enabled:      document.getElementById('opt-jt-en').checked,
+        jitter_amount_units: +document.getElementById('opt-jtam').value,
         vel_clamp_enabled:   document.getElementById('opt-vc-en').checked,
         max_step_units:      +document.getElementById('opt-vcstp').value,
         accel_clamp_enabled: document.getElementById('opt-ac-en').checked,
@@ -6081,6 +6097,8 @@ function resetOptimizerDefaults() {
     document.getElementById('opt-ring-en').checked = false;
     document.getElementById('opt-rngfq').value = 200;
     document.getElementById('opt-rngdr').value = 15;
+    document.getElementById('opt-jt-en').checked = false;
+    document.getElementById('opt-jtam').value = 80;
     document.getElementById('opt-vc-en').checked = false;
     document.getElementById('opt-vcstp').value = 200;
     document.getElementById('opt-ac-en').checked = false;
@@ -6273,6 +6291,8 @@ function loadOptimizerConfig(cfg) {
     setCheck('opt-ring-en', !!p.opt_ringing_comp_enabled);
     setVal('opt-rngfq', p.opt_ring_freq_hz);
     setVal('opt-rngdr', Math.round(p.opt_ring_damping_ratio*100));
+    setCheck('opt-jt-en', !!p.opt_jitter_enabled);
+    setVal('opt-jtam', Math.round(p.opt_jitter_amount_units));
     setCheck('opt-vc-en', !!p.opt_vel_clamp_enabled);
     setVal('opt-vcstp', Math.round(p.opt_max_step_units));
     setCheck('opt-ac-en', !!p.opt_accel_clamp_enabled);
@@ -6294,6 +6314,7 @@ function loadOptimizerConfig(cfg) {
     setText('opt-rssp-val',   getVal('opt-rssp'));
     setText('opt-rngfq-val',  (+getVal('opt-rngfq')).toFixed(1));
     setText('opt-rngdr-val',  (getVal('opt-rngdr')/100).toFixed(2));
+    setText('opt-jtam-val',   getVal('opt-jtam'));
     setText('opt-vcstp-val',  getVal('opt-vcstp'));
     setText('opt-acmax-val',  getVal('opt-acmax'));
     // Server-authoritative effective values (from applyPpsScaling() on the
@@ -9445,6 +9466,16 @@ document.addEventListener('wheel', (e) => {
         <span class="help-icon" title="Measured damping ratio (zeta) of the galvo ringing decay. 0 = undamped, close to 1 = barely oscillates.">?</span>
       </label>
       <input type="range" id="opt-rngdr" min="0" max="90" step="1" value="15" oninput="optimizerSlider()">
+      </div>
+
+      <div class="opt-col-block">
+      <div class="opt-group-label">Point distribution &mdash; Jitter (Phase 4)</div>
+      <label class="toggle"><input type="checkbox" id="opt-jt-en" onchange="optimizerSlider()"><span class="slider"></span>Enable jitter</label>
+
+      <label>Jitter amount (units) <code style="font-size:12px;color:var(--dim)">(jitter_amount_units)</code> <span id="opt-jtam-val" style="color:var(--accent);font-family:monospace">80</span>
+        <span class="help-icon" title="Max perpendicular offset applied to interior points, for a hand-drawn/organic outline. Deterministic per point -- a static shape wobbles the same way every frame instead of shimmering. Corners stay exact.">?</span>
+      </label>
+      <input type="range" id="opt-jtam" min="0" max="2000" step="1" value="80" oninput="optimizerSlider()">
       </div>
 
       <div class="opt-col-block">

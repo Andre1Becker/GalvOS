@@ -32,6 +32,7 @@
 #include "../modulator_engine.h"
 #include "../patterns/camera.h"
 #include "../patterns/duplicator.h"
+#include "../patterns/spatial_noise.h"
 #include "net/community_presets.h"
 #include "patterns/preset_patterns.h"
 #include "patterns/countdown_timer.h"
@@ -166,6 +167,12 @@ static void applyOptimizerOverrides(JsonObjectConst src, OptimizerLiveConfig& cf
         } else if (!strcmp(key, "ring_damping_ratio") && val.is<float>()) {
             cfg.ring_damping_ratio = constrain((float)val, 0.0f, 0.9f);
             applied["ring_damping_ratio"] = cfg.ring_damping_ratio;
+        } else if (!strcmp(key, "jitter_enabled") && val.is<bool>()) {
+            cfg.jitter_enabled = (bool)val;
+            applied["jitter_enabled"] = cfg.jitter_enabled;
+        } else if (!strcmp(key, "jitter_amount_units") && val.is<float>()) {
+            cfg.jitter_amount_units = constrain((float)val, 0.0f, 2000.0f);
+            applied["jitter_amount_units"] = cfg.jitter_amount_units;
         } else if (!strcmp(key, "vel_clamp_enabled") && val.is<bool>()) {
             cfg.vel_clamp_enabled = (bool)val;
             applied["vel_clamp_enabled"] = cfg.vel_clamp_enabled;
@@ -205,6 +212,8 @@ static void diffOptimizerOverrides(const OptimizerLiveConfig& cur,
     if (cur.ringing_comp_enabled != snap.ringing_comp_enabled) out["ringing_comp_enabled"] = cur.ringing_comp_enabled;
     if (cur.ring_freq_hz != snap.ring_freq_hz) out["ring_freq_hz"] = cur.ring_freq_hz;
     if (cur.ring_damping_ratio != snap.ring_damping_ratio) out["ring_damping_ratio"] = cur.ring_damping_ratio;
+    if (cur.jitter_enabled != snap.jitter_enabled) out["jitter_enabled"] = cur.jitter_enabled;
+    if (cur.jitter_amount_units != snap.jitter_amount_units) out["jitter_amount_units"] = cur.jitter_amount_units;
     if (cur.vel_clamp_enabled != snap.vel_clamp_enabled) out["vel_clamp_enabled"] = cur.vel_clamp_enabled;
     if (cur.max_step_units != snap.max_step_units) out["max_step_units"] = cur.max_step_units;
     if (cur.accel_clamp_enabled != snap.accel_clamp_enabled) out["accel_clamp_enabled"] = cur.accel_clamp_enabled;
@@ -423,6 +432,8 @@ static void persistConfig() {
         SAVE_B("opt_rsen",  resample_enabled);
         SAVE_F("opt_rssp",  resample_spacing_units);
         SAVE_B("opt_rngen", ringing_comp_enabled);
+        SAVE_B("opt_jten",  jitter_enabled);
+        SAVE_F("opt_jtam",  jitter_amount_units);
         SAVE_F("opt_rngfq", ring_freq_hz);
         SAVE_F("opt_rngdr", ring_damping_ratio);
         SAVE_B("opt_vcen",  vel_clamp_enabled);
@@ -638,6 +649,8 @@ static void buildConfigJson(JsonDocument& doc) {
             o["opt_ringing_comp_enabled"]         = p.ringing_comp_enabled;
             o["opt_ring_freq_hz"]                 = p.ring_freq_hz;
             o["opt_ring_damping_ratio"]           = p.ring_damping_ratio;
+            o["opt_jitter_enabled"]               = p.jitter_enabled;
+            o["opt_jitter_amount_units"]          = p.jitter_amount_units;
             o["opt_vel_clamp_enabled"]            = p.vel_clamp_enabled;
             o["opt_max_step_units"]               = p.max_step_units;
             o["opt_accel_clamp_enabled"]          = p.accel_clamp_enabled;
@@ -671,6 +684,8 @@ static void buildConfigJson(JsonDocument& doc) {
         doc["opt_ringing_comp_enabled"]         = p.ringing_comp_enabled;
         doc["opt_ring_freq_hz"]                 = p.ring_freq_hz;
         doc["opt_ring_damping_ratio"]           = p.ring_damping_ratio;
+        doc["opt_jitter_enabled"]               = p.jitter_enabled;
+        doc["opt_jitter_amount_units"]          = p.jitter_amount_units;
         doc["opt_vel_clamp_enabled"]            = p.vel_clamp_enabled;
         doc["opt_max_step_units"]               = p.max_step_units;
         doc["opt_accel_clamp_enabled"]          = p.accel_clamp_enabled;
@@ -843,6 +858,7 @@ void init() {
         modulator::init();
         camera::init();
         duplicator::init();
+        spatial_noise::init();
     }
 
     // ---- Statische SPA ----
@@ -1073,6 +1089,10 @@ void init() {
                 P.ring_freq_hz = constrain((float)doc["ring_freq_hz"], 1.0f, 2000.0f);
             if (doc["ring_damping_ratio"].is<float>())
                 P.ring_damping_ratio = constrain((float)doc["ring_damping_ratio"], 0.0f, 0.9f);
+            if (doc["jitter_enabled"].is<bool>())
+                P.jitter_enabled = (bool)doc["jitter_enabled"];
+            if (doc["jitter_amount_units"].is<float>())
+                P.jitter_amount_units = constrain((float)doc["jitter_amount_units"], 0.0f, 2000.0f);
             if (doc["vel_clamp_enabled"].is<bool>())
                 P.vel_clamp_enabled = (bool)doc["vel_clamp_enabled"];
             if (doc["max_step_units"].is<float>())

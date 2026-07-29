@@ -29,6 +29,8 @@ static inline optimizer::OptimizerConfig liveOptimizerConfig() {
     cfg.ringing_comp_enabled         = gOptimizerConfig.ringing_comp_enabled;
     cfg.ring_freq_hz                 = gOptimizerConfig.ring_freq_hz;
     cfg.ring_damping_ratio           = gOptimizerConfig.ring_damping_ratio;
+    cfg.jitter_enabled               = gOptimizerConfig.jitter_enabled;
+    cfg.jitter_amount_units          = gOptimizerConfig.jitter_amount_units;
     cfg.galvo_kpps                   = gProjection.galvo_kpps;
     cfg.transform                    = optimizer::gLiveTransform;  // Phase 3: live Z-rot + move
     cfg.vel_clamp_enabled            = gOptimizerConfig.vel_clamp_enabled;

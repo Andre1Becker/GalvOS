@@ -54,6 +54,7 @@ static bool checkOptimizerProfile(JsonObjectConst op, String& reason) {
         {"resample_spacing_units", 10.0f, 2000.0f},
         {"ring_freq_hz", 1.0f, 2000.0f},
         {"ring_damping_ratio", 0.0f, 0.9f},
+        {"jitter_amount_units", 0.0f, 2000.0f},
         {"max_step_units", 50.0f, 32767.0f},
         {"max_accel_units", 10.0f, 32767.0f},
     };
@@ -68,7 +69,7 @@ static bool checkOptimizerProfile(JsonObjectConst op, String& reason) {
         {"stage1_blank_target", 1, 100},
     };
     static const FieldB bools[] = {
-        {"resample_enabled"}, {"ringing_comp_enabled"},
+        {"resample_enabled"}, {"ringing_comp_enabled"}, {"jitter_enabled"},
         {"vel_clamp_enabled"}, {"accel_clamp_enabled"},
     };
 

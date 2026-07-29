@@ -164,6 +164,14 @@ struct OptimizerConfig {
     float    max_step_units       = OPT_DEFAULT_MAX_STEP_UNITS;      // max per-tick position delta (units/sample)
     bool     accel_clamp_enabled  = OPT_DEFAULT_ACCEL_CLAMP_ENABLED; // limit per-tick step-magnitude growth
     float    max_accel_units      = OPT_DEFAULT_MAX_ACCEL_UNITS;     // max per-tick velocity delta (units/sample^2)
+
+    // Point Distribution Modifier -- Jitter (Phase 4). Deterministic
+    // perpendicular-to-edge offset on interior points only, applied at emit
+    // time in emitSegment() -- see config.h's OPT_DEFAULT_JITTER_* comment
+    // for why this needs no changes to the planning stages. Off by default
+    // -> byte-identical to the pre-jitter optimizer.
+    bool     jitter_enabled       = OPT_DEFAULT_JITTER_ENABLED;
+    float    jitter_amount_units  = OPT_DEFAULT_JITTER_AMOUNT_UNITS; // max perpendicular offset (DAC units)
 };
 
 // Runs Pillar-1 density optimization across all given segments and writes

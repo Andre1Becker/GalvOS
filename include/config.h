@@ -80,6 +80,19 @@ constexpr uint8_t  KALEIDO_SEGMENTS_MAX = 16;  // UI slider ceiling
 #define OPT_DEFAULT_MAX_STEP_UNITS               200.0f
 #define OPT_DEFAULT_ACCEL_CLAMP_ENABLED          false
 #define OPT_DEFAULT_MAX_ACCEL_UNITS              800.0f
+// POINT DISTRIBUTION MODIFIER -- JITTER (Phase 4): a deterministic
+// perpendicular-to-edge offset applied to interior (non-corner) points at
+// emit time, for a hand-drawn/organic outline instead of a mathematically
+// exact one. Deterministic per (edge index, point-in-edge index) -- same
+// offset every frame, so a static shape gets a stable "wobble" rather than
+// shimmering noise; a moving/rotating shape carries the wobble with it.
+// Disabled by default -> output stays byte-identical to the pre-jitter
+// optimizer. Purely a post-computation perturbation of already-planned
+// point positions (see point_optimizer.cpp's emitSegment()) -- point
+// counts/budget/corner severity are all computed before jitter is applied,
+// so it needs no changes to planSegment()/cornerSeverity()/edgeInteriorCount().
+#define OPT_DEFAULT_JITTER_ENABLED               false
+#define OPT_DEFAULT_JITTER_AMOUNT_UNITS          80.0f
 
 struct OptimizerLiveConfig {
     float    corner_angle_deg             = OPT_DEFAULT_CORNER_ANGLE_DEG;
@@ -102,6 +115,8 @@ struct OptimizerLiveConfig {
     float    max_step_units               = OPT_DEFAULT_MAX_STEP_UNITS;
     bool     accel_clamp_enabled          = OPT_DEFAULT_ACCEL_CLAMP_ENABLED;
     float    max_accel_units              = OPT_DEFAULT_MAX_ACCEL_UNITS;
+    bool     jitter_enabled               = OPT_DEFAULT_JITTER_ENABLED;
+    float    jitter_amount_units          = OPT_DEFAULT_JITTER_AMOUNT_UNITS;
 };
 
 // ── OPTIMIZER PROFILES ──────────────────────────────────────────────────────
