@@ -47,6 +47,7 @@ REDACT_COLOR = (0x1A, 0x1A, 0x1A)
 DESKTOP_VIEWPORT = {"width": 1280, "height": 800}
 MOBILE_VIEWPORT = {"width": 390, "height": 844}
 NAV_WAIT_MS = 1000
+DASHBOARD_SETTLE_MS = 45000  # Dashboard telemetry/charts populate asynchronously; wait 30-60s after it becomes visible
 
 IP_RE = re.compile(r"\b\d{1,3}(\.\d{1,3}){3}\b")
 MAC_RE = re.compile(r"([0-9A-Fa-f]{2}[:\-]){5}[0-9A-Fa-f]{2}")
@@ -266,6 +267,11 @@ def main():
         page.wait_for_timeout(NAV_WAIT_MS)
 
         # ---- Full layout (desktop) ----
+        # Dashboard is the default tab; its telemetry/charts populate async
+        # over the first ~30-60s (state polling ramps up), so give it time
+        # before the first screenshot.
+        print(f"Waiting {DASHBOARD_SETTLE_MS // 1000}s for Dashboard data to settle...")
+        page.wait_for_timeout(DASHBOARD_SETTLE_MS)
         save_full_page(page, out_dir / "layout_desktop.png", "Full layout (desktop)")
 
         # ---- Full layout (mobile) ----
@@ -273,6 +279,8 @@ def main():
         page.reload(wait_until="load")
         page.wait_for_selector("#app", timeout=15000)
         page.wait_for_timeout(NAV_WAIT_MS)
+        print(f"Waiting {DASHBOARD_SETTLE_MS // 1000}s for Dashboard data to settle (mobile)...")
+        page.wait_for_timeout(DASHBOARD_SETTLE_MS)
         save_full_page(page, out_dir / "layout_mobile.png", "Full layout (mobile)")
 
         # Back to desktop viewport for every remaining shot.
@@ -280,6 +288,10 @@ def main():
         page.reload(wait_until="load")
         page.wait_for_selector("#app", timeout=15000)
         page.wait_for_timeout(NAV_WAIT_MS)
+        # Lands back on Dashboard (default tab) -- settle again before the
+        # tab_dashboard.png / card shots below.
+        print(f"Waiting {DASHBOARD_SETTLE_MS // 1000}s for Dashboard data to settle (post-reload)...")
+        page.wait_for_timeout(DASHBOARD_SETTLE_MS)
 
         card_lookup = {}
         for tab_id, heading, filename in CARD_SHOTS:
