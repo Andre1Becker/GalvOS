@@ -346,6 +346,11 @@ input[type=checkbox] { width: 20px; height: 20px; min-height: 20px; accent-color
 .slider-row { display: flex; align-items: center; gap: 10px; }
 .slider-row input[type=range] { flex: 1; }
 .slider-row output, .slider-val { font-family: var(--font-mono); min-width: 3.5em; text-align: right; color: var(--accent); }
+.slider-row input[type=number] { flex: none; width: 5.5em; min-width: 5.5em; max-width: 5.5em; text-align: center; }
+
+.param-group { border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; }
+.param-group h3 { margin-top: 0; }
+.param-hint { font-size: 0.7rem; color: var(--text-dim); margin: -2px 0 10px; }
 
 .preset-tile {
   width: 120px; height: 120px; min-width: 44px; min-height: 44px; background: var(--muted);
@@ -1004,53 +1009,62 @@ canvas { max-width: 100%; display: block; }
       <div class="card">
         <div class="row" id="opt-profile-bar" style="flex-wrap:wrap"></div>
       </div>
-      <div class="grid" style="grid-template-columns:2.4fr 1fr">
+      <div class="grid" style="grid-template-columns:3.2fr 0.5fr">
         <div class="card">
           <h2>Settings</h2>
           <div class="grid grid-3">
-            <div>
+            <div class="param-group">
               <h3>Corner Handling</h3>
-              <div class="field"><label>Corner Angle Threshold</label><input type="range" id="opt-corner-angle" min="0" max="180" value="30" oninput="optimizerSlider()"></div>
-              <div class="field"><label>Min Corner Points</label><input type="range" id="opt-min-corner-pts" min="1" max="20" value="2" oninput="optimizerSlider()"></div>
-              <div class="field"><label>Max Corner Points</label><input type="range" id="opt-max-corner-pts" min="1" max="20" value="8" oninput="optimizerSlider()"></div>
+              <div class="field"><label>Corner Angle Threshold</label><div class="slider-row"><input type="range" id="opt-corner-angle" min="0" max="180" value="30" oninput="optSyncNum('opt-corner-angle');optimizerSlider()"><input type="number" id="opt-corner-angle-n" min="0" max="180" value="30" onchange="optSyncSlider('opt-corner-angle');optimizerSlider()"></div><p class="param-hint">Minimum exterior angle to treat a vertex as a corner and add dwell points; lower values catch gentler bends too.</p></div>
+              <div class="field"><label>Min Corner Points</label><div class="slider-row"><input type="range" id="opt-min-corner-pts" min="1" max="20" value="2" oninput="optSyncNum('opt-min-corner-pts');optimizerSlider()"><input type="number" id="opt-min-corner-pts-n" min="1" max="20" value="2" onchange="optSyncSlider('opt-min-corner-pts');optimizerSlider()"></div><p class="param-hint">Dwell points added at the softest qualifying corner.</p></div>
+              <div class="field"><label>Max Corner Points</label><div class="slider-row"><input type="range" id="opt-max-corner-pts" min="1" max="20" value="8" oninput="optSyncNum('opt-max-corner-pts');optimizerSlider()"><input type="number" id="opt-max-corner-pts-n" min="1" max="20" value="8" onchange="optSyncSlider('opt-max-corner-pts');optimizerSlider()"></div><p class="param-hint">Dwell points added at the sharpest corner (a full 180&deg; reversal).</p></div>
             </div>
-            <div>
+            <div class="param-group">
               <h3>Interior Density</h3>
-              <div class="field"><label>Pts/1000 units <span id="opt-ppu-val">8.0</span></label><input type="range" id="opt-ppu" min="1" max="500" value="80" oninput="optimizerSlider()"></div>
-              <div class="field"><label>Min Segment Points</label><input type="range" id="opt-min-seg-pts" min="2" max="20" value="3" oninput="optimizerSlider()"></div>
-              <div class="field"><label>Min Interior Pts/Segment</label><input type="range" id="opt-min-interior-pts" min="0" max="50" value="2" oninput="optimizerSlider()"></div>
+              <div class="field"><label>Pts/1000 units</label><div class="slider-row"><input type="range" id="opt-ppu" min="1" max="500" value="80" oninput="optSyncNum('opt-ppu');optimizerSlider()"><input type="number" id="opt-ppu-n" data-scale="10" data-decimals="1" step="0.1" min="0.1" max="50" value="8.0" onchange="optSyncSlider('opt-ppu');optimizerSlider()"></div><p class="param-hint">Interior point density &mdash; points added per 1000 DAC units of segment length.</p></div>
+              <div class="field"><label>Min Segment Points</label><div class="slider-row"><input type="range" id="opt-min-seg-pts" min="2" max="20" value="3" oninput="optSyncNum('opt-min-seg-pts');optimizerSlider()"><input type="number" id="opt-min-seg-pts-n" min="2" max="20" value="3" onchange="optSyncSlider('opt-min-seg-pts');optimizerSlider()"></div><p class="param-hint">Minimum interior points per segment, even on very short edges.</p></div>
+              <div class="field"><label>Min Interior Pts/Segment</label><div class="slider-row"><input type="range" id="opt-min-interior-pts" min="0" max="50" value="2" oninput="optSyncNum('opt-min-interior-pts');optimizerSlider()"><input type="number" id="opt-min-interior-pts-n" min="0" max="50" value="2" onchange="optSyncSlider('opt-min-interior-pts');optimizerSlider()"></div><p class="param-hint">Interior points reserved per segment before the blank-jump budget is computed.</p></div>
             </div>
-            <div>
+            <div class="param-group">
               <h3>Frame Budget</h3>
-              <div class="field"><label>Target FPS (display only)</label><input type="range" id="opt-target-fps" min="10" max="60" value="30" oninput="optimizerUpdateLabels()"></div>
-              <div class="field"><label>Max Points/Frame</label><input type="range" id="opt-max-pts-frame" min="50" max="2048" value="800" oninput="optimizerSlider()"></div>
+              <div class="field"><label>Target FPS (display only)</label><div class="slider-row"><input type="range" id="opt-target-fps" min="10" max="60" value="30" oninput="optSyncNum('opt-target-fps');optimizerUpdateLabels()"><input type="number" id="opt-target-fps-n" min="10" max="60" value="30" onchange="optSyncSlider('opt-target-fps');optimizerUpdateLabels()"></div><p class="param-hint">Only feeds the Smart Defaults calculation below &mdash; has no direct effect of its own.</p></div>
+              <div class="field"><label>Max Points/Frame</label><div class="slider-row"><input type="range" id="opt-max-pts-frame" min="50" max="2048" value="800" oninput="optSyncNum('opt-max-pts-frame');optimizerSlider()"><input type="number" id="opt-max-pts-frame-n" min="50" max="2048" value="800" onchange="optSyncSlider('opt-max-pts-frame');optimizerSlider()"></div><p class="param-hint">Total point budget per frame; density scales down uniformly once this is exceeded.</p></div>
             </div>
-            <div>
+            <div class="param-group">
               <h3>Blank Jumps</h3>
-              <div class="field"><label>Blank Samples Max</label><input type="range" id="opt-blank-samples" min="1" max="100" value="12" oninput="optimizerSlider()"></div>
-              <div class="field"><label>Blank Samples Min</label><input type="range" id="opt-min-blank-samples" min="1" max="100" value="4" oninput="optimizerSlider()"></div>
-              <div class="field"><label>Blank Density <span id="opt-blank-ppu-val">8.0</span></label><input type="range" id="opt-blank-ppu" min="1" max="500" value="80" oninput="optimizerSlider()"></div>
-              <div class="field"><label>Stage1 Blank Target</label><input type="range" id="opt-stage1-blank" min="1" max="100" value="10" oninput="optimizerSlider()"></div>
+              <div class="field"><label>Blank Samples Max</label><div class="slider-row"><input type="range" id="opt-blank-samples" min="1" max="100" value="12" oninput="optSyncNum('opt-blank-samples');optimizerSlider()"><input type="number" id="opt-blank-samples-n" min="1" max="100" value="12" onchange="optSyncSlider('opt-blank-samples');optimizerSlider()"></div><p class="param-hint">Ceiling for distance-proportional blank-jump sample count.</p></div>
+              <div class="field"><label>Blank Samples Min</label><div class="slider-row"><input type="range" id="opt-min-blank-samples" min="1" max="100" value="4" oninput="optSyncNum('opt-min-blank-samples');optimizerSlider()"><input type="number" id="opt-min-blank-samples-n" min="1" max="100" value="4" onchange="optSyncSlider('opt-min-blank-samples');optimizerSlider()"></div><p class="param-hint">Floor for blank-jump samples, plus the landing settle dwell.</p></div>
+              <div class="field"><label>Blank Density</label><div class="slider-row"><input type="range" id="opt-blank-ppu" min="1" max="500" value="80" oninput="optSyncNum('opt-blank-ppu');optimizerSlider()"><input type="number" id="opt-blank-ppu-n" data-scale="10" data-decimals="1" step="0.1" min="0.1" max="50" value="8.0" onchange="optSyncSlider('opt-blank-ppu');optimizerSlider()"></div><p class="param-hint">Rate at which the blank-jump sample count scales with jump distance.</p></div>
+              <div class="field"><label>Stage1 Blank Target</label><div class="slider-row"><input type="range" id="opt-stage1-blank" min="1" max="100" value="10" oninput="optSyncNum('opt-stage1-blank');optimizerSlider()"><input type="number" id="opt-stage1-blank-n" min="1" max="100" value="10" onchange="optSyncSlider('opt-stage1-blank');optimizerSlider()"></div><p class="param-hint">First fallback blank-sample count when a frame goes over budget, before the hard minimum above.</p></div>
             </div>
-            <div>
-              <h3>Resample (Phase 2)</h3>
+            <div class="param-group">
+              <h3>Resample</h3>
               <label class="row"><input type="checkbox" id="opt-resample-enabled" onchange="sendOptimizerLive()"> Enabled</label>
-              <div class="field"><label>Point Spacing</label><input type="range" id="opt-resample-spacing" min="10" max="2000" value="200" oninput="optimizerSlider()"></div>
+              <p class="param-hint">Replaces length-proportional density with constant point spacing along every edge.</p>
+              <div class="field"><label>Point Spacing</label><div class="slider-row"><input type="range" id="opt-resample-spacing" min="10" max="2000" value="200" oninput="optSyncNum('opt-resample-spacing');optimizerSlider()"><input type="number" id="opt-resample-spacing-n" min="10" max="2000" value="200" onchange="optSyncSlider('opt-resample-spacing');optimizerSlider()"></div><p class="param-hint">Target spacing between resampled points, in DAC units. Only used while Resample is enabled.</p></div>
+            </div>
+            <div class="param-group">
               <h3>Ringing Compensation</h3>
               <label class="row"><input type="checkbox" id="opt-ringing-enabled" onchange="sendOptimizerLive()"> Enabled</label>
-              <div class="field"><label>Frequency Hz</label><input type="range" id="opt-ring-freq" min="1" max="2000" value="60" oninput="optimizerSlider()"></div>
-              <div class="field"><label>Damping Ratio <span id="opt-ring-damping-val">0.50</span></label><input type="range" id="opt-ring-damping" min="0" max="90" value="50" oninput="optimizerSlider()"></div>
+              <p class="param-hint">Zero-Vibration (ZV) input shaping on blank jumps &mdash; measure your galvo's resonance before enabling.</p>
+              <div class="field"><label>Frequency Hz</label><div class="slider-row"><input type="range" id="opt-ring-freq" min="1" max="2000" value="60" oninput="optSyncNum('opt-ring-freq');optimizerSlider()"><input type="number" id="opt-ring-freq-n" min="1" max="2000" value="60" onchange="optSyncSlider('opt-ring-freq');optimizerSlider()"></div><p class="param-hint">Galvo mechanical resonant frequency in Hz &mdash; must be measured on real hardware.</p></div>
+              <div class="field"><label>Damping Ratio</label><div class="slider-row"><input type="range" id="opt-ring-damping" min="0" max="90" value="50" oninput="optSyncNum('opt-ring-damping');optimizerSlider()"><input type="number" id="opt-ring-damping-n" data-scale="100" data-decimals="2" step="0.01" min="0" max="0.9" value="0.50" onchange="optSyncSlider('opt-ring-damping');optimizerSlider()"></div><p class="param-hint">Galvo damping ratio &zeta; &mdash; must be measured on real hardware (typical 0.05&ndash;0.3).</p></div>
             </div>
-            <div>
-              <h3>Jitter (Phase 4)</h3>
+            <div class="param-group">
+              <h3>Jitter</h3>
               <label class="row"><input type="checkbox" id="opt-jitter-enabled" onchange="sendOptimizerLive()"> Enabled</label>
-              <div class="field"><label>Amount</label><input type="range" id="opt-jitter-amount" min="0" max="2000" value="0" oninput="optimizerSlider()"></div>
+              <p class="param-hint">Perpendicular point displacement for a hand-drawn line texture instead of laser-perfect edges.</p>
+              <div class="field"><label>Amount</label><div class="slider-row"><input type="range" id="opt-jitter-amount" min="0" max="2000" value="0" oninput="optSyncNum('opt-jitter-amount');optimizerSlider()"><input type="number" id="opt-jitter-amount-n" min="0" max="2000" value="0" onchange="optSyncSlider('opt-jitter-amount');optimizerSlider()"></div><p class="param-hint">Maximum perpendicular jitter offset, in DAC units.</p></div>
+            </div>
+            <div class="param-group">
               <h3>Scanner Protection</h3>
               <label class="row"><input type="checkbox" id="opt-vel-clamp-enabled" onchange="sendOptimizerLive()"> Velocity Clamp</label>
-              <div class="field"><label>Max Step</label><input type="range" id="opt-max-step" min="50" max="32767" value="4000" oninput="optimizerSlider()"></div>
+              <p class="param-hint">Subdivides any lit step exceeding Max Step so the galvo is never asked to jump further than it can follow in one tick.</p>
+              <div class="field"><label>Max Step</label><div class="slider-row"><input type="range" id="opt-max-step" min="50" max="32767" value="4000" oninput="optSyncNum('opt-max-step');optimizerSlider()"><input type="number" id="opt-max-step-n" min="50" max="32767" value="4000" onchange="optSyncSlider('opt-max-step');optimizerSlider()"></div></div>
               <p id="opt-eff-step" style="font-size:0.7rem;color:var(--text-dim)"></p>
               <label class="row"><input type="checkbox" id="opt-accel-clamp-enabled" onchange="sendOptimizerLive()"> Acceleration Clamp</label>
-              <div class="field"><label>Max Accel</label><input type="range" id="opt-max-accel" min="10" max="32767" value="4000" oninput="optimizerSlider()"></div>
+              <p class="param-hint">Limits how quickly commanded velocity can change between ticks, to avoid exciting galvo resonance.</p>
+              <div class="field"><label>Max Accel</label><div class="slider-row"><input type="range" id="opt-max-accel" min="10" max="32767" value="4000" oninput="optSyncNum('opt-max-accel');optimizerSlider()"><input type="number" id="opt-max-accel-n" min="10" max="32767" value="4000" onchange="optSyncSlider('opt-max-accel');optimizerSlider()"></div></div>
               <p id="opt-eff-accel" style="font-size:0.7rem;color:var(--text-dim)"></p>
             </div>
           </div>
@@ -1365,7 +1379,7 @@ canvas { max-width: 100%; display: block; }
 /* =========================================================================
    GLOBAL STATE
    ========================================================================= */
-var UI_VERSION = '1.4.1';   // WebUI version -- independent from firmware version
+var UI_VERSION = '1.5.0';   // WebUI version -- independent from firmware version
 var NAV_TABS = [
   {id: 'dashboard', label: 'Dashboard', icon: '🏠', bottom: true},
   {id: 'presets', label: 'Presets', icon: '🎮', bottom: true},
@@ -4036,7 +4050,7 @@ function loadOptimizerConfig(c) {
   g_optProfileMembers = c.opt_profile_members || [];
   var p = (c.opt_profiles && c.opt_profiles[g_activeOptimizerProfile]) || c;
   var pfx = c.opt_profiles ? '' : 'opt_';
-  var setv = function(id, v) { var el = document.getElementById(id); if (el && v !== undefined) el.value = v; };
+  var setv = function(id, v) { var el = document.getElementById(id); if (el && v !== undefined) { el.value = v; optSyncNum(id); } };
   setv('opt-corner-angle', p[pfx + 'corner_angle_deg']);
   setv('opt-min-corner-pts', p[pfx + 'min_corner_pts']);
   setv('opt-max-corner-pts', p[pfx + 'max_corner_pts']);
@@ -4065,11 +4079,20 @@ function loadOptimizerConfig(c) {
   optimizerUpdateLabels();
   renderOptimizerMembers();
 }
+function optSyncNum(id) {
+  var s = document.getElementById(id), n = document.getElementById(id + '-n');
+  if (!s || !n) return;
+  var scale = parseFloat(n.dataset.scale || '1');
+  var decimals = n.dataset.decimals !== undefined ? parseInt(n.dataset.decimals) : 0;
+  n.value = (parseFloat(s.value) / scale).toFixed(decimals);
+}
+function optSyncSlider(id) {
+  var s = document.getElementById(id), n = document.getElementById(id + '-n');
+  if (!s || !n) return;
+  var scale = parseFloat(n.dataset.scale || '1');
+  s.value = Math.round(parseFloat(n.value || '0') * scale);
+}
 function optimizerUpdateLabels() {
-  var setl = function(id, v) { var el = document.getElementById(id); if (el) el.textContent = v; };
-  setl('opt-ppu-val', (domVal('opt-ppu', 80) / 10).toFixed(1));
-  setl('opt-blank-ppu-val', (domVal('opt-blank-ppu', 80) / 10).toFixed(1));
-  setl('opt-ring-damping-val', (domVal('opt-ring-damping', 50) / 100).toFixed(2));
   updateEffectivePpsDisplay(null, null);
 }
 function optimizerSlider() {
@@ -4111,7 +4134,7 @@ function applyOptimizerSmartDefaults() {
   var targetFps = domVal('opt-target-fps', base.fps) || base.fps;
   var ratio = s_galvoRatedKpps / (outputKpps || 30);
   var maxPtsFrame = Math.max(60, Math.min(2048, Math.round(outputKpps * 1000 / targetFps)));
-  var setv = function(id, v) { var el = document.getElementById(id); if (el) el.value = v; };
+  var setv = function(id, v) { var el = document.getElementById(id); if (el) { el.value = v; optSyncNum(id); } };
   setv('opt-corner-angle', base.cad); setv('opt-min-corner-pts', base.mincp); setv('opt-max-corner-pts', base.maxcp);
   setv('opt-ppu', Math.round(base.ppu / ratio * 10)); setv('opt-min-seg-pts', 3);
   setv('opt-blank-samples', base.blank); setv('opt-max-pts-frame', maxPtsFrame);
@@ -4122,7 +4145,7 @@ function applyOptimizerSmartDefaults() {
   toast('Smart defaults applied');
 }
 function resetOptimizerDefaults() {
-  var setv = function(id, v) { var el = document.getElementById(id); if (el) el.value = v; };
+  var setv = function(id, v) { var el = document.getElementById(id); if (el) { el.value = v; optSyncNum(id); } };
   setv('opt-corner-angle', 30); setv('opt-min-corner-pts', 2); setv('opt-max-corner-pts', 8);
   setv('opt-ppu', 80); setv('opt-min-seg-pts', 3); setv('opt-blank-samples', 12); setv('opt-max-pts-frame', 800);
   setv('opt-min-blank-samples', 4); setv('opt-blank-ppu', 80); setv('opt-min-interior-pts', 2); setv('opt-stage1-blank', 10);
