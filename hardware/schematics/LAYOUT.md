@@ -1,8 +1,10 @@
 # Laser Controller PCB — layout notes
 
-Board: **118 × 90 mm, 2 layers**. Placement is done and DRC-clean; **routing is
-not done** — 92 signal connections are still open. Both ground nets are already
-complete via copper pours.
+Board: **118 × 90 mm, 2 layers**. Placement is done, and the board is now
+**fully routed** (274 tracks, 10 vias, no unconnected items) via Freerouting.
+**It is not fab-ready yet** — 31 clearance violations remain, all of them where
+the autorouter squeezed traces between fine-pitch SMD pads. See
+[Routing status](#routing-status).
 
 ## Floor plan
 
@@ -40,10 +42,39 @@ complete via copper pours.
   ground pads no pour can reach, so pins 3/4 run to a via down to the AGND
   plane.
 
+## Routing status
+
+Routed with Freerouting 2.0.1 via the KiCAD MCP server. Track widths: signals
+0.2 mm, +3V3 / grounds 0.5 mm, ±15 V and 5 V rails 0.6 mm (widened after import,
+see below). Design rules: 0.2 mm clearance, 0.2 mm minimum track.
+
+**31 clearance violations remain, 20 of them below 0.10 mm** — near-shorts, not
+cosmetic. They cluster on exactly two parts:
+
+| Location | Part | Violations |
+| --- | --- | --- |
+| ~(55, 30) | U2 — DAC8562, 0.5 mm-pitch VSSOP | 9 |
+| ~(25–35, 20–30) | U12 — OPA4134, SOIC-14 | 7 |
+| scattered | opto block, misc | 15 |
+
+Freerouting routes between fine-pitch pads where there is no room. **Rip up and
+hand-route the fanouts of U2 and U12 before fabricating.** Doing the analog
+section by hand is worth it anyway: an autorouter has no notion of keeping the
+op-amp feedback loops short or respecting the AGND/GND split.
+
+Two quirks worth knowing if you re-run the autorouter:
+
+- Freerouting exports at a fixed `(width 200) (clearance 200)` and drops every
+  net into one `kicad_default` class — the `Power` net class in the
+  `.kicad_pro` does **not** reach it (`assignments: 0`). Power widths here were
+  applied *after* the SES import, not during routing.
+- The SES import leaves the copper pours unfilled, so DRC reports a flood of
+  bogus zero-clearance errors (283 in the first run). Refill zones first, then
+  read the DRC.
+
 ## Before this goes to a fab
 
-1. **Route the remaining 92 connections.** KiCad has no autorouter; this is
-   manual work.
+1. **Fix the 31 clearance violations** — see above; U2 and U12 need hand-routing.
 2. **Decide how the SD card attaches.** `Connector_Card:SD_Card_Device_16mm_SlotDepth`
    is a DIY pad field — its stock Edge.Cuts "slot" would cut away the very
    copper the card contacts, so those cuts were stripped and the board is a
