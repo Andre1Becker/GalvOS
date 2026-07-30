@@ -27,7 +27,9 @@
     "vel_clamp_enabled": false,
     "max_step_units": 200.0,
     "accel_clamp_enabled": false,
-    "max_accel_units": 800.0
+    "max_accel_units": 800.0,
+    "jitter_enabled": false,
+    "jitter_amount_units": 80.0
   },
   "preset_params": {
     "preset_idx": 74,
