@@ -4654,6 +4654,145 @@
 			)
 			(embedded_fonts no)
 		)
+		(symbol "power:+3V3"
+			(power global)
+			(pin_numbers
+				(hide yes)
+			)
+			(pin_names
+				(offset 0)
+				(hide yes)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" "#PWR"
+				(at 0 -3.81 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" "+3V3"
+				(at 0 3.556 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" "Power symbol creates a global label with name \"+3V3\""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "ki_keywords" "global power"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "+3V3_0_1"
+				(polyline
+					(pts
+						(xy -0.762 1.27) (xy 0 2.54)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 0 2.54) (xy 0.762 1.27)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 0 0) (xy 0 2.54)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(symbol "+3V3_1_1"
+				(pin power_in line
+					(at 0 0 90)
+					(length 0)
+					(name ""
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
 		(symbol "power:+5V"
 			(power global)
 			(pin_numbers
@@ -5138,6 +5277,121 @@
 			)
 			(embedded_fonts no)
 		)
+		(symbol "power:PWR_FLAG"
+			(power global)
+			(pin_numbers
+				(hide yes)
+			)
+			(pin_names
+				(offset 0)
+				(hide yes)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" "#FLG"
+				(at 0 1.905 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" "PWR_FLAG"
+				(at 0 3.81 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" "Special symbol for telling ERC where power comes from"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "ki_keywords" "flag power"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "PWR_FLAG_0_0"
+				(pin power_out line
+					(at 0 0 90)
+					(length 0)
+					(name ""
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(symbol "PWR_FLAG_0_1"
+				(polyline
+					(pts
+						(xy 0 0) (xy 0 1.27) (xy -1.016 1.905) (xy 0 2.54) (xy 1.016 1.905) (xy 0 1.27)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
 	)
 	(rectangle
 		(start 43.18 115.57)
@@ -5179,6 +5433,17 @@
 		)
 		(uuid "05f0efcc-16d8-4418-810c-c767e3efa79b")
 	)
+	(text "SUPPLY INLETS"
+		(exclude_from_sim no)
+		(at 78.74 326.39 0)
+		(effects
+			(font
+				(size 2 2)
+			)
+			(justify left bottom)
+		)
+		(uuid "061d612d-aa49-452c-87f2-e049106b9aac")
+	)
 	(text "Y"
 		(exclude_from_sim no)
 		(at 48.26 128.524 0)
@@ -5211,6 +5476,17 @@
 		)
 		(uuid "2cdbc9b2-1c10-45c7-8aa9-064d4b1d2c9d")
 	)
+	(text "FAIL-SAFE PULL-UPS - laser OFF on boot/crash"
+		(exclude_from_sim no)
+		(at 330.2 326.39 0)
+		(effects
+			(font
+				(size 2 2)
+			)
+			(justify left bottom)
+		)
+		(uuid "3f656313-39fb-446d-b687-f75ac92c9eea")
+	)
 	(text "B"
 		(exclude_from_sim no)
 		(at 440.69 253.492 0)
@@ -5220,6 +5496,17 @@
 			)
 		)
 		(uuid "84abaedc-e21a-4754-a1e5-edbe844dcfec")
+	)
+	(text "RAIL FLAGS (ERC)"
+		(exclude_from_sim no)
+		(at 160.02 326.39 0)
+		(effects
+			(font
+				(size 2 2)
+			)
+			(justify left bottom)
+		)
+		(uuid "872e4754-f6f5-4265-b9a2-5a22f43befe1")
 	)
 	(text "R"
 		(exclude_from_sim no)
@@ -5252,10 +5539,10 @@
 		(uuid "fcd05fd1-7600-4f2a-b069-bd58029e33fc")
 	)
 	(junction
-		(at 134.62 130.81)
+		(at 76.2 107.95)
 		(diameter 0)
 		(color 0 0 0 0)
-		(uuid "042cf470-6c9b-4946-bdbc-32b63a325b62")
+		(uuid "02572e32-39f7-48c9-ba0a-cc5e1ce6b759")
 	)
 	(junction
 		(at 365.76 177.8)
@@ -5310,6 +5597,12 @@
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "2cbeca49-9016-4b0d-9710-2f0c3bd69a95")
+	)
+	(junction
+		(at 142.24 92.71)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "3258c943-6bf7-4978-8ebc-69707d87d9a8")
 	)
 	(junction
 		(at 373.38 313.69)
@@ -5438,12 +5731,6 @@
 		(uuid "6edfeac1-d928-45ab-b67e-0b52420674ab")
 	)
 	(junction
-		(at 115.57 110.49)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "72903d68-90a2-403d-8f76-0cd28562fd51")
-	)
-	(junction
 		(at 441.96 251.46)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -5486,18 +5773,6 @@
 		(uuid "8d5f1680-13da-474b-883e-88bd8f4f1c8a")
 	)
 	(junction
-		(at 139.7 130.81)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "919251e4-f405-4ff8-a3f3-6572351d3618")
-	)
-	(junction
-		(at 187.96 252.73)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "963cb94d-8cf3-47a1-891f-479fc5f9374c")
-	)
-	(junction
 		(at 450.85 313.69)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -5508,12 +5783,6 @@
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "9bea0e25-b9a8-4e29-a70f-2318a3725f19")
-	)
-	(junction
-		(at 175.26 130.81)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "9c32cdc4-8351-4ad9-bc23-c02ffb206dbf")
 	)
 	(junction
 		(at 402.59 204.47)
@@ -5546,6 +5815,12 @@
 		(uuid "b271470f-c80e-454d-b88b-bf48bef1c8ec")
 	)
 	(junction
+		(at 250.19 278.13)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "b8c341a9-9340-4651-bfc0-03ff9b1e7f93")
+	)
+	(junction
 		(at 340.36 181.61)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -5570,10 +5845,10 @@
 		(uuid "c303a1e8-7440-4591-b65f-2f0f6bdab120")
 	)
 	(junction
-		(at 187.96 165.1)
+		(at 142.24 123.19)
 		(diameter 0)
 		(color 0 0 0 0)
-		(uuid "c3419153-84f0-481d-b54a-357409c8c6f7")
+		(uuid "c36d3546-2283-457a-95a2-f499ab87efe3")
 	)
 	(junction
 		(at 415.29 228.6)
@@ -5586,12 +5861,6 @@
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "c6e8750d-6ac8-49a5-be3d-c2c41e9cfc21")
-	)
-	(junction
-		(at 113.03 278.13)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "c89d508e-ef6c-460f-b9c6-36a76073413e")
 	)
 	(junction
 		(at 391.16 290.83)
@@ -5628,12 +5897,6 @@
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "d7e3452d-0f71-44cc-95b0-c80ea9edd351")
-	)
-	(junction
-		(at 176.53 160.02)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "dbc73691-4868-4742-8256-c16b67a01753")
 	)
 	(junction
 		(at 347.98 207.01)
@@ -5718,10 +5981,6 @@
 	(no_connect
 		(at 281.94 217.17)
 		(uuid "61cfe7d0-6713-460f-9410-d2380fe71bb2")
-	)
-	(no_connect
-		(at 177.8 105.41)
-		(uuid "63b65e73-f6f5-44bc-b039-e6647779f857")
 	)
 	(no_connect
 		(at 325.12 198.12)
@@ -5861,6 +6120,16 @@
 	)
 	(wire
 		(pts
+			(xy 83.82 335.28) (xy 77.47 335.28)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "027b90df-b6f7-463e-ab51-0a61f2b689e4")
+	)
+	(wire
+		(pts
 			(xy 184.15 110.49) (xy 177.8 110.49)
 		)
 		(stroke
@@ -5981,6 +6250,16 @@
 	)
 	(wire
 		(pts
+			(xy 83.82 355.6) (xy 77.47 355.6)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "0d1a3573-1b3b-476f-b6a5-4b9e15177dd5")
+	)
+	(wire
+		(pts
 			(xy 406.4 255.27) (xy 415.29 255.27)
 		)
 		(stroke
@@ -5988,6 +6267,16 @@
 			(type default)
 		)
 		(uuid "0d4ca75a-0459-487c-b7e3-32dc1d0f8713")
+	)
+	(wire
+		(pts
+			(xy 139.7 92.71) (xy 142.24 92.71)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "0dec0a41-23cf-4af8-9948-a36cbc0aab94")
 	)
 	(wire
 		(pts
@@ -6048,6 +6337,16 @@
 			(type default)
 		)
 		(uuid "12efa694-5b3e-4ac5-8d3b-343bb0545d5e")
+	)
+	(wire
+		(pts
+			(xy 261.62 332.74) (xy 261.62 337.82)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "143e3bd4-2942-476c-b03d-d058f845b6fb")
 	)
 	(wire
 		(pts
@@ -6211,6 +6510,16 @@
 	)
 	(wire
 		(pts
+			(xy 83.82 358.14) (xy 77.47 358.14)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "246290af-d83b-47a0-b252-dfb5135bf5c4")
+	)
+	(wire
+		(pts
 			(xy 129.54 110.49) (xy 142.24 110.49)
 		)
 		(stroke
@@ -6261,6 +6570,16 @@
 	)
 	(wire
 		(pts
+			(xy 83.82 363.22) (xy 77.47 363.22)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "2b5a6fad-341b-46d7-abfc-4e9c7b0a3bc6")
+	)
+	(wire
+		(pts
 			(xy 468.63 290.83) (xy 468.63 292.1)
 		)
 		(stroke
@@ -6281,6 +6600,16 @@
 	)
 	(wire
 		(pts
+			(xy 330.2 341.63) (xy 330.2 336.55)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "30d05818-a2e2-4648-baff-d548aa11deac")
+	)
+	(wire
+		(pts
 			(xy 234.95 265.43) (xy 234.95 267.97)
 		)
 		(stroke
@@ -6291,16 +6620,6 @@
 	)
 	(wire
 		(pts
-			(xy 177.8 123.19) (xy 177.8 130.81)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "30d3e1df-571c-4f10-8a33-0dcf73faec67")
-	)
-	(wire
-		(pts
 			(xy 133.35 143.51) (xy 302.26 143.51)
 		)
 		(stroke
@@ -6308,6 +6627,16 @@
 			(type default)
 		)
 		(uuid "316cd466-f71a-4c2f-ae75-82e8e328ca5d")
+	)
+	(wire
+		(pts
+			(xy 83.82 360.68) (xy 77.47 360.68)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "32316e90-c2c7-4b4b-b7dc-fea2d4b24f2d")
 	)
 	(wire
 		(pts
@@ -6381,6 +6710,16 @@
 	)
 	(wire
 		(pts
+			(xy 350.52 341.63) (xy 350.52 336.55)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "365b7855-e718-4006-9bb7-5b0445dd1950")
+	)
+	(wire
+		(pts
 			(xy 441.96 251.46) (xy 444.5 251.46)
 		)
 		(stroke
@@ -6428,16 +6767,6 @@
 			(type default)
 		)
 		(uuid "383cb859-0b3d-41c4-aac3-74b58a89e59f")
-	)
-	(wire
-		(pts
-			(xy 139.7 90.17) (xy 139.7 92.71)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "3867bef5-edc7-40ba-9e7a-db848e7ed60c")
 	)
 	(wire
 		(pts
@@ -6501,16 +6830,6 @@
 	)
 	(wire
 		(pts
-			(xy 115.57 110.49) (xy 115.57 130.81)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "3cf67fd4-3815-48d5-8c8c-5a4e8c273da0")
-	)
-	(wire
-		(pts
 			(xy 284.48 245.11) (xy 281.94 245.11)
 		)
 		(stroke
@@ -6548,16 +6867,6 @@
 			(type default)
 		)
 		(uuid "3eeb0d1e-74b4-4ec5-bf0c-133c0fc65736")
-	)
-	(wire
-		(pts
-			(xy 187.96 165.1) (xy 223.52 165.1)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "3eef46cb-fafb-4e64-b0ef-c7ab9b40516a")
 	)
 	(wire
 		(pts
@@ -6651,6 +6960,16 @@
 	)
 	(wire
 		(pts
+			(xy 312.42 332.74) (xy 312.42 337.82)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "453e7cca-dbe3-49bd-9e4b-db3ae27deced")
+	)
+	(wire
+		(pts
 			(xy 476.25 313.69) (xy 476.25 299.72)
 		)
 		(stroke
@@ -6658,16 +6977,6 @@
 			(type default)
 		)
 		(uuid "46824a1b-e473-4cfa-bd38-87279c796bcd")
-	)
-	(wire
-		(pts
-			(xy 177.8 130.81) (xy 175.26 130.81)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "46b441b0-02a9-4287-bc10-71d517ddfb3a")
 	)
 	(wire
 		(pts
@@ -6801,16 +7110,6 @@
 	)
 	(wire
 		(pts
-			(xy 134.62 130.81) (xy 139.7 130.81)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "5128fdf9-ae20-4956-9584-2f3e936c5e32")
-	)
-	(wire
-		(pts
 			(xy 231.14 165.1) (xy 234.95 165.1)
 		)
 		(stroke
@@ -6818,6 +7117,16 @@
 			(type default)
 		)
 		(uuid "521277c5-360b-4bd4-829f-9558b17cf722")
+	)
+	(wire
+		(pts
+			(xy 210.82 332.74) (xy 210.82 337.82)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "52478ee9-38a5-4768-8f86-06aed178f861")
 	)
 	(wire
 		(pts
@@ -6948,16 +7257,6 @@
 			(type default)
 		)
 		(uuid "60921c5d-36b4-42c9-ab0d-2964a0fb8b90")
-	)
-	(wire
-		(pts
-			(xy 139.7 90.17) (xy 134.62 90.17)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "617905d4-52c2-4c05-8140-d744cd05bdee")
 	)
 	(wire
 		(pts
@@ -7151,13 +7450,13 @@
 	)
 	(wire
 		(pts
-			(xy 187.96 165.1) (xy 187.96 252.73)
+			(xy 83.82 332.74) (xy 77.47 332.74)
 		)
 		(stroke
 			(width 0)
 			(type default)
 		)
-		(uuid "71f987d9-5f25-4752-8a06-1dcb6af0c49a")
+		(uuid "713b95d3-9a3d-43a2-bb73-c08564b38158")
 	)
 	(wire
 		(pts
@@ -7301,6 +7600,16 @@
 	)
 	(wire
 		(pts
+			(xy 236.22 332.74) (xy 236.22 337.82)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "7a0e4626-edab-422e-85f9-02541eb0e00b")
+	)
+	(wire
+		(pts
 			(xy 304.8 255.27) (xy 281.94 255.27)
 		)
 		(stroke
@@ -7328,6 +7637,16 @@
 			(type default)
 		)
 		(uuid "7dbab389-bbd7-4642-8bfa-9da778056dc0")
+	)
+	(wire
+		(pts
+			(xy 250.19 271.78) (xy 250.19 278.13)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "7dfa96ae-dfca-4b3a-9697-4c8866f5ab51")
 	)
 	(wire
 		(pts
@@ -7571,16 +7890,6 @@
 	)
 	(wire
 		(pts
-			(xy 113.03 278.13) (xy 187.96 278.13)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "9402cfd9-91c6-4760-9230-abb6e21cf87f")
-	)
-	(wire
-		(pts
 			(xy 365.76 290.83) (xy 365.76 294.64)
 		)
 		(stroke
@@ -7588,6 +7897,16 @@
 			(type default)
 		)
 		(uuid "9543a7c1-c3a7-44d1-bdf3-0ffe4384380d")
+	)
+	(wire
+		(pts
+			(xy 370.84 341.63) (xy 370.84 336.55)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "9584523c-264a-467d-8f1e-a0d35b39e773")
 	)
 	(wire
 		(pts
@@ -7618,16 +7937,6 @@
 			(type default)
 		)
 		(uuid "9cbd5931-9a1f-4c28-ae06-e560271ff7b4")
-	)
-	(wire
-		(pts
-			(xy 115.57 130.81) (xy 134.62 130.81)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "9f96a9b0-98cd-4cfe-8e6c-d409266706ba")
 	)
 	(wire
 		(pts
@@ -7708,6 +8017,26 @@
 			(type default)
 		)
 		(uuid "a775c402-744d-4717-a3d3-6a0bcf694328")
+	)
+	(wire
+		(pts
+			(xy 139.7 123.19) (xy 142.24 123.19)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "a93ca4e4-3fa2-4314-8b3a-28d127d77332")
+	)
+	(wire
+		(pts
+			(xy 176.53 160.02) (xy 234.95 160.02)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "aae2da2f-a58e-4449-a155-359f03e9564b")
 	)
 	(wire
 		(pts
@@ -7818,6 +8147,16 @@
 			(type default)
 		)
 		(uuid "b7b1ec9b-5883-42b3-a561-8b2eca0c6eb2")
+	)
+	(wire
+		(pts
+			(xy 185.42 332.74) (xy 185.42 337.82)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "b7d63257-eb4b-4537-8e6f-789d136512d0")
 	)
 	(wire
 		(pts
@@ -7981,16 +8320,6 @@
 	)
 	(wire
 		(pts
-			(xy 187.96 137.16) (xy 187.96 165.1)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "c917b454-acac-4039-8cb5-3d39f76879f6")
-	)
-	(wire
-		(pts
 			(xy 441.96 274.32) (xy 441.96 251.46)
 		)
 		(stroke
@@ -8111,6 +8440,16 @@
 	)
 	(wire
 		(pts
+			(xy 287.02 332.74) (xy 287.02 337.82)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "d11d5e8b-c064-421d-a0f3-c2c615c53890")
+	)
+	(wire
+		(pts
 			(xy 292.1 190.5) (xy 292.1 209.55)
 		)
 		(stroke
@@ -8211,23 +8550,13 @@
 	)
 	(wire
 		(pts
-			(xy 139.7 123.19) (xy 139.7 130.81)
+			(xy 203.2 137.16) (xy 203.2 146.05)
 		)
 		(stroke
 			(width 0)
 			(type default)
 		)
-		(uuid "da7fcddb-203d-4575-a8fe-a888508965a1")
-	)
-	(wire
-		(pts
-			(xy 139.7 130.81) (xy 175.26 130.81)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "dac63012-4b42-4267-bd7e-c960ded1b775")
+		(uuid "da917d2b-266f-4fad-92ba-e01410a47293")
 	)
 	(wire
 		(pts
@@ -8248,6 +8577,16 @@
 			(type default)
 		)
 		(uuid "dced0174-b0d3-43c4-842c-4ad3f0c232c2")
+	)
+	(wire
+		(pts
+			(xy 76.2 115.57) (xy 76.2 120.65)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "dd1f047f-a151-4773-a2ff-1a562b73420c")
 	)
 	(wire
 		(pts
@@ -8321,16 +8660,6 @@
 	)
 	(wire
 		(pts
-			(xy 175.26 160.02) (xy 234.95 160.02)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "e64968f0-1576-48dc-8a15-143bd313673f")
-	)
-	(wire
-		(pts
 			(xy 220.98 201.93) (xy 220.98 204.47)
 		)
 		(stroke
@@ -8338,16 +8667,6 @@
 			(type default)
 		)
 		(uuid "e64c2b5d-5395-41c4-94ca-24a0bcfc63a1")
-	)
-	(wire
-		(pts
-			(xy 203.2 137.16) (xy 187.96 137.16)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "e965dcc2-3857-4d49-90ba-08aa3b5e30ff")
 	)
 	(wire
 		(pts
@@ -8481,16 +8800,6 @@
 	)
 	(wire
 		(pts
-			(xy 134.62 90.17) (xy 134.62 130.81)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "f8901cfd-ae0d-44c1-b691-6be37876cefb")
-	)
-	(wire
-		(pts
 			(xy 293.37 154.94) (xy 293.37 133.35)
 		)
 		(stroke
@@ -8571,16 +8880,6 @@
 	)
 	(wire
 		(pts
-			(xy 175.26 160.02) (xy 175.26 130.81)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "fe6ecb81-da65-4543-81b6-710b0df51c99")
-	)
-	(wire
-		(pts
 			(xy 415.29 245.11) (xy 439.42 245.11)
 		)
 		(stroke
@@ -8598,6 +8897,16 @@
 			(type default)
 		)
 		(uuid "ff88cfd3-54ce-4e78-a31b-c6d0465c4772")
+	)
+	(wire
+		(pts
+			(xy 160.02 332.74) (xy 160.02 337.82)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "ffdc7777-a8b8-409f-9339-a29f9beadea1")
 	)
 	(image
 		(at 161.29 50.8)
@@ -9568,6 +9877,205 @@
 			"AAAASUVORK5CYII="
 		)
 	)
+	(label "GPIO21"
+		(at 284.48 245.11 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "00e4a122-e3d6-4db0-b3c5-7744f77cec77")
+	)
+	(label "VREF_BUF"
+		(at 181.61 113.03 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "0cf26db3-f914-495e-9b5c-a357ead09b0d")
+	)
+	(label "+5V_MCU"
+		(at 312.42 332.74 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "399ee035-fc55-4a5f-870a-14bcbdfdcf55")
+	)
+	(label "+3V3"
+		(at 223.52 165.1 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right bottom)
+		)
+		(uuid "65e3c25c-dfaf-4a9d-8744-2c81f2cc6866")
+	)
+	(label "GPIO8"
+		(at 350.52 349.25 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "80c47cb7-ab5a-4bcb-b6b6-bfa645224143")
+	)
+	(label "GPIO8"
+		(at 234.95 229.87 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right bottom)
+		)
+		(uuid "91fed17b-a126-4272-825e-85eb75c4118f")
+	)
+	(label "GPIO7"
+		(at 234.95 217.17 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right bottom)
+		)
+		(uuid "9c1964a0-276c-46ef-b782-613cf12f8e0a")
+	)
+	(label "GPIO21"
+		(at 370.84 349.25 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "b012f6a9-5b78-4e61-b84c-c4b013831e9a")
+	)
+	(label "+3V3"
+		(at 210.82 137.16 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "b740bb1a-7ad8-4b49-8001-38d7115b1084")
+	)
+	(label "VREF_BUF"
+		(at 115.57 110.49 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right bottom)
+		)
+		(uuid "ccff2d71-523b-4f62-932c-3b70095d06f6")
+	)
+	(label "GPIO7"
+		(at 330.2 349.25 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "e21ace8e-da21-4519-a1d2-4cbb8018047b")
+	)
+	(label "+5V_MCU"
+		(at 187.96 265.43 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "f3cd1680-337b-40f3-80e9-99de651e018b")
+	)
+	(symbol
+		(lib_id "power:GNDA")
+		(at 177.8 105.41 270)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "03561f2c-5098-4ae5-87d4-2cb57457993e")
+		(property "Reference" "#PWR11"
+			(at 177.8 102.41 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "AGND (from Galvo Board)"
+			(at 177.8 108.41 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" ""
+			(at 176.53 294.64 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 176.53 294.64 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"GNDA\" , analog ground"
+			(at 176.53 294.64 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "38d06f6a-822c-446a-ba9d-9b10587102a7")
+		)
+		(instances
+			(project ""
+				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
+					(reference "#PWR11")
+					(unit 1)
+				)
+			)
+		)
+	)
 	(symbol
 		(lib_id "Device:R")
 		(at 121.92 133.35 270)
@@ -9642,7 +10150,7 @@
 			(uuid "9f4a2e7b-0570-4a08-8b5a-359eecca53e3")
 		)
 		(instances
-			(project "Laser Controller"
+			(project ""
 				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
 					(reference "X_Knoten1")
 					(unit 1)
@@ -9724,7 +10232,7 @@
 			(uuid "f42ef5d9-3f88-4564-9973-1eb25cf86f6c")
 		)
 		(instances
-			(project "Laser Controller"
+			(project ""
 				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
 					(reference "R5")
 					(unit 1)
@@ -9734,7 +10242,7 @@
 	)
 	(symbol
 		(lib_id "Device:C")
-		(at 177.8 119.38 0)
+		(at 76.2 111.76 0)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -9745,7 +10253,7 @@
 		(fields_autoplaced yes)
 		(uuid "08895478-0510-4d77-b5b9-7ff619cc7aa4")
 		(property "Reference" "C8"
-			(at 181.61 118.1099 0)
+			(at 80.01 110.49 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -9756,7 +10264,7 @@
 			)
 		)
 		(property "Value" "100nF"
-			(at 181.61 120.6499 0)
+			(at 80.01 113.03 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -9767,7 +10275,7 @@
 			)
 		)
 		(property "Footprint" "Capacitor_THT:CP_Radial_D4.0mm_P1.50mm"
-			(at 178.7652 123.19 0)
+			(at 77.1652 115.57 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -9778,7 +10286,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 177.8 119.38 0)
+			(at 76.2 111.76 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -9789,7 +10297,7 @@
 			)
 		)
 		(property "Description" "Unpolarized capacitor"
-			(at 177.8 119.38 0)
+			(at 76.2 111.76 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -9806,7 +10314,7 @@
 			(uuid "cb43c0e7-a6f5-400b-b736-bdf9c055e440")
 		)
 		(instances
-			(project "Laser Controller"
+			(project ""
 				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
 					(reference "C8")
 					(unit 1)
@@ -9888,9 +10396,163 @@
 			(uuid "7b05fe25-a58f-49cf-ac65-75643de4d514")
 		)
 		(instances
-			(project "Laser Controller"
+			(project ""
 				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
 					(reference "R20")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:PWR_FLAG")
+		(at 160.02 337.82 180)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "0bc90027-5293-4ede-9618-b9b96d461177")
+		(property "Reference" "#FLG27"
+			(at 160.02 334.82 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "PWR_FLAG"
+			(at 160.02 340.82 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 250.19 271.78 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 250.19 271.78 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"+5V\""
+			(at 250.19 271.78 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "077c2dfd-cd85-4237-b347-925e78523f59")
+		)
+		(instances
+			(project ""
+				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
+					(reference "#FLG27")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:PWR_FLAG")
+		(at 185.42 337.82 180)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "0e3ae928-c974-4531-ae14-060bca2fc599")
+		(property "Reference" "#FLG29"
+			(at 185.42 334.82 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "PWR_FLAG"
+			(at 185.42 340.82 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 250.19 271.78 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 250.19 271.78 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"+5V\""
+			(at 250.19 271.78 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "f9388a0c-ac39-47e6-b7ae-ad47f53853b8")
+		)
+		(instances
+			(project ""
+				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
+					(reference "#FLG29")
 					(unit 1)
 				)
 			)
@@ -9973,7 +10635,7 @@
 			(uuid "2f3f6b9c-ad15-47c5-add9-1e4ad6228bf4")
 		)
 		(instances
-			(project "Laser Controller"
+			(project ""
 				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
 					(reference "U8")
 					(unit 1)
@@ -10055,7 +10717,7 @@
 			(uuid "c109f4c3-074b-41f1-a98f-f65767a3fa8a")
 		)
 		(instances
-			(project "Laser Controller"
+			(project ""
 				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
 					(reference "R19")
 					(unit 1)
@@ -10137,7 +10799,7 @@
 			(uuid "dcc541b9-8b0e-4e98-8b8d-b46b72b0880a")
 		)
 		(instances
-			(project "Laser Controller"
+			(project ""
 				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
 					(reference "R10")
 					(unit 1)
@@ -10215,7 +10877,7 @@
 			(uuid "982851a1-d210-43c3-a33b-5cfc9ab6b75e")
 		)
 		(instances
-			(project "Laser Controller"
+			(project ""
 				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
 					(reference "#PWR03")
 					(unit 1)
@@ -10224,8 +10886,8 @@
 		)
 	)
 	(symbol
-		(lib_id "power:+5V")
-		(at 187.96 261.62 0)
+		(lib_id "Device:R")
+		(at 330.2 345.44 0)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -10233,30 +10895,31 @@
 		(on_board yes)
 		(in_pos_files yes)
 		(dnp no)
-		(uuid "19cf81e7-3c76-458f-9311-73212e733d0d")
-		(property "Reference" "#PWR08"
-			(at 187.96 265.43 0)
-			(hide yes)
+		(uuid "110b13f3-831d-413a-9c07-808fd76cb64e")
+		(property "Reference" "R27"
+			(at 330.2 342.44 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
+				(justify left)
 			)
 		)
-		(property "Value" "Buck +5V"
-			(at 194.31 261.62 0)
+		(property "Value" "10k"
+			(at 330.2 348.44 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
+				(justify left)
 			)
 		)
-		(property "Footprint" ""
-			(at 187.96 261.62 0)
+		(property "Footprint" "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical"
+			(at 330.2 342.44 90)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -10267,7 +10930,166 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 187.96 261.62 0)
+			(at 121.92 133.35 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Resistor"
+			(at 121.92 133.35 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "2"
+			(uuid "c58f74fb-bf56-4959-aad9-11785c2e1e6a")
+		)
+		(pin "1"
+			(uuid "2d7c9058-8a18-45d9-81e8-c51b653e8fef")
+		)
+		(instances
+			(project ""
+				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
+					(reference "R27")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:GNDA")
+		(at 76.2 120.65 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "15336c48-8b48-40ba-add8-2930e6c9747a")
+		(property "Reference" "#PWR10"
+			(at 76.2 117.65 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "AGND (from Galvo Board)"
+			(at 76.2 123.65 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" ""
+			(at 176.53 294.64 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 176.53 294.64 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"GNDA\" , analog ground"
+			(at 176.53 294.64 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "a37b9bb4-2b00-4677-a273-2d74d5386f2e")
+		)
+		(instances
+			(project ""
+				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
+					(reference "#PWR10")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:+5V")
+		(at 250.19 271.78 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "19cf81e7-3c76-458f-9311-73212e733d0d")
+		(property "Reference" "#PWR08"
+			(at 250.19 275.59 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "Buck +5V"
+			(at 256.54 271.78 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 250.19 271.78 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 250.19 271.78 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -10278,7 +11100,7 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"+5V\""
-			(at 187.96 261.62 0)
+			(at 250.19 271.78 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -10292,9 +11114,164 @@
 			(uuid "00d0766a-4fcc-41ec-813e-5fa049c3a3c7")
 		)
 		(instances
-			(project "Laser Controller"
+			(project ""
 				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
 					(reference "#PWR08")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:GND")
+		(at 281.94 193.04 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "23080e7f-67ce-44ad-a5b8-29ed05bf614f")
+		(property "Reference" "#PWR39"
+			(at 281.94 190.04 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "5V GND Buck"
+			(at 281.94 196.04 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 234.95 267.97 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 234.95 267.97 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
+			(at 234.95 267.97 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "19875031-6e83-4058-994f-c0f13f68dc59")
+		)
+		(instances
+			(project ""
+				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
+					(reference "#PWR39")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:+3V3")
+		(at 370.84 336.55 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "25ef9350-db66-404e-884b-583c647f13e7")
+		(property "Reference" "#PWR42"
+			(at 370.84 333.55 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "+3V3"
+			(at 370.84 339.55 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 250.19 271.78 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 250.19 271.78 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"+5V\""
+			(at 250.19 271.78 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "08b53329-4bab-4859-a0dc-9018399a4fcf")
+		)
+		(instances
+			(project ""
+				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
+					(reference "#PWR42")
 					(unit 1)
 				)
 			)
@@ -10374,7 +11351,7 @@
 			(uuid "92a96a1e-3559-45d6-a4c9-81ed5911cb14")
 		)
 		(instances
-			(project "Laser Controller"
+			(project ""
 				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
 					(reference "Y_Knoten1")
 					(unit 1)
@@ -10456,7 +11433,7 @@
 			(uuid "21e3acaf-8e76-4297-8243-6dfbfd1702a3")
 		)
 		(instances
-			(project "Laser Controller"
+			(project ""
 				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
 					(reference "R21")
 					(unit 1)
@@ -10541,7 +11518,7 @@
 			(uuid "b4e29316-0e10-4e40-9a77-295c089adef5")
 		)
 		(instances
-			(project "Laser Controller"
+			(project ""
 				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
 					(reference "U10")
 					(unit 1)
@@ -10623,7 +11600,7 @@
 			(uuid "67f0ac95-4c9c-4de3-9b0f-3213f1e6cce9")
 		)
 		(instances
-			(project "Laser Controller"
+			(project ""
 				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
 					(reference "R9")
 					(unit 1)
@@ -10700,7 +11677,7 @@
 			(uuid "fb7ba4fd-e9cd-42ad-9808-db041fbd8e1b")
 		)
 		(instances
-			(project "Laser Controller"
+			(project ""
 				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
 					(reference "#PWR04")
 					(unit 1)
@@ -10779,9 +11756,86 @@
 			(uuid "b05d8958-0b9b-4fa0-8289-7704f1b0c225")
 		)
 		(instances
-			(project "Laser Controller"
+			(project ""
 				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
 					(reference "#PWR02")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:-15V")
+		(at 261.62 332.74 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "3c0bd212-7d36-4754-8c8d-9acc2200b791")
+		(property "Reference" "#PWR34"
+			(at 261.62 329.74 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "-15V"
+			(at 261.62 335.74 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 91.44 271.78 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 91.44 271.78 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"-15V\""
+			(at 91.44 271.78 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "6f4be835-565f-4200-8f1c-1257935cb4de")
+		)
+		(instances
+			(project ""
+				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
+					(reference "#PWR34")
 					(unit 1)
 				)
 			)
@@ -10861,7 +11915,7 @@
 			(uuid "b01989fa-ed6d-4774-819e-45f78ff511ce")
 		)
 		(instances
-			(project "Laser Controller"
+			(project ""
 				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
 					(reference "R16")
 					(unit 1)
@@ -11050,7 +12104,7 @@
 			(uuid "84653686-66da-4d00-8635-82324a3b3688")
 		)
 		(instances
-			(project "Laser Controller"
+			(project ""
 				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
 					(reference "U2")
 					(unit 1)
@@ -11132,9 +12186,326 @@
 			(uuid "aadebddf-834b-41b7-865b-2b7ef3519d8d")
 		)
 		(instances
-			(project "Laser Controller"
+			(project ""
 				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
 					(reference "C7")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:GNDA")
+		(at 203.2 146.05 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "420892fd-2f4d-47da-ba1b-dd52efd8f962")
+		(property "Reference" "#PWR12"
+			(at 203.2 143.05 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "AGND (from Galvo Board)"
+			(at 203.2 149.05 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" ""
+			(at 176.53 294.64 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 176.53 294.64 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"GNDA\" , analog ground"
+			(at 176.53 294.64 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "a3dbeaba-c07b-420b-a3ec-dc5be912fba0")
+		)
+		(instances
+			(project ""
+				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
+					(reference "#PWR12")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:GNDA")
+		(at 77.47 360.68 90)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "421074c4-4ce5-47fb-8dbc-fa0eddfe3323")
+		(property "Reference" "#PWR24"
+			(at 77.47 357.68 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "AGND (from Galvo Board)"
+			(at 77.47 363.68 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" ""
+			(at 176.53 294.64 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 176.53 294.64 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"GNDA\" , analog ground"
+			(at 176.53 294.64 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "6f8122ce-52f9-4811-a09f-b302ded2da95")
+		)
+		(instances
+			(project ""
+				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
+					(reference "#PWR24")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_name "Conn_01x02_Socket_2")
+		(lib_id "Connector:Conn_01x02_Socket")
+		(at 88.9 332.74 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "495bdd9e-e839-4bf2-93ab-a1079db4f01e")
+		(property "Reference" "J2"
+			(at 88.9 329.74 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "PWR IN +5V"
+			(at 88.9 335.74 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical"
+			(at 88.9 329.74 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 449.58 245.11 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Generic connector, single row, 01x02, script generated"
+			(at 449.58 245.11 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "9dfb18dd-95c1-42b2-81f8-5501fac97289")
+		)
+		(pin "2"
+			(uuid "cefcf1c2-cd35-4919-8c85-200e62a29d74")
+		)
+		(instances
+			(project ""
+				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
+					(reference "J2")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:-15V")
+		(at 77.47 363.22 90)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "4d34fae1-fd41-41c2-87aa-3c40d7927e59")
+		(property "Reference" "#PWR25"
+			(at 77.47 360.22 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "-15V"
+			(at 77.47 366.22 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 91.44 271.78 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 91.44 271.78 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"-15V\""
+			(at 91.44 271.78 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "06e06e3a-e3ce-4ccf-89ef-d626034261fb")
+		)
+		(instances
+			(project ""
+				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
+					(reference "#PWR25")
 					(unit 1)
 				)
 			)
@@ -11214,7 +12585,7 @@
 			(uuid "fb7cd4d9-f9ff-40f3-8667-734ea99fc02e")
 		)
 		(instances
-			(project "Laser Controller"
+			(project ""
 				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
 					(reference "R3")
 					(unit 1)
@@ -11299,9 +12670,397 @@
 			(uuid "e375dd37-4624-43d1-b6c0-3212c7b365cd")
 		)
 		(instances
-			(project "Laser Controller"
+			(project ""
 				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
 					(reference "U9")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:PWR_FLAG")
+		(at 287.02 337.82 180)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "554b4b7f-7903-4036-b64e-3db56716aa8b")
+		(property "Reference" "#FLG37"
+			(at 287.02 334.82 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "PWR_FLAG"
+			(at 287.02 340.82 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 250.19 271.78 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 250.19 271.78 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"+5V\""
+			(at 250.19 271.78 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "cc7e9e0b-e043-40f7-8874-595508f2e968")
+		)
+		(instances
+			(project ""
+				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
+					(reference "#FLG37")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:+5V")
+		(at 160.02 332.74 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "5948f629-d56b-430b-98b5-c3fa1629fc85")
+		(property "Reference" "#PWR26"
+			(at 160.02 329.74 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "Buck +5V"
+			(at 160.02 335.74 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 250.19 271.78 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 250.19 271.78 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"+5V\""
+			(at 250.19 271.78 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "951ca932-3439-4b99-bc8f-a40bf42a87af")
+		)
+		(instances
+			(project ""
+				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
+					(reference "#PWR26")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:PWR_FLAG")
+		(at 210.82 337.82 180)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "5e3c24e7-a1b7-4571-b1f3-33149a61d46d")
+		(property "Reference" "#FLG31"
+			(at 210.82 334.82 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "PWR_FLAG"
+			(at 210.82 340.82 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 250.19 271.78 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 250.19 271.78 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"+5V\""
+			(at 250.19 271.78 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "d7640242-79dd-4996-816d-823ce1a727cb")
+		)
+		(instances
+			(project ""
+				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
+					(reference "#FLG31")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:+15V")
+		(at 236.22 332.74 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "657e2831-e21f-4eb5-9d3b-9614bf7ace2b")
+		(property "Reference" "#PWR32"
+			(at 236.22 329.74 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "+15V"
+			(at 236.22 335.74 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 113.03 278.13 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 113.03 278.13 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"+15V\""
+			(at 113.03 278.13 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "26ca857e-70e8-455f-b87c-e8e25ec16ab2")
+		)
+		(instances
+			(project ""
+				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
+					(reference "#PWR32")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:GNDA")
+		(at 77.47 358.14 90)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "67640c7e-aef2-4f6a-8418-25016aff3f35")
+		(property "Reference" "#PWR23"
+			(at 77.47 355.14 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "AGND (from Galvo Board)"
+			(at 77.47 361.14 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" ""
+			(at 176.53 294.64 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 176.53 294.64 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"GNDA\" , analog ground"
+			(at 176.53 294.64 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "c4319a47-37f6-4a91-9169-8732c26e06e8")
+		)
+		(instances
+			(project ""
+				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
+					(reference "#PWR23")
 					(unit 1)
 				)
 			)
@@ -11381,9 +13140,167 @@
 			(uuid "473ee54d-8f9f-47c8-b548-d4a4aa7561a6")
 		)
 		(instances
-			(project "Laser Controller"
+			(project ""
 				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
 					(reference "R18")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:+3V3")
+		(at 210.82 332.74 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "6c032a1c-d720-47cb-9dd4-d32b261df304")
+		(property "Reference" "#PWR30"
+			(at 210.82 329.74 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "+3V3"
+			(at 210.82 335.74 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 250.19 271.78 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 250.19 271.78 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"+5V\""
+			(at 250.19 271.78 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "86b0099d-2e8f-4d42-9874-0a5d73972ab3")
+		)
+		(instances
+			(project ""
+				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
+					(reference "#PWR30")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:R")
+		(at 350.52 345.44 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "6e57865d-3137-47f9-ae46-8718244a2b80")
+		(property "Reference" "R28"
+			(at 350.52 342.44 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "10k"
+			(at 350.52 348.44 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical"
+			(at 350.52 342.44 90)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 121.92 133.35 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Resistor"
+			(at 121.92 133.35 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "2"
+			(uuid "ebf26669-6d12-40c9-8d5c-e5086af47968")
+		)
+		(pin "1"
+			(uuid "8a76e8fa-59e9-405e-bafd-84904301da28")
+		)
+		(instances
+			(project ""
+				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
+					(reference "R28")
 					(unit 1)
 				)
 			)
@@ -11463,9 +13380,88 @@
 			(uuid "b6f3ef23-a434-4511-902b-35cf3f046a3b")
 		)
 		(instances
-			(project "Laser Controller"
+			(project ""
 				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
 					(reference "C5")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:GNDA")
+		(at 287.02 332.74 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "75dcbc86-08bd-49f4-ad41-327e92fd00a4")
+		(property "Reference" "#PWR36"
+			(at 287.02 329.74 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "AGND (from Galvo Board)"
+			(at 287.02 335.74 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" ""
+			(at 176.53 294.64 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 176.53 294.64 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"GNDA\" , analog ground"
+			(at 176.53 294.64 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "183aefd4-74e5-438b-8fa0-91d297d8e5a4")
+		)
+		(instances
+			(project ""
+				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
+					(reference "#PWR36")
 					(unit 1)
 				)
 			)
@@ -11664,7 +13660,7 @@
 			(uuid "0b0e9137-7f82-4204-818e-7627664b79f2")
 		)
 		(instances
-			(project "Laser Controller"
+			(project ""
 				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
 					(reference "U12")
 					(unit 1)
@@ -11746,7 +13742,7 @@
 			(uuid "c63e874b-9642-4ae9-97cc-48ba6354ace4")
 		)
 		(instances
-			(project "Laser Controller"
+			(project ""
 				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
 					(reference "C4")
 					(unit 1)
@@ -11828,9 +13824,87 @@
 			(uuid "05ee0af8-8752-40f9-bcc7-97363bb90ddd")
 		)
 		(instances
-			(project "Laser Controller"
+			(project ""
 				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
 					(reference "R4")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:GND")
+		(at 185.42 332.74 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "874d2d65-849d-4115-a348-15e91784dd6e")
+		(property "Reference" "#PWR28"
+			(at 185.42 329.74 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "5V GND Buck"
+			(at 185.42 335.74 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 234.95 267.97 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 234.95 267.97 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
+			(at 234.95 267.97 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "0d2937ce-fffc-48cf-b1c7-835a70383f0c")
+		)
+		(instances
+			(project ""
+				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
+					(reference "#PWR28")
 					(unit 1)
 				)
 			)
@@ -11910,7 +13984,7 @@
 			(uuid "a6816179-0ba0-4002-89d6-0a90afa4c127")
 		)
 		(instances
-			(project "Laser Controller"
+			(project ""
 				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
 					(reference "R14")
 					(unit 1)
@@ -11992,7 +14066,7 @@
 			(uuid "9158ba96-66e6-4ebc-a8c7-6f1d91227f39")
 		)
 		(instances
-			(project "Laser Controller"
+			(project ""
 				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
 					(reference "R17")
 					(unit 1)
@@ -12084,7 +14158,7 @@
 			(uuid "b98a3b9a-384a-4064-884d-b5bb28127d49")
 		)
 		(instances
-			(project "Laser Controller"
+			(project ""
 				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
 					(reference "J1")
 					(unit 1)
@@ -12169,7 +14243,7 @@
 			(uuid "4bd3c72c-bcd3-46af-a70b-d28eaaa340a9")
 		)
 		(instances
-			(project "Laser Controller"
+			(project ""
 				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
 					(reference "U7")
 					(unit 1)
@@ -12212,7 +14286,7 @@
 				)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical"
 			(at 449.58 245.11 0)
 			(hide yes)
 			(show_name no)
@@ -12252,7 +14326,7 @@
 			(uuid "1f63116c-9186-48b1-a472-a063af9ca420")
 		)
 		(instances
-			(project "Laser Controller"
+			(project ""
 				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
 					(reference "U5")
 					(unit 1)
@@ -12334,9 +14408,86 @@
 			(uuid "cc4432b4-8f67-4cce-a740-058ea538c09c")
 		)
 		(instances
-			(project "Laser Controller"
+			(project ""
 				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
 					(reference "R25")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:+5V")
+		(at 77.47 332.74 90)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "97d9918d-cbd4-4f3b-8f9e-fc943d64f5ab")
+		(property "Reference" "#PWR20"
+			(at 77.47 329.74 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "Buck +5V"
+			(at 77.47 335.74 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 250.19 271.78 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 250.19 271.78 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"+5V\""
+			(at 250.19 271.78 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "a5f9ef1e-ff6f-498b-a0f0-9af9d1ad13d2")
+		)
+		(instances
+			(project ""
+				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
+					(reference "#PWR20")
 					(unit 1)
 				)
 			)
@@ -12416,7 +14567,7 @@
 			(uuid "59bf6324-86c7-418b-b97e-0e8d3d6fb2c2")
 		)
 		(instances
-			(project "Laser Controller"
+			(project ""
 				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
 					(reference "R15")
 					(unit 1)
@@ -12498,7 +14649,7 @@
 			(uuid "c08a4e24-e01b-4f20-a895-1bbd5a6bb3cb")
 		)
 		(instances
-			(project "Laser Controller"
+			(project ""
 				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
 					(reference "R7")
 					(unit 1)
@@ -12580,7 +14731,7 @@
 			(uuid "6486fe7e-7821-4473-bb25-d672aba6e44f")
 		)
 		(instances
-			(project "Laser Controller"
+			(project ""
 				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
 					(reference "C3")
 					(unit 1)
@@ -12680,7 +14831,7 @@
 			(uuid "a6bc091d-b621-4abf-9ee7-3877d5a7754e")
 		)
 		(instances
-			(project "Laser Controller"
+			(project ""
 				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
 					(reference "U15")
 					(unit 1)
@@ -12758,9 +14909,90 @@
 			(uuid "9083a426-a0b2-453d-a8a2-8c24a622db1a")
 		)
 		(instances
-			(project "Laser Controller"
+			(project ""
 				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
 					(reference "#PWR01")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:R")
+		(at 370.84 345.44 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "a62e0c2f-18b0-4701-9f47-41c16335530f")
+		(property "Reference" "R29"
+			(at 370.84 342.44 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "10k"
+			(at 370.84 348.44 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical"
+			(at 370.84 342.44 90)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 121.92 133.35 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Resistor"
+			(at 121.92 133.35 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "2"
+			(uuid "e2aaeea4-929e-4c8c-8bcf-0e2a04155eec")
+		)
+		(pin "1"
+			(uuid "f00fff71-ff8b-48b1-a2c1-65aa55293fe0")
+		)
+		(instances
+			(project ""
+				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
+					(reference "R29")
 					(unit 1)
 				)
 			)
@@ -12840,9 +15072,172 @@
 			(uuid "40849d42-3e73-48a9-839c-1a53ebc26a4b")
 		)
 		(instances
-			(project "Laser Controller"
+			(project ""
 				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
 					(reference "R6")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Connector:Conn_01x04_Socket")
+		(at 88.9 358.14 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "a8616f7e-c0ff-48ef-89c8-6e15cfca100b")
+		(property "Reference" "J3"
+			(at 88.9 355.14 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "PWR IN Galvo"
+			(at 88.9 361.14 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "Connector_PinHeader_2.54mm:PinHeader_1x04_P2.54mm_Vertical"
+			(at 88.9 355.14 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 49.53 123.19 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Generic connector, single row, 01x04, script generated"
+			(at 49.53 123.19 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "3"
+			(uuid "c1b68527-6f6e-4868-bd7b-db7a9bebeea1")
+		)
+		(pin "2"
+			(uuid "d186df32-7463-43d5-b701-19a99fbd77a7")
+		)
+		(pin "4"
+			(uuid "40cbf66b-db73-4cc4-914e-2f571eabce06")
+		)
+		(pin "1"
+			(uuid "214b6441-8892-4f63-900a-dbe6df0fdfa3")
+		)
+		(instances
+			(project ""
+				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
+					(reference "J3")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:+3V3")
+		(at 196.85 180.34 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "a89dfa3f-2cb7-470b-9df9-c89547856646")
+		(property "Reference" "#PWR13"
+			(at 196.85 177.34 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "+3V3"
+			(at 196.85 183.34 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 187.96 261.62 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 187.96 261.62 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"+5V\""
+			(at 187.96 261.62 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "4a3e01cb-1f7b-45aa-9499-e668635f6c8e")
+		)
+		(instances
+			(project ""
+				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
+					(reference "#PWR13")
 					(unit 1)
 				)
 			)
@@ -13077,7 +15472,7 @@
 			(uuid "ddaf4639-cb4a-45e7-ad62-50d214d46853")
 		)
 		(instances
-			(project "Laser Controller"
+			(project ""
 				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
 					(reference "U1")
 					(unit 1)
@@ -13117,7 +15512,7 @@
 				)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical"
 			(at 304.8 187.198 90)
 			(hide yes)
 			(show_name no)
@@ -13157,9 +15552,86 @@
 			(uuid "d5debb33-94b1-48a8-b9d0-1500208c239d")
 		)
 		(instances
-			(project "Laser Controller"
+			(project ""
 				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
 					(reference "R26")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:PWR_FLAG")
+		(at 236.22 337.82 180)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "aebb233c-60a9-481e-b8e8-10f6557513c6")
+		(property "Reference" "#FLG33"
+			(at 236.22 334.82 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "PWR_FLAG"
+			(at 236.22 340.82 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 250.19 271.78 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 250.19 271.78 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"+5V\""
+			(at 250.19 271.78 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "426f9349-6599-4bee-885e-adb2049b8212")
+		)
+		(instances
+			(project ""
+				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
+					(reference "#FLG33")
 					(unit 1)
 				)
 			)
@@ -13242,7 +15714,7 @@
 			(uuid "5b53694a-3935-4f84-b80e-0d2f565c3062")
 		)
 		(instances
-			(project "Laser Controller"
+			(project ""
 				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
 					(reference "U6")
 					(unit 1)
@@ -13322,9 +15794,87 @@
 			(uuid "4da2089e-24f5-4fe7-a9a9-f48e208f995e")
 		)
 		(instances
-			(project "Laser Controller"
+			(project ""
 				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
 					(reference "D1")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:GND")
+		(at 77.47 335.28 90)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "b1b62e12-fb0a-4cd2-bbf6-906e9056ed24")
+		(property "Reference" "#PWR21"
+			(at 77.47 332.28 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "5V GND Buck"
+			(at 77.47 338.28 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 234.95 267.97 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 234.95 267.97 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
+			(at 234.95 267.97 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "80c1f4b7-a352-4d64-9dbc-ba450482b562")
+		)
+		(instances
+			(project ""
+				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
+					(reference "#PWR21")
 					(unit 1)
 				)
 			)
@@ -13340,7 +15890,7 @@
 		(in_bom yes)
 		(on_board yes)
 		(in_pos_files yes)
-		(dnp no)
+		(dnp yes)
 		(uuid "b1cb14ad-3c1e-4c13-8f11-35332b6121f3")
 		(property "Reference" "R8"
 			(at 120.6501 91.44 0)
@@ -13404,9 +15954,163 @@
 			(uuid "2f90723c-8c48-4b85-88af-606fda70d279")
 		)
 		(instances
-			(project "Laser Controller"
+			(project ""
 				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
 					(reference "R8")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:PWR_FLAG")
+		(at 312.42 337.82 180)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "b7c08ebd-1fa5-4ace-aba9-b9334d05282d")
+		(property "Reference" "#FLG38"
+			(at 312.42 334.82 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "PWR_FLAG"
+			(at 312.42 340.82 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 250.19 271.78 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 250.19 271.78 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"+5V\""
+			(at 250.19 271.78 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "a75bce15-1373-4d25-9bda-f04115910e07")
+		)
+		(instances
+			(project ""
+				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
+					(reference "#FLG38")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:PWR_FLAG")
+		(at 261.62 337.82 180)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "bf2c0873-63be-4110-8be8-395e63f22336")
+		(property "Reference" "#FLG35"
+			(at 261.62 334.82 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "PWR_FLAG"
+			(at 261.62 340.82 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 250.19 271.78 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 250.19 271.78 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"+5V\""
+			(at 250.19 271.78 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "97bb7c1f-a9a5-46bb-bd04-6bec6aef919c")
+		)
+		(instances
+			(project ""
+				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
+					(reference "#FLG35")
 					(unit 1)
 				)
 			)
@@ -13486,7 +16190,7 @@
 			(uuid "384dd912-1e4d-44ff-afd7-5c78fe3b6c8a")
 		)
 		(instances
-			(project "Laser Controller"
+			(project ""
 				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
 					(reference "R22")
 					(unit 1)
@@ -13568,7 +16272,7 @@
 			(uuid "8323ac48-1ad0-4838-9e62-90a8e7c3e9ba")
 		)
 		(instances
-			(project "Laser Controller"
+			(project ""
 				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
 					(reference "C2")
 					(unit 1)
@@ -13610,7 +16314,7 @@
 				)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical"
 			(at 449.58 251.46 0)
 			(hide yes)
 			(show_name no)
@@ -13650,7 +16354,7 @@
 			(uuid "2410a7ac-2247-4485-aa74-f7e929aa74be")
 		)
 		(instances
-			(project "Laser Controller"
+			(project ""
 				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
 					(reference "U3")
 					(unit 1)
@@ -13732,7 +16436,7 @@
 			(uuid "094701e1-9016-46a1-8c1d-97b15046a81f")
 		)
 		(instances
-			(project "Laser Controller"
+			(project ""
 				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
 					(reference "R23")
 					(unit 1)
@@ -13832,7 +16536,7 @@
 			(uuid "27b48581-8ed6-4eb9-85e1-1da54529da79")
 		)
 		(instances
-			(project "Laser Controller"
+			(project ""
 				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
 					(reference "U17")
 					(unit 1)
@@ -13914,7 +16618,7 @@
 			(uuid "797f50bb-cd60-4ca1-8c2d-bc145f93e826")
 		)
 		(instances
-			(project "Laser Controller"
+			(project ""
 				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
 					(reference "R12")
 					(unit 1)
@@ -13997,7 +16701,7 @@
 			(uuid "ec26e8b5-c902-4cd3-86c5-9fbf5d83904e")
 		)
 		(instances
-			(project "Laser Controller"
+			(project ""
 				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
 					(reference "R2")
 					(unit 1)
@@ -14085,7 +16789,7 @@
 			(uuid "1f96cdc9-dc61-4917-93ec-f71b35508863")
 		)
 		(instances
-			(project "Laser Controller"
+			(project ""
 				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
 					(reference "U13")
 					(unit 1)
@@ -14185,7 +16889,7 @@
 			(uuid "2b36a36f-50c2-4015-93c0-1101a7e69edc")
 		)
 		(instances
-			(project "Laser Controller"
+			(project ""
 				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
 					(reference "U16")
 					(unit 1)
@@ -14267,7 +16971,7 @@
 			(uuid "7b8c6493-cf68-48b2-b14a-3b3ec40168f4")
 		)
 		(instances
-			(project "Laser Controller"
+			(project ""
 				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
 					(reference "R13")
 					(unit 1)
@@ -14310,7 +17014,7 @@
 				)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical"
 			(at 449.58 238.76 0)
 			(hide yes)
 			(show_name no)
@@ -14350,7 +17054,7 @@
 			(uuid "35a3aad6-2216-4c49-bef3-17d69014da4a")
 		)
 		(instances
-			(project "Laser Controller"
+			(project ""
 				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
 					(reference "U4")
 					(unit 1)
@@ -14432,9 +17136,163 @@
 			(uuid "a7c1aa25-eba7-41d9-a942-e1b0ee2f4531")
 		)
 		(instances
-			(project "Laser Controller"
+			(project ""
 				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
 					(reference "C6")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:+3V3")
+		(at 330.2 336.55 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "ec7097fb-7906-4b7d-a293-3579fe2e63aa")
+		(property "Reference" "#PWR40"
+			(at 330.2 333.55 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "+3V3"
+			(at 330.2 339.55 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 250.19 271.78 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 250.19 271.78 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"+5V\""
+			(at 250.19 271.78 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "b416e5fc-4466-494f-9742-a6124ef9e03e")
+		)
+		(instances
+			(project ""
+				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
+					(reference "#PWR40")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:+3V3")
+		(at 350.52 336.55 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "f2176c0b-1f61-4ca4-bdad-62a0b9ba47b8")
+		(property "Reference" "#PWR41"
+			(at 350.52 333.55 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "+3V3"
+			(at 350.52 339.55 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 250.19 271.78 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 250.19 271.78 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"+5V\""
+			(at 250.19 271.78 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "6ec1aaa1-1211-4890-a35e-5a7d434406b8")
+		)
+		(instances
+			(project ""
+				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
+					(reference "#PWR41")
 					(unit 1)
 				)
 			)
@@ -14515,9 +17373,87 @@
 			(uuid "7521bb07-fec7-4871-8cd7-e83ee196577e")
 		)
 		(instances
-			(project "Laser Controller"
+			(project ""
 				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
 					(reference "R1")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:+15V")
+		(at 77.47 355.6 90)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "f88626a0-9571-43cf-9f7a-4ee935b5eefa")
+		(property "Reference" "#PWR22"
+			(at 77.47 352.6 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "+15V"
+			(at 77.47 358.6 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 113.03 278.13 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 113.03 278.13 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"+15V\""
+			(at 113.03 278.13 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "f6f611bf-41fd-4e36-91e5-9cfb32c5db02")
+		)
+		(instances
+			(project ""
+				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
+					(reference "#PWR22")
 					(unit 1)
 				)
 			)
@@ -14595,7 +17531,7 @@
 			(uuid "0db84f56-3a92-4848-9564-ec742cd83fc4")
 		)
 		(instances
-			(project "Laser Controller"
+			(project ""
 				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
 					(reference "C1")
 					(unit 1)
@@ -14677,7 +17613,7 @@
 			(uuid "54497db8-d5ce-4f1b-b0b5-7ec972606a44")
 		)
 		(instances
-			(project "Laser Controller"
+			(project ""
 				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
 					(reference "R11")
 					(unit 1)
@@ -14690,5 +17626,4 @@
 			(page "1")
 		)
 	)
-	(embedded_fonts no)
 )

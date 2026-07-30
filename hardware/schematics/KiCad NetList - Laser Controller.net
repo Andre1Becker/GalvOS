@@ -2,7 +2,7 @@
 	(version "E")
 	(design
 		(source "D:\\Sourcecode\\Firmware\\GalvOS\\hardware\\schematics\\Laser Controller.kicad_sch")
-		(date "2026-07-24T09:09:43")
+		(date "2026-07-30T16:08:02")
 		(tool "Eeschema 10.0.3")
 		(sheet
 			(number "1")
@@ -75,11 +75,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "Stammblatt")
+				(value "")
 			)
 			(property
 				(name "Sheetfile")
-				(value "Laser Controller.kicad_sch")
+				(value "hardware/schematics/Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -129,11 +129,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "Stammblatt")
+				(value "")
 			)
 			(property
 				(name "Sheetfile")
-				(value "Laser Controller.kicad_sch")
+				(value "hardware/schematics/Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -183,11 +183,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "Stammblatt")
+				(value "")
 			)
 			(property
 				(name "Sheetfile")
-				(value "Laser Controller.kicad_sch")
+				(value "hardware/schematics/Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -237,11 +237,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "Stammblatt")
+				(value "")
 			)
 			(property
 				(name "Sheetfile")
-				(value "Laser Controller.kicad_sch")
+				(value "hardware/schematics/Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -291,11 +291,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "Stammblatt")
+				(value "")
 			)
 			(property
 				(name "Sheetfile")
-				(value "Laser Controller.kicad_sch")
+				(value "hardware/schematics/Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -345,11 +345,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "Stammblatt")
+				(value "")
 			)
 			(property
 				(name "Sheetfile")
-				(value "Laser Controller.kicad_sch")
+				(value "hardware/schematics/Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -399,11 +399,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "Stammblatt")
+				(value "")
 			)
 			(property
 				(name "Sheetfile")
-				(value "Laser Controller.kicad_sch")
+				(value "hardware/schematics/Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -418,6 +418,60 @@
 				(tstamps "/")
 			)
 			(tstamps "408010ff-114f-43ab-94a0-90a08b4b7042")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "C8")
+			(value "100nF")
+			(footprint "Capacitor_THT:CP_Radial_D4.0mm_P1.50mm")
+			(description "Unpolarized capacitor")
+			(fields
+				(field
+					(name "Footprint") "Capacitor_THT:CP_Radial_D4.0mm_P1.50mm")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Unpolarized capacitor")
+			)
+			(libsource
+				(lib "Device")
+				(part "C")
+				(description "Unpolarized capacitor")
+			)
+			(property
+				(name "Sheetname")
+				(value "")
+			)
+			(property
+				(name "Sheetfile")
+				(value "hardware/schematics/Laser Controller.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "cap capacitor")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "C_*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "08895478-0510-4d77-b5b9-7ff619cc7aa4")
 			(units
 				(unit
 					(name "A")
@@ -453,11 +507,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "Stammblatt")
+				(value "")
 			)
 			(property
 				(name "Sheetfile")
-				(value "Laser Controller.kicad_sch")
+				(value "hardware/schematics/Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -507,11 +561,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "Stammblatt")
+				(value "")
 			)
 			(property
 				(name "Sheetfile")
-				(value "Laser Controller.kicad_sch")
+				(value "hardware/schematics/Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -553,6 +607,120 @@
 			)
 		)
 		(comp
+			(ref "J2")
+			(value "PWR IN +5V")
+			(footprint "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical")
+			(description "Generic connector, single row, 01x02, script generated")
+			(fields
+				(field
+					(name "Footprint") "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Generic connector, single row, 01x02, script generated")
+			)
+			(libsource
+				(lib "")
+				(part "Conn_01x02_Socket_2")
+				(description "Generic connector, single row, 01x02, script generated")
+			)
+			(property
+				(name "Sheetname")
+				(value "")
+			)
+			(property
+				(name "Sheetfile")
+				(value "hardware/schematics/Laser Controller.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "connector")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "Connector*:*_1x??_*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "495bdd9e-e839-4bf2-93ab-a1079db4f01e")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "J3")
+			(value "PWR IN Galvo")
+			(footprint "Connector_PinHeader_2.54mm:PinHeader_1x04_P2.54mm_Vertical")
+			(description "Generic connector, single row, 01x04, script generated")
+			(fields
+				(field
+					(name "Footprint") "Connector_PinHeader_2.54mm:PinHeader_1x04_P2.54mm_Vertical")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Generic connector, single row, 01x04, script generated")
+			)
+			(libsource
+				(lib "Connector")
+				(part "Conn_01x04_Socket")
+				(description "Generic connector, single row, 01x04, script generated")
+			)
+			(property
+				(name "Sheetname")
+				(value "")
+			)
+			(property
+				(name "Sheetfile")
+				(value "hardware/schematics/Laser Controller.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "connector")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "Connector*:*_1x??_*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "a8616f7e-c0ff-48ef-89c8-6e15cfca100b")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+						(pin
+							(num "3")
+						)
+						(pin
+							(num "4")
+						)
+					)
+				)
+			)
+		)
+		(comp
 			(ref "R1")
 			(value "220")
 			(footprint "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
@@ -573,11 +741,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "Stammblatt")
+				(value "")
 			)
 			(property
 				(name "Sheetfile")
-				(value "Laser Controller.kicad_sch")
+				(value "hardware/schematics/Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -627,11 +795,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "Stammblatt")
+				(value "")
 			)
 			(property
 				(name "Sheetfile")
-				(value "Laser Controller.kicad_sch")
+				(value "hardware/schematics/Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -681,11 +849,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "Stammblatt")
+				(value "")
 			)
 			(property
 				(name "Sheetfile")
-				(value "Laser Controller.kicad_sch")
+				(value "hardware/schematics/Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -735,11 +903,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "Stammblatt")
+				(value "")
 			)
 			(property
 				(name "Sheetfile")
-				(value "Laser Controller.kicad_sch")
+				(value "hardware/schematics/Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -789,11 +957,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "Stammblatt")
+				(value "")
 			)
 			(property
 				(name "Sheetfile")
-				(value "Laser Controller.kicad_sch")
+				(value "hardware/schematics/Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -843,11 +1011,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "Stammblatt")
+				(value "")
 			)
 			(property
 				(name "Sheetfile")
-				(value "Laser Controller.kicad_sch")
+				(value "hardware/schematics/Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -897,11 +1065,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "Stammblatt")
+				(value "")
 			)
 			(property
 				(name "Sheetfile")
-				(value "Laser Controller.kicad_sch")
+				(value "hardware/schematics/Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -951,11 +1119,14 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "Stammblatt")
+				(value "")
 			)
 			(property
 				(name "Sheetfile")
-				(value "Laser Controller.kicad_sch")
+				(value "hardware/schematics/Laser Controller.kicad_sch")
+			)
+			(property
+				(name "dnp")
 			)
 			(property
 				(name "ki_keywords")
@@ -1005,11 +1176,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "Stammblatt")
+				(value "")
 			)
 			(property
 				(name "Sheetfile")
-				(value "Laser Controller.kicad_sch")
+				(value "hardware/schematics/Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -1059,11 +1230,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "Stammblatt")
+				(value "")
 			)
 			(property
 				(name "Sheetfile")
-				(value "Laser Controller.kicad_sch")
+				(value "hardware/schematics/Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -1113,11 +1284,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "Stammblatt")
+				(value "")
 			)
 			(property
 				(name "Sheetfile")
-				(value "Laser Controller.kicad_sch")
+				(value "hardware/schematics/Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -1167,11 +1338,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "Stammblatt")
+				(value "")
 			)
 			(property
 				(name "Sheetfile")
-				(value "Laser Controller.kicad_sch")
+				(value "hardware/schematics/Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -1221,11 +1392,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "Stammblatt")
+				(value "")
 			)
 			(property
 				(name "Sheetfile")
-				(value "Laser Controller.kicad_sch")
+				(value "hardware/schematics/Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -1275,11 +1446,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "Stammblatt")
+				(value "")
 			)
 			(property
 				(name "Sheetfile")
-				(value "Laser Controller.kicad_sch")
+				(value "hardware/schematics/Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -1329,11 +1500,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "Stammblatt")
+				(value "")
 			)
 			(property
 				(name "Sheetfile")
-				(value "Laser Controller.kicad_sch")
+				(value "hardware/schematics/Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -1383,11 +1554,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "Stammblatt")
+				(value "")
 			)
 			(property
 				(name "Sheetfile")
-				(value "Laser Controller.kicad_sch")
+				(value "hardware/schematics/Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -1437,11 +1608,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "Stammblatt")
+				(value "")
 			)
 			(property
 				(name "Sheetfile")
-				(value "Laser Controller.kicad_sch")
+				(value "hardware/schematics/Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -1491,11 +1662,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "Stammblatt")
+				(value "")
 			)
 			(property
 				(name "Sheetfile")
-				(value "Laser Controller.kicad_sch")
+				(value "hardware/schematics/Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -1545,11 +1716,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "Stammblatt")
+				(value "")
 			)
 			(property
 				(name "Sheetfile")
-				(value "Laser Controller.kicad_sch")
+				(value "hardware/schematics/Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -1599,11 +1770,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "Stammblatt")
+				(value "")
 			)
 			(property
 				(name "Sheetfile")
-				(value "Laser Controller.kicad_sch")
+				(value "hardware/schematics/Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -1653,11 +1824,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "Stammblatt")
+				(value "")
 			)
 			(property
 				(name "Sheetfile")
-				(value "Laser Controller.kicad_sch")
+				(value "hardware/schematics/Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -1707,11 +1878,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "Stammblatt")
+				(value "")
 			)
 			(property
 				(name "Sheetfile")
-				(value "Laser Controller.kicad_sch")
+				(value "hardware/schematics/Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -1761,11 +1932,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "Stammblatt")
+				(value "")
 			)
 			(property
 				(name "Sheetfile")
-				(value "Laser Controller.kicad_sch")
+				(value "hardware/schematics/Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -1815,11 +1986,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "Stammblatt")
+				(value "")
 			)
 			(property
 				(name "Sheetfile")
-				(value "Laser Controller.kicad_sch")
+				(value "hardware/schematics/Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -1851,11 +2022,11 @@
 		(comp
 			(ref "R26")
 			(value "0")
+			(footprint "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
 			(description "Resistor")
 			(fields
 				(field
-					(name "Footprint")
-				)
+					(name "Footprint") "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
 				(field
 					(name "Datasheet")
 				)
@@ -1869,11 +2040,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "Stammblatt")
+				(value "")
 			)
 			(property
 				(name "Sheetfile")
-				(value "Laser Controller.kicad_sch")
+				(value "hardware/schematics/Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -1888,6 +2059,168 @@
 				(tstamps "/")
 			)
 			(tstamps "adfad3ed-cc9e-4122-ae91-86c7db8458f3")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "R27")
+			(value "10k")
+			(footprint "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+			(description "Resistor")
+			(fields
+				(field
+					(name "Footprint") "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Resistor")
+			)
+			(libsource
+				(lib "Device")
+				(part "R")
+				(description "Resistor")
+			)
+			(property
+				(name "Sheetname")
+				(value "")
+			)
+			(property
+				(name "Sheetfile")
+				(value "hardware/schematics/Laser Controller.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "R res resistor")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "R_*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "110b13f3-831d-413a-9c07-808fd76cb64e")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "R28")
+			(value "10k")
+			(footprint "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+			(description "Resistor")
+			(fields
+				(field
+					(name "Footprint") "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Resistor")
+			)
+			(libsource
+				(lib "Device")
+				(part "R")
+				(description "Resistor")
+			)
+			(property
+				(name "Sheetname")
+				(value "")
+			)
+			(property
+				(name "Sheetfile")
+				(value "hardware/schematics/Laser Controller.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "R res resistor")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "R_*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "6e57865d-3137-47f9-ae46-8718244a2b80")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "R29")
+			(value "10k")
+			(footprint "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+			(description "Resistor")
+			(fields
+				(field
+					(name "Footprint") "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Resistor")
+			)
+			(libsource
+				(lib "Device")
+				(part "R")
+				(description "Resistor")
+			)
+			(property
+				(name "Sheetname")
+				(value "")
+			)
+			(property
+				(name "Sheetfile")
+				(value "hardware/schematics/Laser Controller.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "R res resistor")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "R_*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "a62e0c2f-18b0-4701-9f47-41c16335530f")
 			(units
 				(unit
 					(name "A")
@@ -1935,11 +2268,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "Stammblatt")
+				(value "")
 			)
 			(property
 				(name "Sheetfile")
-				(value "Laser Controller.kicad_sch")
+				(value "hardware/schematics/Laser Controller.kicad_sch")
 			)
 			(sheetpath
 				(names "/")
@@ -2149,11 +2482,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "Stammblatt")
+				(value "")
 			)
 			(property
 				(name "Sheetfile")
-				(value "Laser Controller.kicad_sch")
+				(value "hardware/schematics/Laser Controller.kicad_sch")
 			)
 			(sheetpath
 				(names "/")
@@ -2201,11 +2534,11 @@
 		(comp
 			(ref "U3")
 			(value "TTL_RGB Blue")
+			(footprint "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical")
 			(description "Generic connector, single row, 01x02, script generated")
 			(fields
 				(field
-					(name "Footprint")
-				)
+					(name "Footprint") "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical")
 				(field
 					(name "Datasheet")
 				)
@@ -2219,11 +2552,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "Stammblatt")
+				(value "")
 			)
 			(property
 				(name "Sheetfile")
-				(value "Laser Controller.kicad_sch")
+				(value "hardware/schematics/Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -2255,11 +2588,11 @@
 		(comp
 			(ref "U4")
 			(value "TTL_RGB Red")
+			(footprint "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical")
 			(description "Generic connector, single row, 01x02, script generated")
 			(fields
 				(field
-					(name "Footprint")
-				)
+					(name "Footprint") "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical")
 				(field
 					(name "Datasheet")
 				)
@@ -2273,11 +2606,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "Stammblatt")
+				(value "")
 			)
 			(property
 				(name "Sheetfile")
-				(value "Laser Controller.kicad_sch")
+				(value "hardware/schematics/Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -2309,11 +2642,11 @@
 		(comp
 			(ref "U5")
 			(value "TTL_RGB Green")
+			(footprint "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical")
 			(description "Generic connector, single row, 01x02, script generated")
 			(fields
 				(field
-					(name "Footprint")
-				)
+					(name "Footprint") "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical")
 				(field
 					(name "Datasheet")
 				)
@@ -2327,11 +2660,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "Stammblatt")
+				(value "")
 			)
 			(property
 				(name "Sheetfile")
-				(value "Laser Controller.kicad_sch")
+				(value "hardware/schematics/Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -2381,11 +2714,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "Stammblatt")
+				(value "")
 			)
 			(property
 				(name "Sheetfile")
-				(value "Laser Controller.kicad_sch")
+				(value "hardware/schematics/Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -2438,11 +2771,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "Stammblatt")
+				(value "")
 			)
 			(property
 				(name "Sheetfile")
-				(value "Laser Controller.kicad_sch")
+				(value "hardware/schematics/Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -2495,11 +2828,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "Stammblatt")
+				(value "")
 			)
 			(property
 				(name "Sheetfile")
-				(value "Laser Controller.kicad_sch")
+				(value "hardware/schematics/Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -2552,11 +2885,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "Stammblatt")
+				(value "")
 			)
 			(property
 				(name "Sheetfile")
-				(value "Laser Controller.kicad_sch")
+				(value "hardware/schematics/Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -2609,11 +2942,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "Stammblatt")
+				(value "")
 			)
 			(property
 				(name "Sheetfile")
-				(value "Laser Controller.kicad_sch")
+				(value "hardware/schematics/Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -2708,11 +3041,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "Stammblatt")
+				(value "")
 			)
 			(property
 				(name "Sheetfile")
-				(value "Laser Controller.kicad_sch")
+				(value "hardware/schematics/Laser Controller.kicad_sch")
 			)
 			(sheetpath
 				(names "/")
@@ -2790,11 +3123,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "Stammblatt")
+				(value "")
 			)
 			(property
 				(name "Sheetfile")
-				(value "Laser Controller.kicad_sch")
+				(value "hardware/schematics/Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -2850,11 +3183,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "Stammblatt")
+				(value "")
 			)
 			(property
 				(name "Sheetfile")
-				(value "Laser Controller.kicad_sch")
+				(value "hardware/schematics/Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -2922,11 +3255,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "Stammblatt")
+				(value "")
 			)
 			(property
 				(name "Sheetfile")
-				(value "Laser Controller.kicad_sch")
+				(value "hardware/schematics/Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -2994,11 +3327,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "Stammblatt")
+				(value "")
 			)
 			(property
 				(name "Sheetfile")
-				(value "Laser Controller.kicad_sch")
+				(value "hardware/schematics/Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -3066,11 +3399,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "Stammblatt")
+				(value "")
 			)
 			(property
 				(name "Sheetfile")
-				(value "Laser Controller.kicad_sch")
+				(value "hardware/schematics/Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -3120,11 +3453,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "Stammblatt")
+				(value "")
 			)
 			(property
 				(name "Sheetfile")
-				(value "Laser Controller.kicad_sch")
+				(value "hardware/schematics/Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -4131,12 +4464,121 @@
 	(nets
 		(net
 			(code "1")
+			(name "+3V3")
+			(class "Default")
+			(node
+				(ref "C1")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "J1")
+				(pin "1")
+				(pinfunction "3v3_1")
+				(pintype "power_in")
+			)
+			(node
+				(ref "R18")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "R20")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "R22")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "R27")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "R28")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "R29")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "R3")
+				(pin "2")
+				(pintype "passive")
+			)
+			(node
+				(ref "R5")
+				(pin "2")
+				(pintype "passive")
+			)
+			(node
+				(ref "U1")
+				(pin "J1_1")
+				(pinfunction "3V3_J1_1")
+				(pintype "power_in")
+			)
+			(node
+				(ref "U1")
+				(pin "J1_2")
+				(pinfunction "3V3_J1_2")
+				(pintype "power_in")
+			)
+			(node
+				(ref "U10")
+				(pin "3")
+				(pinfunction "V_{DD}_3")
+				(pintype "power_in")
+			)
+			(node
+				(ref "U2")
+				(pin "9")
+				(pinfunction "AVDD_9")
+				(pintype "power_in")
+			)
+			(node
+				(ref "U6")
+				(pin "3")
+				(pinfunction "V_{DD}_3")
+				(pintype "power_in")
+			)
+			(node
+				(ref "U7")
+				(pin "3")
+				(pinfunction "V_{DD}_3")
+				(pintype "power_in")
+			)
+			(node
+				(ref "U8")
+				(pin "3")
+				(pinfunction "V_{DD}_3")
+				(pintype "power_in")
+			)
+			(node
+				(ref "U9")
+				(pin "3")
+				(pinfunction "V_{DD}_3")
+				(pintype "power_in")
+			)
+		)
+		(net
+			(code "2")
 			(name "+15V")
 			(class "Default")
 			(node
-				(ref "D1")
-				(pin "2")
-				(pinfunction "A_2")
+				(ref "C8")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "J3")
+				(pin "1")
+				(pinfunction "Pin_1_1")
 				(pintype "passive")
 			)
 			(node
@@ -4147,9 +4589,15 @@
 			)
 		)
 		(net
-			(code "2")
+			(code "3")
 			(name "-15V")
 			(class "Default")
+			(node
+				(ref "J3")
+				(pin "4")
+				(pinfunction "Pin_4_4")
+				(pintype "passive")
+			)
 			(node
 				(ref "U12")
 				(pin "11")
@@ -4158,7 +4606,114 @@
 			)
 		)
 		(net
-			(code "3")
+			(code "4")
+			(name "/+5V_MCU")
+			(class "Default")
+			(node
+				(ref "D1")
+				(pin "1")
+				(pinfunction "K_1")
+				(pintype "passive")
+			)
+			(node
+				(ref "U1")
+				(pin "J1_21")
+				(pinfunction "5V0_J1_21")
+				(pintype "power_in")
+			)
+		)
+		(net
+			(code "5")
+			(name "/GPIO7")
+			(class "Default")
+			(node
+				(ref "R1")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "R27")
+				(pin "2")
+				(pintype "passive")
+			)
+			(node
+				(ref "U1")
+				(pin "J1_7")
+				(pinfunction "GPIO7_J1_7")
+				(pintype "bidirectional")
+			)
+		)
+		(net
+			(code "6")
+			(name "/GPIO8")
+			(class "Default")
+			(node
+				(ref "R2")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "R28")
+				(pin "2")
+				(pintype "passive")
+			)
+			(node
+				(ref "U1")
+				(pin "J1_12")
+				(pinfunction "GPIO8_J1_12")
+				(pintype "bidirectional")
+			)
+		)
+		(net
+			(code "7")
+			(name "/GPIO21")
+			(class "Default")
+			(node
+				(ref "R29")
+				(pin "2")
+				(pintype "passive")
+			)
+			(node
+				(ref "R4")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "U1")
+				(pin "J2_18")
+				(pinfunction "GPIO21_J2_18")
+				(pintype "bidirectional")
+			)
+		)
+		(net
+			(code "8")
+			(name "/VREF_BUF")
+			(class "Default")
+			(node
+				(ref "R10")
+				(pin "2")
+				(pintype "passive")
+			)
+			(node
+				(ref "R15")
+				(pin "2")
+				(pintype "passive")
+			)
+			(node
+				(ref "U12")
+				(pin "8")
+				(pinfunction "OUT_C_8")
+				(pintype "output")
+			)
+			(node
+				(ref "U12")
+				(pin "9")
+				(pinfunction "-IN_C_9")
+				(pintype "input")
+			)
+		)
+		(net
+			(code "9")
 			(name "5V GND Buck")
 			(class "Default")
 			(node
@@ -4174,6 +4729,18 @@
 			(node
 				(ref "C7")
 				(pin "2")
+				(pintype "passive")
+			)
+			(node
+				(ref "J1")
+				(pin "6")
+				(pinfunction "GND_6")
+				(pintype "power_in")
+			)
+			(node
+				(ref "J2")
+				(pin "2")
+				(pinfunction "Pin_2_2")
 				(pintype "passive")
 			)
 			(node
@@ -4200,6 +4767,12 @@
 				(ref "U1")
 				(pin "J1_22")
 				(pinfunction "GND_J1_22")
+				(pintype "power_in")
+			)
+			(node
+				(ref "U1")
+				(pin "J2_1")
+				(pinfunction "GND_J2_1")
 				(pintype "power_in")
 			)
 			(node
@@ -4300,9 +4873,14 @@
 			)
 		)
 		(net
-			(code "4")
+			(code "10")
 			(name "AGND (from Galvo Board)")
 			(class "Default")
+			(node
+				(ref "C1")
+				(pin "2")
+				(pintype "passive")
+			)
 			(node
 				(ref "C2")
 				(pin "2")
@@ -4316,6 +4894,23 @@
 			(node
 				(ref "C4")
 				(pin "2")
+				(pintype "passive")
+			)
+			(node
+				(ref "C8")
+				(pin "2")
+				(pintype "passive")
+			)
+			(node
+				(ref "J3")
+				(pin "2")
+				(pinfunction "Pin_2_2")
+				(pintype "passive")
+			)
+			(node
+				(ref "J3")
+				(pin "3")
+				(pinfunction "Pin_3_3")
 				(pintype "passive")
 			)
 			(node
@@ -4339,6 +4934,12 @@
 				(pintype "passive")
 			)
 			(node
+				(ref "U12")
+				(pin "12")
+				(pinfunction "+IN_D_12")
+				(pintype "input")
+			)
+			(node
 				(ref "U13")
 				(pin "3")
 				(pinfunction "Pin_3_3")
@@ -4358,14 +4959,9 @@
 			)
 		)
 		(net
-			(code "5")
+			(code "11")
 			(name "Buck +5V")
 			(class "Default")
-			(node
-				(ref "C1")
-				(pin "2")
-				(pintype "passive")
-			)
 			(node
 				(ref "C5")
 				(pin "1")
@@ -4383,20 +4979,15 @@
 			)
 			(node
 				(ref "D1")
-				(pin "1")
-				(pinfunction "K_1")
-				(pintype "passive")
-			)
-			(node
-				(ref "R3")
 				(pin "2")
+				(pinfunction "A_2")
 				(pintype "passive")
 			)
 			(node
-				(ref "U1")
-				(pin "J1_21")
-				(pinfunction "5V0_J1_21")
-				(pintype "power_in")
+				(ref "J2")
+				(pin "1")
+				(pinfunction "Pin_1_1")
+				(pintype "passive")
 			)
 			(node
 				(ref "U15")
@@ -4436,7 +5027,7 @@
 			)
 		)
 		(net
-			(code "6")
+			(code "12")
 			(name "Net-(C3-Pad1)")
 			(class "Default")
 			(node
@@ -4456,7 +5047,7 @@
 			)
 		)
 		(net
-			(code "7")
+			(code "13")
 			(name "Net-(C4-Pad1)")
 			(class "Default")
 			(node
@@ -4476,80 +5067,7 @@
 			)
 		)
 		(net
-			(code "8")
-			(name "Net-(J1-3v3)")
-			(class "Default")
-			(node
-				(ref "J1")
-				(pin "1")
-				(pinfunction "3v3_1")
-				(pintype "power_in")
-			)
-			(node
-				(ref "R18")
-				(pin "1")
-				(pintype "passive")
-			)
-			(node
-				(ref "R20")
-				(pin "1")
-				(pintype "passive")
-			)
-			(node
-				(ref "R22")
-				(pin "1")
-				(pintype "passive")
-			)
-			(node
-				(ref "R5")
-				(pin "2")
-				(pintype "passive")
-			)
-			(node
-				(ref "U1")
-				(pin "J1_1")
-				(pinfunction "3V3_J1_1")
-				(pintype "power_in")
-			)
-			(node
-				(ref "U1")
-				(pin "J1_2")
-				(pinfunction "3V3_J1_2")
-				(pintype "power_in")
-			)
-			(node
-				(ref "U10")
-				(pin "3")
-				(pinfunction "V_{DD}_3")
-				(pintype "power_in")
-			)
-			(node
-				(ref "U6")
-				(pin "3")
-				(pinfunction "V_{DD}_3")
-				(pintype "power_in")
-			)
-			(node
-				(ref "U7")
-				(pin "3")
-				(pinfunction "V_{DD}_3")
-				(pintype "power_in")
-			)
-			(node
-				(ref "U8")
-				(pin "3")
-				(pinfunction "V_{DD}_3")
-				(pintype "power_in")
-			)
-			(node
-				(ref "U9")
-				(pin "3")
-				(pinfunction "V_{DD}_3")
-				(pintype "power_in")
-			)
-		)
-		(net
-			(code "9")
+			(code "14")
 			(name "Net-(J1-CLK)")
 			(class "Default")
 			(node
@@ -4566,7 +5084,7 @@
 			)
 		)
 		(net
-			(code "10")
+			(code "15")
 			(name "Net-(J1-CS)")
 			(class "Default")
 			(node
@@ -4583,24 +5101,7 @@
 			)
 		)
 		(net
-			(code "11")
-			(name "Net-(J1-GND)")
-			(class "Default")
-			(node
-				(ref "J1")
-				(pin "6")
-				(pinfunction "GND_6")
-				(pintype "power_in")
-			)
-			(node
-				(ref "U1")
-				(pin "J2_1")
-				(pinfunction "GND_J2_1")
-				(pintype "power_in")
-			)
-		)
-		(net
-			(code "12")
+			(code "16")
 			(name "Net-(J1-MISO)")
 			(class "Default")
 			(node
@@ -4617,7 +5118,7 @@
 			)
 		)
 		(net
-			(code "13")
+			(code "17")
 			(name "Net-(J1-MOSI)")
 			(class "Default")
 			(node
@@ -4634,7 +5135,7 @@
 			)
 		)
 		(net
-			(code "14")
+			(code "18")
 			(name "Net-(R7-Pad2)")
 			(class "Default")
 			(node
@@ -4649,7 +5150,7 @@
 			)
 		)
 		(net
-			(code "15")
+			(code "19")
 			(name "Net-(R14-Pad2)")
 			(class "Default")
 			(node
@@ -4664,39 +5165,7 @@
 			)
 		)
 		(net
-			(code "16")
-			(name "Net-(U1-GPIO7)")
-			(class "Default")
-			(node
-				(ref "R1")
-				(pin "1")
-				(pintype "passive")
-			)
-			(node
-				(ref "U1")
-				(pin "J1_7")
-				(pinfunction "GPIO7_J1_7")
-				(pintype "bidirectional")
-			)
-		)
-		(net
-			(code "17")
-			(name "Net-(U1-GPIO8)")
-			(class "Default")
-			(node
-				(ref "R2")
-				(pin "1")
-				(pintype "passive")
-			)
-			(node
-				(ref "U1")
-				(pin "J1_12")
-				(pinfunction "GPIO8_J1_12")
-				(pintype "bidirectional")
-			)
-		)
-		(net
-			(code "18")
+			(code "20")
 			(name "Net-(U1-GPIO10)")
 			(class "Default")
 			(node
@@ -4713,7 +5182,7 @@
 			)
 		)
 		(net
-			(code "19")
+			(code "21")
 			(name "Net-(U1-GPIO11)")
 			(class "Default")
 			(node
@@ -4730,7 +5199,7 @@
 			)
 		)
 		(net
-			(code "20")
+			(code "22")
 			(name "Net-(U1-GPIO12)")
 			(class "Default")
 			(node
@@ -4747,7 +5216,7 @@
 			)
 		)
 		(net
-			(code "21")
+			(code "23")
 			(name "Net-(U1-GPIO18)")
 			(class "Default")
 			(node
@@ -4790,38 +5259,6 @@
 				(pin "2")
 				(pinfunction "DQ_2")
 				(pintype "bidirectional")
-			)
-		)
-		(net
-			(code "22")
-			(name "Net-(U1-GPIO21)")
-			(class "Default")
-			(node
-				(ref "R4")
-				(pin "1")
-				(pintype "passive")
-			)
-			(node
-				(ref "U1")
-				(pin "J2_18")
-				(pinfunction "GPIO21_J2_18")
-				(pintype "bidirectional")
-			)
-		)
-		(net
-			(code "23")
-			(name "Net-(U2-AVDD)")
-			(class "Default")
-			(node
-				(ref "C1")
-				(pin "1")
-				(pintype "passive")
-			)
-			(node
-				(ref "U2")
-				(pin "9")
-				(pinfunction "AVDD_9")
-				(pintype "power_in")
 			)
 		)
 		(net
@@ -4924,26 +5361,6 @@
 				(pintype "passive")
 			)
 			(node
-				(ref "R10")
-				(pin "2")
-				(pintype "passive")
-			)
-			(node
-				(ref "R12")
-				(pin "1")
-				(pintype "passive")
-			)
-			(node
-				(ref "R15")
-				(pin "2")
-				(pintype "passive")
-			)
-			(node
-				(ref "R17")
-				(pin "2")
-				(pintype "passive")
-			)
-			(node
 				(ref "U12")
 				(pin "10")
 				(pinfunction "+IN_C_10")
@@ -5005,25 +5422,30 @@
 		)
 		(net
 			(code "32")
-			(name "Net-(U12--IN_C)")
+			(name "Net-(U12--IN_D)")
 			(class "Default")
 			(node
 				(ref "U12")
-				(pin "8")
-				(pinfunction "OUT_C_8")
-				(pintype "output")
+				(pin "13")
+				(pinfunction "-IN_D_13")
+				(pintype "input")
 			)
 			(node
 				(ref "U12")
-				(pin "9")
-				(pinfunction "-IN_C_9")
-				(pintype "input")
+				(pin "14")
+				(pinfunction "OUT_D_14")
+				(pintype "output")
 			)
 		)
 		(net
 			(code "33")
 			(name "Net-(U12-OUT_A)")
 			(class "Default")
+			(node
+				(ref "R12")
+				(pin "1")
+				(pintype "passive")
+			)
 			(node
 				(ref "R6")
 				(pin "1")
@@ -5043,6 +5465,11 @@
 			(node
 				(ref "R16")
 				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "R17")
+				(pin "2")
 				(pintype "passive")
 			)
 			(node
@@ -5501,39 +5928,6 @@
 		)
 		(net
 			(code "69")
-			(name "unconnected-(U12-+IN_D-Pad12)")
-			(class "Default")
-			(node
-				(ref "U12")
-				(pin "12")
-				(pinfunction "+IN_D_12")
-				(pintype "input+no_connect")
-			)
-		)
-		(net
-			(code "70")
-			(name "unconnected-(U12--IN_D-Pad13)")
-			(class "Default")
-			(node
-				(ref "U12")
-				(pin "13")
-				(pinfunction "-IN_D_13")
-				(pintype "input+no_connect")
-			)
-		)
-		(net
-			(code "71")
-			(name "unconnected-(U12-OUT_D-Pad14)")
-			(class "Default")
-			(node
-				(ref "U12")
-				(pin "14")
-				(pinfunction "OUT_D_14")
-				(pintype "output+no_connect")
-			)
-		)
-		(net
-			(code "72")
 			(name "unconnected-(U13-Pin_1-Pad1)")
 			(class "Default")
 			(node
@@ -5544,7 +5938,7 @@
 			)
 		)
 		(net
-			(code "73")
+			(code "70")
 			(name "unconnected-(U15-NC-Pad1)")
 			(class "Default")
 			(node
@@ -5555,7 +5949,7 @@
 			)
 		)
 		(net
-			(code "74")
+			(code "71")
 			(name "unconnected-(U15-NC-Pad4)")
 			(class "Default")
 			(node
@@ -5566,7 +5960,7 @@
 			)
 		)
 		(net
-			(code "75")
+			(code "72")
 			(name "unconnected-(U16-NC-Pad1)")
 			(class "Default")
 			(node
@@ -5577,7 +5971,7 @@
 			)
 		)
 		(net
-			(code "76")
+			(code "73")
 			(name "unconnected-(U16-NC-Pad4)")
 			(class "Default")
 			(node
@@ -5588,7 +5982,7 @@
 			)
 		)
 		(net
-			(code "77")
+			(code "74")
 			(name "unconnected-(U17-NC-Pad1)")
 			(class "Default")
 			(node
@@ -5599,7 +5993,7 @@
 			)
 		)
 		(net
-			(code "78")
+			(code "75")
 			(name "unconnected-(U17-NC-Pad4)")
 			(class "Default")
 			(node
