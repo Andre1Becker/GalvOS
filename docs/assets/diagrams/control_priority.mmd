@@ -1,0 +1,56 @@
+%%{init: {"theme": "dark", "flowchart": {"curve": "linear"}}}%%
+flowchart TD
+    SAFE{"Safety interlock:<br/>E-Stop or Scan-Fail active?"}
+    SAFE -->|yes| OFF(["Laser forced OFF<br/><small>galvo_out.cpp hardware gate -- overrides every source below</small>"])
+    SAFE -->|no| ILDA
+
+    ILDA{"ILDA Player active?<br/><small>gILDA.active</small>"}
+    ILDA -->|yes| D_ILDA(["Drive output: ILDA SD playback"])
+    ILDA -->|no| NET
+
+    NET{"Network point stream active?<br/><small>Ether Dream / Helios Net isPlaying()</small>"}
+    NET -->|yes| D_NET(["Drive output: streamed points<br/><small>pushed directly by the protocol task</small>"])
+    NET -->|no| CALIB
+
+    CALIB{"Calibration session active?<br/><small>gState.calib_active</small>"}
+    CALIB -->|yes| D_CALIB(["Drive output: calibration pattern"])
+    CALIB -->|no| TEXT
+
+    TEXT{"Text Mode active?<br/><small>gTextConfig.active</small>"}
+    TEXT -->|yes| D_TEXT(["Drive output: Text renderer"])
+    TEXT -->|no| PAINT
+
+    PAINT{"Paint Mode active?<br/><small>gPaint.active</small>"}
+    PAINT -->|yes| D_PAINT(["Drive output: Paint-by-Finger"])
+    PAINT -->|no| DMXV
+
+    subgraph DMXSHAPE["DMX-shaped source arbitration (readDmx(), highest wins)"]
+        direction TD
+        DMXV{"WebUI Override active?<br/><small>ui_override / gOverride.active<br/>(OSC writes this same flag)</small>"}
+        DMXV -->|yes| D_WEBUI(["source = SRC_WEBUI"])
+        DMXV -->|no| ARTNET
+
+        ARTNET{"Art-Net receiving?"}
+        ARTNET -->|yes| D_ARTNET(["source = SRC_ARTNET"])
+        ARTNET -->|no| DMX512
+
+        DMX512{"DMX-512 receiving?"}
+        DMX512 -->|yes| D_DMX(["source = SRC_DMX"])
+        DMX512 -->|no| SACN
+
+        SACN{"sACN / E1.31 receiving?"}
+        SACN -->|yes| D_SACN(["source = SRC_SACN"])
+        SACN -->|no| D_INTERNAL(["source = SRC_WEBUI (safe defaults)<br/>drives active Preset<br/><small>= &quot;Internal&quot; fallback</small>"])
+    end
+
+    NOTE1["Priority as implemented in src/patterns/pattern_engine.cpp:<br/>ILDA &gt; Network Stream &gt; Calibration &gt; Text &gt; Paint &gt; (WebUI/OSC &gt; Art-Net &gt; DMX-512 &gt; sACN &gt; Internal)"]
+    DMXSHAPE -.-> NOTE1
+
+    BPMNOTE["BPM Clock source priority (independent sub-system):<br/>DMX &gt; Tap &gt; Manual<br/><small>DMX counts only while a DMX signal is present;<br/>Tap only while a tempo is established (&ge;2 taps, &lt;3s old)</small>"]
+
+    classDef gate fill:#1a1a2e,stroke:#ff2ecb,stroke-width:2px,color:#ff2ecb
+    classDef drive fill:#0d2a2e,stroke:#00e5ff,stroke-width:1.5px,color:#e6e6f0
+    classDef note fill:#0d0d14,stroke:#666,stroke-width:1px,color:#aaa,font-style:italic
+    class SAFE,ILDA,NET,CALIB,TEXT,PAINT,DMXV,ARTNET,DMX512,SACN gate
+    class OFF,D_ILDA,D_NET,D_CALIB,D_TEXT,D_PAINT,D_WEBUI,D_ARTNET,D_DMX,D_SACN,D_INTERNAL drive
+    class NOTE1,BPMNOTE note

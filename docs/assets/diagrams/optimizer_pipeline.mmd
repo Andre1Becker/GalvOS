@@ -1,0 +1,37 @@
+%%{init: {"theme": "dark", "flowchart": {"curve": "linear"}}}%%
+flowchart LR
+    IN(["Pattern Engine"])
+
+    subgraph OPT["Optimizer"]
+        direction LR
+        S1["1. Primitive Generation<br/><small>PathSegments (always)</small>"]
+        S2["2. Transform<br/><small>affine 2x3 (always)</small>"]
+        S3["3. Resample<br/><small>optional</small>"]:::optional
+        S4["4. Corner Dwell<br/><small>always</small>"]
+        S5["5. Blanking / S-Curve<br/><small>always</small>"]
+        S6["6. Velocity Clamp<br/><small>optional</small>"]:::optional
+        S7["7. Acceleration Clamp<br/><small>optional</small>"]:::optional
+        S8["8. ZV Ringing Compensation<br/><small>optional</small>"]:::optional
+
+        S1 --> S2 --> S3 --> S4 --> S5 --> S6 --> S7 --> S8
+    end
+
+    S9["9. DAC Output<br/><small>always</small>"]
+    OUT(["Galvo Mirrors"])
+
+    IN --> S1
+    S8 --> S9 --> OUT
+
+    N8["ring_freq_hz + ring_damping_ratio<br/>must be measured on hardware"]
+    N9["LaserPoint[] -&gt; ISR -&gt; DAC8562 via SPI @ 40 MHz"]
+
+    S8 -.-> N8
+    S9 -.-> N9
+
+    classDef optional fill:#1a1a2e,stroke:#ff2ecb,stroke-width:2px,stroke-dasharray:5 3,color:#ff2ecb
+    classDef default fill:#12121c,stroke:#00e5ff,stroke-width:1.5px,color:#e6e6f0
+    class IN,OUT default
+    class S1,S2,S4,S5,S9 default
+    class N8,N9 note
+
+    classDef note fill:#0d0d14,stroke:#666,stroke-width:1px,color:#aaa,font-style:italic

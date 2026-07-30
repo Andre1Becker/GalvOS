@@ -1,0 +1,18 @@
+%%{init: {"theme": "dark"}}%%
+flowchart TD
+    A["applyPpsScaling(galvo_rated_kpps, galvo_kpps)"]
+    R["r = galvo_rated_kpps / galvo_kpps<br/><small>the &quot;headroom ratio&quot;</small>"]
+
+    A --> R
+
+    R --> P["pts_per_1000_units *= 1/r<br/><small>more points at lower speed</small>"]
+    R --> M["max_step_units *= r<br/><small>larger max step at lower speed</small>"]
+    R --> C["max_accel_units *= r^2<br/><small>accel scales quadratically</small>"]
+
+    P --> OUT(["Effective optimizer config<br/>(opt_eff_* in WebUI)"])
+    M --> OUT
+    C --> OUT
+
+    classDef default fill:#12121c,stroke:#00e5ff,stroke-width:1.5px,color:#e6e6f0
+    classDef branch fill:#1a1a2e,stroke:#ff2ecb,stroke-width:2px,color:#ff2ecb
+    class P,M,C branch

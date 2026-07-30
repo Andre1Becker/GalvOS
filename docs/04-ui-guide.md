@@ -22,7 +22,7 @@ The GalvOS WebUI is a single-page application served directly from the ESP32's L
 - [Tab: Log](#tab-log)
 - [Tab: Configuration](#tab-configuration)
 
-> **A note on screenshots:** the WebUI was rebuilt from scratch in v6.32.0 (see [Themes](#themes)) and several tabs were reorganized in v6.33.0–v6.35.0. Some screenshots in this chapter still show the previous skin — the controls they show are the same, they just wear different clothes now.
+> **A note on screenshots:** captured live from a running device (firmware v6.36.1 / UI v1.0.1) via `scripts/capture_screenshots.py`, which also redacts IP/hostname/credential fields before saving. Re-run it after UI changes to keep this chapter current.
 
 ---
 
@@ -65,7 +65,8 @@ GalvOS ships as a Progressive Web App (PWA). This means you can install it on yo
 
 ## General Layout
 
-![image](https://github.com/user-attachments/assets/3a9fd575-9a98-4934-baa0-ceb1394cbb9c)
+![General layout, desktop](assets/screenshots/layout_desktop.png)
+![General layout, mobile](assets/screenshots/layout_mobile.png)
 
 Since the v6.32.0 rewrite, the UI is a responsive shell around 13 tabs: a **collapsible sidebar** for tab navigation on desktop, a **bottom tab bar** on mobile, and a **content area** in the middle. All tabs are accessible at any time — switching tabs does not stop the laser or change the active pattern.
 
@@ -98,11 +99,11 @@ Pick a theme via the theme buttons in the navigation. The choice persists in the
 
 The Dashboard is the home screen and the first thing you see on load. Since the v6.33.0 reorg it is **status and monitoring only** — everything you *operate* (Preset Grid, Modulators, Color Override, Sequencer transport, BPM Clock, Countdown Timer) lives on the [Presets tab](#tab-presets), and ARM/DISARM plus Master Dimmer live in the always-visible top bar. Since v6.35.0 the top row holds Safety & Arm, System, and Telemetry side by side.
 
-![image](https://github.com/user-attachments/assets/8cd5b835-76dd-4c52-abb8-f7ebc45a33d6)
+![Dashboard tab](assets/screenshots/tab_dashboard.png)
 
 ### Safety & Arm Card
 
-![image](https://github.com/user-attachments/assets/962a2f9d-639f-4f64-b385-68ec8f451048)
+![Safety & Arm card](assets/screenshots/card_safety.png)
 
 Shows the state of the hardware safety interlocks:
 
@@ -114,7 +115,7 @@ Shows the state of the hardware safety interlocks:
 
 ### Telemetry Card
 
-![image](https://github.com/user-attachments/assets/90748c64-b019-4bf6-affb-b3eba0d22666)
+![Telemetry card](assets/screenshots/card_telemetry.png)
 
 Live readouts updated every second:
 
@@ -130,14 +131,14 @@ Live readouts updated every second:
 
 A scrolling 60-second graph of both core loads:
 
-![image](https://github.com/user-attachments/assets/aa07298f-a40f-40e9-975b-54d2114b34cb)
+![CPU Load graph](assets/screenshots/card_cpu.png)
 
 - **Core 0 (cyan)** — handles Wi-Fi, WebUI HTTP, Art-Net, DMX, safety. Typically 10–40% under normal use.
 - Warning lines at 70% (yellow dashed) and 90% (red dashed) mark potential overload on Core 0.
 
 ### Temperature History Chart
 
-![image](https://github.com/user-attachments/assets/32cea48e-ee32-42c1-b313-92f4367a69f6)
+![Temperature History chart](assets/screenshots/card_temp.png)
 
 A colour-coded scrolling chart of all DS18B20 sensor readings:
 
@@ -151,13 +152,13 @@ Current temperatures are shown as a row of badges below the chart. Sensors that 
 
 ### Galvo Output Rate
 
-![image](https://github.com/user-attachments/assets/34f1a469-45fc-42c1-b111-49ecdebbcf97)
+![Galvo Output Rate chart](assets/screenshots/card_kpps.png)
 
 A scrolling 5-minute history of the actual DAC output rate in kpps (points-per-second). This is the real-time equivalent of the "Galvo Rate" bar in the Telemetry card, plotted over time so you can spot dips or instability instead of just the instantaneous value. Compare against the configured `galvo_kpps` (Tab: Projection) to confirm the output stays at the expected rate under load.
 
 ### Frame Composition Chart
 
-![image](https://github.com/user-attachments/assets/b89fc610-9433-4dbf-8638-7932fce04447)
+![Frame Composition chart](assets/screenshots/card_frame.png)
 
 Shows how each rendered frame's points split between **Lit** (green) and **Blank** (orange) against the **Total** point count (grey) over the same 5-minute window. A high blank-to-lit ratio usually means the optimizer is spending a lot of the frame budget on travel/jump moves between shapes rather than visible content — useful when tuning optimizer profiles (Tab: Optimizer) or diagnosing why a complex pattern looks dim or flickery.
 
@@ -167,7 +168,7 @@ A one-checkbox quick toggle for projection zone clipping — the full zone edito
 
 ### System Card
 
-![image](https://github.com/user-attachments/assets/06d69469-fd72-4210-bd7e-4626f60f170a)
+![System card](assets/screenshots/card_system.png)
 
 System information in a compact multi-column field grid (v6.35.0): firmware version, **UI version** (independent of firmware since v6.35.0), hostname, IP address, Wi-Fi signal strength (RSSI), uptime, free heap (internal DRAM), free PSRAM, NTP time, and DAC/galvo status. The **SD card status plus Mount/Eject controls** were folded into this card in v6.33.0 (they previously had their own card; the full SD toolset lives on the [ILDA / SD tab](#tab-ilda--sd)). The API auth token moved to the **Access Credentials** card on the Configuration tab.
 
@@ -183,7 +184,7 @@ Since the v6.26.0/v6.33.0 reorgs, the Presets tab is the **complete performance 
 
 A card that applies to every active preset in real time. Changes take effect immediately without reloading the pattern. Defaults and ranges got a sanity pass in v6.36.0 — sliders now start neutral and their travel matches what the firmware actually does.
 
-![image](https://github.com/user-attachments/assets/ee1b1d09-49d1-4fe8-9067-cf5ebe6ecc95)
+![Global Controls card](assets/screenshots/card_global_controls.png)
 
 **Speed / Size / Autoscale / Rotation:**
 
@@ -242,7 +243,7 @@ Since v6.36.0 the speed slider defaults to 1 — the lowest visible speed — in
 
 The main preset library, fetched from `/api/presets` on tab load. Each preset is shown as a tile with an SVG thumbnail and name. Waves and 3D presets live here too — they're just categories in the same grid, not separate cards. Since v6.36.0 each tile also carries a small per-category glyph that draws itself in on hover — a purely cosmetic flourish, but a satisfying one.
 
-![image](https://github.com/user-attachments/assets/48c361fb-c441-4e64-9ef4-f27be0febf44)
+![Preset Grid card](assets/screenshots/card_preset_grid.png)
 
 - **Category filters** — buttons above the grid filter by category (Geometry, Waves, 3D, Scenes, etc.). Click to toggle. Multiple categories can be active simultaneously.
 - **Click a preset** — activates it immediately. The active preset name is shown in the Global Controls header.
@@ -266,6 +267,8 @@ Added in v6.22.0 — a BPM-synced preset playlist, directly below Community Pres
 - **Transport** — status pill, a beat-flash dot, and Prev / Start / Stop / Next buttons. Start jumps to step 0; Prev/Next are hard cuts that ignore beat timing.
 - **Loop** — repeat the playlist indefinitely, or stop after the last step.
 - The playlist persists on the device — but playback **never auto-starts on boot**, by design. A Class 4 laser that resumes its show when the power comes back is nobody's idea of a feature.
+
+![Sequencer card](assets/screenshots/card_sequencer.png)
 
 ### BPM Clock (sidebar)
 
@@ -309,6 +312,8 @@ Modulators currently act on Preset-mode rendering; Text/Paint/ILDA output is not
 
 Home of the Community Presets feature: preset bundles hosted in the GalvOS GitHub repo, downloadable straight from the WebUI. Each bundle is a single JSON that carries a full optimizer tuning (same fields as the Optimizer tab) plus playback params (which built-in preset to run, color, speed, size) — someone else's 2 AM slider-tweaking session, packaged for your device.
 
+![Preset Manager tab](assets/screenshots/tab_preset_manager.png)
+
 ### GitHub Browser
 
 - **⟳ Browse GitHub** — fetches the community preset index from `raw.githubusercontent.com` and shows each entry as a card with name, author, description, and tags. Your **browser** does the fetching — the firmware never talks to GitHub itself, so this works even though the ESP32 has no internet-facing ambitions.
@@ -339,7 +344,7 @@ Want to publish your own? See [Contributing a Community Preset](09-contributing.
 
 Provides a software DMX console — 25 sliders corresponding to GalvOS's 25 DMX channels.
 
-![image](https://github.com/user-attachments/assets/d7e5b338-9254-4030-9a02-e2022b34af75)
+![DMX Live tab](assets/screenshots/tab_dmx.png)
 
 - **WebUI override toggle** — when enabled, the slider values are sent directly to the pattern engine, overriding any incoming hardware DMX signal. When disabled, the sliders display the last received DMX values (read-only view).
 - **Reset all channels** — returns all sliders to their off/default state.
@@ -353,7 +358,7 @@ Full channel map: see [Chapter 3 — Build & Configuration → RuntimeConfig →
 
 Projects laser text. Text mode overrides any active preset and DMX input while active.
 
-![image](https://github.com/user-attachments/assets/31cd9710-edae-48d9-b849-fac9ee304e98)
+![Text tab](assets/screenshots/tab_text.png)
 
 - **Text input** — supports uppercase A–Z, digits 0–9, and `.,:!?-+`. Maximum 127 characters. Up to 16 characters display statically; longer text scrolls automatically.
 - **Font** — Simple (thin strokes, fastest), Bold (thick strokes), Outline (double-line).
@@ -371,7 +376,7 @@ Projects laser text. Text mode overrides any active preset and DMX input while a
 
 A freehand drawing canvas that projects directly onto the laser.
 
-![image](https://github.com/user-attachments/assets/bb0dd0fc-ba0b-4d5c-87bf-25ebfdfda5fd)
+![Paint tab](assets/screenshots/tab_paint.png)
 
 - **Draw mode** — finger or mouse draws freehand strokes on the canvas.
 - **Shape tools** — add rectangles, triangles, or circles as closed polygons.
@@ -388,7 +393,7 @@ Since v5.89.19, the canvas is scaled to match your configured **projection zone*
 
 ILDA file playback from an SD card. Since v6.11.0 this tab is the single home for everything SD/ILDA — the former standalone Playlist tab moved in here.
 
-![image](https://github.com/user-attachments/assets/b11c18f6-d442-4fe2-a1ab-6a8d6dffa5f7)
+![ILDA / SD tab](assets/screenshots/tab_ilda.png)
 
 ### SD Card
 
@@ -419,7 +424,7 @@ Upload `.ild`/`.ilda` files to the SD card straight from the browser. Filenames 
 
 The calibration workflow covers four areas: color/gamma calibration, galvo geometry calibration, projection zone setup, and the ILDA standard test pattern.
 
-![image](https://github.com/user-attachments/assets/1dc6992a-2000-48a6-b7c6-f1061e815e0e)
+![Calibration tab](assets/screenshots/tab_calibration.png)
 
 ### Color & Gamma Calibration (left card)
 
@@ -473,7 +478,7 @@ Toggles perceptual brightness correction. When enabled (default), the firmware a
 
 An interactive canvas for defining a clipping polygon — the area the laser is allowed to scan. Lit points outside the polygon are blanked (laser off, mirror position retained).
 
-![image](https://github.com/user-attachments/assets/20ffae7f-44b3-46c3-a733-fe99ddfb4474)
+![Projection Zone card](assets/screenshots/card_zone.png)
 
 - **Drag vertices** to shape the zone.
 - **Tap an edge** to add a new vertex.
@@ -496,7 +501,7 @@ This does **not** replace the Galvo Calibration card above (offset/gain/swap/inv
 
 Per-preset-class optimizer profile management. See [Chapter 5 — The Optimizer](05-optimizer.md) for a full explanation of what each parameter does.
 
-![image](https://github.com/user-attachments/assets/e0ec3702-5c2c-4a64-a765-4990a6c862c6)
+![Optimizer tab](assets/screenshots/tab_optimizer.png)
 
 ### Profile Selector
 
@@ -532,7 +537,7 @@ See [Chapter 5 — The Optimizer → Parameter Reference](05-optimizer.md#parame
 
 Hardware configuration for the galvo scanner and laser module.
 
-![image](https://github.com/user-attachments/assets/a35ea058-c503-4498-b061-f2411371b1d9)
+![Projection tab](assets/screenshots/tab_projection.png)
 
 ### Galvo Sample Rate Card
 
@@ -573,7 +578,7 @@ A simplified laser hazard summary based on configured power and angles: laser cl
 
 Fan and temperature management.
 
-![image](https://github.com/user-attachments/assets/64483756-2c45-4b98-8624-70adffc3e471)
+![Thermal tab](assets/screenshots/tab_thermal.png)
 
 - **Temperature thresholds** — configure warn, reduce, and shutdown temperatures (`temp_warn_c`, `temp_reduce_c`, `temp_shutdown_c`).
 - **Fan control** — Auto mode (temperature-driven) or manual PWM override per fan.
@@ -586,7 +591,7 @@ Fan and temperature management.
 
 Live firmware log output, streamed from the ESP32 over the WebSocket. Auto-refreshes only when this tab is active.
 
-![image](https://github.com/user-attachments/assets/220d7d13-0bbf-44be-8aa6-39b473627996)
+![Log tab](assets/screenshots/tab_log.png)
 
 - Log entries are color-coded by severity: INFO (dim), WARN (orange), ERROR (red).
 - Use this tab to diagnose startup issues, track DMX frame counts, or watch for ring buffer overflow warnings.
@@ -594,7 +599,7 @@ Live firmware log output, streamed from the ESP32 over the WebSocket. Auto-refre
 
 ### Memory Viewer
 
-![image](https://github.com/user-attachments/assets/37902513-bd62-45e8-9b83-600e51b5f362)
+![Memory Viewer card](assets/screenshots/card_memory.png)
 
 A second card below the log console, showing who holds the RAM — static/long-lived buffers only, sourced from `/api/meminfo` and refreshed every 3 s while the Log tab is open.
 
@@ -609,7 +614,7 @@ A second card below the log console, showing who holds the RAM — static/long-l
 
 Network, DMX, safety, IP, and debug settings.
 
-![image](https://github.com/user-attachments/assets/58809d0a-b41b-4414-b056-ee5b051500c0)
+![Configuration tab](assets/screenshots/tab_config.png)
 
 ### DMX and Art-Net
 
@@ -668,7 +673,7 @@ Added in v6.06.0 — because "I remember my DAC limits" is not a disaster recove
 
 ### Debug
 
-![image](https://github.com/user-attachments/assets/bbddf485-a012-42cf-a48d-3574f4e96f5f)
+![Debug card](assets/screenshots/card_debug.png)
 
 - **No-HW Mode** — skips SPI/DAC init at boot. Use only for firmware development without hardware connected. Disable before normal operation.
 - **DAC Debug Log** — logs DAC8562 register writes to serial and the Log tab (rate-limited). For low-level DAC debugging only.
