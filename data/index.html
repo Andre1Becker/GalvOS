@@ -319,7 +319,7 @@ label.row { min-height: 44px; cursor: pointer; }
 
 .ilda-row { display: flex; align-items: center; gap: 10px; }
 .ilda-col-play { flex-shrink: 0; }
-.ilda-col-name { flex-shrink: 0; width: 60ch; max-width: 60ch; overflow: hidden; white-space: nowrap; position: relative; font-family: var(--font-mono); }
+.ilda-col-name { flex-shrink: 0; width: 50ch; max-width: 50ch; overflow: hidden; white-space: nowrap; position: relative; font-family: var(--font-mono); }
 .ilda-col-name-inner { display: inline-block; white-space: nowrap; }
 .ilda-col-play { width: 108px; }
 .ilda-col-play button { width: 100%; }
@@ -858,58 +858,59 @@ canvas { max-width: 100%; display: block; }
     </section>
     <section class="tab" id="tab-ilda">
       <h2>ILDA / SD</h2>
-      <div class="card">
-        <h2>SD Card</h2>
-        <p id="ilda-sd-status">--</p>
-        <div class="row">
-          <button class="btn sm" onclick="sdRescan()">Rescan</button>
-          <button class="btn sm" onclick="loadSdStatus()">Refresh</button>
-          <button class="btn sm" onclick="sdRemount('ilda-sd-mount')" id="ilda-sd-mount">Mount</button>
-          <button class="btn sm" onclick="sdEject('ilda-sd-eject')" id="ilda-sd-eject">Eject</button>
+      <div class="grid" style="grid-template-columns:7fr 3fr">
+        <div class="card">
+          <h2>SD Card</h2>
+          <p id="ilda-sd-status">--</p>
+          <div class="row">
+            <button class="btn sm" onclick="sdRescan()">Rescan</button>
+            <button class="btn sm" onclick="loadSdStatus()">Refresh</button>
+            <button class="btn sm" onclick="sdRemount('ilda-sd-mount')" id="ilda-sd-mount">Mount</button>
+            <button class="btn sm" onclick="sdEject('ilda-sd-eject')" id="ilda-sd-eject">Eject</button>
+          </div>
+          <div class="ilda-row ilda-header" style="margin-top:10px">
+            <span class="ilda-col-play" style="visibility:hidden">&#9654; Play</span>
+            <span class="ilda-col-name">Filename</span>
+            <span class="ilda-col-size">Size</span>
+            <span class="ilda-col-date">Date</span>
+          </div>
+          <div id="ilda-file-list"><p>Loading&hellip;</p></div>
         </div>
-        <div class="ilda-row ilda-header" style="margin-top:10px">
-          <span class="ilda-col-play" style="visibility:hidden">&#9654; Play</span>
-          <span class="ilda-col-name">Filename</span>
-          <span class="ilda-col-size">Size</span>
-          <span class="ilda-col-date">Date</span>
-        </div>
-        <div id="ilda-file-list"><p>Loading&hellip;</p></div>
-      </div>
+        <div>
+          <div class="card">
+            <h2>ILDA Player</h2>
+            <label class="row"><input type="checkbox" id="ilda-enabled" onchange="ildaSetEnabled(this.checked)"> Enabled</label>
+            <p><span id="ilda-now-playing">Nothing playing</span> — <span id="ilda-progress-label">0 / 0</span></p>
+            <div style="height:8px;background:var(--muted);border-radius:4px;overflow:hidden"><div id="ilda-progress-bar" style="height:100%;width:0;background:var(--accent)"></div></div>
+            <div class="field"><label>Speed</label><input type="range" id="ilda-speed" min="0" max="255" value="128" oninput="ildaParamChange()"></div>
+            <div class="field"><label>Size</label><input type="range" id="ilda-size" min="0" max="255" value="128" oninput="ildaParamChange()"></div>
+            <label class="row"><input type="checkbox" id="ilda-loop" onchange="ildaParamChange()"> Loop</label>
+            <label class="row"><input type="checkbox" id="ilda-color-override" onchange="ildaParamChange()"> Color Override</label>
+            <label class="row"><input type="checkbox" id="ilda-invert-x" onchange="ildaParamChange()"> Invert X</label>
+            <label class="row"><input type="checkbox" id="ilda-invert-y" onchange="ildaParamChange()"> Invert Y</label>
+            <div class="row">
+              <button class="btn sm" onclick="ildaStop()">Stop</button>
+              <button class="btn sm" onclick="ildaPauseResume(true)">Pause</button>
+              <button class="btn sm" onclick="ildaPauseResume(false)">Resume</button>
+            </div>
+          </div>
 
-      <div class="card">
-        <h2>ILDA Player</h2>
-        <label class="row"><input type="checkbox" id="ilda-enabled" onchange="ildaSetEnabled(this.checked)"> Enabled</label>
-        <p><span id="ilda-now-playing">Nothing playing</span> — <span id="ilda-progress-label">0 / 0</span></p>
-        <div style="height:8px;background:var(--muted);border-radius:4px;overflow:hidden"><div id="ilda-progress-bar" style="height:100%;width:0;background:var(--accent)"></div></div>
-        <div class="grid grid-2">
-          <div class="field"><label>Speed</label><input type="range" id="ilda-speed" min="0" max="255" value="128" oninput="ildaParamChange()"></div>
-          <div class="field"><label>Size</label><input type="range" id="ilda-size" min="0" max="255" value="128" oninput="ildaParamChange()"></div>
-        </div>
-        <label class="row"><input type="checkbox" id="ilda-loop" onchange="ildaParamChange()"> Loop</label>
-        <label class="row"><input type="checkbox" id="ilda-color-override" onchange="ildaParamChange()"> Color Override</label>
-        <label class="row"><input type="checkbox" id="ilda-invert-x" onchange="ildaParamChange()"> Invert X</label>
-        <label class="row"><input type="checkbox" id="ilda-invert-y" onchange="ildaParamChange()"> Invert Y</label>
-        <div class="row">
-          <button class="btn sm" onclick="ildaStop()">Stop</button>
-          <button class="btn sm" onclick="ildaPauseResume(true)">Pause</button>
-          <button class="btn sm" onclick="ildaPauseResume(false)">Resume</button>
-        </div>
-      </div>
+          <div class="card">
+            <h2>Show Playlist</h2>
+            <div class="row">
+              <button class="btn sm" onclick="playlistStart()">Start</button>
+              <button class="btn sm" onclick="playlistStop()">Stop</button>
+              <button class="btn sm" onclick="sdRescan()">Reload SD</button>
+            </div>
+            <p style="font-size:0.75rem;color:var(--text-dim)">Playlist entries are read from <code>/playlist.json</code> on the SD card.</p>
+          </div>
 
-      <div class="card">
-        <h2>Show Playlist</h2>
-        <div class="row">
-          <button class="btn sm" onclick="playlistStart()">Start</button>
-          <button class="btn sm" onclick="playlistStop()">Stop</button>
-          <button class="btn sm" onclick="sdRescan()">Reload SD</button>
+          <div class="card">
+            <h2>ILDA Upload</h2>
+            <button class="btn" onclick="uploadILDA()">&#8679; Upload .ild / .ilda files</button>
+            <p style="font-size:0.75rem;color:var(--text-dim)">Max 40 files on SD card.</p>
+          </div>
         </div>
-        <p style="font-size:0.75rem;color:var(--text-dim)">Playlist entries are read from <code>/playlist.json</code> on the SD card.</p>
-      </div>
-
-      <div class="card">
-        <h2>ILDA Upload</h2>
-        <button class="btn" onclick="uploadILDA()">&#8679; Upload .ild / .ilda files</button>
-        <p style="font-size:0.75rem;color:var(--text-dim)">Max 40 files on SD card.</p>
       </div>
     </section>
     <section class="tab" id="tab-calib">
@@ -1345,7 +1346,7 @@ canvas { max-width: 100%; display: block; }
 /* =========================================================================
    GLOBAL STATE
    ========================================================================= */
-var UI_VERSION = '1.1.1';   // WebUI version -- independent from firmware version
+var UI_VERSION = '1.1.2';   // WebUI version -- independent from firmware version
 var NAV_TABS = [
   {id: 'dashboard', label: 'Dashboard', icon: '🏠', bottom: true},
   {id: 'presets', label: 'Presets', icon: '🎮', bottom: true},
@@ -3544,7 +3545,7 @@ async function loadSdStatus() {
     if (timerSel) timerSel.innerHTML = listing.files.map(function(f) { return '<option value="' + f.idx + '">' + f.name + '</option>'; }).join('');
   }
 }
-var ILDA_NAME_COLS = 60;
+var ILDA_NAME_COLS = 50;
 var ILDA_SCROLL_CH_PER_SEC = 6;
 var ILDA_SCROLL_START_HOLD = 3;
 var ILDA_SCROLL_END_HOLD = 5;
@@ -3556,7 +3557,7 @@ function renderIldaFileList(listing) {
     var playing = (listing.ilda_active && listing.ilda_file === f.idx);
     var slash = f.path.lastIndexOf('/');
     var dir = slash >= 0 ? f.path.substring(0, slash) : '';
-    var dateStr = f.mtime ? new Date(f.mtime * 1000).toLocaleDateString() : '';
+    var dateStr = f.mtime ? new Date(f.mtime * 1000).toISOString().slice(0, 10) : '';
     var btn = f.too_large ?
       '<button class="btn sm" disabled title="Too large for PSRAM">Too large</button>' :
       '<button class="btn sm' + (playing ? ' primary' : '') + '" id="ilda-play-btn-' + f.idx + '" onclick="ildaPlayFile(' + f.idx + ')">' + (playing ? '&#8635; Restart' : '&#9654; Play') + '</button>';
