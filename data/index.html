@@ -1320,7 +1320,7 @@ canvas { max-width: 100%; display: block; }
 /* =========================================================================
    GLOBAL STATE
    ========================================================================= */
-var UI_VERSION = '1.0.2';   // WebUI version -- independent from firmware version
+var UI_VERSION = '1.0.3';   // WebUI version -- independent from firmware version
 var NAV_TABS = [
   {id: 'dashboard', label: 'Dashboard', icon: '🏠', bottom: true},
   {id: 'presets', label: 'Presets', icon: '🎮', bottom: true},
@@ -1396,7 +1396,7 @@ async function apiCall(method, url, body) {
           if (errBody && errBody.error) msg = errBody.error;
         } catch (e2) { /* no JSON body */ }
       }
-      toast(msg, true);
+      toast(msg + ' [' + method + ' ' + url + ']', true);
       return null;
     }
     var ct = resp.headers.get('content-type') || '';
@@ -1404,8 +1404,8 @@ async function apiCall(method, url, body) {
     return await resp.text();
   } catch (e) {
     clearTimeout(timer);
-    if (e.name === 'AbortError') toast('Request timed out', true);
-    else toast('Network error', true);
+    if (e.name === 'AbortError') toast('Request timed out [' + method + ' ' + url + ']', true);
+    else toast('Network error [' + method + ' ' + url + ']', true);
     return null;
   }
 }
