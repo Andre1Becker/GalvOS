@@ -647,6 +647,58 @@ canvas { max-width: 100%; display: block; }
             </div>
           </div>
 
+          <div class="grid grid-2">
+            <div class="card">
+              <h2>BPM Clock</h2>
+              <div class="row"><span id="dash-bpm-source" class="pill">Manual</span></div>
+              <div class="field">
+                <label>Manual BPM</label>
+                <input type="number" id="dash-bpm-manual" min="20" max="300" step="0.1" onchange="setBpmManual(this.value)">
+              </div>
+              <button class="btn" onclick="document.getElementById('btn-tap').click()">TAP</button>
+            </div>
+
+            <div class="card">
+              <h2>Countdown Timer</h2>
+              <div class="row">
+                <div class="field"><label>H</label><input type="number" id="timer-h" value="0" min="0" oninput="updateTimerPreview()"></div>
+                <div class="field"><label>M</label><input type="number" id="timer-m" value="1" min="0" max="59" oninput="updateTimerPreview()"></div>
+                <div class="field"><label>S</label><input type="number" id="timer-s" value="0" min="0" max="59" oninput="updateTimerPreview()"></div>
+                <div class="field"><label>Remaining</label><span id="timer-display" style="font-family:var(--font-mono);font-size:1.3rem">00:01:00</span></div>
+              </div>
+              <div class="row">
+                <button class="btn sm" onclick="timerSet()">Set</button>
+                <button class="btn sm primary" onclick="timerStart()">Start</button>
+                <button class="btn sm" onclick="timerPause()">Pause</button>
+                <button class="btn sm" onclick="timerStop()">Stop</button>
+                <button class="btn sm" onclick="timerReset()">Reset</button>
+              </div>
+              <div class="row" style="margin-top:8px">
+                <label><input type="radio" name="timer-expire" value="nothing" checked> Nothing</label>
+                <label><input type="radio" name="timer-expire" value="text"> Text</label>
+                <input type="text" id="timer-expire-text" placeholder="DONE" style="max-width:100px">
+                <label><input type="radio" name="timer-expire" value="ilda"> ILDA file</label>
+                <select id="timer-ilda-file"></select>
+              </div>
+            </div>
+          </div>
+
+          <div class="grid grid-2">
+            <div class="card">
+              <h2>Parameter Modulators</h2>
+              <div id="mod-slots"></div>
+              <div class="row" style="margin-top:8px">
+                <button class="btn sm" onclick="modAdd()">&#65291; Add Modulator</button>
+                <button class="btn sm danger" onclick="modResetAll()">Reset All</button>
+              </div>
+            </div>
+            <div class="card">
+              <h2>Bindings</h2>
+              <div id="mod-bindings"></div>
+              <button class="btn sm" onclick="modBindingAdd()">&#65291; Add Binding</button>
+            </div>
+          </div>
+
           <div class="card">
             <h2>Sequencer</h2>
             <div class="row"><span id="seq-status">Stopped</span><span id="seq-beat-dot" class="beam-dot on" role="status" aria-label="Sequencer beat" style="margin-left:auto"></span></div>
@@ -677,54 +729,6 @@ canvas { max-width: 100%; display: block; }
             <h2>Community Presets</h2>
             <div class="preset-grid" id="community-grid"><p>Loading&hellip;</p></div>
             <button class="btn sm" onclick="switchTab('preset-manager')">&#65291; Browse / Manage</button>
-          </div>
-
-          <div class="card">
-            <h2>BPM Clock</h2>
-            <div class="row"><span id="dash-bpm-source" class="pill">Manual</span></div>
-            <div class="field">
-              <label>Manual BPM</label>
-              <input type="number" id="dash-bpm-manual" min="20" max="300" step="0.1" onchange="setBpmManual(this.value)">
-            </div>
-            <button class="btn" onclick="document.getElementById('btn-tap').click()">TAP</button>
-          </div>
-
-          <div class="card">
-            <h2>Countdown Timer</h2>
-            <div class="row">
-              <div class="field"><label>H</label><input type="number" id="timer-h" value="0" min="0" oninput="updateTimerPreview()"></div>
-              <div class="field"><label>M</label><input type="number" id="timer-m" value="1" min="0" max="59" oninput="updateTimerPreview()"></div>
-              <div class="field"><label>S</label><input type="number" id="timer-s" value="0" min="0" max="59" oninput="updateTimerPreview()"></div>
-              <div class="field"><label>Remaining</label><span id="timer-display" style="font-family:var(--font-mono);font-size:1.3rem">00:01:00</span></div>
-            </div>
-            <div class="row">
-              <button class="btn sm" onclick="timerSet()">Set</button>
-              <button class="btn sm primary" onclick="timerStart()">Start</button>
-              <button class="btn sm" onclick="timerPause()">Pause</button>
-              <button class="btn sm" onclick="timerStop()">Stop</button>
-              <button class="btn sm" onclick="timerReset()">Reset</button>
-            </div>
-            <div class="row" style="margin-top:8px">
-              <label><input type="radio" name="timer-expire" value="nothing" checked> Nothing</label>
-              <label><input type="radio" name="timer-expire" value="text"> Text</label>
-              <input type="text" id="timer-expire-text" placeholder="DONE" style="max-width:100px">
-              <label><input type="radio" name="timer-expire" value="ilda"> ILDA file</label>
-              <select id="timer-ilda-file"></select>
-            </div>
-          </div>
-
-          <div class="card">
-            <h2>Parameter Modulators</h2>
-            <div id="mod-slots"></div>
-            <div class="row" style="margin-top:8px">
-              <button class="btn sm" onclick="modAdd()">&#65291; Add Modulator</button>
-              <button class="btn sm danger" onclick="modResetAll()">Reset All</button>
-            </div>
-          </div>
-          <div class="card">
-            <h2>Bindings</h2>
-            <div id="mod-bindings"></div>
-            <button class="btn sm" onclick="modBindingAdd()">&#65291; Add Binding</button>
           </div>
         </div>
       </div>
@@ -1361,7 +1365,7 @@ canvas { max-width: 100%; display: block; }
 /* =========================================================================
    GLOBAL STATE
    ========================================================================= */
-var UI_VERSION = '1.3.0';   // WebUI version -- independent from firmware version
+var UI_VERSION = '1.4.0';   // WebUI version -- independent from firmware version
 var NAV_TABS = [
   {id: 'dashboard', label: 'Dashboard', icon: '🏠', bottom: true},
   {id: 'presets', label: 'Presets', icon: '🎮', bottom: true},
