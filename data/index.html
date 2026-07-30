@@ -1379,7 +1379,7 @@ canvas { max-width: 100%; display: block; }
 /* =========================================================================
    GLOBAL STATE
    ========================================================================= */
-var UI_VERSION = '1.5.2';   // WebUI version -- independent from firmware version
+var UI_VERSION = '1.5.3';   // WebUI version -- independent from firmware version
 var NAV_TABS = [
   {id: 'dashboard', label: 'Dashboard', icon: '🏠', bottom: true},
   {id: 'presets', label: 'Presets', icon: '🎮', bottom: true},
@@ -2443,6 +2443,16 @@ function chartDashedLine(ctx, w, h, frac, color) {
   var y = h - frac * h;
   ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); ctx.restore();
 }
+function colorWithAlpha(color, alpha) {
+  if (color.charAt(0) === '#') {
+    var hex = color.length === 4
+      ? color[1] + color[1] + color[2] + color[2] + color[3] + color[3]
+      : color.slice(1);
+    var r = parseInt(hex.substr(0, 2), 16), g = parseInt(hex.substr(2, 2), 16), b = parseInt(hex.substr(4, 2), 16);
+    return 'rgba(' + r + ',' + g + ',' + b + ',' + alpha + ')';
+  }
+  return color.replace(')', ',' + alpha + ')').replace('rgb', 'rgba');
+}
 function chartLine(ctx, pts, color, lw, glow, filled, h) {
   if (!pts.length) return;
   function path() {
@@ -2455,8 +2465,8 @@ function chartLine(ctx, pts, color, lw, glow, filled, h) {
   }
   if (filled) {
     var g = ctx.createLinearGradient(0, 0, 0, h);
-    g.addColorStop(0, color.replace(')', ',0.15)').replace('rgb', 'rgba'));
-    g.addColorStop(1, color.replace(')', ',0.02)').replace('rgb', 'rgba'));
+    g.addColorStop(0, colorWithAlpha(color, 0.15));
+    g.addColorStop(1, colorWithAlpha(color, 0.02));
     path();
     var first = pts.find(function(p) { return p !== null; });
     var last = null;
