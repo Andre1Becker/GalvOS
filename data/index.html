@@ -1125,6 +1125,13 @@ canvas { max-width: 100%; display: block; }
       <div class="grid grid-2">
         <div class="card">
           <h2>Temperature Readings</h2>
+          <div class="field"><label>Display Unit</label>
+            <select id="thermal-unit" onchange="saveTempUnit()">
+              <option value="0">Celsius (°C)</option>
+              <option value="1">Fahrenheit (°F)</option>
+              <option value="2">Kelvin (K)</option>
+            </select>
+          </div>
           <div id="thermal-readings"></div>
         </div>
         <div class="card">
@@ -1133,7 +1140,7 @@ canvas { max-width: 100%; display: block; }
         </div>
       </div>
       <div class="card">
-        <h2>Sensor Offsets</h2>
+        <h2>Sensor Offsets (&deg;C)</h2>
         <div class="grid grid-3" id="thermal-offset-editor">
           <div class="field"><label>S1</label><input type="number" id="thermal-offset-0" value="0" min="-20" max="20" step="0.1" oninput="previewOffset(0)"><span id="thermal-offset-preview-0"></span></div>
           <div class="field"><label>S2</label><input type="number" id="thermal-offset-1" value="0" min="-20" max="20" step="0.1" oninput="previewOffset(1)"><span id="thermal-offset-preview-1"></span></div>
@@ -1160,7 +1167,7 @@ canvas { max-width: 100%; display: block; }
         <button class="btn" onclick="applyFanSettings()">Apply</button>
       </div>
       <div class="card">
-        <h2>Thresholds</h2>
+        <h2>Thresholds (&deg;C)</h2>
         <div id="thermal-thresholds"></div>
         <button class="btn" onclick="saveThresholds()">Save</button>
       </div>
@@ -1354,7 +1361,7 @@ canvas { max-width: 100%; display: block; }
 /* =========================================================================
    GLOBAL STATE
    ========================================================================= */
-var UI_VERSION = '1.2.0';   // WebUI version -- independent from firmware version
+var UI_VERSION = '1.3.0';   // WebUI version -- independent from firmware version
 var NAV_TABS = [
   {id: 'dashboard', label: 'Dashboard', icon: '🏠', bottom: true},
   {id: 'presets', label: 'Presets', icon: '🎮', bottom: true},
@@ -2308,7 +2315,7 @@ registerStateHandler(function(s) {
     pushCpu(s.cpu0, s.cpu1);
   }
   if (s.temps && s.temps[0] !== null && s.temps[0] !== undefined) {
-    var tEl = document.getElementById('tb-temp'); if (tEl) tEl.textContent = s.temps[0].toFixed(1) + '°C';
+    var tEl = document.getElementById('tb-temp'); if (tEl) tEl.textContent = convTemp(s.temps[0], s_tempUnit).toFixed(1) + tempUnitSuffix(s_tempUnit);
   }
   if (s.points_per_sec !== undefined) {
     var kEl = document.getElementById('tb-kpps'); if (kEl) kEl.textContent = (s.points_per_sec / 1000).toFixed(1) + ' kpps';
@@ -2369,6 +2376,16 @@ var sCpuData = {c0: new Array(CPU_HISTORY).fill(null), c1: new Array(CPU_HISTORY
 var sCpuHoverIdx = -1;
 var SENSOR_COLORS = ['#ff3366', '#00ff88', '#00d4ff', '#ffcc00', '#ff00ff'];
 var TEMP_HISTORY = [];
+// Display unit (0=C, 1=F, 2=K) -- synced from firmware via s.temp_unit on
+// every poll. All history/thresholds/offsets stay Celsius internally; this
+// only affects how readings are rendered.
+var s_tempUnit = 0;
+function convTemp(c, unit) {
+  if (unit === 1) return c * 9 / 5 + 32;
+  if (unit === 2) return c + 273.15;
+  return c;
+}
+function tempUnitSuffix(unit) { return unit === 1 ? '°F' : unit === 2 ? 'K' : '°C'; }
 var KPPS_HISTORY = [];
 var FRAME_HISTORY = [];
 var sTempHoverFrac = -1, sKppsHoverFrac = -1, sFrameHoverFrac = -1;
@@ -2468,7 +2485,7 @@ function drawTempChart() {
   if (!canvas || !canvas.offsetParent) return;
   var fc = fitCanvas(canvas); var ctx = fc.ctx, w = fc.w, h = fc.h;
   ctx.clearRect(0, 0, w, h); chartBg(ctx, w, h);
-  chartGridY(ctx, w, h, 4.5, function(f) { return Math.round(f * 90) + '°C'; });
+  chartGridY(ctx, w, h, 4.5, function(f) { return Math.round(convTemp(f * 90, s_tempUnit)) + tempUnitSuffix(s_tempUnit); });
   if (!TEMP_HISTORY.length) return;
   var t0 = TEMP_HISTORY[0].ts, t1 = TEMP_HISTORY[TEMP_HISTORY.length - 1].ts || t0 + 1;
   var span = Math.max(1, t1 - t0);
@@ -2565,6 +2582,7 @@ function initFrameGraph() { initHistoryChartHover('frame-chart', function(f) { s
    ========================================================================= */
 registerTempHandler(function(s) {
   if (!s.temps) return;
+  if (s.temp_unit !== undefined) s_tempUnit = s.temp_unit;
   window.s_lastTempState = s;
   TEMP_HISTORY.push({ts: Date.now(), temps: s.temps.slice()});
   trimHistory(TEMP_HISTORY);
@@ -2576,7 +2594,7 @@ registerTempHandler(function(s) {
       if (!ok) return '';  // not connected -- don't clutter the dashboard with dead sensors
       var name = (s.names && s.names[i]) || ('Sensor ' + (i + 1));
       return '<div class="row"><span style="width:10px;height:10px;border-radius:50%;background:' + SENSOR_COLORS[i] + ';display:inline-block"></span>' +
-        '<span>' + name + '</span><span style="margin-left:auto;color:var(--text)">' + t.toFixed(1) + '°C</span></div>';
+        '<span>' + name + '</span><span style="margin-left:auto;color:var(--text)">' + convTemp(t, s_tempUnit).toFixed(1) + tempUnitSuffix(s_tempUnit) + '</span></div>';
     }).join('');
   }
   if (typeof handleThermalTabState === 'function') handleThermalTabState(s);
@@ -4304,7 +4322,12 @@ function previewOffset(idx) {
   s_tempOffsets[idx] = v;
   var raw = window.s_lastTempState && window.s_lastTempState.temp_raw ? window.s_lastTempState.temp_raw[idx] : null;
   var el = document.getElementById('thermal-offset-preview-' + idx);
-  if (el) el.textContent = (raw !== null) ? ('→ ' + (raw + v).toFixed(1) + '°C') : '';
+  if (el) el.textContent = (raw !== null) ? ('→ ' + convTemp(raw + v, s_tempUnit).toFixed(1) + tempUnitSuffix(s_tempUnit)) : '';
+}
+async function saveTempUnit() {
+  var unit = parseInt(domVal('thermal-unit', 0), 10);
+  var r = await apiCall('POST', '/api/temp-unit', {unit: unit});
+  if (r !== null) { s_tempUnit = unit; toast('Temperature unit saved'); pollState(); }
 }
 async function saveTempOffsets() {
   var body = {};
@@ -4326,11 +4349,13 @@ function updateFanDisplay(duty0, duty1) {
 function handleThermalTabState(s) {
   if (s.names && s.names.join(',') !== SENSOR_NAMES.join(',')) { SENSOR_NAMES = s.names.slice(); buildTempSensors(); }
   if (s.found !== undefined && s.found !== SENSOR_FOUND) { SENSOR_FOUND = s.found; buildSensorNameEditor(); }
+  var unitEl = document.getElementById('thermal-unit');
+  if (unitEl && document.activeElement !== unitEl) unitEl.value = String(s_tempUnit);
   s.temps.forEach(function(t, i) {
     var valEl = document.getElementById('thermal-val-' + i), badgeEl = document.getElementById('thermal-badge-' + i);
     if (!valEl) return;
     var ok = s.ok && s.ok[i];
-    valEl.textContent = ok ? t.toFixed(1) + '°C' : 'Not connected';
+    valEl.textContent = ok ? convTemp(t, s_tempUnit).toFixed(1) + tempUnitSuffix(s_tempUnit) : 'Not connected';
     if (badgeEl && ok) {
       var td = thresholdData[i] || {warn: 45, alert: 55, crit: 65};
       var level = t >= td.crit ? 'CRIT' : t >= td.alert ? 'ALERT' : t >= td.warn ? 'WARN' : 'OK';

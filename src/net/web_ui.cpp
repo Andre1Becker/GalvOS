@@ -555,6 +555,7 @@ static void buildStateJson(JsonDocument& doc) {
     doc["fan2_duty"]  = temp::gTempState.fan2_duty;
     doc["temp_alert"] = temp::gTempState.any_alert;
     doc["temp_crit"]  = temp::gTempState.any_crit;
+    doc["temp_unit"]  = temp::getDisplayUnit();
 
     // BPM clock (0=Manual, 1=Tap, 2=DMX -- see bpm_clock::Source)
     doc["bpm"]        = bpm_clock::gBpm.bpm;
@@ -1271,6 +1272,17 @@ void init() {
                 if (arr[i]["alert"].is<float>()) temp::thresholds[i].alert = arr[i]["alert"];
                 if (arr[i]["crit"].is<float>())  temp::thresholds[i].crit  = arr[i]["crit"];
             }
+            req->send(200, "text/plain", "OK");
+        });
+
+    // ---- POST /api/temp-unit ---- WebUI display unit (0=C, 1=F, 2=K)
+    s_server.on("/api/temp-unit", HTTP_POST,
+        [](AsyncWebServerRequest* req) {},
+        nullptr,
+        [](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t, size_t) {
+            JsonDocument doc(&jsonAllocator());
+            if (deserializeJson(doc, data, len)) { req->send(400, "text/plain", "bad json"); return; }
+            if (doc["unit"].is<int>()) temp::setDisplayUnit((uint8_t)constrain((int)doc["unit"], 0, 2));
             req->send(200, "text/plain", "OK");
         });
 

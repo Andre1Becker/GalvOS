@@ -62,6 +62,11 @@ extern TempThresholds thresholds[NUM_SENSORS];
 // Per-sensor calibration offset (added to raw reading, persisted in NVS)
 extern float sensor_offset[NUM_SENSORS];   // default 0.0
 
+// Display unit preference (WebUI-selectable, NVS-persistent): 0=Celsius,
+// 1=Fahrenheit, 2=Kelvin. Display-only -- all internal readings, thresholds,
+// and the safety cascade above stay in Celsius regardless of this setting.
+extern uint8_t display_unit;
+
 // Livedata
 struct TempState {
     float    temp_c[NUM_SENSORS];        // Corrected temperature (raw + offset)
@@ -106,5 +111,10 @@ void    setSensorOffset(uint8_t idx, float offset_c);
 float   getSensorOffset(uint8_t idx);
 void    loadSensorOffsets();
 void    saveSensorOffsets();
+
+// Display unit (0=C, 1=F, 2=K), persisted in NVS
+void    setDisplayUnit(uint8_t unit);
+uint8_t getDisplayUnit();
+void    loadDisplayUnit();
 
 }  // namespace temp

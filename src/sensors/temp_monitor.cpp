@@ -27,6 +27,7 @@ TempThresholds thresholds[NUM_SENSORS] = {
 
 TempState gTempState = {};
 float sensor_offset[NUM_SENSORS] = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
+uint8_t display_unit = 0;
 
 // ============================================================
 // 1-Wire + DallasTemperaturee
@@ -120,6 +121,26 @@ float getSensorOffset(uint8_t idx) {
     if (idx >= NUM_SENSORS) return 0.0f;
     return sensor_offset[idx];
 }
+
+void loadDisplayUnit() {
+    Preferences prefs;
+    prefs.begin("temp_unit", true);
+    display_unit = prefs.getUChar("unit", 0);
+    prefs.end();
+    if (display_unit > 2) display_unit = 0;
+}
+
+void setDisplayUnit(uint8_t unit) {
+    if (unit > 2) return;
+    display_unit = unit;
+    Preferences prefs;
+    prefs.begin("temp_unit", false);
+    prefs.putUChar("unit", unit);
+    prefs.end();
+    ESP_LOGI(TAG, "Display unit set to %u", unit);
+}
+
+uint8_t getDisplayUnit() { return display_unit; }
 
 
 uint8_t foundSensorCount() { return s_found_count; }
@@ -235,6 +256,7 @@ static uint8_t calcFanDuty() {
 void init() {
     loadSensorNames();
     loadSensorOffsets();
+    loadDisplayUnit();
     fanPwmInit();
     scanAndLogSensors();
 }
