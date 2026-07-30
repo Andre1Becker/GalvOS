@@ -508,7 +508,6 @@ Six optimizer profiles, one per preset class:
 
 | Profile | Preset class | Scanner workload |
 | --- | --- | --- |
-
 | Vector | Closed polygons, straight runs | Corner dwell |
 | Smooth | Continuous closed curves | Interior density |
 | Waves | Open polylines, high frequency | Velocity clamp |
