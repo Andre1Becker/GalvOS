@@ -71,7 +71,7 @@ Pattern Engine
   → [9] DAC Output             (LaserPoint[] → ISR → DAC8562)
 ```
 
-<img src="assets/diagrams/optimizer_pipeline.png" width="900" alt="Optimizer pipeline: 9 stages from Pattern Engine to Galvo Mirrors, with the optional stages 3/6/7/8 dashed">
+<img src="assets/diagrams/optimizer_pipeline.png" width="550" alt="Optimizer pipeline: 9 stages from Pattern Engine to Galvo Mirrors, with the optional stages 3/6/7/8 dashed">
 
 Stages 3, 6, 7, and 8 are optional (disabled by default). When disabled, each stage produces output byte-identical to skipping it — there is no penalty for leaving them off until you need them.
 
@@ -286,9 +286,9 @@ When `ringing_comp_enabled = false` (the default), A1=1 and A2=0 — the shaped 
 5. Measure the decay envelope over several cycles → compute `ring_damping_ratio` (typically 0.05–0.3 for galvo scanners).
 6. Enter the values, enable `ringing_comp_enabled`, and verify the ringing is reduced.
 
-<img src="assets/diagrams/laser_timing.png" width="900" alt="ZV impulse-pair shaping on a blank jump, plus the LASER_ON_HOLD_TICKS / LASER_OFF_HOLD_TICKS tick timeline used by Stage 9's DAC output">
+<img src="assets/diagrams/laser_timing.png" width="500" alt="LASER_ON_HOLD_TICKS / LASER_OFF_HOLD_TICKS tick timeline followed by ZV impulse-pair shaping on a blank jump, used by Stage 9's DAC output">
 
-The ZV impulse pair (left) is the input shaping described above. The two tick timelines (right) show a related but separate mechanism at the Stage 9 DAC/ISR level (`src/output/galvo_out.cpp`): `LASER_ON_HOLD_TICKS` and `LASER_OFF_HOLD_TICKS` (both = 2) hold the DAC at the jump's destination/origin for a couple of extra ticks around every blank/lit transition, masking the ~40 µs LEDC turn-on/turn-off latency so the beam is never lit while the mirror is still mid-jump.
+The two tick timelines (top) show a related but separate mechanism at the Stage 9 DAC/ISR level (`src/output/galvo_out.cpp`): `LASER_ON_HOLD_TICKS` and `LASER_OFF_HOLD_TICKS` (both = 2) hold the DAC at the jump's destination/origin for a couple of extra ticks around every blank/lit transition, masking the ~40 µs LEDC turn-on/turn-off latency so the beam is never lit while the mirror is still mid-jump. The ZV impulse pair (bottom) is the input shaping described above.
 
 ---
 

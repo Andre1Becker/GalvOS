@@ -1,7 +1,7 @@
 %%{init: {"theme": "dark", "flowchart": {"curve": "linear"}}}%%
 flowchart TD
     subgraph HOLDON["Blank -&gt; Lit: LASER_ON_HOLD_TICKS = 2 (src/output/galvo_out.cpp)"]
-        direction LR
+        direction TD
         A0["Tick -1<br/><small>blank jump ends,<br/>DAC arrives at target</small>"] --> A1["Tick 0<br/><small>rgbWrite() fires;<br/>DAC HELD at destination<br/>(hold armed)</small>"]
         A1 --> A2["Tick 1<br/><small>hold 1/2 -<br/>LEDC turn-on latency<br/>(up to 40us)</small>"]
         A2 --> A3["Tick 2<br/><small>hold 2/2 -<br/>mirror + LEDC settled</small>"]
@@ -9,7 +9,7 @@ flowchart TD
     end
 
     subgraph HOLDOFF["Lit -&gt; Blank: LASER_OFF_HOLD_TICKS = 2 (symmetric)"]
-        direction LR
+        direction TD
         B0["Last lit tick"] --> B1["Tick 0<br/><small>rgbOff() fires;<br/>DAC HELD at last<br/>lit position (hold armed)</small>"]
         B1 --> B2["Tick 1<br/><small>hold 1/2 -<br/>LEDC turn-off latency</small>"]
         B2 --> B3["Tick 2<br/><small>hold 2/2</small>"]
@@ -17,9 +17,10 @@ flowchart TD
     end
 
     A4 -.->|same output tick stream| B0
+    B4 -.->|same blank jump, Stage 8 shaping| Z0
 
     subgraph ZV["Stage 8 - ZV Input Shaping on a blank jump"]
-        direction LR
+        direction TD
         Z0["unshaped[i]<br/><small>Stage 5 S-curve<br/>trajectory</small>"]
         Z1["Impulse 1 @ t=0<br/><small>A1 = 1 / (1+K)</small>"]
         Z2["Impulse 2 @ t=td<br/><small>A2 = K / (1+K)</small>"]

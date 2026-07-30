@@ -1,9 +1,9 @@
 %%{init: {"theme": "dark", "flowchart": {"curve": "linear"}}}%%
-flowchart LR
+flowchart TD
     IN(["Pattern Engine"])
 
     subgraph OPT["Optimizer"]
-        direction LR
+        direction TD
         S1["1. Primitive Generation<br/><small>PathSegments (always)</small>"]
         S2["2. Transform<br/><small>affine 2x3 (always)</small>"]
         S3["3. Resample<br/><small>optional</small>"]:::optional
