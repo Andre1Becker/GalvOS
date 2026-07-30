@@ -1320,7 +1320,7 @@ canvas { max-width: 100%; display: block; }
 /* =========================================================================
    GLOBAL STATE
    ========================================================================= */
-var UI_VERSION = '1.0.0';   // WebUI version -- independent from firmware version
+var UI_VERSION = '1.0.1';   // WebUI version -- independent from firmware version
 var NAV_TABS = [
   {id: 'dashboard', label: 'Dashboard', icon: '🏠', bottom: true},
   {id: 'presets', label: 'Presets', icon: '🎮', bottom: true},
@@ -1358,7 +1358,16 @@ function toast(msg, isError) {
   el.textContent = msg;
   el.className = isError ? 'show error' : 'show';
   if (s_toastTimer) clearTimeout(s_toastTimer);
-  s_toastTimer = setTimeout(function() { el.className = ''; }, 2500);
+  s_toastTimer = setTimeout(function() { el.className = ''; }, isError ? 5000 : 3000);
+  if (isError) {
+    // Best-effort mirror into the ESP32 log so the error survives after the toast fades.
+    // Plain fetch (not apiCall) — a failure here must not trigger another toast/loop.
+    try {
+      var opts = {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({msg: msg})};
+      if (window._apiToken) opts.headers['X-Auth'] = window._apiToken;
+      fetch('/api/log/client', opts).catch(function() {});
+    } catch (e) { /* ignore */ }
+  }
 }
 
 /* =========================================================================

@@ -2473,6 +2473,20 @@ void init() {
             req->send(200, "text/plain", "cleared");
         });
 
+    // ---- POST /api/log/client ----
+    // Mirrors WebUI error toasts into the ESP32 log so they survive after the
+    // browser tab is closed (toasts themselves are ephemeral, see UI JS `toast()`).
+    s_server.on("/api/log/client", HTTP_POST,
+        [](AsyncWebServerRequest* req) {},
+        nullptr,
+        [](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t, size_t) {
+            JsonDocument doc(&jsonAllocator());
+            if (deserializeJson(doc, data, len)) { req->send(400, "text/plain", "bad json"); return; }
+            const char* msg = doc["msg"] | "";
+            if (msg[0]) LOG_W(logbuf::CAT_USER, "UI error: %s", msg);
+            req->send(200, "text/plain", "OK");
+        });
+
     // ---- GET /api/log/stats ----
     s_server.on("/api/log/stats", HTTP_GET, [](AsyncWebServerRequest* req) {
         char buf[80];
