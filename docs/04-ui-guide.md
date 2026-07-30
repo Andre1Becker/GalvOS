@@ -66,7 +66,6 @@ GalvOS ships as a Progressive Web App (PWA). This means you can install it on yo
 ## General Layout
 
 ![General layout, desktop](assets/screenshots/layout_desktop.png)
-![General layout, mobile](assets/screenshots/layout_mobile.png)
 
 Since the v6.32.0 rewrite, the UI is a responsive shell around 13 tabs: a **collapsible sidebar** for tab navigation on desktop, a **bottom tab bar** on mobile, and a **content area** in the middle. All tabs are accessible at any time — switching tabs does not stop the laser or change the active pattern.
 

@@ -319,6 +319,17 @@ label.row { min-height: 44px; cursor: pointer; }
 .field-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 16px; }
 @media (max-width: 1400px) { .field-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 
+.ilda-row { display: flex; align-items: center; gap: 10px; }
+.ilda-col-play { flex-shrink: 0; }
+.ilda-col-name { flex-shrink: 0; width: 60ch; max-width: 60ch; overflow: hidden; white-space: nowrap; position: relative; font-family: var(--font-mono); }
+.ilda-col-name-inner { display: inline-block; white-space: nowrap; }
+.ilda-col-play { width: 108px; }
+.ilda-col-play button { width: 100%; }
+.ilda-col-size { flex-shrink: 0; width: 7ch; text-align: right; font-size: 0.75rem; color: var(--text-dim); }
+.ilda-col-date { flex-shrink: 0; width: 11ch; text-align: right; font-size: 0.75rem; color: var(--text-dim); }
+.ilda-header { font-size: 0.75rem; color: var(--text-dim); border-bottom: 1px solid var(--border); padding-bottom: 6px; margin-bottom: 2px; }
+.ilda-header .ilda-col-name, .ilda-header .ilda-col-size, .ilda-header .ilda-col-date { overflow: visible; }
+
 input, select, textarea {
   background: var(--input-bg); color: var(--text); border: 1px solid var(--border);
   border-radius: var(--radius); padding: 8px 10px; font-family: var(--font-mono); min-height: 44px;
@@ -848,7 +859,13 @@ canvas { max-width: 100%; display: block; }
           <button class="btn sm" onclick="sdRemount('ilda-sd-mount')" id="ilda-sd-mount">Mount</button>
           <button class="btn sm" onclick="sdEject('ilda-sd-eject')" id="ilda-sd-eject">Eject</button>
         </div>
-        <div id="ilda-file-list" style="margin-top:10px"><p>Loading&hellip;</p></div>
+        <div class="ilda-row ilda-header" style="margin-top:10px">
+          <span class="ilda-col-play" style="visibility:hidden">&#9654; Play</span>
+          <span class="ilda-col-name">Filename</span>
+          <span class="ilda-col-size">Size</span>
+          <span class="ilda-col-date">Date</span>
+        </div>
+        <div id="ilda-file-list"><p>Loading&hellip;</p></div>
       </div>
 
       <div class="card">
@@ -1320,7 +1337,7 @@ canvas { max-width: 100%; display: block; }
 /* =========================================================================
    GLOBAL STATE
    ========================================================================= */
-var UI_VERSION = '1.0.3';   // WebUI version -- independent from firmware version
+var UI_VERSION = '1.0.4';   // WebUI version -- independent from firmware version
 var NAV_TABS = [
   {id: 'dashboard', label: 'Dashboard', icon: '🏠', bottom: true},
   {id: 'presets', label: 'Presets', icon: '🎮', bottom: true},
@@ -3475,9 +3492,14 @@ async function loadSdStatus() {
     if (timerSel) timerSel.innerHTML = listing.files.map(function(f) { return '<option value="' + f.idx + '">' + f.name + '</option>'; }).join('');
   }
 }
+var ILDA_NAME_COLS = 60;
+var ILDA_SCROLL_CH_PER_SEC = 6;
+var ILDA_SCROLL_START_HOLD = 3;
+var ILDA_SCROLL_END_HOLD = 5;
 function renderIldaFileList(listing) {
   var el = document.getElementById('ilda-file-list'); if (!el) return;
   if (!listing.files.length) { el.innerHTML = '<p>No ILDA files on card.</p>'; return; }
+  var marqueeCss = [];
   el.innerHTML = listing.files.map(function(f) {
     var playing = (listing.ilda_active && listing.ilda_file === f.idx);
     var slash = f.path.lastIndexOf('/');
@@ -3486,10 +3508,35 @@ function renderIldaFileList(listing) {
     var btn = f.too_large ?
       '<button class="btn sm" disabled title="Too large for PSRAM">Too large</button>' :
       '<button class="btn sm' + (playing ? ' primary' : '') + '" id="ilda-play-btn-' + f.idx + '" onclick="ildaPlayFile(' + f.idx + ')">' + (playing ? '&#8635; Restart' : '&#9654; Play') + '</button>';
-    return '<div class="row" style="border-bottom:1px solid var(--border);padding:4px 0' + (playing ? ';background:rgba(var(--accent-rgb),0.1)' : '') + '">' +
-      (playing ? '&#9654; ' : '') + '<span style="color:var(--text-dim)">' + dir + '/</span><span>' + f.name + '</span>' +
-      '<span style="margin-left:auto;font-size:0.75rem;color:var(--text-dim)">' + fmtBytes(f.size) + ' &middot; ' + dateStr + '</span>' + btn + '</div>';
+    var fullName = (playing ? '&#9654; ' : '') + dir + '/' + f.name;
+    var plainLen = dir.length + 1 + f.name.length + (playing ? 2 : 0);
+    var nameHtml;
+    if (plainLen > ILDA_NAME_COLS) {
+      var distance = plainLen - ILDA_NAME_COLS;
+      var scrollTime = Math.max(2, distance / ILDA_SCROLL_CH_PER_SEC);
+      var total = ILDA_SCROLL_START_HOLD + scrollTime + ILDA_SCROLL_END_HOLD;
+      var p1 = (ILDA_SCROLL_START_HOLD / total * 100).toFixed(2);
+      var p2 = ((ILDA_SCROLL_START_HOLD + scrollTime) / total * 100).toFixed(2);
+      var kf = 'ilda-scroll-' + f.idx;
+      marqueeCss.push(
+        '@keyframes ' + kf + '{0%{transform:translateX(0)}' + p1 + '%{transform:translateX(0)}' +
+        p2 + '%{transform:translateX(-' + distance + 'ch)}100%{transform:translateX(-' + distance + 'ch)}}' +
+        '#' + kf + '{animation:' + kf + ' ' + total.toFixed(2) + 's linear infinite}'
+      );
+      nameHtml = '<span id="' + kf + '" class="ilda-col-name-inner">' + fullName + '</span>';
+    } else {
+      nameHtml = '<span class="ilda-col-name-inner">' + fullName + '</span>';
+    }
+    return '<div class="ilda-row" style="border-bottom:1px solid var(--border);padding:4px 0' + (playing ? ';background:rgba(var(--accent-rgb),0.1)' : '') + '">' +
+      '<span class="ilda-col-play">' + btn + '</span>' +
+      '<span class="ilda-col-name">' + nameHtml + '</span>' +
+      '<span class="ilda-col-size">' + fmtBytes(f.size) + '</span>' +
+      '<span class="ilda-col-date">' + dateStr + '</span>' +
+      '</div>';
   }).join('');
+  var styleEl = document.getElementById('ilda-marquee-styles');
+  if (!styleEl) { styleEl = document.createElement('style'); styleEl.id = 'ilda-marquee-styles'; document.head.appendChild(styleEl); }
+  styleEl.textContent = marqueeCss.join('\n');
 }
 async function ildaPlayFile(idx) {
   var btn = document.getElementById('ilda-play-btn-' + idx);
