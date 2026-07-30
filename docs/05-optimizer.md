@@ -71,6 +71,8 @@ Pattern Engine
   → [9] DAC Output             (LaserPoint[] → ISR → DAC8562)
 ```
 
+<img src="assets/diagrams/optimizer_pipeline.png" width="900" alt="Optimizer pipeline: 9 stages from Pattern Engine to Galvo Mirrors, with the optional stages 3/6/7/8 dashed">
+
 Stages 3, 6, 7, and 8 are optional (disabled by default). When disabled, each stage produces output byte-identical to skipping it — there is no penalty for leaving them off until you need them.
 
 ---
@@ -284,6 +286,10 @@ When `ringing_comp_enabled = false` (the default), A1=1 and A2=0 — the shaped 
 5. Measure the decay envelope over several cycles → compute `ring_damping_ratio` (typically 0.05–0.3 for galvo scanners).
 6. Enter the values, enable `ringing_comp_enabled`, and verify the ringing is reduced.
 
+<img src="assets/diagrams/laser_timing.png" width="900" alt="ZV impulse-pair shaping on a blank jump, plus the LASER_ON_HOLD_TICKS / LASER_OFF_HOLD_TICKS tick timeline used by Stage 9's DAC output">
+
+The ZV impulse pair (left) is the input shaping described above. The two tick timelines (right) show a related but separate mechanism at the Stage 9 DAC/ISR level (`src/output/galvo_out.cpp`): `LASER_ON_HOLD_TICKS` and `LASER_OFF_HOLD_TICKS` (both = 2) hold the DAC at the jump's destination/origin for a couple of extra ticks around every blank/lit transition, masking the ~40 µs LEDC turn-on/turn-off latency so the beam is never lit while the mirror is still mid-jump.
+
 ---
 
 ## Stage 9 — DAC Output
@@ -321,6 +327,14 @@ max_accel_units    ×= r²     ← acceleration scales as the square of the rate
 This scaling is applied in `applyPpsScaling()`, which is called by every `liveOptimizerConfig()` implementation — all four pattern families (presets, curves, text, paint) go through this path.
 
 The WebUI Optimizer tab shows the **effective values** (`opt_eff_*`) after scaling — these are the values the optimizer actually uses.
+
+<img src="assets/diagrams/pps_scaling.png" width="700" alt="applyPpsScaling branches into pts_per_1000_units, max_step_units, and max_accel_units">
+
+| output_kpps | r   | pts_per_1000 factor | max_step factor | max_accel factor |
+| ----------- | --- | ------------------- | --------------- | ---------------- |
+| 15 (rated)  | 1.0 | x1.0                | x1.0            | x1.0             |
+| 10          | 1.5 | x0.67               | x1.5            | x2.25            |
+| 30          | 0.5 | x2.0                | x0.5            | x0.25            |
 
 ---
 
