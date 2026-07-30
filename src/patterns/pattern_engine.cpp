@@ -21,6 +21,7 @@
 #include "net/web_ui.h"
 #include "../sequencer.h"
 #include "../modulator_engine.h"
+#include "../bpm_clock.h"
 #include <Arduino.h>
 #include <math.h>
 #include <esp_log.h>
@@ -448,6 +449,14 @@ if (strcmp(name, "ilda") == 0) {
 void stopTestPattern() {
     s_test_pattern = -1;
 }
+// Continuous beat count since boot (fractional) -- same trick
+// modulator_engine.cpp::totalCycles() uses for its own BPM-sync mode.
+static float bpmTotalBeats() {
+    float bpm = bpm_clock::gBpm.bpm;
+    if (bpm < 1.0f) bpm = 1.0f;
+    return ((float)millis() / 60000.0f) * bpm;
+}
+
 // ── Color Animation Engine ────────────────────────────────────────────────────
 // Applies col_anim_type / col_override to s_frame[0..n-1].
 // Call after generate(), before dimmer scaling.
@@ -483,9 +492,11 @@ static void applyColorAnim(size_t n) {
         {255,0,0},{0,255,0},{0,0,255},{255,255,255}
     };
 
-    ColAnimType atype = gLivePreset.col_anim_type;
-    uint8_t     aseq  = gLivePreset.col_anim_seq % 10;
-    uint8_t     aspd  = gLivePreset.col_anim_speed;
+    ColAnimType atype   = gLivePreset.col_anim_type;
+    uint8_t     aseq    = gLivePreset.col_anim_seq % 10;
+    uint8_t     aspd    = gLivePreset.col_anim_speed;
+    bool        bpmSync = gLivePreset.col_anim_bpm_sync;
+    float       bpmFrac = bpmSync ? bpm_clock::phaseNormalized() : 0.0f;  // [0,1) position within current beat
 
     uint8_t ar = 255, ag = 0, ab = 0;
 
@@ -494,7 +505,8 @@ static void applyColorAnim(size_t n) {
             ar = gLivePreset.col_r; ag = gLivePreset.col_g; ab = gLivePreset.col_b;
         } else { return; }  // no override, no anim: leave points as generated
     } else if (atype == COL_ANIM_GRADIENT) {
-        s_anim_phase += (uint32_t)aspd * 10 + 10;
+        // BPM sync: one full gradient sweep per beat, col_anim_speed ignored.
+        s_anim_phase = bpmSync ? (uint32_t)(bpmFrac * 65536.0f) : s_anim_phase + (uint32_t)aspd * 10 + 10;
         const uint8_t (*stops)[3] = GRAD[aseq];
         int nstops = 0;
         while (nstops < 6 && !(stops[nstops][0]==0xFF && stops[nstops][1]==0xFF && stops[nstops][2]==0xFF)) nstops++;
@@ -510,30 +522,38 @@ static void applyColorAnim(size_t n) {
     } else if (atype == COL_ANIM_CHASE) {
         static uint32_t s_chase_acc  = 0;
         static uint8_t  s_chase_step = 0;
-        s_chase_acc += aspd + 1;
-        if (s_chase_acc >= 4096) {
-            s_chase_acc -= 4096;
-            int nc = 0;
-            while (nc < 6 && !(CHASE[aseq][nc][0]==0xFF && CHASE[aseq][nc][1]==0xFF && CHASE[aseq][nc][2]==0xFF)) nc++;
-            if (nc < 1) nc = 1;
-            s_chase_step = (s_chase_step + 1) % nc;
+        int nc = 0;
+        while (nc < 6 && !(CHASE[aseq][nc][0]==0xFF && CHASE[aseq][nc][1]==0xFF && CHASE[aseq][nc][2]==0xFF)) nc++;
+        if (nc < 1) nc = 1;
+        if (bpmSync) {
+            // One step per beat, col_anim_speed ignored.
+            s_chase_step = (uint8_t)((uint32_t)bpmTotalBeats() % nc);
+        } else {
+            s_chase_acc += aspd + 1;
+            if (s_chase_acc >= 4096) { s_chase_acc -= 4096; s_chase_step = (s_chase_step + 1) % nc; }
         }
-        {
-            int nc = 0;
-            while (nc < 6 && !(CHASE[aseq][nc][0]==0xFF && CHASE[aseq][nc][1]==0xFF && CHASE[aseq][nc][2]==0xFF)) nc++;
-            if (nc < 1) nc = 1;
-            uint8_t step = s_chase_step % nc;
-            ar = CHASE[aseq][step][0]; ag = CHASE[aseq][step][1]; ab = CHASE[aseq][step][2];
-        }
+        uint8_t step = s_chase_step % nc;
+        ar = CHASE[aseq][step][0]; ag = CHASE[aseq][step][1]; ab = CHASE[aseq][step][2];
     } else if (atype == COL_ANIM_STROBE) {
         static uint32_t s_strobe_acc = 0;
-        s_strobe_acc += (uint32_t)aspd * 4 + 4;
-        if (s_strobe_acc >= 1024) { s_strobe_acc -= 1024; s_strobe_on = !s_strobe_on; }
+        if (bpmSync) {
+            // One flash per beat: on for the first half, off for the second.
+            s_strobe_on = bpmFrac < 0.5f;
+        } else {
+            s_strobe_acc += (uint32_t)aspd * 4 + 4;
+            if (s_strobe_acc >= 1024) { s_strobe_acc -= 1024; s_strobe_on = !s_strobe_on; }
+        }
         if (s_strobe_on) { ar = gLivePreset.col_r; ag = gLivePreset.col_g; ab = gLivePreset.col_b; }
         else             { ar = 0; ag = 0; ab = 0; }
     } else if (atype == COL_ANIM_PULSE) {
-        s_anim_phase += (uint32_t)aspd * 5 + 5;
-        float v = (sinf((float)(s_anim_phase & 0xFFFF) * 6.2832f / 65536.f) * 0.5f + 0.5f);
+        float v;
+        if (bpmSync) {
+            // Peaks exactly on the beat, dims towards the next one.
+            v = cosf(bpmFrac * 6.2832f) * 0.5f + 0.5f;
+        } else {
+            s_anim_phase += (uint32_t)aspd * 5 + 5;
+            v = sinf((float)(s_anim_phase & 0xFFFF) * 6.2832f / 65536.f) * 0.5f + 0.5f;
+        }
         ar = (uint8_t)(gLivePreset.col_r * v);
         ag = (uint8_t)(gLivePreset.col_g * v);
         ab = (uint8_t)(gLivePreset.col_b * v);
@@ -551,8 +571,13 @@ static void applyColorAnim(size_t n) {
     } else if (atype == COL_ANIM_FLIP) {
         static uint32_t s_flip_acc  = 0;
         static uint8_t  s_flip_step = 0;
-        s_flip_acc += (uint32_t)aspd * 4 + 4;
-        if (s_flip_acc >= 1024) { s_flip_acc -= 1024; s_flip_step = (s_flip_step + 1) % 4; }
+        if (bpmSync) {
+            // One step per beat, col_anim_speed ignored.
+            s_flip_step = (uint8_t)((uint32_t)bpmTotalBeats() % 4);
+        } else {
+            s_flip_acc += (uint32_t)aspd * 4 + 4;
+            if (s_flip_acc >= 1024) { s_flip_acc -= 1024; s_flip_step = (s_flip_step + 1) % 4; }
+        }
         ar = FLIP[s_flip_step][0]; ag = FLIP[s_flip_step][1]; ab = FLIP[s_flip_step][2];
     }
 
@@ -561,7 +586,13 @@ static void applyColorAnim(size_t n) {
         uint8_t nseg = gLivePreset.col_seg_count;
         if (nseg < 1) nseg = 1; if (nseg > 10) nseg = 10;
         int8_t dir = gLivePreset.col_seg_dir;
-        s_seg_phase = (uint32_t)((int32_t)s_seg_phase + dir * (int32_t)(((uint32_t)aspd * aspd) / 6 + 64));
+        if (bpmSync) {
+            // One full sweep per beat, col_anim_speed ignored; dir still flips travel direction.
+            float f = (dir < 0) ? (1.0f - bpmFrac) : bpmFrac;
+            s_seg_phase = (uint32_t)(f * 65536.0f);
+        } else {
+            s_seg_phase = (uint32_t)((int32_t)s_seg_phase + dir * (int32_t)(((uint32_t)aspd * aspd) / 6 + 64));
+        }
         size_t lit = 0;
         for (size_t i = 0; i < n; i++) if (!s_frame[i].blank) lit++;
         if (lit == 0) lit = 1;
@@ -1077,9 +1108,22 @@ static void applyPointsOnlyMode(size_t& n) {
     uint32_t now_ms = millis();
     uint32_t dt_ms  = s_pm_last_ms ? (now_ms - s_pm_last_ms) : 0;
     s_pm_last_ms = now_ms;
-    uint32_t cycleMs = (uint32_t)gLivePreset.points_fade_in_ms + gLivePreset.points_fade_out_ms;
-    if (cycleMs == 0) cycleMs = 1;
-    s_pm_acc_ms = (s_pm_acc_ms + dt_ms) % cycleMs;
+    uint32_t cycleMs;
+    if (gLivePreset.points_bpm_sync) {
+        // Blink on Beat: cycle length is one beat, phase pinned to the BPM
+        // clock instead of free-running -- dots flash right on the beat and
+        // ride out the existing fade-in/fade-out shape (respecting on/off
+        // toggles) within it, same math as the free-running branch below.
+        float bpm = bpm_clock::gBpm.bpm;
+        if (bpm < 1.0f) bpm = 1.0f;
+        cycleMs = (uint32_t)(60000.0f / bpm);
+        if (cycleMs == 0) cycleMs = 1;
+        s_pm_acc_ms = (uint32_t)(bpm_clock::phaseNormalized() * (float)cycleMs);
+    } else {
+        cycleMs = (uint32_t)gLivePreset.points_fade_in_ms + gLivePreset.points_fade_out_ms;
+        if (cycleMs == 0) cycleMs = 1;
+        s_pm_acc_ms = (s_pm_acc_ms + dt_ms) % cycleMs;
+    }
 
     // Distance-proportional, ZV-shaped blank jump (same optimizer::emitBlankTo()
     // Starfield/BouncingPoints etc. use) instead of a fixed tick count -- a

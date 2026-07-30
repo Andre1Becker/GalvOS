@@ -604,6 +604,7 @@ canvas { max-width: 100%; display: block; }
               <label class="row"><input type="checkbox" id="lv-fade-out-on" onchange="sendLiveControls()"> Fade Out</label>
               <div class="field"><label>Fade Out ms</label><input type="range" id="lv-fade-out-ms" min="0" max="5000" value="0" oninput="liveSlider('lv-fade-out-ms')"></div>
               <label class="row"><input type="checkbox" id="lv-static-mode" onchange="sendLiveControls()"> Static (full brightness)</label>
+              <label class="row"><input type="checkbox" id="lv-points-bpm-sync" onchange="sendLiveControls()"> Blink on Beat (BPM Sync)</label>
             </div>
 
             <div id="preset-extra-90" class="preset-extra-row hidden"><p>Starfield uses Speed=Twinkle, Size=Density above.</p></div>
@@ -646,6 +647,7 @@ canvas { max-width: 100%; display: block; }
               <button class="btn col-anim-type-btn" data-type="segment" onclick="setAnimType('segment')">Segment</button>
             </div>
             <div id="color-anim-body" style="margin-top:10px"><p>Pick an animation type above.</p></div>
+            <label class="row"><input type="checkbox" id="lv-anim-bpm-sync" onchange="sendLiveControls()"> Sync to BPM (speed slider ignored)</label>
             <div class="row" style="margin-top:8px">
               <button class="btn" onclick="stopAnimation()">Stop Animation</button>
               <button class="btn danger" onclick="resetColors()">Reset Colors</button>
@@ -1379,7 +1381,7 @@ canvas { max-width: 100%; display: block; }
 /* =========================================================================
    GLOBAL STATE
    ========================================================================= */
-var UI_VERSION = '1.5.4';   // WebUI version -- independent from firmware version
+var UI_VERSION = '1.5.5';   // WebUI version -- independent from firmware version
 var NAV_TABS = [
   {id: 'dashboard', label: 'Dashboard', icon: '🏠', bottom: true},
   {id: 'presets', label: 'Presets', icon: '🎮', bottom: true},
@@ -2056,12 +2058,14 @@ async function sendLiveControls() {
     col_r: domVal('lv-r', 255), col_g: domVal('lv-g', 255), col_b: domVal('lv-b', 255),
     col_anim_type: window._animActiveType ? TYPE_MAP_VAL(window._animActiveType) : 0,
     col_anim_seq: window._animActiveSeq, col_anim_speed: window._animActiveSpeed,
+    col_anim_bpm_sync: domVal('lv-anim-bpm-sync', false),
     col_seg_count: window._animSegCount, col_seg_dir: window._animDir,
     wave_amp: domVal('lv-wave-amp', 0.5), wave_freq: domVal('lv-wave-freq', 1),
     points_mode_enabled: domVal('lv-points-only', false), points_count: domVal('lv-points-count', 12),
     points_fade_in_on: domVal('lv-fade-in-on', false), points_fade_out_on: domVal('lv-fade-out-on', false),
     points_fade_in_ms: domVal('lv-fade-in-ms', 0), points_fade_out_ms: domVal('lv-fade-out-ms', 0),
     points_fade_dir: domVal('lv-fade-dir', 0), points_static_on: domVal('lv-static-mode', false),
+    points_bpm_sync: domVal('lv-points-bpm-sync', false),
     random_pts_hold_ms: domVal('lv-hold-ms', 500),
     bp_trail_len: domVal('lv-trail', 6), bp_endless: domVal('lv-endless', false), bp_duration_sec: domVal('lv-duration-sec', 8),
     spiral_arms: domVal('lv-arms', 3), tunnel_rings: domVal('lv-rings', 8), tunnel_sides: domVal('lv-sides', 6),

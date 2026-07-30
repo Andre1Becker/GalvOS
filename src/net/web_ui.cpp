@@ -1304,6 +1304,7 @@ void init() {
             if (doc["col_anim_type"].is<int>())  gLivePreset.col_anim_type  = (ColAnimType)(uint8_t)(int)doc["col_anim_type"];
             if (doc["col_anim_seq"].is<int>())   gLivePreset.col_anim_seq   = (uint8_t)(int)doc["col_anim_seq"];
             if (doc["col_anim_speed"].is<int>()) gLivePreset.col_anim_speed = (uint8_t)(int)doc["col_anim_speed"];
+            if (doc["col_anim_bpm_sync"].is<bool>()) gLivePreset.col_anim_bpm_sync = doc["col_anim_bpm_sync"];
             if (doc["col_seg_count"].is<int>())  gLivePreset.col_seg_count  = (uint8_t)(int)doc["col_seg_count"];
             if (doc["col_seg_dir"].is<int>())    gLivePreset.col_seg_dir    = (int8_t)(int)doc["col_seg_dir"];
             if (doc["rotation"].is<int>())     gLivePreset.rotation    = (int16_t)(int)doc["rotation"];
@@ -1342,6 +1343,7 @@ void init() {
             if (doc["points_fade_out_ms"].is<int>())  gLivePreset.points_fade_out_ms = (uint16_t)constrain((int)doc["points_fade_out_ms"], 0, 10000);
             if (doc["points_fade_dir"].is<int>())     gLivePreset.points_fade_dir    = (uint8_t)constrain((int)doc["points_fade_dir"], 0, 5);
             if (doc["points_static_on"].is<bool>())   gLivePreset.points_static_on   = doc["points_static_on"];
+            if (doc["points_bpm_sync"].is<bool>())    gLivePreset.points_bpm_sync    = doc["points_bpm_sync"];
             if (doc["random_pts_hold_ms"].is<int>())  gLivePreset.random_pts_hold_ms = (uint16_t)constrain((int)doc["random_pts_hold_ms"], 50, 5000);
             if (doc["bp_trail_len"].is<int>())    gLivePreset.bp_trail_len    = (uint8_t)constrain((int)doc["bp_trail_len"], 0, 12);
             if (doc["bp_endless"].is<bool>())     gLivePreset.bp_endless      = doc["bp_endless"];

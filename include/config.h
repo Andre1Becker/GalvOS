@@ -553,6 +553,7 @@ struct LivePresetControls {
     volatile ColAnimType col_anim_type  = COL_ANIM_OFF;
     volatile uint8_t     col_anim_seq   = 0;    // 0-9 sequence index
     volatile uint8_t     col_anim_speed = 1;    // 0-255 (lowest visible speed, not 0/frozen)
+    volatile bool         col_anim_bpm_sync = false; // true = phase locked to BPM clock beat, col_anim_speed ignored
     volatile uint8_t     col_seg_count  = 4;    // 1-10 color segments
     volatile int8_t      col_seg_dir    = 1;    // +1 forward, -1 reverse
     volatile int16_t  rotation   = 0;   // Z-axis (degrees)
@@ -579,6 +580,7 @@ struct LivePresetControls {
     volatile uint16_t points_fade_out_ms   = 400;   // fade-out duration, ms
     volatile uint8_t  points_fade_dir      = FADE_DIR_IN_OUT;
     volatile bool     points_static_on     = false; // true = full brightness, no fade cycle
+    volatile bool     points_bpm_sync      = false; // true = fade cycle locked to BPM clock beat (blink on beat)
     // Random Points preset (preset_patterns.cpp::p106) -- Amount/Speed
     // reuse size_val/speed above, Duration needed its own field.
     volatile uint16_t random_pts_hold_ms   = 500;   // 50..5000, hold time per dot, ms
