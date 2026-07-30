@@ -39,6 +39,7 @@ extern ILDAConfig gILDA;
 /* Lifecycle */
 void init();
 bool loadFile(uint8_t idx);  // loads file into PSRAM, starts playback task
+const char* errorMsg();      // reason the last loadFile() failed (valid after loadFile() returns false)
 void stop();
 void pause(bool paused);
 bool isPaused();

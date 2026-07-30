@@ -68,6 +68,7 @@ static volatile bool     s_has_new   = false;
 static volatile bool     s_playing   = false;
 static volatile bool     s_paused    = false;
 static TaskHandle_t s_task = nullptr;
+static char         s_error_msg[64] = "OK";
 
 // ── Read ILDA header ────────────────────────────────────────────
 struct ILDAHeader {
@@ -106,11 +107,13 @@ static bool loadILDA(const char* path) {
     // cleanly instead of ever proceeding unprotected.
     mtx::Guard sdGuard(mtx::sd, pdMS_TO_TICKS(8000));
     if (!sdGuard) {
+        strlcpy(s_error_msg, "SD card busy (another load in progress)", sizeof(s_error_msg));
         ESP_LOGE(TAG, "SD busy (another load in progress?), aborting loadFile: %s", path);
         return false;
     }
     File f = SD.open(path);
     if (!f) {
+        strlcpy(s_error_msg, "File not found or unreadable", sizeof(s_error_msg));
         ESP_LOGE(TAG, "file not found: %s", path);
         return false;
     }
@@ -164,6 +167,7 @@ static bool loadILDA(const char* path) {
     }
 
     if (total_frames == 0) {
+        strlcpy(s_error_msg, "No valid ILDA frames found in file (corrupt or wrong format?)", sizeof(s_error_msg));
         ESP_LOGW(TAG, "No valid frames in %s", path);
         f.close();
         return false;
@@ -174,6 +178,7 @@ static bool loadILDA(const char* path) {
     s_point_pool = (LaserPoint*)ps_malloc(total_points * sizeof(LaserPoint));
 
     if (!s_frames || !s_point_pool) {
+        strlcpy(s_error_msg, "Out of PSRAM (file too large)", sizeof(s_error_msg));
         ESP_LOGE(TAG, "PSRAM allocation failed (frames=%u, points=%u)",
                  total_frames, total_points);
         if (s_frames) { heap_caps_free(s_frames); s_frames = nullptr; }
@@ -259,6 +264,7 @@ static bool loadILDA(const char* path) {
     gILDA.total_frames = fi;
     gILDA.total_points = pool_offset;
 
+    strlcpy(s_error_msg, "OK", sizeof(s_error_msg));
     ESP_LOGI(TAG, "ILDA loaded: %u frames, %u points, PSRAM: %u kB",
              fi, pool_offset, (uint32_t)((fi*sizeof(ILDAFrame) + pool_offset*8) / 1024));
     return true;
@@ -298,11 +304,13 @@ void init() {
 
 bool loadFile(uint8_t idx) {
     if (!gILDA.enabled) {
+        strlcpy(s_error_msg, "ILDA player is disabled", sizeof(s_error_msg));
         ESP_LOGW(TAG, "loadFile ignored: player disabled");
         return false;
     }
     const char* path = sd_card::filePath(idx);
     if (!path) {
+        strlcpy(s_error_msg, "Invalid file index (SD list may be stale, try Remount)", sizeof(s_error_msg));
         ESP_LOGW(TAG, "file index %u invalid (max %u)", idx, sd_card::fileCount()-1);
         return false;
     }
@@ -319,6 +327,8 @@ bool loadFile(uint8_t idx) {
     ESP_LOGI(TAG, "ILDA started: %s", sd_card::fileName(idx));
     return true;
 }
+
+const char* errorMsg() { return s_error_msg; }
 
 void stop() {
     s_playing = false;

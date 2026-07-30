@@ -1705,7 +1705,11 @@ void init() {
             if (doc["speed"].is<int>())    ilda::gILDA.speed    = doc["speed"];
             if (doc["size"].is<int>())     ilda::gILDA.size_val = doc["size"];
             if (doc["loop"].is<bool>())    ilda::gILDA.loop     = doc["loop"];
-            req->send(ok ? 200 : 500, "text/plain", ok ? "OK" : "Error");
+            if (ok) { req->send(200, "text/plain", "OK"); return; }
+            JsonDocument err(&jsonAllocator());
+            err["ok"]    = false;
+            err["error"] = ilda::errorMsg();
+            sendJsonPsram(req, err, 500);
         });
 
     // ---- POST /api/ilda/param ---- live-update speed/size/loop/color/invert
