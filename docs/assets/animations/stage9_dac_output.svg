@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <rect width="256" height="256" rx="12" fill="#000000" stroke="#30363d" stroke-width="1"/>
+
+  <text x="128" y="26" text-anchor="middle" font-family="system-ui,-apple-system,Segoe UI,sans-serif"
+        font-size="13" font-weight="600" fill="#e6edf3">DAC Output</text>
+
+  <!-- staircase of DAC codes -->
+  <path d="M40,160 L40,140 L68,140 L68,110 L96,110 L96,150 L124,150 L124,90 L152,90 L152,130 L180,130 L180,160 L216,160"
+        fill="none" stroke="#3fb950" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- tick marks, sampled one per ISR tick -->
+  <g stroke="#484f58" stroke-width="3">
+    <line x1="40" y1="184" x2="40" y2="200"/>
+    <line x1="68" y1="184" x2="68" y2="200"/>
+    <line x1="96" y1="184" x2="96" y2="200"/>
+    <line x1="124" y1="184" x2="124" y2="200"/>
+    <line x1="152" y1="184" x2="152" y2="200"/>
+    <line x1="180" y1="184" x2="180" y2="200"/>
+    <line x1="216" y1="184" x2="216" y2="200"/>
+  </g>
+
+  <!-- sweeping highlight: one tick "sampled" at a time -->
+  <circle cy="192" r="5" fill="#ff6b6b">
+    <animate attributeName="cx" values="40;68;96;124;152;180;216;40" keyTimes="0;0.14;0.28;0.42;0.57;0.71;0.85;1"
+              dur="4s" repeatCount="indefinite" calcMode="discrete"/>
+  </circle>
+
+  <text x="128" y="238" text-anchor="middle" font-family="system-ui,-apple-system,Segoe UI,sans-serif"
+        font-size="11" fill="#8b949e">one point per tick, 30k/sec</text>
+</svg>

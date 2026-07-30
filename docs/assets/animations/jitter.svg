@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <rect width="256" height="256" rx="12" fill="#000000" stroke="#30363d" stroke-width="1"/>
+
+  <text x="128" y="26" text-anchor="middle" font-family="system-ui,-apple-system,Segoe UI,sans-serif"
+        font-size="13" font-weight="600" fill="#e6edf3">Point Jitter</text>
+
+  <!-- clean reference line -->
+  <line x1="40" y1="140" x2="216" y2="140" stroke="#484f58" stroke-width="3" stroke-dasharray="5 5"/>
+
+  <!-- jittered line: deterministic perpendicular wobble, amplitude pulsing (scaled about the baseline) -->
+  <g transform="translate(0,140)">
+    <g>
+      <animateTransform attributeName="transform" attributeType="XML" type="scale"
+                          values="1,0.1;1,1;1,0.1" keyTimes="0;0.5;1" dur="4s" repeatCount="indefinite"/>
+      <path d="M40,0 L67,-8 L94,8 L121,-12 L148,10 L175,-7 L202,6 L216,0"
+            fill="none" stroke="#3fb950" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+  </g>
+
+  <text x="128" y="238" text-anchor="middle" font-family="system-ui,-apple-system,Segoe UI,sans-serif"
+        font-size="11" fill="#8b949e">perpendicular wobble on interior points</text>
+</svg>

@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <rect width="256" height="256" rx="12" fill="#000000" stroke="#30363d" stroke-width="1"/>
+
+  <text x="128" y="26" text-anchor="middle" font-family="system-ui,-apple-system,Segoe UI,sans-serif"
+        font-size="13" font-weight="600" fill="#e6edf3">Primitive Generation</text>
+
+  <!-- undrawn reference pentagon -->
+  <path d="M128,70 L194.6,118.4 L169.1,196.6 L86.9,196.6 L61.4,118.4 Z"
+        fill="none" stroke="#484f58" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- progressively connected PathSegment -->
+  <path pathLength="100" d="M128,70 L194.6,118.4 L169.1,196.6 L86.9,196.6 L61.4,118.4 Z"
+        fill="none" stroke="#3fb950" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"
+        stroke-dasharray="100" stroke-dashoffset="100">
+    <animate attributeName="stroke-dashoffset" values="100;100;0;0;100" keyTimes="0;0.08;0.6;0.85;1"
+              dur="4s" repeatCount="indefinite"/>
+  </path>
+
+  <!-- PathVertex points, popping in ahead of the connecting line -->
+  <g fill="#ffab40">
+    <circle cx="128" cy="70" r="0"><animate attributeName="r" values="0;5;5;5;0" keyTimes="0;0.08;0.15;0.85;1" dur="4s" repeatCount="indefinite"/></circle>
+    <circle cx="194.6" cy="118.4" r="0"><animate attributeName="r" values="0;0;5;5;0" keyTimes="0;0.18;0.25;0.85;1" dur="4s" repeatCount="indefinite"/></circle>
+    <circle cx="169.1" cy="196.6" r="0"><animate attributeName="r" values="0;0;5;5;0" keyTimes="0;0.32;0.39;0.85;1" dur="4s" repeatCount="indefinite"/></circle>
+    <circle cx="86.9" cy="196.6" r="0"><animate attributeName="r" values="0;0;5;5;0" keyTimes="0;0.46;0.53;0.85;1" dur="4s" repeatCount="indefinite"/></circle>
+    <circle cx="61.4" cy="118.4" r="0"><animate attributeName="r" values="0;0;5;5;0" keyTimes="0;0.60;0.67;0.85;1" dur="4s" repeatCount="indefinite"/></circle>
+  </g>
+
+  <text x="128" y="238" text-anchor="middle" font-family="system-ui,-apple-system,Segoe UI,sans-serif"
+        font-size="11" fill="#8b949e">vertices become a PathSegment</text>
+</svg>

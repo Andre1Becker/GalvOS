@@ -94,6 +94,8 @@ All three pillars are hardware-verified on the Jolooyo JY-15K-BL galvo set.
 
 ## Stage 1 — Primitive Generation
 
+<img src="assets/animations/stage1_primitive.svg" width="256" height="256" alt="Primitive Generation animation">
+
 Each pattern generates its geometry as a list of **`PathSegment`** objects. A `PathSegment` is a sequence of `PathVertex` entries (x, y, r, g, b coordinates) connected by straight lines, with a flag indicating whether the path is closed (polygon) or open (polyline).
 
 ```cpp
@@ -110,6 +112,8 @@ The `lift` flag on a vertex means "blank jump to this vertex from the previous p
 ---
 
 ## Stage 2 — Transform
+
+<img src="assets/animations/stage2_transform.svg" width="256" height="256" alt="Transform animation">
 
 Before any density calculations, every input vertex is passed through a **2×3 affine transform**:
 
@@ -128,6 +132,8 @@ When the transform is the identity (no rotation, no move, size=100%), the output
 
 ## Stage 3 — Resample (optional)
 
+<img src="assets/animations/stage3_resample.svg" width="256" height="256" alt="Resample animation">
+
 By default, interior point density is **length-proportional**: a longer edge gets more points than a shorter edge, scaled by `pts_per_1000_units`. This is the default mode and produces good results for most patterns.
 
 When `resample_enabled = true`, interior density switches to **constant spacing**: every edge gets `length / resample_spacing_units` points, regardless of length. This means:
@@ -143,6 +149,8 @@ When disabled (default), output is byte-identical to the pre-resample optimizer.
 ---
 
 ## Stage 4 — Corner Dwell
+
+<img src="assets/animations/stage4_corner_dwell.svg" width="256" height="256" alt="Corner Dwell animation">
 
 A galvo mirror needs time to change direction at a sharp corner. If you command "go to vertex A, then immediately to vertex B at a 90° angle", the mirror will overshoot vertex A, try to reverse, oscillate, and arrive at B late and blurry. Corner dwell fixes this by inserting extra stationary points at each corner — giving the mirror time to decelerate, settle, and reaccelerate.
 
@@ -171,6 +179,8 @@ Interior points along an edge are not uniformly spaced — they are velocity-eas
 ---
 
 ## Stage 5 — Blanking (Pillar 2)
+
+<img src="assets/animations/stage5_blanking.svg" width="256" height="256" alt="Blanking animation">
 
 When the beam needs to move from one shape to another without drawing a line, the laser is turned off (blanked) and the galvo jumps to the next start point. This is a **blank jump**.
 
@@ -205,6 +215,8 @@ This S-curve has zero velocity at both endpoints: the mirror starts and ends the
 
 ## Stage 6 — Velocity Clamp
 
+<img src="assets/animations/stage6_velocity_clamp.svg" width="256" height="256" alt="Velocity Clamp animation">
+
 When `vel_clamp_enabled = true`, the optimizer runs a post-pass over the lit (non-blank) point stream and subdivides any step that exceeds `max_step_units` DAC units per tick.
 
 For example: if `max_step_units = 200` and a lit step covers 600 DAC units in a single tick, it is subdivided into three steps of 200 units each. The color is also linearly interpolated across the subdivided steps.
@@ -219,6 +231,8 @@ Blank runs are exempt from velocity clamping — they are already eased by the P
 
 ## Stage 7 — Acceleration Clamp
 
+<img src="assets/animations/stage7_accel_clamp.svg" width="256" height="256" alt="Acceleration Clamp animation">
+
 When `accel_clamp_enabled = true`, the optimizer runs a second post-pass and inserts a midpoint between any two consecutive steps where the step magnitude increases by more than `max_accel_units` DAC units/tick².
 
 This limits how quickly the galvo velocity can increase — easing hard velocity ramps into corners and preventing sharp speed-up events that excite ringing.
@@ -230,6 +244,8 @@ This limits how quickly the galvo velocity can increase — easing hard velocity
 ---
 
 ## Stage 8 — ZV Ringing Compensation (Pillar 3)
+
+<img src="assets/animations/stage8_ringing.svg" width="256" height="256" alt="Ringing Compensation animation">
 
 Even with smooth stepped blank jumps, the galvo mirror can ring at its natural mechanical resonance frequency after arriving at a new position. This appears as a visible oscillation in the first few drawn points of a shape — particularly visible at high kpps or wide scan angles.
 
@@ -271,6 +287,8 @@ When `ringing_comp_enabled = false` (the default), A1=1 and A2=0 — the shaped 
 ---
 
 ## Stage 9 — DAC Output
+
+<img src="assets/animations/stage9_dac_output.svg" width="256" height="256" alt="DAC Output animation">
 
 The final `LaserPoint[]` array is written to the DAC ISR ring buffer. The ISR runs at `GALVO_SAMPLE_RATE_HZ` (default 30,000 Hz) on Core 1. Each tick:
 
@@ -380,25 +398,25 @@ Full table of all optimizer parameters, their defaults, valid ranges, and effect
 
 | Parameter | Default | Range | Effect |
 | --- | --- | --- | --- |
-| `corner_angle_deg` | 25.0° | 0–180° | Minimum exterior angle to classify as a corner and add dwell points. Lower values add dwell at gentler bends; 0 adds dwell at every vertex. |
-| `min_corner_pts` | 2 | 0–255 | Points added at the softest qualifying corner (exterior angle just above `corner_angle_deg`). |
-| `max_corner_pts` | 8 | 0–255 | Points added at the sharpest corner (full 180° reversal). |
-| `pts_per_1000_units` | 6.0 | 0–100 | Interior point density: points added per 1000 DAC units of segment length. After PPS scaling. |
-| `min_segment_pts` | 2 | 1–255 | Minimum interior points per segment, regardless of length. Prevents very short edges from having zero interior points. |
-| `blank_samples` | 16 | 1–100 | Maximum blank jump sample count (ceiling for distance-proportional scaling). |
-| `min_blank_samples` | 6 | 1–50 | Minimum blank jump sample count (floor + settle dwell ticks). |
-| `blank_pts_per_1000_units` | 8.0 | 0–100 | Rate at which blank jump sample count scales with jump distance. |
-| `stage1_blank_target` | 16 | 1–100 | Stage 1 budget reduction target: when the frame is over budget, blank_samples is first reduced to this value before falling back to `min_blank_samples`. |
-| `max_pts_per_frame` | 1010 | 1–2048 | Total point budget per frame. When exceeded, interior density is scaled down uniformly. Effective ceiling: 1300 on JY-15K-BL. |
-| `min_interior_pts_per_seg` | 8 | 0–255 | Interior points reserved per segment before blank budget is computed. Prevents very complex patterns from eliminating interior points entirely. |
-| `resample_enabled` | false | bool | Enable constant-spacing resample stage. Off = length-proportional density (default). |
-| `resample_spacing_units` | 160.0 | 1–10000 | Target spacing between resampled points in DAC units. Only used when `resample_enabled = true`. |
-| `ringing_comp_enabled` | false | bool | Enable ZV input shaping. **Measure `ring_freq_hz` and `ring_damping_ratio` on hardware first.** |
-| `ring_freq_hz` | 200.0 | 1–2000 | Galvo mechanical resonant frequency in Hz. Must be measured. |
-| `ring_damping_ratio` | 0.15 | 0.01–0.9 | Galvo damping ratio ζ. Must be measured. Typical range: 0.05–0.3. |
-| `vel_clamp_enabled` | false | bool | Enable velocity clamp post-pass. Tune `max_step_units` before enabling. |
-| `max_step_units` | 200.0 | 1–65535 | Maximum lit-step size in DAC units per tick. Steps exceeding this are linearly subdivided. After PPS scaling. |
-| `accel_clamp_enabled` | false | bool | Enable acceleration clamp post-pass. |
-| `max_accel_units` | 800.0 | 1–65535 | Maximum per-tick change in step magnitude (DAC units/tick²). After PPS scaling. |
-| `jitter_enabled` | false | bool | Point Distribution Modifier (v6.30.0): perpendicular displacement of interior points for a hand-drawn line texture. Disabled = output byte-identical to the pre-jitter optimizer. |
-| `jitter_amount_units` | 80.0 | 0–2000 | Maximum perpendicular jitter offset in DAC units. Deterministic per point (hash-based, not random per frame) — lines wobble, they don't shimmer. Corners, budgets, and dwell counts are computed *before* jitter, so it never destabilizes the pipeline. |
+| `corner_angle_deg` | 25.0° | 0–180° | <img src="assets/animations/stage4_corner_dwell.svg" width="64" height="64" alt=""> Minimum exterior angle to classify as a corner and add dwell points. Lower values add dwell at gentler bends; 0 adds dwell at every vertex. |
+| `min_corner_pts` | 2 | 0–255 | <img src="assets/animations/stage4_corner_dwell.svg" width="64" height="64" alt=""> Points added at the softest qualifying corner (exterior angle just above `corner_angle_deg`). |
+| `max_corner_pts` | 8 | 0–255 | <img src="assets/animations/stage4_corner_dwell.svg" width="64" height="64" alt=""> Points added at the sharpest corner (full 180° reversal). |
+| `pts_per_1000_units` | 6.0 | 0–100 | <img src="assets/animations/stage3_resample.svg" width="64" height="64" alt=""> Interior point density: points added per 1000 DAC units of segment length. After PPS scaling. |
+| `min_segment_pts` | 2 | 1–255 | <img src="assets/animations/stage3_resample.svg" width="64" height="64" alt=""> Minimum interior points per segment, regardless of length. Prevents very short edges from having zero interior points. |
+| `blank_samples` | 16 | 1–100 | <img src="assets/animations/stage5_blanking.svg" width="64" height="64" alt=""> Maximum blank jump sample count (ceiling for distance-proportional scaling). |
+| `min_blank_samples` | 6 | 1–50 | <img src="assets/animations/stage5_blanking.svg" width="64" height="64" alt=""> Minimum blank jump sample count (floor + settle dwell ticks). |
+| `blank_pts_per_1000_units` | 8.0 | 0–100 | <img src="assets/animations/stage5_blanking.svg" width="64" height="64" alt=""> Rate at which blank jump sample count scales with jump distance. |
+| `stage1_blank_target` | 16 | 1–100 | <img src="assets/animations/stage5_blanking.svg" width="64" height="64" alt=""> Stage 1 budget reduction target: when the frame is over budget, blank_samples is first reduced to this value before falling back to `min_blank_samples`. |
+| `max_pts_per_frame` | 1010 | 1–2048 | <img src="assets/animations/frame_budget.svg" width="64" height="64" alt=""> Total point budget per frame. When exceeded, interior density is scaled down uniformly. Effective ceiling: 1300 on JY-15K-BL. |
+| `min_interior_pts_per_seg` | 8 | 0–255 | <img src="assets/animations/stage3_resample.svg" width="64" height="64" alt=""> Interior points reserved per segment before blank budget is computed. Prevents very complex patterns from eliminating interior points entirely. |
+| `resample_enabled` | false | bool | <img src="assets/animations/stage3_resample.svg" width="64" height="64" alt=""> Enable constant-spacing resample stage. Off = length-proportional density (default). |
+| `resample_spacing_units` | 160.0 | 1–10000 | <img src="assets/animations/stage3_resample.svg" width="64" height="64" alt=""> Target spacing between resampled points in DAC units. Only used when `resample_enabled = true`. |
+| `ringing_comp_enabled` | false | bool | <img src="assets/animations/stage8_ringing.svg" width="64" height="64" alt=""> Enable ZV input shaping. **Measure `ring_freq_hz` and `ring_damping_ratio` on hardware first.** |
+| `ring_freq_hz` | 200.0 | 1–2000 | <img src="assets/animations/stage8_ringing.svg" width="64" height="64" alt=""> Galvo mechanical resonant frequency in Hz. Must be measured. |
+| `ring_damping_ratio` | 0.15 | 0.01–0.9 | <img src="assets/animations/stage8_ringing.svg" width="64" height="64" alt=""> Galvo damping ratio ζ. Must be measured. Typical range: 0.05–0.3. |
+| `vel_clamp_enabled` | false | bool | <img src="assets/animations/stage6_velocity_clamp.svg" width="64" height="64" alt=""> Enable velocity clamp post-pass. Tune `max_step_units` before enabling. |
+| `max_step_units` | 200.0 | 1–65535 | <img src="assets/animations/stage6_velocity_clamp.svg" width="64" height="64" alt=""> Maximum lit-step size in DAC units per tick. Steps exceeding this are linearly subdivided. After PPS scaling. |
+| `accel_clamp_enabled` | false | bool | <img src="assets/animations/stage7_accel_clamp.svg" width="64" height="64" alt=""> Enable acceleration clamp post-pass. |
+| `max_accel_units` | 800.0 | 1–65535 | <img src="assets/animations/stage7_accel_clamp.svg" width="64" height="64" alt=""> Maximum per-tick change in step magnitude (DAC units/tick²). After PPS scaling. |
+| `jitter_enabled` | false | bool | <img src="assets/animations/jitter.svg" width="64" height="64" alt=""> Point Distribution Modifier (v6.30.0): perpendicular displacement of interior points for a hand-drawn line texture. Disabled = output byte-identical to the pre-jitter optimizer. |
+| `jitter_amount_units` | 80.0 | 0–2000 | <img src="assets/animations/jitter.svg" width="64" height="64" alt=""> Maximum perpendicular jitter offset in DAC units. Deterministic per point (hash-based, not random per frame) — lines wobble, they don't shimmer. Corners, budgets, and dwell counts are computed *before* jitter, so it never destabilizes the pipeline. |

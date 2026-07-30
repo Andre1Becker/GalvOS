@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <rect width="256" height="256" rx="12" fill="#000000" stroke="#30363d" stroke-width="1"/>
+
+  <text x="128" y="26" text-anchor="middle" font-family="system-ui,-apple-system,Segoe UI,sans-serif"
+        font-size="13" font-weight="600" fill="#e6edf3">Acceleration Clamp</text>
+
+  <!-- baseline: tick timeline -->
+  <line x1="40" y1="200" x2="216" y2="200" stroke="#484f58" stroke-width="3"/>
+
+  <!-- abrupt velocity ramp (before) -->
+  <g>
+    <path d="M50,190 L100,182 L150,70" fill="none" stroke="#ff6b6b" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="50" cy="190" r="5" fill="#ff6b6b"/>
+    <circle cx="100" cy="182" r="5" fill="#ff6b6b"/>
+    <circle cx="150" cy="70" r="5" fill="#ff6b6b"/>
+    <animate attributeName="opacity" values="1;1;0;0;1" keyTimes="0;0.35;0.5;0.85;1" dur="4s" repeatCount="indefinite"/>
+  </g>
+
+  <!-- smoothed ramp with inserted midpoint (after) -->
+  <g>
+    <path d="M50,190 L100,182 L128,132 L150,70" fill="none" stroke="#3fb950" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="50" cy="190" r="5" fill="#3fb950"/>
+    <circle cx="100" cy="182" r="5" fill="#3fb950"/>
+    <circle cx="150" cy="70" r="5" fill="#3fb950"/>
+    <circle cx="128" cy="132" r="5" fill="#ffab40"/>
+    <animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.35;0.5;0.85;1" dur="4s" repeatCount="indefinite"/>
+  </g>
+
+  <text x="128" y="238" text-anchor="middle" font-family="system-ui,-apple-system,Segoe UI,sans-serif"
+        font-size="11" fill="#8b949e">midpoint eases the velocity ramp</text>
+</svg>

@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <rect width="256" height="256" rx="12" fill="#000000" stroke="#30363d" stroke-width="1"/>
+
+  <text x="128" y="26" text-anchor="middle" font-family="system-ui,-apple-system,Segoe UI,sans-serif"
+        font-size="13" font-weight="600" fill="#e6edf3">Resample</text>
+
+  <line x1="40" y1="140" x2="216" y2="140" stroke="#484f58" stroke-width="4" stroke-linecap="round"/>
+
+  <!-- 7 interior points, morphing between eased (default) and constant spacing -->
+  <g fill="#3fb950">
+    <circle cy="140" r="5"><animate attributeName="cx" values="48.8;40;48.8" keyTimes="0;0.5;1" dur="4s" repeatCount="indefinite"/></circle>
+    <circle cy="140" r="5"><animate attributeName="cx" values="66.4;69.3;66.4" keyTimes="0;0.5;1" dur="4s" repeatCount="indefinite"/></circle>
+    <circle cy="140" r="5"><animate attributeName="cx" values="92.8;98.7;92.8" keyTimes="0;0.5;1" dur="4s" repeatCount="indefinite"/></circle>
+    <circle cy="140" r="5"><animate attributeName="cx" values="128;128;128" keyTimes="0;0.5;1" dur="4s" repeatCount="indefinite"/></circle>
+    <circle cy="140" r="5"><animate attributeName="cx" values="163.2;157.3;163.2" keyTimes="0;0.5;1" dur="4s" repeatCount="indefinite"/></circle>
+    <circle cy="140" r="5"><animate attributeName="cx" values="189.6;186.7;189.6" keyTimes="0;0.5;1" dur="4s" repeatCount="indefinite"/></circle>
+    <circle cy="140" r="5"><animate attributeName="cx" values="207.2;216;207.2" keyTimes="0;0.5;1" dur="4s" repeatCount="indefinite"/></circle>
+  </g>
+
+  <text x="128" y="212" text-anchor="middle" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="11" fill="#ffab40">
+    adaptive (length-proportional)
+    <animate attributeName="opacity" values="1;1;0;0;1" keyTimes="0;0.4;0.5;0.9;1" calcMode="discrete" dur="4s" repeatCount="indefinite"/>
+  </text>
+  <text x="128" y="212" text-anchor="middle" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="11" fill="#58a6ff">
+    constant spacing (resample)
+    <animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.4;0.5;0.9;1" calcMode="discrete" dur="4s" repeatCount="indefinite"/>
+  </text>
+
+  <text x="128" y="238" text-anchor="middle" font-family="system-ui,-apple-system,Segoe UI,sans-serif"
+        font-size="11" fill="#8b949e">density mode toggles per edge</text>
+</svg>
