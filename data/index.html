@@ -893,17 +893,17 @@ canvas { max-width: 100%; display: block; }
             <label class="row"><input type="checkbox" id="ilda-enabled" onchange="ildaSetEnabled(this.checked)"> Enabled</label>
             <p><span id="ilda-now-playing">Nothing playing</span> — <span id="ilda-progress-label">0 / 0</span></p>
             <div style="height:8px;background:var(--muted);border-radius:4px;overflow:hidden"><div id="ilda-progress-bar" style="height:100%;width:0;background:var(--accent)"></div></div>
+            <div class="row">
+              <button class="btn sm" onclick="ildaStop()">Stop</button>
+              <button class="btn sm" onclick="ildaPauseResume(true)">Pause</button>
+              <button class="btn sm" onclick="ildaPauseResume(false)">Resume</button>
+            </div>
             <div class="field"><label>Speed</label><input type="range" id="ilda-speed" min="0" max="255" value="128" oninput="ildaParamChange()"></div>
             <div class="field"><label>Size</label><input type="range" id="ilda-size" min="0" max="255" value="128" oninput="ildaParamChange()"></div>
             <label class="row"><input type="checkbox" id="ilda-loop" onchange="ildaParamChange()"> Loop</label>
             <label class="row"><input type="checkbox" id="ilda-color-override" onchange="ildaParamChange()"> Color Override</label>
             <label class="row"><input type="checkbox" id="ilda-invert-x" onchange="ildaParamChange()"> Invert X</label>
             <label class="row"><input type="checkbox" id="ilda-invert-y" onchange="ildaParamChange()"> Invert Y</label>
-            <div class="row">
-              <button class="btn sm" onclick="ildaStop()">Stop</button>
-              <button class="btn sm" onclick="ildaPauseResume(true)">Pause</button>
-              <button class="btn sm" onclick="ildaPauseResume(false)">Resume</button>
-            </div>
           </div>
 
           <div class="card">
@@ -1379,7 +1379,7 @@ canvas { max-width: 100%; display: block; }
 /* =========================================================================
    GLOBAL STATE
    ========================================================================= */
-var UI_VERSION = '1.5.3';   // WebUI version -- independent from firmware version
+var UI_VERSION = '1.5.4';   // WebUI version -- independent from firmware version
 var NAV_TABS = [
   {id: 'dashboard', label: 'Dashboard', icon: '🏠', bottom: true},
   {id: 'presets', label: 'Presets', icon: '🎮', bottom: true},
@@ -3757,7 +3757,7 @@ function startIldaRefresh() {
   s_ildaTimer = setInterval(function() {
     var sec = document.getElementById('tab-ilda');
     if (sec && sec.classList.contains('active')) updateIldaPlayerUI();
-  }, 1000);
+  }, 250);
 }
 async function playlistStart() { await apiCall('POST', '/api/playlist/start'); }
 async function playlistStop() { await apiCall('POST', '/api/playlist/stop'); }
