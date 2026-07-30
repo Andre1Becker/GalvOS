@@ -1,10 +1,9 @@
 # Laser Controller PCB — layout notes
 
-Board: **118 × 90 mm, 2 layers**. Placement is done, and the board is now
-**fully routed** (274 tracks, 10 vias, no unconnected items) via Freerouting.
-**It is not fab-ready yet** — 31 clearance violations remain, all of them where
-the autorouter squeezed traces between fine-pitch SMD pads. See
-[Routing status](#routing-status).
+Board: **118 × 90 mm, 2 layers**, placed and **fully routed** — 257 tracks,
+14 vias, **zero unconnected items and zero clearance violations**. Gerbers and
+drill files are in [../gerbers/](../gerbers/). See
+[Routing status](#routing-status) for the three remaining non-blocking items.
 
 ## Floor plan
 
@@ -44,51 +43,58 @@ the autorouter squeezed traces between fine-pitch SMD pads. See
 
 ## Routing status
 
-Routed with Freerouting 2.0.1 via the KiCAD MCP server. Track widths: signals
-0.2 mm, +3V3 / grounds 0.5 mm, ±15 V and 5 V rails 0.6 mm (widened after import,
-see below). Design rules: 0.2 mm clearance, 0.2 mm minimum track.
+Routed with Freerouting 2.0.1 via the KiCAD MCP server. Design rules: 0.2 mm
+clearance, 0.2 mm minimum track, 0.3 mm minimum drill. Track widths: signals
+0.2 mm, supply rails 0.4 mm. Both ground nets are carried by pours.
 
-**31 clearance violations remain, 20 of them below 0.10 mm** — near-shorts, not
-cosmetic. They cluster on exactly two parts:
+DRC: **0 clearance violations, 0 unconnected items.** What remains is not
+fab-blocking:
 
-| Location | Part | Violations |
-| --- | --- | --- |
-| ~(55, 30) | U2 — DAC8562, 0.5 mm-pitch VSSOP | 9 |
-| ~(25–35, 20–30) | U12 — OPA4134, SOIC-14 | 7 |
-| scattered | opto block, misc | 15 |
+- **3 starved thermals** — three pads reach their pour through a single
+  thermal spoke instead of two. Electrically connected; the rule is a
+  robustness convention.
+- **71 silkscreen warnings** — reference designators overlapping pads and each
+  other. Cosmetic; tidy the silk if you care about the printing.
 
-Freerouting routes between fine-pitch pads where there is no room. **Rip up and
-hand-route the fanouts of U2 and U12 before fabricating.** Doing the analog
-section by hand is worth it anyway: an autorouter has no notion of keeping the
-op-amp feedback loops short or respecting the AGND/GND split.
+### If you re-run the router
 
-Two quirks worth knowing if you re-run the autorouter:
+Three things cost real time here; the recipe that works is: export DSN → patch
+it → run Freerouting → import SES → refill pours → widen rails.
 
-- Freerouting exports at a fixed `(width 200) (clearance 200)` and drops every
-  net into one `kicad_default` class — the `Power` net class in the
-  `.kicad_pro` does **not** reach it (`assignments: 0`). Power widths here were
-  applied *after* the SES import, not during routing.
-- The SES import leaves the copper pours unfilled, so DRC reports a flood of
-  bogus zero-clearance errors (283 in the first run). Refill zones first, then
-  read the DRC.
+1. **The DSN carries `(clearance 50 (type smd_smd))`.** That tells Freerouting
+   0.05 mm from an SMD pad is fine, and it will happily take it — the first
+   run produced 31 violations down to 0.0017 mm, all against U2 and U12 pads.
+   Delete that line and raise `(clearance …)` before routing.
+2. **Freerouting ignores DSN net classes.** A `power` class at `(width 500)`
+   came back with every path still at 200 µm, and the `Power` class in the
+   `.kicad_pro` never reaches the exporter either (`assignments: 0`). So the
+   board is routed at a deliberately generous **0.45 mm** clearance and the
+   rails are widened afterwards into that slack.
+3. **Widening after routing eats clearance.** Growing a 0.2 mm trace to 0.6 mm
+   moves each edge out by 0.2 mm and re-broke the clearance that had just been
+   fixed. The widening pass is therefore clearance-aware: each track only grows
+   as far as its nearest foreign pad, via or track allows, leaving the 0.2 mm
+   rule intact. Two traces near U2 stay narrow because of this.
+
+Pours must be refilled after every SES import — otherwise DRC reports a flood
+of bogus zero-clearance errors (283 in the first run) from tracks sitting on
+unfilled zone copper.
 
 ## Before this goes to a fab
 
-1. **Fix the 31 clearance violations** — see above; U2 and U12 need hand-routing.
-2. **Decide how the SD card attaches.** `Connector_Card:SD_Card_Device_16mm_SlotDepth`
+1. **Decide how the SD card attaches.** `Connector_Card:SD_Card_Device_16mm_SlotDepth`
    is a DIY pad field — its stock Edge.Cuts "slot" would cut away the very
    copper the card contacts, so those cuts were stripped and the board is a
    plain rectangle. Either print a card retainer, or swap J1 for a 1x06 header
    and plug in a micro-SD breakout (which is what the perfboard build uses).
-3. **Mind the analog headroom.** With R7/R12 = 10k/22k the stage runs at
+2. **Mind the analog headroom.** With R7/R12 = 10k/22k the stage runs at
    ×2.2, so a full-scale DAC swing gives ±5.5 V into a ±5 V galvo input —
    that is what the firmware's ~95 % DAC clamp is for.
-4. R8 is **DNP** on purpose. Populating it shifts the summing node's DC
+3. R8 is **DNP** on purpose. Populating it shifts the summing node's DC
    operating point and the output no longer centres at 0 V.
 
 ## Known non-issues
 
 - ERC reports one error: `J1` pin 4 (CLK) is typed *power input* in KiCad's own
   `Connector:Micro_SD_Card` symbol. Library defect, not a wiring fault.
-- KiCad will create `Laser Controller.kicad_pro` on first open; the board was
-  generated headlessly and ships without one.
+- 3 starved thermals and 71 silkscreen warnings, as listed above.

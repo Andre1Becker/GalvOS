@@ -1,0 +1,26 @@
+%TF.GenerationSoftware,KiCad,Pcbnew,10.0.3*%
+%TF.CreationDate,2026-07-30T18:20:36+02:00*%
+%TF.ProjectId,Laser Controller,4c617365-7220-4436-9f6e-74726f6c6c65,rev?*%
+%TF.SameCoordinates,Original*%
+%TF.FileFunction,Profile,NP*%
+%FSLAX46Y46*%
+G04 Gerber Fmt 4.6, Leading zero omitted, Abs format (unit mm)*
+G04 Created by KiCad (PCBNEW 10.0.3) date 2026-07-30 18:20:36*
+%MOMM*%
+%LPD*%
+G01*
+G04 APERTURE LIST*
+%TA.AperFunction,Profile*%
+%ADD10C,0.150000*%
+%TD*%
+G04 APERTURE END LIST*
+D10*
+X0Y0D02*
+X118000000Y0D01*
+X0Y-90000000D02*
+X0Y0D01*
+X118000000Y0D02*
+X118000000Y-90000000D01*
+X118000000Y-90000000D02*
+X0Y-90000000D01*
+M02*
