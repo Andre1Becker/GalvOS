@@ -5,6 +5,7 @@
 ## Table of Contents
 
 - [What This Is](#what-this-is)
+- [The Bench Setup](#the-bench-setup)
 - [Requirements](#requirements)
 - [Installation](#installation)
 - [Files](#files)
@@ -34,6 +35,20 @@ Firmware v6.03.0 added a REST API, `/api/calib-cam/*`, that lets an external pro
 This is **not** a replacement for the manual Galvo Calibration card in the WebUI (Chapter 4) — offset, gain, swap, and invert are still set by hand, because those are fixed hardware/wiring properties, not something a search should be exploring every run. What this tool auto-tunes is the **optimizer**: corner dwell, blanking, resample, ringing compensation — the parameters in [Chapter 5](05-optimizer.md#parameter-reference) that trade off against each other and are genuinely tedious to hand-tune by eye.
 
 It replaces the closing item in [Chapter 10's Planned Features](10-known-issues-and-todos.md#planned-features) — "auto-tuning via global shutter camera" was the plan; this is the implementation.
+
+---
+
+## The Bench Setup
+
+What this actually looks like on the bench: the target board sits on a stand facing the projector, with the mono/global-shutter camera clamped alongside it, aimed at the flat target surface the beam is projected onto.
+
+![Camera-in-the-loop bench setup — projector, target board, and sensor/interface PCB](assets/photos/camera_loop_bench_1.jpg)
+
+The small board mounted below the target is the sensor/interface PCB — it carries the camera's own driver electronics, separate from the GalvOS controller itself, which drives the projector over the network as described in [Requirements](#requirements).
+
+![Camera mounted on the target rig, aimed at the projection surface](assets/photos/camera_loop_bench_2.jpg)
+
+Camera and target share one rigid mount so the pixel→DAC [homography](11-glossary.md) solved by `calibrate` (see [Workflow](#workflow) below) stays valid between runs — nudging either one out of alignment is exactly the "re-run `calibrate`" case called out there.
 
 ---
 

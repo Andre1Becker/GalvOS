@@ -127,6 +127,10 @@ GalvOS is built on a custom perfboard (15 × 9 cm) that replaces the original Mi
 
 The full netlist with all resistor values, capacitor values, and wiring is in the [`hardware/`](../hardware/) directory.
 
+![Prototype perfboard build — ESP32-S3, DAC/op-amp stage, and JST-wired peripherals on the bench](assets/photos/prototype_board.jpg)
+
+An early prototype status of the perfboard build, mid-bring-up on the bench (oscilloscope, bench PSUs, and multimeter visible in the background — standard company for hand-wiring a mixed digital/analog board like this one).
+
 ### Memory Architecture
 
 The ESP32-S3 N16R8 provides:
