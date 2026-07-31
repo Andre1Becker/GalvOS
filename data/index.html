@@ -1172,13 +1172,7 @@ canvas { max-width: 100%; display: block; }
       </div>
       <div class="card">
         <h2>Sensor Offsets (&deg;C)</h2>
-        <div class="grid grid-3" id="thermal-offset-editor">
-          <div class="field"><label>S1</label><input type="number" id="thermal-offset-0" value="0" min="-20" max="20" step="0.1" oninput="previewOffset(0)"><span id="thermal-offset-preview-0"></span></div>
-          <div class="field"><label>S2</label><input type="number" id="thermal-offset-1" value="0" min="-20" max="20" step="0.1" oninput="previewOffset(1)"><span id="thermal-offset-preview-1"></span></div>
-          <div class="field"><label>S3</label><input type="number" id="thermal-offset-2" value="0" min="-20" max="20" step="0.1" oninput="previewOffset(2)"><span id="thermal-offset-preview-2"></span></div>
-          <div class="field"><label>S4</label><input type="number" id="thermal-offset-3" value="0" min="-20" max="20" step="0.1" oninput="previewOffset(3)"><span id="thermal-offset-preview-3"></span></div>
-          <div class="field"><label>S5</label><input type="number" id="thermal-offset-4" value="0" min="-20" max="20" step="0.1" oninput="previewOffset(4)"><span id="thermal-offset-preview-4"></span></div>
-        </div>
+        <div class="grid grid-3" id="thermal-offset-editor"></div>
         <button class="btn" onclick="saveTempOffsets()">&#128190; Save Offsets</button>
       </div>
       <div class="card">
@@ -1392,7 +1386,7 @@ canvas { max-width: 100%; display: block; }
 /* =========================================================================
    GLOBAL STATE
    ========================================================================= */
-var UI_VERSION = '1.6.3';   // WebUI version -- independent from firmware version
+var UI_VERSION = '1.6.4';   // WebUI version -- independent from firmware version
 var NAV_TABS = [
   {id: 'dashboard', label: 'Dashboard', icon: '🏠', bottom: true},
   {id: 'presets', label: 'Presets', icon: '🎮', bottom: true},
@@ -4378,7 +4372,13 @@ function buildSensorNameEditor() {
 async function saveSensorName(idx) {
   var name = document.getElementById('thermal-name-' + idx).value;
   var r = await apiCall('POST', '/api/temp/name', {idx: idx, name: name});
-  if (r !== null) { SENSOR_NAMES[idx] = name; toast('Sensor renamed'); buildTempSensors(); }
+  if (r !== null) { SENSOR_NAMES[idx] = name; toast('Sensor renamed'); buildTempSensors(); buildTempOffsetEditor(); }
+}
+function buildTempOffsetEditor() {
+  var el = document.getElementById('thermal-offset-editor'); if (!el) return;
+  el.innerHTML = SENSOR_NAMES.map(function(n, i) {
+    return '<div class="field"><label>' + n + '</label><input type="number" id="thermal-offset-' + i + '" value="' + s_tempOffsets[i] + '" min="-20" max="20" step="0.1" oninput="previewOffset(' + i + ')"><span id="thermal-offset-preview-' + i + '"></span></div>';
+  }).join('');
 }
 function buildThresholdInputs() {
   var el = document.getElementById('thermal-thresholds'); if (!el) return;
@@ -4430,7 +4430,7 @@ function updateFanDisplay(duty0, duty1) {
   var e1 = document.getElementById('thermal-fan1-display'); if (e1) e1.textContent = a1 ? ('Auto (' + Math.round(duty1 / 255 * 100) + '%)') : (Math.round(duty1 / 255 * 100) + '%');
 }
 function handleThermalTabState(s) {
-  if (s.names && s.names.join(',') !== SENSOR_NAMES.join(',')) { SENSOR_NAMES = s.names.slice(); buildTempSensors(); }
+  if (s.names && s.names.join(',') !== SENSOR_NAMES.join(',')) { SENSOR_NAMES = s.names.slice(); buildTempSensors(); buildTempOffsetEditor(); }
   if (s.found !== undefined && s.found !== SENSOR_FOUND) { SENSOR_FOUND = s.found; buildSensorNameEditor(); }
   var unitEl = document.getElementById('thermal-unit');
   if (unitEl && document.activeElement !== unitEl) unitEl.value = String(s_tempUnit);
@@ -4457,7 +4457,7 @@ function handleThermalTabState(s) {
   }
 }
 
-registerTabLoader('thermal', function() { buildTempSensors(); buildSensorNameEditor(); });
+registerTabLoader('thermal', function() { buildTempSensors(); buildSensorNameEditor(); buildTempOffsetEditor(); });
 
 /* =========================================================================
    LOG TAB + MEMORY VIEWER
@@ -4769,6 +4769,7 @@ buildDmxSliders();
 buildTempSensors();
 buildThresholdInputs();
 buildSensorNameEditor();
+buildTempOffsetEditor();
 
 buildNav();
 initCpuGraph(); initTempGraph(); initKppsGraph(); initFrameGraph();
