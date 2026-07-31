@@ -5,6 +5,7 @@
 - [Repository Setup](#repository-setup)
 - [PlatformIO Build](#platformio-build)
 - [Flash Instructions](#flash-instructions)
+- [Wireless / OTA Update](#wireless--ota-update)
 - [platformio.ini — Build Parameters](#platformioini--build-parameters)
 - [Partition Table](#partition-table)
 - [config.h — Compile-Time Constants](#configh--compile-time-constants)
@@ -94,6 +95,44 @@ upload_port = COM5            ; Windows
 ```
 
 **Upload speed:** Set to 921600 baud in `platformio.ini`. This is stable on most systems. If you see flash errors, reduce to `460800`.
+
+---
+
+## Wireless / OTA Update
+
+Once a board has its first USB flash, every later update can go over Wi-Fi instead — no cable, no PlatformIO upload, just a browser. GalvOS exposes this at `http://<hostname>.local/update` (or the device's IP), protected by HTTP Basic Auth: user `admin`, password = the first 8 hex digits of the chip's MAC address (also shown as **HTTP-OTA Pass** on the Configuration tab — see [Access Credentials](04-ui-guide.md#access-credentials)).
+
+![Firmware Update page](assets/screenshots/page_update.png)
+
+> Unlike the [Chapter 4](04-ui-guide.md) screenshots (captured live from a device via `scripts/capture_screenshots.py`), this one is rendered from the page's own self-contained HTML/CSS — `/update` doesn't depend on the main WebUI bundle, so there was no live device on hand to capture it from. Layout and copy match the shipped page; only the FW/UI version numbers are illustrative.
+
+The page has three parts:
+
+| Card | Writes to | Use it when… |
+| --- | --- | --- |
+| **Firmware** | whichever of `app0`/`app1` isn't currently running (see [Partition Table](#partition-table)) | anything under `src/` or `include/` changed |
+| **WebUI / Filesystem** | the `spiffs` partition (formatted LittleFS, holds `data/`) | anything under `data/` (`index.html`, assets) changed |
+| **Config Backup** | *(download only)* | always — before flashing anything |
+
+Firmware and filesystem updates are independent uploads — a firmware-only change only needs the Firmware card, a WebUI-only change only needs the Filesystem one. Uploading a `.bin` that doesn't fit the target partition is rejected by `Update.begin()` rather than bricking the device.
+
+### Steps
+
+1. Build whichever artifact(s) you need — this only builds, it does **not** flash anything over USB:
+
+   ```bash
+   pio run                    # firmware.bin -> .pio/build/esp32-s3-devkitc-1/firmware.bin
+   pio run --target buildfs   # littlefs.bin -> .pio/build/esp32-s3-devkitc-1/littlefs.bin
+   ```
+
+2. Open `http://<hostname>.local/update` and sign in (`admin` / chip-ID password).
+3. Click **Download Backup** first — same JSON as the Configuration tab's [Backup & Restore](04-ui-guide.md#backup--restore) card, and cheap insurance against a bad flash.
+4. Pick the matching `.bin` under **Firmware** and/or **WebUI / Filesystem** and click its Upload button. A progress bar tracks the transfer; any `Update.write()`/`Update.end()` failure is shown inline (e.g. "not enough space", a truncated upload) instead of a bare "Update failed".
+5. Once every upload you started shows its success message, click **Reboot Now**.
+
+The laser is force-disarmed the instant an upload starts, and OTA is refused outright while armed — same rule as [`POST /api/restore`](08-api-reference.md#post-apirestore). Nothing reboots automatically on success, specifically so a multi-part update (say, firmware done but the filesystem upload still in progress) can't get rebooted into half-finished.
+
+> **Note:** `ArduinoOTA` (IDE/CLI push over port 3232, same chip-ID password) still runs in parallel with the `/update` page — use whichever is more convenient.
 
 ---
 

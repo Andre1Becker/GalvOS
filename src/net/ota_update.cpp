@@ -143,10 +143,22 @@ button.btn.primary { background:var(--accent); color:var(--bg); border-color:var
 .err { color:var(--bad); font-size:0.8rem; margin-top:8px; white-space:pre-wrap; }
 .success { display:none; margin-top:12px; }
 .success p { color:var(--accent); font-size:0.85rem; margin:0 0 10px; }
+.guide ol { margin:0; padding-left:1.2em; font-size:0.8rem; color:var(--text-dim); line-height:1.6; }
+.guide li b { color:var(--text); }
 </style></head>
 <body><div class="wrap">
 <h1>GalvOS Laser Controller &mdash; Firmware Update</h1>
 <div class="ver">Running: FW v{{FW_VER}} &middot; UI v<span id="ui-ver">...</span></div>
+
+<div class="card guide">
+  <h2>Quick Guide</h2>
+  <ol>
+    <li><b>Backup first</b> &mdash; download the config below, just in case.</li>
+    <li><b>Firmware</b> changed &rarr; upload the firmware .bin.</li>
+    <li><b>WebUI</b> changed too &rarr; also upload the filesystem .bin (skip it if only firmware changed).</li>
+    <li>Wait for each upload to reach 100% with no error, then hit <b>Reboot Now</b>.</li>
+  </ol>
+</div>
 
 <div class="card">
   <h2>Firmware</h2>

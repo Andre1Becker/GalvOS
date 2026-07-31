@@ -666,7 +666,7 @@ Added in v6.06.0 — because "I remember my DAC limits" is not a disaster recove
 
 ### Access Credentials
 
-- **HTTP-OTA Pass** — password for the `/update` OTA endpoint (user `admin`). Masked; hover to reveal.
+- **HTTP-OTA Pass** — password for the `/update` OTA endpoint (user `admin`). Masked; hover to reveal. See [Chapter 3 — Wireless / OTA Update](03-build-and-config.md#wireless--ota-update) for the full walkthrough.
 - **API Token** — current `X-Auth` token required for write access to the HTTP API. Masked; hover to reveal, click to copy. (Moved here from the Dashboard System Card.)
 
 ### Debug
@@ -675,4 +675,4 @@ Added in v6.06.0 — because "I remember my DAC limits" is not a disaster recove
 
 - **No-HW Mode** — skips SPI/DAC init at boot. Use only for firmware development without hardware connected. Disable before normal operation.
 - **DAC Debug Log** — logs DAC8562 register writes to serial and the Log tab (rate-limited). For low-level DAC debugging only.
-- **OTA Update** — firmware update via HTTP at `http://laser/update` (admin / your password).
+- **OTA Update** — firmware update via HTTP at `http://laser/update` (admin / your password). The page itself covers firmware and WebUI updates, a config backup shortcut, and a reboot button — see [Chapter 3 — Wireless / OTA Update](03-build-and-config.md#wireless--ota-update).
