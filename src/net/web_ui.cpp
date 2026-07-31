@@ -1643,6 +1643,22 @@ void init() {
         req->send(200, "application/json", buf);
     });
 
+    // ---- GET /api/sd/download?idx=N ---- download an ILDA file by index ----
+    // Registered before the plain "/api/sd" route below for the same reason
+    // as "/api/sd/info" above -- it's a longer sibling of that prefix-matching
+    // route and would otherwise never be reached.
+    s_server.on("/api/sd/download", HTTP_GET, [](AsyncWebServerRequest* req) {
+        if (!req->hasParam("idx")) { req->send(400, "text/plain", "idx required"); return; }
+        uint8_t idx = (uint8_t)req->getParam("idx")->value().toInt();
+        if (idx >= sd_card::fileCount()) { req->send(404, "text/plain", "not found"); return; }
+        // AsyncFileResponse extracts the download filename from the path's own
+        // basename, so it always names the file correctly even for entries in
+        // subfolders (sd_card::fileName() would include the subfolder prefix).
+        AsyncWebServerResponse* resp = req->beginResponse(SD, sd_card::filePath(idx), "application/octet-stream", true);
+        if (!resp) { req->send(404, "text/plain", "file missing on SD"); return; }
+        req->send(resp);
+    });
+
     // ---- GET /api/sd ---- SD cardn-Status and file list
     s_server.on("/api/sd", HTTP_GET, [](AsyncWebServerRequest* req) {
         JsonDocument doc(&jsonAllocator());

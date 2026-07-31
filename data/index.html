@@ -325,10 +325,18 @@ label.row { min-height: 44px; cursor: pointer; }
 .ilda-col-name-inner { display: inline-block; white-space: nowrap; }
 .ilda-col-play { width: 108px; }
 .ilda-col-play button { width: 100%; }
-.ilda-col-size { flex-shrink: 0; width: 7ch; text-align: right; font-size: 0.75rem; color: var(--text-dim); }
-.ilda-col-date { flex-shrink: 0; width: 11ch; text-align: right; font-size: 0.75rem; color: var(--text-dim); }
-.ilda-col-actions { flex-shrink: 0; width: 92px; display: flex; gap: 4px; justify-content: flex-end; font-size: 0.75rem; color: var(--text-dim); }
-.ilda-col-actions button { min-width: 44px; }
+.ilda-col-size { flex-shrink: 0; width: 9ch; white-space: nowrap; text-align: right; font-size: 0.75rem; color: var(--text-dim); }
+.ilda-col-date { flex-shrink: 0; width: 11ch; white-space: nowrap; text-align: right; font-size: 0.75rem; color: var(--text-dim); }
+.ilda-col-actions { flex-shrink: 0; width: 140px; display: flex; gap: 4px; justify-content: flex-end; font-size: 0.75rem; color: var(--text-dim); }
+.ilda-col-actions button { min-width: 44px; flex-shrink: 0; }
+/* Terminal theme's "[ x ]" button decoration (see button.btn::before/::after
+   above) doesn't fit the ILDA row's tightly fixed-width icon/status buttons --
+   forcing them to shrink until the bracket wraps onto its own line. Those
+   buttons are compact by design (single glyph / short status word in a fixed
+   column), so just skip the flourish here rather than widening every column
+   to accommodate it. */
+html[data-theme="terminal"] .ilda-row button.btn::before,
+html[data-theme="terminal"] .ilda-row button.btn::after { content: none; }
 .ilda-header { font-size: 0.75rem; color: var(--text-dim); border-bottom: 1px solid var(--border); padding-bottom: 6px; margin-bottom: 2px; }
 .ilda-header .ilda-col-name, .ilda-header .ilda-col-size, .ilda-header .ilda-col-date { overflow: visible; }
 
@@ -1384,7 +1392,7 @@ canvas { max-width: 100%; display: block; }
 /* =========================================================================
    GLOBAL STATE
    ========================================================================= */
-var UI_VERSION = '1.6.0';   // WebUI version -- independent from firmware version
+var UI_VERSION = '1.6.2';   // WebUI version -- independent from firmware version
 var NAV_TABS = [
   {id: 'dashboard', label: 'Dashboard', icon: '🏠', bottom: true},
   {id: 'presets', label: 'Presets', icon: '🎮', bottom: true},
@@ -3721,6 +3729,7 @@ function renderIldaFileList(listing) {
       '<span class="ilda-col-size">' + fmtBytes(f.size) + '</span>' +
       '<span class="ilda-col-date">' + dateStr + '</span>' +
       '<span class="ilda-col-actions">' +
+        '<button class="btn sm" title="Download" onclick="ildaDownloadFile(' + f.idx + ')">&#8681;</button>' +
         '<button class="btn sm" title="Rename" onclick="ildaRenameFile(' + f.idx + ')">&#9998;</button>' +
         '<button class="btn sm danger" title="Delete" onclick="ildaDeleteFile(' + f.idx + ')">&#10005;</button>' +
       '</span>' +
@@ -3774,6 +3783,16 @@ async function playlistStart() { await apiCall('POST', '/api/playlist/start'); }
 async function playlistStop() { await apiCall('POST', '/api/playlist/stop'); }
 async function sdRescan() { var r = await apiCall('POST', '/api/sd/scan'); if (r !== null) { toast('SD rescanned'); loadSdStatus(); } }
 function ildaFileByIdx(idx) { return s_ildaFiles.filter(function(f) { return f.idx === idx; })[0]; }
+async function ildaDownloadFile(idx) {
+  var f = ildaFileByIdx(idx);
+  var resp = await fetch('/api/sd/download?idx=' + idx);
+  if (!resp.ok) { toast('Download failed', true); return; }
+  var blob = await resp.blob();
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = f ? f.name.split('/').pop() : ('ilda_' + idx + '.ild');
+  a.click(); URL.revokeObjectURL(a.href);
+}
 async function ildaDeleteFile(idx) {
   var f = ildaFileByIdx(idx);
   if (!confirm('Delete "' + (f ? f.name : ('#' + idx)) + '"? This cannot be undone.')) return;
