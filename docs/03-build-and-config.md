@@ -125,6 +125,11 @@ Firmware and filesystem updates are independent uploads — a firmware-only chan
    pio run --target buildfs   # littlefs.bin -> .pio/build/esp32-s3-devkitc-1/littlefs.bin
    ```
 
+   Both land in `.pio/build/<environment>/` — `esp32-s3-devkitc-1` for this board. The
+   `/update` page doesn't care what you name the file you upload (it matches on the form
+   field, not the filename), but renaming each to include the version you're about to ship
+   — `firmware_x.y.z.bin` / `littlefs_x.y.z.bin` — keeps a folder of old builds sane to
+   pick through later.
 2. Open `http://<hostname>.local/update` and sign in (`admin` / chip-ID password).
 3. Click **Download Backup** first — same JSON as the Configuration tab's [Backup & Restore](04-ui-guide.md#backup--restore) card, and cheap insurance against a bad flash.
 4. Pick the matching `.bin` under **Firmware** and/or **WebUI / Filesystem** and click its Upload button. A progress bar tracks the transfer; any `Update.write()`/`Update.end()` failure is shown inline (e.g. "not enough space", a truncated upload) instead of a bare "Update failed".

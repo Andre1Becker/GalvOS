@@ -135,6 +135,7 @@ h1 { font-family:var(--font-head); font-size:1.4rem; color:var(--accent); margin
 .card { background:var(--card); border:1px solid var(--border); border-radius:6px; padding:16px; margin-bottom:16px; }
 .card h2 { font-family:var(--font-head); font-size:1rem; margin:0 0 12px; color:var(--text); }
 .card p.hint { color:var(--text-dim); font-size:0.75rem; margin:4px 0 12px; }
+.card p.hint code { background:var(--muted); border-radius:3px; padding:1px 4px; color:var(--text); }
 input[type=file] { width:100%; color:var(--text); background:var(--bg); border:1px solid var(--border);
   border-radius:4px; padding:8px; font-family:var(--font-mono); margin-bottom:12px; }
 button.btn, a.btn { font-family:var(--font-head); background:transparent; color:var(--text);
@@ -168,7 +169,8 @@ button.btn.primary { background:var(--accent); color:var(--bg); border-color:var
 
 <div class="card">
   <h2>Firmware</h2>
-  <p class="hint">Upload a firmware .bin built for this board.</p>
+  <p class="hint">Upload a firmware .bin built for this board &mdash; conventionally
+    <code>firmware_x.y.z.bin</code> in <code>.pio/build/esp32-s3-devkitc-1/</code>.</p>
   <input type="file" id="fw-file" accept=".bin">
   <div class="progress-wrap" id="fw-prog"><div class="progress-bar" id="fw-bar"></div></div>
   <span class="pct" id="fw-pct"></span>
@@ -181,7 +183,8 @@ button.btn.primary { background:var(--accent); color:var(--bg); border-color:var
 
 <div class="card">
   <h2>WebUI / Filesystem</h2>
-  <p class="hint">Upload a LittleFS filesystem image (WebUI assets) .bin.</p>
+  <p class="hint">Upload a LittleFS filesystem image (WebUI assets) .bin &mdash; conventionally
+    <code>littlefs_x.y.z.bin</code> in <code>.pio/build/esp32-s3-devkitc-1/</code>.</p>
   <input type="file" id="fs-file" accept=".bin">
   <div class="progress-wrap" id="fs-prog"><div class="progress-bar" id="fs-bar"></div></div>
   <span class="pct" id="fs-pct"></span>
