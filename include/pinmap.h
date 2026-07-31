@@ -119,6 +119,12 @@
 #define PIN_FAN1_PWM     16
 #define PIN_FAN2_PWM     17
 
+/* Fan tach (RPM) feedback -- 4-wire PC fan headers J5/J7 on the perfboard.
+ * Open-drain output on the fan, 4.7kOhm pullup to +3V3 on-board (R30/R31).
+ * Hardware-only for now: no ISR/pulse-counting firmware wired up yet. */
+#define PIN_FAN1_TACH     2   /* J2-Pin5  = GPIO2  (was SD MISO, free) */
+#define PIN_FAN2_TACH     9   /* J1-Pin15 = GPIO9  (was SD CS, free) */
+
 /* ============================================================
  * Diagnostics / expansion
  * ============================================================ */
@@ -156,7 +162,7 @@
 #define PIN_SD_MOSI        6   /* J1-Pin6  = GPIO6  */   /* SD card MOSI — dedicated SPI3 pin, no galvo overlap */
 #define PIN_SD_MISO        1   /* J2-Pin4  = GPIO1  */   /* SD card MISO — dedicated SPI3 pin, no galvo overlap */
 #define PIN_SD_CS         42   /* J2-Pin6  = GPIO42 */   /* SD card CS   — dedicated SPI3 pin, no galvo overlap */
-// GPIO2 and GPIO9 (formerly SD MISO/CS) are now free.
+// GPIO2 and GPIO9 (formerly SD MISO/CS) are now used for PIN_FAN1_TACH/PIN_FAN2_TACH above.
 
 /* ILDA player config */
 #define ILDA_MAX_FILES   40   /* Maximum count of .ild files on SD */

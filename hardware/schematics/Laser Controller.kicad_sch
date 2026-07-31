@@ -5392,6 +5392,231 @@
 			)
 			(embedded_fonts no)
 		)
+		(symbol "Connector:Conn_01x03_Socket"
+			(pin_names
+				(offset 1.016)
+				(hide yes)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" "J"
+				(at 0 5.08 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" "Conn_01x03_Socket"
+				(at 0 -5.08 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" "Generic connector, single row, 01x03, script generated"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "ki_locked" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "ki_keywords" "connector"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "ki_fp_filters" "Connector*:*_1x??_*"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "Conn_01x03_Socket_1_1"
+				(polyline
+					(pts
+						(xy -1.27 2.54) (xy -0.508 2.54)
+					)
+					(stroke
+						(width 0.1524)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -1.27 0) (xy -0.508 0)
+					)
+					(stroke
+						(width 0.1524)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -1.27 -2.54) (xy -0.508 -2.54)
+					)
+					(stroke
+						(width 0.1524)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(arc
+					(start 0 2.032)
+					(mid -0.5058 2.54)
+					(end 0 3.048)
+					(stroke
+						(width 0.1524)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(arc
+					(start 0 -0.508)
+					(mid -0.5058 0)
+					(end 0 0.508)
+					(stroke
+						(width 0.1524)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(arc
+					(start 0 -3.048)
+					(mid -0.5058 -2.54)
+					(end 0 -2.032)
+					(stroke
+						(width 0.1524)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(pin passive line
+					(at -5.08 2.54 0)
+					(length 3.81)
+					(name "Pin_1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at -5.08 0 0)
+					(length 3.81)
+					(name "Pin_2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at -5.08 -2.54 0)
+					(length 3.81)
+					(name "Pin_3"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "3"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
 	)
 	(rectangle
 		(start 43.18 115.57)
@@ -5539,12 +5764,6 @@
 		(uuid "fcd05fd1-7600-4f2a-b069-bd58029e33fc")
 	)
 	(junction
-		(at 76.2 107.95)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "02572e32-39f7-48c9-ba0a-cc5e1ce6b759")
-	)
-	(junction
 		(at 365.76 177.8)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -5599,12 +5818,6 @@
 		(uuid "2cbeca49-9016-4b0d-9710-2f0c3bd69a95")
 	)
 	(junction
-		(at 142.24 92.71)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "3258c943-6bf7-4978-8ebc-69707d87d9a8")
-	)
-	(junction
 		(at 373.38 313.69)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -5651,18 +5864,6 @@
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "49aa1680-d14a-4cb8-a0ff-43734a5cc3c7")
-	)
-	(junction
-		(at 187.96 278.13)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "4defbf6f-34c6-4a8b-b1ec-31103b6aa86c")
-	)
-	(junction
-		(at 177.8 115.57)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "52f0bb4a-a898-44a4-904a-0a8c04bf8317")
 	)
 	(junction
 		(at 398.78 313.69)
@@ -5815,12 +6016,6 @@
 		(uuid "b271470f-c80e-454d-b88b-bf48bef1c8ec")
 	)
 	(junction
-		(at 250.19 278.13)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "b8c341a9-9340-4651-bfc0-03ff9b1e7f93")
-	)
-	(junction
 		(at 340.36 181.61)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -5843,12 +6038,6 @@
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "c303a1e8-7440-4591-b65f-2f0f6bdab120")
-	)
-	(junction
-		(at 142.24 123.19)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "c36d3546-2283-457a-95a2-f499ab87efe3")
 	)
 	(junction
 		(at 415.29 228.6)
@@ -5917,12 +6106,6 @@
 		(uuid "e6cfdba5-fd1f-4149-8913-7e6285d97b3c")
 	)
 	(junction
-		(at 184.15 160.02)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "e9744331-aff2-45ee-ab77-5aeea8b985e3")
-	)
-	(junction
 		(at 332.74 181.61)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -5947,14 +6130,6 @@
 		(uuid "faa57924-a396-40b6-be47-2ecf83947878")
 	)
 	(no_connect
-		(at 236.22 222.25)
-		(uuid "00a6f1e6-f04a-4be2-88cb-15ee5a4d8d9f")
-	)
-	(no_connect
-		(at 281.94 212.09)
-		(uuid "07d56826-b013-43cb-8a89-e3f27c7739d0")
-	)
-	(no_connect
 		(at 236.22 209.55)
 		(uuid "1862817b-8ee0-4deb-bc4f-463a37dc5b24")
 	)
@@ -5969,10 +6144,6 @@
 	(no_connect
 		(at 281.94 232.41)
 		(uuid "58581e53-25e1-4b09-a495-4c79097d6882")
-	)
-	(no_connect
-		(at 236.22 224.79)
-		(uuid "586d7f81-c8c1-447f-9c74-795ebde0f999")
 	)
 	(no_connect
 		(at 281.94 242.57)
@@ -6001,10 +6172,6 @@
 	(no_connect
 		(at 281.94 247.65)
 		(uuid "7ca62774-984a-4115-b9db-428a27c4dc2a")
-	)
-	(no_connect
-		(at 54.61 120.65)
-		(uuid "8fe1a31a-a922-4ff0-bf8f-14550d4d53c4")
 	)
 	(no_connect
 		(at 358.14 198.12)
@@ -6053,10 +6220,6 @@
 	(no_connect
 		(at 236.22 219.71)
 		(uuid "ddc12507-5f05-4d91-b8d2-6985bacc9601")
-	)
-	(no_connect
-		(at 236.22 237.49)
-		(uuid "e4b882f7-46eb-4617-a3c1-2570d222b8b3")
 	)
 	(no_connect
 		(at 358.14 187.96)
@@ -6247,16 +6410,6 @@
 			(type default)
 		)
 		(uuid "0b5d8786-6fa4-43bc-a96b-882026aba1bd")
-	)
-	(wire
-		(pts
-			(xy 83.82 355.6) (xy 77.47 355.6)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "0d1a3573-1b3b-476f-b6a5-4b9e15177dd5")
 	)
 	(wire
 		(pts
@@ -6510,16 +6663,6 @@
 	)
 	(wire
 		(pts
-			(xy 83.82 358.14) (xy 77.47 358.14)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "246290af-d83b-47a0-b252-dfb5135bf5c4")
-	)
-	(wire
-		(pts
 			(xy 129.54 110.49) (xy 142.24 110.49)
 		)
 		(stroke
@@ -6570,16 +6713,6 @@
 	)
 	(wire
 		(pts
-			(xy 83.82 363.22) (xy 77.47 363.22)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "2b5a6fad-341b-46d7-abfc-4e9c7b0a3bc6")
-	)
-	(wire
-		(pts
 			(xy 468.63 290.83) (xy 468.63 292.1)
 		)
 		(stroke
@@ -6627,16 +6760,6 @@
 			(type default)
 		)
 		(uuid "316cd466-f71a-4c2f-ae75-82e8e328ca5d")
-	)
-	(wire
-		(pts
-			(xy 83.82 360.68) (xy 77.47 360.68)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "32316e90-c2c7-4b4b-b7dc-fea2d4b24f2d")
 	)
 	(wire
 		(pts
@@ -7140,16 +7263,6 @@
 	)
 	(wire
 		(pts
-			(xy 54.61 123.19) (xy 90.17 123.19)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "5395de35-5c62-4d94-9370-f1c1b7b3ea26")
-	)
-	(wire
-		(pts
 			(xy 340.36 181.61) (xy 332.74 181.61)
 		)
 		(stroke
@@ -7187,16 +7300,6 @@
 			(type default)
 		)
 		(uuid "58a403da-9853-4d01-9f0a-5aa3bb3a3d8f")
-	)
-	(wire
-		(pts
-			(xy 54.61 128.27) (xy 90.17 128.27)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "5c307910-0e07-4f7a-92b1-98f7947f61fd")
 	)
 	(wire
 		(pts
@@ -8377,16 +8480,6 @@
 			(type default)
 		)
 		(uuid "cba8d742-e3bc-4f75-824b-4ca512068489")
-	)
-	(wire
-		(pts
-			(xy 78.74 125.73) (xy 54.61 125.73)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "cc111d0f-9231-4150-ac31-ea10eebbda74")
 	)
 	(wire
 		(pts
@@ -10592,7 +10685,7 @@
 				(justify right)
 			)
 		)
-		(property "Footprint" "Package_TO_SOT_THT:TO-92_Inline"
+		(property "Footprint" "Connector_JST:JST_XH_B3B-XH-A_1x03_P2.50mm_Vertical"
 			(at 391.16 307.34 0)
 			(hide yes)
 			(show_name no)
@@ -11475,7 +11568,7 @@
 				(justify right)
 			)
 		)
-		(property "Footprint" "Package_TO_SOT_THT:TO-92_Inline"
+		(property "Footprint" "Connector_JST:JST_XH_B3B-XH-A_1x03_P2.50mm_Vertical"
 			(at 443.23 306.07 0)
 			(hide yes)
 			(show_name no)
@@ -12274,85 +12367,6 @@
 		)
 	)
 	(symbol
-		(lib_id "power:GNDA")
-		(at 77.47 360.68 90)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(fields_autoplaced yes)
-		(uuid "421074c4-4ce5-47fb-8dbc-fa0eddfe3323")
-		(property "Reference" "#PWR24"
-			(at 77.47 357.68 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "AGND (from Galvo Board)"
-			(at 77.47 363.68 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-		)
-		(property "Footprint" ""
-			(at 176.53 294.64 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 176.53 294.64 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "Power symbol creates a global label with name \"GNDA\" , analog ground"
-			(at 176.53 294.64 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "1"
-			(uuid "6f8122ce-52f9-4811-a09f-b302ded2da95")
-		)
-		(instances
-			(project ""
-				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
-					(reference "#PWR24")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
 		(lib_name "Conn_01x02_Socket_2")
 		(lib_id "Connector:Conn_01x02_Socket")
 		(at 88.9 332.74 0)
@@ -12386,7 +12400,7 @@
 				)
 			)
 		)
-		(property "Footprint" "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical"
+		(property "Footprint" "Connector_JST:JST_XH_B2B-XH-A_1x02_P2.50mm_Vertical"
 			(at 88.9 329.74 0)
 			(hide yes)
 			(show_name no)
@@ -12627,7 +12641,7 @@
 				(justify right)
 			)
 		)
-		(property "Footprint" "Package_TO_SOT_THT:TO-92_Inline"
+		(property "Footprint" "Connector_JST:JST_XH_B3B-XH-A_1x03_P2.50mm_Vertical"
 			(at 417.83 307.34 0)
 			(hide yes)
 			(show_name no)
@@ -14200,7 +14214,7 @@
 				(justify right)
 			)
 		)
-		(property "Footprint" "Package_TO_SOT_THT:TO-92_Inline"
+		(property "Footprint" "Connector_JST:JST_XH_B3B-XH-A_1x03_P2.50mm_Vertical"
 			(at 365.76 307.34 0)
 			(hide yes)
 			(show_name no)
@@ -14286,7 +14300,7 @@
 				)
 			)
 		)
-		(property "Footprint" "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical"
+		(property "Footprint" "Connector_JST:JST_XH_B2B-XH-A_1x02_P2.50mm_Vertical"
 			(at 449.58 245.11 0)
 			(hide yes)
 			(show_name no)
@@ -15081,92 +15095,6 @@
 		)
 	)
 	(symbol
-		(lib_id "Connector:Conn_01x04_Socket")
-		(at 88.9 358.14 0)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(uuid "a8616f7e-c0ff-48ef-89c8-6e15cfca100b")
-		(property "Reference" "J3"
-			(at 88.9 355.14 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "PWR IN Galvo"
-			(at 88.9 361.14 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" "Connector_PinHeader_2.54mm:PinHeader_1x04_P2.54mm_Vertical"
-			(at 88.9 355.14 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 49.53 123.19 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "Generic connector, single row, 01x04, script generated"
-			(at 49.53 123.19 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "3"
-			(uuid "c1b68527-6f6e-4868-bd7b-db7a9bebeea1")
-		)
-		(pin "2"
-			(uuid "d186df32-7463-43d5-b701-19a99fbd77a7")
-		)
-		(pin "4"
-			(uuid "40cbf66b-db73-4cc4-914e-2f571eabce06")
-		)
-		(pin "1"
-			(uuid "214b6441-8892-4f63-900a-dbe6df0fdfa3")
-		)
-		(instances
-			(project ""
-				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
-					(reference "J3")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
 		(lib_id "power:+3V3")
 		(at 196.85 180.34 0)
 		(unit 1)
@@ -15671,7 +15599,7 @@
 				(justify right)
 			)
 		)
-		(property "Footprint" "Package_TO_SOT_THT:TO-92_Inline"
+		(property "Footprint" "Connector_JST:JST_XH_B3B-XH-A_1x03_P2.50mm_Vertical"
 			(at 340.36 308.61 0)
 			(hide yes)
 			(show_name no)
@@ -16314,7 +16242,7 @@
 				)
 			)
 		)
-		(property "Footprint" "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical"
+		(property "Footprint" "Connector_JST:JST_XH_B2B-XH-A_1x02_P2.50mm_Vertical"
 			(at 449.58 251.46 0)
 			(hide yes)
 			(show_name no)
@@ -16710,94 +16638,6 @@
 		)
 	)
 	(symbol
-		(lib_id "Connector:Conn_01x04_Socket")
-		(at 49.53 123.19 0)
-		(mirror y)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(uuid "e4de4e25-c014-4d3b-86bc-24ea12a20c99")
-		(property "Reference" "U13"
-			(at 58.42 104.14 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "Galvo Input"
-			(at 57.15 119.888 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" "Connector_FFC-FPC:TE_84982-4_2Rows-04Pins-P1.0mm_Vertical"
-			(at 49.53 123.19 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 49.53 123.19 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "Generic connector, single row, 01x04, script generated"
-			(at 49.53 123.19 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "3"
-			(uuid "3d0ef02e-d684-40ad-b63b-6334db74f912")
-		)
-		(pin "2"
-			(uuid "9d6573d8-1ce7-493f-8872-318684fb5363")
-		)
-		(pin "4"
-			(uuid "57204fec-8ced-48a9-935c-776a281b8454")
-		)
-		(pin "1"
-			(uuid "1f96cdc9-dc61-4917-93ec-f71b35508863")
-		)
-		(instances
-			(project ""
-				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
-					(reference "U13")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
 		(lib_id "Isolator:6N137")
 		(at 365.76 193.04 0)
 		(unit 1)
@@ -17014,7 +16854,7 @@
 				)
 			)
 		)
-		(property "Footprint" "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical"
+		(property "Footprint" "Connector_JST:JST_XH_B2B-XH-A_1x02_P2.50mm_Vertical"
 			(at 449.58 238.76 0)
 			(hide yes)
 			(show_name no)
@@ -17620,6 +17460,958 @@
 				)
 			)
 		)
+	)
+	(junction
+		(at 281.94 193.04)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "b0c8fc0a-42bd-43cb-b122-921faf109a75")
+	)
+	(junction
+		(at 196.85 180.34)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "e9d6a9e7-eb78-420a-b7ca-9a1238c1b3e3")
+	)
+	(symbol
+		(lib_id "Connector:Conn_01x03_Socket")
+		(at 88.9 358.14 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "1be71d25-f3ea-489c-b014-1025e94e8b27")
+		(property "Reference" "J3"
+			(at 88.9 363.22 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "PWR IN Galvo"
+			(at 88.9 353.06 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "Connector_JST:JST_XH_B3B-XH-A_1x03_P2.50mm_Vertical"
+			(at 88.9 358.14 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 88.9 358.14 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Generic connector, single row, 01x04, script generated"
+			(at 88.9 358.14 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "3af40112-a16b-4ff4-8231-5291acc39102")
+		)
+		(pin "2"
+			(uuid "85c05cdd-2c0c-4f52-a67a-07dc089bca02")
+		)
+		(pin "3"
+			(uuid "47df28fb-4ea3-4db8-b483-a70781ef8e35")
+		)
+		(instances
+			(project "Laser Controller"
+				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
+					(reference "J3")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(wire
+		(pts
+			(xy 83.82000000000001 355.59999999999997) (xy 77.47 355.6)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "4a4c03d7-d8ba-40f1-8511-7aa6b6514821")
+	)
+	(wire
+		(pts
+			(xy 83.82000000000001 358.14) (xy 77.47 358.14)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "442581d5-629b-46a9-be6b-a318afa5afca")
+	)
+	(wire
+		(pts
+			(xy 83.82000000000001 360.68) (xy 77.47 360.68)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "77203a38-368a-4969-b6f0-2260667c315a")
+	)
+	(wire
+		(pts
+			(xy 77.47 360.68) (xy 77.47 363.22)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "48644975-6e62-4fce-a182-b70cf960927a")
+	)
+	(symbol
+		(lib_id "Connector:Conn_01x03_Socket")
+		(at 49.53 123.19 180)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "27e26f12-1445-4da7-8e9f-b5083b82e1a4")
+		(property "Reference" "U13"
+			(at 49.53 128.27 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "Galvo Input"
+			(at 49.53 118.11 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "Connector_JST:JST_XH_B3B-XH-A_1x03_P2.50mm_Vertical"
+			(at 49.53 123.19 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 49.53 123.19 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Generic connector, single row, 01x04, script generated"
+			(at 49.53 123.19 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "dee833ad-521d-421e-8fde-3bb9766f5c55")
+		)
+		(pin "2"
+			(uuid "4dc0f95f-4185-4433-b5ac-3aec808678bd")
+		)
+		(pin "3"
+			(uuid "a3374b8d-12dc-440c-a8e1-c8d86bf7d21e")
+		)
+		(instances
+			(project "Laser Controller"
+				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
+					(reference "U13")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(wire
+		(pts
+			(xy 54.61 125.73) (xy 78.74 125.73)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "f5db9131-fe76-4cab-8487-f06216c4ab45")
+	)
+	(wire
+		(pts
+			(xy 54.61 123.19) (xy 90.17 123.19)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "5e0277d7-5fde-47c2-8b17-a0856f46d587")
+	)
+	(wire
+		(pts
+			(xy 54.61 120.64999999999999) (xy 70 120.65)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "a61cbcea-a237-48fd-b9c8-d1536545c2c4")
+	)
+	(wire
+		(pts
+			(xy 70 120.65) (xy 70 128.27)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "a7c10de9-b02b-4bc3-a9cc-689514afc9e8")
+	)
+	(wire
+		(pts
+			(xy 70 128.27) (xy 90.17 128.27)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "8155d4a7-0f85-4862-955f-07d325611ada")
+	)
+	(symbol
+		(lib_id "Connector:Conn_01x02_Socket")
+		(at 439.42 80.01 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "c71bef6c-dde2-4e92-8cd1-8f00ee6e7998")
+		(property "Reference" "J4"
+			(at 439.42 82.55 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "FAN1 PWR IN"
+			(at 439.42 74.93 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "Connector_JST:JST_XH_B2B-XH-A_1x02_P2.50mm_Vertical"
+			(at 439.42 80.01 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 439.42 80.01 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Generic connector, single row, 01x02, script generated"
+			(at 439.42 80.01 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "a0dbf97f-1bde-4777-b77e-443967903aa4")
+		)
+		(pin "2"
+			(uuid "def44a6d-7416-40e4-a50c-ff1bedc11afc")
+		)
+		(instances
+			(project "Laser Controller"
+				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
+					(reference "J4")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Connector:Conn_01x04_Socket")
+		(at 468.63 80.01 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "3a3e20e3-d3af-402e-9fb9-efaffb751d55")
+		(property "Reference" "J5"
+			(at 468.63 85.09 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "FAN1"
+			(at 468.63 72.39 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "Connector_PinHeader_2.54mm:PinHeader_1x04_P2.54mm_Vertical"
+			(at 468.63 80.01 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 468.63 80.01 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Generic connector, single row, 01x04, script generated"
+			(at 468.63 80.01 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "b9380357-cd88-487c-8e15-6a85a922dcce")
+		)
+		(pin "2"
+			(uuid "f1ac8013-b0a3-4603-bdf6-5ad771028b8f")
+		)
+		(pin "3"
+			(uuid "d3fba12a-7232-4d81-a944-864510d29126")
+		)
+		(pin "4"
+			(uuid "b0356262-e6e4-48be-829e-fd89917b347e")
+		)
+		(instances
+			(project "Laser Controller"
+				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
+					(reference "J5")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:R")
+		(at 454.66 62.23 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "f87c1fa7-0e32-4169-a4f3-dab046933f2a")
+		(property "Reference" "R30"
+			(at 456.692 62.23 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "4.7k"
+			(at 454.66 62.23 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical"
+			(at 452.882 62.23 90)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 454.66 62.23 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Resistor"
+			(at 454.66 62.23 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "04b14207-5f69-401a-9a1a-a538b2e5ad58")
+		)
+		(pin "2"
+			(uuid "7e9dff5e-4fb2-47ee-9d3a-5449a3da00b0")
+		)
+		(instances
+			(project "Laser Controller"
+				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
+					(reference "R30")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Connector:Conn_01x02_Socket")
+		(at 439.42 134.62 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "68959d6e-8d9e-4791-8b71-ae81a93b8699")
+		(property "Reference" "J6"
+			(at 439.42 137.16 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "FAN2 PWR IN"
+			(at 439.42 129.54 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "Connector_JST:JST_XH_B2B-XH-A_1x02_P2.50mm_Vertical"
+			(at 439.42 134.62 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 439.42 134.62 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Generic connector, single row, 01x02, script generated"
+			(at 439.42 134.62 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "e293d268-e11b-4b10-8178-77fb5fc72661")
+		)
+		(pin "2"
+			(uuid "c6114cd7-17f4-4305-bf1b-7e457aefe21a")
+		)
+		(instances
+			(project "Laser Controller"
+				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
+					(reference "J6")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Connector:Conn_01x04_Socket")
+		(at 468.63 134.62 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "6f7e2a9f-69ed-426b-9ea8-56cb21343c96")
+		(property "Reference" "J7"
+			(at 468.63 139.7 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "FAN2"
+			(at 468.63 127 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "Connector_PinHeader_2.54mm:PinHeader_1x04_P2.54mm_Vertical"
+			(at 468.63 134.62 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 468.63 134.62 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Generic connector, single row, 01x04, script generated"
+			(at 468.63 134.62 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "4962a57d-f2f6-4789-9a18-30f2d85963bb")
+		)
+		(pin "2"
+			(uuid "f2fc1d0a-128f-4c24-b2a0-884272d952ee")
+		)
+		(pin "3"
+			(uuid "78553c1a-d658-4f30-ae9b-4405d891e863")
+		)
+		(pin "4"
+			(uuid "c63353a2-6d20-4830-94b0-c64038f71006")
+		)
+		(instances
+			(project "Laser Controller"
+				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
+					(reference "J7")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:R")
+		(at 454.66 116.84 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "fac61eeb-1790-4d0a-a968-1e4d7908b29b")
+		(property "Reference" "R31"
+			(at 456.692 116.84 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "4.7k"
+			(at 454.66 116.84 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical"
+			(at 452.882 116.84 90)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 454.66 116.84 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Resistor"
+			(at 454.66 116.84 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "89bdbccf-5876-4fb6-87ec-2ad46cfc2e4c")
+		)
+		(pin "2"
+			(uuid "3fb6250d-f97b-44c2-b67c-3ca8e2ac3aef")
+		)
+		(instances
+			(project "Laser Controller"
+				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
+					(reference "R31")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(label "Buck +5V"
+		(at 434.34000000000003 80.01 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right bottom)
+		)
+		(uuid "9672e4dd-d504-4f3c-95c0-101d6079b50f")
+	)
+	(label "5V GND Buck"
+		(at 434.34000000000003 82.55000000000001 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right bottom)
+		)
+		(uuid "d2c61cf6-b63a-4e73-a9ef-b1591224bc11")
+	)
+	(label "5V GND Buck"
+		(at 463.55 77.47 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right bottom)
+		)
+		(uuid "b85bede8-1f8c-4334-8f08-6b1b7ddb02f2")
+	)
+	(label "Buck +5V"
+		(at 463.55 80.01 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right bottom)
+		)
+		(uuid "7b6254da-a8e3-4e8a-b593-a18e2a32db0b")
+	)
+	(label "FAN1_TACH"
+		(at 463.55 82.55000000000001 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right bottom)
+		)
+		(uuid "b5b65a5c-564e-4725-8877-aa70cd0c788d")
+	)
+	(label "FAN1_PWM"
+		(at 463.55 85.09 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right bottom)
+		)
+		(uuid "5f3feb7c-87dd-4ea0-8e6c-f1d144ffc346")
+	)
+	(label "+3V3"
+		(at 454.66 58.419999999999995 90)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "743a7279-246c-4be7-a73d-02af1696a006")
+	)
+	(label "FAN1_TACH"
+		(at 454.66 66.03999999999999 90)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "2cc90348-3199-4d0a-acd1-acd8918984db")
+	)
+	(label "FAN1_PWM"
+		(at 236.21999999999997 222.25 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "504bc0ed-58f3-45da-b668-920aa434f63c")
+	)
+	(label "FAN2_PWM"
+		(at 236.21999999999997 224.79000000000002 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "8e7af307-f58f-4f7f-b544-053b40ab5316")
+	)
+	(label "FAN1_TACH"
+		(at 236.21999999999997 237.49 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "65e7e39a-fdc9-4d48-9239-bc6944f52c43")
+	)
+	(label "FAN2_TACH"
+		(at 281.94 212.09 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "955e825e-008d-4bd7-9437-ee8076a5c734")
+	)
+	(label "Buck +5V"
+		(at 434.34000000000003 134.62 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right bottom)
+		)
+		(uuid "2559aa82-cfd4-4141-99b2-3b80fa9a6b39")
+	)
+	(label "5V GND Buck"
+		(at 434.34000000000003 137.16 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right bottom)
+		)
+		(uuid "dc877a26-65a5-4feb-bea2-f8108b2445f0")
+	)
+	(label "5V GND Buck"
+		(at 463.55 132.08 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right bottom)
+		)
+		(uuid "38a12a3e-c325-456f-b3a6-6ea3046b5a6d")
+	)
+	(label "Buck +5V"
+		(at 463.55 134.62 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right bottom)
+		)
+		(uuid "d13ac52e-74b3-498d-ab61-a63d28f57d48")
+	)
+	(label "FAN2_TACH"
+		(at 463.55 137.16 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right bottom)
+		)
+		(uuid "74a2d802-ae6d-4a93-9ac6-83efc2218c47")
+	)
+	(label "FAN2_PWM"
+		(at 463.55 139.70000000000002 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right bottom)
+		)
+		(uuid "cece77d0-ee3a-47ba-8b47-ac6584c5a76f")
+	)
+	(label "+3V3"
+		(at 454.66 113.03 90)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "31e53ae3-dd6e-4895-8272-3ecbc8fceaf2")
+	)
+	(label "FAN2_TACH"
+		(at 454.66 120.65 90)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "7b713f79-ef02-4813-ab87-1b6862ad6b4c")
 	)
 	(sheet_instances
 		(path "/"
