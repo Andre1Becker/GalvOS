@@ -321,12 +321,14 @@ label.row { min-height: 44px; cursor: pointer; }
 
 .ilda-row { display: flex; align-items: center; gap: 10px; }
 .ilda-col-play { flex-shrink: 0; }
-.ilda-col-name { flex-shrink: 0; width: 50ch; max-width: 50ch; overflow: hidden; white-space: nowrap; position: relative; font-family: var(--font-mono); }
+.ilda-col-name { flex-shrink: 0; width: 50ch; max-width: 50ch; overflow: hidden; white-space: nowrap; position: relative; font-family: var(--font-mono); font-size: 1rem; }
 .ilda-col-name-inner { display: inline-block; white-space: nowrap; }
 .ilda-col-play { width: 108px; }
 .ilda-col-play button { width: 100%; }
 .ilda-col-size { flex-shrink: 0; width: 7ch; text-align: right; font-size: 0.75rem; color: var(--text-dim); }
 .ilda-col-date { flex-shrink: 0; width: 11ch; text-align: right; font-size: 0.75rem; color: var(--text-dim); }
+.ilda-col-actions { flex-shrink: 0; width: 92px; display: flex; gap: 4px; justify-content: flex-end; font-size: 0.75rem; color: var(--text-dim); }
+.ilda-col-actions button { min-width: 44px; }
 .ilda-header { font-size: 0.75rem; color: var(--text-dim); border-bottom: 1px solid var(--border); padding-bottom: 6px; margin-bottom: 2px; }
 .ilda-header .ilda-col-name, .ilda-header .ilda-col-size, .ilda-header .ilda-col-date { overflow: visible; }
 
@@ -886,6 +888,7 @@ canvas { max-width: 100%; display: block; }
             <span class="ilda-col-name">Filename</span>
             <span class="ilda-col-size">Size</span>
             <span class="ilda-col-date">Date</span>
+            <span class="ilda-col-actions"></span>
           </div>
           <div id="ilda-file-list"><p>Loading&hellip;</p></div>
         </div>
@@ -1381,7 +1384,7 @@ canvas { max-width: 100%; display: block; }
 /* =========================================================================
    GLOBAL STATE
    ========================================================================= */
-var UI_VERSION = '1.5.5';   // WebUI version -- independent from firmware version
+var UI_VERSION = '1.6.0';   // WebUI version -- independent from firmware version
 var NAV_TABS = [
   {id: 'dashboard', label: 'Dashboard', icon: '🏠', bottom: true},
   {id: 'presets', label: 'Presets', icon: '🎮', bottom: true},
@@ -3717,6 +3720,10 @@ function renderIldaFileList(listing) {
       '<span class="ilda-col-name">' + nameHtml + '</span>' +
       '<span class="ilda-col-size">' + fmtBytes(f.size) + '</span>' +
       '<span class="ilda-col-date">' + dateStr + '</span>' +
+      '<span class="ilda-col-actions">' +
+        '<button class="btn sm" title="Rename" onclick="ildaRenameFile(' + f.idx + ')">&#9998;</button>' +
+        '<button class="btn sm danger" title="Delete" onclick="ildaDeleteFile(' + f.idx + ')">&#10005;</button>' +
+      '</span>' +
       '</div>';
   }).join('');
   var styleEl = document.getElementById('ilda-marquee-styles');
@@ -3766,6 +3773,21 @@ function startIldaRefresh() {
 async function playlistStart() { await apiCall('POST', '/api/playlist/start'); }
 async function playlistStop() { await apiCall('POST', '/api/playlist/stop'); }
 async function sdRescan() { var r = await apiCall('POST', '/api/sd/scan'); if (r !== null) { toast('SD rescanned'); loadSdStatus(); } }
+function ildaFileByIdx(idx) { return s_ildaFiles.filter(function(f) { return f.idx === idx; })[0]; }
+async function ildaDeleteFile(idx) {
+  var f = ildaFileByIdx(idx);
+  if (!confirm('Delete "' + (f ? f.name : ('#' + idx)) + '"? This cannot be undone.')) return;
+  var r = await apiCall('POST', '/api/sd/delete', {idx: idx});
+  if (r) { toast('Deleted'); loadSdStatus(); }
+}
+async function ildaRenameFile(idx) {
+  var f = ildaFileByIdx(idx);
+  var oldName = f ? f.name.split('/').pop() : '';
+  var name = prompt('Rename to:', oldName);
+  if (!name || name === oldName) return;
+  var r = await apiCall('POST', '/api/sd/rename', {idx: idx, name: name});
+  if (r) { toast('Renamed'); loadSdStatus(); }
+}
 function uploadILDA() {
   var input = document.createElement('input');
   input.type = 'file'; input.multiple = true; input.accept = '.ild,.ilda';

@@ -15,7 +15,6 @@
 #include "net/ota_update.h"
 #include "net/etherdream.h"
 #include "net/helios_net.h"
-#include "net/helios_usb.h"
 #include "net/osc_in.h"
 #include "net/sacn_in.h"
 #include "storage/sd_card.h"
@@ -483,7 +482,6 @@ static void buildStateJson(JsonDocument& doc) {
     doc["etherdream_playing"]   = etherdream::isPlaying();
     doc["helios_net_connected"] = helios_net::isConnected();
     doc["helios_net_playing"]   = helios_net::isPlaying();
-    doc["helios_usb_connected"] = helios_usb::isConnected();
     doc["osc_active"]           = osc_in::isActive();
     doc["sacn_active"]          = sacn_in::isReceiving();
     { JsonArray off = doc["temp_offsets"].to<JsonArray>();
@@ -1706,6 +1704,40 @@ void init() {
             req->send(200, "application/json", "{\"ok\":true}");
         });
 
+    // ---- POST /api/sd/delete ---- delete an ILDA file by index ----
+    s_server.on("/api/sd/delete", HTTP_POST,
+        [](AsyncWebServerRequest* req) {},
+        nullptr,
+        [](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t, size_t) {
+            JsonDocument doc(&jsonAllocator());
+            if (deserializeJson(doc, data, len)) { req->send(400, "text/plain", "bad json"); return; }
+            uint8_t idx = doc["idx"] | 255;
+            if (idx == 255) { req->send(400, "text/plain", "idx required"); return; }
+            if (ilda::gILDA.active && ilda::gILDA.file_idx == (int8_t)idx) ilda::stop();
+            bool ok = sd_card::deleteFile(idx);
+            if (ok) sd_card::scanFiles();
+            req->send(ok ? 200 : 500, "application/json",
+                ok ? "{\"ok\":true}" : "{\"ok\":false,\"error\":\"delete failed\"}");
+        });
+
+    // ---- POST /api/sd/rename ---- rename an ILDA file by index ----
+    s_server.on("/api/sd/rename", HTTP_POST,
+        [](AsyncWebServerRequest* req) {},
+        nullptr,
+        [](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t, size_t) {
+            JsonDocument doc(&jsonAllocator());
+            if (deserializeJson(doc, data, len)) { req->send(400, "text/plain", "bad json"); return; }
+            uint8_t idx = doc["idx"] | 255;
+            const char* rawName = doc["name"] | "";
+            if (idx == 255 || !rawName[0]) { req->send(400, "text/plain", "idx and name required"); return; }
+            String newName = sanitizeIldaFilename(String(rawName));
+            if (ilda::gILDA.active && ilda::gILDA.file_idx == (int8_t)idx) ilda::stop();
+            bool ok = sd_card::renameFile(idx, newName.c_str());
+            if (ok) sd_card::scanFiles();
+            req->send(ok ? 200 : 500, "application/json",
+                ok ? "{\"ok\":true}" : "{\"ok\":false,\"error\":\"rename failed (name taken or SD error)\"}");
+        });
+
     // ---- POST /api/ilda/play ---- play ILDA file
     s_server.on("/api/ilda/play", HTTP_POST,
         [](AsyncWebServerRequest* req) {},
@@ -2132,7 +2164,6 @@ void init() {
         doc["etherdream_playing"]   = etherdream::isPlaying();
         doc["helios_net_connected"] = helios_net::isConnected();
         doc["helios_net_playing"]   = helios_net::isPlaying();
-        doc["helios_usb_connected"] = helios_usb::isConnected();
         doc["osc_active"]           = osc_in::isActive();
         doc["sacn_active"]          = sacn_in::isReceiving();
         sendJsonPsram(req, doc);

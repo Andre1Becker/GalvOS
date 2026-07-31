@@ -246,6 +246,36 @@ uint8_t scanFiles() {
     return s_file_count;
 }
 
+bool deleteFile(uint8_t idx) {
+    if (idx >= s_file_count) return false;
+    LOCK_SD();
+    if (!s_ready) return false;
+    bool ok = SD.remove(s_paths[idx]);
+    if (!ok) ESP_LOGE(TAG, "delete failed: %s", s_paths[idx]);
+    return ok;
+}
+
+bool renameFile(uint8_t idx, const char* newName) {
+    if (idx >= s_file_count || !newName || !newName[0]) return false;
+    LOCK_SD();
+    if (!s_ready) return false;
+
+    const char* oldPath = s_paths[idx];
+    const char* slash = strrchr(oldPath, '/');
+    char newPath[ILDA_MAX_PATH];
+    size_t dirLen = slash ? (size_t)(slash - oldPath) + 1 : 0;
+    if (dirLen >= sizeof(newPath)) return false;
+    if (dirLen) memcpy(newPath, oldPath, dirLen);
+    strlcpy(newPath + dirLen, newName, sizeof(newPath) - dirLen);
+
+    if (strcmp(newPath, oldPath) == 0) return true;  // no-op rename
+    if (SD.exists(newPath)) { ESP_LOGW(TAG, "rename target exists: %s", newPath); return false; }
+
+    bool ok = SD.rename(oldPath, newPath);
+    if (!ok) ESP_LOGE(TAG, "rename failed: %s -> %s", oldPath, newPath);
+    return ok;
+}
+
 const char* filePath(uint8_t idx) {
     if (idx >= s_file_count) return nullptr;
     return s_paths[idx];

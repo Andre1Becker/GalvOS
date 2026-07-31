@@ -19,6 +19,15 @@ bool    isUserEjected();                 // true after eject(), until remount()/
 // Returns count of found files (max ILDA_MAX_FILES)
 uint8_t scanFiles();
 
+// Delete file at index idx (does not rescan -- caller should call scanFiles()
+// afterward to refresh the index/table)
+bool deleteFile(uint8_t idx);
+
+// Rename file at index idx to newName (basename only, same directory as the
+// original -- does not rescan, caller should call scanFiles() afterward).
+// Fails if newName already exists on the card.
+bool renameFile(uint8_t idx, const char* newName);
+
 // Path for index i (0-based) -> full path "/ilda/name.ild"
 const char* filePath(uint8_t idx);
 const char* fileName(uint8_t idx);      // display name, incl. subfolder (e.g. "sub/file.ild")
