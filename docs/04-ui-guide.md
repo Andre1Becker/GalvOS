@@ -22,7 +22,7 @@ The GalvOS WebUI is a single-page application served directly from the ESP32's L
 - [Tab: Log](#tab-log)
 - [Tab: Configuration](#tab-configuration)
 
-> **A note on screenshots:** captured live from a running device (firmware v6.36.1 / UI v1.0.1) via `scripts/capture_screenshots.py`, which also redacts IP/hostname/credential fields before saving. Re-run it after UI changes to keep this chapter current.
+> **A note on screenshots:** captured live from a running device (firmware v6.36.1 / UI v1.0.1) via `scripts/capture_screenshots.py`, which also redacts IP/hostname/credential fields before saving.
 
 ---
 
