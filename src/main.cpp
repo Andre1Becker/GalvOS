@@ -1,5 +1,5 @@
 /**
- * main.cpp -- galvOS - A Mikoy Laser Replacement Firmware (WebUI-Focus)
+ * main.cpp -- GalvOS - Custom Galvo Laser Show Controller Firmware (WebUI-Focus)
  *
  * Core 0: WiFi, WebUI, Art-Net, sACN, Ether Dream, Helios (net), OSC, Safety, DMX
  * Core 1: Galvo-Timer-ISR + Pattern-Engine
@@ -331,7 +331,7 @@ void setup() {
         gpio_set_level((gpio_num_t)PIN_LASER_EN, 0);
     });
 
-    ESP_LOGI(TAG, "=== Mikoy Laser FW %s ===", LASER_FW_VERSION);
+    ESP_LOGI(TAG, "=== GalvOS Laser FW %s ===", LASER_FW_VERSION);
     ESP_LOGI(TAG, "Chip: %s, Cores: %d, PSRAM: %u",
              ESP.getChipModel(), ESP.getChipCores(), ESP.getPsramSize());
 

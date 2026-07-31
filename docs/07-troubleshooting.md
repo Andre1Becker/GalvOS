@@ -35,7 +35,7 @@ The boot log tells you nearly everything: firmware version, chip ID, PSRAM size,
 
 | Message | Meaning |
 | --- | --- |
-| `=== Mikoy Laser FW x.x.x ===` | Firmware started successfully |
+| `=== GalvOS Laser FW x.x.x ===` | Firmware started successfully |
 | `Config loaded. DMX=x Hostname=x` | NVS config loaded OK |
 | `WiFi connected: x.x.x.x (RSSI -xx dBm)` | STA mode connected |
 | `AP started: galvOS` | AP mode started (no STA credentials) |
