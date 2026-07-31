@@ -55,8 +55,14 @@ static void otaUploadBody(AsyncWebServerRequest* req, size_t index,
         ESP_LOGI(TAG, "%s start: %s", logTag, filename);
         safety::emergencyStop();  // laser off during update
         if (updateCommand == U_SPIFFS) LittleFS.end();  // release partition before overwriting it
-        size_t size = req->contentLength() ? req->contentLength() : UPDATE_SIZE_UNKNOWN;
-        if (!Update.begin(size, updateCommand)) {
+        // Always UPDATE_SIZE_UNKNOWN: req->contentLength() is the whole multipart
+        // body (file + boundary/header overhead), not the file size, so it's always
+        // a few hundred bytes larger than the actual image. mklittlefs pads the FS
+        // image to exactly fill its partition, so that overhead alone was enough to
+        // trip Update.begin()'s "size > partition size" check ("Bad Size Given") on
+        // every filesystem upload. Update.begin() falls back to partition->size as
+        // the write ceiling, and Update.end(true) trims to the actual bytes written.
+        if (!Update.begin(UPDATE_SIZE_UNKNOWN, updateCommand)) {
             st.error = true;
             snprintf(st.errMsg, sizeof(st.errMsg), "%s", Update.errorString());
             ESP_LOGE(TAG, "%s Update.begin() failed: %s", logTag, Update.errorString());
@@ -169,7 +175,8 @@ button.btn.primary { background:var(--accent); color:var(--bg); border-color:var
   <div><button class="btn primary" id="fw-btn" onclick="doUpload('fw')">Upload Firmware</button></div>
   <div class="err" id="fw-err"></div>
   <div class="success" id="fw-success"><p>Firmware written. Reboot to run it.</p>
-    <button class="btn primary" onclick="doReboot()">Reboot Now</button></div>
+    <button class="btn primary" onclick="doReboot(this)">Reboot Now</button>
+    <span class="pct reboot-status"></span></div>
 </div>
 
 <div class="card">
@@ -181,7 +188,8 @@ button.btn.primary { background:var(--accent); color:var(--bg); border-color:var
   <div><button class="btn primary" id="fs-btn" onclick="doUpload('fs')">Upload Filesystem</button></div>
   <div class="err" id="fs-err"></div>
   <div class="success" id="fs-success"><p>Filesystem written. Reboot to use it.</p>
-    <button class="btn primary" onclick="doReboot()">Reboot Now</button></div>
+    <button class="btn primary" onclick="doReboot(this)">Reboot Now</button>
+    <span class="pct reboot-status"></span></div>
 </div>
 
 <div class="card">
@@ -246,8 +254,20 @@ function doUpload(kind) {
   xhr.send(fd);
 }
 
-function doReboot() {
-  fetch('/api/reboot', { method: 'POST' }).catch(function(){});
+function doReboot(btn) {
+  btn.disabled = true;
+  var status = btn.nextElementSibling;
+  status.textContent = ' Rebooting...';
+  fetch('/api/reboot', { method: 'POST' })
+    .then(function(r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      status.textContent = ' Reboot sent -- device restarting, reconnect in a few seconds.';
+    })
+    .catch(function() {
+      // A network error here is expected too: the device drops the connection
+      // as part of restarting, often before the response is fully read.
+      status.textContent = ' Reboot sent -- device restarting, reconnect in a few seconds.';
+    });
 }
 </script>
 </body></html>)HTML";

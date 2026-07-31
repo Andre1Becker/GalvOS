@@ -52,6 +52,7 @@
 #include <WiFi.h>
 #include <esp_wifi.h>
 #include <esp_log.h>
+#include <esp_timer.h>
 #include <esp_heap_caps.h>
 
 AsyncWebServer s_server(80);  // file-scope: ota_update sieht es
@@ -2497,10 +2498,20 @@ void init() {
         });
 
     // ---- POST /api/reboot ----
+    // ESP.restart() is scheduled via esp_timer instead of a blocking delay()
+    // here: this handler runs on the async_tcp task (CONFIG_ASYNC_TCP_RUNNING_CORE),
+    // and blocking that task stalls it from actually flushing this response
+    // over the socket before the restart tears the connection down. esp_timer's
+    // callback runs on its own dedicated task, so the response gets a clean
+    // window to go out first.
     s_server.on("/api/reboot", HTTP_POST, [](AsyncWebServerRequest* req) {
         req->send(200, "text/plain", "reboot");
-        delay(500);
-        ESP.restart();
+        static esp_timer_handle_t s_reboot_timer = nullptr;
+        esp_timer_create_args_t args = {};
+        args.callback = [](void*) { ESP.restart(); };
+        args.name = "reboot";
+        esp_timer_create(&args, &s_reboot_timer);
+        esp_timer_start_once(s_reboot_timer, 500000);  // 500ms
     });
 
     // ---- GET /api/log ----
