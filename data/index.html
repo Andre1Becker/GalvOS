@@ -1386,7 +1386,7 @@ canvas { max-width: 100%; display: block; }
 /* =========================================================================
    GLOBAL STATE
    ========================================================================= */
-var UI_VERSION = '1.6.4';   // WebUI version -- independent from firmware version
+var UI_VERSION = '1.6.5';   // WebUI version -- independent from firmware version
 var NAV_TABS = [
   {id: 'dashboard', label: 'Dashboard', icon: '🏠', bottom: true},
   {id: 'presets', label: 'Presets', icon: '🎮', bottom: true},
@@ -3386,12 +3386,27 @@ function paintSnapPoint(gx, gy) {
   if (best) return best;
   return [Math.round(gx / PAINT_SNAP_GRID) * PAINT_SNAP_GRID, Math.round(gy / PAINT_SNAP_GRID) * PAINT_SNAP_GRID];
 }
-function paintEventToGalvo(e) {
+function paintEventToCanvas(e) {
   var canvas = document.getElementById('pt-canvas');
   var rect = canvas.getBoundingClientRect();
   var cx = (e.clientX - rect.left) * canvas.width / rect.width;
   var cy = (e.clientY - rect.top) * canvas.height / rect.height;
-  return paintC2G(cx, cy);
+  return [cx, cy];
+}
+function paintEventToGalvo(e) {
+  var c = paintEventToCanvas(e);
+  return paintC2G(c[0], c[1]);
+}
+function paintHandleHitTest(cx, cy, s) {
+  if (s.type === 'circle') {
+    var hp = paintG2C(s.cx + s.radius, s.cy);
+    return (Math.hypot(cx - hp[0], cy - hp[1]) <= PAINT_HANDLE_PX) ? {vi: -1} : null;
+  }
+  for (var vi = 0; vi < s.points.length; vi++) {
+    var hp = paintG2C(s.points[vi][0], s.points[vi][1]);
+    if (Math.hypot(cx - hp[0], cy - hp[1]) <= PAINT_HANDLE_PX) return {vi: vi};
+  }
+  return null;
 }
 function paintPointInPolygon(pt, poly) {
   var x = pt[0], y = pt[1], inside = false;
@@ -3451,6 +3466,15 @@ var paintMirrorCompanions = [];
 function paintPointerDown(e) {
   var g = paintEventToGalvo(e);
   if (paintTool === 'select') {
+    if (paintSelected.length === 1) {
+      var c = paintEventToCanvas(e);
+      var h = paintHandleHitTest(c[0], c[1], paintStrokes[paintSelected[0]]);
+      if (h) {
+        paintPushHistory();
+        paintDrag = {mode: 'vertex', shape: paintStrokes[paintSelected[0]], vi: h.vi};
+        return;
+      }
+    }
     var idx = paintHitTest(g);
     if (idx >= 0) {
       if (e.shiftKey) { if (paintSelected.indexOf(idx) === -1) paintSelected.push(idx); }
