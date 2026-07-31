@@ -115,7 +115,7 @@ These are features that are designed and intended, but not yet implemented.
 | DMX512 (MAX485) | ✅ Complete | Hardware RX-only |
 | Art-Net (UDP) | ✅ Complete | DMX over IP |
 | Helios DAC (network) | ✅ Complete | `src/net/helios_net.cpp` — custom TCP framing (5-byte header + 7-byte points), not the official USB protocol; wired through the live optimizer transform + frame-budget clamp like the other render paths |
-| Helios DAC (USB) | ⚠️ Stub | `src/net/helios_usb.cpp` — TinyUSB vendor-class not wired up; USB-CDC conflict (Serial debug vs. Vendor-Class on same OTG controller) must be resolved first |
+| Helios DAC (USB) | ❌ Dropped | Not planned — TinyUSB vendor-class stub removed; USB-CDC conflict (Serial debug vs. Vendor-Class on same OTG controller) made it not worth pursuing |
 | OSC (Open Sound Control) | ✅ Complete | `src/net/osc_in.cpp` — UDP port 9000, OSC 1.0 (no bundles); `/galvos/preset`, `/galvos/color`, `/galvos/speed`, `/galvos/brightness`, `/galvos/enable` |
 | IDN (ILDA Digital Network) | ❌ Planned | UDP port 7255; discrete frame mode only (wave mode out of scope); requires IDN-Hello discovery + IDN-Stream frame parser |
 | sACN / E1.31 | ✅ Complete | `src/net/sacn_in.cpp` — UDP multicast 239.255.0.1:5568, universe 1 only; lowest priority of the three DMX-shaped sources (Art-Net and DMX512 both win over it) |
