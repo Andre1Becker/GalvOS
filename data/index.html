@@ -825,7 +825,7 @@ canvas { max-width: 100%; display: block; }
         <div class="card">
           <div class="row" style="margin-bottom:8px">
             <button class="btn sm paint-tool-btn" data-tool="select" onclick="paintSetTool('select')">Select</button>
-            <button class="btn sm paint-tool-btn primary" data-tool="pen" onclick="paintSetTool('pen')">Pen</button>
+            <button class="btn sm paint-tool-btn primary" data-tool="freehand" onclick="paintSetTool('freehand')">Pen</button>
             <button class="btn sm paint-tool-btn" data-tool="rect" onclick="paintSetTool('rect')">Rect</button>
             <button class="btn sm paint-tool-btn" data-tool="triangle" onclick="paintSetTool('triangle')">Triangle</button>
             <button class="btn sm paint-tool-btn" data-tool="circle" onclick="paintSetTool('circle')">Circle</button>
@@ -1392,7 +1392,7 @@ canvas { max-width: 100%; display: block; }
 /* =========================================================================
    GLOBAL STATE
    ========================================================================= */
-var UI_VERSION = '1.6.2';   // WebUI version -- independent from firmware version
+var UI_VERSION = '1.6.3';   // WebUI version -- independent from firmware version
 var NAV_TABS = [
   {id: 'dashboard', label: 'Dashboard', icon: '🏠', bottom: true},
   {id: 'presets', label: 'Presets', icon: '🎮', bottom: true},
@@ -3314,7 +3314,7 @@ var PAINT_SNAP_GRID = 500, PAINT_SNAP_TOL = 400;
 var PAINT_HISTORY_MAX = 30;
 var PAINT_SEG_SEQS = GRADIENT_SEQ_NAMES; // reuses the same 10 named sequences as Presets
 var paintStrokes = [];
-var paintTool = 'pen';
+var paintTool = 'freehand';
 var paintColor = {r: 255, g: 255, b: 255};
 var paintSelected = [];
 var paintDrag = null;
@@ -3660,7 +3660,7 @@ function initPaintTab() {
   canvas.addEventListener('pointerdown', paintPointerDown);
   canvas.addEventListener('pointermove', paintPointerMove);
   window.addEventListener('pointerup', paintPointerUp);
-  paintSetTool('pen'); paintSetMirror('off');
+  paintSetTool('freehand'); paintSetMirror('off');
   paintLoadFromServer();
   paintLoadZoneGuide();
 }
