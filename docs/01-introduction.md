@@ -129,7 +129,7 @@ The full netlist with all resistor values, capacitor values, and wiring is in th
 
 ![Prototype perfboard build — ESP32-S3, DAC/op-amp stage, and JST-wired peripherals on the bench](assets/photos/prototype_board.jpg)
 
-An early prototype status of the perfboard build, mid-bring-up on the bench (oscilloscope, bench PSUs, and multimeter visible in the background — standard company for hand-wiring a mixed digital/analog board like this one).
+An early prototype status of the perfboard build.
 
 ### Memory Architecture
 

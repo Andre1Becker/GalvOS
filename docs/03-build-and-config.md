@@ -104,8 +104,6 @@ Once a board has its first USB flash, every later update can go over Wi-Fi inste
 
 ![Firmware Update page](assets/screenshots/page_update.png)
 
-> Unlike the [Chapter 4](04-ui-guide.md) screenshots (captured live from a device via `scripts/capture_screenshots.py`), this one is rendered from the page's own self-contained HTML/CSS — `/update` doesn't depend on the main WebUI bundle, so there was no live device on hand to capture it from. Layout and copy match the shipped page; only the FW/UI version numbers are illustrative.
-
 The page has three parts:
 
 | Card | Writes to | Use it when… |
