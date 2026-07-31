@@ -5,7 +5,7 @@
 	(uuid "d54d297e-dc0d-4b80-be70-d4630411b2f0")
 	(paper "A2")
 	(title_block
-		(title "GalvOS ESP32 Laser Controller Board")
+		(title "GalvOS ESP32 Laser Controller Board V1.2.0")
 		(date "2026-07-24")
 	)
 	(lib_symbols
