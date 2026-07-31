@@ -1616,6 +1616,33 @@ void init() {
     s_server.on("/api/paint/off", HTTP_POST,
         [](AsyncWebServerRequest* req) { patterns::setPaintActive(false); req->send(200,"text/plain","OK"); });
 
+    // ---- GET /api/sd/info ---- detailed SD card info ----
+    // Registered *before* the plainer "/api/sd" route below: ESPAsyncWebServer
+    // matches plain-string routes by prefix, not exact-match, so "/api/sd"
+    // would otherwise swallow every request to "/api/sd/info" (its handler
+    // never even runs) -- this silently fed the WebUI the file-listing JSON
+    // (no "fs_type" key) whenever it asked for the info JSON, showing
+    // "undefined" in the SD status line. See CLAUDE.md's route-ordering rule.
+    s_server.on("/api/sd/info", HTTP_GET, [](AsyncWebServerRequest* req) {
+        JsonDocument doc(&jsonAllocator());
+        doc["ready"]      = sd_card::isReady();
+        doc["fs_type"]    = sd_card::fsType();
+        doc["total_kb"]   = sd_card::totalKB();
+        doc["free_kb"]    = sd_card::freeKB();
+        doc["used_kb"]    = sd_card::totalKB() - sd_card::freeKB();
+        doc["file_count"] = sd_card::fileCount();
+        doc["error"]      = sd_card::errorMsg();
+        if (sd_card::totalKB() > 0) {
+            doc["used_pct"] = (int)(100UL * (sd_card::totalKB() - sd_card::freeKB())
+                                   / sd_card::totalKB());
+        } else {
+            doc["used_pct"] = 0;
+        }
+        char buf[512];
+        serializeJson(doc, buf, sizeof(buf));
+        req->send(200, "application/json", buf);
+    });
+
     // ---- GET /api/sd ---- SD cardn-Status and file list
     s_server.on("/api/sd", HTTP_GET, [](AsyncWebServerRequest* req) {
         JsonDocument doc(&jsonAllocator());
@@ -1656,28 +1683,6 @@ void init() {
         doc["ilda_total"]   = ilda::gILDA.total_frames;
         doc["ilda_points"]  = ilda::gILDA.total_points;
         sendJsonPsram(req, doc);
-    });
-
-
-    // ---- GET /api/sd/info ---- detailed SD card info ----
-    s_server.on("/api/sd/info", HTTP_GET, [](AsyncWebServerRequest* req) {
-        JsonDocument doc(&jsonAllocator());
-        doc["ready"]      = sd_card::isReady();
-        doc["fs_type"]    = sd_card::fsType();
-        doc["total_kb"]   = sd_card::totalKB();
-        doc["free_kb"]    = sd_card::freeKB();
-        doc["used_kb"]    = sd_card::totalKB() - sd_card::freeKB();
-        doc["file_count"] = sd_card::fileCount();
-        doc["error"]      = sd_card::errorMsg();
-        if (sd_card::totalKB() > 0) {
-            doc["used_pct"] = (int)(100UL * (sd_card::totalKB() - sd_card::freeKB())
-                                   / sd_card::totalKB());
-        } else {
-            doc["used_pct"] = 0;
-        }
-        char buf[512];
-        serializeJson(doc, buf, sizeof(buf));
-        req->send(200, "application/json", buf);
     });
 
     // ---- POST /api/sd/scan ---- SD neu scannen
