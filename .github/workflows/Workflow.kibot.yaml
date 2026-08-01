@@ -1,6 +1,5 @@
 name: "KiBot Automation"
 
-# Triggers when code is pushed to the repository (if schematics or PCB layout changed)
 on:
   push:
     paths:
@@ -11,17 +10,17 @@ jobs:
   export:
     runs-on: ubuntu-latest
     steps:
-      # 1. Checkout the project repository
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # 2. Run KiBot (automatically finds your project files and runs default exports)
       - name: Run KiBot
         uses: INTI-CMNB/KiBot@v2
         with:
-          dir: 'output' # Target folder for your exports
+          config: 'galvos.kibot.yml'
+          board: 'hardware/schematics/Laser Controller.kicad_pcb'
+          schema: 'hardware/schematics/Laser Controller.kicad_sch'
+          dir: 'output'
 
-      # 3. Upload the generated files as a downloadable zip archive in GitHub
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
