@@ -8,9 +8,10 @@ filters:
   - name: 'exclude_virtual'
     comment: 'Exclude virtual components like logos and test points from the BOM'
     type: generic
-    exclude:
-      - reg_key: 'kicad_role'
-        value: 'virtual'
+    options:
+      exclude_any:
+        - column: 'kicad_role'
+          regex: 'virtual'
 
 outputs:
   # 1. GERBER FILES (PCBWay compliant)
