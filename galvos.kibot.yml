@@ -1,42 +1,107 @@
-name: "Variants demo using GitHub actions and quick-start"
+kibot:
+  version: 1
 
-# Controls when the action will run. Triggers the workflow on push or pull request
-# events but only for the master branch
-on:
-  push:
-    paths:
-      - '*.kicad_sch'
-      - '*.kicad_pcb'
-      - '.github/workflows/kibot_action_quick_start.yml'
-  pull_request:
-    paths:
-      - '*.kicad_sch'
-      - '*.kicad_pcb'
-      - '.github/workflows/kibot_action_quick_start.yml'
-  repository_dispatch:
-    types: [run_qs_gha]
+global:
+  out_dir: Output
 
-# A workflow run is made up of one or more jobs that can run sequentially or in parallel
-jobs:
-  quick:
-    name: "Quick Start (action)"
-    runs-on: ubuntu-latest
+filters:
+  - name: 'exclude_virtual'
+    comment: 'Exclude virtual components like logos and test points from the BOM'
+    type: generic
+    exclude:
+      - reg_key: 'kicad_role'
+        value: 'virtual'
 
-    steps:
-    - name: Get repo
-      uses: actions/checkout@v6
-      with:
-        # So we can run a diff between last 2 changes
-        fetch-depth: '0'
+outputs:
+  # 1. GERBER FILES (PCBWay compliant)
+  - name: 'PCBWay_Gerbers'
+    comment: 'Gerber layers for fabrication'
+    type: gerber
+    dir: 'PCBWay_Project/Gerber'
+    options:
+      exclude_edge_layer: false
+      use_aux_axis_as_origin: true
+      plot_footprint_values: true
+      plot_footprint_refs: true
+      use_gerber_x2_attributes: false
 
-    - name: Run KiBot
-      uses: INTI-CMNB/KiBot@v2_k10
-      with:
-        quickstart: YES
+  # 2. DRILL FILES (PCBWay compliant)
+  - name: 'PCBWay_Drills'
+    comment: 'Excellon drill files'
+    type: excellon
+    dir: 'PCBWay_Project/Gerber'
+    options:
+      metric_format: 'mm'
+      use_aux_axis_as_origin: true
+      minimal_header: false
 
-    - name: Upload results
-      if: ${{ always() }}
-      uses: actions/upload-artifact@v7
-      with:
-        name: Automatic_outputs
-        path: Generated
+  # 3. PICK AND PLACE FILES (For SMT Assembly)
+  - name: 'PCBWay_Pick_and_Place'
+    comment: 'Component placement coordinates for assembly'
+    type: position
+    dir: 'PCBWay_Project/Assembly'
+    options:
+      format: CSV
+      units: mm
+      separate_files_for_front_and_back: true
+
+  # 4. BILL OF MATERIALS (For SMT Assembly)
+  - name: 'PCBWay_BOM'
+    comment: 'Bill of Materials in CSV format'
+    type: bom
+    dir: 'PCBWay_Project/Assembly'
+    filter: 'exclude_virtual'
+    options:
+      format: CSV
+      columns:
+        - Row
+        - Description
+        - Reference
+        - Quantity
+        - Value
+        - Footprint
+
+  # 5. INTERACTIVE HTML BOM (For manual inspection and hand-soldering)
+  - name: 'Interactive_BOM'
+    comment: 'Interactive HTML page for visual part tracking'
+    type: ibom
+    dir: 'Documentation/HTML_BOM'
+
+  # 6. PCB DOCUMENTATION PDF (Multi-layer Board layout)
+  - name: 'PCB_Layout_PDF'
+    comment: 'Generates a PDF containing selected PCB layers'
+    type: pdf_pcb_print
+    dir: 'Documentation'
+    options:
+      scaling: 1.0
+      separate_pages: true
+    layers:
+      - layer: F.Cu
+      - layer: B.Cu
+      - layer: F.Silkscreen
+      - layer: B.Silkscreen
+      - layer: Edge.Cuts
+
+  # 7. HIGH-RESOLUTION BOARD IMAGES (2D Renders)
+  - name: 'Board_Images_2D'
+    comment: 'Generates photorealistic PNG images of the board layers'
+    type: pcbdraw
+    dir: 'Documentation/Images'
+    options:
+      format: png
+      dpi: 300
+      show_components: none # Generates clean board images; change to 'all' to show components
+
+  # 8. AUTOMATED ZIP PACKAGING
+  - name: 'PCBWay_Upload_Zip'
+    comment: 'Creates a clean zip archive containing only the fabrication files'
+    type: compress
+    dir: 'PCBWay_Project'
+    options:
+      format: ZIP
+      files:
+        - from_output: PCBWay_Gerbers
+          dest: /
+        - from_output: PCBWay_Drills
+          dest: /
+
