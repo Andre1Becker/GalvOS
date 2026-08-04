@@ -1,0 +1,1976 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GalvOS &mdash; Preset Simulator</title>
+<meta name="description" content="Browser simulation of the GalvOS laser preset engine: 81 presets, live controls and the three firmware themes.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=JetBrains+Mono:wght@400;500;700;800&family=VT323&family=Space+Grotesk:wght@400;500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script>
+// Applies the saved theme before first paint (no flash-of-default-theme).
+// Token sets mirror data/index.html of the firmware WebUI.
+(function () {
+  var TERMINAL_TOKENS = {
+    '--bg': '#0a0a0a', '--bg-rgb': '10,10,10',
+    '--card': 'rgba(8,12,8,0.94)', '--card2': 'rgba(5,8,5,0.97)',
+    '--muted': '#0f2a0f', '--border': '#1f521f', '--border-rgb': '31,82,31',
+    '--text': '#33ff00', '--text-dim': '#1f8f1f',
+    '--accent': '#33ff00', '--accent-rgb': '51,255,0',
+    '--secondary': '#ffb000', '--secondary-rgb': '255,176,0',
+    '--tertiary': '#ffb000', '--tertiary-rgb': '255,176,0',
+    '--ok': '#33ff00', '--warn': '#ffb000', '--bad': '#ff3333', '--bad-rgb': '255,51,51',
+    '--surface': 'rgba(0,0,0,0.6)', '--input-bg': '#0a0a0a',
+    '--radius': '0px', '--radius-lg': '0px',
+    '--font-head': "'JetBrains Mono', 'VT323', monospace",
+    '--font-mono': "'JetBrains Mono', 'VT323', monospace",
+    '--font-body': "'JetBrains Mono', 'VT323', monospace",
+    '--glow-accent': '0 0 5px rgba(51,255,0,0.5), 0 0 10px rgba(51,255,0,0.25)',
+    '--glow-secondary': '0 0 5px rgba(255,176,0,0.5), 0 0 10px rgba(255,176,0,0.25)',
+    '--glow-bad': '0 0 5px rgba(255,51,51,0.5), 0 0 10px rgba(255,51,51,0.25)',
+    '--card-shadow': 'none'
+  };
+  var MINIMAL_TOKENS = {
+    '--bg': '#0A0A0F', '--bg-rgb': '10,10,15',
+    '--card': 'rgba(26,26,36,0.6)', '--card2': 'rgba(22,22,30,0.7)',
+    '--muted': '#1A1A24', '--border': 'rgba(255,255,255,0.08)', '--border-rgb': '255,255,255',
+    '--text': '#FAFAFA', '--text-dim': '#71717A',
+    '--accent': '#F59E0B', '--accent-rgb': '245,158,11',
+    '--secondary': '#9db4ff', '--secondary-rgb': '157,180,255',
+    '--tertiary': '#71717A', '--tertiary-rgb': '113,113,122',
+    '--ok': '#6FCF97', '--warn': '#d9a154', '--bad': '#e56b6b', '--bad-rgb': '229,107,107',
+    '--surface': 'rgba(0,0,0,0.25)', '--input-bg': 'rgba(255,255,255,0.04)',
+    '--radius': '10px', '--radius-lg': '16px',
+    '--font-head': "'Space Grotesk', 'Inter', sans-serif",
+    '--font-mono': "'JetBrains Mono', monospace",
+    '--font-body': "'Inter', sans-serif",
+    '--glow-accent': '0 0 20px rgba(245,158,11,0.4)',
+    '--glow-secondary': '0 0 20px rgba(157,180,255,0.35)',
+    '--glow-bad': '0 0 20px rgba(229,107,107,0.35)',
+    '--card-shadow': '0 8px 30px rgba(0,0,0,0.35)'
+  };
+  window.THEME_TOKENS = { terminal: TERMINAL_TOKENS, minimal: MINIMAL_TOKENS };
+  window.THEME_NAMES = ['Cyberpunk', 'Terminal', 'Minimal'];
+  window.THEME_MODES = ['cyberpunk', 'terminal', 'minimal'];
+  try {
+    var slot = parseInt(localStorage.getItem('galvos_theme'), 10);
+    if (!(slot >= 0 && slot <= 2)) slot = 0;
+    document.documentElement.setAttribute('data-theme', window.THEME_MODES[slot]);
+    var tokens = slot === 1 ? TERMINAL_TOKENS : (slot === 2 ? MINIMAL_TOKENS : null);
+    if (tokens) for (var k in tokens) document.documentElement.style.setProperty(k, tokens[k]);
+  } catch (e) { document.documentElement.setAttribute('data-theme', 'cyberpunk'); }
+})();
+</script>
+<style>
+:root {
+  /* Theme 0: Cyberpunk / Glitch (default) */
+  --bg: #0a0a0f; --bg-rgb: 10,10,15;
+  --card: #12121a; --card2: #16161f;
+  --muted: #1c1c2e; --border: #2a2a3a; --border-rgb: 42,42,58;
+  --text: #e0e0e0; --text-dim: #8888a0;
+  --accent: #00ff88; --accent-rgb: 0,255,136;
+  --secondary: #ff00ff; --secondary-rgb: 255,0,255;
+  --tertiary: #00d4ff; --tertiary-rgb: 0,212,255;
+  --ok: #00ff88; --warn: #ffcc00; --bad: #ff3366; --bad-rgb: 255,51,102;
+  --surface: rgba(0,0,0,0.5); --input-bg: #0a0a14;
+  --radius: 0px; --radius-lg: 0px;
+  --font-head: 'Orbitron', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --font-body: 'JetBrains Mono', monospace;
+  --glow-accent: 0 0 5px var(--accent), 0 0 20px rgba(var(--accent-rgb),0.4), 0 0 40px rgba(var(--accent-rgb),0.15);
+  --glow-secondary: 0 0 5px var(--secondary), 0 0 20px rgba(var(--secondary-rgb),0.4);
+  --glow-bad: 0 0 5px var(--bad), 0 0 20px rgba(var(--bad-rgb),0.4);
+  --card-shadow: none;
+  --chamfer-sm: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  background: var(--bg); color: var(--text); font-family: var(--font-body);
+  min-height: 100vh; overflow-x: hidden;
+}
+
+/* Cyberpunk structural chrome */
+html[data-theme="cyberpunk"] body::before {
+  content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 9000;
+  background: repeating-linear-gradient(0deg, rgba(0,0,0,0.15) 0px, rgba(0,0,0,0.15) 1px, transparent 1px, transparent 3px);
+  mix-blend-mode: overlay;
+}
+html[data-theme="cyberpunk"] body::after {
+  content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+  background-image: linear-gradient(rgba(var(--accent-rgb),0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(var(--accent-rgb),0.05) 1px, transparent 1px);
+  background-size: 50px 50px;
+}
+html[data-theme="cyberpunk"] .card, html[data-theme="cyberpunk"] button.btn, html[data-theme="cyberpunk"] .pill {
+  clip-path: var(--chamfer-sm);
+}
+html[data-theme="cyberpunk"] label, html[data-theme="cyberpunk"] .card h2,
+html[data-theme="cyberpunk"] .stat-chip, html[data-theme="cyberpunk"] .pill {
+  text-transform: uppercase; letter-spacing: 0.08em;
+}
+html[data-theme="cyberpunk"] .card h2 { text-shadow: var(--glow-secondary); }
+
+/* Terminal CLI structural chrome */
+html[data-theme="terminal"] * { border-radius: 0 !important; box-shadow: none !important; }
+html[data-theme="terminal"] body::before {
+  content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 9000;
+  background: repeating-linear-gradient(0deg, rgba(0,0,0,0.25) 0px, rgba(0,0,0,0.25) 1px, transparent 1px, transparent 3px);
+}
+html[data-theme="terminal"] .card, html[data-theme="terminal"] .pill, html[data-theme="terminal"] .stat-chip {
+  text-shadow: 0 0 5px rgba(var(--accent-rgb),0.5);
+}
+html[data-theme="terminal"] .card { border: 1px solid var(--border); }
+html[data-theme="terminal"] .card > h2 { text-transform: uppercase; }
+html[data-theme="terminal"] .card > h2::before { content: '\250C\2500 '; opacity: 0.75; }
+html[data-theme="terminal"] .card > h2::after { content: ' \2500'; opacity: 0.75; }
+html[data-theme="terminal"] button.btn::before { content: '[ '; }
+html[data-theme="terminal"] button.btn::after { content: ' ]'; }
+html[data-theme="terminal"] button.btn:hover { background: var(--accent); color: #000; }
+html[data-theme="terminal"] .brand { border-right: 2px solid var(--accent); animation: termCaret 0.8s step-end infinite; padding-right: 4px; }
+@keyframes termCaret { 50% { border-color: transparent; } }
+html[data-theme="terminal"] input[type=range] { accent-color: var(--accent); }
+html[data-theme="terminal"] .preset-item::before { content: '> '; opacity: 0.6; }
+
+/* Minimalist Dark structural chrome */
+html[data-theme="minimal"] body { letter-spacing: normal; }
+html[data-theme="minimal"] body::before {
+  content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+  background: radial-gradient(circle at 15% 10%, rgba(var(--accent-rgb),0.06), transparent 45%),
+    radial-gradient(circle at 85% 80%, rgba(157,180,255,0.05), transparent 45%);
+}
+html[data-theme="minimal"] .card {
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  box-shadow: var(--card-shadow); border: 1px solid var(--border);
+}
+html[data-theme="minimal"] h1, html[data-theme="minimal"] h2, html[data-theme="minimal"] .brand {
+  font-weight: 700; letter-spacing: -0.02em;
+}
+html[data-theme="minimal"] button.btn:active { transform: scale(0.98); }
+
+/* Layout shell */
+a { color: var(--accent); }
+h1, h2, h3 { font-family: var(--font-head); margin: 0 0 8px; color: var(--text); }
+p { margin: 0 0 8px; color: var(--text-dim); }
+.hidden { display: none !important; }
+
+#topbar {
+  position: sticky; top: 0; z-index: 500;
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  padding: 10px 18px; background: var(--card); border-bottom: 1px solid var(--border);
+}
+.brand { font-size: 1.15rem; margin: 0; white-space: nowrap; font-family: var(--font-head); }
+.tb-right { margin-left: auto; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+.pill {
+  display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 999px;
+  border: 1px solid var(--border); font-family: var(--font-mono); font-size: 0.76rem;
+  background: var(--surface); color: var(--text-dim);
+}
+html[data-theme="cyberpunk"] .pill, html[data-theme="terminal"] .pill { border-radius: 0; }
+.pill.ok { color: var(--ok); border-color: var(--ok); }
+
+button.btn {
+  background: var(--surface); color: var(--text); border: 1px solid var(--border);
+  padding: 8px 14px; cursor: pointer; font-family: var(--font-body); font-size: 0.85rem;
+  border-radius: var(--radius); transition: background 0.15s, color 0.15s;
+}
+button.btn:hover { background: var(--muted); }
+button.btn.primary { background: var(--accent); color: var(--bg); border-color: var(--accent); box-shadow: var(--glow-accent); }
+button.btn.sm { padding: 5px 10px; font-size: 0.76rem; }
+
+main { max-width: 1500px; margin: 0 auto; padding: 18px; position: relative; z-index: 1; }
+.layout { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(300px, 0.85fr); gap: 16px; align-items: start; }
+@media (max-width: 1000px) { .layout { grid-template-columns: 1fr; } }
+
+.card {
+  background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg);
+  padding: 14px; margin-bottom: 16px;
+}
+.card h2 { font-size: 0.95rem; }
+.card h3 { font-size: 0.82rem; margin: 14px 0 6px; color: var(--text-dim); font-family: var(--font-head); }
+
+#stage { position: relative; background: #000; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+#stage canvas { display: block; width: 100%; height: auto; }
+
+.row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.field { margin-bottom: 10px; }
+.field > label { display: block; font-size: 0.72rem; color: var(--text-dim); margin-bottom: 4px; letter-spacing: 0.04em; }
+.slider-row { display: flex; align-items: center; gap: 8px; }
+.slider-row input[type=range] { flex: 1; min-width: 0; }
+.slider-row output { font-family: var(--font-mono); font-size: 0.76rem; min-width: 42px; text-align: right; color: var(--accent); }
+input[type=range] { width: 100%; accent-color: var(--accent); }
+input[type=text], input[type=number], select {
+  background: var(--input-bg); color: var(--text); border: 1px solid var(--border);
+  padding: 7px 9px; border-radius: var(--radius); font-family: var(--font-mono); font-size: 0.8rem; width: 100%;
+}
+label.check { display: flex; align-items: center; gap: 7px; font-size: 0.8rem; color: var(--text); cursor: pointer; margin-bottom: 6px; }
+input[type=checkbox] { accent-color: var(--accent); width: 16px; height: 16px; }
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 14px; }
+@media (max-width: 520px) { .grid-2 { grid-template-columns: 1fr; } }
+
+#preset-list { max-height: 340px; overflow-y: auto; border: 1px solid var(--border); border-radius: var(--radius); }
+.preset-cat { padding: 6px 10px; font-size: 0.68rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-dim); background: var(--card2); position: sticky; top: 0; }
+.preset-item { padding: 7px 12px; font-size: 0.82rem; cursor: pointer; border-bottom: 1px solid rgba(var(--border-rgb),0.35); }
+.preset-item:hover { background: var(--muted); }
+.preset-item.active { background: var(--accent); color: var(--bg); font-weight: 700; }
+
+.stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; }
+.stat-chip { border: 1px solid var(--border); padding: 6px 9px; border-radius: var(--radius); font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-dim); }
+.stat-chip b { display: block; color: var(--accent); font-size: 0.95rem; margin-top: 2px; }
+
+.swatch { width: 30px; height: 30px; border: 1px solid var(--border); display: inline-block; }
+.note { font-size: 0.72rem; color: var(--text-dim); line-height: 1.5; }
+footer { text-align: center; padding: 24px 18px 40px; font-size: 0.75rem; color: var(--text-dim); }
+</style>
+</head>
+<body>
+
+<header id="topbar">
+  <h1 class="brand">GalvOS</h1>
+  <span class="pill">Preset Simulator</span>
+  <span class="pill" id="pill-sim-version">v--</span>
+  <span class="pill" id="pill-fw-version">FW --</span>
+  <span class="pill ok" id="pill-fps">-- fps</span>
+  <div class="tb-right">
+    <span class="note">Theme</span>
+    <div class="row" id="theme-picker"></div>
+    <a class="btn sm" href="https://github.com/Andre1Becker/GalvOS" target="_blank" rel="noopener">GitHub</a>
+  </div>
+</header>
+
+<main>
+  <div class="layout">
+
+    <section>
+      <div class="card">
+        <h2 id="stage-title">Circle</h2>
+        <div id="stage"><canvas id="scan" width="900" height="900"></canvas></div>
+        <div class="stat-grid" style="margin-top:12px">
+          <div class="stat-chip">Points / Frame<b id="st-points">0</b></div>
+          <div class="stat-chip">Segments<b id="st-segs">0</b></div>
+          <div class="stat-chip">Blank Points<b id="st-blank">0</b></div>
+          <div class="stat-chip">Budget<b id="st-budget">1010</b></div>
+          <div class="stat-chip">Category<b id="st-cat">Geometry</b></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Preset Options</h2>
+        <div id="preset-options"><p class="note">This preset has no extra parameters.</p></div>
+      </div>
+
+      <div class="card">
+        <h2>Optimizer</h2>
+        <div class="grid-2">
+          <div class="field"><label>Max Points / Frame</label>
+            <div class="slider-row"><input type="range" id="opt-budget" min="200" max="1300" step="10" value="1010"><output id="opt-budget-v">1010</output></div>
+          </div>
+          <div class="field"><label>Points per 1000 Units</label>
+            <div class="slider-row"><input type="range" id="opt-density" min="1" max="16" step="0.5" value="6"><output id="opt-density-v">6</output></div>
+          </div>
+          <div class="field"><label>Blank Samples</label>
+            <div class="slider-row"><input type="range" id="opt-blank" min="2" max="40" step="1" value="16"><output id="opt-blank-v">16</output></div>
+          </div>
+          <div class="field"><label>Corner Dwell (max pts)</label>
+            <div class="slider-row"><input type="range" id="opt-corner" min="1" max="16" step="1" value="8"><output id="opt-corner-v">8</output></div>
+          </div>
+        </div>
+        <label class="check"><input type="checkbox" id="show-blank"> Show blanked travel (galvo jumps)</label>
+        <label class="check"><input type="checkbox" id="show-points"> Show individual DAC points</label>
+        <label class="check"><input type="checkbox" id="show-afterglow" checked> Beam afterglow</label>
+        <p class="note">Simplified reimplementation of the firmware point optimizer: adaptive density, corner dwell and eased blank jumps against a per-frame budget.</p>
+      </div>
+    </section>
+
+    <section>
+      <div class="card">
+        <h2>Presets</h2>
+        <div class="field"><input type="text" id="preset-search" placeholder="Search preset..."></div>
+        <div id="preset-list"></div>
+      </div>
+
+      <div class="card">
+        <h2>Global Controls</h2>
+        <div class="field"><label id="lb-speed">Speed</label>
+          <div class="slider-row"><input type="range" id="lv-speed" min="0" max="255" value="60"><output id="lv-speed-v">60</output></div>
+        </div>
+        <div class="field"><label id="lb-size">Size</label>
+          <div class="slider-row"><input type="range" id="lv-size" min="0" max="255" value="180"><output id="lv-size-v">180</output></div>
+        </div>
+        <div class="field"><label>Rotation (deg)</label>
+          <div class="slider-row"><input type="range" id="lv-rotation" min="0" max="359" value="0"><output id="lv-rotation-v">0</output></div>
+        </div>
+        <div class="field"><label>Master Dimmer</label>
+          <div class="slider-row"><input type="range" id="lv-dimmer" min="0" max="255" value="255"><output id="lv-dimmer-v">255</output></div>
+        </div>
+
+        <h3>Auto-Rotation</h3>
+        <div class="row">
+          <label class="check"><input type="checkbox" id="rot-x"> X</label>
+          <label class="check"><input type="checkbox" id="rot-y"> Y</label>
+          <label class="check"><input type="checkbox" id="rot-z"> Z</label>
+        </div>
+        <div class="field"><label>Rotation Speed</label>
+          <div class="slider-row"><input type="range" id="rot-speed" min="-0.5" max="0.5" step="0.01" value="0.03"><output id="rot-speed-v">0.03</output></div>
+        </div>
+
+        <h3>Kaleidoscope &amp; Mirror</h3>
+        <label class="check"><input type="checkbox" id="kal-on"> Kaleidoscope enabled</label>
+        <div class="field"><label>Segments</label>
+          <div class="slider-row"><input type="range" id="kal-seg" min="2" max="8" value="3"><output id="kal-seg-v">3</output></div>
+        </div>
+        <label class="check"><input type="checkbox" id="kal-mh"> Mirror H (alternating)</label>
+        <label class="check"><input type="checkbox" id="kal-mv"> Mirror V (alternating)</label>
+        <div class="row" id="mirror-btns" style="margin-top:6px">
+          <button class="btn sm primary" data-mirror="0">Off</button>
+          <button class="btn sm" data-mirror="1">X</button>
+          <button class="btn sm" data-mirror="2">Y</button>
+          <button class="btn sm" data-mirror="3">Radial4</button>
+        </div>
+
+        <h3>Color</h3>
+        <label class="check"><input type="checkbox" id="col-override"> Color Override</label>
+        <div class="row">
+          <input type="color" id="col-hex" value="#00ff88" style="width:56px;height:34px;padding:0;background:none;border:1px solid var(--border)">
+          <span class="swatch" id="col-swatch" style="background:#00ff88"></span>
+          <button class="btn sm" data-quick="#ff0000">R</button>
+          <button class="btn sm" data-quick="#00ff00">G</button>
+          <button class="btn sm" data-quick="#0000ff">B</button>
+          <button class="btn sm" data-quick="#ffffff">W</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>About</h2>
+        <p class="note">
+          All 81 firmware presets are re-implemented in JavaScript from
+          <code>src/patterns/preset_patterns.cpp</code> and rendered through a
+          simplified version of the point optimizer and the live post-processing
+          chain (3-axis rotation, kaleidoscope, mirror, color override, dimmer).
+          Coordinates use the firmware DAC space of &plusmn;32768 units with +Y up.
+          The simulation is an approximation &mdash; real galvo inertia, ringing
+          compensation and velocity clamping are not modelled.
+        </p>
+        <p class="note">
+          Simulator <b id="about-sim-version">--</b> &middot;
+          ported from GalvOS firmware <b id="about-fw-version">--</b>
+          (commit <span id="about-fw-commit">--</span>).
+        </p>
+      </div>
+    </section>
+
+  </div>
+</main>
+
+<footer>
+  GalvOS &mdash; open-source ESP32-S3 RGB laser galvo controller &middot;
+  <a href="https://github.com/Andre1Becker/GalvOS" target="_blank" rel="noopener">github.com/Andre1Becker/GalvOS</a><br>
+  <span id="footer-version">Preset Simulator -- &middot; firmware --</span>
+</footer>
+
+<script>
+"use strict";
+
+/* ══════════════════════════════════════════════════════════════════════
+   Preset engine — JS port of src/patterns/preset_patterns.cpp
+   ══════════════════════════════════════════════════════════════════════ */
+
+// Simulator build identity. FW_VERSION / FW_COMMIT track the firmware
+// revision this port was generated from -- bump both together whenever the
+// preset generators are re-synced with src/patterns/preset_patterns.cpp.
+const SIM_VERSION = '1.0.0';
+const FW_VERSION  = '6.41.3';
+const FW_COMMIT   = '13d6b8f';
+
+const TAU = Math.PI * 2;
+const PI = Math.PI;
+const SC = 18000;
+
+const ssc = s => 0.25 + (s / 255) * 1.1765;
+const aang = (ph, sp, m = 1) => (sp ? mod(ph * (sp / 5000) * m, TAU) : 0);
+const contDelta = sp => (sp / 255) * 0.05;
+const L = (a, b, t) => a + (b - a) * t;
+
+function mod(a, b) { return a - Math.floor(a / b) * b; }
+function csweep(ph, sp, i, N) {
+  const span = TAU + contDelta(sp);
+  const base = mod(ph * span, TAU);
+  return base + span * i / N;
+}
+function adaptN(sz, base, min = 8, max = 512) {
+  let n = Math.round(base * (0.4 + (sz / 255) * 1.2));
+  return Math.max(min, Math.min(max, n));
+}
+function sHash(s) {
+  const x = Math.sin(s * 127.1 + 1) * 43758.5453;
+  return x - Math.floor(x);
+}
+const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
+const b255 = v => clamp(Math.round(v), 0, 255);
+
+/* ── Frame builder ─────────────────────────────────────────────────── */
+
+function V(x, y, r = 255, g = 255, b = 255) { return { x, y, r, g, b }; }
+
+class Frame {
+  constructor() { this.segs = []; this.dots = []; }
+  seg(verts, closed = false) { if (verts && verts.length > 1) this.segs.push({ v: verts, closed }); }
+  line(x0, y0, x1, y1, r, g, b) { this.seg([V(x0, y0, r, g, b), V(x1, y1, r, g, b)], false); }
+  dot(x, y, r, g, b) { this.dots.push({ x, y, r, g, b }); }
+}
+
+/* ── Geometry helpers ──────────────────────────────────────────────── */
+
+function curve(N, fn) {
+  const v = new Array(N);
+  for (let i = 0; i < N; i++) v[i] = fn(i, N);
+  return v;
+}
+function ngonVerts(sides, sc, off, r, g, b) {
+  return curve(sides, i => {
+    const a = TAU * i / sides + off;
+    return V(Math.cos(a) * sc, Math.sin(a) * sc, r, g, b);
+  });
+}
+function starVerts(pts, outer, inner, off, r, g, b) {
+  const n = pts * 2;
+  return curve(n, i => {
+    const a = TAU * i / n + off - PI / 2;
+    const rad = (i % 2 === 0) ? outer : inner;
+    return V(Math.cos(a) * rad, Math.sin(a) * rad, r, g, b);
+  });
+}
+function prj(v, ry, rx, sc) {
+  const x1 = v.x * Math.cos(ry) + v.z * Math.sin(ry);
+  const z1 = -v.x * Math.sin(ry) + v.z * Math.cos(ry);
+  const y2 = v.y * Math.cos(rx) - z1 * Math.sin(rx);
+  return { x: x1 * sc, y: y2 * sc };
+}
+// Greedy edge-chain walker — mirrors buildWfChains() in the firmware.
+function buildChains(nv, E) {
+  const used = new Array(E.length).fill(false);
+  const adj = Array.from({ length: nv }, () => []);
+  E.forEach(([a, b], e) => { adj[a].push([e, b]); adj[b].push([e, a]); });
+  const chains = [];
+  for (let e0 = 0; e0 < E.length; e0++) {
+    if (used[e0]) continue;
+    used[e0] = true;
+    const start = E[e0][0];
+    let cur = E[e0][1];
+    const chain = [start, cur];
+    let closed = false;
+    while (chain.length <= nv + 1) {
+      let next = null;
+      for (const [e, other] of adj[cur]) if (!used[e]) { next = [e, other]; break; }
+      if (!next) break;
+      if (next[1] === start) { used[next[0]] = true; closed = true; break; }
+      used[next[0]] = true;
+      chain.push(next[1]);
+      cur = next[1];
+    }
+    chains.push({ chain, closed });
+  }
+  return chains;
+}
+function wf(f, verts3d, edges, ry, rx, sc, r, g, b) {
+  for (const { chain, closed } of buildChains(verts3d.length, edges)) {
+    const vs = chain.map(idx => {
+      const p = prj(verts3d[idx], ry, rx, sc);
+      return V(p.x, p.y, r, g, b);
+    });
+    f.seg(vs, closed);
+  }
+}
+function sinewave(f, A, freq, phOff, sc, r, g, b, N = 120) {
+  const effA = A * live.waveAmp, effF = freq * live.waveFreq;
+  f.seg(curve(N + 1, i => {
+    const x = L(-1, 1, i / N);
+    return V(x * sc, effA * Math.sin(effF * x * TAU + phOff) * sc, r, g, b);
+  }), false);
+}
+const CV = [{ x: -1, y: -1, z: -1 }, { x: 1, y: -1, z: -1 }, { x: 1, y: 1, z: -1 }, { x: -1, y: 1, z: -1 },
+            { x: -1, y: -1, z: 1 }, { x: 1, y: -1, z: 1 }, { x: 1, y: 1, z: 1 }, { x: -1, y: 1, z: 1 }];
+const CE = [[0, 1], [1, 2], [2, 3], [3, 0], [4, 5], [5, 6], [6, 7], [7, 4], [0, 4], [1, 5], [2, 6], [3, 7]];
+
+/* ── Live preset state (mirrors gLivePreset) ───────────────────────── */
+
+const live = {
+  waveAmp: 1.0, waveFreq: 1.0,
+  spiralArms: 2, tunnelRings: 6, tunnelSides: 4,
+  explosionRays: 16, fwShells: 2, fwGlitter: true,
+  mwDots: 60, mwTilt: 60,
+  trail: 6, randomHoldMs: 500,
+  countdownSec: 90, starfieldCount: 0
+};
+
+/* ── Preset table (order == firmware PRESETS[]) ────────────────────── */
+
+const PRESETS = [
+  ["Circle", "Geometry"], ["Square", "Geometry"], ["Triangle", "Geometry"], ["Pentagon", "Geometry"],
+  ["Hexagon", "Geometry"], ["Octagon", "Geometry"], ["Star 4", "Geometry"], ["Star 5", "Geometry"],
+  ["Star 6", "Geometry"], ["Star 8", "Geometry"],
+  ["Cross +", "Lines"], ["X Shape", "Lines"], ["Grid 3x3", "Lines"], ["H Line", "Lines"], ["Diagonal", "Lines"],
+  ["Archimedean Spiral", "Spirals"], ["Lissajous 1:2", "Spirals"], ["Lissajous 2:3", "Spirals"],
+  ["Lissajous 3:4", "Spirals"], ["Lissajous 3:5", "Spirals"], ["Lissajous 5:6", "Spirals"],
+  ["Double Spiral", "Spirals"], ["Rose 3", "Spirals"],
+  ["Rose 4", "Curves"], ["Heart", "Curves"], ["Infinity", "Curves"], ["Astroid", "Curves"], ["Epitrochoid", "Curves"],
+  ["Rotating Cube", "3D"], ["Static Cube", "3D"], ["Pyramid", "3D"], ["Octahedron", "3D"], ["Tetrahedron", "3D"],
+  ["Sine Wave", "Waves"], ["Standing Wave", "Waves"], ["Multi Wave", "Waves"], ["Ocean Wave", "Waves"],
+  ["Wave Interference", "Waves"], ["Sawtooth", "Waves"], ["Square Wave", "Waves"], ["Wave Packet", "Waves"],
+  ["Beat Wave", "Waves"], ["Radial Waves", "Waves"], ["FM Wave", "Waves"], ["Vortex", "Waves"],
+  ["Sine Helix", "Waves"], ["Wave Field", "Waves"], ["Fourier Square", "Waves"], ["Gravity Waves", "Waves"],
+  ["Tsunami", "Waves"], ["Wave Spectrum", "Waves"],
+  ["Hypotrochoid", "Complex"], ["Butterfly", "Complex"], ["Spirograph 5/3", "Complex"],
+  ["Concentric Rings", "Complex"], ["Nested Squares", "Complex"], ["Pulsing Circle", "Complex"],
+  ["Starburst", "Combo"], ["Chaos Bouncer", "Combo"], ["Laser Diamond", "Combo"],
+  ["Confetti Burst", "Combo"], ["Disco Ball", "Combo"],
+  ["Hibiscus", "Party"], ["Starburst Party", "Party"],
+  ["Starfield", "Scenes"],
+  ["Countdown Timer", "Timers"],
+  ["Pentagram", "Geometry"], ["DNA Helix", "Complex"], ["Yin Yang", "Symbols"],
+  ["Random Points", "Scenes"],
+  ["Three Circles", "Geometry"], ["Point Spread", "Scenes"],
+  ["Solar System", "Scenes"],
+  ["Bouncing Points", "Scenes"],
+  ["Shooting Stars", "Scenes"],
+  ["Pythagoras Tree", "Scenes"],
+  ["Endless Spiral", "Scenes"], ["Endless Tunnel", "Scenes"], ["Explosion Spread", "Scenes"],
+  ["Fireworks", "Scenes"], ["Milky Way", "Scenes"]
+];
+</script>
+<script>
+/* ══════════════════════════════════════════════════════════════════════
+   Generators — one function per preset index
+   ══════════════════════════════════════════════════════════════════════ */
+
+const state = {};                       // persistent per-preset state
+function resetState() { for (const k in state) delete state[k]; }
+const nowMs = () => performance.now();
+
+function genNgon(sides, colR, colG, colB) {
+  return (f, ph, sp, sz) => f.seg(ngonVerts(sides, SC * ssc(sz) * 0.9, aang(ph, sp), colR, colG, colB), true);
+}
+function genStar(pts, colR, colG, colB) {
+  return (f, ph, sp, sz) => {
+    const s = SC * ssc(sz) * 0.9;
+    f.seg(starVerts(pts, s, s * 0.36, aang(ph, sp), colR, colG, colB), true);
+  };
+}
+function genLissajous(N, fx, fy, phy, colR, colG, colB) {
+  return (f, ph, sp, sz) => {
+    const sc = SC * ssc(sz) * 0.9, off = aang(ph, sp);
+    f.seg(curve(N, (i, n) => {
+      const t = TAU * i / n;
+      return V(Math.cos(fx * t + off) * sc, Math.sin(fy * t + phy) * sc, colR, colG, colB);
+    }), true);
+  };
+}
+function genWave(colR, colG, colB, yFn, N = 120) {
+  return (f, ph, sp, sz) => {
+    const sc = SC * ssc(sz) * 0.9, t = aang(ph, sp);
+    const wa = live.waveAmp, wf_ = live.waveFreq;
+    f.seg(curve(N + 1, (i, n) => {
+      const xx = L(-1, 1, i / (n - 1));
+      return V(xx * sc, yFn(xx, t, wa, wf_) * sc, colR, colG, colB);
+    }), false);
+  };
+}
+
+const GEN = [];
+
+/* ── Geometry 0-9 ──────────────────────────────────────────────────── */
+GEN[0] = (f, ph, sp, sz) => {                                   // Circle
+  const sc = SC * ssc(sz) * 0.9, N = adaptN(sz, 360, 60, 900);
+  f.seg(curve(N, (i, n) => {
+    const t = csweep(ph, sp, i, n);
+    return V(Math.cos(t) * sc, Math.sin(t) * sc, 255, 255, 255);
+  }), false);
+};
+GEN[1] = genNgon(4, 255, 255, 0);
+GEN[2] = genNgon(3, 0, 255, 255);
+GEN[3] = genNgon(5, 255, 255, 0);
+GEN[4] = genNgon(6, 0, 255, 0);
+GEN[5] = genNgon(8, 0, 0, 255);
+GEN[6] = genStar(4, 255, 0, 0);
+GEN[7] = genStar(5, 255, 255, 0);
+GEN[8] = genStar(6, 0, 255, 0);
+GEN[9] = genStar(8, 0, 255, 255);
+
+/* ── Lines 10-14 ───────────────────────────────────────────────────── */
+GEN[10] = (f, ph, sp, sz) => {                                  // Cross +
+  const s = SC * ssc(sz) * 0.9;
+  f.line(-s, 0, s, 0, 255, 0, 0);
+  f.line(0, -s, 0, s, 0, 255, 0);
+};
+GEN[11] = (f, ph, sp, sz) => {                                  // X Shape
+  const s = SC * ssc(sz) * 0.65;
+  f.line(-s, -s, s, s, 0, 255, 255);
+  f.line(s, -s, -s, s, 255, 0, 255);
+};
+GEN[12] = (f, ph, sp, sz) => {                                  // Grid 3x3
+  const s = SC * ssc(sz) * 0.9, st = s * 2 / 3;
+  for (let i = 0; i <= 3; i++) { const x = -s + i * st; f.line(x, -s, x, s, 0, 255, 255); }
+  for (let i = 0; i <= 3; i++) { const y = -s + i * st; f.line(-s, y, s, y, 0, 255, 255); }
+};
+GEN[13] = (f, ph, sp, sz) => {                                  // H Line
+  const s = SC * ssc(sz) * 0.9, off = (aang(ph, sp) / TAU * 2 - 1) * s;
+  f.line(-s, off, s, off, 255, 255, 0);
+};
+GEN[14] = (f, ph, sp, sz) => {                                  // Diagonal
+  const s = SC * ssc(sz) * 0.9, a = aang(ph, sp);
+  const ca = Math.cos(a), sa = Math.sin(a);
+  f.line(-s * ca, -s * sa, s * ca, s * sa, 255, 0, 255);
+};
+
+/* ── Spirals 15-22 ─────────────────────────────────────────────────── */
+GEN[15] = (f, ph, sp, sz) => {                                  // Archimedean Spiral
+  const sc = SC * ssc(sz) * 0.9, off = aang(ph, sp), N = adaptN(sz, 200, 30, 400);
+  f.seg(curve(N, (i, n) => {
+    const t = i / n, a = t * TAU * 3.5 + off, rr = t * sc;
+    return V(Math.cos(a) * rr, Math.sin(a) * rr, b255(t * 255), b255((1 - t) * 255), 128);
+  }), false);
+};
+GEN[16] = genLissajous(112, 1, 2, PI / 4, 0, 255, 255);
+GEN[17] = genLissajous(176, 2, 3, PI / 4, 0, 255, 255);
+GEN[18] = genLissajous(240, 3, 4, PI / 3, 0, 255, 255);
+GEN[19] = genLissajous(288, 3, 5, PI / 6, 0, 0, 255);
+GEN[20] = genLissajous(352, 5, 6, TAU / 5, 255, 255, 0);
+GEN[21] = (f, ph, sp, sz) => {                                  // Double Spiral
+  const sc = SC * ssc(sz) * 0.9, off = aang(ph, sp), N = 150;
+  for (const [d, col] of [[0, [255, 80, 0]], [PI, [0, 80, 255]]]) {
+    f.seg(curve(N, (i, n) => {
+      const t = i / n, a = t * TAU * 3 + off + d, r = t * sc;
+      return V(Math.cos(a) * r, Math.sin(a) * r, col[0], col[1], col[2]);
+    }), false);
+  }
+};
+GEN[22] = (f, ph, sp, sz) => {                                  // Rose 3
+  const sc = SC * ssc(sz) * 0.9, N = 200;
+  f.seg(curve(N, (i, n) => {
+    const t = csweep(ph, sp, i, n), rad = sc * Math.cos(3 * t);
+    return V(rad * Math.cos(t), rad * Math.sin(t), 255, 100, 0);
+  }), false);
+};
+
+/* ── Curves 23-27 ──────────────────────────────────────────────────── */
+GEN[23] = (f, ph, sp, sz) => {                                  // Rose 4
+  const sc = SC * ssc(sz) * 0.9, N = 200;
+  f.seg(curve(N, (i, n) => {
+    const t = csweep(ph, sp, i, n), rad = sc * Math.cos(4 * t);
+    return V(rad * Math.cos(t), rad * Math.sin(t), 255, 50, 150);
+  }), false);
+};
+GEN[24] = (f, ph, sp, sz) => {                                  // Heart
+  const sc = SC * ssc(sz) * 0.045, a = aang(ph, sp), N = adaptN(sz, 200, 20, 300);
+  const ca = Math.cos(a), sa = Math.sin(a);
+  f.seg(curve(N, (i, n) => {
+    const t = TAU * i / n;
+    const hx = sc * 16 * Math.pow(Math.sin(t), 3);
+    const hy = sc * (13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t));
+    return V(hx * ca - hy * sa, hx * sa + hy * ca, 255, 0, 80);
+  }), true);
+};
+GEN[25] = (f, ph, sp, sz) => {                                  // Infinity
+  const sc = SC * ssc(sz) * 0.9, N = adaptN(sz, 500, 60, 800);
+  f.seg(curve(N, (i, n) => {
+    const t = csweep(ph, sp, i, n), d = 1 + Math.sin(t) * Math.sin(t);
+    return V(sc * Math.cos(t) / d, sc * Math.sin(t) * Math.cos(t) / d, 0, 200, 255);
+  }), false);
+};
+GEN[26] = (f, ph, sp, sz) => {                                  // Astroid
+  const sc = SC * ssc(sz) * 0.9, N = 200;
+  f.seg(curve(N, (i, n) => {
+    const t = csweep(ph, sp, i, n);
+    return V(sc * Math.pow(Math.cos(t), 3), sc * Math.pow(Math.sin(t), 3), 200, 255, 50);
+  }), false);
+};
+GEN[27] = (f, ph, sp, sz) => {                                  // Epitrochoid
+  const R = 3, r = 1, d = 2.5, peak = 1 / (R + r + d);
+  const sc = SC * ssc(sz) * 0.9 * peak, off = aang(ph, sp), N = 384;
+  f.seg(curve(N, (i, n) => {
+    const t = TAU * i / n + off;
+    return V(sc * ((R + r) * Math.cos(t) - d * Math.cos((R + r) * t / r)),
+             sc * ((R + r) * Math.sin(t) - d * Math.sin((R + r) * t / r)), 0, 255, 100);
+  }), true);
+};
+
+/* ── 3D 28-32 ──────────────────────────────────────────────────────── */
+GEN[28] = (f, ph, sp, sz) => wf(f, CV, CE, aang(ph, sp, 1), aang(ph, sp, 0.4), SC * ssc(sz) * 0.65, 0, 255, 255);
+GEN[29] = (f, ph, sp, sz) => wf(f, CV, CE, 0.6, 0.4, SC * ssc(sz) * 0.65, 255, 255, 0);
+GEN[30] = (f, ph, sp, sz) => {                                  // Pyramid
+  const Vp = [{ x: -1, y: -1, z: -1 }, { x: 1, y: -1, z: -1 }, { x: 1, y: -1, z: 1 }, { x: -1, y: -1, z: 1 }, { x: 0, y: 1, z: 0 }];
+  const Ep = [[0, 1], [1, 2], [2, 3], [3, 0], [0, 4], [1, 4], [2, 4], [3, 4]];
+  wf(f, Vp, Ep, aang(ph, sp), 0.3, SC * ssc(sz) * 0.65, 255, 255, 0);
+};
+GEN[31] = (f, ph, sp, sz) => {                                  // Octahedron
+  const Vo = [{ x: 1, y: 0, z: 0 }, { x: -1, y: 0, z: 0 }, { x: 0, y: 1, z: 0 }, { x: 0, y: -1, z: 0 }, { x: 0, y: 0, z: 1 }, { x: 0, y: 0, z: -1 }];
+  const Eo = [[0, 2], [0, 3], [1, 2], [1, 3], [0, 4], [0, 5], [1, 4], [1, 5], [2, 4], [2, 5], [3, 4], [3, 5]];
+  wf(f, Vo, Eo, aang(ph, sp), 0.35, SC * ssc(sz) * 0.7, 0, 255, 0);
+};
+GEN[32] = (f, ph, sp, sz) => {                                  // Tetrahedron
+  const Vt = [{ x: 0, y: 1, z: 0 }, { x: 0.943, y: -0.333, z: 0 }, { x: -0.471, y: -0.333, z: 0.816 }, { x: -0.471, y: -0.333, z: -0.816 }];
+  const Et = [[0, 1], [0, 2], [0, 3], [1, 2], [1, 3], [2, 3]];
+  wf(f, Vt, Et, aang(ph, sp, 1.2), 0.4, SC * ssc(sz) * 0.75, 0, 0, 255);
+};
+
+/* ── Waves 33-50 ───────────────────────────────────────────────────── */
+GEN[33] = (f, ph, sp, sz) => sinewave(f, 0.55, 1, aang(ph, sp), SC * ssc(sz) * 0.9, 0, 255, 255);
+GEN[34] = (f, ph, sp, sz) => {
+  const A = Math.abs(Math.sin(aang(ph, sp))) * 0.8 + 0.1;
+  sinewave(f, A, 2, 0, SC * ssc(sz) * 0.9, 0, 255, 0);
+};
+GEN[35] = (f, ph, sp, sz) => {                                  // Multi Wave
+  const sc = SC * ssc(sz) * 0.9, t = aang(ph, sp);
+  sinewave(f, 0.3, 1, t, sc, 255, 0, 0);
+  sinewave(f, 0.2, 2, t * 1.5, sc, 0, 255, 0);
+  sinewave(f, 0.15, 3, t * 2, sc, 0, 0, 255);
+};
+GEN[36] = genWave(0, 0, 255, (x, t, wa, wf_) =>
+  wa * (0.3 * Math.sin(4 * wf_ * x * PI + t) + 0.15 * Math.sin(8 * wf_ * x * PI + t * 1.7) + 0.08 * Math.sin(16 * wf_ * x * PI + t * 2.3)));
+GEN[37] = genWave(255, 255, 0, (x, t, wa, wf_) =>
+  wa * 0.45 * (Math.sin(5 * wf_ * x * PI + t) + Math.sin(7 * wf_ * x * PI - t)) * 0.5);
+GEN[38] = genWave(255, 0, 0, (x, t, wa, wf_) => {
+  const p = mod(x * 2 * wf_ + t / PI, 2);
+  return wa * 0.6 * (p < 1 ? p : p - 2);
+});
+GEN[39] = (f, ph, sp, sz) => {                                  // Square Wave
+  const sc = SC * ssc(sz) * 0.9, t = aang(ph, sp);
+  const wa = live.waveAmp, wf_ = live.waveFreq;
+  const cycles = Math.max(1, Math.round(3 * wf_)), steps = cycles * 2;
+  const amp = wa * 0.55 * sc, phi = mod(t, TAU) / TAU;
+  const verts = [];
+  let px = -sc, py = (Math.sin(phi * TAU) > 0 ? 1 : -1) * amp;
+  verts.push(V(px, py, 0, 0, 255));
+  for (let s = 0; s <= steps; s++) {
+    const x = L(-1, 1, s / steps) * sc;
+    const lvl = (Math.sin((s / steps + phi) * TAU * cycles) > 0 ? 1 : -1) * amp;
+    if (lvl !== py) { verts.push(V(px, lvl, 0, 0, 255)); py = lvl; }
+    verts.push(V(x, py, 0, 0, 255));
+    px = x;
+  }
+  f.seg(verts, false);
+};
+GEN[40] = genWave(0, 255, 0, (x, t, wa, wf_) => Math.exp(-12 * x * x) * wa * Math.sin(8 * wf_ * x * PI + t) * 0.8);
+GEN[41] = genWave(255, 255, 0, (x, t, wa, wf_) => 0.5 * wa * (Math.sin(10 * wf_ * x * PI + t) + Math.sin(11 * wf_ * x * PI + t)));
+GEN[42] = (f, ph, sp, sz) => {                                  // Radial Waves
+  const sc = SC * ssc(sz) * 0.9, t = aang(ph, sp);
+  const wa = live.waveAmp, wf_ = live.waveFreq, NR = 4, NA = 80;
+  for (let ring = 1; ring <= NR; ring++) {
+    const r = ring / NR, R = r * sc;
+    f.seg(curve(NA, (i, n) => {
+      const a = TAU * i / n, rad = R * (1 + 0.12 * wa * Math.sin(8 * wf_ * a + r * 8 * wf_ - t));
+      return V(Math.cos(a) * rad, Math.sin(a) * rad, 0, b255(100 + 155 * r), 255);
+    }), true);
+  }
+};
+GEN[43] = genWave(0, 255, 255, (x, t, wa, wf_) => 0.5 * wa * Math.sin(6 * wf_ * x * TAU + 4 * Math.sin(wf_ * x * TAU * 2 + t)));
+GEN[44] = (f, ph, sp, sz) => {                                  // Vortex
+  const sc = SC * ssc(sz) * 0.9, off = aang(ph, sp);
+  const wa = live.waveAmp, wf_ = live.waveFreq, N = 200;
+  f.seg(curve(N, (i, n) => {
+    const t = i / n, a = t * TAU * 4 * wf_ + off, r = sc * (1 - t * 0.8), w = 0.08 * wa * Math.sin(a * 8);
+    return V(Math.cos(a) * (r + w * sc), Math.sin(a) * (r + w * sc), b255(t * 255), b255((1 - t) * 200), 200);
+  }), false);
+};
+GEN[45] = (f, ph, sp, sz) => {                                  // Sine Helix
+  const sc = SC * ssc(sz) * 0.9, t = aang(ph, sp);
+  const wa = live.waveAmp, wf_ = live.waveFreq, N = 200;
+  f.seg(curve(N + 1, (i, n) => {
+    const u = L(-1, 1, i / (n - 1)), a = u * TAU * 3 * wf_ + t;
+    return V(u * sc, wa * Math.sin(a) * sc * 0.5, 0, b255(128 + 127 * Math.cos(a)), b255(128 + 127 * Math.sin(a)));
+  }), false);
+};
+GEN[46] = (f, ph, sp, sz) => {                                  // Wave Field
+  const sc = SC * ssc(sz) * 0.9, t = aang(ph, sp);
+  const wa = live.waveAmp, wf_ = live.waveFreq, NROW = 5, NX = 61;
+  for (let r0 = 0; r0 < NROW; r0++) {
+    const row = r0 - 2, y0 = row * 0.36;
+    f.seg(curve(NX, (i, n) => {
+      const x = L(-1, 1, i / (n - 1));
+      const y = y0 + 0.12 * wa * Math.sin(x * TAU * 3 * wf_ + t + row * 0.7);
+      return V(x * sc, y * sc, 0, b255(128 + 127 * Math.sin(row + t)), 200);
+    }), false);
+  }
+};
+GEN[47] = genWave(0, 255, 0, (x, t, wa, wf_) => {
+  let yy = 0;
+  for (let k = 1; k <= 5; k += 2) yy += Math.sin(k * x * TAU * 1.5 * wf_ + t) / k;
+  return yy * wa * 0.5;
+});
+GEN[48] = genWave(255, 0, 255, (x, t, wa, wf_) =>
+  Math.exp(-2 * Math.abs(x)) * wa * Math.sin(10 * wf_ * x * PI + t) * (0.4 + 0.4 * Math.abs(x)));
+GEN[49] = genWave(0, 255, 255, (x, t, wa, wf_) =>
+  (0.5 + 0.5 * x) * 0.5 * wa * Math.sin(TAU * (x * 2 * wf_ - t * 0.3)) * 0.7);
+GEN[50] = genWave(255, 200, 50, (x, t, wa, wf_) => {
+  let yy = 0;
+  for (let j = 0; j < 5; j++) { const k = j + 1; yy += Math.sin(k * wf_ * x * TAU + t * (j * 0.5 + 0.5)) * 0.2 / k; }
+  return yy * wa;
+});
+
+/* ── Complex 51-56 ─────────────────────────────────────────────────── */
+GEN[51] = (f, ph, sp, sz) => {                                  // Hypotrochoid
+  const R = 6, r = 1, d = 3, peak = 1 / ((R - r) + d);
+  const sc = SC * ssc(sz) * 0.9 * peak, off = aang(ph, sp), N = 384;
+  f.seg(curve(N, (i, n) => {
+    const t = TAU * i / n + off;
+    return V(sc * ((R - r) * Math.cos(t) + d * Math.cos((R - r) * t / r)),
+             sc * ((R - r) * Math.sin(t) - d * Math.sin((R - r) * t / r)), 255, 0, 255);
+  }), true);
+};
+GEN[52] = (f, ph, sp, sz) => {                                  // Butterfly
+  const sc = SC * ssc(sz) * 0.38, off = aang(ph, sp), N = 200;
+  f.seg(curve(N, (i, n) => {
+    const t = TAU * i / n;
+    const e = Math.exp(Math.cos(t)) - 2 * Math.cos(4 * t) - Math.pow(Math.sin(t / 12), 5);
+    return V(sc * e * Math.sin(t + off), sc * e * Math.cos(t + off), 255, 255, 0);
+  }), true);
+};
+GEN[53] = (f, ph, sp, sz) => {                                  // Spirograph 5/3
+  const off = aang(ph, sp), R = 5, r = 3, d = 1.5, peak = 1 / ((R - r) + d);
+  const sc = SC * ssc(sz) * 0.9 * peak, N = 288, co = Math.cos(off), so = Math.sin(off);
+  f.seg(curve(N, (i, n) => {
+    const t = 6 * PI * i / n;
+    const x = (R - r) * Math.cos(t) + d * Math.cos((R - r) / r * t);
+    const y = (R - r) * Math.sin(t) - d * Math.sin((R - r) / r * t);
+    return V(sc * (x * co - y * so), sc * (x * so + y * co), 0, 255, 255);
+  }), false);
+};
+GEN[54] = (f, ph, sp, sz) => {                                  // Concentric Rings
+  const sc = SC * ssc(sz) * 0.9, pulse = 0.8 + 0.2 * Math.abs(Math.sin(aang(ph, sp, 2)));
+  for (let ring = 1; ring <= 5; ring++) {
+    const r = sc * ring / 5 * pulse, h = ring / 5;
+    const cr = b255(Math.abs(Math.sin(h * PI)) * 255);
+    const cg = b255(Math.abs(Math.sin(h * PI + 2.094)) * 255);
+    const cb = b255(Math.abs(Math.sin(h * PI + 4.189)) * 255);
+    f.seg(ngonVerts(32, r, 0, cr, cg, cb), true);
+  }
+};
+GEN[55] = (f, ph, sp, sz) => {                                  // Nested Squares
+  const sc = SC * ssc(sz) * 0.9, br = aang(ph, sp);
+  for (let l = 0; l < 6; l++) {
+    const s = sc * (6 - l) / 6, rot = br + l * (PI / 24), h = l / 6;
+    const cr = b255(Math.abs(Math.sin(h * PI)) * 255);
+    const cg = b255(Math.abs(Math.sin(h * PI + 2.094)) * 255);
+    const cb = b255(Math.abs(Math.sin(h * PI + 4.189)) * 255);
+    f.seg(ngonVerts(4, s, rot, cr, cg, cb), true);
+  }
+};
+GEN[56] = (f, ph, sp, sz) => {                                  // Pulsing Circle
+  const sc = SC * ssc(sz) * 0.9;
+  const pulse = sc * (0.5 + 0.5 * Math.abs(Math.sin(aang(ph, sp, 3))));
+  const rot = aang(ph, sp, 0.2), N = 256;
+  f.seg(curve(N, (i, n) => {
+    const a = TAU * i / n + rot, wave = 1 + 0.15 * Math.sin(8 * a), r2 = pulse * wave;
+    return V(Math.cos(a) * r2, Math.sin(a) * r2, b255(200 + 55 * Math.sin(a)), 0, b255(200 + 55 * Math.cos(a)));
+  }), true);
+};
+
+/* ── Combo 57-61 ───────────────────────────────────────────────────── */
+GEN[57] = (f, ph, sp, sz) => {                                  // Starburst
+  const sc = SC * ssc(sz) * 0.9, off = aang(ph, sp), n = 24;
+  for (let i = 0; i < n; i++) {
+    const a = TAU * i / n + off, inner = sc * 0.3, outer = sc * (0.7 + 0.3 * Math.sin(i * 0.8));
+    const cr = b255(128 + 127 * Math.sin(a)), cg = b255(128 + 127 * Math.cos(a));
+    f.line(Math.cos(a) * inner, Math.sin(a) * inner, Math.cos(a) * outer, Math.sin(a) * outer, cr, cg, 255);
+  }
+};
+GEN[58] = (f, ph, sp, sz) => {                                  // Chaos Bouncer
+  const sc = SC * ssc(sz) * 0.9, dph = aang(ph, sp, 0.3);
+  const fx = 4.3, fy = 2.9, cycles = 4, N = 320;
+  const tri = u => (2 / PI) * Math.asin(Math.sin(u));
+  f.seg(curve(N, (i, n) => {
+    const t = TAU * cycles * i / (n - 1);
+    return V(sc * tri(fx * t + dph), sc * tri(fy * t),
+             b255(128 + 127 * Math.sin(t * 2 + dph)),
+             b255(128 + 127 * Math.sin(t * 3 + 1)),
+             b255(128 + 127 * Math.cos(t * 1.5)));
+  }), false);
+};
+GEN[59] = (f, ph, sp, sz) => {                                  // Laser Diamond
+  const sc = SC * ssc(sz) * 0.9, rot = aang(ph, sp);
+  const rotate = (v, a) => V(v[0] * sc * Math.cos(a) - v[1] * sc * Math.sin(a), v[0] * sc * Math.sin(a) + v[1] * sc * Math.cos(a));
+  const outer = [[0, 0.9], [0.9, 0], [0, -0.9], [-0.9, 0]].map(v => { const p = rotate(v, rot); return V(p.x, p.y, 0, 255, 255); });
+  const inner = [[0, 0.55], [0.55, 0], [0, -0.55], [-0.55, 0]].map(v => { const p = rotate(v, -rot); return V(p.x, p.y, 255, 0, 255); });
+  f.seg(outer, true);
+  f.seg(inner, true);
+  f.seg(ngonVerts(32, 0.72 * sc, rot, 0, 255, 255), true);
+};
+GEN[60] = (f, ph, sp, sz) => {                                  // Confetti Burst
+  const sc = SC * ssc(sz) * 0.9, burst = mod(aang(ph, sp, 0.5) / TAU, 1);
+  const NP = 18, NV = 4;
+  for (let p = 0; p < NP; p++) {
+    const ang = TAU * p / NP + p * 0.37;
+    const r = burst * (0.35 + 0.65 * mod(p * 0.191, 1)) * sc;
+    const cx = Math.cos(ang) * r, cy = Math.sin(ang) * r;
+    const spin = ang * 3 + burst * TAU * 2, pr = 0.05 * sc;
+    const cr = b255(128 + 127 * Math.sin(ang));
+    const cg = b255(128 + 127 * Math.sin(ang + 2.1));
+    const cb = b255(128 + 127 * Math.sin(ang + 4.2));
+    f.seg(curve(NV, (i, n) => {
+      const a = spin + TAU * i / n;
+      return V(cx + Math.cos(a) * pr, cy + Math.sin(a) * pr * 0.6, cr, cg, cb);
+    }), true);
+  }
+};
+GEN[61] = (f, ph, sp, sz) => {                                  // Disco Ball
+  const sc = SC * ssc(sz) * 0.9, rot = aang(ph, sp), yFore = 0.5;
+  f.seg(ngonVerts(48, sc, 0, 255, 255, 255), true);
+  for (let row = -2; row <= 2; row++) {
+    const lat = row * 30 * PI / 180, ry = Math.sin(lat) * sc, rx = Math.cos(lat) * sc;
+    const cw = row === 0 ? 255 : 200;
+    f.seg(curve(28, (i, n) => {
+      const a = TAU * i / n;
+      return V(Math.cos(a) * rx, ry + Math.sin(a) * rx * 0.12,
+               b255(cw * (0.5 + 0.5 * Math.sin(a + rot))),
+               b255(cw * (0.5 + 0.5 * Math.sin(a + rot + 2.094))),
+               b255(cw * (0.5 + 0.5 * Math.sin(a + rot + 4.189))));
+    }), true);
+  }
+  const NM = 6;
+  for (let mI = 0; mI < NM; mI++) {
+    const lon = PI * mI / NM + rot;
+    f.seg(curve(20, i => {
+      const v = -PI / 2 + PI * i / 19;
+      return V(Math.sin(lon) * Math.cos(v) * sc, Math.sin(v) * sc * yFore * 2,
+               b255(128 + 127 * Math.cos(lon * 2 + rot)), b255(128 + 127 * Math.sin(lon * 3 - rot)), 255);
+    }), false);
+  }
+};
+
+/* ── Party 62-63 ───────────────────────────────────────────────────── */
+GEN[62] = (f, ph, sp, sz) => {                                  // Hibiscus
+  const sc = SC * ssc(sz) * 0.9, rot = aang(ph, sp, 0.2);
+  const NP = 5, NT = 31, NC = 12;
+  for (let p = 0; p < NP; p++) {
+    const base = TAU * p / NP + rot, verts = [];
+    for (let i = 0; i < NT; i++) {
+      const t = i / (NT - 1), spread = Math.sin(t * PI), a = base + spread * 0.4, r = L(0.15, 0.65, t);
+      verts.push(V(Math.cos(a) * r * sc, Math.sin(a) * r * sc, 255, b255(50 + t * 100), b255(100 - t * 100)));
+    }
+    for (let i = 0; i < NT; i++) {
+      const t = (NT - 1 - i) / (NT - 1), spread = Math.sin(t * PI), a = base - spread * 0.4, r = L(0.15, 0.65, t);
+      verts.push(V(Math.cos(a) * r * sc, Math.sin(a) * r * sc, 255, b255(50 + t * 100), 0));
+    }
+    f.seg(verts, true);
+  }
+  f.seg(curve(NC, (i, n) => {
+    const a = TAU * i / n + rot * 2;
+    return V(Math.cos(a) * 0.12 * sc, Math.sin(a) * 0.12 * sc, 255, 255, 0);
+  }), true);
+};
+GEN[63] = GEN[57];                                              // Starburst Party
+
+/* ── Scenes / specials ─────────────────────────────────────────────── */
+GEN[64] = (f, ph, sp, sz) => {                                  // Starfield
+  let nStars = 1 + Math.round(sz / 255 * 149);
+  const baseSpd = (sp / 255) * 40;
+  const perStar = optCfg.blank + 6;
+  const budget = optCfg.maxPts;
+  if (nStars * perStar > budget) nStars = Math.max(1, Math.floor(budget / perStar));
+  const stars = [];
+  for (let i = 0; i < nStars; i++) {
+    const xPos = (sHash(i * 7) * 2 - 1) * SC * 0.95;
+    const iSpd = baseSpd * (0.3 + sHash(i * 3) * 1.4);
+    const off = sHash(i * 5) * 2.2;
+    const yNorm = 1.1 - mod(ph * iSpd * 0.0004 + off, 2.2);
+    if (yNorm < -1.1 || yNorm > 1.1) continue;
+    const period = Math.floor(ph * iSpd * 0.0004);
+    const bright = 20 + Math.floor(sHash(i * 2 + period) * 235);
+    stars.push({
+      x: xPos, y: yNorm * SC * 0.95,
+      r: bright, g: b255(bright * (0.85 + sHash(i * 11) * 0.15)),
+      b: bright > 160 ? Math.min(255, bright + 40) : b255(bright * 0.6)
+    });
+  }
+  live.starfieldCount = stars.length;
+  // greedy nearest-neighbour emission order (as in firmware)
+  const used = new Array(stars.length).fill(false);
+  let cx = 0, cy = 0;
+  for (let s = 0; s < stars.length; s++) {
+    let best = -1, bd = Infinity;
+    for (let k = 0; k < stars.length; k++) {
+      if (used[k]) continue;
+      const dx = stars[k].x - cx, dy = stars[k].y - cy, d2 = dx * dx + dy * dy;
+      if (d2 < bd) { bd = d2; best = k; }
+    }
+    if (best < 0) break;
+    used[best] = true;
+    cx = stars[best].x; cy = stars[best].y;
+    f.dot(stars[best].x, stars[best].y, stars[best].r, stars[best].g, stars[best].b);
+  }
+};
+
+GEN[65] = (f, ph, sp, sz) => {                                  // Countdown Timer
+  if (state.cdEnd === undefined) state.cdEnd = nowMs() + live.countdownSec * 1000;
+  let rem = Math.max(0, Math.ceil((state.cdEnd - nowMs()) / 1000));
+  const expired = rem === 0;
+  let cr, cg, cb;
+  if (expired) { const blink = Math.floor(ph) % 60 < 30; cr = blink ? 255 : 0; cg = 0; cb = 0; }
+  else if (rem <= 10) { cr = 255; cg = 0; cb = 0; }
+  else if (rem <= 30) { cr = 255; cg = 255; cb = 0; }
+  else { cr = 0; cg = 255; cb = 0; }
+
+  const hh = Math.floor(rem / 3600), mm = Math.floor((rem % 3600) / 60), ss = rem % 60;
+  const sc2 = ssc(sz) * 0.85;
+  const dw = SC * 0.18 * sc2, dh = SC * 0.38 * sc2, gap = SC * 0.06 * sc2, cdot = SC * 0.04 * sc2;
+  const showH = hh > 0;
+  const totalW = showH ? (dw * 2 + gap) * 3 + gap * 2 : (dw * 2 + gap) * 2 + gap;
+  let ox = -totalW * 0.5 + dw + gap * 0.5;
+
+  const SEG = [
+    [1,1,1,1,1,1,0],[0,1,1,0,0,0,0],[1,1,0,1,1,0,1],[1,1,1,1,0,0,1],[0,1,1,0,0,1,1],
+    [1,0,1,1,0,1,1],[1,0,1,1,1,1,1],[1,1,1,0,0,0,0],[1,1,1,1,1,1,1],[1,1,1,1,0,1,1]
+  ];
+  const digit = (xc, d) => {
+    const hw = dw * 0.5, hh2 = dh * 0.5, mh = dh * 0.02;
+    const segs = [
+      [xc - hw + mh, hh2, xc + hw - mh, hh2],
+      [xc + hw, mh, xc + hw, hh2 - mh],
+      [xc + hw, -hh2 + mh, xc + hw, -mh],
+      [xc - hw + mh, -hh2, xc + hw - mh, -hh2],
+      [xc - hw, -hh2 + mh, xc - hw, -mh],
+      [xc - hw, mh, xc - hw, hh2 - mh],
+      [xc - hw + mh, 0, xc + hw - mh, 0]
+    ];
+    for (let i = 0; i < 7; i++) if (SEG[d][i]) f.line(segs[i][0], segs[i][1], segs[i][2], segs[i][3], cr, cg, cb);
+  };
+  const colon = cx => {
+    f.line(cx - cdot * 0.5, dh * 0.28, cx + cdot * 0.5, dh * 0.28, cr, cg, cb);
+    f.line(cx - cdot * 0.5, -dh * 0.28, cx + cdot * 0.5, -dh * 0.28, cr, cg, cb);
+  };
+  if (showH) {
+    digit(ox, Math.floor(hh / 10) % 10); digit(ox + dw + gap, hh % 10);
+    colon(ox + dw * 2 + gap * 1.5);
+    ox += (dw * 2 + gap) + gap * 2;
+  }
+  digit(ox, Math.floor(mm / 10)); digit(ox + dw + gap, mm % 10);
+  colon(ox + dw * 2 + gap * 1.5);
+  ox += (dw * 2 + gap) + gap * 2;
+  digit(ox, Math.floor(ss / 10)); digit(ox + dw + gap, ss % 10);
+};
+
+GEN[66] = (f, ph, sp, sz) => {                                  // Pentagram
+  const sc = SC * ssc(sz) * 0.9, off = aang(ph, sp);
+  f.seg(curve(5, (k) => {
+    const a = off + k * 4 * PI / 5 - PI / 2;
+    return V(Math.cos(a) * sc, Math.sin(a) * sc, 255, 0, 255);
+  }), true);
+};
+GEN[67] = (f, ph, sp, sz) => {                                  // DNA Helix
+  const sc = SC * ssc(sz) * 0.9, amp = sc * 0.32, off = aang(ph, sp);
+  const NS = 70, TURNS = 3;
+  for (const [dphase, col] of [[0, [0, 255, 255]], [PI, [255, 0, 255]]]) {
+    f.seg(curve(NS + 1, i => {
+      const t = i / NS, x = L(-sc, sc, t), a = t * TAU * TURNS + off + dphase;
+      return V(x, amp * Math.sin(a), col[0], col[1], col[2]);
+    }), false);
+  }
+  const RUNGS = 9;
+  for (let r = 0; r < RUNGS; r++) {
+    const t = r / (RUNGS - 1), x = L(-sc, sc, t), a = t * TAU * TURNS + off;
+    f.line(x, amp * Math.sin(a), x, amp * Math.sin(a + PI), 255, 255, 255);
+  }
+};
+GEN[68] = (f, ph, sp, sz) => {                                  // Yin Yang
+  const R = SC * ssc(sz) * 0.85, off = aang(ph, sp);
+  const c = Math.cos(off), s = Math.sin(off);
+  const rot = (x, y, r, g, b) => V(x * c - y * s, x * s + y * c, r, g, b);
+  const NC = 64, NS = 32, ND = 20;
+  f.seg(curve(NC, (i, n) => { const a = TAU * i / n; return rot(R * Math.cos(a), R * Math.sin(a), 255, 255, 255); }), true);
+  const sChain = [];
+  for (let i = 0; i <= NS; i++) { const a = -PI / 2 + PI * i / NS; sChain.push(rot(R * 0.5 * Math.cos(a), R * 0.5 + R * 0.5 * Math.sin(a), 255, 255, 255)); }
+  for (let i = 1; i <= NS; i++) { const a = PI / 2 + PI * i / NS; sChain.push(rot(R * 0.5 * Math.cos(a), -R * 0.5 + R * 0.5 * Math.sin(a), 255, 255, 255)); }
+  f.seg(sChain, false);
+  const rd = R * 0.14;
+  f.seg(curve(ND, (i, n) => { const a = TAU * i / n; return rot(rd * Math.cos(a), R * 0.5 + rd * Math.sin(a), 255, 0, 0); }), true);
+  f.seg(curve(ND, (i, n) => { const a = TAU * i / n; return rot(rd * Math.cos(a), -R * 0.5 + rd * Math.sin(a), 0, 255, 255); }), true);
+};
+GEN[69] = (f, ph, sp, sz) => {                                  // Random Points
+  const RANDOM_PTS_MAX_COUNT = 14;
+  const nSlots = 1 + Math.round(sz / 255 * (RANDOM_PTS_MAX_COUNT - 1));
+  const fadeMs = 750 - (sp / 255) * 650;
+  const holdMs = Math.max(50, live.randomHoldMs);
+  const onMs = fadeMs * 2 + holdMs, periodMs = onMs * 2, t0 = nowMs();
+  for (let k = 0; k < nSlots; k++) {
+    const slotOff = sHash(k * 97 + 11) * periodMs;
+    const t = mod(t0 + slotOff, periodMs);
+    if (t >= onMs) continue;
+    const cycleIdx = Math.floor((t0 + slotOff) / periodMs);
+    const seed = k * 10007 + cycleIdx * 997;
+    const px = (sHash(seed * 3 + 1) * 2 - 1) * SC * 0.9;
+    const py = (sHash(seed * 7 + 2) * 2 - 1) * SC * 0.9;
+    const hue = sHash(seed * 5 + 3) * TAU;
+    let v;
+    if (t < fadeMs) v = t / fadeMs;
+    else if (t < fadeMs + holdMs) v = 1;
+    else v = 1 - (t - fadeMs - holdMs) / fadeMs;
+    f.dot(px, py, b255((128 + 127 * Math.sin(hue)) * v),
+                  b255((128 + 127 * Math.sin(hue + 2.094)) * v),
+                  b255((128 + 127 * Math.sin(hue + 4.189)) * v));
+  }
+};
+GEN[70] = (f, ph, sp, sz) => {                                  // Three Circles
+  const sc = SC * ssc(sz) * 0.9, cx = 0.62 * sc, rad = 0.28 * sc;
+  const xs = [-cx, 0, cx], cols = [[255, 0, 0], [0, 255, 0], [0, 0, 255]];
+  for (let c = 0; c < 3; c++) {
+    f.seg(curve(32, (i, n) => {
+      const a = TAU * i / n;
+      return V(xs[c] + Math.cos(a) * rad, Math.sin(a) * rad, cols[c][0], cols[c][1], cols[c][2]);
+    }), true);
+  }
+};
+GEN[71] = (f, ph, sp, sz) => {                                  // Point Spread
+  const sc = SC * 0.85;
+  const N = clamp(1 + Math.floor(sz * 11 / 255), 1, 12);
+  for (let i = 0; i < N; i++) {
+    let x, y;
+    if (N === 1) { x = 0; y = 0; }
+    else { const a = TAU * i / N - PI / 2; x = Math.cos(a) * sc; y = Math.sin(a) * sc; }
+    const h = i / (N > 1 ? N : 1);
+    f.dot(x, y, b255(Math.abs(Math.sin(h * PI)) * 255),
+                b255(Math.abs(Math.sin(h * PI + 2.094)) * 255),
+                b255(Math.abs(Math.sin(h * PI + 4.189)) * 255));
+  }
+};
+GEN[72] = (f, ph, sp, sz) => {                                  // Solar System
+  const sc = SC * ssc(sz) * 0.9;
+  const ap_ = aang(ph, sp), am = aang(ph, sp, 4);
+  const rSun = sc * 0.16, rPla = sc * 0.08, rMoo = sc * 0.04;
+  const oPla = sc * 0.48, oMoo = sc * 0.20;
+  const px = Math.cos(ap_) * oPla, py = Math.sin(ap_) * oPla;
+  const mx = px + Math.cos(am) * oMoo, my = py + Math.sin(am) * oMoo;
+  f.seg(curve(48, (i, n) => { const a = TAU * i / n; return V(Math.cos(a) * rSun, Math.sin(a) * rSun, 255, 255, 0); }), true);
+  f.seg(curve(36, (i, n) => { const a = TAU * i / n; return V(px + Math.cos(a) * rPla, py + Math.sin(a) * rPla, 0, 0, 255); }), true);
+  f.seg(curve(24, (i, n) => { const a = TAU * i / n; return V(mx + Math.cos(a) * rMoo, my + Math.sin(a) * rMoo, 255, 0, 255); }), true);
+};
+
+GEN[73] = (f, ph, sp, sz) => {                                  // Bouncing Points
+  const MAXB = 8, TRAILMAX = 12;
+  if (!state.balls) {
+    state.balls = [];
+    for (let k = 0; k < MAXB; k++) {
+      const ang = sHash(k * 7919 + 1) * TAU;
+      const b = {
+        x: (sHash(k * 3 + 1) * 2 - 1) * SC * 0.5,
+        y: (sHash(k * 5 + 2) * 2 - 1) * SC * 0.5,
+        vx: Math.cos(ang), vy: Math.sin(ang), tx: [], ty: []
+      };
+      for (let t = 0; t < TRAILMAX; t++) { b.tx.push(b.x); b.ty.push(b.y); }
+      state.balls.push(b);
+    }
+    state.lastMs = nowMs();
+  }
+  const now = nowMs();
+  let dt = Math.min(50, now - state.lastMs);
+  state.lastMs = now;
+  const nBalls = clamp(1 + Math.round((sz / 255) * (MAXB - 1)), 1, MAXB);
+  const spd = 4 + (sp / 255) * 32;                 // DAC units per millisecond
+  const boundary = SC * 0.92;
+  const trailLen = Math.min(live.trail, TRAILMAX);
+
+  for (let k = 0; k < nBalls; k++) {
+    const b = state.balls[k];
+    b.x += b.vx * spd * dt;
+    b.y += b.vy * spd * dt;
+    const tdx = b.x - b.tx[0], tdy = b.y - b.ty[0];
+    if (tdx * tdx + tdy * tdy >= 400) {
+      b.tx.unshift(b.x); b.ty.unshift(b.y);
+      b.tx.length = TRAILMAX; b.ty.length = TRAILMAX;
+    }
+    if (b.x > boundary) { b.x = 2 * boundary - b.x; b.vx = -Math.abs(b.vx); }
+    if (b.x < -boundary) { b.x = -2 * boundary - b.x; b.vx = Math.abs(b.vx); }
+    if (b.y > boundary) { b.y = 2 * boundary - b.y; b.vy = -Math.abs(b.vy); }
+    if (b.y < -boundary) { b.y = -2 * boundary - b.y; b.vy = Math.abs(b.vy); }
+  }
+  for (let k = 0; k < nBalls; k++) {
+    const b = state.balls[k], hue = TAU * k / nBalls;
+    const br = 128 + 127 * Math.sin(hue), bg = 128 + 127 * Math.sin(hue + 2.094), bb = 128 + 127 * Math.sin(hue + 4.189);
+    for (let t = trailLen - 1; t >= 0; t--) {
+      const fade = 1 - (t + 1) / (trailLen + 1);
+      f.dot(b.tx[t], b.ty[t], b255(br * fade), b255(bg * fade), b255(bb * fade));
+    }
+    f.dot(b.x, b.y, b255(br), b255(bg), b255(bb));
+  }
+};
+
+GEN[74] = (f, ph, sp, sz) => {                                  // Shooting Stars
+  const SSMAX = 8, TRAIL = 14;
+  const baseSpd = 8 + (sp / 255) * 72;
+  const spawn = (met, idx, seed) => {
+    const side = sHash(seed);
+    const ang = (0.35 + sHash(seed + 7) * 0.35) * PI;
+    met.vx = Math.cos(ang) * baseSpd;
+    met.vy = Math.sin(ang) * baseSpd;
+    if (side < 0.5) {
+      met.x = (sHash(seed + 1) * 2 - 1) * SC * 0.9;
+      met.y = SC * 0.95;
+      met.vy = -Math.abs(met.vy);
+    } else {
+      met.x = -SC * 0.95;
+      met.y = (sHash(seed + 2) * 2 - 1) * SC * 0.9;
+      met.vx = Math.abs(met.vx);
+    }
+    met.tx = new Array(TRAIL).fill(met.x);
+    met.ty = new Array(TRAIL).fill(met.y);
+    met.plusX = met.x; met.plusY = met.y; met.plusStart = 0; met.hue = idx;
+  };
+  if (!state.meteors) {
+    state.meteors = [];
+    for (let k = 0; k < SSMAX; k++) {
+      const met = {}; spawn(met, k, k * 6271 + 1);
+      const offv = sHash(k * 6271 + 4) * 2;
+      met.x += met.vx * offv * 500; met.y += met.vy * offv * 500;
+      met.tx.fill(met.x); met.ty.fill(met.y);
+      state.meteors.push(met);
+    }
+    state.lastMs = nowMs();
+  }
+  const now = nowMs();
+  const dt = Math.min(100, now - state.lastMs) || 16;
+  state.lastMs = now;
+  const nM = 1 + Math.round((sz / 255) * (SSMAX - 1));
+  const boundary = SC * 0.98, plusDur = 600;
+
+  for (let k = 0; k < nM; k++) {
+    const met = state.meteors[k];
+    const len = Math.hypot(met.vx, met.vy);
+    if (len > 0.1) { met.vx = met.vx / len * baseSpd; met.vy = met.vy / len * baseSpd; }
+    met.x += met.vx * dt; met.y += met.vy * dt;
+    const dx = met.x - met.tx[0], dy = met.y - met.ty[0];
+    if (dx * dx + dy * dy >= 400) {
+      met.tx.unshift(met.x); met.ty.unshift(met.y);
+      met.tx.length = TRAIL; met.ty.length = TRAIL;
+    }
+    if (Math.abs(met.x) > boundary || Math.abs(met.y) > boundary) {
+      const px = clamp(met.x, -boundary, boundary), py = clamp(met.y, -boundary, boundary);
+      spawn(met, k, Math.floor(now) ^ (k * 6271));
+      met.plusX = px; met.plusY = py; met.plusStart = now;
+    }
+  }
+  for (let k = 0; k < nM; k++) {
+    const met = state.meteors[k], hue = TAU * met.hue / SSMAX;
+    const cr = 180 + 75 * Math.sin(hue), cg = 180 + 75 * Math.sin(hue + 2.094);
+    for (let t = TRAIL - 1; t >= 0; t--) {
+      const fade = 1 - (t + 1) / (TRAIL + 1);
+      f.dot(met.tx[t], met.ty[t], b255(cr * fade), b255(cg * fade), b255(255 * fade));
+    }
+    f.dot(met.x, met.y, b255(cr), b255(cg), 255);
+    if (met.plusStart > 0 && now - met.plusStart < plusDur) {
+      const tn = 1 - (now - met.plusStart) / plusDur, fade = tn * tn, pv = b255(255 * fade);
+      const arm = SC * 0.06;
+      f.dot(met.plusX - arm, met.plusY, pv, pv, pv);
+      f.dot(met.plusX, met.plusY, pv, pv, pv);
+      f.dot(met.plusX + arm, met.plusY, pv, pv, pv);
+      f.dot(met.plusX, met.plusY - arm, pv, pv, pv);
+      f.dot(met.plusX, met.plusY + arm, pv, pv, pv);
+    }
+  }
+};
+
+GEN[75] = (f, ph, sp, sz) => {                                  // Pythagoras Tree
+  const PT_DEPTH = 7;
+  const spd = 0.003 + (sp / 255) * 0.027;
+  const frac = mod(ph * spd, 1);
+  const zoom = Math.pow(0.5, frac);
+  const cosA = 0.70711, sinA = 0.70711;
+  const baseW = SC * (0.55 + (sz / 255) * 0.35) * zoom;
+  const stack = [{ x0: -baseW * 0.5, y0: SC * 0.72, x1: baseW * 0.5, y1: SC * 0.72, depth: 0 }];
+  const drawDepth = PT_DEPTH + 1;
+  let guard = 0;
+  while (stack.length && guard++ < 600) {
+    const fr = stack.pop();
+    const ex = fr.x1 - fr.x0, ey = fr.y1 - fr.y0, w = Math.hypot(ex, ey);
+    if (w < 2) continue;
+    const upx = ey, upy = -ex;
+    const blx = fr.x0, bly = fr.y0, brx = fr.x1, bry = fr.y1;
+    const trx = brx + upx, try_ = bry + upy, tlx = blx + upx, tly = bly + upy;
+    let brightness = 1;
+    if (fr.depth === 0) brightness = 1 - frac;
+    else if (fr.depth === drawDepth) brightness = frac;
+    const cd = Math.min(fr.depth, PT_DEPTH), tc = cd / PT_DEPTH;
+    const cr = b255(255 * (1 - tc) * brightness), cg = b255(255 * tc * brightness);
+    f.line(blx, -bly, tlx, -tly, cr, cg, 0);
+    f.line(brx, -bry, trx, -try_, cr, cg, 0);
+    if (fr.depth < drawDepth) {
+      const rx = ex * cosA + ey * sinA, ry = -ex * sinA + ey * cosA;
+      const len = Math.hypot(rx, ry), wL = w * cosA;
+      const apLx = tlx + rx / len * wL, apLy = tly + ry / len * wL;
+      stack.push({ x0: tlx, y0: tly, x1: apLx, y1: apLy, depth: fr.depth + 1 });
+      stack.push({ x0: apLx, y0: apLy, x1: trx, y1: try_, depth: fr.depth + 1 });
+    }
+  }
+};
+
+GEN[76] = (f, ph, sp, sz) => {                                  // Endless Spiral
+  const sc = SC * ssc(sz) * 0.95, flow = aang(ph, sp);
+  const arms = clamp(live.spiralArms, 1, 6), perArm = adaptN(sz, 150, 40, 300), turns = 4;
+  for (let a = 0; a < arms; a++) {
+    const armPhase = TAU * a / arms;
+    f.seg(curve(perArm, i => {
+      const t = i / (perArm - 1);
+      const ang = armPhase + flow + t * turns * TAU, rad = t * sc;
+      const v = b255(40 + 215 * t);
+      return V(Math.cos(ang) * rad, Math.sin(ang) * rad, v, 0, b255(255 - v));
+    }), false);
+  }
+};
+GEN[77] = (f, ph, sp, sz) => {                                  // Endless Tunnel
+  const sc = SC * ssc(sz) * 0.98;
+  const rings = clamp(live.tunnelRings, 3, 12), sides = clamp(live.tunnelSides, 3, 10);
+  const vpx = sc * 0.12, vpy = -sc * 0.10;
+  const travel = sp === 0 ? 0 : mod(ph * (sp / 9000), 1);
+  for (let rIdx = 0; rIdx < rings; rIdx++) {
+    let depth = rIdx / rings + travel / rings;
+    depth -= Math.floor(depth);
+    const scale = 0.04 + depth * depth, rad = scale * sc;
+    const v = b255(30 + 225 * depth);
+    const cx = vpx * (1 - depth), cy = vpy * (1 - depth);
+    f.seg(curve(sides, (s, n) => {
+      const aa = TAU * s / n - PI / 2;
+      return V(cx + Math.cos(aa) * rad, cy + Math.sin(aa) * rad, v, b255(v / 2), 255);
+    }), true);
+  }
+};
+GEN[78] = (f, ph, sp, sz) => {                                  // Explosion Spread
+  const sc = SC * ssc(sz) * 0.95;
+  const rays = clamp(live.explosionRays, 4, 40);
+  const cycleMs = 1600 - (sp / 255) * 1400;
+  const now = nowMs();
+  const cycleId = Math.floor(now / cycleMs);
+  const prog = (now % cycleMs) / cycleMs;
+  const ease = 1 - (1 - prog) * (1 - prog);
+  const fade = prog < 0.7 ? 1 : (1 - (prog - 0.7) / 0.3);
+  for (let i = 0; i < rays; i++) {
+    const baseA = TAU * i / rays;
+    const jit = (sHash(cycleId * 131 + i * 17) - 0.5) * (TAU / rays);
+    const ang = baseA + jit;
+    const rOuter = ease * sc, rInner = rOuter * 0.55;
+    const hueI = i * 255 / rays;
+    const r = b255(Math.abs(Math.sin(hueI / 40)) * 255 * fade);
+    const g = b255(Math.abs(Math.sin(hueI / 40 + 2.094)) * 255 * fade);
+    const b = b255(Math.abs(Math.sin(hueI / 40 + 4.189)) * 255 * fade);
+    f.line(Math.cos(ang) * rInner, Math.sin(ang) * rInner, Math.cos(ang) * rOuter, Math.sin(ang) * rOuter, r, g, b);
+  }
+};
+GEN[79] = (f, ph, sp, sz) => {                                  // Fireworks
+  const sc = SC * ssc(sz) * 0.9;
+  const shells = clamp(live.fwShells, 1, 3), glitter = live.fwGlitter;
+  const riseMs = 1800 - (sp / 255) * 1500, burstMs = 1100;
+  const lifeMs = riseMs + burstMs, periodMs = lifeMs + 400;
+  const now = nowMs();
+  for (let s = 0; s < shells; s++) {
+    const off = sHash(s * 733 + 3) * periodMs;
+    const t = mod(now + off, periodMs);
+    const cycle = Math.floor((now + off) / periodMs);
+    if (t >= lifeMs) continue;
+    const seed = s * 10007 + cycle * 997;
+    const launchX = (sHash(seed + 1) * 1.6 - 0.8) * sc;
+    const burstY = (0.15 + sHash(seed + 2) * 0.55) * sc;
+    const hue = sHash(seed + 3) * TAU;
+    const startY = -sc * 0.95;
+    const driftX = (sHash(seed + 5) - 0.5) * 0.35 * sc;
+    const curveX = (sHash(seed + 6) - 0.5) * 0.18 * sc;
+    const finalX = launchX + driftX;
+    if (t < riseMs) {
+      const rp = t / riseMs;
+      const ry = L(startY, burstY, rp);
+      const rx = launchX + driftX * rp + curveX * Math.sin(rp * PI);
+      const rv = b255(180 + 75 * Math.sin(rp * PI));
+      f.dot(rx, ry, rv, rv, 255);
+    } else {
+      const bp = (t - riseMs) / burstMs;
+      const ease = 1 - (1 - bp) * (1 - bp);
+      const fade = bp < 0.6 ? 1 : (1 - (bp - 0.6) / 0.4);
+      if (bp < 0.12) { const fv = b255(255 * (1 - bp / 0.12)); f.dot(finalX, burstY, fv, fv, fv); }
+      const variant = Math.floor(sHash(seed + 60) * 4) & 3;
+      const sparks = variant === 3 ? 26 : (variant === 1 ? 24 : 18);
+      const radBase = ease * sc * 0.42;
+      const h = hue + bp * PI;
+      for (let i = 0; i < sparks; i++) {
+        const a = TAU * i / sparks + (sHash(seed + 40 + i) - 0.5) * 0.3;
+        let gl = 1;
+        if (glitter) {
+          const tw = sHash(Math.floor(now / 60) * 31 + i * 7 + seed);
+          gl = 0.35 + 0.65 * (tw > 0.5 ? 1 : 0.25);
+        }
+        let px, py;
+        if (variant === 0) { const rad = radBase * 0.55; px = finalX + Math.cos(a) * rad; py = burstY + Math.sin(a) * rad; }
+        else if (variant === 1) { const rad = radBase * 1.35; px = finalX + Math.cos(a) * rad; py = burstY + Math.sin(a) * rad; }
+        else if (variant === 2) {
+          const radX = radBase * (0.9 + sHash(seed + 61) * 0.5);
+          const radY = radX * (0.35 + sHash(seed + 62) * 0.35);
+          const rot = sHash(seed + 63) * TAU;
+          const lx = Math.cos(a) * radX, ly = Math.sin(a) * radY;
+          px = finalX + lx * Math.cos(rot) - ly * Math.sin(rot);
+          py = burstY + lx * Math.sin(rot) + ly * Math.cos(rot);
+        } else {
+          const outRad = radBase * 0.5, fall = bp * bp * sc * 0.5;
+          px = finalX + Math.cos(a) * outRad;
+          py = burstY + Math.sin(a) * outRad * 0.4 - fall;
+        }
+        let r, g, b;
+        if (variant === 3) { r = b255(255 * fade * gl); g = b255(190 * fade * gl); b = b255(40 * fade * gl); }
+        else {
+          r = b255((128 + 127 * Math.sin(h)) * fade * gl);
+          g = b255((128 + 127 * Math.sin(h + 2.094)) * fade * gl);
+          b = b255((128 + 127 * Math.sin(h + 4.189)) * fade * gl);
+        }
+        f.dot(px, py, r, g, b);
+      }
+    }
+  }
+};
+GEN[80] = (f, ph, sp, sz) => {                                  // Milky Way
+  const sc = SC * ssc(sz) * 0.92;
+  const dots = clamp(live.mwDots, 10, 60), tiltPct = clamp(live.mwTilt, 20, 80);
+  const yScale = tiltPct / 100, rot = aang(ph, sp), armTurns = 2.4;
+  for (let i = 0; i < dots; i++) {
+    const t = i / (dots - 1), arm = i & 1, armA = arm * PI;
+    const rad = Math.pow(t, 0.7) * sc;
+    const jit = (sHash(i * 53 + 7) - 0.5) * 0.35;
+    const ang = armA + rot + t * armTurns * TAU + jit;
+    const x = Math.cos(ang) * rad, y = Math.sin(ang) * rad * yScale;
+    const coreB = 1 - 0.6 * t;
+    const tw = 0.8 + 0.2 * sHash(Math.floor(ph / 4) * 17 + i * 3);
+    const v = clamp(255 * coreB * tw, 20, 255);
+    f.dot(x, y, b255(v * (0.85 - 0.35 * t)), b255(v * (0.9 - 0.2 * t)), b255(v));
+  }
+};
+</script>
+<script>
+/* ══════════════════════════════════════════════════════════════════════
+   Simplified point optimizer + post-processing + renderer
+   ══════════════════════════════════════════════════════════════════════ */
+
+const optCfg = { maxPts: 1010, pts: 6.0, blank: 16, minBlank: 6, cornerMax: 8, cornerMin: 2, cornerAngle: 25 };
+
+function blankTo(out, from, x, y, cfg) {
+  const n = cfg.blank;
+  for (let d = 1; d <= n; d++) {
+    const t = d / n, e = t * t * (3 - 2 * t);   // smoothstep easing
+    out.push({ x: from.x + (x - from.x) * e, y: from.y + (y - from.y) * e, r: 0, g: 0, b: 0, blank: 1 });
+  }
+}
+
+function exteriorAngleDeg(a, b, c) {
+  const v1x = b.x - a.x, v1y = b.y - a.y, v2x = c.x - b.x, v2y = c.y - b.y;
+  const l1 = Math.hypot(v1x, v1y), l2 = Math.hypot(v2x, v2y);
+  if (l1 < 1e-6 || l2 < 1e-6) return 0;
+  const cosv = clamp((v1x * v2x + v1y * v2y) / (l1 * l2), -1, 1);
+  return Math.acos(cosv) * 180 / PI;
+}
+
+function optimize(frame, cfg) {
+  let density = cfg.pts;
+  let out = [];
+  for (let pass = 0; pass < 4; pass++) {
+    out = [];
+    let last = null;
+    for (const s of frame.segs) {
+      const v = s.v;
+      if (last) blankTo(out, last, v[0].x, v[0].y, cfg);
+      out.push({ x: v[0].x, y: v[0].y, r: v[0].r, g: v[0].g, b: v[0].b, blank: 0 });
+      const edges = s.closed ? v.length : v.length - 1;
+      for (let i = 0; i < edges; i++) {
+        const a = v[i], bb = v[(i + 1) % v.length];
+        const len = Math.hypot(bb.x - a.x, bb.y - a.y);
+        const k = Math.max(1, Math.round(len / 1000 * density));
+        for (let j = 1; j <= k; j++) {
+          const t = j / k;
+          out.push({ x: a.x + (bb.x - a.x) * t, y: a.y + (bb.y - a.y) * t, r: bb.r, g: bb.g, b: bb.b, blank: 0 });
+        }
+        // corner dwell at the arrival vertex
+        const cNext = v[(i + 2) % v.length];
+        if (i < edges - 1 || s.closed) {
+          const ang = exteriorAngleDeg(a, bb, cNext);
+          const dwell = ang > cfg.cornerAngle ? cfg.cornerMax : cfg.cornerMin;
+          for (let d = 0; d < dwell; d++) out.push({ x: bb.x, y: bb.y, r: bb.r, g: bb.g, b: bb.b, blank: 0 });
+        }
+      }
+      last = out[out.length - 1];
+    }
+    for (const d of frame.dots) {
+      if (last) blankTo(out, last, d.x, d.y, cfg);
+      for (let i = 0; i < 5; i++) out.push({ x: d.x, y: d.y, r: d.r, g: d.g, b: d.b, blank: 0, dot: 1 });
+      last = out[out.length - 1];
+    }
+    if (out.length <= cfg.maxPts || density <= 0.25) break;
+    density = Math.max(0.25, density * (cfg.maxPts / out.length) * 0.96);
+  }
+  if (out.length > cfg.maxPts) out.length = cfg.maxPts;
+  return out;
+}
+
+/* ── Post-processing (mirrors pattern_engine.cpp) ───────────────────── */
+
+function applyRotations(pts, ui) {
+  const rad = ui.rotation * PI / 180;
+  const zAng = (ui.rotZ ? ui.rotAngleZ : 0) + rad;
+  if (zAng !== 0) {
+    const c = Math.cos(zAng), s = Math.sin(zAng);
+    for (const p of pts) { const nx = p.x * c - p.y * s, ny = p.x * s + p.y * c; p.x = nx; p.y = ny; }
+  }
+  if (ui.rotY) {
+    const cy = Math.cos(ui.rotAngleY), sy = Math.sin(ui.rotAngleY);
+    for (const p of pts) {
+      const z3 = p.x * sy, nx = p.x * cy;
+      let d = 1 + z3 * 0.35 / 32767; if (d < 0.1) d = 0.1;
+      p.x = nx / d; p.y = p.y / d;
+    }
+  }
+  if (ui.rotX) {
+    const cx = Math.cos(ui.rotAngleX), sx = Math.sin(ui.rotAngleX);
+    for (const p of pts) {
+      const z3 = p.y * sx, ny = p.y * cx;
+      let d = 1 + z3 * 0.35 / 32767; if (d < 0.1) d = 0.1;
+      p.y = ny / d; p.x = p.x / d;
+    }
+  }
+}
+
+function decimate(pts, maxPerCopy) {
+  if (pts.length <= maxPerCopy) return pts;
+  const stride = pts.length / maxPerCopy;
+  let nextPick = 0;
+  const outp = [];
+  for (let i = 0; i < pts.length; i++) {
+    if (pts[i].blank || i >= nextPick) { outp.push(pts[i]); nextPick += stride; }
+  }
+  return outp;
+}
+
+function radialCopy(pts, segments, mirrorH, mirrorV, cfg) {
+  const segs = clamp(segments, 2, 8);
+  const jumpCost = (segs - 1) * cfg.minBlank;
+  if (cfg.maxPts <= jumpCost) return pts;
+  const maxPerCopy = Math.floor((cfg.maxPts - jumpCost) / segs);
+  if (maxPerCopy < 2) return pts;
+  const src = decimate(pts, maxPerCopy);
+  const out = [];
+  for (let k = 0; k < segs; k++) {
+    const angle = k * TAU / segs, ca = Math.cos(angle), sa = Math.sin(angle);
+    const flip = k % 2 === 1;
+    const fx = flip && mirrorH ? -1 : 1, fy = flip && mirrorV ? -1 : 1;
+    if (k > 0) {
+      const first = src[0];
+      const fsx = first.x * fx, fsy = first.y * fy;
+      const dstX = fsx * ca - fsy * sa, dstY = fsx * sa + fsy * ca;
+      const prev = out[out.length - 1];
+      for (let d = 0; d < cfg.minBlank; d++) {
+        const t = (d + 1) / cfg.minBlank;
+        out.push({ x: prev.x + (dstX - prev.x) * t, y: prev.y + (dstY - prev.y) * t, r: 0, g: 0, b: 0, blank: 1 });
+      }
+    }
+    for (const p of src) {
+      const sx = p.x * fx, sy = p.y * fy;
+      out.push({ x: sx * ca - sy * sa, y: sx * sa + sy * ca, r: p.r, g: p.g, b: p.b, blank: p.blank, dot: p.dot });
+    }
+  }
+  return out;
+}
+
+function mirrorCopy(pts, flipX, flipY, cfg) {
+  const maxPerCopy = Math.floor((cfg.maxPts - cfg.minBlank) / 2);
+  if (maxPerCopy < 2) return pts;
+  const src = decimate(pts, maxPerCopy);
+  const out = src.slice();
+  const first = src[0], prev = out[out.length - 1];
+  const dstX = flipX ? -first.x : first.x, dstY = flipY ? -first.y : first.y;
+  for (let d = 0; d < cfg.minBlank; d++) {
+    const t = (d + 1) / cfg.minBlank;
+    out.push({ x: prev.x + (dstX - prev.x) * t, y: prev.y + (dstY - prev.y) * t, r: 0, g: 0, b: 0, blank: 1 });
+  }
+  for (const p of src) out.push({ x: flipX ? -p.x : p.x, y: flipY ? -p.y : p.y, r: p.r, g: p.g, b: p.b, blank: p.blank, dot: p.dot });
+  return out;
+}
+
+function radial4(pts, cfg) {
+  const jumpCost = 3 * cfg.minBlank;
+  const maxPerCopy = Math.floor((cfg.maxPts - jumpCost) / 4);
+  if (maxPerCopy < 2) return pts;
+  const src = decimate(pts, maxPerCopy);
+  const flips = [[false, false], [true, false], [false, true], [true, true]];
+  const out = [];
+  for (let k = 0; k < 4; k++) {
+    const [fx, fy] = flips[k];
+    if (k > 0) {
+      const first = src[0], prev = out[out.length - 1];
+      const dstX = fx ? -first.x : first.x, dstY = fy ? -first.y : first.y;
+      for (let d = 0; d < cfg.minBlank; d++) {
+        const t = (d + 1) / cfg.minBlank;
+        out.push({ x: prev.x + (dstX - prev.x) * t, y: prev.y + (dstY - prev.y) * t, r: 0, g: 0, b: 0, blank: 1 });
+      }
+    }
+    for (const p of src) out.push({ x: fx ? -p.x : p.x, y: fy ? -p.y : p.y, r: p.r, g: p.g, b: p.b, blank: p.blank, dot: p.dot });
+  }
+  return out;
+}
+
+function applyColor(pts, ui) {
+  const dim = ui.dimmer / 255;
+  for (const p of pts) {
+    if (ui.colOverride) { p.r = ui.col[0]; p.g = ui.col[1]; p.b = ui.col[2]; }
+    p.r = b255(p.r * dim); p.g = b255(p.g * dim); p.b = b255(p.b * dim);
+  }
+}
+
+/* ── Renderer ──────────────────────────────────────────────────────── */
+
+const canvas = document.getElementById('scan');
+const ctx = canvas.getContext('2d');
+
+function render(pts, ui) {
+  const W = canvas.width, H = canvas.height;
+  if (ui.afterglow) {
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.fillStyle = 'rgba(0,0,0,0.42)';
+    ctx.fillRect(0, 0, W, H);
+  } else {
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, W, H);
+  }
+  const scale = (W * 0.5) / 34000;
+  const cx = W / 2, cy = H / 2;
+  const px = p => cx + p.x * scale;
+  const py = p => cy - p.y * scale;
+
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+
+  if (ui.showBlank) {
+    ctx.strokeStyle = 'rgba(120,120,160,0.45)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let i = 1; i < pts.length; i++) {
+      if (!pts[i].blank) continue;
+      ctx.moveTo(px(pts[i - 1]), py(pts[i - 1]));
+      ctx.lineTo(px(pts[i]), py(pts[i]));
+    }
+    ctx.stroke();
+  }
+
+  // Two passes: wide soft halo, then thin hot core.
+  for (const layer of [{ w: 5.5, a: 0.16 }, { w: 1.6, a: 1.0 }]) {
+    ctx.lineWidth = layer.w;
+    for (let i = 1; i < pts.length; i++) {
+      const a = pts[i - 1], b = pts[i];
+      if (a.blank || b.blank) continue;
+      const dx = px(b) - px(a), dy = py(b) - py(a);
+      if (dx * dx + dy * dy < 0.02) continue;
+      ctx.strokeStyle = `rgba(${b.r},${b.g},${b.b},${layer.a})`;
+      ctx.beginPath();
+      ctx.moveTo(px(a), py(a));
+      ctx.lineTo(px(b), py(b));
+      ctx.stroke();
+    }
+    // dwelling dots
+    ctx.globalAlpha = layer.a;
+    for (let i = 0; i < pts.length; i++) {
+      const p = pts[i];
+      if (!p.dot || p.blank) continue;
+      if (i > 0 && pts[i - 1].dot && !pts[i - 1].blank && pts[i - 1].x === p.x && pts[i - 1].y === p.y) continue;
+      ctx.fillStyle = `rgb(${p.r},${p.g},${p.b})`;
+      ctx.beginPath();
+      ctx.arc(px(p), py(p), layer.w * 0.65, 0, TAU);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  if (ui.showPoints) {
+    ctx.fillStyle = 'rgba(255,255,255,0.75)';
+    for (const p of pts) {
+      if (p.blank) continue;
+      ctx.fillRect(px(p) - 0.75, py(p) - 0.75, 1.5, 1.5);
+    }
+  }
+  ctx.globalCompositeOperation = 'source-over';
+}
+</script>
+<script>
+/* ══════════════════════════════════════════════════════════════════════
+   UI wiring
+   ══════════════════════════════════════════════════════════════════════ */
+
+const ui = {
+  preset: 0, speed: 60, size: 180, rotation: 0, dimmer: 255,
+  rotX: false, rotY: false, rotZ: false, rotSpeed: 0.03,
+  rotAngleX: 0, rotAngleY: 0, rotAngleZ: 0,
+  kaleido: false, kalSeg: 3, kalMH: false, kalMV: false,
+  mirrorMode: 0, colOverride: false, col: [0, 255, 136],
+  showBlank: false, showPoints: false, afterglow: true
+};
+
+const $ = id => document.getElementById(id);
+
+/* Theme picker */
+function themeApply(slot) {
+  const root = document.documentElement;
+  root.setAttribute('data-theme', window.THEME_MODES[slot]);
+  const all = Object.assign({}, window.THEME_TOKENS.terminal, window.THEME_TOKENS.minimal);
+  for (const k in all) root.style.removeProperty(k);
+  const tokens = slot === 1 ? window.THEME_TOKENS.terminal : (slot === 2 ? window.THEME_TOKENS.minimal : null);
+  if (tokens) for (const k in tokens) root.style.setProperty(k, tokens[k]);
+  try { localStorage.setItem('galvos_theme', String(slot)); } catch (e) { /* private mode */ }
+  buildThemePicker(slot);
+}
+function buildThemePicker(active) {
+  const el = $('theme-picker');
+  el.innerHTML = '';
+  window.THEME_NAMES.forEach((name, i) => {
+    const b = document.createElement('button');
+    b.className = 'btn sm' + (i === active ? ' primary' : '');
+    b.textContent = name;
+    b.onclick = () => themeApply(i);
+    el.appendChild(b);
+  });
+}
+let themeSlot = 0;
+try { const s = parseInt(localStorage.getItem('galvos_theme'), 10); if (s >= 0 && s <= 2) themeSlot = s; } catch (e) { }
+buildThemePicker(themeSlot);
+
+/* Preset list */
+function buildPresetList(filter) {
+  const el = $('preset-list');
+  el.innerHTML = '';
+  const q = (filter || '').trim().toLowerCase();
+  let lastCat = null;
+  PRESETS.forEach(([name, cat], idx) => {
+    if (q && !name.toLowerCase().includes(q) && !cat.toLowerCase().includes(q)) return;
+    if (cat !== lastCat) {
+      const h = document.createElement('div');
+      h.className = 'preset-cat';
+      h.textContent = cat;
+      el.appendChild(h);
+      lastCat = cat;
+    }
+    const d = document.createElement('div');
+    d.className = 'preset-item' + (idx === ui.preset ? ' active' : '');
+    d.textContent = name;
+    d.onclick = () => selectPreset(idx);
+    el.appendChild(d);
+  });
+}
+
+function selectPreset(idx) {
+  ui.preset = idx;
+  resetState();
+  $('stage-title').textContent = PRESETS[idx][0];
+  $('st-cat').textContent = PRESETS[idx][1];
+  buildPresetList($('preset-search').value);
+  buildPresetOptions(idx);
+  updateSliderLabels(idx);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+}
+
+/* Per-preset slider semantics (Speed/Size are repurposed by some presets) */
+const SIZE_LABEL = {
+  64: 'Star Count', 69: 'Amount', 71: 'Point Count', 73: 'Ball Count',
+  74: 'Meteor Count', 79: 'Spark Radius'
+};
+function updateSliderLabels(idx) {
+  $('lb-size').textContent = SIZE_LABEL[idx] || 'Size';
+  $('lb-speed').textContent = idx === 64 ? 'Fall Speed' : (idx === 69 ? 'Fade Speed' : 'Speed');
+}
+
+/* Preset-specific option panels */
+function optSlider(label, key, min, max, step, val) {
+  return `<div class="field"><label>${label}</label><div class="slider-row">
+    <input type="range" data-live="${key}" min="${min}" max="${max}" step="${step}" value="${val}">
+    <output>${val}</output></div></div>`;
+}
+function optCheck(label, key, val) {
+  return `<label class="check"><input type="checkbox" data-live="${key}" ${val ? 'checked' : ''}> ${label}</label>`;
+}
+
+function buildPresetOptions(idx) {
+  const el = $('preset-options');
+  let html = '';
+  const waveIdx = idx >= 33 && idx <= 50;
+  if (waveIdx) {
+    html += '<div class="grid-2">' +
+      optSlider('Wave Amplitude', 'waveAmp', 0.1, 2, 0.05, live.waveAmp) +
+      optSlider('Wave Frequency', 'waveFreq', 0.25, 4, 0.05, live.waveFreq) + '</div>';
+  }
+  if (idx === 65) {
+    html += optSlider('Countdown (seconds)', 'countdownSec', 5, 3600, 5, live.countdownSec) +
+      '<button class="btn sm" id="cd-restart">Restart Countdown</button>';
+  }
+  if (idx === 69) html += optSlider('Hold Duration (ms)', 'randomHoldMs', 50, 3000, 50, live.randomHoldMs);
+  if (idx === 73) html += optSlider('Trail Length', 'trail', 0, 12, 1, live.trail);
+  if (idx === 76) html += optSlider('Spiral Arms', 'spiralArms', 1, 6, 1, live.spiralArms);
+  if (idx === 77) {
+    html += '<div class="grid-2">' +
+      optSlider('Rings', 'tunnelRings', 3, 12, 1, live.tunnelRings) +
+      optSlider('Polygon Sides', 'tunnelSides', 3, 10, 1, live.tunnelSides) + '</div>';
+  }
+  if (idx === 78) html += optSlider('Rays', 'explosionRays', 4, 40, 1, live.explosionRays);
+  if (idx === 79) {
+    html += optSlider('Concurrent Shells', 'fwShells', 1, 3, 1, live.fwShells) +
+      optCheck('Glitter overlay', 'fwGlitter', live.fwGlitter);
+  }
+  if (idx === 80) {
+    html += '<div class="grid-2">' +
+      optSlider('Star Dots', 'mwDots', 10, 60, 1, live.mwDots) +
+      optSlider('View Tilt (%)', 'mwTilt', 20, 80, 1, live.mwTilt) + '</div>';
+  }
+  if (idx === 64) html += `<p class="note">Rendered stars this frame: <b id="sf-count">0</b> (the Size request is capped by the frame budget).</p>`;
+  if (!html) html = '<p class="note">This preset has no extra parameters.</p>';
+  el.innerHTML = html;
+
+  el.querySelectorAll('[data-live]').forEach(inp => {
+    const key = inp.dataset.live;
+    const handler = () => {
+      live[key] = inp.type === 'checkbox' ? inp.checked : parseFloat(inp.value);
+      const out = inp.parentElement.querySelector('output');
+      if (out) out.textContent = inp.value;
+      if (key === 'countdownSec') state.cdEnd = nowMs() + live.countdownSec * 1000;
+    };
+    inp.addEventListener('input', handler);
+    inp.addEventListener('change', handler);
+  });
+  const cd = $('cd-restart');
+  if (cd) cd.onclick = () => { state.cdEnd = nowMs() + live.countdownSec * 1000; };
+}
+
+/* Global control bindings */
+function bindSlider(id, key, transform) {
+  const inp = $(id), out = $(id + '-v');
+  const apply = () => {
+    const v = parseFloat(inp.value);
+    ui[key] = transform ? transform(v) : v;
+    if (out) out.textContent = inp.value;
+  };
+  inp.addEventListener('input', apply);
+  apply();
+}
+bindSlider('lv-speed', 'speed');
+bindSlider('lv-size', 'size');
+bindSlider('lv-rotation', 'rotation');
+bindSlider('lv-dimmer', 'dimmer');
+bindSlider('rot-speed', 'rotSpeed');
+bindSlider('kal-seg', 'kalSeg');
+
+function bindCheck(id, key) {
+  const inp = $(id);
+  const apply = () => { ui[key] = inp.checked; };
+  inp.addEventListener('change', apply);
+  apply();
+}
+bindCheck('rot-x', 'rotX');
+bindCheck('rot-y', 'rotY');
+bindCheck('rot-z', 'rotZ');
+bindCheck('kal-on', 'kaleido');
+bindCheck('kal-mh', 'kalMH');
+bindCheck('kal-mv', 'kalMV');
+bindCheck('col-override', 'colOverride');
+bindCheck('show-blank', 'showBlank');
+bindCheck('show-points', 'showPoints');
+bindCheck('show-afterglow', 'afterglow');
+
+document.querySelectorAll('#mirror-btns button').forEach(b => {
+  b.onclick = () => {
+    ui.mirrorMode = parseInt(b.dataset.mirror, 10);
+    document.querySelectorAll('#mirror-btns button').forEach(x => x.classList.toggle('primary', x === b));
+  };
+});
+
+function hexToRgb(hex) {
+  const v = parseInt(hex.slice(1), 16);
+  return [(v >> 16) & 255, (v >> 8) & 255, v & 255];
+}
+$('col-hex').addEventListener('input', e => {
+  ui.col = hexToRgb(e.target.value);
+  $('col-swatch').style.background = e.target.value;
+});
+document.querySelectorAll('[data-quick]').forEach(b => {
+  b.onclick = () => {
+    const hex = b.dataset.quick;
+    $('col-hex').value = hex;
+    ui.col = hexToRgb(hex);
+    $('col-swatch').style.background = hex;
+    $('col-override').checked = true;
+    ui.colOverride = true;
+  };
+});
+
+/* Optimizer controls */
+function bindOpt(id, key, out) {
+  const inp = $(id), o = $(out);
+  const apply = () => { optCfg[key] = parseFloat(inp.value); o.textContent = inp.value; if (key === 'maxPts') $('st-budget').textContent = inp.value; };
+  inp.addEventListener('input', apply);
+  apply();
+}
+bindOpt('opt-budget', 'maxPts', 'opt-budget-v');
+bindOpt('opt-density', 'pts', 'opt-density-v');
+bindOpt('opt-blank', 'blank', 'opt-blank-v');
+bindOpt('opt-corner', 'cornerMax', 'opt-corner-v');
+
+$('preset-search').addEventListener('input', e => buildPresetList(e.target.value));
+
+/* ── Animation loop ────────────────────────────────────────────────── */
+
+let phase = 0, frames = 0, lastFpsMs = performance.now();
+
+function tick() {
+  const f = new Frame();
+  const gen = GEN[ui.preset] || GEN[0];
+  try { gen(f, phase, Math.round(ui.speed), Math.round(ui.size)); }
+  catch (err) { console.error('preset error', ui.preset, err); }
+
+  let pts = optimize(f, optCfg);
+  const rawSegs = f.segs.length + f.dots.length;
+
+  if (ui.rotZ) ui.rotAngleZ += ui.rotSpeed;
+  if (ui.rotY) ui.rotAngleY += ui.rotSpeed;
+  if (ui.rotX) ui.rotAngleX += ui.rotSpeed;
+  applyRotations(pts, ui);
+
+  if (ui.kaleido) pts = radialCopy(pts, ui.kalSeg, ui.kalMH, ui.kalMV, optCfg);
+  if (ui.mirrorMode === 1) pts = mirrorCopy(pts, false, true, optCfg);
+  else if (ui.mirrorMode === 2) pts = mirrorCopy(pts, true, false, optCfg);
+  else if (ui.mirrorMode === 3) pts = radial4(pts, optCfg);
+
+  applyColor(pts, ui);
+  render(pts, ui);
+
+  $('st-points').textContent = pts.length;
+  $('st-segs').textContent = rawSegs;
+  $('st-blank').textContent = pts.reduce((a, p) => a + (p.blank ? 1 : 0), 0);
+  const sf = $('sf-count');
+  if (sf) sf.textContent = live.starfieldCount;
+
+  phase += 1;
+  frames++;
+  const now = performance.now();
+  if (now - lastFpsMs >= 1000) {
+    $('pill-fps').textContent = Math.round(frames * 1000 / (now - lastFpsMs)) + ' fps';
+    frames = 0; lastFpsMs = now;
+  }
+  requestAnimationFrame(tick);
+}
+
+/* Boot */
+function applyVersionLabels() {
+  $('pill-sim-version').textContent = 'v' + SIM_VERSION;
+  $('pill-fw-version').textContent = 'FW ' + FW_VERSION;
+  $('pill-fw-version').title = 'Ported from GalvOS firmware ' + FW_VERSION + ' (commit ' + FW_COMMIT + ')';
+  $('about-sim-version').textContent = 'v' + SIM_VERSION;
+  $('about-fw-version').textContent = 'v' + FW_VERSION;
+  $('about-fw-commit').textContent = FW_COMMIT;
+  $('footer-version').textContent =
+    'Preset Simulator v' + SIM_VERSION + ' \u00b7 firmware v' + FW_VERSION + ' (' + FW_COMMIT + ')';
+  document.title = 'GalvOS v' + FW_VERSION + ' \u2014 Preset Simulator';
+}
+applyVersionLabels();
+buildPresetList('');
+selectPreset(0);
+requestAnimationFrame(tick);
+</script>
+</body>
+</html>
