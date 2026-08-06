@@ -379,7 +379,7 @@ input[type=checkbox] { width: 20px; height: 20px; min-height: 20px; accent-color
 .preset-tile:hover .p-icon polygon, .preset-tile:hover .p-icon polyline, .preset-tile:hover .p-icon rect {
   animation: p-icon-draw 0.7s ease;
 }
-.preset-grid { display: grid; grid-template-columns: repeat(auto-fill, 120px); gap: 8px; }
+.preset-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
 
 #toast {
   position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(20px);
@@ -2750,8 +2750,50 @@ const SIM_MOCK_STATE = {
   calib_active: false, ilda_active: false, playlist_active: false,
   sd_ready: false, sd_fs_type: '', sd_free_kb: 0, sd_file_count: 0,
   sd_error: 'No SD card (simulator)',
-  fan1_duty: 0, fan2_duty: 0, temps: [42.3], temp_unit: 'C', buffer_fill: 85
+  fan1_duty: 0, fan2_duty: 0, temps: [42.3, 38.1, 51.7, 35.4, 44.9], temp_unit: 'C', buffer_fill: 85,
+  ok: [true, true, true, true, true], found: [true, true, true, true, true],
+  names: ['ESP32 Core', 'PSU', 'Galvo X Driver', 'Galvo Y Driver', 'Laser Module'],
+  temp_offsets: [0, 0, 0, 0, 0]
 };
+
+/* ── Demo log entries -------------------------------------------- */
+(function() {
+  var _base = Date.now() - 120000;
+  var _entries = [
+    {ts: _base +   0, wall: '', lvl: 'INFO',  cat: 'SYS',    msg: 'GalvOS v6.41.3 booting — ESP32-S3 N16R8'},
+    {ts: _base +  80, wall: '', lvl: 'INFO',  cat: 'SYS',    msg: 'LittleFS mounted OK (2.1 MB free)'},
+    {ts: _base + 150, wall: '', lvl: 'INFO',  cat: 'SYS',    msg: 'PSRAM detected: 8 MB'},
+    {ts: _base + 210, wall: '', lvl: 'INFO',  cat: 'WIFI',   msg: 'AP mode started — SSID: GalvOS-SIM'},
+    {ts: _base + 290, wall: '', lvl: 'INFO',  cat: 'SYS',    msg: 'DAC8562 init OK — SPI2/HSPI @ 20 MHz'},
+    {ts: _base + 370, wall: '', lvl: 'INFO',  cat: 'GALVO',  msg: 'Galvo driver ready — rated 15 kpps'},
+    {ts: _base + 450, wall: '', lvl: 'INFO',  cat: 'TEMP',   msg: 'DS18B20 bus scan: 5 sensors found'},
+    {ts: _base + 510, wall: '', lvl: 'INFO',  cat: 'SYS',    msg: 'Optimizer pipeline init — max_pts=1300'},
+    {ts: _base + 600, wall: '', lvl: 'INFO',  cat: 'SYS',    msg: 'WebUI ready — heap 285 kB free'},
+    {ts: _base + 700, wall: '', lvl: 'INFO',  cat: 'SAFETY', msg: 'E-Stop OK — watchdog armed'},
+    {ts: _base + 800, wall: '', lvl: 'INFO',  cat: 'SYS',    msg: 'Preset #0 (Circle) activated'},
+    {ts: _base +2100, wall: '', lvl: 'WARN',  cat: 'TEMP',   msg: 'Sensor 2 (PSU) approaching WARN threshold (43.1 °C)'},
+    {ts: _base +4500, wall: '', lvl: 'INFO',  cat: 'USER',   msg: 'Preset changed → #12 (Lissajous)'},
+    {ts: _base +6200, wall: '', lvl: 'DEBUG', cat: 'GALVO',  msg: 'Frame 1024: lit=890 blank=120 fps=30'},
+    {ts: _base +7800, wall: '', lvl: 'INFO',  cat: 'DMX',    msg: 'DMX frame received — addr=1 universe=0'},
+    {ts: _base+10500, wall: '', lvl: 'WARN',  cat: 'SYS',    msg: 'Heap low event: free=241 kB (min_ever)'},
+    {ts: _base+14000, wall: '', lvl: 'INFO',  cat: 'USER',   msg: 'Master dimmer set to 180'},
+    {ts: _base+18000, wall: '', lvl: 'INFO',  cat: 'SAFETY', msg: 'Scan-fail detector: OK'},
+    {ts: _base+25000, wall: '', lvl: 'ERROR', cat: 'WIFI',   msg: 'NTP sync failed — no upstream (AP mode)'},
+    {ts: _base+32000, wall: '', lvl: 'INFO',  cat: 'SYS',    msg: 'BPM tap: 128.0 BPM (source=tap)'},
+    {ts: _base+45000, wall: '', lvl: 'DEBUG', cat: 'GALVO',  msg: 'Ringing comp active: f=800 Hz d=0.15'},
+    {ts: _base+58000, wall: '', lvl: 'INFO',  cat: 'TEMP',   msg: 'Fan 1 auto: 47% (Galvo X 51.7 °C)'},
+    {ts: _base+72000, wall: '', lvl: 'INFO',  cat: 'USER',   msg: 'Color override enabled — R=0 G=255 B=136'},
+    {ts: _base+89000, wall: '', lvl: 'INFO',  cat: 'SYS',    msg: 'Sequencer started — 4 steps, loop=true'},
+    {ts: _base+105000,wall: '', lvl: 'DEBUG', cat: 'DMX',    msg: 'BPM DMX ch=1 val=153 → 120.0 BPM'},
+    {ts: _base+118000,wall: '', lvl: 'INFO',  cat: 'SAFETY', msg: 'All systems nominal — uptime 120 s'}
+  ];
+  var _wall0 = new Date(Date.now() - 120000);
+  _entries.forEach(function(e) {
+    var d = new Date(e.ts);
+    e.wall = d.toTimeString().substr(0, 8) + '.' + String(d.getMilliseconds()).padStart(3,'0');
+  });
+  window.DEMO_LOG_ENTRIES = _entries;
+})();
 
 /* ── Mock fetch -------------------------------------------------- */
 const _simOrigFetch = window.fetch.bind(window);
@@ -2772,7 +2814,14 @@ window.fetch = async function(url, opts) {
     SIM_MOCK_STATE.frame_n = simPhase;
     SIM_MOCK_STATE.preset_idx = simUI.preset;
     SIM_MOCK_STATE.cpu0 = 30 + Math.round(Math.sin(Date.now() / 5000) * 10 + Math.random() * 8);
-    SIM_MOCK_STATE.temps = [parseFloat((42.3 + Math.sin(Date.now()/8000)*2.5 + Math.random()*0.3).toFixed(1))];
+    var _t = Date.now();
+    SIM_MOCK_STATE.temps = [
+      parseFloat((42.3 + Math.sin(_t/8000)*2.5  + Math.random()*0.3).toFixed(1)),
+      parseFloat((38.1 + Math.sin(_t/11000)*1.8 + Math.random()*0.2).toFixed(1)),
+      parseFloat((51.7 + Math.sin(_t/6000)*3.2  + Math.random()*0.4).toFixed(1)),
+      parseFloat((35.4 + Math.sin(_t/9500)*1.5  + Math.random()*0.2).toFixed(1)),
+      parseFloat((44.9 + Math.sin(_t/7000)*2.8  + Math.random()*0.35).toFixed(1))
+    ];
     resp = Object.assign({}, SIM_MOCK_STATE);
 
   } else if (urlStr === '/api/presets') {
@@ -2807,11 +2856,12 @@ window.fetch = async function(url, opts) {
   } else if (urlStr === '/api/community/list') {
     resp = [];
   } else if (urlStr === '/api/log/stats') {
-    resp = {count: 0, capacity: 1000, full: false};
+    resp = {count: DEMO_LOG_ENTRIES.length, capacity: 1000, full: false};
   } else if (urlStr === '/api/log/client' || urlStr === '/api/log/clear') {
     resp = {ok: true};
   } else if (urlStr.startsWith('/api/log')) {
-    resp = [];
+    var afterTs = parseInt((urlStr.match(/after=(\d+)/) || [0,0])[1]) || 0;
+    resp = DEMO_LOG_ENTRIES.filter(function(e) { return e.ts > afterTs; });
   } else if (urlStr === '/api/meminfo') {
     var mhf = Math.round(285000 + Math.sin(Date.now()/6000)*15000);
     var mpf = Math.max(7100000, 7800000 - simPhase*180);
@@ -6354,7 +6404,81 @@ document.addEventListener('DOMContentLoaded', function() {
   themeActiveSlot = themeGetActiveSlot();
   renderThemeSwitcher();
   enhanceSliders(document);
+  showDisclaimerIfNeeded();
 });
+
+function showDisclaimerIfNeeded() {
+  if (sessionStorage.getItem('galvos_disclaimer_seen')) return;
+  sessionStorage.setItem('galvos_disclaimer_seen', '1');
+  var overlay = document.getElementById('disclaimer-overlay');
+  if (overlay) overlay.classList.remove('hidden');
+}
+
+function closeDisclaimer() {
+  var overlay = document.getElementById('disclaimer-overlay');
+  if (overlay) {
+    overlay.style.opacity = '0';
+    overlay.style.transform = 'translateY(-12px)';
+    setTimeout(function() { overlay.classList.add('hidden'); }, 280);
+  }
+}
 </script>
+
+<!-- Simulator Disclaimer Overlay -->
+<div id="disclaimer-overlay" class="hidden" style="
+  position:fixed; inset:0; z-index:9999;
+  display:flex; align-items:center; justify-content:center;
+  background:rgba(0,0,0,0.72); backdrop-filter:blur(6px);
+  transition:opacity 0.28s ease, transform 0.28s ease;
+">
+  <div style="
+    background:var(--card,#0d1117); border:1px solid var(--accent,#00f0ff);
+    border-radius:var(--radius-lg,12px); padding:32px 36px; max-width:480px; width:90%;
+    box-shadow:0 0 40px rgba(0,240,255,0.15), 0 8px 32px rgba(0,0,0,0.6);
+    text-align:center;
+  ">
+    <div style="font-size:2rem; margin-bottom:8px">⚡</div>
+    <h2 style="margin:0 0 8px; font-family:var(--font-head); color:var(--accent,#00f0ff); letter-spacing:0.05em">
+      GalvOS Simulator
+    </h2>
+    <p style="color:var(--text-dim); font-size:0.85rem; margin:0 0 16px; line-height:1.6">
+      This is an interactive browser-based simulator for the
+      <strong style="color:var(--text)">GalvOS</strong> open-source ESP32-S3 RGB laser galvo controller.
+      All data is mocked — no real hardware is connected.
+    </p>
+    <p style="color:var(--text-dim); font-size:0.8rem; margin:0 0 24px; line-height:1.55">
+      GalvOS replaces the proprietary OEM board in OEM RGB laser projectors,
+      controlling two galvanometers via a DAC8562 SPI DAC.
+      The firmware runs on PlatformIO / Arduino (ESP32-S3-WROOM-1 N16R8).
+    </p>
+    <div style="margin-bottom:20px">
+      <a href="https://github.com/Andre1Becker/GalvOS" target="_blank" rel="noopener"
+         style="display:inline-flex; align-items:center; gap:8px; padding:10px 20px;
+                border:1px solid var(--accent,#00f0ff); border-radius:6px;
+                color:var(--accent,#00f0ff); text-decoration:none; font-size:0.85rem;
+                transition:background 0.2s;"
+         onmouseover="this.style.background='rgba(0,240,255,0.08)'"
+         onmouseout="this.style.background='transparent'">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0 1 12 6.844a9.59 9.59 0 0 1 2.504.337c1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.02 10.02 0 0 0 22 12.017C22 6.484 17.522 2 12 2z"/>
+        </svg>
+        GalvOS on GitHub
+      </a>
+    </div>
+    <button onclick="closeDisclaimer()" style="
+      padding:10px 32px; background:var(--accent,#00f0ff); color:#000;
+      border:none; border-radius:6px; font-weight:700; cursor:pointer;
+      font-family:var(--font-head); letter-spacing:0.05em; font-size:0.9rem;
+      transition:opacity 0.2s;
+    " onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">
+      Launch Simulator
+    </button>
+  </div>
+</div>
+</body>
+</html>
+utton>
+  </div>
+</div>
 </body>
 </html>
