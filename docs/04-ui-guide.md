@@ -38,6 +38,9 @@ Open `http://192.168.4.1` in any browser. Once you configure a Wi-Fi network in 
 
 > **Tip:** The IP address is always shown on the Dashboard tab under System → IP Address.
 
+you can access a demo/simulation on https://www.galvos.de
+
+
 ---
 
 ## Installing as a PWA
