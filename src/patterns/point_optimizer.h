@@ -174,9 +174,71 @@ struct OptimizerConfig {
     float    jitter_amount_units  = OPT_DEFAULT_JITTER_AMOUNT_UNITS; // max perpendicular offset (DAC units)
 };
 
+// ── Telemetry ────────────────────────────────────────────────────────────
+//
+// What one optimize() call actually produced, as opposed to what it planned.
+// The optimizer's failure modes are all silent by construction -- a truncated
+// shape, a ZV shaper that never activates, a frame using a third of its point
+// budget -- and none of them are visible from the emitted geometry alone.
+//
+// emittedLit/emittedBlank/jumpCount/jumpDistanceTotal are MEASURED from the
+// final output buffer after every stage has run (including the velocity /
+// acceleration clamp, which inserts points of its own), so they describe the
+// stream the galvo is actually handed, not an intermediate plan.
+//
+// plannedTotal and truncated close the accounting loop instead:
+//   plannedTotal = every point the pipeline attempted to write -- the emit
+//                  stage plus the clamp stage's interpolated insertions.
+//   truncated    = attempted writes dropped because the point budget
+//                  (effective_cap) was already full.
+// so `emittedLit + emittedBlank + truncated == plannedTotal` holds for every
+// call. A point that vanishes anywhere without passing one of those two
+// counters breaks the identity -- which is the point of tracking both
+// (CONTRACT.md invariant 3, noSilentPointLoss).
+//
+// The host Contract build switches its gated assertions on with
+// -D GALVOS_OPT_HAS_STATS=1 (see [env:native] in platformio.ini); it cannot
+// come from this header, because test_contract.cpp includes
+// contract_features.h -- which defaults the gate to 0 -- before this file.
+struct Stats {
+    uint32_t emittedLit;          // lit points in the final buffer
+    uint32_t emittedBlank;        // blanked points in the final buffer
+    uint32_t truncated;           // attempted writes dropped at the budget cap
+    uint32_t plannedTotal;        // emitted + truncated, counted independently
+    uint32_t jumpCount;           // blank runs (one per blank jump)
+    float    jumpDistanceTotal;   // DAC units travelled with the beam off
+    uint32_t calls;               // optimize() calls folded into this record
+    float    stage2Scale;         // interior-density factor Stage 2 applied
+                                   // (1.0 = Stage 2 did not trigger), floors
+                                   // included -- i.e. what was really used
+    bool     stage1Triggered;     // blank_samples was reduced to fit budget
+    bool     stage15Triggered;    // corner point counts were scaled to fit
+    bool     ringingActive;       // ZV shaper actually shaped at least one jump
+
+    Stats() { reset(); }
+    void reset();
+    void add(const Stats& call);   // frame accumulation, see gFrameStats
+};
+
+// Stats of the most recent optimize() call. Overwritten per call, so a caller
+// that renders one shape can read exactly what that shape cost.
+extern Stats gLastStats;
+
+// Stats accumulated over the current frame: every optimize() call adds itself
+// here, and pattern_engine clears it at frame start via resetFrameStats() --
+// same publish-per-frame lifecycle as gLiveTransform above. This is the record
+// the point budget is a property of: a preset that draws three primitives
+// calls optimize() three times, and only the sum is the frame.
+extern Stats gFrameStats;
+
+// Clears gFrameStats. Called once per frame by pattern_engine, before any
+// generate() runs.
+void resetFrameStats();
+
 // Runs Pillar-1 density optimization across all given segments and writes
 // LaserPoint output (including blank jumps between segments/sub-paths).
-// Returns the number of points written (<= max_out).
+// Returns the number of points written (<= max_out). Fills gLastStats and
+// adds to gFrameStats.
 //
 // If the planned point count would exceed max_out, pts_per_1000_units is
 // scaled down uniformly once and the pass is repeated, so output never

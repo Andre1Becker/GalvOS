@@ -1022,6 +1022,24 @@ canvas { max-width: 100%; display: block; }
       <div class="card">
         <div class="row" id="opt-profile-bar" style="flex-wrap:wrap"></div>
       </div>
+      <div class="card">
+        <h2>Live Telemetry</h2>
+        <div class="field-grid">
+          <div class="field"><label>Lit / Blank Points</label><span id="opt-st-points">--</span></div>
+          <div class="field"><label>Truncated</label><span id="opt-st-trunc">--</span></div>
+          <div class="field"><label>Blank Jumps</label><span id="opt-st-jumps">--</span></div>
+          <div class="field"><label>Jump Distance</label><span id="opt-st-jumpdist">--</span></div>
+          <div class="field"><label>Budget Used</label><span id="opt-st-budget">--</span></div>
+          <div class="field"><label>optimize() Calls</label><span id="opt-st-calls">--</span></div>
+        </div>
+        <div class="row" style="margin-top:4px">
+          <span class="pill" id="opt-st-s1">Stage 1</span>
+          <span class="pill" id="opt-st-s15">Stage 1.5</span>
+          <span class="pill" id="opt-st-s2">Interior &times;1.00</span>
+          <span class="pill" id="opt-st-zv">ZV Shaper</span>
+        </div>
+        <p class="param-hint">Measured on the last rendered frame &mdash; all optimize() calls of that frame combined. Truncated counts points the budget dropped before they reached the galvo; the ZV Shaper pill lights only when ringing compensation actually shaped a jump.</p>
+      </div>
       <div class="grid" style="grid-template-columns:3.2fr 0.5fr">
         <div class="card">
           <h2>Settings</h2>
@@ -1386,7 +1404,7 @@ canvas { max-width: 100%; display: block; }
 /* =========================================================================
    GLOBAL STATE
    ========================================================================= */
-var UI_VERSION = '1.6.5';   // WebUI version -- independent from firmware version
+var UI_VERSION = '1.7.0';   // WebUI version -- independent from firmware version
 var NAV_TABS = [
   {id: 'dashboard', label: 'Dashboard', icon: '🏠', bottom: true},
   {id: 'presets', label: 'Presets', icon: '🎮', bottom: true},
@@ -4249,10 +4267,64 @@ function renderOptimizerMembers() {
   }).join('');
 }
 
+/* Live telemetry (/api/optimizer-stats). Polled only while the Optimizer tab
+   is open -- the numbers are only readable here, and the pattern task already
+   shares core 0 with the state poll. Shows the FRAME record: a preset that
+   draws several primitives calls optimize() once per primitive, and only the
+   sum is the frame the point budget applies to. */
+var s_optStatsTimer = null;
+var s_optStatsBusy = false;
+async function pollOptimizerStats() {
+  if (s_optStatsBusy) return;
+  s_optStatsBusy = true;
+  try {
+    var r = await apiCall('GET', '/api/optimizer-stats');
+    if (r && r.frame) renderOptimizerStats(r.frame);
+  } finally {
+    s_optStatsBusy = false;
+  }
+}
+function renderOptimizerStats(f) {
+  var setText = function(id, v, bad) {
+    var e = document.getElementById(id);
+    if (!e) return;
+    e.textContent = v;
+    e.style.color = bad ? 'var(--bad)' : '';
+  };
+  var lit = f.emitted_lit || 0, blank = f.emitted_blank || 0;
+  var emitted = lit + blank;
+  var trunc = f.truncated || 0;
+  setText('opt-st-points', lit + ' / ' + blank);
+  setText('opt-st-trunc', trunc, trunc > 0);
+  setText('opt-st-jumps', f.jump_count || 0);
+  setText('opt-st-jumpdist', Math.round(f.jump_distance_total || 0) + ' units');
+  var budget = domVal('opt-max-pts-frame', 0) || 0;
+  setText('opt-st-budget',
+          budget ? emitted + ' / ' + budget + ' (' + Math.round(emitted / budget * 100) + '%)' : emitted,
+          budget > 0 && emitted > budget);
+  setText('opt-st-calls', f.calls || 0);
+  var pill = function(id, label, state) {
+    var e = document.getElementById(id);
+    if (!e) return;
+    e.className = 'pill' + (state ? ' ' + state : '');
+    e.textContent = label;
+  };
+  var scale = (f.stage2_scale === undefined) ? 1 : f.stage2_scale;
+  pill('opt-st-s1', 'Stage 1 ' + (f.stage1_triggered ? 'active' : 'idle'), f.stage1_triggered ? 'bad' : '');
+  pill('opt-st-s15', 'Stage 1.5 ' + (f.stage15_triggered ? 'active' : 'idle'), f.stage15_triggered ? 'bad' : '');
+  pill('opt-st-s2', 'Interior ×' + scale.toFixed(2), scale < 0.999 ? 'bad' : '');
+  pill('opt-st-zv', 'ZV Shaper ' + (f.ringing_active ? 'shaping' : 'inactive'), f.ringing_active ? 'ok' : '');
+}
+
 registerTabLoader('optimizer', async function() {
   renderOptProfileBar();
   var c = await apiCall('GET', '/api/config');
   if (c) loadOptimizerConfig(c);
+  pollOptimizerStats();
+  if (!s_optStatsTimer) s_optStatsTimer = setInterval(pollOptimizerStats, 1000);
+});
+registerTabLeaveHook('optimizer', function() {
+  if (s_optStatsTimer) { clearInterval(s_optStatsTimer); s_optStatsTimer = null; }
 });
 
 /* =========================================================================

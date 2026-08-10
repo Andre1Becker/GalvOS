@@ -250,6 +250,22 @@ static void sendJsonPsram(AsyncWebServerRequest* req, const JsonDocument& doc, i
     req->send(resp);
 }
 
+// Serializes one optimizer telemetry record. Field names mirror
+// optimizer::Stats exactly, so the WebUI reads what the firmware calls it.
+static void fillOptimizerStats(JsonObject dst, const optimizer::Stats& s) {
+    dst["emitted_lit"]         = s.emittedLit;
+    dst["emitted_blank"]       = s.emittedBlank;
+    dst["truncated"]           = s.truncated;
+    dst["planned_total"]       = s.plannedTotal;
+    dst["jump_count"]          = s.jumpCount;
+    dst["jump_distance_total"] = s.jumpDistanceTotal;
+    dst["calls"]               = s.calls;
+    dst["stage2_scale"]        = s.stage2Scale;
+    dst["stage1_triggered"]    = s.stage1Triggered;
+    dst["stage15_triggered"]   = s.stage15Triggered;
+    dst["ringing_active"]      = s.ringingActive;
+}
+
 // ── PSRAM-cached index.html.gz ────────────────────────────────────────────────
 // serveStatic's LittleFS-backed AsyncFileResponse re-reads the ~103 KB gzipped
 // bundle from flash into internal-heap chunks on every request. Under normal
@@ -1033,6 +1049,23 @@ void init() {
             } // LOCK_CONFIG
             req->send(200, "text/plain", "OK");
         });
+
+    // ---- GET /api/optimizer-stats ---- (read-only telemetry)
+    // Registered ahead of the other /api/optimizer* routes so a future
+    // prefix-matching handler on that stem cannot swallow it.
+    s_server.on("/api/optimizer-stats", HTTP_GET, [](AsyncWebServerRequest* req) {
+        // Snapshot both records before serializing: the pattern task on core 1
+        // keeps writing them while this handler runs on core 0, and a struct
+        // copy at least keeps the numbers of one response self-consistent.
+        optimizer::Stats last  = optimizer::gLastStats;
+        optimizer::Stats frame = optimizer::gFrameStats;
+        JsonDocument doc(&jsonAllocator());
+        JsonObject l = doc["last"].to<JsonObject>();
+        fillOptimizerStats(l, last);
+        JsonObject f = doc["frame"].to<JsonObject>();
+        fillOptimizerStats(f, frame);
+        sendJsonPsram(req, doc);
+    });
 
     // ---- POST /api/optimizer-profile-switch ---- (switch active profile)
     s_server.on("/api/optimizer-profile-switch", HTTP_POST,

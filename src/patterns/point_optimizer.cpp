@@ -20,12 +20,55 @@ namespace optimizer {
 static constexpr float PI_F  = 3.14159265358979323846f;
 static constexpr float TAU_F = 2.0f * PI_F;
 
+// ── telemetry state ──────────────────────────────────────────────────────
+//
+// Counters live for the duration of one optimize() call and are folded into
+// gLastStats / gFrameStats when it returns (see finishStats()). Only the two
+// values that cannot be recovered from the finished buffer are tracked here:
+// how many points the pipeline WANTED to write, and how many of those the
+// budget cap swallowed. Everything else is measured off the output.
+
+Stats gLastStats;
+Stats gFrameStats;
+
+namespace {
+    uint32_t sPlanned   = 0;   // attempted writes (emit stage + clamp inserts)
+    uint32_t sTruncated = 0;   // attempted writes dropped at the cap
+    bool     sRinging   = false;   // ZV shaper was active on at least one jump
+}
+
+void Stats::reset() {
+    emittedLit = 0; emittedBlank = 0; truncated = 0; plannedTotal = 0;
+    jumpCount = 0; jumpDistanceTotal = 0.0f; calls = 0;
+    stage2Scale = 1.0f;
+    stage1Triggered = false; stage15Triggered = false; ringingActive = false;
+}
+
+void Stats::add(const Stats& call) {
+    emittedLit        += call.emittedLit;
+    emittedBlank      += call.emittedBlank;
+    truncated         += call.truncated;
+    plannedTotal      += call.plannedTotal;
+    jumpCount         += call.jumpCount;
+    jumpDistanceTotal += call.jumpDistanceTotal;
+    calls             += call.calls;
+    // Worst (most aggressive) squeeze any call in the frame needed -- an
+    // average would hide the one call that was actually starved.
+    if (call.calls > 0 && call.stage2Scale < stage2Scale) stage2Scale = call.stage2Scale;
+    stage1Triggered  |= call.stage1Triggered;
+    stage15Triggered |= call.stage15Triggered;
+    ringingActive    |= call.ringingActive;
+}
+
+void resetFrameStats() { gFrameStats.reset(); }
+
 // ── internal helpers ─────────────────────────────────────────────────────
 
 static inline void emit(LaserPoint* out, size_t& n, size_t max,
                          float x, float y, uint8_t r, uint8_t g, uint8_t b,
                          uint8_t blank) {
-    if (n >= max) return;
+    sPlanned++;
+    if (n >= max) { sTruncated++; return; }
     out[n] = LaserPoint(
         (int16_t)std::max(-32767.f, std::min(32767.f, x)),
         (int16_t)std::max(-32767.f, std::min(32767.f, y)),
@@ -33,9 +76,13 @@ static inline void emit(LaserPoint* out, size_t& n, size_t max,
     n++;
 }
 
+// No `n < max` in the loop condition: emit() guards the write itself, and
+// running to `count` is what lets it count the points the cap swallowed
+// instead of leaving them unaccounted. Same applies to emitBlankJump()'s
+// emit loop below. Both are bounded (<=255 / <=kMaxBlankPts).
 static inline void emitBlankRun(LaserPoint* out, size_t& n, size_t max,
                                  float x, float y, uint8_t count) {
-    for (uint8_t k = 0; k < count && n < max; k++)
+    for (uint8_t k = 0; k < count; k++)
         emit(out, n, max, x, y, 0, 0, 0, 1);
 }
 
@@ -157,8 +204,9 @@ static void emitBlankJump(LaserPoint* out, size_t& n, size_t max,
 
     ZvShaper shaper = computeZvShaper(cfg);
     bool shape_active = shaper.A2 > 0.0f && shaper.shift_pts < total;
+    if (shape_active) sRinging = true;
 
-    for (int i = 0; i < total && n < max; i++) {
+    for (int i = 0; i < total; i++) {
         float sx = ux[i], sy = uy[i];
         if (shape_active) {
             int j = i - shaper.shift_pts;
@@ -617,9 +665,14 @@ size_t clampScannerLimits(LaserPoint* out, size_t n,
     const size_t cap = std::min(max_out, (size_t)PATTERN_POINTS_MAX);
 
     // ---- Pass 1: velocity (position-delta) clamp ----
+    //
+    // Telemetry note: points carried over from out[] were already counted as
+    // planned by the emit stage, so only the interpolated INSERTIONS add to
+    // sPlanned here. A carried-over point that no longer fits the cap is a
+    // drop like any other, and is counted as one.
     size_t m = 0;
-    buf[m++] = out[0];
-    for (size_t i = 1; i < n && m < cap; i++) {
+    if (m < cap) buf[m++] = out[0]; else sTruncated++;
+    for (size_t i = 1; i < n; i++) {
         const LaserPoint& a = out[i - 1];
         const LaserPoint& b = out[i];
         bool blankStep = a.blank || b.blank;
@@ -627,13 +680,20 @@ size_t clampScannerLimits(LaserPoint* out, size_t n,
             float dx = (float)b.x - a.x, dy = (float)b.y - a.y;
             float dist = sqrtf(dx * dx + dy * dy);
             if (dist > cfg.max_step_units) {
-                uint32_t sub = (uint32_t)ceilf(dist / cfg.max_step_units);
-                for (uint32_t k = 1; k < sub && m < cap; k++) {
+                uint32_t sub  = (uint32_t)ceilf(dist / cfg.max_step_units);
+                uint32_t want = sub - 1;
+                // Written in one bounded batch rather than per-point-with-a-
+                // cap-test, so an exhausted budget costs O(0) instead of one
+                // loop iteration per point it cannot write.
+                size_t   room = (m < cap) ? (cap - m) : 0;
+                uint32_t wrote = (uint32_t)std::min((size_t)want, room);
+                for (uint32_t k = 1; k <= wrote; k++)
                     lerpPoint(a, b, (float)k / sub, buf[m++]);
-                }
+                sPlanned   += want;
+                sTruncated += want - wrote;
             }
         }
-        if (m < cap) buf[m++] = b;
+        if (m < cap) buf[m++] = b; else sTruncated++;
     }
 
     // ---- Pass 2: acceleration (velocity-delta) clamp ----
@@ -651,9 +711,9 @@ size_t clampScannerLimits(LaserPoint* out, size_t n,
     };
 
     size_t o = 0;
-    out[o++] = buf[0];
+    if (o < cap) out[o++] = buf[0]; else sTruncated++;
     float prevMag = 0.f;
-    for (size_t i = 1; i < m && o < cap; i++) {
+    for (size_t i = 1; i < m; i++) {
         const LaserPoint& a = buf[i - 1];
         const LaserPoint& b = buf[i];
         bool blankStep = a.blank || b.blank;
@@ -661,9 +721,10 @@ size_t clampScannerLimits(LaserPoint* out, size_t n,
         if (!blankStep && (mag - prevMag) > cfg.max_accel_units) {
             LaserPoint mid;
             lerpPoint(a, b, 0.5f, mid);
-            if (o < cap) out[o++] = mid;
+            sPlanned++;                                 // an insertion, see pass 1
+            if (o < cap) out[o++] = mid; else sTruncated++;
         }
-        if (o < cap) out[o++] = b;
+        if (o < cap) out[o++] = b; else sTruncated++;
         prevMag = mag;
     }
     return o;
@@ -704,10 +765,48 @@ static size_t emitAllSegments(const PathSegment* segments, size_t segment_count,
 
 // ── public entry point ───────────────────────────────────────────────────
 
+// Walks the finished output and fills in everything the emitted stream can be
+// asked about directly: lit/blank split, blank-run count, and the distance
+// travelled with the beam off. A blank run's first step counts too -- the
+// galvo is already moving off the last lit point when the beam goes out.
+static void measureEmitted(const LaserPoint* out, size_t n, Stats& st) {
+    bool inRun = false;
+    for (size_t k = 0; k < n; k++) {
+        if (out[k].blank) {
+            st.emittedBlank++;
+            if (!inRun) { st.jumpCount++; inRun = true; }
+            if (k > 0) {
+                float dx = (float)out[k].x - (float)out[k - 1].x;
+                float dy = (float)out[k].y - (float)out[k - 1].y;
+                st.jumpDistanceTotal += sqrtf(dx * dx + dy * dy);
+            }
+        } else {
+            st.emittedLit++;
+            inRun = false;
+        }
+    }
+}
+
+// Closes out one optimize() call: measures the emitted stream, folds in the
+// planned/truncated counters, and publishes to gLastStats + gFrameStats.
+static size_t finishStats(Stats& st, const LaserPoint* out, size_t n) {
+    measureEmitted(out, n, st);
+    st.plannedTotal  = sPlanned;
+    st.truncated     = sTruncated;
+    st.ringingActive = sRinging;
+    st.calls         = 1;
+    gLastStats = st;
+    gFrameStats.add(st);
+    return n;
+}
+
 size_t optimize(const PathSegment* segments, size_t segment_count,
                  LaserPoint* out, size_t max_out,
                  const OptimizerConfig& cfg_in) {
-    if (segment_count == 0 || max_out == 0) return 0;
+    Stats st;
+    sPlanned = 0; sTruncated = 0; sRinging = false;
+
+    if (segment_count == 0 || max_out == 0) return finishStats(st, out, 0);
 
     OptimizerConfig cfg = cfg_in;
 
@@ -720,7 +819,7 @@ size_t optimize(const PathSegment* segments, size_t segment_count,
         segment_count = applyTransform(segments, segment_count,
                                        cfg.transform, &xf_segments);
         segments = xf_segments;
-        if (segment_count == 0) return 0;
+        if (segment_count == 0) return finishStats(st, out, 0);
     }
 
     // Budget check: plan at the requested density first, tracking corner
@@ -813,6 +912,7 @@ size_t optimize(const PathSegment* segments, size_t segment_count,
         uint8_t target = (cfg.stage1_blank_target >= cfg.min_blank_samples)
                               ? cfg.stage1_blank_target : cfg.min_blank_samples;
         cfg.blank_samples = target;
+        st.stage1Triggered = true;
         // Re-check: does the target still leave the fixed overhead over
         // budget? If so, fall back further toward the hard floor.
         uint32_t retry_overhead = corner_total + (uint32_t)(cfg.blank_samples + cfg.min_blank_samples) * (segment_count + 1);
@@ -846,6 +946,7 @@ size_t optimize(const PathSegment* segments, size_t segment_count,
     // trades corner sharpness/dwell for the one thing that must never be
     // sacrificed: the shape actually closing.
     if (corner_total + blank_overhead > effective_cap && corner_total > 0) {
+        st.stage15Triggered = true;
         float available_for_corners = (float)effective_cap - (float)blank_overhead;
         if (available_for_corners < 0.0f) available_for_corners = 0.0f;
         float corner_scale = available_for_corners / (float)corner_total;
@@ -894,8 +995,14 @@ size_t optimize(const PathSegment* segments, size_t segment_count,
             // non-resample case.
             float safe_scale = std::max(scale, 0.02f);
             cfg.resample_spacing_units = cfg.resample_spacing_units / safe_scale;
+            st.stage2Scale = safe_scale;
         } else {
+            float before = cfg.pts_per_1000_units;
             cfg.pts_per_1000_units = std::max(0.1f, cfg.pts_per_1000_units * scale);
+            // Report the factor that was really applied, floor included --
+            // a scale of 0.01 that the 0.1 ppu floor turned into 0.4 would
+            // otherwise read as a far tighter squeeze than actually happened.
+            st.stage2Scale = (before > 1e-4f) ? (cfg.pts_per_1000_units / before) : scale;
         }
     }
 
@@ -933,7 +1040,7 @@ size_t optimize(const PathSegment* segments, size_t segment_count,
     // clampScannerLimits(). Runs on the fully emitted stream so it sees the
     // true per-tick motion; may grow n, bounded by the same effective cap.
     n = clampScannerLimits(out, n, cfg, effective_cap);
-    return n;
+    return finishStats(st, out, n);
 }
 
 void emitBlankTo(LaserPoint* out, size_t& n, size_t max,
