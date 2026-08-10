@@ -1,8 +1,7 @@
 # GalvOS
 
-![image](https://github.com/user-attachments/assets/27f2adcc-0e56-4d4b-a446-699b2150028c)
+<img width="1800" height="450" alt="90546" src="https://github.com/user-attachments/assets/8de820e4-a9df-43d1-8eac-350729139a18" />
 
-> **Open-source ESP32-S3 laser show controller — built to replace proprietary OEM controllers in RGB galvo laser projectors.**
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
 [![Hardware License: CERN-OHL-S](https://img.shields.io/badge/HW_License-CERN--OHL--S-orange.svg)](https://ohwr.org/cern_ohl_s_v2.txt)

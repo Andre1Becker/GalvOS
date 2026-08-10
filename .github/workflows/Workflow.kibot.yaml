@@ -1,0 +1,28 @@
+name: "KiBot Automation"
+
+on:
+  push:
+    paths:
+      - '**.kicad_sch'
+      - '**.kicad_pcb'
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Run KiBot
+        uses: INTI-CMNB/KiBot@v2
+        with:
+          config: 'galvos.kibot.yml'
+          board: 'hardware/schematics/Laser Controller.kicad_pcb'
+          schema: 'hardware/schematics/Laser Controller.kicad_sch'
+          dir: 'output'
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: Manufacturing-Data
+          path: output

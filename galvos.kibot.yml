@@ -1,0 +1,114 @@
+kibot:
+  version: 1
+
+global:
+  out_dir: Output
+
+filters:
+  - name: 'exclude_virtual'
+    comment: 'Exclude virtual components like logos and test points from the BOM'
+    type: generic
+    exclude_virtual: true
+
+outputs:
+  # 1. GERBER FILES (PCBWay compliant)
+  - name: 'PCBWay_Gerbers'
+    comment: 'Gerber layers for fabrication'
+    type: gerber
+    dir: 'PCBWay_Project/Gerber'
+    options:
+      exclude_edge_layer: false
+      use_aux_axis_as_origin: true
+      plot_footprint_values: true
+      plot_footprint_refs: true
+      use_gerber_x2_attributes: false
+    layers:
+      - F.Cu
+      - B.Cu
+      - F.Paste
+      - B.Paste
+      - F.Silkscreen
+      - B.Silkscreen
+      - F.Mask
+      - B.Mask
+      - Edge.Cuts
+
+  # 2. DRILL FILES (PCBWay compliant)
+  - name: 'PCBWay_Drills'
+    comment: 'Excellon drill files'
+    type: excellon
+    dir: 'PCBWay_Project/Gerber'
+    options:
+      metric_units: true          # FIX: was metric_format: 'mm' (invalid key)
+      use_aux_axis_as_origin: true
+      minimal_header: false
+
+  # 3. PICK AND PLACE FILES (For SMT Assembly)
+  - name: 'PCBWay_Pick_and_Place'
+    comment: 'Component placement coordinates for assembly'
+    type: position
+    dir: 'PCBWay_Project/Assembly'
+    options:
+      format: CSV
+      units: millimeters          # FIX: was 'mm' (invalid value; valid: millimeters/inches/mils)
+      separate_files_for_front_and_back: true
+
+  # 4. BILL OF MATERIALS (For SMT Assembly)
+  - name: 'PCBWay_BOM'
+    comment: 'Bill of Materials in CSV format'
+    type: bom
+    dir: 'PCBWay_Project/Assembly'
+    options:
+      dnf_filter: 'exclude_virtual'  # FIX: filter moved into options; was top-level (invalid)
+      columns:                        # FIX: removed format: CSV (not a valid bom option key)
+        - Row
+        - Description
+        - References
+        - Quantity Per PCB
+        - Value
+        - Footprint
+
+  # 5. INTERACTIVE HTML BOM (For manual inspection and hand-soldering)
+  - name: 'Interactive_BOM'
+    comment: 'Interactive HTML page for visual part tracking'
+    type: ibom
+    dir: 'Documentation/HTML_BOM'
+
+  # 6. PCB DOCUMENTATION PDF (Multi-layer Board layout)
+  - name: 'PCB_Layout_PDF'
+    comment: 'Generates a PDF containing selected PCB layers'
+    type: pdf_pcb_print
+    dir: 'Documentation'
+    options:
+      scaling: 1.0
+      separate_pages: true
+    layers:
+      - layer: F.Cu
+      - layer: B.Cu
+      - layer: F.Silkscreen
+      - layer: B.Silkscreen
+      - layer: Edge.Cuts
+
+  # 7. HIGH-RESOLUTION BOARD IMAGES (2D Renders)
+  - name: 'Board_Images_2D'
+    comment: 'Generates photorealistic PNG images of the board layers'
+    type: pcbdraw
+    dir: 'Documentation/Images'
+    options:
+      format: png
+      dpi: 300
+      show_components: 'none'     # FIX: quoted string; unquoted 'none' parses as YAML null
+
+  # 8. AUTOMATED ZIP PACKAGING
+  - name: 'PCBWay_Upload_Zip'
+    comment: 'Creates a clean zip archive containing only the fabrication files'
+    type: compress
+    dir: 'PCBWay_Project'
+    options:
+      format: ZIP
+      files:
+        - from_output: PCBWay_Gerbers
+          dest: /
+        - from_output: PCBWay_Drills
+          dest: /
+

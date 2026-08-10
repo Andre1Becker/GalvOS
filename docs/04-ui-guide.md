@@ -22,7 +22,7 @@ The GalvOS WebUI is a single-page application served directly from the ESP32's L
 - [Tab: Log](#tab-log)
 - [Tab: Configuration](#tab-configuration)
 
-> **A note on screenshots:** captured live from a running device (firmware v6.36.1 / UI v1.0.1) via `scripts/capture_screenshots.py`, which also redacts IP/hostname/credential fields before saving. Re-run it after UI changes to keep this chapter current.
+> **A note on screenshots:** captured live from a running device (firmware v6.36.1 / UI v1.0.1) via `scripts/capture_screenshots.py`, which also redacts IP/hostname/credential fields before saving.
 
 ---
 
@@ -37,6 +37,9 @@ On first boot, GalvOS starts in Wi-Fi Access Point mode:
 Open `http://192.168.4.1` in any browser. Once you configure a Wi-Fi network in the Configuration tab and restart, GalvOS connects to your network and is available at the assigned DHCP address — or at `http://galvOS.local` on networks that support mDNS.
 
 > **Tip:** The IP address is always shown on the Dashboard tab under System → IP Address.
+
+you can access a demo/simulation on https://www.galvos.de
+
 
 ---
 
