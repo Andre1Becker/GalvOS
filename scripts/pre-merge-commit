@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# .git/hooks/pre-merge-commit
+# Runs the optimizer Contract tests before any merge commit is finalized.
+# Aborts the merge if an invariant is red. Local, offline, seconds.
+#
+# Install:
+#   cp pre-merge-commit .git/hooks/pre-merge-commit
+#   chmod +x .git/hooks/pre-merge-commit
+#
+# Note: pre-merge-commit fires only when the merge creates a commit (i.e. NOT a
+# fast-forward). Merge your opt/* branches with --no-ff so the hook always runs:
+#   git merge --no-ff opt/<n>
+#
+# Bypass in a genuine emergency: git merge --no-verify ...
+
+set -euo pipefail
+
+echo "── running optimizer Contract tests before merge ──"
+if ! pio test -e native; then
+  echo
+  echo "!! Contract tests RED — merge aborted."
+  echo "   An invariant regressed. Do not merge this branch as-is."
+  exit 1
+fi
+echo "── Contract green — merge proceeds ──"
