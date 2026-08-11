@@ -393,9 +393,20 @@ static float exteriorAngle(float pxx, float pxy, float cxx, float cxy,
     return acosf(dot);   // collinear (same direction) -> 0; full reversal -> PI
 }
 
-// Corner severity in [0,1], purely geometric: the exterior angle at vertex i,
-// mapped to 0 at/below cfg.corner_angle_deg and to 1 at a full 180 deg
-// reversal -- the sharpest case this optimizer handles.
+// True at vertex i if segment `seg` has no neighbor on at least one side --
+// the open end of a non-closed path. Shared by cornerSeverity() (dwell) and
+// SegmentPlan::easeSeverity() (edge shaping, below), which give this case two
+// DIFFERENT answers -- see the P19 note on cornerSeverity() for why.
+static inline bool isOpenEndpoint(const PathSegment& seg, size_t i) {
+    if (seg.closed) return false;
+    return i == 0 || i + 1 >= seg.count;
+}
+
+// Corner DWELL severity in [0,1], purely geometric: the exterior angle at
+// vertex i, mapped to 0 at/below cfg.corner_angle_deg and to 1 at a full 180
+// deg reversal -- the sharpest case this optimizer handles. Feeds
+// SegmentPlan::cornerPts() -- how many stationary points to place at the
+// vertex so the mirror can decelerate, settle, and reaccelerate.
 //
 // Severity deliberately does NOT model how fast the beam arrives at the
 // vertex. Point density already keeps the per-point step at or below the
@@ -406,24 +417,22 @@ static float exteriorAngle(float pxx, float pxy, float cxx, float cxy,
 // every corner dwell. A planning-time speed proxy here would only duplicate
 // that, at the cost of corner budget Stage 2 cannot give back.
 //
-// An open-path endpoint (no neighbor on one side) returns max severity
-// (1.0), not 0. A genuinely free end (line()/text-stroke pen-up) just
-// gets a few extra dwell samples sitting still -- harmless. But
-// wf()/buildWfChains() (Cube/Pyramid/Tetrahedron) splits a polyhedron
-// into closed face-loops plus open struts that *share a vertex* with
-// those loops: from the strut's own PathSegment the shared vertex looks
-// like a free end, so it used to get min_corner_pts regardless of the
-// real angle there -- under-dwelling exactly where a strut meets a face,
-// visible as a small gap at that corner. Octahedron has no open chains
-// (all-closed decomposition) and never showed the gap, confirming this
-// path. Treating unknown-neighbor endpoints as worst-case sharp instead
-// of softest fixes the shared-vertex case and is a no-op risk for true
-// free ends.
+// An open-path endpoint (isOpenEndpoint() true) returns max severity (1.0),
+// not 0. A genuinely free end (line()/text-stroke pen-up) just gets a few
+// extra dwell samples sitting still -- harmless. But wf()/buildWfChains()
+// (Cube/Pyramid/Tetrahedron) splits a polyhedron into closed face-loops plus
+// open struts that *share a vertex* with those loops: from the strut's own
+// PathSegment the shared vertex looks like a free end, so it used to get
+// min_corner_pts regardless of the real angle there -- under-dwelling
+// exactly where a strut meets a face, visible as a small gap at that corner.
+// Octahedron has no open chains (all-closed decomposition) and never showed
+// the gap, confirming this path. Treating unknown-neighbor endpoints as
+// worst-case sharp instead of softest fixes the shared-vertex case and is a
+// no-op risk for true free ends -- for DWELL COUNT. It is the wrong answer
+// for edge SHAPING; see SegmentPlan::easeSeverity() (P19).
 static float cornerSeverity(const PathSegment& seg, const OptimizerConfig& cfg,
                              size_t i) {
-    bool hasIncoming = seg.closed || i > 0;
-    bool hasOutgoing = seg.closed || i + 1 < seg.count;
-    if (!hasIncoming || !hasOutgoing) return 1.0f;
+    if (isOpenEndpoint(seg, i)) return 1.0f;
 
     size_t prev = (i == 0) ? seg.count - 1 : i - 1;
     size_t next = (i + 1) % seg.count;
@@ -637,11 +646,34 @@ struct SegmentPlan {
         return edgeInteriorCount(edgeLength(e), *cfg);
     }
 
+    // Edge-shaping severity (P19) -- deliberately NOT the same value as
+    // severity()/cornerPts() at an open endpoint. cornerSeverity() returns 1.0
+    // there so the vertex gets a full stop-dwell (P14's wireframe-strut fix);
+    // that is a statement about how long the beam sits still, not about how
+    // its neighboring edge should be shaped. A "free end" (line()/text-stroke
+    // pen-up) has no real corner to ease toward -- the dwell alone handles the
+    // stop -- so warping the edge's interior spacing there was pure
+    // side-effect: on a 2-vertex open segment (line()) BOTH ends read
+    // severity 1.0, so shapeEdgeT() reduces to smoothstep() end to end, i.e.
+    // dense-thin-dense along a perfectly straight line with nothing sharp
+    // anywhere -- a visible brightness gradient (dim middle) on every long
+    // straight segment (row/grid presets, DNA-helix rungs, wireframe struts).
+    // A "shared vertex" (wf()/buildWfChains() strut meeting a face loop)
+    // looks identical from inside this segment -- there is no cross-segment
+    // angle available to shape toward correctly either -- so treating it the
+    // same way (no bias) is the safe default rather than a second guess.
+    // Interior vertices are unaffected: isOpenEndpoint() is false there, so
+    // easeSeverity() falls through to the same angle-based value cornerPts()
+    // uses, unchanged.
+    float easeSeverity(size_t i) const {
+        return isOpenEndpoint(*seg, i) ? 0.0f : severity(i);
+    }
+
     // Spacing within an edge is eased toward whichever of its two ends has the
     // more severe corner (see shapeEdgeT()), so the pair is a property of the
     // edge, not a decision the emit pass makes.
-    float easeIn(size_t e)  const { return severity(e); }
-    float easeOut(size_t e) const { return severity((e + 1) % seg->count); }
+    float easeIn(size_t e)  const { return easeSeverity(e); }
+    float easeOut(size_t e) const { return easeSeverity((e + 1) % seg->count); }
 };
 
 // Walks the memo in the order it was built, handing each segment its plan. A
