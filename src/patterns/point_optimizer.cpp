@@ -373,25 +373,18 @@ static float exteriorAngle(float pxx, float pxy, float cxx, float cxy,
     return acosf(dot);   // collinear (same direction) -> 0; full reversal -> PI
 }
 
-// Forward decl: edgeInteriorCount() (defined below) is needed by
-// cornerSeverity() to estimate the incoming edge's approach speed.
-static uint16_t edgeInteriorCount(float length, const OptimizerConfig& cfg);
-
-// Corner severity in [0,1]: 1 = the sharpest case this optimizer handles.
-// Two independent contributors are blended with max() so either one alone
-// can drive dwell up to the sharpest setting:
+// Corner severity in [0,1], purely geometric: the exterior angle at vertex i,
+// mapped to 0 at/below cfg.corner_angle_deg and to 1 at a full 180 deg
+// reversal -- the sharpest case this optimizer handles.
 //
-//  - angleT:  geometric severity from the exterior angle (as before).
-//  - speedT:  severity from how fast the beam is
-//    actually moving when it arrives. A short edge below the
-//    edgeInteriorCount() floor (too few interior points for its
-//    length) gets snapped to the vertex in one oversized step instead
-//    of decelerating into it -- angle alone can't see this, since a
-//    short sharp edge and a long sharp edge produce the same angle but
-//    very different arrival speeds. speedT compares the incoming
-//    edge's actual per-point step length against the nominal step
-//    length the current pts_per_1000_units density targets: 0 at/below
-//    nominal, ramping to 1 at 2x nominal or more.
+// Severity deliberately does NOT model how fast the beam arrives at the
+// vertex. Point density already keeps the per-point step at or below the
+// nominal step by construction (see edgeInteriorCount()), and the one thing
+// that can still produce an oversized arrival step -- Stage 2 crushing
+// interior density -- is bounded on the emitted stream in real DAC units by
+// clampScannerLimits(), whose acceleration pass limits deceleration into
+// every corner dwell. A planning-time speed proxy here would only duplicate
+// that, at the cost of corner budget Stage 2 cannot give back.
 //
 // An open-path endpoint (no neighbor on one side) returns max severity
 // (1.0), not 0. A genuinely free end (line()/text-stroke pen-up) just
@@ -422,30 +415,7 @@ static float cornerSeverity(const PathSegment& seg, const OptimizerConfig& cfg,
     float span = 180.0f - cfg.corner_angle_deg;
     float angleT = (angle_deg <= cfg.corner_angle_deg) ? 0.0f :
                    (span > 0.01f ? (angle_deg - cfg.corner_angle_deg) / span : 1.0f);
-    angleT = std::max(0.0f, std::min(1.0f, angleT));
-
-    float dxp = seg.vertices[i].x - seg.vertices[prev].x;
-    float dyp = seg.vertices[i].y - seg.vertices[prev].y;
-    float inLen = sqrtf(dxp * dxp + dyp * dyp);
-    uint16_t inPts = edgeInteriorCount(inLen, cfg);
-    float stepLen = inLen / (float)(inPts + 1);
-    // Nominal per-point step the active density targets -- must match the
-    // mode edgeInteriorCount() used above, or speedT compares against the
-    // wrong reference. Resample: spacing is the nominal step directly.
-    float nominalStep;
-    if (cfg.resample_enabled && cfg.resample_spacing_units > 0.01f) {
-        nominalStep = cfg.resample_spacing_units;
-    } else {
-        nominalStep = (cfg.pts_per_1000_units > 0.01f)
-                          ? 1000.0f / cfg.pts_per_1000_units : 0.0f;
-    }
-    float speedT = 0.0f;
-    if (nominalStep > 0.01f) {
-        speedT = (stepLen - nominalStep) / nominalStep;
-        speedT = std::max(0.0f, std::min(1.0f, speedT));
-    }
-
-    return std::max(angleT, speedT);
+    return std::max(0.0f, std::min(1.0f, angleT));
 }
 
 // Number of points to place at a corner, scaled by severity between
@@ -1264,7 +1234,7 @@ size_t optimize(const PathSegment* segments, size_t segment_count,
     // stages of the Phase-1 pipeline will hook in:
     //   - Resample (Phase 2): active. edgeInteriorCount() switches to
     //     constant spacing (points = length / resample_spacing_units) when
-    //     cfg.resample_enabled; feeds planSegment / emitSegment / cornerSeverity.
+    //     cfg.resample_enabled; feeds planSegment / emitSegment.
     //   - Corner Dwell: already active (cornerPtsAtVertex / emitSegment).
     //   - Jitter (Phase 4): active. Deterministic perpendicular offset on
     //     interior points, applied inline in emitSegment()'s interior loop.

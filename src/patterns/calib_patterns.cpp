@@ -566,10 +566,10 @@ static inline optimizer::OptimizerConfig liveOptimizerConfig() {
 // PATTERN 7: OPT CORNER SWEEP
 // Tune: corner_angle_deg | min_corner_pts | max_corner_pts
 // 8 V-notches, identical edge length, tip angle 8°→175° left to right.
-// cornerSeverity().speedT is constant (same edge length everywhere), so
-// ONLY the angle drives dwell. Notches whose tip angle is BELOW
-// corner_angle_deg get min_corner_pts; above it dwell grows toward
-// max_corner_pts at 175°. Correct tuning: leftmost 1-2 notches sweep
+// cornerSeverity() is purely angular, so ONLY the tip angle drives dwell.
+// Notches whose tip angle is BELOW corner_angle_deg get min_corner_pts;
+// above it dwell grows toward max_corner_pts at 175°.
+// Correct tuning: leftmost 1-2 notches sweep
 // through almost without pause; rightmost notch has a clearly visible
 // dwell dot at its tip. Adjust corner_angle_deg until the transition
 // falls at the desired sharpness threshold.
