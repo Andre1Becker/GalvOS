@@ -172,11 +172,145 @@ struct OptimizerConfig {
     // -> byte-identical to the pre-jitter optimizer.
     bool     jitter_enabled       = OPT_DEFAULT_JITTER_ENABLED;
     float    jitter_amount_units  = OPT_DEFAULT_JITTER_AMOUNT_UNITS; // max perpendicular offset (DAC units)
+
+    // ── Frame context for multi-call callers ─────────────────────────────
+    //
+    // A preset that renders each of its sub-shapes with its own optimize()
+    // call writes into `out = o + n`, so from inside optimize() the buffer
+    // always looks empty. Two things are invisible to it as a result, and
+    // these fields hand them in. Left at their defaults, every single-call
+    // caller produces byte-identical output to before.
+    //
+    // hasPrevPos / prevX / prevY -- where the galvo already is when the call
+    // starts. Without it emitBlankJump() takes its n==0 fallback and parks
+    // blank_samples ticks ON the target instead of ramping to it, i.e. a
+    // teleport: Pillars 2 and 3 only ever applied WITHIN a single call.
+    bool     hasPrevPos           = false;
+    float    prevX                = 0.0f;
+    float    prevY                = 0.0f;
+
+    // frameBudgetRemaining -- points the FRAME still has left, as opposed to
+    // max_pts_per_frame, which optimize() applies per CALL. Without it N
+    // calls each plan a whole frame's worth and the only real ceiling left
+    // is max_out (PATTERN_POINTS_MAX). 0 = not tracked, i.e. the per-call
+    // behavior. optimize() returns only the count it wrote; the caller owns
+    // the subtraction -- see frameContext().
+    uint16_t frameBudgetRemaining = 0;
 };
+
+// Fills in the frame context above from the caller's own running state, so a
+// multi-call preset converts one call site with one line instead of four.
+// `o` is the frame buffer base and `n` the number of points already written
+// into it this frame -- exactly the pair such callers already carry around to
+// build their `optimize(&seg, 1, o + n, m - n, cfg)`.
+//
+// The budget is derived from n rather than carried in a separate counter that
+// each loop would have to decrement itself: n IS the frame's spend so far, it
+// cannot drift out of sync, and it also charges points written outside the
+// optimizer (raw dwell dots, seam bridges) against the same flicker budget --
+// which is what the budget is a statement about.
+//
+// Returns false when the budget is exhausted; the caller must then stop
+// emitting rather than call optimize() anyway. Passing frameBudgetRemaining=0
+// would read as "not tracked" and hand that call a full frame all over again.
+// At n == 0 the budget is the full max_pts_per_frame and hasPrevPos stays
+// false, so the first call of a frame is unchanged.
+inline bool frameContext(OptimizerConfig& cfg, const LaserPoint* o, size_t n) {
+    if (n >= (size_t)cfg.max_pts_per_frame) return false;
+    cfg.frameBudgetRemaining = (uint16_t)((size_t)cfg.max_pts_per_frame - n);
+    if (n > 0 && o != nullptr) {
+        cfg.hasPrevPos = true;
+        cfg.prevX      = (float)o[n - 1].x;
+        cfg.prevY      = (float)o[n - 1].y;
+    }
+    return true;
+}
+
+// ── Telemetry ────────────────────────────────────────────────────────────
+//
+// What one optimize() call actually produced, as opposed to what it planned.
+// The optimizer's failure modes are all silent by construction -- a truncated
+// shape, a ZV shaper that never activates, a frame using a third of its point
+// budget -- and none of them are visible from the emitted geometry alone.
+//
+// emittedLit/emittedBlank/jumpCount/jumpDistanceTotal are MEASURED from the
+// final output buffer after every stage has run (including the velocity /
+// acceleration clamp, which inserts points of its own), so they describe the
+// stream the galvo is actually handed, not an intermediate plan.
+//
+// plannedTotal and truncated close the accounting loop instead:
+//   plannedTotal = every point the pipeline attempted to write -- the emit
+//                  stage plus the clamp stage's interpolated insertions.
+//   truncated    = attempted writes dropped because the point budget
+//                  (effective_cap) was already full.
+// so `emittedLit + emittedBlank + truncated == plannedTotal` holds for every
+// call. A point that vanishes anywhere without passing one of those two
+// counters breaks the identity -- which is the point of tracking both
+// (CONTRACT.md invariant 3, noSilentPointLoss).
+//
+// The host Contract build switches its gated assertions on with
+// -D GALVOS_OPT_HAS_STATS=1 (see [env:native] in platformio.ini); it cannot
+// come from this header, because test_contract.cpp includes
+// contract_features.h -- which defaults the gate to 0 -- before this file.
+struct Stats {
+    uint32_t emittedLit;          // lit points in the final buffer
+    uint32_t emittedBlank;        // blanked points in the final buffer
+    uint32_t truncated;           // attempted writes dropped at the budget cap
+    uint32_t plannedTotal;        // emitted + truncated, counted independently
+    uint32_t jumpCount;           // blank runs (one per blank jump)
+    float    jumpDistanceTotal;   // DAC units travelled with the beam off
+    uint32_t calls;               // optimize() calls folded into this record
+    float    stage2Scale;         // interior-density factor Stage 2 applied
+                                   // (1.0 = Stage 2 did not trigger), floors
+                                   // included -- i.e. what was really used
+    bool     stage1Triggered;     // blank_samples was reduced to fit budget
+    bool     stage15Triggered;    // corner point counts were scaled to fit
+    bool     ringingActive;       // ZV shaper actually shaped at least one jump
+
+    Stats() { reset(); }
+    void reset();
+    void add(const Stats& call);   // frame accumulation, see gFrameStats
+};
+
+// PILLAR 3 status for a config, derivable without rendering a frame.
+//
+// The ZV shaper can silently do nothing: the delay between its two impulses is
+// a physical time (half the damped ring period) converted into output points,
+// so at a low ring_freq_hz and/or a high galvo_kpps it needs a longer blank
+// jump than the optimizer will ever build (kMaxBlankPts) and there is nothing
+// to shape with. At 200 Hz / 30 kpps that delay is already 76 points. Rather
+// than leaving the user with a ticked "Ringing Compensation" box and no effect,
+// this is published as opt_eff_ringing_active / opt_eff_ring_shift_pts on
+// /api/config, next to the other opt_eff_* derived values.
+//
+// Stats::ringingActive is the runtime counterpart: it says a jump really WAS
+// shaped while rendering the last frame.
+struct RingingStatus {
+    bool active;         // shaper runs on the longest jump this config builds
+    int  shift_pts;      // second-impulse delay, in output points
+    int  min_jump_pts;   // shortest jump, in points, that can carry the shaper
+};
+RingingStatus ringingStatus(const OptimizerConfig& cfg);
+
+// Stats of the most recent optimize() call. Overwritten per call, so a caller
+// that renders one shape can read exactly what that shape cost.
+extern Stats gLastStats;
+
+// Stats accumulated over the current frame: every optimize() call adds itself
+// here, and pattern_engine clears it at frame start via resetFrameStats() --
+// same publish-per-frame lifecycle as gLiveTransform above. This is the record
+// the point budget is a property of: a preset that draws three primitives
+// calls optimize() three times, and only the sum is the frame.
+extern Stats gFrameStats;
+
+// Clears gFrameStats. Called once per frame by pattern_engine, before any
+// generate() runs.
+void resetFrameStats();
 
 // Runs Pillar-1 density optimization across all given segments and writes
 // LaserPoint output (including blank jumps between segments/sub-paths).
-// Returns the number of points written (<= max_out).
+// Returns the number of points written (<= max_out). Fills gLastStats and
+// adds to gFrameStats.
 //
 // If the planned point count would exceed max_out, pts_per_1000_units is
 // scaled down uniformly once and the pass is repeated, so output never

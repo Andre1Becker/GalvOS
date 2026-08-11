@@ -1022,6 +1022,24 @@ canvas { max-width: 100%; display: block; }
       <div class="card">
         <div class="row" id="opt-profile-bar" style="flex-wrap:wrap"></div>
       </div>
+      <div class="card">
+        <h2>Live Telemetry</h2>
+        <div class="field-grid">
+          <div class="field"><label>Lit / Blank Points</label><span id="opt-st-points">--</span></div>
+          <div class="field"><label>Truncated</label><span id="opt-st-trunc">--</span></div>
+          <div class="field"><label>Blank Jumps</label><span id="opt-st-jumps">--</span></div>
+          <div class="field"><label>Jump Distance</label><span id="opt-st-jumpdist">--</span></div>
+          <div class="field"><label>Budget Used</label><span id="opt-st-budget">--</span></div>
+          <div class="field"><label>optimize() Calls</label><span id="opt-st-calls">--</span></div>
+        </div>
+        <div class="row" style="margin-top:4px">
+          <span class="pill" id="opt-st-s1">Stage 1</span>
+          <span class="pill" id="opt-st-s15">Stage 1.5</span>
+          <span class="pill" id="opt-st-s2">Interior &times;1.00</span>
+          <span class="pill" id="opt-st-zv">ZV Shaper</span>
+        </div>
+        <p class="param-hint">Measured on the last rendered frame &mdash; all optimize() calls of that frame combined. Truncated counts points the budget dropped before they reached the galvo; the ZV Shaper pill lights only when ringing compensation actually shaped a jump.</p>
+      </div>
       <div class="grid" style="grid-template-columns:3.2fr 0.5fr">
         <div class="card">
           <h2>Settings</h2>
@@ -1062,6 +1080,7 @@ canvas { max-width: 100%; display: block; }
               <p class="param-hint">Zero-Vibration (ZV) input shaping on blank jumps &mdash; measure your galvo's resonance before enabling.</p>
               <div class="field"><label>Frequency Hz</label><div class="slider-row"><input type="range" id="opt-ring-freq" min="1" max="2000" value="60" oninput="optSyncNum('opt-ring-freq');optimizerSlider()"><input type="number" id="opt-ring-freq-n" min="1" max="2000" value="60" onchange="optSyncSlider('opt-ring-freq');optimizerSlider()"></div><p class="param-hint">Galvo mechanical resonant frequency in Hz &mdash; must be measured on real hardware.</p></div>
               <div class="field"><label>Damping Ratio</label><div class="slider-row"><input type="range" id="opt-ring-damping" min="0" max="90" value="50" oninput="optSyncNum('opt-ring-damping');optimizerSlider()"><input type="number" id="opt-ring-damping-n" data-scale="100" data-decimals="2" step="0.01" min="0" max="0.9" value="0.50" onchange="optSyncSlider('opt-ring-damping');optimizerSlider()"></div><p class="param-hint">Galvo damping ratio &zeta; &mdash; must be measured on real hardware (typical 0.05&ndash;0.3).</p></div>
+              <p id="opt-eff-ringing" style="font-size:0.7rem;color:var(--text-dim)"></p>
             </div>
             <div class="param-group">
               <h3>Jitter</h3>
@@ -1386,7 +1405,7 @@ canvas { max-width: 100%; display: block; }
 /* =========================================================================
    GLOBAL STATE
    ========================================================================= */
-var UI_VERSION = '1.6.5';   // WebUI version -- independent from firmware version
+var UI_VERSION = '1.7.1';   // WebUI version -- independent from firmware version
 var NAV_TABS = [
   {id: 'dashboard', label: 'Dashboard', icon: '🏠', bottom: true},
   {id: 'presets', label: 'Presets', icon: '🎮', bottom: true},
@@ -4150,6 +4169,7 @@ function loadOptimizerConfig(c) {
   var effStep = (c.opt_profiles && c.opt_profiles[g_activeOptimizerProfile]) ? c.opt_profiles[g_activeOptimizerProfile].opt_eff_max_step_units : null;
   var effAccel = (c.opt_profiles && c.opt_profiles[g_activeOptimizerProfile]) ? c.opt_profiles[g_activeOptimizerProfile].opt_eff_max_accel_units : null;
   updateEffectivePpsDisplay(effStep, effAccel);
+  updateRingingStatusDisplay(c.opt_profiles ? c.opt_profiles[g_activeOptimizerProfile] : null);
   optimizerUpdateLabels();
   renderOptimizerMembers();
 }
@@ -4202,6 +4222,32 @@ function updateEffectivePpsDisplay(effStep, effAccel) {
   var stepEl = document.getElementById('opt-eff-step'); if (stepEl) stepEl.textContent = 'Effective at ' + outputKpps + ' kpps (rated ' + s_galvoRatedKpps + 'k, ratio ' + ratio.toFixed(2) + '×): ' + Math.round(step) + ' units/tick';
   var accelEl = document.getElementById('opt-eff-accel'); if (accelEl) accelEl.textContent = 'Effective at ' + outputKpps + ' kpps (rated ' + s_galvoRatedKpps + 'k, ratio ' + ratio.toFixed(2) + '×): ' + Math.round(accel) + ' units/tick';
 }
+// Whether ringing compensation actually engages at the current settings. The
+// ZV shaper's impulse delay is a physical time (half the ring period) turned
+// into output points, so a low resonant frequency and/or a high point rate can
+// push it past the longest blank jump the optimizer builds -- in which case the
+// firmware falls back to an unshaped jump and says so here, instead of leaving
+// a ticked checkbox that does nothing. Values come from the firmware
+// (opt_eff_ringing_active / opt_eff_ring_shift_pts on /api/config), since the
+// decision depends on the device's own galvo_kpps.
+function updateRingingStatusDisplay(prof) {
+  var el = document.getElementById('opt-eff-ringing');
+  if (!el) return;
+  if (!prof || prof.opt_eff_ring_shift_pts === undefined) { el.textContent = ''; return; }
+  if (!prof.opt_ringing_comp_enabled) {
+    el.textContent = 'Inactive — not enabled.';
+    el.style.color = 'var(--text-dim)';
+    return;
+  }
+  var shift = prof.opt_eff_ring_shift_pts;
+  if (prof.opt_eff_ringing_active) {
+    el.textContent = 'Active — shaping blank jumps with a ' + shift + '-point impulse delay.';
+    el.style.color = 'var(--ok)';
+  } else {
+    el.textContent = 'NOT taking effect — needs a ' + shift + '-point impulse delay, longer than any blank jump this optimizer builds. Raise Frequency Hz or lower the output kpps.';
+    el.style.color = 'var(--warn)';
+  }
+}
 function applyOptimizerSmartDefaults() {
   var base = OPT_PROFILE_BASE[g_activeOptimizerProfile];
   var outputKpps = window.g_proj ? window.g_proj.kpps : 30;
@@ -4249,10 +4295,64 @@ function renderOptimizerMembers() {
   }).join('');
 }
 
+/* Live telemetry (/api/optimizer-stats). Polled only while the Optimizer tab
+   is open -- the numbers are only readable here, and the pattern task already
+   shares core 0 with the state poll. Shows the FRAME record: a preset that
+   draws several primitives calls optimize() once per primitive, and only the
+   sum is the frame the point budget applies to. */
+var s_optStatsTimer = null;
+var s_optStatsBusy = false;
+async function pollOptimizerStats() {
+  if (s_optStatsBusy) return;
+  s_optStatsBusy = true;
+  try {
+    var r = await apiCall('GET', '/api/optimizer-stats');
+    if (r && r.frame) renderOptimizerStats(r.frame);
+  } finally {
+    s_optStatsBusy = false;
+  }
+}
+function renderOptimizerStats(f) {
+  var setText = function(id, v, bad) {
+    var e = document.getElementById(id);
+    if (!e) return;
+    e.textContent = v;
+    e.style.color = bad ? 'var(--bad)' : '';
+  };
+  var lit = f.emitted_lit || 0, blank = f.emitted_blank || 0;
+  var emitted = lit + blank;
+  var trunc = f.truncated || 0;
+  setText('opt-st-points', lit + ' / ' + blank);
+  setText('opt-st-trunc', trunc, trunc > 0);
+  setText('opt-st-jumps', f.jump_count || 0);
+  setText('opt-st-jumpdist', Math.round(f.jump_distance_total || 0) + ' units');
+  var budget = domVal('opt-max-pts-frame', 0) || 0;
+  setText('opt-st-budget',
+          budget ? emitted + ' / ' + budget + ' (' + Math.round(emitted / budget * 100) + '%)' : emitted,
+          budget > 0 && emitted > budget);
+  setText('opt-st-calls', f.calls || 0);
+  var pill = function(id, label, state) {
+    var e = document.getElementById(id);
+    if (!e) return;
+    e.className = 'pill' + (state ? ' ' + state : '');
+    e.textContent = label;
+  };
+  var scale = (f.stage2_scale === undefined) ? 1 : f.stage2_scale;
+  pill('opt-st-s1', 'Stage 1 ' + (f.stage1_triggered ? 'active' : 'idle'), f.stage1_triggered ? 'bad' : '');
+  pill('opt-st-s15', 'Stage 1.5 ' + (f.stage15_triggered ? 'active' : 'idle'), f.stage15_triggered ? 'bad' : '');
+  pill('opt-st-s2', 'Interior ×' + scale.toFixed(2), scale < 0.999 ? 'bad' : '');
+  pill('opt-st-zv', 'ZV Shaper ' + (f.ringing_active ? 'shaping' : 'inactive'), f.ringing_active ? 'ok' : '');
+}
+
 registerTabLoader('optimizer', async function() {
   renderOptProfileBar();
   var c = await apiCall('GET', '/api/config');
   if (c) loadOptimizerConfig(c);
+  pollOptimizerStats();
+  if (!s_optStatsTimer) s_optStatsTimer = setInterval(pollOptimizerStats, 1000);
+});
+registerTabLeaveHook('optimizer', function() {
+  if (s_optStatsTimer) { clearInterval(s_optStatsTimer); s_optStatsTimer = null; }
 });
 
 /* =========================================================================

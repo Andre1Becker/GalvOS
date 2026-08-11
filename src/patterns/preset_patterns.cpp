@@ -106,7 +106,11 @@ static inline optimizer::OptimizerConfig liveOptimizerConfig() {
 // ngon() -- GalvOS v5: migrated to point_optimizer (Pillar 1, adaptive
 // density). Describes the polygon as `sides` corner vertices and lets
 // optimizer::optimize() decide point placement.
-static size_t ngon(LaserPoint*o,size_t mx,int sides,float sc,float off,uint8_t r,uint8_t g,uint8_t b){
+// cfgIn: callers that draw an ngon as one of several sub-shapes in a frame
+// (p61, p63) pass a config carrying that frame's context -- previous galvo
+// position and remaining point budget, see optimizer::frameContext().
+static size_t ngon(LaserPoint*o,size_t mx,int sides,float sc,float off,uint8_t r,uint8_t g,uint8_t b,
+                   const optimizer::OptimizerConfig* cfgIn=nullptr){
     if (sides < 3 || sides > 64) return 0;
     optimizer::PathVertex verts[64];
     for (int s = 0; s < sides; s++) {
@@ -117,7 +121,8 @@ static size_t ngon(LaserPoint*o,size_t mx,int sides,float sc,float off,uint8_t r
         verts[s].lift = false;
     }
     optimizer::PathSegment seg(verts, (size_t)sides, /*closed=*/true);
-    return optimizer::optimize(&seg, 1, o, mx, liveOptimizerConfig());
+    return optimizer::optimize(&seg, 1, o, mx,
+                               cfgIn ? *cfgIn : liveOptimizerConfig());
 }
 
 // star() -- GalvOS v5.3: migrated to point_optimizer (Pillar 1).
@@ -299,8 +304,9 @@ static void line(LaserPoint*o,size_t&n,size_t mx,
     verts[1].r = r;  verts[1].g = g;  verts[1].b = b;
     verts[1].lift = false;
     optimizer::PathSegment seg(verts, 2, /*closed=*/false);
-    size_t written = optimizer::optimize(&seg, 1, o + n, mx - n, liveOptimizerConfig());
-    n += written;
+    optimizer::OptimizerConfig cfg = liveOptimizerConfig();
+    if (!optimizer::frameContext(cfg, o, n)) return;
+    n += optimizer::optimize(&seg, 1, o + n, mx - n, cfg);
 }
 
 // ─── PARAMETRIC CURVE -> OPTIMIZER BRIDGE ────────────────────
@@ -424,23 +430,21 @@ static size_t curve(LaserPoint*o,size_t mx,int N,bool closed,F fn){
 // optimizer own point placement. The former 40-point fixed blank run at the
 // start is gone: `lift=true` on vertex 0 makes emitBlankJump() produce a
 // distance-proportional, smoothstep-eased jump instead (Pillar 2).
-// budget_share: when >0, caps this call's slice of the frame budget. Callers
-// that invoke sinewave() more than once per frame (p37 Multi Wave) MUST pass
-// it: optimize() clamps to min(max_out, cfg.max_pts_per_frame), so shrinking
-// only max_out leaves max_pts_per_frame at the full-frame value and each call
-// independently plans a whole frame's worth of points -- 3 calls then emit ~3x
-// the budget. Lowering max_pts_per_frame per call is what actually binds.
-static size_t sinewave(LaserPoint*o,size_t mx,float A,float f,float ph_off,float sc,uint8_t r,uint8_t g,uint8_t b,int N=120,uint16_t budget_share=0){
+// cfgIn: callers that invoke sinewave() more than once per frame (p37 Multi
+// Wave) pass a config carrying the frame context -- previous galvo position
+// and the frame's remaining point budget, see optimizer::frameContext().
+// Without it each call plans against the full max_pts_per_frame and 3 calls
+// emit ~3x the budget; shrinking only max_out does not bind, because
+// optimize() caps at min(max_out, frame budget).
+static size_t sinewave(LaserPoint*o,size_t mx,float A,float f,float ph_off,float sc,uint8_t r,uint8_t g,uint8_t b,int N=120,
+                        const optimizer::OptimizerConfig* cfgIn=nullptr){
     const float effA=A*gLivePreset.wave_amp, effF=f*gLivePreset.wave_freq;
     if(N<2) return 0;
-    optimizer::OptimizerConfig cfg=liveOptimizerConfig();
-    if(budget_share>0 && budget_share<cfg.max_pts_per_frame)
-        cfg.max_pts_per_frame=budget_share;
+    optimizer::OptimizerConfig cfg = cfgIn ? *cfgIn : liveOptimizerConfig();
     // Sine waves are smooth curves with no corners, so the corner-dwell-based
     // vertex budget formula (avail/max_corner_pts) would artificially cap N
     // far below what the optimizer can actually spend. Skip it: the optimizer
-    // enforces cfg.max_pts_per_frame on output, which is already set to
-    // budget_share above. Just guard against the array limit.
+    // enforces the frame budget on output. Just guard against the array limit.
     if(N>CURVE_MAX_PTS-1) N=CURVE_MAX_PTS-1;
     optimizer::PathVertex v[CURVE_MAX_PTS];
     for(int i=0;i<=N;i++){
@@ -471,8 +475,9 @@ static void circ_draw(LaserPoint*o,size_t&n,size_t m,float cx,float cy,float r2,
         verts[i].lift = false;
     }
     optimizer::PathSegment seg(verts, (size_t)S, /*closed=*/true);
-    size_t written = optimizer::optimize(&seg, 1, o + n, m - n, liveOptimizerConfig());
-    n += written;
+    optimizer::OptimizerConfig cfg = liveOptimizerConfig();
+    if (!optimizer::frameContext(cfg, o, n)) return;
+    n += optimizer::optimize(&seg, 1, o + n, m - n, cfg);
 }
 
 // rect_outline() -- 4 line segments forming a rectangle.
@@ -778,13 +783,21 @@ static size_t p35(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){retur
 static size_t p36(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){float A=fabsf(sinf(aang(ph,sp)))*.8f+.1f;return sinewave(o,m,A,2,0,SC*ssc(sz)*.9f,0,255,0);}
 static size_t p37(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     size_t n=0;float sc=SC*ssc(sz)*.9f,t=aang(ph,sp);
-    // Three independent optimize() calls: each must be told its share of the
-    // frame budget explicitly (see sinewave()'s budget_share note), otherwise
-    // all three plan a full frame each and the preset emits ~3x the budget.
+    // Three independent optimize() calls. frameContext() hands each one the
+    // frame's remaining budget, but a remainder alone is first-come-first-
+    // served: a dense first wave could take the whole frame and leave the
+    // other two undrawn. All three carry equal weight here, so each is also
+    // capped at an even third.
     const uint16_t share=(uint16_t)(gOptimizerConfig.max_pts_per_frame/3);
-    n+=sinewave(o,   m,        .3f, 1,t,      sc,255,0,0,  120,share);
-    n+=sinewave(o+n, m>n?m-n:0,.2f, 2,t*1.5f, sc,0,255,0,  120,share);
-    n+=sinewave(o+n, m>n?m-n:0,.15f,3,t*2.f,  sc,0,0,255,  120,share);
+    const float amps[3]={.3f,.2f,.15f}, freqs[3]={1.f,2.f,3.f}, phs[3]={t,t*1.5f,t*2.f};
+    const uint8_t cols[3][3]={{255,0,0},{0,255,0},{0,0,255}};
+    for(int w=0;w<3;w++){
+        optimizer::OptimizerConfig cfg=liveOptimizerConfig();
+        if(!optimizer::frameContext(cfg,o,n)) break;
+        if(share>0&&cfg.frameBudgetRemaining>share) cfg.frameBudgetRemaining=share;
+        n+=sinewave(o+n,m>n?m-n:0,amps[w],freqs[w],phs[w],sc,
+                    cols[w][0],cols[w][1],cols[w][2],120,&cfg);
+    }
     return n;
 }
 static size_t p38(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
@@ -1101,7 +1114,9 @@ static size_t p56(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
             verts[i].lift=false;
         }
         optimizer::PathSegment seg(verts,32,true);
-        n += optimizer::optimize(&seg,1,o+n,m-n,liveOptimizerConfig());
+        optimizer::OptimizerConfig cfg=liveOptimizerConfig();
+        if(!optimizer::frameContext(cfg,o,n)) break;
+        n += optimizer::optimize(&seg,1,o+n,m-n,cfg);
     }
     return n;
 }
@@ -1122,7 +1137,9 @@ static size_t p57(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
             verts[i].lift=false;
         }
         optimizer::PathSegment seg(verts,4,true);
-        n += optimizer::optimize(&seg,1,o+n,m-n,liveOptimizerConfig());
+        optimizer::OptimizerConfig cfg=liveOptimizerConfig();
+        if(!optimizer::frameContext(cfg,o,n)) break;
+        n += optimizer::optimize(&seg,1,o+n,m-n,cfg);
     }
     return n;
 }
@@ -1210,7 +1227,9 @@ static size_t p61(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
             verts[i].lift=false;
         }
         optimizer::PathSegment seg(verts,4,true);
-        n += optimizer::optimize(&seg,1,o+n,m-n,liveOptimizerConfig());
+        optimizer::OptimizerConfig cfg=liveOptimizerConfig();
+        if(optimizer::frameContext(cfg,o,n))
+            n += optimizer::optimize(&seg,1,o+n,m-n,cfg);
     }
     // Inner square (counter-rotating)
     {
@@ -1224,10 +1243,16 @@ static size_t p61(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
             verts[i].lift=false;
         }
         optimizer::PathSegment seg(verts,4,true);
-        n += optimizer::optimize(&seg,1,o+n,m-n,liveOptimizerConfig());
+        optimizer::OptimizerConfig cfg=liveOptimizerConfig();
+        if(optimizer::frameContext(cfg,o,n))
+            n += optimizer::optimize(&seg,1,o+n,m-n,cfg);
     }
     // Circle via ngon
-    n += ngon(o+n,m-n,32,.72f*sc,rot,0,255,255);
+    {
+        optimizer::OptimizerConfig cfg=liveOptimizerConfig();
+        if(optimizer::frameContext(cfg,o,n))
+            n += ngon(o+n,m-n,32,.72f*sc,rot,0,255,255,&cfg);
+    }
     return n;
 }
 
@@ -1296,7 +1321,9 @@ static size_t p101(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
             verts[i].lift=false;
         }
         optimizer::PathSegment seg(verts,28,true);
-        n += optimizer::optimize(&seg,1,o+n,m-n,liveOptimizerConfig());
+        optimizer::OptimizerConfig cfg=liveOptimizerConfig();
+        if(!optimizer::frameContext(cfg,o,n)) break;
+        n += optimizer::optimize(&seg,1,o+n,m-n,cfg);
     }
     // Meridians: vertical arcs, x = sin(lon)*cos(v)*sc, y = sin(v)*yFore*sc.
     const int NM=6;
@@ -1311,7 +1338,9 @@ static size_t p101(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
             verts[i].b=255; verts[i].lift=(i==0);
         }
         optimizer::PathSegment seg(verts,20,false);
-        n += optimizer::optimize(&seg,1,o+n,m-n,liveOptimizerConfig());
+        optimizer::OptimizerConfig cfg=liveOptimizerConfig();
+        if(!optimizer::frameContext(cfg,o,n)) break;
+        n += optimizer::optimize(&seg,1,o+n,m-n,cfg);
     }
     return n;
 }
@@ -1530,7 +1559,9 @@ static void seg7_digit(LaserPoint*o, size_t&n, size_t m,
         psegs[sidx] = optimizer::PathSegment(&verts[sidx*2], 2, false);
         sidx++;
     }
-    n += optimizer::optimize(psegs, (size_t)nsegs, o+n, m-n, liveOptimizerConfig());
+    optimizer::OptimizerConfig cfg = liveOptimizerConfig();
+    if (!optimizer::frameContext(cfg, o, n)) return;
+    n += optimizer::optimize(psegs, (size_t)nsegs, o+n, m-n, cfg);
 }
 
 static size_t p100(LaserPoint*o, size_t m, uint32_t ph, uint8_t sp, uint8_t sz) {
@@ -1628,7 +1659,7 @@ static size_t p104(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     size_t n=0;
     float sc=SC*ssc(sz)*.9f, amp=sc*.32f, off=aang(ph,sp);
     const int NS=70; const float TURNS=3.f;
-    optimizer::OptimizerConfig cfg=liveOptimizerConfig();
+    const optimizer::OptimizerConfig baseCfg=liveOptimizerConfig();
 
     // Strand 1: cyan
     {
@@ -1640,7 +1671,9 @@ static size_t p104(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
             verts[i].lift=(i==0);
         }
         optimizer::PathSegment seg(verts,(size_t)(NS+1),/*closed=*/false);
-        n+=optimizer::optimize(&seg,1,o+n,m-n,cfg);
+        optimizer::OptimizerConfig cfg=baseCfg;
+        if(optimizer::frameContext(cfg,o,n))
+            n+=optimizer::optimize(&seg,1,o+n,m-n,cfg);
     }
     // Strand 2: magenta (phase-shifted by π)
     {
@@ -1652,7 +1685,9 @@ static size_t p104(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
             verts[i].lift=(i==0);
         }
         optimizer::PathSegment seg(verts,(size_t)(NS+1),/*closed=*/false);
-        n+=optimizer::optimize(&seg,1,o+n,m-n,cfg);
+        optimizer::OptimizerConfig cfg=baseCfg;
+        if(optimizer::frameContext(cfg,o,n))
+            n+=optimizer::optimize(&seg,1,o+n,m-n,cfg);
     }
     // Rungs (base pairs): line() uses lift=true internally
     const int RUNGS=9;
@@ -1802,7 +1837,9 @@ static size_t p107(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
             verts[i].lift=false;
         }
         optimizer::PathSegment seg(verts,32,true);
-        n += optimizer::optimize(&seg,1,o+n,m-n,liveOptimizerConfig());
+        optimizer::OptimizerConfig cfg=liveOptimizerConfig();
+        if(!optimizer::frameContext(cfg,o,n)) break;
+        n += optimizer::optimize(&seg,1,o+n,m-n,cfg);
     }
     return n;
 }
@@ -2332,7 +2369,7 @@ static size_t p_endless_tunnel(LaserPoint* o, size_t m, uint32_t ph, uint8_t sp,
     // Continuous inward travel phase (0..1), sp-controlled
     const float travel = (sp == 0) ? 0.f : fmodf(ph * (sp / 9000.0f), 1.0f);
 
-    const optimizer::OptimizerConfig cfg = liveOptimizerConfig();
+    const optimizer::OptimizerConfig baseCfg = liveOptimizerConfig();
 
     for (int rIdx = 0; rIdx < rings && n < m; rIdx++) {
         // depth 0..1: 0 = far (small, near vanishing pt), 1 = near (full size)
@@ -2352,6 +2389,8 @@ static size_t p_endless_tunnel(LaserPoint* o, size_t m, uint32_t ph, uint8_t sp,
                                              v, (uint8_t)(v / 2), 255, s == 0);
         }
         optimizer::PathSegment seg(verts, sides, /*closed=*/true);
+        optimizer::OptimizerConfig cfg = baseCfg;
+        if (!optimizer::frameContext(cfg, o, n)) break;
         n += optimizer::optimize(&seg, 1, o + n, m - n, cfg);
     }
     return n;

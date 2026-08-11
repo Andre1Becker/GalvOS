@@ -734,8 +734,14 @@ static size_t opt_vel_accel(LaserPoint* o, size_t m,
     optimizer::PathSegment diagSeg(diag, 2, false);
     optimizer::PathSegment starSeg(spike, SP * 2, true);
 
-    size_t n = optimizer::optimize(&diagSeg, 1, o,     m,     cfgDiag);
-    n        += optimizer::optimize(&starSeg, 1, o + n, m - n, cfg);
+    size_t n = optimizer::optimize(&diagSeg, 1, o, m, cfgDiag);
+
+    // Second call into the same frame -- hand it the diagonal's end position
+    // and what is left of the frame budget, or the star plans a whole frame
+    // of its own and jumps to its first vertex from nowhere.
+    optimizer::OptimizerConfig cfgStar = cfg;
+    if (optimizer::frameContext(cfgStar, o, n))
+        n += optimizer::optimize(&starSeg, 1, o + n, m - n, cfgStar);
     return n;
 }
 

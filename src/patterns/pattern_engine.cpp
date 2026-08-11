@@ -1246,6 +1246,14 @@ void task(void*) {
         // a previous preset frame can never leak in.
         { LOCK_STATE(); optimizer::gLiveTransform = optimizer::AffineTransform(); }
 
+        // Same frame boundary, opposite direction: the transform is published
+        // for the frame about to be rendered, the telemetry is cleared so the
+        // frame's optimize() calls accumulate into an empty record. A preset
+        // that draws several primitives calls optimize() once per primitive,
+        // and only their sum is the frame's point budget -- see
+        // optimizer::gFrameStats.
+        optimizer::resetFrameStats();
+
         // ---- ILDA SD-card mode (highest priority) ----
         // Gate on gILDA.active alone and always `continue` below -- the ILDA
         // task only flips hasNewFrame() at its own playback rate (5-60fps per
