@@ -9,6 +9,7 @@
 - [Pipeline Overview](#pipeline-overview)
 - [Stage 1 — Primitive Generation](#stage-1--primitive-generation)
 - [Stage 2 — Transform](#stage-2--transform)
+- [Stage 2.5 — Segment Reorder (optional)](#stage-25--segment-reorder-optional)
 - [Stage 3 — Resample (optional)](#stage-3--resample-optional)
 - [Stage 4 — Corner Dwell](#stage-4--corner-dwell)
 - [Stage 5 — Blanking (Pillar 2)](#stage-5--blanking-pillar-2)
@@ -62,6 +63,7 @@ The optimizer sits between the pattern engine and the DAC output. Every frame, t
 Pattern Engine
   → [1] Primitive Generation   (vertices + colors as PathSegments)
   → [2] Transform              (rotation, scale, translation — affine)
+  → [2.5] Segment Reorder      (optional: nearest-neighbour jump-order)
   → [3] Resample               (optional: constant-spacing point density)
   → [4] Corner Dwell           (extra points at sharp direction changes)
   → [5] Blanking               (smoothstepped, distance-proportional jumps)
@@ -73,7 +75,7 @@ Pattern Engine
 
 <img src="assets/diagrams/optimizer_pipeline.png" width="550" alt="Optimizer pipeline: 9 stages from Pattern Engine to Galvo Mirrors, with the optional stages 3/6/7/8 dashed">
 
-Stages 3, 6, 7, and 8 are optional (disabled by default). When disabled, each stage produces output byte-identical to skipping it — there is no penalty for leaving them off until you need them.
+Stages 2.5, 3, 6, 7, and 8 are optional (disabled by default). When disabled, each stage produces output byte-identical to skipping it — there is no penalty for leaving them off until you need them.
 
 ---
 
@@ -131,6 +133,21 @@ This handles rotation (Z-axis), translation (H/V move), and scale (size) in one 
 Non-affine effects — Y/X perspective tilt, DMX wave warp, auto-scale collapse — are applied as post-optimizer point passes because they cannot be expressed as a single affine matrix.
 
 When the transform is the identity (no rotation, no move, size=100%), the output is byte-identical to the pre-transform result. There is no overhead for patterns that don't use transform effects.
+
+---
+
+## Stage 2.5 — Segment Reorder (optional)
+
+When a single pattern draws several disconnected `PathSegment`s in one call — a wireframe model's edges, a text glyph's pen-up strokes, a paint layer's strokes — the optimizer normally blank-jumps between them in whatever order the pattern generator built them in. For most patterns that order is meaningless: nothing about the geometry says edge 3 has to be drawn before edge 7, so a jump order picked at random (or just by array index) routinely crosses the pattern diagonally instead of walking it.
+
+`reorder_segments` (off by default) runs a nearest-neighbour pass over the segments' start/end points before any density or budget calculation, and reorders which segment gets visited when:
+
+- For an **open** segment (a wireframe edge, a text stroke), the pass also checks whether entering from the *far* end is closer than the near end — if so, the segment is traversed backwards.
+- A **closed** segment (a polygon face) keeps its internal vertex order — so a color gradient painted along its edges still runs the same direction — but may rotate which of its own vertices serves as the entry/exit point, chosen to minimize the incoming jump.
+
+This is purely a visitation-order change: no point is added or removed, so the lit geometry drawn is identical either way. What changes is the total distance travelled with the beam off — shorter jumps mean fewer blanking points spent (see Stage 5) and less ringing excitation (a shorter jump needs a shorter [Pillar 3](#stage-8--zv-ringing-compensation-pillar-3) shaper tail). Measured on a 12-edge cube wireframe listed face-by-face (a typical, unsorted generator order): total jump distance dropped ~51% with `reorder_segments` enabled.
+
+Disabled by default — segments are visited in the order the pattern handed them in, byte-identical to the pre-reorder optimizer.
 
 ---
 
@@ -445,3 +462,4 @@ Full table of all optimizer parameters, their defaults, valid ranges, and effect
 | `max_accel_units` | 800.0 | 1–65535 | <img src="assets/animations/stage7_accel_clamp.svg" width="64" height="64" alt=""> Maximum per-tick change in step magnitude (DAC units/tick²). After PPS scaling. |
 | `jitter_enabled` | false | bool | <img src="assets/animations/jitter.svg" width="64" height="64" alt=""> Point Distribution Modifier (v6.30.0): perpendicular displacement of interior points for a hand-drawn line texture. Disabled = output byte-identical to the pre-jitter optimizer. |
 | `jitter_amount_units` | 80.0 | 0–2000 | <img src="assets/animations/jitter.svg" width="64" height="64" alt=""> Maximum perpendicular jitter offset in DAC units. Deterministic per point (hash-based, not random per frame) — lines wobble, they don't shimmer. Corners, budgets, and dwell counts are computed *before* jitter, so it never destabilizes the pipeline. |
+| `reorder_segments` | false | bool | Nearest-neighbour jump-order optimization (v6.49.0, see [Stage 2.5](#stage-25--segment-reorder-optional)). Shortens total blank-jump distance for multi-segment calls (wireframes, text, paint) by reordering visitation order instead of drawing segments in input order. Disabled = byte-identical to the pre-reorder optimizer. |

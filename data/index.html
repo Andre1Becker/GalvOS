@@ -1098,6 +1098,11 @@ canvas { max-width: 100%; display: block; }
               <div class="field"><label>Max Accel</label><div class="slider-row"><input type="range" id="opt-max-accel" min="10" max="32767" value="4000" oninput="optSyncNum('opt-max-accel');optimizerSlider()"><input type="number" id="opt-max-accel-n" min="10" max="32767" value="4000" onchange="optSyncSlider('opt-max-accel');optimizerSlider()"></div></div>
               <p id="opt-eff-accel" style="font-size:0.7rem;color:var(--text-dim)"></p>
             </div>
+            <div class="param-group">
+              <h3>Jump Order</h3>
+              <label class="row"><input type="checkbox" id="opt-reorder-segments" onchange="sendOptimizerLive()"> Reorder Segments</label>
+              <p class="param-hint">Nearest-neighbour blank-jump ordering across a call's segments (wireframes, text, paint) &mdash; shortens total jump distance instead of visiting them in input order. Closed shapes may rotate their start vertex; open segments may be traversed backwards.</p>
+            </div>
           </div>
           <div class="row" style="margin-top:10px">
             <button class="btn" onclick="applyOptimizerSmartDefaults()">Smart Defaults</button>
@@ -1404,7 +1409,7 @@ canvas { max-width: 100%; display: block; }
 /* =========================================================================
    GLOBAL STATE
    ========================================================================= */
-var UI_VERSION = '1.7.2';   // WebUI version -- independent from firmware version
+var UI_VERSION = '1.7.3';   // WebUI version -- independent from firmware version
 var NAV_TABS = [
   {id: 'dashboard', label: 'Dashboard', icon: '🏠', bottom: true},
   {id: 'presets', label: 'Presets', icon: '🎮', bottom: true},
@@ -4164,6 +4169,7 @@ function loadOptimizerConfig(c) {
   setv('opt-max-step', p[pfx + 'max_step_units']);
   document.getElementById('opt-accel-clamp-enabled').checked = !!p[pfx + 'accel_clamp_enabled'];
   setv('opt-max-accel', p[pfx + 'max_accel_units']);
+  document.getElementById('opt-reorder-segments').checked = !!p[pfx + 'reorder_segments'];
   var effStep = (c.opt_profiles && c.opt_profiles[g_activeOptimizerProfile]) ? c.opt_profiles[g_activeOptimizerProfile].opt_eff_max_step_units : null;
   var effAccel = (c.opt_profiles && c.opt_profiles[g_activeOptimizerProfile]) ? c.opt_profiles[g_activeOptimizerProfile].opt_eff_max_accel_units : null;
   updateEffectivePpsDisplay(effStep, effAccel);
@@ -4204,7 +4210,8 @@ async function sendOptimizerLive() {
     ringing_comp_enabled: domVal('opt-ringing-enabled', false), ring_freq_hz: domVal('opt-ring-freq', 60), ring_damping_ratio: domVal('opt-ring-damping', 50) / 100,
     jitter_enabled: domVal('opt-jitter-enabled', false), jitter_amount_units: domVal('opt-jitter-amount', 0),
     vel_clamp_enabled: domVal('opt-vel-clamp-enabled', false), max_step_units: domVal('opt-max-step', 4000),
-    accel_clamp_enabled: domVal('opt-accel-clamp-enabled', false), max_accel_units: domVal('opt-max-accel', 4000)
+    accel_clamp_enabled: domVal('opt-accel-clamp-enabled', false), max_accel_units: domVal('opt-max-accel', 4000),
+    reorder_segments: domVal('opt-reorder-segments', false)
   });
 }
 function ppsRatio() {
@@ -4272,6 +4279,7 @@ function resetOptimizerDefaults() {
   document.getElementById('opt-jitter-enabled').checked = false;
   document.getElementById('opt-vel-clamp-enabled').checked = false;
   document.getElementById('opt-accel-clamp-enabled').checked = false;
+  document.getElementById('opt-reorder-segments').checked = false;
   optimizerUpdateLabels(); sendOptimizerLive();
   toast('Defaults reset');
 }

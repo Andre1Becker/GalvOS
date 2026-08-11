@@ -104,6 +104,13 @@ static inline float smoothstep(float t) {
     return t * t * (3.0f - 2.0f * t);
 }
 
+// Squared Euclidean distance -- every use below only compares distances
+// against each other, so the sqrtf() is skipped.
+static inline float distSq(float x0, float y0, float x1, float y1) {
+    float dx = x1 - x0, dy = y1 - y0;
+    return dx * dx + dy * dy;
+}
+
 // Point Distribution Modifier -- Jitter (Phase 4, see plans/generic-roaming-
 // dahl.md). Deterministic integer hash -> [-1..1], same family as
 // modulator_engine.cpp's hashNoise() / spatial_noise.cpp's hash2() but a
@@ -1077,6 +1084,199 @@ static size_t applyTransform(const PathSegment* segments, size_t segment_count,
     return seg_out;
 }
 
+// ── Segment reorder (P20) ────────────────────────────────────────────────
+//
+// Patterns that hand optimize() several disconnected segments in one call
+// (wireframes, text glyph strokes, paint) currently visit them in whatever
+// order the caller built them in, jumping start-to-start regardless of how
+// far apart that leaves consecutive segments. For a caller where the visit
+// order is free to choose (nothing about the geometry requires segment K to
+// be drawn before segment K+1), a shorter jump is directly recovered point
+// budget (blank_pts_per_1000_units means a shorter jump costs fewer points)
+// and less ringing excitation (a shorter jump needs a shorter ZV shaper
+// tail, see planJumpPts()).
+//
+// Two phases, kept separate because they answer different questions:
+//
+//   Phase A -- which segment is next, and (for an open one) which end to
+//   enter it from. A nearest-neighbour heuristic (not an exact TSP solve)
+//   over each segment's own start point, plus its end point when the
+//   segment is open (entering it there means traversing it backwards).
+//   O(segment_count^2) -- negligible next to the emit pass that follows,
+//   bounded by kMaxXfSegs (64) same as applyTransform()'s scratch. Ties
+//   (and the "no known previous position" first step) resolve to the
+//   lowest original segment index, so the result is deterministic.
+//
+//   Phase B -- once the tour order is fixed, a CLOSED segment may rotate
+//   which of its own vertices serves as the entry/exit point (its vertex
+//   order past that point is untouched, so a color gradient along its
+//   edges still runs the same direction, just starting/ending at a
+//   different vertex). This is an O(vertex count) nearest-vertex search
+//   per closed segment using the ACTUAL incoming point Phase A computed,
+//   not part of the O(S^2) tour search above.
+//
+// Reversing an open segment or rotating a closed one both need a reordered
+// COPY of its vertices (PathSegment::vertices is a plain pointer into the
+// caller's own array) -- built into a lazy PSRAM scratch, same pattern as
+// applyTransform()'s s_xf_verts/s_xf_segs just above, and separate from it
+// so a call with both a non-identity transform AND reordering enabled isn't
+// reading and overwriting the same buffer.
+//
+// Gated by cfg.reorder_segments (default false -> byte-identical, segments
+// visited in input order). Degrades gracefully past kMaxXfSegs/kMaxXfVerts,
+// same convention as applyTransform() -- input too large for the scratch is
+// passed through unreordered rather than overflowing.
+namespace {
+    PathVertex*  s_reorder_verts = nullptr;
+    PathSegment* s_reorder_segs  = nullptr;
+}
+
+static size_t reorderSegments(const PathSegment* segments, size_t segment_count,
+                               const OptimizerConfig& cfg,
+                               const PathSegment** out_segments) {
+    if (segment_count < 2 || segment_count > kMaxXfSegs) {
+        *out_segments = segments;
+        return segment_count;
+    }
+
+    // Only non-empty segments have a position to reason about -- an empty
+    // one (a caller's unused fixed-array slot) costs nothing to visit in
+    // any order, so it is excluded from the tour and appended back verbatim
+    // afterward.
+    size_t validIdx[kMaxXfSegs];
+    size_t validCount = 0;
+    size_t totalVerts = 0;
+    for (size_t i = 0; i < segment_count; i++) {
+        if (segments[i].count == 0) continue;
+        validIdx[validCount++] = i;
+        totalVerts += segments[i].count;
+    }
+    if (validCount < 2 || totalVerts > kMaxXfVerts) {
+        *out_segments = segments;
+        return segment_count;
+    }
+
+    if (!s_reorder_verts) {
+        s_reorder_verts = (PathVertex*)heap_caps_malloc(
+            kMaxXfVerts * sizeof(PathVertex), MALLOC_CAP_SPIRAM);
+        s_reorder_segs = (PathSegment*)heap_caps_malloc(
+            kMaxXfSegs * sizeof(PathSegment), MALLOC_CAP_SPIRAM);
+        if (!s_reorder_verts || !s_reorder_segs) {
+            // No PSRAM -> pass the input through unreordered, never crash.
+            // Free+null BOTH pointers -- same reasoning as applyTransform()'s
+            // identical guard just above: leaving one allocated-but-live
+            // strands it for the rest of the process.
+            heap_caps_free(s_reorder_verts);
+            heap_caps_free(s_reorder_segs);
+            s_reorder_verts = nullptr;
+            s_reorder_segs  = nullptr;
+            *out_segments = segments;
+            return segment_count;
+        }
+        memreg::track("Optimizer Reorder Scratch",
+                      kMaxXfVerts * sizeof(PathVertex) +
+                      kMaxXfSegs * sizeof(PathSegment), true);
+    }
+
+    // ---- Phase A: nearest-neighbour tour over the valid segments' ----
+    // ---- start/end points.                                         ----
+    size_t order[kMaxXfSegs];
+    bool   rev[kMaxXfSegs];
+    float  entryX[kMaxXfSegs], entryY[kMaxXfSegs];
+    bool   used[kMaxXfSegs] = {false};
+
+    float curX = cfg.prevX, curY = cfg.prevY;
+    bool  haveCur = cfg.hasPrevPos;
+
+    for (size_t step = 0; step < validCount; step++) {
+        size_t bestSlot = (size_t)-1;
+        bool   bestRev  = false;
+        float  bestD    = 0.0f;
+
+        if (!haveCur) {
+            // No known incoming position: anchor the tour at the first
+            // (original-order) valid segment, entered forward -- the same
+            // starting point emitAllSegments() already uses today.
+            bestSlot = 0;
+        } else {
+            for (size_t slot = 0; slot < validCount; slot++) {
+                if (used[slot]) continue;
+                const PathSegment& s = segments[validIdx[slot]];
+                float d = distSq(curX, curY, s.vertices[0].x, s.vertices[0].y);
+                bool  r = false;
+                if (!s.closed && s.count > 1) {
+                    float de = distSq(curX, curY,
+                                       s.vertices[s.count - 1].x,
+                                       s.vertices[s.count - 1].y);
+                    if (de < d) { d = de; r = true; }
+                }
+                if (bestSlot == (size_t)-1 || d < bestD) {
+                    bestSlot = slot; bestD = d; bestRev = r;
+                }
+            }
+        }
+
+        const PathSegment& chosen = segments[validIdx[bestSlot]];
+        order[step]  = validIdx[bestSlot];
+        rev[step]    = bestRev;
+        entryX[step] = haveCur ? curX : chosen.vertices[0].x;
+        entryY[step] = haveCur ? curY : chosen.vertices[0].y;
+        used[bestSlot] = true;
+
+        // Exit point: the far end from wherever this segment was entered.
+        if (bestRev) { curX = chosen.vertices[0].x; curY = chosen.vertices[0].y; }
+        else         { curX = chosen.vertices[chosen.count - 1].x;
+                        curY = chosen.vertices[chosen.count - 1].y; }
+        haveCur = true;
+    }
+
+    // ---- Phase B: closed segments may rotate their start vertex. ----
+    size_t rotate[kMaxXfSegs] = {0};
+    for (size_t step = 0; step < validCount; step++) {
+        const PathSegment& seg = segments[order[step]];
+        if (!seg.closed || seg.count < 2) continue;
+        size_t best  = 0;
+        float  bestD = distSq(entryX[step], entryY[step],
+                              seg.vertices[0].x, seg.vertices[0].y);
+        for (size_t v = 1; v < seg.count; v++) {
+            float d = distSq(entryX[step], entryY[step],
+                             seg.vertices[v].x, seg.vertices[v].y);
+            if (d < bestD) { bestD = d; best = v; }
+        }
+        rotate[step] = best;
+    }
+
+    // ---- Build the reordered scratch copy. ----
+    size_t vtx_out = 0, seg_out = 0;
+    for (size_t step = 0; step < validCount; step++) {
+        const PathSegment& seg = segments[order[step]];
+        PathVertex* dst = &s_reorder_verts[vtx_out];
+        if (seg.closed && rotate[step] != 0) {
+            for (size_t i = 0; i < seg.count; i++)
+                dst[i] = seg.vertices[(rotate[step] + i) % seg.count];
+        } else if (rev[step] && seg.count > 1) {
+            for (size_t i = 0; i < seg.count; i++)
+                dst[i] = seg.vertices[seg.count - 1 - i];
+        } else {
+            for (size_t i = 0; i < seg.count; i++)
+                dst[i] = seg.vertices[i];
+        }
+        s_reorder_segs[seg_out] = PathSegment(dst, seg.count, seg.closed);
+        vtx_out += seg.count;
+        seg_out++;
+    }
+    // Empty segments carry no position and cost nothing wherever they sit --
+    // appended after the reordered real ones, in their original relative
+    // order.
+    for (size_t i = 0; i < segment_count; i++) {
+        if (segments[i].count != 0) continue;
+        s_reorder_segs[seg_out++] = segments[i];
+    }
+
+    *out_segments = s_reorder_segs;
+    return seg_out;
+}
+
 // ── Velocity / Acceleration clamp (Phase 4) ──────────────────────────────
 //
 // Scanner-protection post-pass over the already-emitted lit point stream.
@@ -1386,6 +1586,21 @@ size_t optimize(const PathSegment* segments, size_t segment_count,
                                        cfg.transform, &xf_segments);
         segments = xf_segments;
         if (segment_count == 0) return finishStats(st, out, 0);
+    }
+
+    // Stage 0.5 -- Segment reorder (P20). Nearest-neighbour tour over the
+    // (already-transformed) segments' start/end points to shorten total
+    // blank-jump distance. Purely a visitation-order change -- no geometry is
+    // added or removed -- so it must run before the geometry cache and every
+    // budget/plan/emit stage below, all of which walk `segments` in whatever
+    // order it holds at that point. Gated behind cfg.reorder_segments
+    // (default false -> byte-identical); CLASS-INVARIANT when on, see
+    // CONTRACT.md.
+    if (cfg.reorder_segments) {
+        const PathSegment* ro_segments = nullptr;
+        size_t ro_count = reorderSegments(segments, segment_count, cfg, &ro_segments);
+        segments = ro_segments;
+        segment_count = ro_count;
     }
 
     // Geometry cache (not a pipeline stage -- it emits nothing and changes

@@ -152,6 +152,7 @@ static void loadConfig() {
         LOAD_F("opt_vcstp", max_step_units,               OPT_DEFAULT_MAX_STEP_UNITS);
         LOAD_B("opt_acen",  accel_clamp_enabled,          OPT_DEFAULT_ACCEL_CLAMP_ENABLED);
         LOAD_F("opt_acmax", max_accel_units,              OPT_DEFAULT_MAX_ACCEL_UNITS);
+        LOAD_B("opt_reord", reorder_segments,             OPT_DEFAULT_REORDER_SEGMENTS);
         #undef LOAD_F
         #undef LOAD_U
         #undef LOAD_S

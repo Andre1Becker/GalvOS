@@ -75,7 +75,7 @@ static bool checkOptimizerProfile(JsonObjectConst op, String& reason) {
     };
     static const FieldB bools[] = {
         {"resample_enabled"}, {"ringing_comp_enabled"}, {"jitter_enabled"},
-        {"vel_clamp_enabled"}, {"accel_clamp_enabled"},
+        {"vel_clamp_enabled"}, {"accel_clamp_enabled"}, {"reorder_segments"},
     };
 
     for (const auto& f : floats) {

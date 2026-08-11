@@ -184,6 +184,11 @@ struct OptimizerConfig {
     bool     jitter_enabled       = OPT_DEFAULT_JITTER_ENABLED;
     float    jitter_amount_units  = OPT_DEFAULT_JITTER_AMOUNT_UNITS; // max perpendicular offset (DAC units)
 
+    // Segment reorder (P20) -- nearest-neighbour jump-order optimization, see
+    // OPT_DEFAULT_REORDER_SEGMENTS in config.h for the full description. Off
+    // by default -> byte-identical (segments visited in input order).
+    bool     reorder_segments     = OPT_DEFAULT_REORDER_SEGMENTS;
+
     // ── Frame context for multi-call callers ─────────────────────────────
     //
     // A preset that renders each of its sub-shapes with its own optimize()
@@ -462,6 +467,7 @@ inline OptimizerConfig configFromLive(const OptimizerLiveConfig& live,
     cfg.max_step_units               = live.max_step_units;
     cfg.accel_clamp_enabled          = live.accel_clamp_enabled;
     cfg.max_accel_units              = live.max_accel_units;
+    cfg.reorder_segments             = live.reorder_segments;
     cfg.galvo_kpps                   = outputKpps;
     cfg.transform                    = gLiveTransform;  // Phase 3: live Z-rot + move
     // PPS-derived scaling: density (both forms) + blank density + both clamps.

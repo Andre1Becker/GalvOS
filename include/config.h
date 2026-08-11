@@ -92,6 +92,17 @@ constexpr uint8_t  KALEIDO_SEGMENTS_MAX = 8;   // UI slider ceiling
 // so it needs no changes to planSegment()/cornerSeverity()/edgeInteriorCount().
 #define OPT_DEFAULT_JITTER_ENABLED               false
 #define OPT_DEFAULT_JITTER_AMOUNT_UNITS          80.0f
+// SEGMENT REORDER (P20): a nearest-neighbour pass over the input segments'
+// start/end points, run before geometry/budget planning, that reorders which
+// segment emitAllSegments() visits when -- and, for open segments, whether it
+// traverses one backwards -- to shorten the total blank-jump distance for a
+// frame with several disconnected segments (wireframes, text, paint strokes).
+// Purely a visitation-order change: no geometry is added or removed, closed
+// segments keep their internal vertex order (their edges' color gradients are
+// unaffected) but may rotate which vertex serves as the entry/exit point.
+// Disabled by default -> segments are visited in the caller-supplied order,
+// byte-identical to the pre-P20 optimizer.
+#define OPT_DEFAULT_REORDER_SEGMENTS              false
 
 struct OptimizerLiveConfig {
     float    corner_angle_deg             = OPT_DEFAULT_CORNER_ANGLE_DEG;
@@ -115,6 +126,7 @@ struct OptimizerLiveConfig {
     float    max_accel_units              = OPT_DEFAULT_MAX_ACCEL_UNITS;
     bool     jitter_enabled               = OPT_DEFAULT_JITTER_ENABLED;
     float    jitter_amount_units          = OPT_DEFAULT_JITTER_AMOUNT_UNITS;
+    bool     reorder_segments             = OPT_DEFAULT_REORDER_SEGMENTS;
 };
 
 // Which OptimizerNormalizeResult field(s) normalizeOptimizerConfig() had to
