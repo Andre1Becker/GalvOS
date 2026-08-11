@@ -308,6 +308,7 @@ const OPT_GENERIC_TAIL = {
   ringing_comp_enabled:false, ring_freq_hz:200.0, ring_damping_ratio:0.15,
   vel_clamp_enabled:false, max_step_units:200.0,
   accel_clamp_enabled:false, max_accel_units:800.0,
+  reorder_segments:false,
 };
 
 // Field bounds mirror checkOptimizerProfile() in community_presets.cpp exactly.
@@ -331,6 +332,7 @@ const OPT_FIELD_DEFS = [
   {key:'max_step_units', kind:'f', lo:50, hi:32767, label:'Max Step Units'},
   {key:'accel_clamp_enabled', kind:'b', label:'Accel Clamp Enabled'},
   {key:'max_accel_units', kind:'f', lo:10, hi:32767, label:'Max Accel Units'},
+  {key:'reorder_segments', kind:'b', label:'Reorder Segments (Jump Order)'},
 ];
 
 const PALETTE = [

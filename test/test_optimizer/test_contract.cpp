@@ -35,6 +35,7 @@
 
 using optimizer::OptimizerConfig;
 using optimizer::PathSegment;
+using optimizer::PathVertex;
 
 namespace {
 
@@ -619,6 +620,7 @@ void test_deterministicOutput(void) {
     cfg.ringing_comp_enabled = true;
     cfg.vel_clamp_enabled    = true;
     cfg.accel_clamp_enabled  = true;
+    cfg.reorder_segments     = true;
 
     const fx::Fixture* fixtures = fx::all();
     for (size_t i = 0; i < fx::kFixtureCount; i++) {
@@ -693,6 +695,79 @@ void test_statsConsistent(void) {
 #endif
 }
 
+// ── 8b. reorderSegmentsShortensJumps [P20] ──────────────────────────────
+//
+// CLASS-INVARIANT. cfg.reorder_segments defaults false, so every test above
+// exercises the OFF path; this is the only test that turns it on.
+//
+// Four short open segments, one per corner of a square, deliberately listed
+// in CROSSED order (bottom-left, top-right, top-left, bottom-right) so the
+// input-order tour jumps corner-to-diagonal-corner twice, while a
+// nearest-neighbour tour walks the perimeter instead. No known previous
+// position (cfg.hasPrevPos stays false), so both runs anchor the tour at the
+// same first segment -- the only thing that can differ is which order the
+// remaining three are visited in and jumpDistanceTotal is measured over.
+void test_reorderSegmentsShortensJumps(void) {
+#if GALVOS_OPT_HAS_STATS
+    static const PathVertex segA[2] = {   // bottom-left
+        PathVertex(-15000.0f, -15000.0f, 255, 255, 255),
+        PathVertex(-14000.0f, -15000.0f, 255, 255, 255),
+    };
+    static const PathVertex segB[2] = {   // top-right (diagonal from A)
+        PathVertex( 15000.0f,  15000.0f, 255, 255, 255),
+        PathVertex( 14000.0f,  15000.0f, 255, 255, 255),
+    };
+    static const PathVertex segC[2] = {   // top-left
+        PathVertex(-15000.0f,  15000.0f, 255, 255, 255),
+        PathVertex(-14000.0f,  15000.0f, 255, 255, 255),
+    };
+    static const PathVertex segD[2] = {   // bottom-right (diagonal from C)
+        PathVertex( 15000.0f, -15000.0f, 255, 255, 255),
+        PathVertex( 14000.0f, -15000.0f, 255, 255, 255),
+    };
+    static const PathSegment segs[4] = {
+        PathSegment(segA, 2, false),
+        PathSegment(segB, 2, false),
+        PathSegment(segC, 2, false),
+        PathSegment(segD, 2, false),
+    };
+
+    OptimizerConfig cfg   = fx::baseCfg();
+    cfg.max_pts_per_frame = PATTERN_POINTS_MAX;
+
+    cfg.reorder_segments = false;
+    size_t nOff = optimizer::optimize(segs, 4, gFrame, PATTERN_POINTS_MAX, cfg);
+    optimizer::Stats stOff = optimizer::gLastStats;
+
+    cfg.reorder_segments = true;
+    size_t nOn = optimizer::optimize(segs, 4, gFrameB, PATTERN_POINTS_MAX, cfg);
+    optimizer::Stats stOn = optimizer::gLastStats;
+
+    // Same geometry, only reordered/possibly-reversed -- lit point count
+    // (dwell + interior) must be unchanged; only the blank jumps differ.
+    TEST_ASSERT_EQUAL_UINT32_MESSAGE((uint32_t)stOff.emittedLit,
+                                     (uint32_t)stOn.emittedLit,
+                                     "reorder changed the lit point count");
+
+    snprintf(gMsg, sizeof(gMsg),
+             "reorder OFF jumpDistanceTotal %.0f, ON %.0f -- expected a real "
+             "reduction on a deliberately crossed layout",
+             (double)stOff.jumpDistanceTotal, (double)stOn.jumpDistanceTotal);
+    TEST_ASSERT_TRUE_MESSAGE(
+        stOn.jumpDistanceTotal < stOff.jumpDistanceTotal * 0.9f, gMsg);
+
+    // Determinism: reorder must not depend on anything but segs/cfg.
+    size_t nOn2 = optimizer::optimize(segs, 4, gFrame, PATTERN_POINTS_MAX, cfg);
+    TEST_ASSERT_EQUAL_UINT32_MESSAGE((uint32_t)nOn, (uint32_t)nOn2,
+                                     "reorder_segments=true is not deterministic");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(
+        0, memcmp(gFrame, gFrameB, nOn * sizeof(LaserPoint)),
+        "reorder_segments=true produced different output on a repeat run");
+#else
+    TEST_IGNORE_MESSAGE("needs P1 telemetry (gLastStats) -- see contract_features.h");
+#endif
+}
+
 int main(int, char**) {
     UNITY_BEGIN();
 
@@ -711,6 +786,7 @@ int main(int, char**) {
     RUN_TEST(test_dacRangeValid);
     RUN_TEST(test_deterministicOutput);
     RUN_TEST(test_statsConsistent);
+    RUN_TEST(test_reorderSegmentsShortensJumps);
 
     return UNITY_END();
 }

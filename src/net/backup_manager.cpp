@@ -80,6 +80,7 @@ void BackupManager::serializeToJson(JsonDocument& doc) {
         o["max_step_units"]               = p.max_step_units;
         o["accel_clamp_enabled"]          = p.accel_clamp_enabled;
         o["max_accel_units"]              = p.max_accel_units;
+        o["reorder_segments"]             = p.reorder_segments;
     }
 
     JsonObject net = doc["net"].to<JsonObject>();
@@ -203,6 +204,7 @@ bool BackupManager::deserializeFromJson(JsonDocument& doc, JsonArray rejected) {
                     PCHECK("max_step_units",                o["max_step_units"].is<float>() && inRangeF(o["max_step_units"].as<float>(), 50.0f, 32767.0f));
                     PCHECK("accel_clamp_enabled",            o["accel_clamp_enabled"].is<bool>());
                     PCHECK("max_accel_units",               o["max_accel_units"].is<float>() && inRangeF(o["max_accel_units"].as<float>(), 10.0f, 32767.0f));
+                    PCHECK("reorder_segments",               o["reorder_segments"].is<bool>());
                 }
                 #undef PCHECK
             }
@@ -329,6 +331,7 @@ bool BackupManager::deserializeFromJson(JsonDocument& doc, JsonArray rejected) {
                 if (!o["max_step_units"].isNull())              P.max_step_units = o["max_step_units"];
                 if (!o["accel_clamp_enabled"].isNull())         P.accel_clamp_enabled = o["accel_clamp_enabled"];
                 if (!o["max_accel_units"].isNull())             P.max_accel_units = o["max_accel_units"];
+                if (!o["reorder_segments"].isNull())            P.reorder_segments = o["reorder_segments"];
                 // Every field above passed its own range check, but the two
                 // range checks don't see each other -- an inverted min/max pair
                 // (min_blank_samples > blank_samples, min_corner_pts >

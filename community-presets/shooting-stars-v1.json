@@ -29,7 +29,8 @@
     "accel_clamp_enabled": false,
     "max_accel_units": 800.0,
     "jitter_enabled": false,
-    "jitter_amount_units": 80.0
+    "jitter_amount_units": 80.0,
+    "reorder_segments": false
   },
   "preset_params": {
     "preset_idx": 74,

@@ -187,6 +187,9 @@ static void applyOptimizerOverrides(JsonObjectConst src, OptimizerLiveConfig& cf
         } else if (!strcmp(key, "max_accel_units") && val.is<float>()) {
             cfg.max_accel_units = constrain((float)val, 10.0f, 32767.0f);
             applied["max_accel_units"] = cfg.max_accel_units;
+        } else if (!strcmp(key, "reorder_segments") && val.is<bool>()) {
+            cfg.reorder_segments = (bool)val;
+            applied["reorder_segments"] = cfg.reorder_segments;
         } else {
             ignored.add(key);
         }
@@ -222,6 +225,7 @@ static void diffOptimizerOverrides(const OptimizerLiveConfig& cur,
     if (cur.max_step_units != snap.max_step_units) out["max_step_units"] = cur.max_step_units;
     if (cur.accel_clamp_enabled != snap.accel_clamp_enabled) out["accel_clamp_enabled"] = cur.accel_clamp_enabled;
     if (cur.max_accel_units != snap.max_accel_units) out["max_accel_units"] = cur.max_accel_units;
+    if (cur.reorder_segments != snap.reorder_segments) out["reorder_segments"] = cur.reorder_segments;
 }
 
 // ── PSRAM-backed JSON response ────────────────────────────────────────────────
@@ -459,6 +463,7 @@ static void persistConfig() {
         SAVE_F("opt_vcstp", max_step_units);
         SAVE_B("opt_acen",  accel_clamp_enabled);
         SAVE_F("opt_acmax", max_accel_units);
+        SAVE_B("opt_reord", reorder_segments);
         #undef SAVE_F
         #undef SAVE_U
         #undef SAVE_S
@@ -673,6 +678,7 @@ static void buildConfigJson(JsonDocument& doc) {
             o["opt_max_step_units"]               = p.max_step_units;
             o["opt_accel_clamp_enabled"]          = p.accel_clamp_enabled;
             o["opt_max_accel_units"]              = p.max_accel_units;
+            o["opt_reorder_segments"]             = p.reorder_segments;
             optimizer::OptimizerConfig eff;
             eff.pts_per_1000_units      = p.pts_per_1000_units;
             eff.resample_spacing_units  = p.resample_spacing_units;
@@ -724,6 +730,7 @@ static void buildConfigJson(JsonDocument& doc) {
         doc["opt_max_step_units"]               = p.max_step_units;
         doc["opt_accel_clamp_enabled"]          = p.accel_clamp_enabled;
         doc["opt_max_accel_units"]              = p.max_accel_units;
+        doc["opt_reorder_segments"]             = p.reorder_segments;
     }
 
     // opt_eff_* now included per-profile inside opt_profiles[] above.
@@ -1151,6 +1158,8 @@ void init() {
                 P.accel_clamp_enabled = (bool)doc["accel_clamp_enabled"];
             if (doc["max_accel_units"].is<float>())
                 P.max_accel_units = constrain((float)doc["max_accel_units"], 10.0f, 32767.0f);
+            if (doc["reorder_segments"].is<bool>())
+                P.reorder_segments = (bool)doc["reorder_segments"];
             // Every field above clamps its own range independently -- catch an
             // inverted min/max pair (see normalizeOptimizerConfig()'s doc comment
             // in config.h) before it reaches the optimizer.
