@@ -235,11 +235,11 @@ Blank runs are exempt from velocity clamping — they are already eased by the P
 
 <img src="assets/animations/stage7_accel_clamp.svg" width="256" height="256" alt="Acceleration Clamp animation">
 
-When `accel_clamp_enabled = true`, the optimizer runs a second post-pass and inserts a midpoint between any two consecutive steps where the step magnitude increases by more than `max_accel_units` DAC units/tick².
+When `accel_clamp_enabled = true`, the optimizer runs a second post-pass and subdivides any step whose velocity CHANGE from its neighbor — measured vectorially, ‖v[i] − v[i−1]‖ — exceeds `max_accel_units` DAC units/tick². It looks one step ahead before committing a point, so it also catches the case a scalar comparison misses: decelerating into a corner dwell (full cruise speed one tick, zero the next), where the dwell's own step is zero-length and bisecting it does nothing — the ramp has to live in the segment just before the dwell instead.
 
-This limits how quickly the galvo velocity can increase — easing hard velocity ramps into corners and preventing sharp speed-up events that excite ringing.
+This limits how quickly the galvo velocity can change in either direction — easing hard ramps into and out of corners and preventing sharp speed-up *or* slow-down events that excite ringing.
 
-**What this protects against:** Even if individual steps are within the velocity limit, a sudden jump from slow to fast (or vice versa) — a velocity ramp — can excite the galvo's mechanical resonance. The acceleration clamp smooths these ramps.
+**What this protects against:** Even if individual steps are within the velocity limit, a sudden jump from slow to fast, fast to slow, or a direction reversal at constant speed — all a velocity ramp in this sense — can excite the galvo's mechanical resonance. The acceleration clamp smooths these ramps, both speeding up and slowing down.
 
 **Default:** Disabled. Tune alongside `vel_clamp_enabled`.
 
