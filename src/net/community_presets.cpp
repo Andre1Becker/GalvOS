@@ -40,6 +40,12 @@ String sanitizeId(const String& raw) {
 // hand, same convention BackupManager documents for its own field list) --
 // out-of-range here means a downloaded preset gets rejected outright rather
 // than silently clamped, since it was never tuned against this hardware.
+//
+// Every field listed below is REQUIRED. A key that is not listed is ignored,
+// which is what keeps schema_version 1 presets loadable across a field
+// removal: presets built before v6.45.0 still carry `min_segment_pts`, and
+// applyOptimizerOverrides() reports it in its `ignored` array instead of
+// failing the load.
 static bool checkOptimizerProfile(JsonObjectConst op, String& reason) {
     if (op.isNull()) { reason = "optimizer_profile missing"; return false; }
 
@@ -61,7 +67,6 @@ static bool checkOptimizerProfile(JsonObjectConst op, String& reason) {
     static const FieldI ints[] = {
         {"min_corner_pts", 1, 20},
         {"max_corner_pts", 1, 20},
-        {"min_segment_pts", 2, 20},
         {"blank_samples", 1, 100},
         {"max_pts_per_frame", 50, (int)MAX_PTS_PER_FRAME_CEILING},
         {"min_blank_samples", 1, 100},

@@ -538,7 +538,6 @@ static inline optimizer::OptimizerConfig liveOptimizerConfig() {
     cfg.min_corner_pts     = gOptimizerConfig.min_corner_pts;
     cfg.max_corner_pts     = gOptimizerConfig.max_corner_pts;
     cfg.pts_per_1000_units = gOptimizerConfig.pts_per_1000_units;
-    cfg.min_segment_pts    = gOptimizerConfig.min_segment_pts;
     cfg.blank_samples      = gOptimizerConfig.blank_samples;
     cfg.max_pts_per_frame  = gOptimizerConfig.max_pts_per_frame;
     cfg.min_blank_samples  = gOptimizerConfig.min_blank_samples;
@@ -727,7 +726,6 @@ static size_t opt_vel_accel(LaserPoint* o, size_t m,
     optimizer::OptimizerConfig cfgDiag = liveOptimizerConfig();
     cfgDiag.pts_per_1000_units  = 0.0f;   // suppress density interpolation
     cfgDiag.resample_enabled    = false;
-    cfgDiag.min_segment_pts     = 2;       // exactly the two endpoints
     cfgDiag.accel_clamp_enabled = false;   // vel probe only
 
     const optimizer::OptimizerConfig cfg = liveOptimizerConfig();

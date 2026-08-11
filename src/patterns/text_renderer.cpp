@@ -28,7 +28,6 @@ static inline optimizer::OptimizerConfig textOptimizerConfig(float sc = 0.f) {
     cfg.min_corner_pts               = gOptimizerConfig.min_corner_pts;
     cfg.max_corner_pts               = gOptimizerConfig.max_corner_pts;
     cfg.pts_per_1000_units           = gOptimizerConfig.pts_per_1000_units;
-    cfg.min_segment_pts              = gOptimizerConfig.min_segment_pts;
     cfg.blank_samples                = gOptimizerConfig.blank_samples;
     cfg.max_pts_per_frame            = gOptimizerConfig.max_pts_per_frame;
     cfg.min_blank_samples            = gOptimizerConfig.min_blank_samples;
@@ -47,10 +46,12 @@ static inline optimizer::OptimizerConfig textOptimizerConfig(float sc = 0.f) {
     cfg.accel_clamp_enabled          = gOptimizerConfig.accel_clamp_enabled;
     cfg.max_accel_units              = gOptimizerConfig.max_accel_units;
 
-    // Serif fix (point-based, scale-INDEPENDENT): guarantee every stroke keeps
-    // both endpoints so short crossbars (E, F, T, ...) never collapse to a
-    // single point. These floors are counts, so they do not blow up with scale.
-    if (cfg.min_segment_pts < 3)              cfg.min_segment_pts = 3;
+    // Serif reserve (point-based, scale-INDEPENDENT): keep at least one
+    // interior point per stroke reserved before the blank-jump budget is
+    // computed, so short crossbars (E, F, T, ...) are not reduced to their
+    // two endpoint dwells alone. A count, so it does not grow with scale.
+    // The endpoints themselves need no floor -- the corner dwell emits
+    // min_corner_pts at every vertex regardless of interior density.
     if (cfg.min_interior_pts_per_segment < 1) cfg.min_interior_pts_per_segment = 1;
 
     // Interior density is length-proportional in DAC units, so at a large text

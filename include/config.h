@@ -39,7 +39,6 @@ constexpr uint8_t  KALEIDO_SEGMENTS_MAX = 8;   // UI slider ceiling
 #define OPT_DEFAULT_MIN_CORNER_PTS              2
 #define OPT_DEFAULT_MAX_CORNER_PTS              8
 #define OPT_DEFAULT_PTS_PER_1000_UNITS          6.0f
-#define OPT_DEFAULT_MIN_SEGMENT_PTS             2
 #define OPT_DEFAULT_BLANK_SAMPLES               16
 #define OPT_DEFAULT_MAX_PTS_PER_FRAME           1010
 #define OPT_DEFAULT_MIN_BLANK_SAMPLES           6
@@ -99,7 +98,6 @@ struct OptimizerLiveConfig {
     uint8_t  min_corner_pts               = OPT_DEFAULT_MIN_CORNER_PTS;
     uint8_t  max_corner_pts               = OPT_DEFAULT_MAX_CORNER_PTS;
     float    pts_per_1000_units           = OPT_DEFAULT_PTS_PER_1000_UNITS;
-    uint8_t  min_segment_pts              = OPT_DEFAULT_MIN_SEGMENT_PTS;
     uint8_t  blank_samples                = OPT_DEFAULT_BLANK_SAMPLES;
     uint16_t max_pts_per_frame            = OPT_DEFAULT_MAX_PTS_PER_FRAME;
     uint8_t  min_blank_samples            = OPT_DEFAULT_MIN_BLANK_SAMPLES;
@@ -223,11 +221,12 @@ constexpr uint8_t OPT_PROFILE_TEXT        = 7;
 //               same length (short intra-glyph lifts vs. longer letter-to-
 //               letter advances), so blank_samples keeps a modest ceiling
 //               instead of Particles' aggressive 10. text_renderer.cpp
-//               additionally hard-floors min_segment_pts>=3 and
-//               min_interior_pts_per_segment>=1 itself (the "serif fix") so
-//               short strokes like a crossbar never collapse to one point;
-//               the low profile default here just avoids reserving MORE
-//               than that floor needs. corner_angle_deg/max_corner_pts stay
+//               additionally hard-floors min_interior_pts_per_segment>=1
+//               itself, so the low profile default here just avoids
+//               reserving MORE than that floor needs. Both endpoints of a
+//               short stroke (an E's crossbar, a T's bar) are kept by the
+//               corner dwell, which emits min_corner_pts at every vertex
+//               regardless of interior density. corner_angle_deg/max_corner_pts stay
 //               close to Vector since glyphs (M, W, K, Z, ...) have real
 //               sharp corners, just smaller and more numerous than Vector's
 //               shapes, so fewer points per corner are needed.

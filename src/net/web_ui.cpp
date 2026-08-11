@@ -136,9 +136,6 @@ static void applyOptimizerOverrides(JsonObjectConst src, OptimizerLiveConfig& cf
         } else if (!strcmp(key, "pts_per_1000_units") && val.is<float>()) {
             cfg.pts_per_1000_units = constrain((float)val, 0.1f, 50.0f);
             applied["pts_per_1000_units"] = cfg.pts_per_1000_units;
-        } else if (!strcmp(key, "min_segment_pts") && val.is<int>()) {
-            cfg.min_segment_pts = constrain((int)val, 2, 20);
-            applied["min_segment_pts"] = cfg.min_segment_pts;
         } else if (!strcmp(key, "blank_samples") && val.is<int>()) {
             cfg.blank_samples = constrain((int)val, 1, 100);
             applied["blank_samples"] = cfg.blank_samples;
@@ -208,7 +205,6 @@ static void diffOptimizerOverrides(const OptimizerLiveConfig& cur,
     if (cur.min_corner_pts != snap.min_corner_pts) out["min_corner_pts"] = cur.min_corner_pts;
     if (cur.max_corner_pts != snap.max_corner_pts) out["max_corner_pts"] = cur.max_corner_pts;
     if (cur.pts_per_1000_units != snap.pts_per_1000_units) out["pts_per_1000_units"] = cur.pts_per_1000_units;
-    if (cur.min_segment_pts != snap.min_segment_pts) out["min_segment_pts"] = cur.min_segment_pts;
     if (cur.blank_samples != snap.blank_samples) out["blank_samples"] = cur.blank_samples;
     if (cur.max_pts_per_frame != snap.max_pts_per_frame) out["max_pts_per_frame"] = cur.max_pts_per_frame;
     if (cur.min_blank_samples != snap.min_blank_samples) out["min_blank_samples"] = cur.min_blank_samples;
@@ -446,7 +442,6 @@ static void persistConfig() {
         SAVE_U("opt_mincp", min_corner_pts);
         SAVE_U("opt_maxcp", max_corner_pts);
         SAVE_F("opt_ppu",   pts_per_1000_units);
-        SAVE_U("opt_minsp", min_segment_pts);
         SAVE_U("opt_blank", blank_samples);
         SAVE_S("opt_maxppf",max_pts_per_frame);
         SAVE_U("opt_minbl", min_blank_samples);
@@ -661,7 +656,6 @@ static void buildConfigJson(JsonDocument& doc) {
             o["opt_min_corner_pts"]               = p.min_corner_pts;
             o["opt_max_corner_pts"]               = p.max_corner_pts;
             o["opt_pts_per_1000_units"]           = p.pts_per_1000_units;
-            o["opt_min_segment_pts"]              = p.min_segment_pts;
             o["opt_blank_samples"]                = p.blank_samples;
             o["opt_max_pts_per_frame"]            = p.max_pts_per_frame;
             o["opt_min_blank_samples"]            = p.min_blank_samples;
@@ -713,7 +707,6 @@ static void buildConfigJson(JsonDocument& doc) {
         doc["opt_min_corner_pts"]               = p.min_corner_pts;
         doc["opt_max_corner_pts"]               = p.max_corner_pts;
         doc["opt_pts_per_1000_units"]           = p.pts_per_1000_units;
-        doc["opt_min_segment_pts"]              = p.min_segment_pts;
         doc["opt_blank_samples"]                = p.blank_samples;
         doc["opt_max_pts_per_frame"]            = p.max_pts_per_frame;
         doc["opt_min_blank_samples"]            = p.min_blank_samples;
@@ -1124,8 +1117,6 @@ void init() {
                 P.max_corner_pts = constrain((int)doc["max_corner_pts"], 1, 20);
             if (doc["pts_per_1000_units"].is<float>())
                 P.pts_per_1000_units = constrain((float)doc["pts_per_1000_units"], 0.1f, 50.0f);
-            if (doc["min_segment_pts"].is<int>())
-                P.min_segment_pts = constrain((int)doc["min_segment_pts"], 2, 20);
             if (doc["blank_samples"].is<int>())
                 P.blank_samples = constrain((int)doc["blank_samples"], 1, 100);
             if (doc["max_pts_per_frame"].is<int>())

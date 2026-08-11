@@ -521,6 +521,15 @@ struct PlannedSegment {
 // budget is exceeded -- corner points are capped by max_corner_pts
 // already and matter most for tracking accuracy, so they're treated as
 // fixed overhead rather than scaled down.
+//
+// The return value is exactly out_corner_pts + out_interior_pts. Do not
+// re-introduce a per-segment point floor here: a floor cannot be scaled by
+// Stage 2, so on a many-edge shape it costs budget that emitAllSegments()
+// then has to take out of the shape itself (truncation mid-draw). The one
+// case a floor would nominally guard -- a single long lit step once Stage 2
+// has crushed interior density -- belongs to max_step_units /
+// clampScannerLimits(), which measures actual DAC units per tick on the
+// emitted stream and stays inside effective_cap.
 static uint16_t planSegment(const PathSegment& seg, const OptimizerConfig& cfg,
                              uint16_t* out_corner_pts = nullptr,
                              uint16_t* out_interior_pts = nullptr) {
@@ -554,7 +563,6 @@ static uint16_t planSegment(const PathSegment& seg, const OptimizerConfig& cfg,
     if (out_interior_pts) *out_interior_pts = (interior_total > 0xFFFF) ? 0xFFFF : (uint16_t)interior_total;
 
     uint32_t total = corner_total + interior_total;
-    if (total < cfg.min_segment_pts) total = cfg.min_segment_pts;
     if (total > 0xFFFF) total = 0xFFFF;
     return (uint16_t)total;
 }

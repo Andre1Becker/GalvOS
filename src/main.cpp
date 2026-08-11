@@ -135,7 +135,6 @@ static void loadConfig() {
         LOAD_U("opt_mincp", min_corner_pts,               pd.min_corner_pts);
         LOAD_U("opt_maxcp", max_corner_pts,               pd.max_corner_pts);
         LOAD_F("opt_ppu",   pts_per_1000_units,           pd.pts_per_1000_units);
-        LOAD_U("opt_minsp", min_segment_pts,              OPT_DEFAULT_MIN_SEGMENT_PTS);
         LOAD_U("opt_blank", blank_samples,                pd.blank_samples);
         LOAD_S("opt_maxppf",max_pts_per_frame,            pd.max_pts_per_frame);
         LOAD_U("opt_minbl", min_blank_samples,            pd.min_blank_samples);

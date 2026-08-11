@@ -1053,7 +1053,6 @@ canvas { max-width: 100%; display: block; }
             <div class="param-group">
               <h3>Interior Density</h3>
               <div class="field"><label>Pts/1000 units</label><div class="slider-row"><input type="range" id="opt-ppu" min="1" max="500" value="80" oninput="optSyncNum('opt-ppu');optimizerSlider()"><input type="number" id="opt-ppu-n" data-scale="10" data-decimals="1" step="0.1" min="0.1" max="50" value="8.0" onchange="optSyncSlider('opt-ppu');optimizerSlider()"></div><p class="param-hint">Interior point density &mdash; points added per 1000 DAC units of segment length.</p></div>
-              <div class="field"><label>Min Segment Points</label><div class="slider-row"><input type="range" id="opt-min-seg-pts" min="2" max="20" value="3" oninput="optSyncNum('opt-min-seg-pts');optimizerSlider()"><input type="number" id="opt-min-seg-pts-n" min="2" max="20" value="3" onchange="optSyncSlider('opt-min-seg-pts');optimizerSlider()"></div><p class="param-hint">Minimum interior points per segment, even on very short edges.</p></div>
               <div class="field"><label>Min Interior Pts/Segment</label><div class="slider-row"><input type="range" id="opt-min-interior-pts" min="0" max="50" value="2" oninput="optSyncNum('opt-min-interior-pts');optimizerSlider()"><input type="number" id="opt-min-interior-pts-n" min="0" max="50" value="2" onchange="optSyncSlider('opt-min-interior-pts');optimizerSlider()"></div><p class="param-hint">Interior points reserved per segment before the blank-jump budget is computed.</p></div>
             </div>
             <div class="param-group">
@@ -1405,7 +1404,7 @@ canvas { max-width: 100%; display: block; }
 /* =========================================================================
    GLOBAL STATE
    ========================================================================= */
-var UI_VERSION = '1.7.1';   // WebUI version -- independent from firmware version
+var UI_VERSION = '1.7.2';   // WebUI version -- independent from firmware version
 var NAV_TABS = [
   {id: 'dashboard', label: 'Dashboard', icon: '🏠', bottom: true},
   {id: 'presets', label: 'Presets', icon: '🎮', bottom: true},
@@ -4148,7 +4147,6 @@ function loadOptimizerConfig(c) {
   setv('opt-min-corner-pts', p[pfx + 'min_corner_pts']);
   setv('opt-max-corner-pts', p[pfx + 'max_corner_pts']);
   setv('opt-ppu', Math.round((p[pfx + 'pts_per_1000_units'] || 0) * 10));
-  setv('opt-min-seg-pts', p[pfx + 'min_segment_pts']);
   setv('opt-max-pts-frame', p[pfx + 'max_pts_per_frame']);
   setv('opt-blank-samples', p[pfx + 'blank_samples']);
   setv('opt-min-blank-samples', p[pfx + 'min_blank_samples']);
@@ -4198,7 +4196,7 @@ async function sendOptimizerLive() {
   await apiCall('POST', '/api/optimizer-live', {
     profile: g_activeOptimizerProfile,
     corner_angle_deg: domVal('opt-corner-angle', 30), min_corner_pts: domVal('opt-min-corner-pts', 2), max_corner_pts: domVal('opt-max-corner-pts', 8),
-    pts_per_1000_units: domVal('opt-ppu', 80) / 10, min_segment_pts: domVal('opt-min-seg-pts', 3),
+    pts_per_1000_units: domVal('opt-ppu', 80) / 10,
     blank_samples: domVal('opt-blank-samples', 12), max_pts_per_frame: domVal('opt-max-pts-frame', 800),
     min_blank_samples: domVal('opt-min-blank-samples', 4), blank_pts_per_1000_units: domVal('opt-blank-ppu', 80) / 10,
     min_interior_pts_per_segment: domVal('opt-min-interior-pts', 2), stage1_blank_target: domVal('opt-stage1-blank', 10),
@@ -4256,7 +4254,7 @@ function applyOptimizerSmartDefaults() {
   var maxPtsFrame = Math.max(60, Math.min(2048, Math.round(outputKpps * 1000 / targetFps)));
   var setv = function(id, v) { var el = document.getElementById(id); if (el) { el.value = v; optSyncNum(id); } };
   setv('opt-corner-angle', base.cad); setv('opt-min-corner-pts', base.mincp); setv('opt-max-corner-pts', base.maxcp);
-  setv('opt-ppu', Math.round(base.ppu / ratio * 10)); setv('opt-min-seg-pts', 3);
+  setv('opt-ppu', Math.round(base.ppu / ratio * 10));
   setv('opt-blank-samples', base.blank); setv('opt-max-pts-frame', maxPtsFrame);
   setv('opt-min-blank-samples', base.minbl); setv('opt-blank-ppu', Math.round(base.blppu / ratio * 10));
   setv('opt-min-interior-pts', base.minip); setv('opt-stage1-blank', base.s1tgt);
@@ -4267,7 +4265,7 @@ function applyOptimizerSmartDefaults() {
 function resetOptimizerDefaults() {
   var setv = function(id, v) { var el = document.getElementById(id); if (el) { el.value = v; optSyncNum(id); } };
   setv('opt-corner-angle', 30); setv('opt-min-corner-pts', 2); setv('opt-max-corner-pts', 8);
-  setv('opt-ppu', 80); setv('opt-min-seg-pts', 3); setv('opt-blank-samples', 12); setv('opt-max-pts-frame', 800);
+  setv('opt-ppu', 80); setv('opt-blank-samples', 12); setv('opt-max-pts-frame', 800);
   setv('opt-min-blank-samples', 4); setv('opt-blank-ppu', 80); setv('opt-min-interior-pts', 2); setv('opt-stage1-blank', 10);
   document.getElementById('opt-resample-enabled').checked = false;
   document.getElementById('opt-ringing-enabled').checked = false;
