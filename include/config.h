@@ -119,6 +119,49 @@ struct OptimizerLiveConfig {
     float    jitter_amount_units          = OPT_DEFAULT_JITTER_AMOUNT_UNITS;
 };
 
+// Which OptimizerNormalizeResult field(s) normalizeOptimizerConfig() had to
+// correct -- so a caller with a JSON `applied` echo (web_ui.cpp) can report
+// the effective value back instead of silently accepting the request's.
+struct OptimizerNormalizeResult {
+    bool min_blank_samples_corrected = false;
+    bool min_corner_pts_corrected    = false;
+
+    bool any() const { return min_blank_samples_corrected || min_corner_pts_corrected; }
+};
+
+// Cross-field validation for OptimizerLiveConfig. Every write path (WebUI
+// live-edit, NVS-backed save, backup restore, community-preset import)
+// clamps each min/max pair to its own valid range independently, so an
+// inverted pair -- min greater than max -- is settable unless every one of
+// those paths also enforces the RELATION between the two fields. Two pairs
+// feed invariants inside the optimizer itself:
+//
+//   min_blank_samples <= blank_samples -- Stage 1 (point_optimizer.cpp's
+//     optimize()) only reduces blanking `if (blank_samples >
+//     min_blank_samples)`. Inverted, that guard never fires and a frame that
+//     needs Stage 1 to fit its budget can no longer shrink.
+//
+//   min_corner_pts <= max_corner_pts -- cornerPointCount() interpolates
+//     between the two by severity (soft corner -> min, sharp corner ->
+//     max). Inverted, the interpolation runs backwards: sharp corners get
+//     FEWER points than soft ones.
+//
+// Corrects the MIN value downward to match the MAX (never raises the max),
+// so a caller's explicit max is always preserved. Call after every write to
+// an OptimizerLiveConfig, regardless of source.
+inline OptimizerNormalizeResult normalizeOptimizerConfig(OptimizerLiveConfig& cfg) {
+    OptimizerNormalizeResult r;
+    if (cfg.min_blank_samples > cfg.blank_samples) {
+        cfg.min_blank_samples = cfg.blank_samples;
+        r.min_blank_samples_corrected = true;
+    }
+    if (cfg.min_corner_pts > cfg.max_corner_pts) {
+        cfg.min_corner_pts = cfg.max_corner_pts;
+        r.min_corner_pts_corrected = true;
+    }
+    return r;
+}
+
 // ── OPTIMIZER PROFILES ──────────────────────────────────────────────────────
 // Eight independent OptimizerLiveConfig profiles, one per PresetClass plus
 // Text. gOptimizerConfig is always a live copy of the active profile; call

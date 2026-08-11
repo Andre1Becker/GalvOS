@@ -86,6 +86,22 @@ static bool checkOptimizerProfile(JsonObjectConst op, String& reason) {
     for (const auto& f : bools) {
         if (!op[f.key].is<bool>()) { reason = String("optimizer_profile.") + f.key + " missing/not a boolean"; return false; }
     }
+
+    // Every field above passed its own range check independently -- that
+    // does not catch an inverted min/max pair (min_blank_samples >
+    // blank_samples, min_corner_pts > max_corner_pts). This file's own
+    // convention is "reject outright, never silently clamp" (see the file
+    // comment above), so reuse normalizeOptimizerConfig() (config.h) as a
+    // detector rather than applying its correction: if it would have to
+    // correct anything, the uploaded profile is invalid.
+    OptimizerLiveConfig probe;
+    probe.min_blank_samples = op["min_blank_samples"];
+    probe.blank_samples     = op["blank_samples"];
+    probe.min_corner_pts    = op["min_corner_pts"];
+    probe.max_corner_pts    = op["max_corner_pts"];
+    OptimizerNormalizeResult norm = normalizeOptimizerConfig(probe);
+    if (norm.min_blank_samples_corrected) { reason = "optimizer_profile.min_blank_samples exceeds blank_samples"; return false; }
+    if (norm.min_corner_pts_corrected)    { reason = "optimizer_profile.min_corner_pts exceeds max_corner_pts"; return false; }
     return true;
 }
 
