@@ -243,6 +243,31 @@ constexpr uint8_t OPT_PROFILE_TEXT        = 7;
 //               sharp corners, just smaller and more numerous than Vector's
 //               shapes, so fewer points per corner are needed.
 //
+// blank_samples / min_blank_samples / blank_pts_per_1000_units for Wireframe,
+// MultiObject and Text (P21, see docs/optimizer-refactor/DECISIONS.md
+// 2026-08-11 Session P): blankCountForDistance() is
+// round(dist/1000 * blank_pts_per_1000_units), clamped to
+// [min_blank_samples, blank_samples]. The three rows below shipped with
+// blank_pts_per_1000_units in [8,10] and blank_samples in [10,12], i.e. a
+// proportional window of ~450-1200 DAC units -- while real jumps in these
+// three classes (measured off each class's actual generator code: wireframe
+// polyhedra at their real projected scale, Concentric Rings / Nested Squares /
+// Solar System / Starburst's actual radii, and the stroke font's real glyph
+// coordinates) run 1,700-33,000 units. Every real jump therefore clamped to
+// the ceiling, making Pillar 2 a constant per-jump cost for these three
+// classes regardless of distance. Re-centered the window on each class's
+// measured distribution (ceiling widened, floor lowered) so short and long
+// jumps within a class now cost different amounts:
+//   Wireframe:   12/6/10.0 -> 20/4/0.8   (window  450-1500 ->  5,000-25,000)
+//   MultiObject: 12/6/10.0 -> 18/4/1.5   (window  450-1500 ->  2,700-12,000)
+//   Text:        10/4/9.0  -> 16/4/1.0   (window  400-1100 ->  4,000-16,000)
+// stage1_blank_target (10/10/7) is untouched -- it already sits between each
+// new floor and ceiling, so it stays a valid Stage-1 shrink target with more
+// headroom above it than before. min_corner_pts/max_corner_pts/pts_per_1000_
+// units/max_pts_per_frame are untouched; this table's other rows (Vector,
+// Smooth, Waves, Particles, Trails) are out of this prompt's scope and
+// untouched.
+//
 // PROFILE_DEFAULTS is indexed by OPT_PROFILE_* and consumed by loadConfig()
 // as the NVS fallback, so a user's stored per-profile values still win.
 struct OptimizerProfileDefaults {
@@ -267,11 +292,11 @@ static const OptimizerProfileDefaults OPT_PROFILE_DEFAULTS[OPT_PROFILE_COUNT] = 
     {  30.f,   2,     8,    9.f,   16,    6,    12,    8.f,    8,   1300 },  // 0 Vector
     {  60.f,   2,     3,   11.f,   16,    6,    12,    8.f,    8,   1300 },  // 1 Smooth
     {  35.f,   2,     6,    8.f,   16,    6,    12,    8.f,    8,   1300 },  // 2 Waves
-    {  25.f,   2,     8,    6.f,   12,    6,    10,   10.f,    6,   1300 },  // 3 Wireframe
-    {  25.f,   2,     6,    5.f,   12,    6,    10,   10.f,    6,   1300 },  // 4 MultiObject
+    {  25.f,   2,     8,    6.f,   20,    4,    10,    0.8f,   6,   1300 },  // 3 Wireframe
+    {  25.f,   2,     6,    5.f,   18,    4,    10,    1.5f,   6,   1300 },  // 4 MultiObject
     {  25.f,   2,     4,    6.f,   10,    6,     8,   12.f,    4,   1300 },  // 5 Particles
     {  60.f,   3,     3,   11.f,   16,    6,    12,    8.f,    8,    880 },  // 6 Trails
-    {  28.f,   2,     5,    6.f,   10,    4,     7,    9.f,    1,   1300 },  // 7 Text
+    {  28.f,   2,     5,    6.f,   16,    4,     7,    1.0f,   1,   1300 },  // 7 Text
 };
 
 extern OptimizerLiveConfig gOptimizerProfiles[OPT_PROFILE_COUNT];
