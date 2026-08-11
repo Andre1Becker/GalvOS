@@ -113,7 +113,11 @@ void calibCamForceStop() { stopCalibCamSession(); }
 // hand -- both lists are short and reviewed together). Every applied key is
 // echoed into `applied` as its effective (post-clamp) value; every key in
 // `src` that isn't a known field name (or is the "profile" selector, handled
-// by the caller) is appended to `ignored`.
+// by the caller) is appended to `ignored`. Finally runs
+// normalizeOptimizerConfig() (config.h) so a min/max pair left inverted by
+// independent per-field clamping -- min_blank_samples > blank_samples,
+// min_corner_pts > max_corner_pts -- is corrected and re-echoed into
+// `applied` with its effective value.
 static void applyOptimizerOverrides(JsonObjectConst src, OptimizerLiveConfig& cfg,
                                      JsonObject applied, JsonArray ignored) {
     for (JsonPairConst kv : src) {
@@ -190,6 +194,9 @@ static void applyOptimizerOverrides(JsonObjectConst src, OptimizerLiveConfig& cf
             ignored.add(key);
         }
     }
+    OptimizerNormalizeResult norm = normalizeOptimizerConfig(cfg);
+    if (norm.min_blank_samples_corrected) applied["min_blank_samples"] = cfg.min_blank_samples;
+    if (norm.min_corner_pts_corrected)    applied["min_corner_pts"]    = cfg.min_corner_pts;
 }
 
 // Lists, into `out`, every OptimizerLiveConfig field where `cur` differs from
@@ -1149,9 +1156,22 @@ void init() {
                 P.accel_clamp_enabled = (bool)doc["accel_clamp_enabled"];
             if (doc["max_accel_units"].is<float>())
                 P.max_accel_units = constrain((float)doc["max_accel_units"], 10.0f, 32767.0f);
+            // Every field above clamps its own range independently -- catch an
+            // inverted min/max pair (see normalizeOptimizerConfig()'s doc comment
+            // in config.h) before it reaches the optimizer.
+            OptimizerNormalizeResult norm = normalizeOptimizerConfig(P);
             if (targetProf == gActiveOptimizerProfile) syncOptimizerConfig();
             gPatternCacheGen++;
-            req->send(200, "text/plain", "OK");
+            if (norm.any()) {
+                JsonDocument resp(&jsonAllocator());
+                resp["ok"] = true;
+                JsonObject corrected = resp["corrected"].to<JsonObject>();
+                if (norm.min_blank_samples_corrected) corrected["min_blank_samples"] = P.min_blank_samples;
+                if (norm.min_corner_pts_corrected)    corrected["min_corner_pts"]    = P.min_corner_pts;
+                sendJsonPsram(req, resp);
+            } else {
+                req->send(200, "text/plain", "OK");
+            }
         });
 
     // ---- POST /api/optimizer-save ---- (persist current values to NVS)

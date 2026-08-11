@@ -332,6 +332,12 @@ bool BackupManager::deserializeFromJson(JsonDocument& doc, JsonArray rejected) {
                 if (!o["max_step_units"].isNull())              P.max_step_units = o["max_step_units"];
                 if (!o["accel_clamp_enabled"].isNull())         P.accel_clamp_enabled = o["accel_clamp_enabled"];
                 if (!o["max_accel_units"].isNull())             P.max_accel_units = o["max_accel_units"];
+                // Every field above passed its own range check, but the two
+                // range checks don't see each other -- an inverted min/max pair
+                // (min_blank_samples > blank_samples, min_corner_pts >
+                // max_corner_pts) survives untouched otherwise. See
+                // normalizeOptimizerConfig()'s doc comment in config.h.
+                normalizeOptimizerConfig(P);
             }
         }
         if (!optimizer["active_profile"].isNull())
