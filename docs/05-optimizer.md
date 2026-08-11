@@ -180,6 +180,14 @@ Interior points along an edge are not uniformly spaced — they are velocity-eas
 
 `optimize()` now runs an extra pass before scaling interior density: if corner dwell alone doesn't fit the available budget, `min_corner_pts`/`max_corner_pts` are scaled down together (floor: 1 point per vertex — just enough to actually visit every vertex) until corner dwell does fit, and the segment plan is recomputed against the new corner budget. This trades corner sharpness for the one thing that must never be sacrificed: the loop actually reconnecting. It is automatic and requires no configuration; if a gap still appears, `max_pts_per_frame` is too low even for 1 point per vertex on that shape.
 
+**Fitting interior density to the budget (since v6.47.0):**
+
+Interior density is scaled by a single global factor, but each edge then rounds its own point count to a whole number. Those roundings accumulate: a single closed-form factor can land well over the budget (measured: a 480-vertex circle at a 1300-point budget planned 1300 and emitted 1464 — 12.6% over, so the frame was cut off mid-path exactly where the corner-dwell pass above exists to prevent it) or well under it (the frame simply draws sparser than it could).
+
+The optimizer therefore *searches* the density instead of estimating it. It plans the frame — the same plan the emit pass then writes, plus what the blank jumps between segments will actually cost — at a trial density, and bisects that factor (at most six plan passes, stopping as soon as the plan sits within 2% under the budget) for the highest density whose plan still fits. The frame lands at the budget from below rather than near it from either side, so two things change in practice: patterns get **denser at an unchanged `max_pts_per_frame`**, and a frame whose fixed overhead fits at all no longer truncates. The remaining case — corner points alone over budget, i.e. the paragraph above already at its 1-point-per-vertex floor — is beyond any density choice and is reported through the Optimizer tab's truncated counter rather than silently.
+
+One consequence is worth knowing when reading the numbers: where every edge of a shape has the same length, all edges cross their rounding boundary at the same density, so the plan jumps by a whole edge count in one step. The search then settles below that step and the frame can visibly under-use its budget. That is deliberate — a complete shape drawn coarsely beats a denser one cut short.
+
 ---
 
 ## Stage 5 — Blanking (Pillar 2)
@@ -422,7 +430,7 @@ Full table of all optimizer parameters, their defaults, valid ranges, and effect
 | `min_blank_samples` | 6 | 1–50 | <img src="assets/animations/stage5_blanking.svg" width="64" height="64" alt=""> Minimum blank jump sample count (floor + settle dwell ticks). |
 | `blank_pts_per_1000_units` | 8.0 | 0–100 | <img src="assets/animations/stage5_blanking.svg" width="64" height="64" alt=""> Rate at which blank jump sample count scales with jump distance. |
 | `stage1_blank_target` | 16 | 1–100 | <img src="assets/animations/stage5_blanking.svg" width="64" height="64" alt=""> Stage 1 budget reduction target: when the frame is over budget, blank_samples is first reduced to this value before falling back to `min_blank_samples`. |
-| `max_pts_per_frame` | 1010 | 1–2048 | <img src="assets/animations/frame_budget.svg" width="64" height="64" alt=""> Total point budget per frame. When exceeded, interior density is scaled down uniformly. Effective ceiling: 1300 on JY-15K-BL. |
+| `max_pts_per_frame` | 1010 | 1–2048 | <img src="assets/animations/frame_budget.svg" width="64" height="64" alt=""> Total point budget per frame. When exceeded, interior density is searched down (bisection over the frame plan) until the frame fits just under the budget. Effective ceiling: 1300 on JY-15K-BL. |
 | `min_interior_pts_per_seg` | 8 | 0–255 | <img src="assets/animations/stage3_resample.svg" width="64" height="64" alt=""> Interior points reserved per segment before blank budget is computed. Prevents very complex patterns from eliminating interior points entirely. |
 | `resample_enabled` | false | bool | <img src="assets/animations/stage3_resample.svg" width="64" height="64" alt=""> Enable constant-spacing resample stage. Off = length-proportional density (default). |
 | `resample_spacing_units` | 160.0 | 1–10000 | <img src="assets/animations/stage3_resample.svg" width="64" height="64" alt=""> Target spacing between resampled points in DAC units. Only used when `resample_enabled = true`. |

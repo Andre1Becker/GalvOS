@@ -323,9 +323,11 @@ void resetFrameStats();
 // Returns the number of points written (<= max_out). Fills gLastStats and
 // adds to gFrameStats.
 //
-// If the planned point count would exceed max_out, pts_per_1000_units is
-// scaled down uniformly once and the pass is repeated, so output never
-// silently truncates mid-shape the way ap()'s "if (n>=mx) return" can.
+// If the planned point count would exceed the frame budget, interior density
+// is searched down (Stage 2 bisects the plan against the cap, landing just
+// under it) before anything is written, so output never silently truncates
+// mid-shape the way ap()'s "if (n>=mx) return" can -- and what truncation
+// remains possible is counted in Stats::truncated.
 size_t optimize(const PathSegment* segments, size_t segment_count,
                  LaserPoint* out, size_t max_out,
                  const OptimizerConfig& cfg);

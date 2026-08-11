@@ -444,6 +444,63 @@ void test_noSilentPointLoss(void) {
 #endif
 }
 
+// ── 3b. stage2PlansWithinBudget ─────────────────────────────────────────
+//
+// CLASS-INVARIANT. [P17] Sits alongside invariant 3: same accounting, read
+// from the other end -- nothing may be truncated that a density choice could
+// have prevented.
+//
+// Stage 2 picks ONE global density scalar and edgeInteriorCount() then rounds
+// every edge on its own, so a single closed-form estimate lands wherever the
+// accumulated rounding puts it. Overshoot is caught only by emitAllSegments()'s
+// hard cap -- i.e. by truncation, which on a closed path means it stops before
+// it closes, the exact failure Stage 1.5 exists to prevent.
+//
+// So: unless Stage 1.5 had to floor the corner counts -- the one case where
+// the fixed overhead does not fit at ANY density and truncation is beyond the
+// optimizer's reach -- a frame must not truncate at all.
+//
+// Clamps stay off: clampScannerLimits() inserts points after the plan and may
+// legitimately reach the cap on its own (invariant 4 owns that).
+void test_stage2PlansWithinBudget(void) {
+#if GALVOS_OPT_HAS_STATS
+    const uint16_t caps[] = { 2048, 1300, 1010, 900, 700, 500, 300, 120 };
+    const fx::Fixture* fixtures = fx::all();
+
+    for (int zv = 0; zv <= 1; zv++) {
+        for (size_t c = 0; c < sizeof(caps) / sizeof(caps[0]); c++) {
+            for (size_t i = 0; i < fx::kFixtureCount; i++) {
+                OptimizerConfig cfg = fx::baseCfg();
+                cfg.max_pts_per_frame    = caps[c];
+                cfg.ringing_comp_enabled = (zv != 0);
+
+                size_t n = optimizer::optimize(fixtures[i].segs,
+                                               fixtures[i].count,
+                                               gFrame, PATTERN_POINTS_MAX, cfg);
+                const optimizer::Stats& st = optimizer::gLastStats;
+
+                snprintf(gMsg, sizeof(gMsg),
+                         "%s cap %u zv=%d: emitted %u points",
+                         fixtures[i].name, (unsigned)caps[c], zv, (unsigned)n);
+                TEST_ASSERT_TRUE_MESSAGE(n <= caps[c], gMsg);
+
+                // Corner points alone over budget -- no density can fix that.
+                if (st.stage15Triggered) continue;
+
+                snprintf(gMsg, sizeof(gMsg),
+                         "%s cap %u zv=%d: %u points truncated although the "
+                         "corner budget fit -- the plan overshot the cap",
+                         fixtures[i].name, (unsigned)caps[c], zv,
+                         (unsigned)st.truncated);
+                TEST_ASSERT_EQUAL_UINT32_MESSAGE(0, st.truncated, gMsg);
+            }
+        }
+    }
+#else
+    TEST_IGNORE_MESSAGE("needs P1 telemetry (gLastStats) -- see contract_features.h");
+#endif
+}
+
 // ── 4. velocityAccelLimitsHold ──────────────────────────────────────────
 //
 // CLASS-INVARIANT. [P11]
@@ -649,6 +706,7 @@ int main(int, char**) {
     RUN_TEST(test_zeroLengthJumpSkipped);
     RUN_TEST(test_ringingCompNotSilentlyInactive);
     RUN_TEST(test_noSilentPointLoss);
+    RUN_TEST(test_stage2PlansWithinBudget);
     RUN_TEST(test_velocityAccelLimitsHold);
     RUN_TEST(test_dacRangeValid);
     RUN_TEST(test_deterministicOutput);
