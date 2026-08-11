@@ -105,7 +105,9 @@ struct PathVertex { float x, y; uint8_t r, g, b; bool lift; };
 struct PathSegment { const PathVertex* vertices; size_t count; bool closed; };
 ```
 
-The `lift` flag on a vertex means "blank jump to this vertex from the previous point" — used for disconnected sub-paths like the strokes in a text glyph or the separate edges of a wireframe model.
+Disconnected sub-paths — the strokes of a text glyph, the separate edges of a wireframe model — are expressed as **separate `PathSegment`s**. The optimizer blank-jumps to every segment's first vertex on its own (see [Stage 5 — Blanking (Pillar 2)](#stage-5--blanking-pillar-2)), so a pattern never has to draw the travel move itself.
+
+The `lift` flag is a small refinement on top of that, read only on a segment's *first* vertex: it turns the first of that vertex's dwell points dark, giving the mirror one extra settling sample on the landing position before the beam comes on. It does not create the jump, and it is ignored on every other vertex of the segment.
 
 **Pattern color rule:** All patterns specify only `255` or `0` as default channel values (e.g. pure red = `255,0,0`; yellow = `255,255,0`). Mixed intermediate colors come in through the color override system in the WebUI Global Controls.
 
