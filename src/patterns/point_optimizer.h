@@ -172,7 +172,59 @@ struct OptimizerConfig {
     // -> byte-identical to the pre-jitter optimizer.
     bool     jitter_enabled       = OPT_DEFAULT_JITTER_ENABLED;
     float    jitter_amount_units  = OPT_DEFAULT_JITTER_AMOUNT_UNITS; // max perpendicular offset (DAC units)
+
+    // ── Frame context for multi-call callers ─────────────────────────────
+    //
+    // A preset that renders each of its sub-shapes with its own optimize()
+    // call writes into `out = o + n`, so from inside optimize() the buffer
+    // always looks empty. Two things are invisible to it as a result, and
+    // these fields hand them in. Left at their defaults, every single-call
+    // caller produces byte-identical output to before.
+    //
+    // hasPrevPos / prevX / prevY -- where the galvo already is when the call
+    // starts. Without it emitBlankJump() takes its n==0 fallback and parks
+    // blank_samples ticks ON the target instead of ramping to it, i.e. a
+    // teleport: Pillars 2 and 3 only ever applied WITHIN a single call.
+    bool     hasPrevPos           = false;
+    float    prevX                = 0.0f;
+    float    prevY                = 0.0f;
+
+    // frameBudgetRemaining -- points the FRAME still has left, as opposed to
+    // max_pts_per_frame, which optimize() applies per CALL. Without it N
+    // calls each plan a whole frame's worth and the only real ceiling left
+    // is max_out (PATTERN_POINTS_MAX). 0 = not tracked, i.e. the per-call
+    // behavior. optimize() returns only the count it wrote; the caller owns
+    // the subtraction -- see frameContext().
+    uint16_t frameBudgetRemaining = 0;
 };
+
+// Fills in the frame context above from the caller's own running state, so a
+// multi-call preset converts one call site with one line instead of four.
+// `o` is the frame buffer base and `n` the number of points already written
+// into it this frame -- exactly the pair such callers already carry around to
+// build their `optimize(&seg, 1, o + n, m - n, cfg)`.
+//
+// The budget is derived from n rather than carried in a separate counter that
+// each loop would have to decrement itself: n IS the frame's spend so far, it
+// cannot drift out of sync, and it also charges points written outside the
+// optimizer (raw dwell dots, seam bridges) against the same flicker budget --
+// which is what the budget is a statement about.
+//
+// Returns false when the budget is exhausted; the caller must then stop
+// emitting rather than call optimize() anyway. Passing frameBudgetRemaining=0
+// would read as "not tracked" and hand that call a full frame all over again.
+// At n == 0 the budget is the full max_pts_per_frame and hasPrevPos stays
+// false, so the first call of a frame is unchanged.
+inline bool frameContext(OptimizerConfig& cfg, const LaserPoint* o, size_t n) {
+    if (n >= (size_t)cfg.max_pts_per_frame) return false;
+    cfg.frameBudgetRemaining = (uint16_t)((size_t)cfg.max_pts_per_frame - n);
+    if (n > 0 && o != nullptr) {
+        cfg.hasPrevPos = true;
+        cfg.prevX      = (float)o[n - 1].x;
+        cfg.prevY      = (float)o[n - 1].y;
+    }
+    return true;
+}
 
 // ── Telemetry ────────────────────────────────────────────────────────────
 //

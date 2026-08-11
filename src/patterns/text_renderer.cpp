@@ -224,8 +224,17 @@ static GlyphResult renderGlyph(LaserPoint* out, size_t& n, size_t max,
 
     if (nsegs == 0) return res;
 
+    // One optimize() call per glyph, all writing into the same frame: the
+    // frame context carries the pen position the previous glyph left behind
+    // (so the inter-glyph jump ramps instead of teleporting) and the frame's
+    // remaining point budget (max_pts_per_frame is per call, so a long string
+    // would otherwise be bounded only by the buffer). The per-glyph share of
+    // `max` set by the callers stays the tighter bound in most cases.
+    optimizer::OptimizerConfig cfg = textOptimizerConfig(sc);
+    if (!optimizer::frameContext(cfg, out, n)) return res;
+
     size_t before = n;
-    n += optimizer::optimize(segs, nsegs, out + n, max - n, textOptimizerConfig(sc));
+    n += optimizer::optimize(segs, nsegs, out + n, max - n, cfg);
 
     if (n > before) {
         res.last_x = out[n-1].x;

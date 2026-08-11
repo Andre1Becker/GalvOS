@@ -235,8 +235,12 @@ static BlankJumpPlan planBlankJump(int count, const ZvShaper& sh,
 // between adjacent wireframe vertices) get fewer samples, long diagonal
 // jumps get more, instead of every jump paying the same fixed cost
 // regardless of distance.
-// Falls back to a simple stay-at-target run (old emitBlankRun behavior)
-// when there is no prior point to jump from (n==0).
+// The start position is the last point already in the buffer, or -- when this
+// call writes into the middle of a frame someone else started (out = o + n, so
+// n is 0 here) -- cfg.prevX/prevY, which the caller supplies via
+// frameContext(). Only with neither does it fall back to a simple
+// stay-at-target run (old emitBlankRun behavior), since there is then genuinely
+// no position to ramp from.
 //
 // PILLAR 3: the resulting move+settle trajectory is buffered locally,
 // then re-shaped with the ZV impulse response above (shaped[i] =
@@ -249,11 +253,17 @@ static BlankJumpPlan planBlankJump(int count, const ZvShaper& sh,
 // A jump shorter than kMinJumpDistUnits emits nothing -- see that constant.
 static void emitBlankJump(LaserPoint* out, size_t& n, size_t max,
                            float x1, float y1, const OptimizerConfig& cfg) {
-    if (n == 0) {
+    float x0, y0;
+    if (n > 0) {
+        x0 = out[n - 1].x;
+        y0 = out[n - 1].y;
+    } else if (cfg.hasPrevPos) {
+        x0 = cfg.prevX;
+        y0 = cfg.prevY;
+    } else {
         emitBlankRun(out, n, max, x1, y1, cfg.blank_samples);
         return;
     }
-    float x0 = out[n - 1].x, y0 = out[n - 1].y;
     float dx = x1 - x0, dy = y1 - y0;
     float dist = sqrtf(dx * dx + dy * dy);
     if (dist < kMinJumpDistUnits) return;   // shared vertex -> nothing to jump
@@ -983,7 +993,15 @@ size_t optimize(const PathSegment* segments, size_t segment_count,
     //    must stay above the eye's flicker-fusion threshold -- this is
     //    almost always the tighter constraint in practice, e.g. a single
     //    ngon can fit easily within max_out=2048 while still flickering)
-    size_t effective_cap = std::min(max_out, (size_t)cfg.max_pts_per_frame);
+    //
+    // max_pts_per_frame is a PER-CALL cap, which is the whole budget only when
+    // the frame is one call. A caller that renders its sub-shapes one call each
+    // passes the frame's actual remainder in frameBudgetRemaining instead (see
+    // frameContext() in the header); it is derived from max_pts_per_frame, so
+    // it replaces rather than joins it.
+    uint16_t frame_cap = (cfg.frameBudgetRemaining > 0) ? cfg.frameBudgetRemaining
+                                                        : cfg.max_pts_per_frame;
+    size_t effective_cap = std::min(max_out, (size_t)frame_cap);
 
     // Stage 1 (MUST run before Stage 2 below): shrink blank_samples FIRST,
     // before touching interior density. Stage 1 triggers in two cases:

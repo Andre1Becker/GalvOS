@@ -145,21 +145,28 @@ void test_allocFreeSymmetric(void) {
 // caller say how much of the budget is already spent -- that is what P7's
 // frameBudgetRemaining adds.
 void test_budgetNeverExceeded(void) {
-    OptimizerConfig cfg = fx::baseCfg();
-    cfg.max_pts_per_frame = 600;
+    OptimizerConfig base = fx::baseCfg();
+    base.max_pts_per_frame = 600;
 
     size_t frameTotal = 0;
     for (size_t call = 0; call < fx::kPresetCallCount; call++) {
         size_t segCount = 0;
         const PathSegment* segs = fx::presetCall(call, segCount);
+
+        // What a converted multi-call preset does per sub-shape: the frame's
+        // running point count is the only state, and frameContext() turns it
+        // into the remaining budget plus the previous galvo position.
+        OptimizerConfig cfg = base;
+        if (!optimizer::frameContext(cfg, gFrame, frameTotal)) break;
+
         size_t n = optimizer::optimize(segs, segCount,
                                        gFrame + frameTotal,
                                        PATTERN_POINTS_MAX - frameTotal, cfg);
 
         snprintf(gMsg, sizeof(gMsg),
                  "call %u alone emitted %u > max_pts_per_frame %u",
-                 (unsigned)call, (unsigned)n, (unsigned)cfg.max_pts_per_frame);
-        TEST_ASSERT_TRUE_MESSAGE(n <= cfg.max_pts_per_frame, gMsg);
+                 (unsigned)call, (unsigned)n, (unsigned)base.max_pts_per_frame);
+        TEST_ASSERT_TRUE_MESSAGE(n <= base.max_pts_per_frame, gMsg);
 
         frameTotal += n;
     }
@@ -167,8 +174,8 @@ void test_budgetNeverExceeded(void) {
     snprintf(gMsg, sizeof(gMsg),
              "frame of %u calls emitted %u > max_pts_per_frame %u",
              (unsigned)fx::kPresetCallCount, (unsigned)frameTotal,
-             (unsigned)cfg.max_pts_per_frame);
-    TEST_ASSERT_TRUE_MESSAGE(frameTotal <= cfg.max_pts_per_frame, gMsg);
+             (unsigned)base.max_pts_per_frame);
+    TEST_ASSERT_TRUE_MESSAGE(frameTotal <= base.max_pts_per_frame, gMsg);
 }
 
 // ── 2. blankJumpEndsAtTarget ────────────────────────────────────────────
