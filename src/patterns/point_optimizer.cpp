@@ -4,15 +4,20 @@
 #if defined(ESP_PLATFORM) || defined(ARDUINO)
 #include <esp_heap_caps.h>
 #include "util/mem_registry.h"
+#include "util/log_buffer.h"
 #else
 // Host-side unit test build (g++ + cfg_stub.h): no ESP heap API. Fall back to
-// plain malloc so clampScannerLimits() is testable off-target. MALLOC_CAP_*
+// plain malloc/free so clampScannerLimits() is testable off-target. MALLOC_CAP_*
 // is ignored here. mem_registry.cpp isn't part of this build, so stub track()
-// out too.
+// out too. log_buffer.cpp needs Arduino.h/esp_log.h to link, so LOG_W is a
+// no-op here rather than pulling that in.
 #include <cstdlib>
 #define MALLOC_CAP_SPIRAM 0
 static inline void* heap_caps_malloc(size_t sz, uint32_t) { return malloc(sz); }
+static inline void  heap_caps_free(void* p) { free(p); }
 namespace memreg { static inline void track(const char*, size_t, bool) {} }
+namespace logbuf { enum LogCat : uint8_t { CAT_GALVO = 4 }; }
+#define LOG_W(cat, ...) ((void)0)
 #endif
 
 namespace optimizer {
@@ -667,15 +672,22 @@ static void emitSegment(const PathSegment& seg, const OptimizerConfig& cfg,
 // identity matrix triggers the copy into the scratch buffers below.
 //
 // Scratch sizing: input geometry (vertices before interior/corner fill) is far
-// smaller than the emitted point count. The largest caller today declares
-// PathVertex[64] / PathSegment[16] (text_renderer.cpp); these scratch sizes
-// leave an 8x/4x margin at zero DRAM cost (lazy PSRAM, ~7 KB).
-// applyTransform bounds-checks against both, so an over-large caller degrades
-// by dropping trailing segments rather than overflowing.
+// smaller than the emitted point count. The largest caller by TOTAL vertices
+// is paint::generate() -- PAINT_STROKES_MAX(12) * PAINT_VERTS_PER_STROKE(96)
+// = 1152 vertices across up to 12 segments; the largest by a SINGLE segment
+// is calib_patterns.cpp's cam_spiral (512 vertices, 1 segment). text_renderer
+// declares PathVertex[64]/PathSegment[16] per call, smaller than either.
+// kMaxXfVerts previously sat at exactly 512 -- zero headroom for cam_spiral
+// and well under paint's 1152, so a non-identity transform (e.g. rotation)
+// silently dropped trailing paint strokes via the `break` below. Sized to
+// 1280 for real margin over both; applyTransform bounds-checks against both
+// caps, so an over-large caller (still practically unreachable) degrades by
+// dropping trailing segments rather than overflowing, and now logs once
+// instead of doing that silently.
 namespace {
-    constexpr size_t kMaxXfVerts = 512;
+    constexpr size_t kMaxXfVerts = 1280;
     constexpr size_t kMaxXfSegs  = 64;
-    // Lazy PSRAM (~7 KB total) -- was static DRAM .bss. Fully overwritten
+    // Lazy PSRAM (~16.5 KB total) -- was static DRAM .bss. Fully overwritten
     // before use on every applyTransform() call. Uses the same
     // heap_caps_malloc path as s_clamp_scratch so the host-side unit-test
     // build (plain-malloc shim above) keeps working.
@@ -698,8 +710,14 @@ static size_t applyTransform(const PathSegment* segments, size_t segment_count,
             kMaxXfSegs * sizeof(PathSegment), MALLOC_CAP_SPIRAM);
         if (!s_xf_verts || !s_xf_segs) {
             // No PSRAM -> pass the input through untransformed, never crash.
-            free(s_xf_verts);
+            // Free+null BOTH pointers, not just s_xf_verts: leaving the other
+            // one allocated-but-live means the next call's `if (!s_xf_verts)`
+            // guard skips it and reallocates on top -- a leak of one block
+            // per call for the rest of the process.
+            heap_caps_free(s_xf_verts);
+            heap_caps_free(s_xf_segs);
             s_xf_verts = nullptr;
+            s_xf_segs  = nullptr;
             *out_segments = segments;
             return segment_count;
         }
@@ -716,7 +734,22 @@ static size_t applyTransform(const PathSegment* segments, size_t segment_count,
             seg_out++;
             continue;
         }
-        if (vtx_out + src.count > kMaxXfVerts) break;  // scratch exhausted
+        if (vtx_out + src.count > kMaxXfVerts) {
+            // Scratch exhausted -- trailing segments dropped. One-time log
+            // (not per-frame spam at 25 fps) so an over-large caller shows up
+            // instead of silently losing geometry, same failure mode the
+            // 512-vertex cap above used to hit on every cam_spiral call.
+            static bool warned = false;
+            if (!warned) {
+                warned = true;
+                LOG_W(logbuf::CAT_GALVO,
+                      "applyTransform: scratch exhausted at %u/%u verts, "
+                      "%u segments dropped", (unsigned)vtx_out,
+                      (unsigned)kMaxXfVerts,
+                      (unsigned)(segment_count - s));
+            }
+            break;
+        }
 
         PathVertex* dst = &s_xf_verts[vtx_out];
         for (size_t i = 0; i < src.count; i++) {
