@@ -103,6 +103,22 @@ void test_allocFreeSymmetric(void) {
         "allocation probe did not count a plain free()");
 
     // (a) first scratch allocation fails, second succeeds, 100 frames.
+    //
+    // Pre-warm the clamp-scratch singleton (s_clamp_scratch) OUTSIDE the
+    // armed window, via an identity-transform call: cfg has vel/accel clamp
+    // on, so clampScannerLimits() lazily allocates its own persistent PSRAM
+    // block the first time ANY call reaches it, same as the transform
+    // scratch under test here -- but identity bypasses applyTransform
+    // entirely (optimize()'s `if (!cfg.transform.isIdentity())` guard), so
+    // this warms clamp scratch without touching transform scratch. Without
+    // this, frame 0 of the armed loop below allocates clamp scratch for the
+    // first time ever in this process -- a legitimate one-time cache, not a
+    // leak -- and it would never free, permanently confounding starvedLive
+    // with +1 unrelated to the applyTransform bug under test.
+    OptimizerConfig warmClampCfg = cfg;
+    warmClampCfg.transform = optimizer::AffineTransform();  // identity
+    optimizer::optimize(segs, segCount, gFrame, PATTERN_POINTS_MAX, warmClampCfg);
+
     allocProbe::reset();
     allocProbe::arm(true);
     for (int frame = 0; frame < 100; frame++) {
