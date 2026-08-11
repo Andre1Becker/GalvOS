@@ -25,9 +25,21 @@
 
 namespace optimizer {
 
-// One vertex in a path. lift=true means: blank-jump TO this vertex
-// (it starts a new disconnected sub-path, e.g. after a pen-up in a
-// text glyph, or the first vertex of an isolated wireframe edge).
+// One vertex in a path. `lift` is consulted ONLY on vertices[0] of a segment,
+// and only to turn that vertex's FIRST corner-dwell point blank instead of
+// lit: one dark sample sitting on the landing position before the beam comes
+// on. It replaces a dwell point rather than adding one, so it costs no budget.
+//
+// It does NOT create the move to the vertex. emitAllSegments() blank-jumps to
+// every segment's vertices[0] unconditionally (emitBlankJump(), Pillar 2),
+// with or without lift. It is also not read on vertices[1..count-1] at all,
+// nor on a count==1 segment (emitSegment()'s single-vertex fast path always
+// emits lit; no caller builds one).
+//
+// A disconnected sub-path -- a pen-up inside a text glyph, an isolated
+// wireframe edge -- is therefore expressed by splitting the geometry into
+// separate PathSegments, which is what text_renderer.cpp's glyph walker does
+// at every PU stroke, not by a mid-path lift flag.
 //
 // NOTE: explicit constructors, not default member initializers --
 // PlatformIO/Arduino-ESP32 builds under -std=gnu++11, where a struct
