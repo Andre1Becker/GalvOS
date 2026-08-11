@@ -456,9 +456,10 @@ static uint8_t cornerPointCount(float severity, const OptimizerConfig& cfg) {
 // frame for numbers that never move.
 //
 // So both are computed once per optimize() call into a lazy PSRAM scratch,
-// then read back. This is a pure memo, never a source of truth: every accessor
-// falls back to computing when the scratch is absent (no PSRAM) or too small
-// for the input, so the emitted stream is identical either way.
+// then read back through SegmentPlan below. This is a pure memo, never a
+// source of truth: every accessor there falls back to computing when the
+// scratch is absent (no PSRAM) or too small for the input, so the emitted
+// stream is identical either way.
 namespace {
     float* s_geom_sev = nullptr;   // corner severity, one per vertex
     float* s_geom_len = nullptr;   // edge length, one per edge
@@ -467,31 +468,12 @@ namespace {
 }
 
 // Edges a segment contributes: `count` closed (wrap-around edge included),
-// `count - 1` open, none below two vertices. Must match the `edge_count` both
-// planSegment() and emitSegment() derive, or the cache slices drift apart.
+// `count - 1` open, none below two vertices. The single definition -- the
+// memo is filled by it, PlanCursor slices by it, and walkSegment() iterates
+// by it, so no consumer can disagree about where one segment's edges end.
 static inline size_t segEdgeCount(const PathSegment& seg) {
     if (seg.count < 2) return 0;
     return seg.closed ? seg.count : (seg.count - 1);
-}
-
-// Cached slice belonging to ONE segment. Null members mean "not cached",
-// which is what makes the cache optional rather than load-bearing.
-struct SegGeom {
-    const float* sev = nullptr;
-    const float* len = nullptr;
-};
-
-static inline float severityAt(const PathSegment& seg, const OptimizerConfig& cfg,
-                                const SegGeom& g, size_t i) {
-    return g.sev ? g.sev[i] : cornerSeverity(seg, cfg, i);
-}
-
-static inline float edgeLenAt(const PathSegment& seg, const SegGeom& g, size_t e) {
-    if (g.len) return g.len[e];
-    size_t a = e, b = (e + 1) % seg.count;
-    float dx = seg.vertices[b].x - seg.vertices[a].x;
-    float dy = seg.vertices[b].y - seg.vertices[a].y;
-    return sqrtf(dx * dx + dy * dy);
 }
 
 // Fills the scratch for one optimize() call, allocating it on first use (lazy
@@ -541,39 +523,6 @@ static void buildGeomCache(const PathSegment* segments, size_t segment_count,
     s_geom_len_n = e;
 }
 
-// Walks the cache in the order it was built. A running cursor rather than a
-// per-segment base array because segment_count is unbounded while the cache is
-// not, and every consumer (the plan loop, Stage 1.5's re-plan, and
-// emitAllSegments) iterates segments front to back exactly once.
-//
-// next() must be called for EVERY segment, including the count==0 ones
-// consumers skip, or the following segments read the wrong slice.
-struct GeomCursor {
-    size_t vbase = 0, ebase = 0;
-
-    SegGeom next(const PathSegment& seg) {
-        SegGeom g;
-        size_t ec = segEdgeCount(seg);
-        if (s_geom_sev && vbase + seg.count <= s_geom_sev_n &&
-            ebase + ec <= s_geom_len_n) {
-            g.sev = s_geom_sev + vbase;
-            g.len = s_geom_len + ebase;
-        }
-        vbase += seg.count;
-        ebase += ec;
-        return g;
-    }
-};
-
-// Corner dwell point count at vertex i of a segment. Shared by
-// planSegment(), emitSegment(), and the closed-path second dwell at
-// vertex 0 so all three agree on the same count.
-static uint8_t cornerPtsAtVertex(const PathSegment& seg,
-                                  const OptimizerConfig& cfg,
-                                  const SegGeom& g, size_t i) {
-    return cornerPointCount(severityAt(seg, cfg, g, i), cfg);
-}
-
 // Reshapes a uniformly-spaced edge parameter (0..1) into a
 // velocity-eased one. Endpoints (t=0, t=1) stay fixed, so point COUNT
 // and coverage are unchanged -- only spacing within the edge shifts,
@@ -617,20 +566,157 @@ static uint16_t edgeInteriorCount(float length, const OptimizerConfig& cfg) {
     return (uint16_t)n;
 }
 
-struct PlannedSegment {
-    const PathSegment* seg;
-    uint16_t total_pts;   // corner + interior points for this segment,
-                           // NOT including the blank jump leading into it
+// ── Segment plan ─────────────────────────────────────────────────────────
+//
+// Everything a segment's output is made of: how many dwell points sit at each
+// vertex, how many interior points each edge carries, how long that edge is,
+// and the easing pair that shapes the spacing along it.
+//
+// The budget pass (planSegment) and the write pass (emitSegment) both see the
+// segment only through this type, and both walk it through walkSegment()
+// below. They used to be two separately-written loops whose agreement was
+// asserted by a pair of comments -- the arrangement the closed-path double
+// dwell and the Stage-1/Stage-2 ordering bug both came out of. What a segment
+// contains is now defined once, for both passes, or for neither.
+//
+// Per-vertex severity and per-edge length are read from the per-call memo
+// (buildGeomCache() above) when it holds this segment, and computed here when
+// it does not -- so a board without PSRAM, or geometry larger than the
+// scratch, costs speed and nothing else.
+//
+// The two derived counts are deliberately NOT snapshotted into the scratch
+// next to them. `cfg` points at optimize()'s live config, which Stage 1.5
+// (corner counts) and Stage 2 (interior density) rewrite AFTER the first plan
+// pass; a snapshot would have to be invalidated by hand at each of those
+// writes -- the same hand-maintained invariant this struct exists to retire,
+// one level down. Read through the accessors, the plan cannot go stale, and
+// each of the two formulas costs one lroundf.
+//
+// There is no per-segment point floor (P12 removed min_segment_pts: a floor is
+// budget Stage 2 cannot give back) and no lift or mid-path-jump field (P14:
+// lift only recolors the first dwell point at vertex 0 and costs nothing to
+// plan -- see PathVertex in the header).
+struct SegmentPlan {
+    const PathSegment*     seg = nullptr;
+    const OptimizerConfig* cfg = nullptr;
+    const float*           sev = nullptr;   // per vertex, memo slice or null
+    const float*           len = nullptr;   // per edge,   memo slice or null
+
+    size_t edgeCount() const { return segEdgeCount(*seg); }
+
+    float severity(size_t i) const {
+        return sev ? sev[i] : cornerSeverity(*seg, *cfg, i);
+    }
+
+    float edgeLength(size_t e) const {
+        if (len) return len[e];
+        size_t a = e, b = (e + 1) % seg->count;
+        float dx = seg->vertices[b].x - seg->vertices[a].x;
+        float dy = seg->vertices[b].y - seg->vertices[a].y;
+        return sqrtf(dx * dx + dy * dy);
+    }
+
+    // Dwell points at vertex i, scaled by its corner severity.
+    uint8_t cornerPts(size_t i) const {
+        return cornerPointCount(severity(i), *cfg);
+    }
+
+    // Interior points along edge e, excluding both endpoints -- those are the
+    // dwell points of the vertices the edge runs between.
+    uint16_t interiorPts(size_t e) const {
+        return edgeInteriorCount(edgeLength(e), *cfg);
+    }
+
+    // Spacing within an edge is eased toward whichever of its two ends has the
+    // more severe corner (see shapeEdgeT()), so the pair is a property of the
+    // edge, not a decision the emit pass makes.
+    float easeIn(size_t e)  const { return severity(e); }
+    float easeOut(size_t e) const { return severity((e + 1) % seg->count); }
 };
 
-// First pass: compute how many points each segment would need at the
-// given pts_per_1000_units scale, without writing any output. Optionally
-// reports the corner-point and interior-point sub-totals separately
-// (out_corner_pts / out_interior_pts may be nullptr) so the caller can
-// scale only the interior (length-proportional) portion when the overall
-// budget is exceeded -- corner points are capped by max_corner_pts
-// already and matter most for tracking accuracy, so they're treated as
-// fixed overhead rather than scaled down.
+// Walks the memo in the order it was built, handing each segment its plan. A
+// running cursor rather than a per-segment base array because segment_count is
+// unbounded while the memo is not, and every consumer (the plan pass, Stage
+// 1.5's re-plan, and emitAllSegments) iterates segments front to back exactly
+// once.
+//
+// next() must be called for EVERY segment, including the count==0 ones
+// consumers skip, or the following segments read the wrong slice.
+struct PlanCursor {
+    size_t vbase = 0, ebase = 0;
+
+    SegmentPlan next(const PathSegment& seg, const OptimizerConfig& cfg) {
+        SegmentPlan p;
+        p.seg = &seg;
+        p.cfg = &cfg;
+        size_t ec = segEdgeCount(seg);
+        if (s_geom_sev && vbase + seg.count <= s_geom_sev_n &&
+            ebase + ec <= s_geom_len_n) {
+            p.sev = s_geom_sev + vbase;
+            p.len = s_geom_len + ebase;
+        }
+        vbase += seg.count;
+        ebase += ec;
+        return p;
+    }
+};
+
+// The shape of one segment's output, defined once and walked by both passes:
+// planSegment() counts what it yields, emitSegment() writes it. Neither can
+// decide anything the other does not see.
+//
+// Order, per edge: the dwell at the edge's START vertex, then that edge's
+// interior points. Each vertex therefore gets its dwell exactly once, on the
+// one edge it starts, rather than once per adjacent edge -- and the run closes
+// with a trailing dwell (below).
+//
+// onCorner(vertexIdx, pts, liftEligible) -- liftEligible marks the very first
+// point the segment emits, the only place PathVertex::lift is consulted.
+// onInterior(edgeIdx, pts).
+template <typename CornerFn, typename InteriorFn>
+static void walkSegment(const SegmentPlan& p, CornerFn onCorner,
+                         InteriorFn onInterior) {
+    const PathSegment& seg = *p.seg;
+    if (seg.count == 0) return;
+    if (seg.count == 1) {
+        // Single-vertex fast path: exactly one lit point, independent of
+        // min_corner_pts, and lift is not consulted (P14 -- documented on
+        // PathVertex; no caller builds a one-vertex segment).
+        onCorner((size_t)0, (uint8_t)1, false);
+        return;
+    }
+
+    size_t edge_count = p.edgeCount();
+    for (size_t e = 0; e < edge_count; e++) {
+        onCorner(e, p.cornerPts(e), e == 0);
+        onInterior(e, p.interiorPts(e));
+    }
+
+    // Trailing dwell, at the last vertex of an open path or a SECOND time at
+    // vertex 0 of a closed one.
+    //
+    // Open: the final vertex starts no edge, so nothing above has dwelled on
+    // it. Emitting a single point there instead of its full planned dwell
+    // starved the far end of every open line (line() calls, open PathSegment
+    // strokes) -- most visible where that dwell is a large share of the lit
+    // points, e.g. DNA-helix rungs near the strand crossings, which looked cut
+    // short and dim rather than fully drawn.
+    //
+    // Closed: the wrap-around edge's interior points approach vertex 0 but
+    // never land on it, and a single closing point was not enough for the
+    // galvo to settle there on short/fast edges (residual gap, worse at small
+    // Size). A second full dwell -- same count as its frame-start one -- gives
+    // the beam time to arrive before the trailing closing blank cuts it.
+    size_t tail = seg.closed ? 0 : seg.count - 1;
+    onCorner(tail, p.cornerPts(tail), false);
+}
+
+// Budget pass: what this segment costs, without writing any output. Reports
+// the corner-point and interior-point sub-totals separately (either pointer
+// may be nullptr) so the caller can scale only the interior (length-
+// proportional) portion when the budget is exceeded -- corner points are
+// capped by max_corner_pts already and matter most for tracking accuracy, so
+// they are treated as fixed overhead rather than scaled down.
 //
 // The return value is exactly out_corner_pts + out_interior_pts. Do not
 // re-introduce a per-segment point floor here: a floor cannot be scaled by
@@ -640,31 +726,13 @@ struct PlannedSegment {
 // has crushed interior density -- belongs to max_step_units /
 // clampScannerLimits(), which measures actual DAC units per tick on the
 // emitted stream and stays inside effective_cap.
-static uint16_t planSegment(const PathSegment& seg, const OptimizerConfig& cfg,
-                             const SegGeom& g,
+static uint16_t planSegment(const SegmentPlan& p,
                              uint16_t* out_corner_pts = nullptr,
                              uint16_t* out_interior_pts = nullptr) {
-    if (seg.count == 0) { if(out_corner_pts)*out_corner_pts=0; if(out_interior_pts)*out_interior_pts=0; return 0; }
-    if (seg.count == 1) { if(out_corner_pts)*out_corner_pts=1; if(out_interior_pts)*out_interior_pts=0; return 1; }
-
-    size_t edge_count = seg.closed ? seg.count : (seg.count - 1);
     uint32_t corner_total = 0, interior_total = 0;
-
-    for (size_t i = 0; i < seg.count; i++) {
-        corner_total += cornerPtsAtVertex(seg, cfg, g, i);
-    }
-
-    if (seg.closed) {
-        // Reserve budget for vertex 0's second corner dwell, emitted at
-        // the end of emitSegment() for closed paths -- same size as its
-        // frame-start dwell, fixed overhead, not scaled with interior
-        // density.
-        corner_total += cornerPtsAtVertex(seg, cfg, g, 0);
-    }
-
-    for (size_t e = 0; e < edge_count; e++) {
-        interior_total += edgeInteriorCount(edgeLenAt(seg, g, e), cfg);
-    }
+    walkSegment(p,
+        [&](size_t, uint8_t pts, bool) { corner_total   += pts; },
+        [&](size_t, uint16_t pts)      { interior_total += pts; });
 
     if (out_corner_pts)   *out_corner_pts   = (corner_total > 0xFFFF) ? 0xFFFF : (uint16_t)corner_total;
     if (out_interior_pts) *out_interior_pts = (interior_total > 0xFFFF) ? 0xFFFF : (uint16_t)interior_total;
@@ -674,100 +742,73 @@ static uint16_t planSegment(const PathSegment& seg, const OptimizerConfig& cfg,
     return (uint16_t)total;
 }
 
-// Second pass: actually write corner + interior points for one segment.
-static void emitSegment(const PathSegment& seg, const OptimizerConfig& cfg,
-                         const SegGeom& g,
+// Write pass: the same walk, emitting instead of counting. Every count it
+// uses comes from the plan; what it adds is the geometry between them --
+// where each interior point lands, its interpolated color, and the jitter
+// offset.
+static void emitSegment(const SegmentPlan& p,
                          LaserPoint* out, size_t& n, size_t max) {
-    if (seg.count == 0) return;
-    if (seg.count == 1) {
-        const PathVertex& v = seg.vertices[0];
-        emit(out, n, max, v.x, v.y, v.r, v.g, v.b, 0);
-        return;
-    }
+    const PathSegment&     seg = *p.seg;
+    const OptimizerConfig& cfg = *p.cfg;
 
-    size_t edge_count = seg.closed ? seg.count : (seg.count - 1);
-
-    for (size_t e = 0; e < edge_count; e++) {
-        size_t a = e, b = (e + 1) % seg.count;
-        const PathVertex& va = seg.vertices[a];
-        const PathVertex& vb = seg.vertices[b];
-
-        // Corner point(s) at the start vertex of this edge (vertex "a").
-        // Only emitted once per vertex -- i.e. on the edge where it is
-        // the *start* -- so each corner appears exactly once in the
-        // output, not once per adjacent edge.
-        uint8_t cpts = cornerPtsAtVertex(seg, cfg, g, a);
-        bool first_point_overall = (e == 0);
-        for (uint8_t k = 0; k < cpts; k++) {
-            emit(out, n, max, va.x, va.y, va.r, va.g, va.b,
-                 (first_point_overall && k == 0 && va.lift) ? 1 : 0);
-        }
-
-        // Interior points along the edge (excludes both endpoints --
-        // endpoints are corner points of vertex a / vertex b).
-        float dx = vb.x - va.x, dy = vb.y - va.y;
-        float len = edgeLenAt(seg, g, e);
-        uint16_t ipts = edgeInteriorCount(len, cfg);
-        // Ease speed into/out of whichever corner is
-        // more severe at each end, see shapeEdgeT().
-        float easeIn  = severityAt(seg, cfg, g, a);
-        float easeOut = severityAt(seg, cfg, g, b);
-
-        for (uint16_t k = 1; k <= ipts; k++) {
-            float tLin = (float)k / (ipts + 1);
-            float t = shapeEdgeT(tLin, easeIn, easeOut);
-            float px = va.x + dx * t, py = va.y + dy * t;
-
-            // Jitter (Phase 4): perpendicular offset, interior points only --
-            // corner points stay exact so the shape's vertices remain
-            // recognizable. Applied here, after planning/severity/resample
-            // have already fixed point counts, so it's a pure emit-time
-            // perturbation (see config.h's OPT_DEFAULT_JITTER_* comment).
-            if (cfg.jitter_enabled && cfg.jitter_amount_units > 0.01f && len > 1e-3f) {
-                float nx = -dy / len, ny = dx / len;   // unit perpendicular
-                float j = jitterHash((uint32_t)e, (uint32_t)k) * cfg.jitter_amount_units;
-                px += nx * j;
-                py += ny * j;
+    walkSegment(p,
+        [&](size_t i, uint8_t pts, bool liftEligible) {
+            const PathVertex& v = seg.vertices[i];
+            for (uint8_t k = 0; k < pts; k++) {
+                emit(out, n, max, v.x, v.y, v.r, v.g, v.b,
+                     (liftEligible && k == 0 && v.lift) ? 1 : 0);
             }
+        },
+        [&](size_t e, uint16_t ipts) {
+            const PathVertex& va = seg.vertices[e];
+            const PathVertex& vb = seg.vertices[(e + 1) % seg.count];
+            float dx  = vb.x - va.x, dy = vb.y - va.y;
+            float len = p.edgeLength(e);
+            float easeIn  = p.easeIn(e);
+            float easeOut = p.easeOut(e);
 
-            float rf = va.r + (float)(vb.r - va.r) * t;
-            float gf = va.g + (float)(vb.g - va.g) * t;
-            float bf = va.b + (float)(vb.b - va.b) * t;
-            emit(out, n, max, px, py,
-                 (uint8_t)lroundf(rf), (uint8_t)lroundf(gf), (uint8_t)lroundf(bf), 0);
-        }
-    }
+            for (uint16_t k = 1; k <= ipts; k++) {
+                float tLin = (float)k / (ipts + 1);
+                float t = shapeEdgeT(tLin, easeIn, easeOut);
+                float px = va.x + dx * t, py = va.y + dy * t;
 
-    // Final vertex of an open path needs its own corner point(s) --
-    // closed paths already covered the last vertex as the "a" of the
-    // wrap-around edge above. Must match planSegment(), which budgets
-    // cornerPtsAtVertex() (up to max_corner_pts, since an open endpoint
-    // is always worst-case severity) for this vertex too -- emitting
-    // only one point here starved the far end of every open line
-    // (line() calls, open PathSegment strokes) of its planned dwell,
-    // most visible on short segments where that endpoint dwell is a
-    // large share of the total lit points (e.g. DNA-helix rungs near
-    // the strand crossings): the line looked cut short/dim instead of
-    // fully drawn.
-    if (!seg.closed) {
-        const PathVertex& vlast = seg.vertices[seg.count - 1];
-        uint8_t cpts = cornerPtsAtVertex(seg, cfg, g, seg.count - 1);
-        for (uint8_t k = 0; k < cpts; k++) {
-            emit(out, n, max, vlast.x, vlast.y, vlast.r, vlast.g, vlast.b, 0);
-        }
-    } else {
-        // Closed path: the wrap-around edge's interior points approach
-        // vertex 0 but never land on it. A single closing point wasn't
-        // enough for the galvo to actually settle there on short/fast
-        // edges (residual gap, worse at small Size). Give vertex 0 a
-        // second full corner dwell here -- same point count as its
-        // frame-start dwell -- so the beam has time to arrive before
-        // the trailing closing blank turns the laser off.
-        const PathVertex& v0 = seg.vertices[0];
-        uint8_t cpts = cornerPtsAtVertex(seg, cfg, g, 0);
-        for (uint8_t k = 0; k < cpts; k++) {
-            emit(out, n, max, v0.x, v0.y, v0.r, v0.g, v0.b, 0);
-        }
+                // Jitter (Phase 4): perpendicular offset, interior points only
+                // -- corner points stay exact so the shape's vertices remain
+                // recognizable. Applied here, after planning/severity/resample
+                // have already fixed point counts, so it's a pure emit-time
+                // perturbation (see config.h's OPT_DEFAULT_JITTER_* comment).
+                if (cfg.jitter_enabled && cfg.jitter_amount_units > 0.01f && len > 1e-3f) {
+                    float nx = -dy / len, ny = dx / len;   // unit perpendicular
+                    float j = jitterHash((uint32_t)e, (uint32_t)k) * cfg.jitter_amount_units;
+                    px += nx * j;
+                    py += ny * j;
+                }
+
+                float rf = va.r + (float)(vb.r - va.r) * t;
+                float gf = va.g + (float)(vb.g - va.g) * t;
+                float bf = va.b + (float)(vb.b - va.b) * t;
+                emit(out, n, max, px, py,
+                     (uint8_t)lroundf(rf), (uint8_t)lroundf(gf), (uint8_t)lroundf(bf), 0);
+            }
+        });
+}
+
+// Plan pass over the whole input: the totals every budget stage reasons about,
+// split into corner (fixed overhead) and interior (what Stage 2 scales). Runs
+// at most twice per optimize() call -- once for the budget check, once more if
+// Stage 1.5 rewrites the corner counts -- over the same plans emitAllSegments()
+// later walks.
+static void planAllSegments(const PathSegment* segments, size_t segment_count,
+                             const OptimizerConfig& cfg,
+                             uint32_t& corner_total, uint32_t& interior_total) {
+    corner_total   = 0;
+    interior_total = 0;
+    PlanCursor cur;
+    for (size_t s = 0; s < segment_count; s++) {
+        uint16_t cp = 0, ip = 0;
+        planSegment(cur.next(segments[s], cfg), &cp, &ip);
+        corner_total   += cp;
+        interior_total += ip;
     }
 }
 
@@ -1088,18 +1129,18 @@ static size_t emitAllSegments(const PathSegment* segments, size_t segment_count,
                                const OptimizerConfig& cfg,
                                LaserPoint* out, size_t max_out) {
     size_t n = 0;
-    GeomCursor cur;
+    PlanCursor cur;
     for (size_t s = 0; s < segment_count; s++) {
         const PathSegment& seg = segments[s];
-        // Advanced for every segment, skipped ones included -- see GeomCursor.
-        SegGeom g = cur.next(seg);
+        // Advanced for every segment, skipped ones included -- see PlanCursor.
+        SegmentPlan plan = cur.next(seg, cfg);
         if (seg.count == 0) continue;
 
         // Blank jump to this segment's first vertex -- distance-
         // proportional + eased (Pillar 2), see emitBlankJump().
         emitBlankJump(out, n, max_out, seg.vertices[0].x, seg.vertices[0].y, cfg);
 
-        emitSegment(seg, cfg, g, out, n, max_out);
+        emitSegment(plan, out, n, max_out);
     }
 
     // Closing blank: return to the very first point with the laser off,
@@ -1185,15 +1226,7 @@ size_t optimize(const PathSegment* segments, size_t segment_count,
     // overhead -- capped by max_corner_pts, not scaled down; only
     // interior/length-proportional density is reduced to fit budget).
     uint32_t corner_total = 0, interior_total = 0;
-    {
-        GeomCursor cur;
-        for (size_t s = 0; s < segment_count; s++) {
-            uint16_t cp = 0, ip = 0;
-            planSegment(segments[s], cfg, cur.next(segments[s]), &cp, &ip);
-            corner_total += cp;
-            interior_total += ip;
-        }
-    }
+    planAllSegments(segments, segment_count, cfg, corner_total, interior_total);
     uint32_t planned_total = corner_total + interior_total;
     // Reserve room for inter-segment blank jumps (one per segment) plus
     // the final closing blank back to the first point -- that's
@@ -1335,14 +1368,7 @@ size_t optimize(const PathSegment* segments, size_t segment_count,
         // Re-plan reuses the same cache: only min/max_corner_pts changed, and
         // cornerPointCount() re-reads those -- the severities they scale do
         // not depend on them.
-        corner_total = 0; interior_total = 0;
-        GeomCursor cur;
-        for (size_t s = 0; s < segment_count; s++) {
-            uint16_t cp = 0, ip = 0;
-            planSegment(segments[s], cfg, cur.next(segments[s]), &cp, &ip);
-            corner_total += cp;
-            interior_total += ip;
-        }
+        planAllSegments(segments, segment_count, cfg, corner_total, interior_total);
         planned_total = corner_total + interior_total;
         needed = planned_total + blank_overhead;
     }
