@@ -297,7 +297,12 @@ const OPTIMIZER_PROFILES = [
   {name:"Text",        cad:28, mincp:2, maxcp:5, ppk:6,  blank:10, minbl:4, s1tgt:7,  blppu:9,  minip:1, maxppf:1300},
 ];
 // Generic OPT_DEFAULT_* fallback for fields the per-profile table doesn't override.
-const OPT_GENERIC_MIN_SEGMENT_PTS = 2;
+// Legacy compatibility field: firmware up to v6.44.x REQUIRES min_segment_pts
+// in optimizer_profile and rejects a preset without it. v6.45.0 removed the
+// parameter (it never had any effect) and ignores the key. Emitting the
+// constant keeps a preset built here loadable on both, so it is written but
+// not editable.
+const OPT_LEGACY_MIN_SEGMENT_PTS = 2;
 const OPT_GENERIC_TAIL = {
   resample_enabled:false, resample_spacing_units:160.0,
   ringing_comp_enabled:false, ring_freq_hz:200.0, ring_damping_ratio:0.15,
@@ -311,7 +316,6 @@ const OPT_FIELD_DEFS = [
   {key:'min_corner_pts', kind:'i', lo:1, hi:20, label:'Min Corner Pts'},
   {key:'max_corner_pts', kind:'i', lo:1, hi:20, label:'Max Corner Pts'},
   {key:'pts_per_1000_units', kind:'f', lo:0.1, hi:50, label:'Pts / 1000 Units'},
-  {key:'min_segment_pts', kind:'i', lo:2, hi:20, label:'Min Segment Pts'},
   {key:'blank_samples', kind:'i', lo:1, hi:100, label:'Blank Samples'},
   {key:'max_pts_per_frame', kind:'i', lo:50, hi:1300, label:'Max Pts/Frame'},
   {key:'min_blank_samples', kind:'i', lo:1, hi:100, label:'Min Blank Samples'},
@@ -448,7 +452,7 @@ function applyProfile(idx) {
   const p = OPTIMIZER_PROFILES[idx];
   state.optimizer = {
     corner_angle_deg: p.cad, min_corner_pts: p.mincp, max_corner_pts: p.maxcp,
-    pts_per_1000_units: p.ppk, min_segment_pts: OPT_GENERIC_MIN_SEGMENT_PTS,
+    pts_per_1000_units: p.ppk,
     blank_samples: p.blank, max_pts_per_frame: p.maxppf, min_blank_samples: p.minbl,
     blank_pts_per_1000_units: p.blppu, min_interior_pts_per_segment: p.minip,
     stage1_blank_target: p.s1tgt, ...OPT_GENERIC_TAIL,
@@ -1030,7 +1034,10 @@ function buildDeviceJson() {
       galvo_model: state.meta.galvoModel, fw_version: state.meta.fwVersion,
       created: new Date().toISOString().slice(0,10), based_on: state.meta.basedOn,
     },
-    optimizer_profile: { ...state.optimizer },
+    // min_segment_pts is stamped in here rather than held in state.optimizer,
+    // so it survives every path (profile-derived, custom-edited, imported)
+    // without ever becoming editable -- see OPT_LEGACY_MIN_SEGMENT_PTS.
+    optimizer_profile: { ...state.optimizer, min_segment_pts: OPT_LEGACY_MIN_SEGMENT_PTS },
     preset_params: {
       preset_idx: state.simple.presetIdx,
       col_r: state.color.r, col_g: state.color.g, col_b: state.color.b,

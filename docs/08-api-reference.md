@@ -831,7 +831,6 @@ Apply optimizer parameters to the active profile immediately (no NVS persist). A
   "opt_min_corner_pts": 2,
   "opt_max_corner_pts": 8,
   "opt_pts_per_1000_units": 6.0,
-  "opt_min_segment_pts": 2,
   "opt_blank_samples": 16,
   "opt_max_pts_per_frame": 1010,
   "opt_min_blank_samples": 6,

@@ -111,7 +111,6 @@ struct OptimizerConfig {
     uint8_t  min_corner_pts     = OPT_DEFAULT_MIN_CORNER_PTS;     // points placed at the softest corners
     uint8_t  max_corner_pts     = OPT_DEFAULT_MAX_CORNER_PTS;     // points placed at the sharpest (180°) corners
     float    pts_per_1000_units = OPT_DEFAULT_PTS_PER_1000_UNITS; // interior straight-segment density
-    uint8_t  min_segment_pts    = OPT_DEFAULT_MIN_SEGMENT_PTS;    // floor per edge (>=2 = start+end)
     uint8_t  blank_samples      = OPT_DEFAULT_BLANK_SAMPLES;      // blank-jump length ceiling (Pillar 2
                                                                     // makes this a max, not a constant)
     uint16_t max_pts_per_frame  = OPT_DEFAULT_MAX_PTS_PER_FRAME;  // FLICKER BUDGET: 45000/750 = 60 Hz.

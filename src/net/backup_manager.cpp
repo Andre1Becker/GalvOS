@@ -63,7 +63,6 @@ void BackupManager::serializeToJson(JsonDocument& doc) {
         o["min_corner_pts"]               = p.min_corner_pts;
         o["max_corner_pts"]               = p.max_corner_pts;
         o["pts_per_1000_units"]           = p.pts_per_1000_units;
-        o["min_segment_pts"]              = p.min_segment_pts;
         o["blank_samples"]                = p.blank_samples;
         o["max_pts_per_frame"]            = p.max_pts_per_frame;
         o["min_blank_samples"]            = p.min_blank_samples;
@@ -187,7 +186,6 @@ bool BackupManager::deserializeFromJson(JsonDocument& doc, JsonArray rejected) {
                     PCHECK("min_corner_pts",                o["min_corner_pts"].is<int>() && inRangeI(o["min_corner_pts"].as<int>(), 1, 20));
                     PCHECK("max_corner_pts",                o["max_corner_pts"].is<int>() && inRangeI(o["max_corner_pts"].as<int>(), 1, 20));
                     PCHECK("pts_per_1000_units",            o["pts_per_1000_units"].is<float>() && inRangeF(o["pts_per_1000_units"].as<float>(), 0.1f, 50.0f));
-                    PCHECK("min_segment_pts",               o["min_segment_pts"].is<int>() && inRangeI(o["min_segment_pts"].as<int>(), 2, 20));
                     PCHECK("blank_samples",                 o["blank_samples"].is<int>() && inRangeI(o["blank_samples"].as<int>(), 1, 100));
                     PCHECK("max_pts_per_frame",             o["max_pts_per_frame"].is<int>() && inRangeI(o["max_pts_per_frame"].as<int>(), 50, (int)PATTERN_POINTS_MAX));
                     PCHECK("min_blank_samples",             o["min_blank_samples"].is<int>() && inRangeI(o["min_blank_samples"].as<int>(), 1, 100));
@@ -311,7 +309,6 @@ bool BackupManager::deserializeFromJson(JsonDocument& doc, JsonArray rejected) {
                 if (!o["min_corner_pts"].isNull())              P.min_corner_pts = o["min_corner_pts"];
                 if (!o["max_corner_pts"].isNull())              P.max_corner_pts = o["max_corner_pts"];
                 if (!o["pts_per_1000_units"].isNull())          P.pts_per_1000_units = o["pts_per_1000_units"];
-                if (!o["min_segment_pts"].isNull())             P.min_segment_pts = o["min_segment_pts"];
                 if (!o["blank_samples"].isNull())               P.blank_samples = o["blank_samples"];
                 // Safety-critical: re-clamp on top of the already-passed range check
                 // above, so a future bug in that check can't turn into an out-of-range write.

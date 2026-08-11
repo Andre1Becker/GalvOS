@@ -362,7 +362,7 @@ The suffix is pinned to the profile index, not the profile name, so renaming a p
 
 ### Per-Profile Tuned Defaults
 
-Unlike earlier firmware versions (where every profile booted from the same generic defaults), each profile now ships with its own tuned starting point, derived by sweeping the optimizer against each class's actual geometry at a 1300-point frame budget (~23 Hz at 30 kpps) and scoring worst-case lit step size. Only the parameters below vary by profile — every other `OptimizerLiveConfig` field (resample, ringing compensation, velocity/acceleration clamp, `min_segment_pts`) uses the single generic default from the [Parameter Reference](#parameter-reference) table for all eight profiles.
+Unlike earlier firmware versions (where every profile booted from the same generic defaults), each profile now ships with its own tuned starting point, derived by sweeping the optimizer against each class's actual geometry at a 1300-point frame budget (~23 Hz at 30 kpps) and scoring worst-case lit step size. Only the parameters below vary by profile — every other `OptimizerLiveConfig` field (resample, ringing compensation, velocity/acceleration clamp) uses the single generic default from the [Parameter Reference](#parameter-reference) table for all eight profiles.
 
 | Profile | `corner_angle_deg` | `min_corner_pts` | `max_corner_pts` | `pts_per_1000_units` | `blank_samples` | `min_blank_samples` | `stage1_blank_target` | `blank_pts_per_1000_units` | `min_interior_pts_per_segment` | `max_pts_per_frame` |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
@@ -382,7 +382,7 @@ Key findings behind the tuning (see `OPT_PROFILE_DEFAULTS` in `config.h` for the
 - **Wireframe** and **MultiObject** are budget-bound, not density-bound — Stage 2 scales interior density back regardless of what's asked for, so the real lever is blanking (`blank_samples`, `stage1_blank_target` both lowered to return points to lit geometry).
 - **Particles** has a fixed lit-point count (one dwell per dot); over 90% of the frame is blanking, so only the blank parameters matter — corner dwell is minimized (`max_corner_pts = 4`).
 - **Trails** reuses Smooth's shape tuning but caps `max_pts_per_frame` at 880 so blank overhead doesn't starve later meteors in a multi-object trail sequence.
-- **Text** is blank-dominated like Particles, but jump lengths vary (short intra-glyph lifts vs. longer letter-to-letter advances) so `blank_samples` keeps a modest ceiling rather than Particles' aggressive 10. `min_interior_pts_per_segment` is set to the bare floor (1) because `text_renderer.cpp` hard-floors `min_segment_pts >= 3` itself (the "serif fix") so short strokes like a crossbar never collapse to one point.
+- **Text** is blank-dominated like Particles, but jump lengths vary (short intra-glyph lifts vs. longer letter-to-letter advances) so `blank_samples` keeps a modest ceiling rather than Particles' aggressive 10. `min_interior_pts_per_segment` is set to the bare floor (1) because `text_renderer.cpp` raises it to 1 itself, so the profile default only needs to avoid reserving more than that. Both endpoints of a short stroke (an `E` crossbar, a `T` bar) are kept by the corner dwell, which emits `min_corner_pts` at every vertex regardless of interior density.
 
 ---
 
@@ -416,7 +416,6 @@ Full table of all optimizer parameters, their defaults, valid ranges, and effect
 | `min_corner_pts` | 2 | 0–255 | <img src="assets/animations/stage4_corner_dwell.svg" width="64" height="64" alt=""> Points added at the softest qualifying corner (exterior angle just above `corner_angle_deg`). |
 | `max_corner_pts` | 8 | 0–255 | <img src="assets/animations/stage4_corner_dwell.svg" width="64" height="64" alt=""> Points added at the sharpest corner (full 180° reversal). |
 | `pts_per_1000_units` | 6.0 | 0–100 | <img src="assets/animations/stage3_resample.svg" width="64" height="64" alt=""> Interior point density: points added per 1000 DAC units of segment length. After PPS scaling. |
-| `min_segment_pts` | 2 | 1–255 | <img src="assets/animations/stage3_resample.svg" width="64" height="64" alt=""> Minimum interior points per segment, regardless of length. Prevents very short edges from having zero interior points. |
 | `blank_samples` | 16 | 1–100 | <img src="assets/animations/stage5_blanking.svg" width="64" height="64" alt=""> Maximum blank jump sample count (ceiling for distance-proportional scaling). |
 | `min_blank_samples` | 6 | 1–50 | <img src="assets/animations/stage5_blanking.svg" width="64" height="64" alt=""> Minimum blank jump sample count (floor + settle dwell ticks). |
 | `blank_pts_per_1000_units` | 8.0 | 0–100 | <img src="assets/animations/stage5_blanking.svg" width="64" height="64" alt=""> Rate at which blank jump sample count scales with jump distance. |
