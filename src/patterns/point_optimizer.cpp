@@ -243,6 +243,19 @@ static BlankJumpPlan planBlankJump(int count, const ZvShaper& sh,
     return p;
 }
 
+// Requested sample count for a jump of this length, before the ZV tail rule
+// (planBlankJump) turns it into an emitted total. Split out of emitBlankJump()
+// because Stage 2's blank-jump plan prices the same jumps without emitting
+// them -- one definition, the same rule for both, in the spirit of
+// walkSegment().
+static inline int blankCountForDistance(float dist, const OptimizerConfig& cfg) {
+    if (dist < 0.0f) dist = 0.0f;
+    int count = (int)lroundf((dist / 1000.0f) * cfg.blank_pts_per_1000_units);
+    if (count < (int)cfg.min_blank_samples) count = cfg.min_blank_samples;
+    if (count > (int)cfg.blank_samples)     count = cfg.blank_samples;
+    return count;
+}
+
 // Pillar 2: distance-proportional + eased blank jump from (x0,y0) to
 // (x1,y1). Sample count scales with jump distance using the same "points
 // per 1000 units" convention as interior density (cfg.blank_pts_per_1000_units),
@@ -283,10 +296,7 @@ static void emitBlankJump(LaserPoint* out, size_t& n, size_t max,
     float dist = sqrtf(dx * dx + dy * dy);
     if (dist < kMinJumpDistUnits) return;   // shared vertex -> nothing to jump
 
-    int count = (int)lroundf((dist / 1000.0f) * cfg.blank_pts_per_1000_units);
-    if (count < (int)cfg.min_blank_samples) count = cfg.min_blank_samples;
-    if (count > (int)cfg.blank_samples)     count = cfg.blank_samples;
-
+    int           count  = blankCountForDistance(dist, cfg);
     ZvShaper      shaper = computeZvShaper(cfg);
     BlankJumpPlan plan   = planBlankJump(count, shaper, cfg);
     if (plan.shaped) sRinging = true;
@@ -812,6 +822,117 @@ static void planAllSegments(const PathSegment* segments, size_t segment_count,
     }
 }
 
+// Points emitAllSegments() will write for the segments themselves at this cfg,
+// corner and interior together. Pure: no output, no counter, no cfg change --
+// which is what lets Stage 2 evaluate it repeatedly while searching for a
+// density (a discarded attempt must not register as planned or truncated).
+//
+// Blank jumps are deliberately NOT included -- planBlankTotal() below prices
+// those, and no density field scales them, so keeping them out is what makes
+// this a function of density alone.
+static uint32_t planTotal(const PathSegment* segments, size_t segment_count,
+                           const OptimizerConfig& cfg) {
+    uint32_t corner_total = 0, interior_total = 0;
+    planAllSegments(segments, segment_count, cfg, corner_total, interior_total);
+    return corner_total + interior_total;
+}
+
+// Distance slack the blank-jump plan below prices around, in DAC units.
+//
+// A real jump measures from out[n-1], which emit() has already clamped and
+// cast to int16, so it can sit up to a unit per axis (~1.42 diagonally) from
+// the float vertex the plan reads. 3 units covers that with margin, at a cost
+// of at most one sample per jump.
+static constexpr float kJumpPredictSlack = 3.0f;
+
+// Emitted length of one planned jump, as an upper bound.
+//
+// Two things stop this from being a single evaluation. planBlankJump()'s total
+// is NOT monotone in count -- the shaper switches off where its tail no longer
+// fits kMaxBlankPts, so a longer requested jump can emit fewer points (see
+// DECISIONS.md, Session C / P3) -- and the measured distance carries the
+// rounding slack above. So the whole count range the slack spans is evaluated
+// and the largest total wins. 0 only when the jump is provably skipped, i.e.
+// short enough that even the slack keeps it under kMinJumpDistUnits.
+static int planJumpPts(float x0, float y0, float x1, float y1,
+                        const ZvShaper& sh, const OptimizerConfig& cfg) {
+    float dx = x1 - x0, dy = y1 - y0;
+    float dist = sqrtf(dx * dx + dy * dy);
+    if (dist + kJumpPredictSlack < kMinJumpDistUnits) return 0;
+
+    int lo = blankCountForDistance(dist - kJumpPredictSlack, cfg);
+    int hi = blankCountForDistance(dist + kJumpPredictSlack, cfg);
+    int peak = 0;
+    for (int c = lo; c <= hi; c++)
+        peak = std::max(peak, planBlankJump(c, sh, cfg).total);
+    return peak;
+}
+
+// Points this frame's blank jumps cost -- planned per jump instead of reserved
+// at worst case.
+//
+// maxBlankJumpPts() answers "how long can any jump get", which is exactly what
+// Stages 1 and 1.5 need: they decide whether the FIXED overhead fits at all
+// and must not gamble on the jumps being short. Stage 2 asks a different
+// question -- how much budget is left for density -- and there the worst case
+// is budget left unspent. A single closed shape reserves two full-length jumps
+// for one leading jump plus a closing one of literally zero length (P5); with
+// the ZV shaper on that is 184 of 1010 points reserved against 6 spent, and
+// the interior density pays for all of it.
+//
+// Every jump's length is fixed before Stage 2 runs, so it can be planned:
+//   - a jump starts at the previous segment's LAST emitted point, which
+//     walkSegment() always closes on the tail vertex (vertex 0 closed, the
+//     final vertex open) -- no density field moves it;
+//   - the first one starts at cfg.prevX/prevY, or is emitBlankRun()'s fixed
+//     blank_samples settle when the caller supplied no position;
+//   - the closing one returns to segments[0].vertices[0], on the same
+//     condition emitAllSegments() applies.
+// Start positions are clamped exactly as emit() clamps them, so geometry
+// outside the DAC range is priced where it will really land.
+//
+// Returns false when a segment's tail vertex would get no dwell point at all
+// (min_corner_pts == 0 -- reachable only by a caller bypassing the 1..20 clamp
+// every config write path applies). The next jump would then start from an
+// interior point, i.e. from a density-dependent position, and the caller must
+// fall back to the worst-case reserve rather than trust this.
+static bool planBlankTotal(const PathSegment* segments, size_t segment_count,
+                            const OptimizerConfig& cfg, uint32_t& out_total) {
+    ZvShaper sh = computeZvShaper(cfg);
+    uint32_t total = 0;
+    bool     have  = cfg.hasPrevPos;      // is a start position known?
+    float    px = cfg.prevX, py = cfg.prevY;
+    bool     any = false;
+
+    PlanCursor cur;
+    for (size_t s = 0; s < segment_count; s++) {
+        const PathSegment& seg = segments[s];
+        SegmentPlan plan = cur.next(seg, cfg);   // advance for every segment
+        if (seg.count == 0) continue;
+
+        if (have) {
+            total += (uint32_t)planJumpPts(px, py, seg.vertices[0].x,
+                                            seg.vertices[0].y, sh, cfg);
+        } else {
+            total += cfg.blank_samples;          // emitBlankRun fallback
+        }
+
+        size_t tail = (seg.count == 1) ? 0 : (seg.closed ? 0 : seg.count - 1);
+        if (seg.count > 1 && plan.cornerPts(tail) == 0) return false;
+        px = std::max(-32767.0f, std::min(32767.0f, seg.vertices[tail].x));
+        py = std::max(-32767.0f, std::min(32767.0f, seg.vertices[tail].y));
+        have = true;
+        any  = true;
+    }
+
+    if (any && segments[0].count > 0) {
+        total += (uint32_t)planJumpPts(px, py, segments[0].vertices[0].x,
+                                        segments[0].vertices[0].y, sh, cfg);
+    }
+    out_total = total;
+    return true;
+}
+
 // ── Transform stage (Phase 1) ────────────────────────────────────────────
 //
 // Pipeline order: Primitive -> [Transform] -> Resample -> Corner Dwell ->
@@ -1191,6 +1312,28 @@ static size_t finishStats(Stats& st, const LaserPoint* out, size_t n) {
     return n;
 }
 
+// ── Stage 2 density search ───────────────────────────────────────────────
+//
+// Bounds and stopping rule for the bisection in optimize() below.
+
+// Plan passes the search may spend, not bisection halvings: the first probe is
+// the closed-form estimate, the rest halve the bracket around it. A hard
+// ceiling because this runs on the pattern task -- a plan pass is arithmetic
+// over the geometry memo (no transcendentals since P15), so six of them still
+// cost a fraction of the emit pass that follows.
+static constexpr int kStage2MaxProbes = 6;
+
+// Stop as soon as the plan sits this close under its allowance. 2% of a frame
+// budget is a couple of dozen points at most -- below one edge's worth on any
+// shape dense enough to reach Stage 2, so refining further buys nothing the
+// galvo can show.
+static constexpr float kStage2FitFraction = 0.98f;
+
+// Density floors, one per mode -- what a scale of 0 resolves to. They keep the
+// sparsest density a real, drawable one instead of an empty frame.
+static constexpr float kMinPtsPer1000Units = 0.1f;    // points per 1000 units
+static constexpr float kMinDensityScale    = 0.02f;   // resample spacing divisor
+
 size_t optimize(const PathSegment* segments, size_t segment_count,
                  LaserPoint* out, size_t max_out,
                  const OptimizerConfig& cfg_in) {
@@ -1373,43 +1516,123 @@ size_t optimize(const PathSegment* segments, size_t segment_count,
         needed = planned_total + blank_overhead;
     }
 
-    // Stage 2: scale interior (length-proportional) density against the
-    // now-correct (possibly Stage-1-reduced) blank_overhead. Fixed
-    // overhead (corners + blanking) is subtracted first; only the
-    // remaining budget is divided among interior points -- this is what
-    // makes the scale factor self-consistent. Scaling pts_per_1000_units
-    // by (available / planned_total) would still overshoot effective_cap
-    // by however many points the unscaled corner_total contributes
-    // (corner points don't shrink, so dividing by the *combined* total
-    // under-corrects).
+    // Stage 2: reduce interior (length-proportional) density until the plan
+    // fits the budget -- by SEARCHING for the density, not by estimating it
+    // once.
+    //
+    // The closed-form estimate (available_for_interior / interior_total) would
+    // be exact if an edge could carry a fractional point. edgeInteriorCount()
+    // instead lroundf()s every edge on its own, and those roundings accumulate
+    // in whichever direction the edge lengths happen to fall. Measured on a
+    // 480-vertex circle at cap 1300: the plan said 1300, the emit pass wrote
+    // 1464 -- 12.6% over, caught only by emitAllSegments()'s hard cap, i.e. by
+    // truncation, in exactly the place Stage 1.5 exists to prevent it (a closed
+    // path that stops before it closes). The same rounding runs the other way
+    // just as often, leaving a large share of the frame's budget unspent.
+    //
+    // planTotal() is precisely what the emit pass will write for the segments
+    // (P16: one walkSegment definition for both), so bisecting it against the
+    // cap settles both directions at once. The search keeps the largest density
+    // whose plan still fits, so the frame lands AT the budget from below rather
+    // than near it from either side.
+    //
+    // SIDE EFFECT, and the point of the exercise: at an unchanged
+    // max_pts_per_frame, budget-bound patterns get denser -- the leftover the
+    // one-shot estimate used to give away is now spent on interior points.
+    // Frames that were not budget-bound (this branch does not run) are
+    // untouched.
+    //
+    // Bisection is valid because both density fields enter edgeInteriorCount()
+    // through a product with the edge length: every edge's count is
+    // non-decreasing in the scale, so their sum is too. Corner counts do not
+    // move at all under a density change (no density field reaches
+    // cornerPointCount()), which is why the search can leave them inside the
+    // target instead of subtracting them out -- it makes no assumption either
+    // way, it just measures.
+    //
+    // Where all edges share a length, they also share their rounding boundary
+    // and the plan steps by edge_count at a single scale. The search then
+    // settles below that step (the largest plan that fits), which can leave the
+    // budget visibly underspent -- deliberately: a complete shape drawn coarsely
+    // beats a denser one truncated mid-path.
+    //
+    // The probes write nothing and touch neither sPlanned nor sTruncated, so a
+    // discarded attempt is not a truncation and invariant 3 keeps counting only
+    // what the emit pass really attempted.
     if (needed > effective_cap && interior_total > 0) {
+        // Resample mode: edgeInteriorCount() ignores pts_per_1000_units
+        // entirely and derives its count from resample_spacing_units instead
+        // (points = length/spacing), so density is scaled there by *growing*
+        // the spacing -- count goes as 1/spacing, which reaches the same target
+        // the pts_per_1000_units branch reaches for the non-resample case.
+        const bool  resample    = cfg.resample_enabled && cfg.resample_spacing_units > 0.01f;
+        const float basePpu     = cfg.pts_per_1000_units;
+        const float baseSpacing = cfg.resample_spacing_units;
+
+        // What the segments may spend: the cap, less what the blank jumps
+        // between them will really cost. Stages 1 and 1.5 above reserve the
+        // worst case (blank_overhead) because they decide whether the fixed
+        // overhead fits at all; here the worst case would simply hand the
+        // difference back unspent, and on a single closed shape that
+        // difference is most of the reserve -- see planBlankTotal(), which
+        // bounds each jump instead of assuming the longest one.
+        uint32_t blank_planned = blank_overhead;
+        uint32_t exact_blank   = 0;
+        if (planBlankTotal(segments, segment_count, cfg, exact_blank))
+            blank_planned = std::min(blank_planned, exact_blank);
+
+        uint32_t plan_cap = (effective_cap > blank_planned)
+                                 ? (uint32_t)(effective_cap - blank_planned) : 0u;
+
+        auto applyDensity = [&](float s) {
+            if (resample)
+                cfg.resample_spacing_units = baseSpacing / std::max(s, kMinDensityScale);
+            else
+                cfg.pts_per_1000_units = std::max(kMinPtsPer1000Units, basePpu * s);
+        };
+
+        // Bracket. 1.0 is the requested density, which this branch's condition
+        // has just shown does not fit. 0.0 resolves to the floors above -- the
+        // sparsest density that still draws something, and the answer when
+        // nothing fits at all (corner points alone over budget, Stage 1.5
+        // having already done what it could).
+        float lo = 0.0f, hi = 1.0f, best = 0.0f;
+
+        // First probe: the closed-form estimate this stage used to apply
+        // outright. It is wrong only by the accumulated per-edge rounding, so
+        // it starts the search inside the answer's neighbourhood instead of
+        // spending two halvings getting there.
         float available_for_interior =
-            (float)effective_cap - (float)blank_overhead - (float)corner_total;
+            (float)plan_cap - (float)corner_total;
         if (available_for_interior < 0.0f) available_for_interior = 0.0f;
-        float scale = available_for_interior / (float)interior_total;
-        if (cfg.resample_enabled && cfg.resample_spacing_units > 0.01f) {
-            // Resample mode: edgeInteriorCount() ignores pts_per_1000_units
-            // entirely and derives its count from resample_spacing_units
-            // instead (points = length/spacing). Scaling pts_per_1000_units
-            // below this branch is a no-op against the actual emission path
-            // -- the fixed-spacing point count never shrinks, so total
-            // output keeps growing with pattern size until it silently
-            // overruns max_out (buffer truncation) instead of respecting
-            // max_pts_per_frame. Shrink the count by *growing* the spacing
-            // instead -- count scales as 1/spacing, so this reaches the
-            // same effective_cap target the ppu branch reaches for the
-            // non-resample case.
-            float safe_scale = std::max(scale, 0.02f);
-            cfg.resample_spacing_units = cfg.resample_spacing_units / safe_scale;
-            st.stage2Scale = safe_scale;
-        } else {
-            float before = cfg.pts_per_1000_units;
-            cfg.pts_per_1000_units = std::max(0.1f, cfg.pts_per_1000_units * scale);
-            // Report the factor that was really applied, floor included --
-            // a scale of 0.01 that the 0.1 ppu floor turned into 0.4 would
-            // otherwise read as a far tighter squeeze than actually happened.
-            st.stage2Scale = (before > 1e-4f) ? (cfg.pts_per_1000_units / before) : scale;
+        float probe = available_for_interior / (float)interior_total;
+        if (!(probe > 0.0f)) probe = 0.0f;      // also catches NaN
+        if (probe > 1.0f)    probe = 1.0f;
+
+        for (int i = 0; i < kStage2MaxProbes && plan_cap > 0; i++) {
+            applyDensity(probe);
+            uint32_t total = planTotal(segments, segment_count, cfg);
+            if (total <= plan_cap) {
+                lo = best = probe;
+                // The requested density fits after all -- the trigger above
+                // measures against the worst-case blank reserve, which is the
+                // larger of the two. Nothing to scale, and nothing above 1.0
+                // to search toward.
+                if (probe >= 1.0f) break;
+                if ((float)total >= kStage2FitFraction * (float)plan_cap) break;
+            } else {
+                hi = probe;
+            }
+            probe = 0.5f * (lo + hi);
         }
+
+        applyDensity(best);
+        // Report the factor really applied, floors included -- a scale of 0.01
+        // that the density floor turned into 0.4 would otherwise read as a far
+        // tighter squeeze than actually happened.
+        st.stage2Scale = resample
+            ? (baseSpacing / cfg.resample_spacing_units)
+            : ((basePpu > 1e-4f) ? (cfg.pts_per_1000_units / basePpu) : best);
     }
 
     // Emit stage: walk segments, blank-jumping between them, writing corner +
@@ -1426,19 +1649,17 @@ size_t optimize(const PathSegment* segments, size_t segment_count,
     //     emitted out[0..n-1] that inserts intermediate points where the
     //     per-tick position (velocity) or its delta (acceleration) exceeds the
     //     galvo limit. Implemented in clampScannerLimits(), called below.
-    // Emit bounded by effective_cap, NOT max_out. Stage 2 computes a single
-    // global scale factor, but edgeInteriorCount() then lroundf()s each edge
-    // independently -- with many edges those round-ups accumulate and the
-    // emitted total can exceed the plan, and therefore max_pts_per_frame.
-    // Measured on a 480-vertex circle at cap=1300: 1464 points, 12.6% over.
-    // The overshoot grows with edge count, so it stayed invisible on the
-    // low-vertex shapes (ngon/star, ~24 vertices) that were migrated first and
-    // only appeared once dense sampled curves started using the optimizer.
+    // Emit bounded by effective_cap, NOT max_out: max_pts_per_frame is a hard
+    // guarantee, and emitAllSegments() already stops writing at its max_out
+    // argument, so the cap holds by construction rather than by trusting the
+    // plan.
     //
-    // Passing effective_cap here makes max_pts_per_frame the hard guarantee it
-    // is documented to be: emitAllSegments() already stops writing at its
-    // max_out argument, so the cap is enforced by construction rather than by
-    // hoping the plan was exact.
+    // Since Stage 2 searches the plan against that same cap instead of
+    // estimating it once, the two normally agree and this bound is not the
+    // thing doing the work. It still is for the cases no stage can plan away:
+    // corner points alone over budget after Stage 1.5's 1-point-per-vertex
+    // floor, and clampScannerLimits() below inserting into an already-full
+    // frame. Truncation there is counted (Stats::truncated), never silent.
     size_t n = emitAllSegments(segments, segment_count, cfg, out, effective_cap);
 
     // Final scanner-protection stage. No-op (byte-identical) unless
