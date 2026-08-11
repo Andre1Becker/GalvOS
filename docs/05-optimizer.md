@@ -334,7 +334,7 @@ max_accel_units    ×= r²     ← acceleration scales as the square of the rate
 
 **At half the rated speed (e.g., kpps=7.5 on a 15K galvo):** r = 2 → interior density is halved (each tick is twice as long, so you need half as many points to cover the same distance in the same time), velocity ceiling is doubled, acceleration ceiling is quadrupled.
 
-This scaling is applied in `applyPpsScaling()`, which is called by every `liveOptimizerConfig()` implementation — all four pattern families (presets, curves, text, paint) go through this path.
+This scaling is applied in `applyPpsScaling()`, called from `configFromLive()` — the single mapping from the WebUI/NVS-tunable `OptimizerLiveConfig` to the optimizer's own `OptimizerConfig`. Every render path (presets, curves, text, paint, calibration, Helios net) builds its config through it, so no path can miss a live field or the scaling. A path that overrides one of the scaled parameters afterwards applies the same ratio itself via `ppsRatio()` — `text_renderer.cpp`'s per-glyph density is the one such case.
 
 The WebUI Optimizer tab shows the **effective values** (`opt_eff_*`) after scaling — these are the values the optimizer actually uses.
 
