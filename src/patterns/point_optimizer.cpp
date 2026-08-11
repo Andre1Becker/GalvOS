@@ -783,13 +783,28 @@ static size_t applyTransform(const PathSegment* segments, size_t segment_count,
 //      colour gradient along the step is preserved. This bounds how far the
 //      mirror is asked to travel in one sample, i.e. its peak velocity.
 //
-//   2. Acceleration: the per-tick growth of step magnitude is capped at
-//      cfg.max_accel_units. Where |v[i]| - |v[i-1]| exceeds the limit (the
-//      beam is being asked to speed up too hard, typically ramping out of a
-//      corner), an interpolated midpoint is inserted to split the velocity
-//      jump into two smaller increments. A single forward pass is sufficient
-//      in practice; it is not iterated to a fixed point (bounded cost, and
-//      the dominant hard-accel case is the isolated corner exit).
+//   2. Acceleration: the per-tick velocity CHANGE is capped at
+//      cfg.max_accel_units, measured vectorially as ||v[i] - v[i-1]|| -- not
+//      the scalar magnitude difference |v[i]|-|v[i-1]|, which only ever
+//      catches speeding up. A mirror decelerating into a corner dwell (full
+//      cruise speed one tick, zero the next) loads the same as one
+//      accelerating out of it, and a direction reversal at constant speed
+//      is invisible to a magnitude-only comparison entirely.
+//
+//      Deceleration cannot always be fixed by subdividing the offending
+//      step itself: a corner dwell's own step is zero-length (repeated
+//      points at the vertex), so bisecting IT is a no-op -- the ramp has to
+//      live in the segment BEFORE the dwell. This pass therefore peeks one
+//      step ahead before committing a point, and picks the smallest
+//      power-of-two subdivision of the CURRENT step that keeps both the
+//      arrival transition (prevStep -> first sub-step) and the departure
+//      transition (last sub-step -> next step) within max_accel_units --
+//      iterated, not a single fixed bisection (one midpoint halves the
+//      violation but does not by itself guarantee the bound).
+//
+//      After an insertion, the velocity actually carried forward into the
+//      next comparison is the LAST emitted sub-step, not the original
+//      unsplit step -- a halved step delivers half the velocity change.
 //
 // Blank runs are EXEMPT from both. A blank jump is an intentional fast
 // reposition with the beam off, already shaped by Pillars 2/3 (eased,
@@ -870,27 +885,77 @@ size_t clampScannerLimits(LaserPoint* out, size_t n,
         return m;
     }
 
-    auto stepMag = [](const LaserPoint& p, const LaserPoint& q) -> float {
-        float dx = (float)q.x - p.x, dy = (float)q.y - p.y;
-        return sqrtf(dx * dx + dy * dy);
-    };
+    // Doubling cap on the per-step subdivision search below. 1024 sub-steps
+    // is already far beyond anything a real corner needs (the search exits
+    // as soon as both transitions fit); it exists only so a pathological
+    // config (e.g. max_step_units set far above 2*max_accel_units, leaving
+    // no achievable subdivision) cannot spin forever -- the loop gives up
+    // and emits the best it found, same graceful-degradation contract as
+    // the rest of this pass.
+    constexpr uint32_t kMaxAccelSubdiv = 1024;
 
     size_t o = 0;
     if (o < cap) out[o++] = buf[0]; else sTruncated++;
-    float prevMag = 0.f;
+    float prevDx = 0.f, prevDy = 0.f;   // velocity carried INTO buf[0]: none
     for (size_t i = 1; i < m; i++) {
         const LaserPoint& a = buf[i - 1];
         const LaserPoint& b = buf[i];
         bool blankStep = a.blank || b.blank;
-        float mag = stepMag(a, b);
-        if (!blankStep && (mag - prevMag) > cfg.max_accel_units) {
-            LaserPoint mid;
-            lerpPoint(a, b, 0.5f, mid);
-            sPlanned++;                                 // an insertion, see pass 1
-            if (o < cap) out[o++] = mid; else sTruncated++;
+        float dx = (float)b.x - a.x, dy = (float)b.y - a.y;
+
+        if (blankStep) {
+            // Exempt, same as pass 1 -- a blank jump is its own intentional
+            // reposition, already shaped by Pillars 2/3. Still tracked as
+            // the carried-forward velocity (matches this pass's pre-P11
+            // behaviour) since the accel test itself exempts any triple
+            // touching a blank point, so what it carries across one is moot.
+            if (o < cap) out[o++] = b; else sTruncated++;
+            prevDx = dx; prevDy = dy;
+            continue;
         }
+
+        // One-step lookahead: what velocity must this segment hand off to?
+        // Absent (end of stream, or the next step is itself blank/exempt),
+        // there is no departure constraint -- only the arrival one applies.
+        bool  havePeek = (i + 1 < m) && !buf[i + 1].blank;
+        float nextDx = 0.f, nextDy = 0.f;
+        if (havePeek) {
+            nextDx = (float)buf[i + 1].x - b.x;
+            nextDy = (float)buf[i + 1].y - b.y;
+        }
+
+        uint32_t sub = 1;
+        for (; sub < kMaxAccelSubdiv; sub *= 2) {
+            float sdx = dx / sub, sdy = dy / sub;
+            float adx = sdx - prevDx, ady = sdy - prevDy;
+            bool arrivalOk = sqrtf(adx * adx + ady * ady) <= cfg.max_accel_units;
+            bool departureOk = true;
+            if (havePeek) {
+                float ddx = nextDx - sdx, ddy = nextDy - sdy;
+                departureOk = sqrtf(ddx * ddx + ddy * ddy) <= cfg.max_accel_units;
+            }
+            if (arrivalOk && departureOk) break;
+        }
+
+        if (sub > 1) {
+            uint32_t want  = sub - 1;
+            size_t   room  = (o < cap) ? (cap - o) : 0;
+            uint32_t wrote = (uint32_t)std::min((size_t)want, room);
+            for (uint32_t k = 1; k <= wrote; k++) {
+                LaserPoint p;
+                lerpPoint(a, b, (float)k / sub, p);
+                if (o < cap) out[o++] = p; else sTruncated++;
+            }
+            sPlanned   += want;
+            sTruncated += want - wrote;
+        }
+
         if (o < cap) out[o++] = b; else sTruncated++;
-        prevMag = mag;
+
+        // Velocity actually delivered into b is the LAST sub-step, not the
+        // unsplit (dx,dy) -- a subdivided step hands off less speed.
+        prevDx = dx / sub;
+        prevDy = dy / sub;
     }
     return o;
 }
