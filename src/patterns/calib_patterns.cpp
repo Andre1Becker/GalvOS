@@ -532,34 +532,14 @@ static size_t three_circles(LaserPoint* o, size_t mx,
 // ══════════════════════════════════════════════════════════════
 // DISPATCH + METADATA
 
+// The shared live->optimizer mapping, deliberately with NO specialization: a
+// calibration pattern must show the live settings themselves, so anything
+// added on top here (a modulator binding, a per-family density policy) would
+// make the tuning target move while it is being read.
 static inline optimizer::OptimizerConfig liveOptimizerConfig() {
-    optimizer::OptimizerConfig cfg;
-    cfg.corner_angle_deg   = gOptimizerConfig.corner_angle_deg;
-    cfg.min_corner_pts     = gOptimizerConfig.min_corner_pts;
-    cfg.max_corner_pts     = gOptimizerConfig.max_corner_pts;
-    cfg.pts_per_1000_units = gOptimizerConfig.pts_per_1000_units;
-    cfg.blank_samples      = gOptimizerConfig.blank_samples;
-    cfg.max_pts_per_frame  = gOptimizerConfig.max_pts_per_frame;
-    cfg.min_blank_samples  = gOptimizerConfig.min_blank_samples;
-    cfg.blank_pts_per_1000_units = gOptimizerConfig.blank_pts_per_1000_units;
-    cfg.min_interior_pts_per_segment = gOptimizerConfig.min_interior_pts_per_segment;
-    cfg.stage1_blank_target = gOptimizerConfig.stage1_blank_target;
-    cfg.resample_enabled       = gOptimizerConfig.resample_enabled;
-    cfg.resample_spacing_units = gOptimizerConfig.resample_spacing_units;
-    cfg.ringing_comp_enabled = gOptimizerConfig.ringing_comp_enabled;
-    cfg.ring_freq_hz         = gOptimizerConfig.ring_freq_hz;
-    cfg.ring_damping_ratio   = gOptimizerConfig.ring_damping_ratio;
-    cfg.jitter_enabled       = gOptimizerConfig.jitter_enabled;
-    cfg.jitter_amount_units  = gOptimizerConfig.jitter_amount_units;
-    cfg.galvo_kpps           = gProjection.galvo_kpps;
-    cfg.transform                    = optimizer::gLiveTransform;  // Phase 3: live Z-rot + move
-    cfg.vel_clamp_enabled            = gOptimizerConfig.vel_clamp_enabled;
-    cfg.max_step_units               = gOptimizerConfig.max_step_units;
-    cfg.accel_clamp_enabled          = gOptimizerConfig.accel_clamp_enabled;
-    cfg.max_accel_units              = gOptimizerConfig.max_accel_units;
-    // PPS-derived scaling: density + both clamps from rated/output kpps.
-    optimizer::applyPpsScaling(cfg, gProjection.galvo_rated_kpps, gProjection.galvo_kpps);
-    return cfg;
+    return optimizer::configFromLive(gOptimizerConfig,
+                                     gProjection.galvo_rated_kpps,
+                                     gProjection.galvo_kpps);
 }
 
 // ──────────────────────────────────────────────────────────────

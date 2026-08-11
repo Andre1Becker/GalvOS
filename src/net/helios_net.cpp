@@ -54,21 +54,15 @@ static void trackScratch(size_t bytes) {
     memreg::track("Helios Net Scratch", s_scratchBytes, true);
 }
 
-// liveOptimizerConfig() -- same helper duplicated per render path (see
-// preset_patterns.cpp/paint_patterns.cpp/calib_patterns.cpp): converts the
-// WebUI-tunable OptimizerLiveConfig into optimizer::OptimizerConfig. Only
-// max_pts_per_frame (frame budget clamp) and transform (live Z-rot/move) are
-// actually consumed below -- Helios frames arrive pre-rendered, so the
-// corner/resample/blanking stages of optimizer::optimize() do not apply.
-static inline optimizer::OptimizerConfig liveOptimizerConfig() {
-    optimizer::OptimizerConfig cfg;
-    cfg.max_pts_per_frame = gOptimizerConfig.max_pts_per_frame;
-    cfg.transform         = optimizer::gLiveTransform;
-    return cfg;
-}
-
 static void processFramePoints(uint8_t* buf, uint16_t count) {
-    const optimizer::OptimizerConfig cfg = liveOptimizerConfig();
+    // Helios frames arrive pre-rendered, so this path never calls
+    // optimizer::optimize() -- only max_pts_per_frame (frame budget clamp) and
+    // transform (live Z-rot/move) are read below. It still goes through the
+    // shared mapping rather than setting those two fields by hand: the two are
+    // read from the same place every other render path reads them, and a
+    // future field this path does start consuming cannot arrive unmapped.
+    const optimizer::OptimizerConfig cfg = optimizer::configFromLive(
+        gOptimizerConfig, gProjection.galvo_rated_kpps, gProjection.galvo_kpps);
     const size_t MAX_PTS = 1300;   // scratch ceiling, independent of the live budget
     static LaserPoint* pts = nullptr;
     if (!pts && psScratch(pts, MAX_PTS)) trackScratch(MAX_PTS * sizeof(LaserPoint));

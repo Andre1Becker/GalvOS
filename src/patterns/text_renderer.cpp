@@ -22,29 +22,14 @@
 #include <string.h>
 #include <Arduino.h>
 
+// The shared live->optimizer mapping (optimizer::configFromLive()) plus this
+// path's specialization: the serif reserve and the scale-coupled per-glyph
+// density below. Both exist because text renders MANY optimize() calls into
+// one frame -- one per glyph, times the font's pass count -- which is a
+// different budget problem from a preset drawing one shape.
 static inline optimizer::OptimizerConfig textOptimizerConfig(float sc = 0.f) {
-    optimizer::OptimizerConfig cfg;
-    cfg.corner_angle_deg             = gOptimizerConfig.corner_angle_deg;
-    cfg.min_corner_pts               = gOptimizerConfig.min_corner_pts;
-    cfg.max_corner_pts               = gOptimizerConfig.max_corner_pts;
-    cfg.pts_per_1000_units           = gOptimizerConfig.pts_per_1000_units;
-    cfg.blank_samples                = gOptimizerConfig.blank_samples;
-    cfg.max_pts_per_frame            = gOptimizerConfig.max_pts_per_frame;
-    cfg.min_blank_samples            = gOptimizerConfig.min_blank_samples;
-    cfg.blank_pts_per_1000_units     = gOptimizerConfig.blank_pts_per_1000_units;
-    cfg.min_interior_pts_per_segment = gOptimizerConfig.min_interior_pts_per_segment;
-    cfg.stage1_blank_target          = gOptimizerConfig.stage1_blank_target;
-    cfg.ringing_comp_enabled         = gOptimizerConfig.ringing_comp_enabled;
-    cfg.ring_freq_hz                 = gOptimizerConfig.ring_freq_hz;
-    cfg.ring_damping_ratio           = gOptimizerConfig.ring_damping_ratio;
-    cfg.jitter_enabled               = gOptimizerConfig.jitter_enabled;
-    cfg.jitter_amount_units          = gOptimizerConfig.jitter_amount_units;
-    cfg.galvo_kpps                   = gProjection.galvo_kpps;
-    cfg.transform                    = optimizer::gLiveTransform;  // Phase 3: live Z-rot + move
-    cfg.vel_clamp_enabled            = gOptimizerConfig.vel_clamp_enabled;
-    cfg.max_step_units               = gOptimizerConfig.max_step_units;
-    cfg.accel_clamp_enabled          = gOptimizerConfig.accel_clamp_enabled;
-    cfg.max_accel_units              = gOptimizerConfig.max_accel_units;
+    optimizer::OptimizerConfig cfg = optimizer::configFromLive(
+        gOptimizerConfig, gProjection.galvo_rated_kpps, gProjection.galvo_kpps);
 
     // Serif reserve (point-based, scale-INDEPENDENT): keep at least one
     // interior point per stroke reserved before the blank-jump budget is
@@ -69,12 +54,23 @@ static inline optimizer::OptimizerConfig textOptimizerConfig(float sc = 0.f) {
         float ppu = 1400.f / sc;
         if (ppu < 2.f)  ppu = 2.f;
         if (ppu > 30.f) ppu = 30.f;
-        cfg.pts_per_1000_units = ppu;
+        // configFromLive() has already PPS-scaled the live density; this
+        // override REPLACES that number, so it has to carry the same factor
+        // or text alone would ignore the output-rate headroom (density is
+        // per output tick -- see applyPpsScaling()).
+        const float r = optimizer::ppsRatio(gProjection.galvo_rated_kpps,
+                                            gProjection.galvo_kpps);
+        cfg.pts_per_1000_units = ppu * (1.0f / r);   // same form applyPpsScaling uses
+        // Same policy expressed in the resample stage's parameterisation:
+        // edgeInteriorCount() reads spacing INSTEAD of density when the
+        // profile has resample enabled, so without this line the whole
+        // per-glyph budget argument above would silently not apply to a Text
+        // profile with resampling on -- constant spacing means point count
+        // grows with text size, which is exactly the "only ~8 chars render"
+        // bug. spacing = 1000/ppu is the same density, and the *r mirrors
+        // applyPpsScaling()'s inverse handling of the two forms.
+        cfg.resample_spacing_units = (1000.f / ppu) * r;
     }
-    // PPS-derived scaling: density + both clamps from rated/output kpps.
-    // Runs after the serif/scale density override so it scales the final
-    // density (and both clamps, which the text-specific logic never touches).
-    optimizer::applyPpsScaling(cfg, gProjection.galvo_rated_kpps, gProjection.galvo_kpps);
     return cfg;
 }
 namespace textrender {

@@ -390,17 +390,83 @@ extern AffineTransform gLiveTransform;
 // At the calibration point (output_kpps == rated_kpps) r==1 -> all five are
 // unchanged, so a system run at its rated speed sees the exact tuned values.
 // Guards against divide-by-zero / absurd ratios; clamps r to a sane band.
-inline void applyPpsScaling(OptimizerConfig& cfg,
-                            uint16_t rated_kpps, uint16_t output_kpps) {
-    if (rated_kpps == 0 || output_kpps == 0) return;   // nothing sane to derive
+// The headroom ratio r itself, exposed so a caller that OVERRIDES one of the
+// scaled fields after applyPpsScaling() has run can apply the same factor to
+// its own value instead of silently dropping the PPS scaling for that field
+// (text_renderer.cpp's per-glyph density is the one such caller). Returns 1.0
+// -- an exact no-op multiplier -- for the degenerate rates applyPpsScaling()
+// used to early-return on.
+inline float ppsRatio(uint16_t rated_kpps, uint16_t output_kpps) {
+    if (rated_kpps == 0 || output_kpps == 0) return 1.0f;  // nothing sane to derive
     float r = (float)rated_kpps / (float)output_kpps;
     if (r < 0.1f) r = 0.1f;                             // clamp to a sane band
     if (r > 10.0f) r = 10.0f;
+    return r;
+}
+
+inline void applyPpsScaling(OptimizerConfig& cfg,
+                            uint16_t rated_kpps, uint16_t output_kpps) {
+    const float r = ppsRatio(rated_kpps, output_kpps);
     cfg.pts_per_1000_units      *= (1.0f / r);
     cfg.resample_spacing_units  *= r;
     cfg.blank_pts_per_1000_units *= (1.0f / r);
     cfg.max_step_units          *= r;
     cfg.max_accel_units         *= r * r;
+}
+
+// Builds an OptimizerConfig from the WebUI/NVS-tunable OptimizerLiveConfig.
+// The ONE mapping between the two structs: which live field feeds which
+// optimizer field, and the PPS scaling that closes it. Add a field here, not
+// at a call site.
+//
+// Every render path used to carry its own 20-line copy of this (presets,
+// paint, calibration, text, Helios net) and they drifted exactly as such
+// copies do -- one never mapped the resample pair, one never mapped
+// galvo_kpps, so two live settings did nothing on those paths and said so
+// nowhere.
+//
+// ratedKpps / outputKpps are gProjection.galvo_rated_kpps / .galvo_kpps.
+// outputKpps also lands in cfg.galvo_kpps, so the rate the ZV shaper converts
+// its impulse delay with can no longer disagree with the rate the density was
+// scaled by.
+//
+// Deliberately NOT set here:
+//   - the per-CALL frame context (hasPrevPos/prevX/prevY, frameBudgetRemaining).
+//     Those say where inside a frame one optimize() call sits, not what the
+//     user configured -- they belong to frameContext(), which the caller
+//     applies to its own copy afterwards.
+//   - pattern-family policy: the OPT_DENSITY modulator binding (presets only)
+//     and the per-glyph density/serif floors (text only). Both stay at their
+//     call sites, where the reason for them is visible.
+inline OptimizerConfig configFromLive(const OptimizerLiveConfig& live,
+                                      uint16_t ratedKpps, uint16_t outputKpps) {
+    OptimizerConfig cfg;
+    cfg.corner_angle_deg             = live.corner_angle_deg;
+    cfg.min_corner_pts               = live.min_corner_pts;
+    cfg.max_corner_pts               = live.max_corner_pts;
+    cfg.pts_per_1000_units           = live.pts_per_1000_units;
+    cfg.blank_samples                = live.blank_samples;
+    cfg.max_pts_per_frame            = live.max_pts_per_frame;
+    cfg.min_blank_samples            = live.min_blank_samples;
+    cfg.blank_pts_per_1000_units     = live.blank_pts_per_1000_units;
+    cfg.min_interior_pts_per_segment = live.min_interior_pts_per_segment;
+    cfg.stage1_blank_target          = live.stage1_blank_target;
+    cfg.resample_enabled             = live.resample_enabled;
+    cfg.resample_spacing_units       = live.resample_spacing_units;
+    cfg.ringing_comp_enabled         = live.ringing_comp_enabled;
+    cfg.ring_freq_hz                 = live.ring_freq_hz;
+    cfg.ring_damping_ratio           = live.ring_damping_ratio;
+    cfg.jitter_enabled               = live.jitter_enabled;
+    cfg.jitter_amount_units          = live.jitter_amount_units;
+    cfg.vel_clamp_enabled            = live.vel_clamp_enabled;
+    cfg.max_step_units               = live.max_step_units;
+    cfg.accel_clamp_enabled          = live.accel_clamp_enabled;
+    cfg.max_accel_units              = live.max_accel_units;
+    cfg.galvo_kpps                   = outputKpps;
+    cfg.transform                    = gLiveTransform;  // Phase 3: live Z-rot + move
+    // PPS-derived scaling: density (both forms) + blank density + both clamps.
+    applyPpsScaling(cfg, ratedKpps, outputKpps);
+    return cfg;
 }
 
 // Emits a distance-proportional, smoothstep-eased blank jump from the
