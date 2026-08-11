@@ -219,6 +219,164 @@ void test_blankJumpEndsAtTarget(void) {
     }
 }
 
+// ── 2b. blankJumpEndsAtTarget -- dense ZV sweep [P2] ────────────────────
+//
+// CLASS-INVARIANT. P2's own regression case, finer than invariant 2's
+// four-by-four grid: every 25 Hz from 50 to 1000 Hz, every blank_samples from
+// 8 to 100, three damping ratios and both jump directions. The shaper's
+// impulse delay is round(Td/2 / point_period), so it steps through every
+// integer shift from ~300 down to ~15 across that frequency range -- the cases
+// where shift lands exactly on the settle-tail boundary are the ones a coarse
+// grid walks straight past.
+//
+// The rule under test: whether or not the trajectory ends up shaped, the LAST
+// emitted blank point is the target. A shaped run that cannot fit its tail
+// inside kMaxBlankPts must fall back to the unshaped trajectory, never to a
+// partially shaped one that lands short.
+void test_blankJumpEndsAtTarget_zvSweep(void) {
+    struct Jump { float x0, y0, x1, y1; };
+    const Jump jumps[] = {
+        { -20000.0f, -15000.0f,  18000.0f,  12000.0f },   // long diagonal
+        {  16000.0f,  14000.0f, -16000.0f, -14000.0f },   // the same, reversed
+        {   -400.0f,    250.0f,    380.0f,   -260.0f },   // short, count-floored
+    };
+    const float dampings[] = { 0.02f, 0.15f, 0.60f };
+
+    for (size_t j = 0; j < sizeof(jumps) / sizeof(jumps[0]); j++) {
+        for (size_t d = 0; d < sizeof(dampings) / sizeof(dampings[0]); d++) {
+            for (int freq = 50; freq <= 1000; freq += 25) {
+                for (int blank = 8; blank <= 100; blank++) {
+                    OptimizerConfig cfg = fx::baseCfg();
+                    cfg.ringing_comp_enabled = true;
+                    cfg.ring_freq_hz         = (float)freq;
+                    cfg.ring_damping_ratio   = dampings[d];
+                    cfg.blank_samples        = (uint8_t)blank;
+
+                    size_t n = 0;
+                    gFrame[n++] = LaserPoint((int16_t)jumps[j].x0,
+                                             (int16_t)jumps[j].y0,
+                                             255, 255, 255, 0);
+                    optimizer::emitBlankTo(gFrame, n, PATTERN_POINTS_MAX,
+                                           jumps[j].x1, jumps[j].y1, cfg);
+
+                    snprintf(gMsg, sizeof(gMsg),
+                             "ring=%dHz zeta=%.2f blank_samples=%d: jump emitted "
+                             "no points", freq, (double)dampings[d], blank);
+                    TEST_ASSERT_TRUE_MESSAGE(n > 1, gMsg);
+
+                    float ex = fabsf((float)gFrame[n - 1].x - jumps[j].x1);
+                    float ey = fabsf((float)gFrame[n - 1].y - jumps[j].y1);
+                    snprintf(gMsg, sizeof(gMsg),
+                             "ring=%dHz zeta=%.2f blank_samples=%d: %u pts, ended "
+                             "at (%d,%d), off target by (%.1f,%.1f) DAC units",
+                             freq, (double)dampings[d], blank, (unsigned)(n - 1),
+                             (int)gFrame[n - 1].x, (int)gFrame[n - 1].y,
+                             (double)ex, (double)ey);
+                    TEST_ASSERT_TRUE_MESSAGE(
+                        ex <= kDacTolerance && ey <= kDacTolerance, gMsg);
+                }
+            }
+        }
+    }
+}
+
+// ── 2c. zero-length jumps are skipped [P5] ──────────────────────────────
+//
+// CLASS-INVARIANT. Two segments that share a vertex -- every wireframe chain --
+// used to pay a full min_blank_samples blank run for a move of no length:
+// budget spent, and a laser-off gap punched into geometry that is continuous.
+// Below kMinJumpDistUnits (4 DAC units) the jump must emit nothing at all.
+//
+// The bound is one-sided on purpose: skipping only ever leaves the frame
+// SHORTER than the reserve optimize() computed, so maxBlankJumpPts() stays a
+// valid upper bound (invariant 1 is unaffected).
+void test_zeroLengthJumpSkipped(void) {
+    const float offsets[] = { 0.0f, 1.0f, 3.0f };   // all under the 4-unit floor
+
+    for (int shaper = 0; shaper <= 1; shaper++) {
+        for (size_t o = 0; o < sizeof(offsets) / sizeof(offsets[0]); o++) {
+            OptimizerConfig cfg = fx::baseCfg();
+            cfg.ringing_comp_enabled = (shaper != 0);
+
+            size_t n = 0;
+            gFrame[n++] = LaserPoint(5000, -3000, 255, 255, 255, 0);
+            optimizer::emitBlankTo(gFrame, n, PATTERN_POINTS_MAX,
+                                   5000.0f + offsets[o], -3000.0f, cfg);
+
+            snprintf(gMsg, sizeof(gMsg),
+                     "shaper=%d offset=%.0f: emitted %u blank points for a jump "
+                     "of no length", shaper, (double)offsets[o], (unsigned)(n - 1));
+            TEST_ASSERT_EQUAL_UINT32_MESSAGE(1u, (uint32_t)n, gMsg);
+        }
+    }
+
+    // Just above the floor the jump must still happen -- the skip is a
+    // threshold, not a general suppression of short jumps.
+    OptimizerConfig cfg = fx::baseCfg();
+    size_t n = 0;
+    gFrame[n++] = LaserPoint(5000, -3000, 255, 255, 255, 0);
+    optimizer::emitBlankTo(gFrame, n, PATTERN_POINTS_MAX, 5040.0f, -3000.0f, cfg);
+    TEST_ASSERT_TRUE_MESSAGE(n > 1, "a 40-unit jump was skipped as zero-length");
+    TEST_ASSERT_TRUE_MESSAGE(fabsf((float)gFrame[n - 1].x - 5040.0f) <= kDacTolerance,
+                             "short jump did not land on its target");
+}
+
+// ── 2d. ringing compensation never fails silently [P4] ──────────────────
+//
+// CLASS-INVARIANT. Pillar 3 used to require shift_pts < the jump's own point
+// count, so at factory settings (200 Hz / 30 kpps -> shift_pts 76, against a
+// default blank_samples of 16) it could never engage -- and said so nowhere.
+// Two halves:
+//   (a) at factory settings with the box ticked, compensation must actually
+//       run: ringingStatus() says active, and a rendered frame reports it.
+//   (b) where it genuinely cannot run -- a ring period so long that the
+//       impulse delay outgrows any jump the optimizer builds -- that must be
+//       REPORTED as inactive, not quietly ignored, and the jump must fall back
+//       to the unshaped trajectory (covered by the sweep above).
+void test_ringingCompNotSilentlyInactive(void) {
+#if GALVOS_OPT_HAS_STATS
+    OptimizerConfig cfg = fx::baseCfg();
+    cfg.ringing_comp_enabled = true;
+
+    optimizer::RingingStatus rs = optimizer::ringingStatus(cfg);
+    snprintf(gMsg, sizeof(gMsg),
+             "factory settings (%.0f Hz, %u kpps, blank_samples %u): shaper "
+             "reports inactive, shift_pts %d, min_jump_pts %d",
+             (double)cfg.ring_freq_hz, (unsigned)cfg.galvo_kpps,
+             (unsigned)cfg.blank_samples, rs.shift_pts, rs.min_jump_pts);
+    TEST_ASSERT_TRUE_MESSAGE(rs.active, gMsg);
+    TEST_ASSERT_TRUE_MESSAGE(rs.shift_pts > 0, "active shaper reports no impulse delay");
+
+    size_t segCount = 0;
+    const PathSegment* segs = fx::wireframeChain(segCount);
+    optimizer::optimize(segs, segCount, gFrame, PATTERN_POINTS_MAX, cfg);
+    TEST_ASSERT_TRUE_MESSAGE(optimizer::gLastStats.ringingActive,
+        "ringingStatus() says active but no jump in the frame was shaped");
+
+    // Disabled -> reported inactive, no shaping, no impulse delay claimed.
+    cfg.ringing_comp_enabled = false;
+    rs = optimizer::ringingStatus(cfg);
+    TEST_ASSERT_FALSE_MESSAGE(rs.active, "shaper reports active while disabled");
+    optimizer::optimize(segs, segCount, gFrame, PATTERN_POINTS_MAX, cfg);
+    TEST_ASSERT_FALSE_MESSAGE(optimizer::gLastStats.ringingActive,
+                              "a jump was shaped while the shaper is disabled");
+
+    // Out of reach -> honestly reported as inactive rather than half-applied.
+    cfg.ringing_comp_enabled = true;
+    cfg.ring_freq_hz         = 50.0f;
+    rs = optimizer::ringingStatus(cfg);
+    snprintf(gMsg, sizeof(gMsg),
+             "50 Hz needs a %d-point impulse delay -- must be reported inactive",
+             rs.shift_pts);
+    TEST_ASSERT_FALSE_MESSAGE(rs.active, gMsg);
+    optimizer::optimize(segs, segCount, gFrame, PATTERN_POINTS_MAX, cfg);
+    TEST_ASSERT_FALSE_MESSAGE(optimizer::gLastStats.ringingActive,
+        "a jump was shaped although the impulse delay does not fit");
+#else
+    TEST_IGNORE_MESSAGE("needs P1 telemetry (gLastStats) -- see contract_features.h");
+#endif
+}
+
 // ── 3. noSilentPointLoss ────────────────────────────────────────────────
 //
 // CLASS-INVARIANT. [P1, P17]
@@ -464,6 +622,9 @@ int main(int, char**) {
 
     RUN_TEST(test_budgetNeverExceeded);
     RUN_TEST(test_blankJumpEndsAtTarget);
+    RUN_TEST(test_blankJumpEndsAtTarget_zvSweep);
+    RUN_TEST(test_zeroLengthJumpSkipped);
+    RUN_TEST(test_ringingCompNotSilentlyInactive);
     RUN_TEST(test_noSilentPointLoss);
     RUN_TEST(test_velocityAccelLimitsHold);
     RUN_TEST(test_dacRangeValid);

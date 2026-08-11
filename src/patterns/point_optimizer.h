@@ -220,6 +220,26 @@ struct Stats {
     void add(const Stats& call);   // frame accumulation, see gFrameStats
 };
 
+// PILLAR 3 status for a config, derivable without rendering a frame.
+//
+// The ZV shaper can silently do nothing: the delay between its two impulses is
+// a physical time (half the damped ring period) converted into output points,
+// so at a low ring_freq_hz and/or a high galvo_kpps it needs a longer blank
+// jump than the optimizer will ever build (kMaxBlankPts) and there is nothing
+// to shape with. At 200 Hz / 30 kpps that delay is already 76 points. Rather
+// than leaving the user with a ticked "Ringing Compensation" box and no effect,
+// this is published as opt_eff_ringing_active / opt_eff_ring_shift_pts on
+// /api/config, next to the other opt_eff_* derived values.
+//
+// Stats::ringingActive is the runtime counterpart: it says a jump really WAS
+// shaped while rendering the last frame.
+struct RingingStatus {
+    bool active;         // shaper runs on the longest jump this config builds
+    int  shift_pts;      // second-impulse delay, in output points
+    int  min_jump_pts;   // shortest jump, in points, that can carry the shaper
+};
+RingingStatus ringingStatus(const OptimizerConfig& cfg);
+
 // Stats of the most recent optimize() call. Overwritten per call, so a caller
 // that renders one shape can read exactly what that shape cost.
 extern Stats gLastStats;

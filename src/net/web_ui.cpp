@@ -676,10 +676,23 @@ static void buildConfigJson(JsonDocument& doc) {
             eff.pts_per_1000_units = p.pts_per_1000_units;
             eff.max_step_units     = p.max_step_units;
             eff.max_accel_units    = p.max_accel_units;
+            // Pillar 3 inputs, so ringingStatus() below sees the same numbers
+            // the pattern paths build their OptimizerConfig from.
+            eff.blank_samples         = p.blank_samples;
+            eff.min_blank_samples     = p.min_blank_samples;
+            eff.ringing_comp_enabled  = p.ringing_comp_enabled;
+            eff.ring_freq_hz          = p.ring_freq_hz;
+            eff.ring_damping_ratio    = p.ring_damping_ratio;
+            eff.galvo_kpps            = gProjection.galvo_kpps;
             optimizer::applyPpsScaling(eff, gProjection.galvo_rated_kpps, gProjection.galvo_kpps);
             o["opt_eff_pts_per_1000_units"] = eff.pts_per_1000_units;
             o["opt_eff_max_step_units"]     = eff.max_step_units;
             o["opt_eff_max_accel_units"]    = eff.max_accel_units;
+            // Whether ringing compensation actually takes effect at these
+            // settings, and the impulse delay it needs -- see RingingStatus.
+            optimizer::RingingStatus rs = optimizer::ringingStatus(eff);
+            o["opt_eff_ringing_active"]  = rs.active;
+            o["opt_eff_ring_shift_pts"]  = rs.shift_pts;
         }
     }
     // Top-level opt_* = active profile (backwards compat)

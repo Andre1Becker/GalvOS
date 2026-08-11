@@ -114,6 +114,30 @@ static inline float jitterHash(uint32_t edgeIdx, uint32_t ptIdx) {
     return ((float)h / 4294967295.0f) * 2.0f - 1.0f;
 }
 
+// Longest blank jump, in emitted points, this optimizer will ever build.
+// Sized above the WebUI's blank_samples clamp (<=100, see web_ui.cpp POST
+// /api/optimizer-live) with headroom for the ZV shaper's tail extension in
+// planBlankJump(). emitBlankJump() holds two float[kMaxBlankPts] scratch
+// arrays on the stack, so this is also a ~1 KB stack budget on the pattern
+// task -- do not grow it casually.
+static constexpr int kMaxBlankPts = 128;
+
+// Below this jump distance, emitBlankJump() emits nothing at all.
+//
+// Two consecutive segments that share a vertex -- the normal case for
+// wireframe chains, and for the closing blank of a closed path, which
+// returns to the point the beam is already sitting on -- otherwise pay a
+// full min_blank_samples run for a move of no length: budget spent, a
+// laser-off gap punched into geometry that is actually continuous, and the
+// mirror commanded nowhere.
+//
+// 4 DAC units is the threshold because the DAC8562's integral non-linearity
+// is specified at +-4 LSB: a commanded move that small is not distinguishable
+// from converter error at the galvo, so there is no motion to blank for.
+// (For scale: 4 of the 65536 codes spanning +-32767, i.e. 0.006% of full
+// scale, ~1 mdeg of optical deflection.)
+static constexpr float kMinJumpDistUnits = 4.0f;
+
 // PILLAR 3: Zero-Vibration (ZV) two-impulse input shaper. Cancels galvo
 // ringing by convolving the commanded trajectory with two impulses -- A1
 // at t=0, A2 at t=Td/2 -- sized so the plant's response to the first
@@ -123,7 +147,12 @@ static inline float jitterHash(uint32_t edgeIdx, uint32_t ptIdx) {
 // then byte-identical to the pre-Pillar-3 trajectory.
 struct ZvShaper {
     float A1 = 1.0f, A2 = 0.0f;
-    int   shift_pts = 0;   // point-count delay of the second impulse
+    int   shift_pts    = 0;   // point-count delay of the second impulse
+    int   min_jump_pts = 0;   // shortest jump, in emitted points, that can
+                               // carry this shaper: one move tick plus the
+                               // shift_pts+1 already-parked ticks the endpoint
+                               // rule needs (see planBlankJump()). 0 when the
+                               // shaper is disabled.
 };
 
 static ZvShaper computeZvShaper(const OptimizerConfig& cfg) {
@@ -143,7 +172,60 @@ static ZvShaper computeZvShaper(const OptimizerConfig& cfg) {
     float point_period_s  = 1.0f / ((float)cfg.galvo_kpps * 1000.0f);
     s.shift_pts = (int)lroundf(td_half_s / point_period_s);
     if (s.shift_pts < 1) s.shift_pts = 1;
+    s.min_jump_pts = s.shift_pts + 2;
     return s;
+}
+
+// Settle ticks carved from the tail of a `count`-point jump -- the ticks that
+// sit ON the target instead of ramping toward it. Capped at count/2 so a short
+// jump always keeps enough move ticks to decelerate smoothly: without this,
+// short jumps get settle==count and move==0, forcing an instantaneous position
+// jump that causes overshoot.
+static inline int blankSettlePts(int count, const OptimizerConfig& cfg) {
+    int settle = (int)cfg.min_blank_samples;
+    if (settle > count / 2) settle = count / 2;
+    if (settle < 1) settle = 1;
+    return settle;
+}
+
+// Resolved shape of one blank jump. Single source of truth for the emit path
+// (emitBlankJump) and the budget reserve (maxBlankJumpPts) alike.
+struct BlankJumpPlan {
+    int  total  = 0;   // points emitted
+    int  move   = 0;   // leading ticks that ramp; ticks [move,total) sit on the target
+    bool shaped = false;
+};
+
+// PILLAR 3 endpoint rule. The shaper emits
+//     shaped[i] = A1*u[i] + A2*u[i-shift]
+// so the LAST sample only lands on the target when u[total-1-shift] is already
+// parked there -- i.e. when the settled tail is at least shift_pts+1 ticks
+// long. Convolving a trajectory that is merely `count` long instead blends the
+// target with a mid-move position and the jump ends short: measured at 200 Hz /
+// zeta 0.15 / 30 kpps (shift_pts 76, A1 0.617 / A2 0.383) the last blank point
+// sat at 68% of the distance, with the next LIT point being the corner dwell at
+// the real vertex -- a bright step exactly where the blank jump was supposed to
+// hide the move.
+//
+// So the trajectory is EXTENDED with further parked ticks until the rule holds,
+// bounded by kMaxBlankPts. If it does not fit even then, the shaper is switched
+// off for this jump rather than applied partially: an unshaped jump lands on
+// target, a partially shaped one does not.
+static BlankJumpPlan planBlankJump(int count, const ZvShaper& sh,
+                                    const OptimizerConfig& cfg) {
+    BlankJumpPlan p;
+    if (count < 1)             count = 1;
+    if (count > kMaxBlankPts)  count = kMaxBlankPts;
+    p.move  = count - blankSettlePts(count, cfg);
+    p.total = count;
+    if (sh.A2 > 0.0f) {
+        int need = p.move + sh.shift_pts + 1;
+        if (need <= kMaxBlankPts) {
+            if (need > p.total) p.total = need;
+            p.shaped = true;
+        }
+    }
+    return p;
 }
 
 // Pillar 2: distance-proportional + eased blank jump from (x0,y0) to
@@ -160,8 +242,11 @@ static ZvShaper computeZvShaper(const OptimizerConfig& cfg) {
 // then re-shaped with the ZV impulse response above (shaped[i] =
 // A1*u[i] + A2*u[i-shift]) before being emitted -- actively cancelling
 // galvo ringing at the landing point instead of only waiting it out.
-// Falls back to the unshaped trajectory when disabled, or when the
-// jump's point budget is too small to fit the required shift.
+// planBlankJump() extends the parked tail so the shaped run still ENDS on
+// (x1,y1), and falls back to the unshaped trajectory when the shaper is
+// disabled or its tail cannot fit inside kMaxBlankPts.
+//
+// A jump shorter than kMinJumpDistUnits emits nothing -- see that constant.
 static void emitBlankJump(LaserPoint* out, size_t& n, size_t max,
                            float x1, float y1, const OptimizerConfig& cfg) {
     if (n == 0) {
@@ -171,29 +256,20 @@ static void emitBlankJump(LaserPoint* out, size_t& n, size_t max,
     float x0 = out[n - 1].x, y0 = out[n - 1].y;
     float dx = x1 - x0, dy = y1 - y0;
     float dist = sqrtf(dx * dx + dy * dy);
+    if (dist < kMinJumpDistUnits) return;   // shared vertex -> nothing to jump
 
     int count = (int)lroundf((dist / 1000.0f) * cfg.blank_pts_per_1000_units);
     if (count < (int)cfg.min_blank_samples) count = cfg.min_blank_samples;
     if (count > (int)cfg.blank_samples)     count = cfg.blank_samples;
 
-    // Settle ticks are carved from the end of count (no budget increase).
-    // Cap at count/2 so there are always enough move ticks for the galvo
-    // to decelerate smoothly -- without this, short jumps get settle=count
-    // and move=0, forcing an instantaneous position jump that causes overshoot.
-    int settle = (int)cfg.min_blank_samples;
-    if (settle > count / 2) settle = count / 2;
-    if (settle < 1) settle = 1;
-    int move = count - settle;
+    ZvShaper      shaper = computeZvShaper(cfg);
+    BlankJumpPlan plan   = planBlankJump(count, shaper, cfg);
+    if (plan.shaped) sRinging = true;
 
-    // kMaxBlankPts headroom above the WebUI's blank_samples clamp (<=100,
-    // see web_ui.cpp POST /api/optimizer-live) -- count can never exceed
-    // cfg.blank_samples, so 128 always covers it with margin.
-    static constexpr int kMaxBlankPts = 128;
     float ux[kMaxBlankPts], uy[kMaxBlankPts];
-    int total = std::min(count, kMaxBlankPts);
-    for (int i = 0; i < total; i++) {
-        if (i < move) {
-            float t = smoothstep((float)(i + 1) / (float)move);
+    for (int i = 0; i < plan.total; i++) {
+        if (i < plan.move) {
+            float t = smoothstep((float)(i + 1) / (float)plan.move);
             ux[i] = x0 + dx * t;
             uy[i] = y0 + dy * t;
         } else {
@@ -202,13 +278,9 @@ static void emitBlankJump(LaserPoint* out, size_t& n, size_t max,
         }
     }
 
-    ZvShaper shaper = computeZvShaper(cfg);
-    bool shape_active = shaper.A2 > 0.0f && shaper.shift_pts < total;
-    if (shape_active) sRinging = true;
-
-    for (int i = 0; i < total; i++) {
+    for (int i = 0; i < plan.total; i++) {
         float sx = ux[i], sy = uy[i];
-        if (shape_active) {
+        if (plan.shaped) {
             int j = i - shaper.shift_pts;
             float px = (j >= 0) ? ux[j] : x0;
             float py = (j >= 0) ? uy[j] : y0;
@@ -217,6 +289,56 @@ static void emitBlankJump(LaserPoint* out, size_t& n, size_t max,
         }
         emit(out, n, max, sx, sy, 0, 0, 0, 1);
     }
+}
+
+// Longest run of points a single emitBlankJump() can produce with this config
+// -- i.e. exactly what optimize() has to reserve per jump.
+//
+// A jump's length is distance-driven (blank_pts_per_1000_units) and clamped to
+// [min_blank_samples, blank_samples], then possibly extended by the ZV tail
+// rule, so the emitted total is the maximum of planBlankJump(count).total over
+// count in [lo, hi]:
+//   - unshaped, the total IS count, maximal at hi (which is also exactly what
+//     the n==0 fallback emitBlankRun() writes);
+//   - shaped, the total is move(count)+shift_pts+1. move() is non-decreasing in
+//     count and grows by at most 1 per step, so the reachable shaped totals are
+//     contiguous and the largest one still under kMaxBlankPts is simply
+//     min(need(hi), kMaxBlankPts) -- provided need(lo) fits at all, since
+//     otherwise no length in the range can be shaped.
+// Distance can only make a real jump SHORTER than this (and a near-zero jump is
+// skipped outright, see kMinJumpDistUnits), so this bounds every jump above.
+static int maxBlankJumpPts(const OptimizerConfig& cfg) {
+    int lo = (int)cfg.min_blank_samples;
+    if (lo < 1) lo = 1;
+    int hi = (int)cfg.blank_samples;
+    if (hi < lo) hi = lo;
+
+    int peak = hi;                                  // unshaped branch
+    ZvShaper sh = computeZvShaper(cfg);
+    if (sh.A2 > 0.0f) {
+        int clo = std::min(lo, kMaxBlankPts);
+        int chi = std::min(hi, kMaxBlankPts);
+        int need_lo = clo - blankSettlePts(clo, cfg) + sh.shift_pts + 1;
+        int need_hi = chi - blankSettlePts(chi, cfg) + sh.shift_pts + 1;
+        if (need_lo <= kMaxBlankPts)
+            peak = std::max(peak, std::min(need_hi, kMaxBlankPts));
+    }
+    return peak;
+}
+
+RingingStatus ringingStatus(const OptimizerConfig& cfg) {
+    RingingStatus rs;
+    ZvShaper sh   = computeZvShaper(cfg);
+    rs.shift_pts    = sh.shift_pts;
+    rs.min_jump_pts = sh.min_jump_pts;
+
+    // Judged at the LONGEST jump this config builds: need() is non-decreasing
+    // in jump length, so if the tail fits there it fits at every shorter jump
+    // too -- and the longest jump is both the hardest case and the one whose
+    // ringing most needs cancelling.
+    int hi = std::max((int)cfg.blank_samples, (int)cfg.min_blank_samples);
+    rs.active = (sh.A2 > 0.0f) && planBlankJump(hi, sh, cfg).shaped;
+    return rs;
 }
 
 // Exterior angle (0..PI) between the incoming edge (prev->cur) and the
@@ -843,11 +965,15 @@ size_t optimize(const PathSegment* segments, size_t segment_count,
     // under-reserved by exactly one blank_samples-worth of points,
     // which is why the first cut of this budget fix landed at
     // effective_cap + blank_samples instead of effective_cap.
-    // Each blank jump costs up to blank_samples (movement) + min_blank_samples
-    // (settle at destination) points. The settle run is fixed at min_blank_samples
-    // regardless of Stage 1 reduction -- it's not scaled down because it's
-    // needed for galvo settle time, not just laser-off time.
-    uint32_t blank_overhead = (uint32_t)(cfg.blank_samples + cfg.min_blank_samples) * (segment_count + 1);
+    //
+    // Per-jump cost is maxBlankJumpPts() -- the one place that knows how long
+    // a jump can actually get, including the ZV shaper's tail extension. This
+    // used to read (blank_samples + min_blank_samples), which described a
+    // settle run added ON TOP of the move; emitBlankJump() has always carved
+    // its settle ticks OUT of the same count instead, so the old term
+    // over-reserved min_blank_samples per jump on every frame and pushed
+    // Stages 1/2 into squeezing shapes that in fact fit.
+    uint32_t blank_overhead = (uint32_t)maxBlankJumpPts(cfg) * (segment_count + 1);
     uint32_t needed = planned_total + blank_overhead;
 
     // Effective cap = the tighter of two independent limits:
@@ -861,9 +987,10 @@ size_t optimize(const PathSegment* segments, size_t segment_count,
 
     // Stage 1 (MUST run before Stage 2 below): shrink blank_samples FIRST,
     // before touching interior density. Stage 1 triggers in two cases:
-    //  (a) fixed overhead (corners + blanking at the default 40 samples)
-    //      alone exceeds the cap -- e.g. 30-edge dodecahedron where
-    //      blank_overhead is 1240 pts on its own.
+    //  (a) fixed overhead (corners + blanking at the configured
+    //      blank_samples) alone exceeds the cap -- e.g. a 30-edge
+    //      dodecahedron, whose blank_overhead is hundreds of points on its
+    //      own, more still once the ZV tail extension is in play.
     //  (b) fixed overhead fits the cap, but leaves less than
     //      min_interior_pts_per_segment reserved per segment -- e.g. a
     //      6-edge tetrahedron fits at 292/310, but only 18 points (3/edge)
@@ -872,8 +999,8 @@ size_t optimize(const PathSegment* segments, size_t segment_count,
     //
     // Running this BEFORE the interior-density clamp (Stage 2) is
     // required: Stage 2 computes available_for_interior using
-    // blank_overhead, and if that still reflects the default 40
-    // samples/run, available_for_interior is driven to ~0 for any shape
+    // blank_overhead, and if that still reflects the un-reduced
+    // blank_samples, available_for_interior is driven to ~0 for any shape
     // with more than a few segments -- collapsing every edge to isolated
     // corner dots with no connecting line. THIS WAS THE ACTUAL BUG behind
     // the "still no lines" report: an earlier patch pass left Stage 2
@@ -914,12 +1041,14 @@ size_t optimize(const PathSegment* segments, size_t segment_count,
         cfg.blank_samples = target;
         st.stage1Triggered = true;
         // Re-check: does the target still leave the fixed overhead over
-        // budget? If so, fall back further toward the hard floor.
-        uint32_t retry_overhead = corner_total + (uint32_t)(cfg.blank_samples + cfg.min_blank_samples) * (segment_count + 1);
+        // budget? If so, fall back further toward the hard floor. Same
+        // per-jump term as above -- maxBlankJumpPts() is the single source.
+        uint32_t retry_overhead =
+            corner_total + (uint32_t)maxBlankJumpPts(cfg) * (segment_count + 1);
         if (retry_overhead > effective_cap) {
             cfg.blank_samples = cfg.min_blank_samples;
         }
-        blank_overhead = (uint32_t)(cfg.blank_samples + cfg.min_blank_samples) * (segment_count + 1);
+        blank_overhead = (uint32_t)maxBlankJumpPts(cfg) * (segment_count + 1);
         needed = planned_total + blank_overhead;
     }
 

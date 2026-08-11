@@ -1080,6 +1080,7 @@ canvas { max-width: 100%; display: block; }
               <p class="param-hint">Zero-Vibration (ZV) input shaping on blank jumps &mdash; measure your galvo's resonance before enabling.</p>
               <div class="field"><label>Frequency Hz</label><div class="slider-row"><input type="range" id="opt-ring-freq" min="1" max="2000" value="60" oninput="optSyncNum('opt-ring-freq');optimizerSlider()"><input type="number" id="opt-ring-freq-n" min="1" max="2000" value="60" onchange="optSyncSlider('opt-ring-freq');optimizerSlider()"></div><p class="param-hint">Galvo mechanical resonant frequency in Hz &mdash; must be measured on real hardware.</p></div>
               <div class="field"><label>Damping Ratio</label><div class="slider-row"><input type="range" id="opt-ring-damping" min="0" max="90" value="50" oninput="optSyncNum('opt-ring-damping');optimizerSlider()"><input type="number" id="opt-ring-damping-n" data-scale="100" data-decimals="2" step="0.01" min="0" max="0.9" value="0.50" onchange="optSyncSlider('opt-ring-damping');optimizerSlider()"></div><p class="param-hint">Galvo damping ratio &zeta; &mdash; must be measured on real hardware (typical 0.05&ndash;0.3).</p></div>
+              <p id="opt-eff-ringing" style="font-size:0.7rem;color:var(--text-dim)"></p>
             </div>
             <div class="param-group">
               <h3>Jitter</h3>
@@ -1404,7 +1405,7 @@ canvas { max-width: 100%; display: block; }
 /* =========================================================================
    GLOBAL STATE
    ========================================================================= */
-var UI_VERSION = '1.7.0';   // WebUI version -- independent from firmware version
+var UI_VERSION = '1.7.1';   // WebUI version -- independent from firmware version
 var NAV_TABS = [
   {id: 'dashboard', label: 'Dashboard', icon: '🏠', bottom: true},
   {id: 'presets', label: 'Presets', icon: '🎮', bottom: true},
@@ -4168,6 +4169,7 @@ function loadOptimizerConfig(c) {
   var effStep = (c.opt_profiles && c.opt_profiles[g_activeOptimizerProfile]) ? c.opt_profiles[g_activeOptimizerProfile].opt_eff_max_step_units : null;
   var effAccel = (c.opt_profiles && c.opt_profiles[g_activeOptimizerProfile]) ? c.opt_profiles[g_activeOptimizerProfile].opt_eff_max_accel_units : null;
   updateEffectivePpsDisplay(effStep, effAccel);
+  updateRingingStatusDisplay(c.opt_profiles ? c.opt_profiles[g_activeOptimizerProfile] : null);
   optimizerUpdateLabels();
   renderOptimizerMembers();
 }
@@ -4219,6 +4221,32 @@ function updateEffectivePpsDisplay(effStep, effAccel) {
   var accel = (effAccel !== null && effAccel !== undefined) ? effAccel : domVal('opt-max-accel', 4000) * ratio;
   var stepEl = document.getElementById('opt-eff-step'); if (stepEl) stepEl.textContent = 'Effective at ' + outputKpps + ' kpps (rated ' + s_galvoRatedKpps + 'k, ratio ' + ratio.toFixed(2) + '×): ' + Math.round(step) + ' units/tick';
   var accelEl = document.getElementById('opt-eff-accel'); if (accelEl) accelEl.textContent = 'Effective at ' + outputKpps + ' kpps (rated ' + s_galvoRatedKpps + 'k, ratio ' + ratio.toFixed(2) + '×): ' + Math.round(accel) + ' units/tick';
+}
+// Whether ringing compensation actually engages at the current settings. The
+// ZV shaper's impulse delay is a physical time (half the ring period) turned
+// into output points, so a low resonant frequency and/or a high point rate can
+// push it past the longest blank jump the optimizer builds -- in which case the
+// firmware falls back to an unshaped jump and says so here, instead of leaving
+// a ticked checkbox that does nothing. Values come from the firmware
+// (opt_eff_ringing_active / opt_eff_ring_shift_pts on /api/config), since the
+// decision depends on the device's own galvo_kpps.
+function updateRingingStatusDisplay(prof) {
+  var el = document.getElementById('opt-eff-ringing');
+  if (!el) return;
+  if (!prof || prof.opt_eff_ring_shift_pts === undefined) { el.textContent = ''; return; }
+  if (!prof.opt_ringing_comp_enabled) {
+    el.textContent = 'Inactive — not enabled.';
+    el.style.color = 'var(--text-dim)';
+    return;
+  }
+  var shift = prof.opt_eff_ring_shift_pts;
+  if (prof.opt_eff_ringing_active) {
+    el.textContent = 'Active — shaping blank jumps with a ' + shift + '-point impulse delay.';
+    el.style.color = 'var(--ok)';
+  } else {
+    el.textContent = 'NOT taking effect — needs a ' + shift + '-point impulse delay, longer than any blank jump this optimizer builds. Raise Frequency Hz or lower the output kpps.';
+    el.style.color = 'var(--warn)';
+  }
 }
 function applyOptimizerSmartDefaults() {
   var base = OPT_PROFILE_BASE[g_activeOptimizerProfile];
