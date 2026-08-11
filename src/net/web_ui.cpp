@@ -680,9 +680,11 @@ static void buildConfigJson(JsonDocument& doc) {
             o["opt_accel_clamp_enabled"]          = p.accel_clamp_enabled;
             o["opt_max_accel_units"]              = p.max_accel_units;
             optimizer::OptimizerConfig eff;
-            eff.pts_per_1000_units = p.pts_per_1000_units;
-            eff.max_step_units     = p.max_step_units;
-            eff.max_accel_units    = p.max_accel_units;
+            eff.pts_per_1000_units      = p.pts_per_1000_units;
+            eff.resample_spacing_units  = p.resample_spacing_units;
+            eff.blank_pts_per_1000_units = p.blank_pts_per_1000_units;
+            eff.max_step_units          = p.max_step_units;
+            eff.max_accel_units         = p.max_accel_units;
             // Pillar 3 inputs, so ringingStatus() below sees the same numbers
             // the pattern paths build their OptimizerConfig from.
             eff.blank_samples         = p.blank_samples;
@@ -692,9 +694,11 @@ static void buildConfigJson(JsonDocument& doc) {
             eff.ring_damping_ratio    = p.ring_damping_ratio;
             eff.galvo_kpps            = gProjection.galvo_kpps;
             optimizer::applyPpsScaling(eff, gProjection.galvo_rated_kpps, gProjection.galvo_kpps);
-            o["opt_eff_pts_per_1000_units"] = eff.pts_per_1000_units;
-            o["opt_eff_max_step_units"]     = eff.max_step_units;
-            o["opt_eff_max_accel_units"]    = eff.max_accel_units;
+            o["opt_eff_pts_per_1000_units"]      = eff.pts_per_1000_units;
+            o["opt_eff_resample_spacing_units"]  = eff.resample_spacing_units;
+            o["opt_eff_blank_pts_per_1000_units"] = eff.blank_pts_per_1000_units;
+            o["opt_eff_max_step_units"]          = eff.max_step_units;
+            o["opt_eff_max_accel_units"]         = eff.max_accel_units;
             // Whether ringing compensation actually takes effect at these
             // settings, and the impulse delay it needs -- see RingingStatus.
             optimizer::RingingStatus rs = optimizer::ringingStatus(eff);
