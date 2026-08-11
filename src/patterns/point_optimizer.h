@@ -341,25 +341,40 @@ inline AffineTransform makeTransform(float angle_rad, float tx, float ty) {
 extern AffineTransform gLiveTransform;
 
 // PPS-derived optimizer scaling (single source of truth, called by every
-// path's liveOptimizerConfig()). Scales the three point-rate-dependent params
-// -- interior density and both scanner-protection clamps -- from the ratio of
-// the galvo's rated speed to the chosen output rate, leaving GEOMETRY (corner
-// counts, angles, segment minimums, blanking) untouched.
+// path's liveOptimizerConfig()). Scales the point-rate-dependent params --
+// interior density (both the legacy and resample-stage forms), blank-jump
+// density, and both scanner-protection clamps -- from the ratio of the
+// galvo's rated speed to the chosen output rate, leaving GEOMETRY (corner
+// counts, angles, segment minimums, blank_samples ceiling) untouched.
 //
 // Model (r = rated_kpps / output_kpps, the headroom ratio):
-//   pts_per_1000_units *= 1/r   -- density is per output tick, so a lower
-//                                  output rate (r>1) needs fewer points per
-//                                  unit length, a full-rate output (r==1)
-//                                  keeps the tuned value. Mirrors the
-//                                  Starfield dwell derivation (points scale
-//                                  with the output tick rate for a fixed
-//                                  physical target).
-//   max_step_units    *= r      -- units/tick velocity ceiling. Physical
-//                                  slew (units/s) tracks the rated speed;
-//                                  units/tick = slew / output_rate ∝ r.
-//   max_accel_units   *= r*r     -- units/tick^2, so the ratio squared.
+//   pts_per_1000_units      *= 1/r  -- density is per output tick, so a lower
+//                                      output rate (r>1) needs fewer points
+//                                      per unit length, a full-rate output
+//                                      (r==1) keeps the tuned value. Mirrors
+//                                      the Starfield dwell derivation (points
+//                                      scale with the output tick rate for a
+//                                      fixed physical target).
+//   resample_spacing_units  *= r    -- inverse of the density above (spacing
+//                                      is units/point, density is
+//                                      points/unit): r>1 means fewer points
+//                                      per unit length, i.e. a WIDER target
+//                                      spacing. Without this,
+//                                      edgeInteriorCount() ignores
+//                                      pts_per_1000_units entirely when
+//                                      resample_enabled is true, so PPS
+//                                      scaling had zero effect on density on
+//                                      that path.
+//   blank_pts_per_1000_units *= 1/r -- same density-per-output-tick
+//                                      reasoning as pts_per_1000_units, just
+//                                      for the blank-jump ramp instead of the
+//                                      lit interior.
+//   max_step_units    *= r          -- units/tick velocity ceiling. Physical
+//                                      slew (units/s) tracks the rated speed;
+//                                      units/tick = slew / output_rate ∝ r.
+//   max_accel_units   *= r*r        -- units/tick^2, so the ratio squared.
 //
-// At the calibration point (output_kpps == rated_kpps) r==1 -> all three are
+// At the calibration point (output_kpps == rated_kpps) r==1 -> all five are
 // unchanged, so a system run at its rated speed sees the exact tuned values.
 // Guards against divide-by-zero / absurd ratios; clamps r to a sane band.
 inline void applyPpsScaling(OptimizerConfig& cfg,
@@ -368,9 +383,11 @@ inline void applyPpsScaling(OptimizerConfig& cfg,
     float r = (float)rated_kpps / (float)output_kpps;
     if (r < 0.1f) r = 0.1f;                             // clamp to a sane band
     if (r > 10.0f) r = 10.0f;
-    cfg.pts_per_1000_units *= (1.0f / r);
-    cfg.max_step_units     *= r;
-    cfg.max_accel_units    *= r * r;
+    cfg.pts_per_1000_units      *= (1.0f / r);
+    cfg.resample_spacing_units  *= r;
+    cfg.blank_pts_per_1000_units *= (1.0f / r);
+    cfg.max_step_units          *= r;
+    cfg.max_accel_units         *= r * r;
 }
 
 // Emits a distance-proportional, smoothstep-eased blank jump from the
