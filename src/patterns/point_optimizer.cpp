@@ -279,8 +279,43 @@ static inline int blankCountForDistance(float dist, const OptimizerConfig& cfg) 
 //
 // PILLAR 3: the resulting move+settle trajectory is buffered locally,
 // then re-shaped with the ZV impulse response above (shaped[i] =
-// A1*u[i] + A2*u[i-shift]) before being emitted -- actively cancelling
-// galvo ringing at the landing point instead of only waiting it out.
+// A1*u[i] + A2*u[i-shift]) before being handed to `emitPoint` -- actively
+// cancelling galvo ringing at the landing point instead of only waiting it
+// out. Shared by emitBlankJump() (Pillar 2/3, `plan.total` derived from
+// distance) and reshapeBlankRun() (P22, `plan.total` fixed by the caller) --
+// the shaping math must not fork into two copies. Callers choose what
+// happens to each point: emitBlankJump() appends via emit() (budget
+// accounting), reshapeBlankRun() overwrites an existing slice in place (no
+// accounting -- it runs outside optimize() entirely).
+template <typename Emit>
+static void buildBlankTrajectory(float x0, float y0, float x1, float y1,
+                                  const BlankJumpPlan& plan, const ZvShaper& shaper,
+                                  Emit emitPoint) {
+    float ux[kMaxBlankPts], uy[kMaxBlankPts];
+    for (int i = 0; i < plan.total; i++) {
+        if (i < plan.move) {
+            float t = smoothstep((float)(i + 1) / (float)plan.move);
+            ux[i] = x0 + (x1 - x0) * t;
+            uy[i] = y0 + (y1 - y0) * t;
+        } else {
+            ux[i] = x1;
+            uy[i] = y1;
+        }
+    }
+
+    for (int i = 0; i < plan.total; i++) {
+        float sx = ux[i], sy = uy[i];
+        if (plan.shaped) {
+            int j = i - shaper.shift_pts;
+            float px = (j >= 0) ? ux[j] : x0;
+            float py = (j >= 0) ? uy[j] : y0;
+            sx = shaper.A1 * ux[i] + shaper.A2 * px;
+            sy = shaper.A1 * uy[i] + shaper.A2 * py;
+        }
+        emitPoint(i, sx, sy);
+    }
+}
+
 // planBlankJump() extends the parked tail so the shaped run still ENDS on
 // (x1,y1), and falls back to the unshaped trajectory when the shaper is
 // disabled or its tail cannot fit inside kMaxBlankPts.
@@ -308,29 +343,10 @@ static void emitBlankJump(LaserPoint* out, size_t& n, size_t max,
     BlankJumpPlan plan   = planBlankJump(count, shaper, cfg);
     if (plan.shaped) sRinging = true;
 
-    float ux[kMaxBlankPts], uy[kMaxBlankPts];
-    for (int i = 0; i < plan.total; i++) {
-        if (i < plan.move) {
-            float t = smoothstep((float)(i + 1) / (float)plan.move);
-            ux[i] = x0 + dx * t;
-            uy[i] = y0 + dy * t;
-        } else {
-            ux[i] = x1;
-            uy[i] = y1;
-        }
-    }
-
-    for (int i = 0; i < plan.total; i++) {
-        float sx = ux[i], sy = uy[i];
-        if (plan.shaped) {
-            int j = i - shaper.shift_pts;
-            float px = (j >= 0) ? ux[j] : x0;
-            float py = (j >= 0) ? uy[j] : y0;
-            sx = shaper.A1 * ux[i] + shaper.A2 * px;
-            sy = shaper.A1 * uy[i] + shaper.A2 * py;
-        }
-        emit(out, n, max, sx, sy, 0, 0, 0, 1);
-    }
+    buildBlankTrajectory(x0, y0, x1, y1, plan, shaper,
+        [&](int /*i*/, float sx, float sy) {
+            emit(out, n, max, sx, sy, 0, 0, 0, 1);
+        });
 }
 
 // Longest run of points a single emitBlankJump() can produce with this config
@@ -381,6 +397,78 @@ RingingStatus ringingStatus(const OptimizerConfig& cfg) {
     int hi = std::max((int)cfg.blank_samples, (int)cfg.min_blank_samples);
     rs.active = (sh.A2 > 0.0f) && planBlankJump(hi, sh, cfg).shaped;
     return rs;
+}
+
+// ── P22: ILDA blank-run reshaping ────────────────────────────────────────
+//
+// ILDA frames are pre-rendered LaserPoint streams read straight from a .ild
+// file -- they never go through optimize(), so Pillar 2/3's smoothstep-ease
+// and ZV-shape trajectory never reaches them. reshapeBlankRun() re-times an
+// already-blank-flagged run of points IN PLACE, reusing that exact math via
+// buildBlankTrajectory() above, WITHOUT changing the run's own point count:
+// a different count changes how long the jump is actually on screen relative
+// to how the .ild file's author timed it (see DECISIONS.md Session Q/P22).
+//
+// Endpoints are the run's OWN recorded coordinates -- out[i0] and out[i1-1]
+// -- never a neighboring frame's position: ILDA keeps no cross-frame position
+// state (unlike optimize()'s hasPrevPos, which exists only for multiple
+// optimize() calls building one PRESET frame inside a single render pass).
+//
+// No-op (out[i0..i1) is left exactly as it was) if count < 2 -- nothing to
+// ramp between two points, or a single point can't express a trajectory at
+// all -- or count > kMaxBlankPts, the trajectory scratch's stack budget (see
+// buildBlankTrajectory()'s ux/uy arrays). Whether real ILDA content ever
+// produces a run that long is unmeasured -- see STATE.md's open item.
+void reshapeBlankRun(LaserPoint* out, size_t i0, size_t i1, const OptimizerConfig& cfg) {
+    if (i1 < i0) return;
+    int count = (int)(i1 - i0);
+    if (count < 2 || count > kMaxBlankPts) return;
+
+    float x0 = (float)out[i0].x,     y0 = (float)out[i0].y;
+    float x1 = (float)out[i1 - 1].x, y1 = (float)out[i1 - 1].y;
+
+    ZvShaper      shaper = computeZvShaper(cfg);
+    BlankJumpPlan plan;
+    plan.total = count;
+    if (shaper.A2 > 0.0f && count >= shaper.min_jump_pts) {
+        // planBlankJump() reacts to a too-short jump by EXTENDING plan.total
+        // (up to kMaxBlankPts) -- not available here, since the caller's
+        // count is fixed. So instead the settle tail is grown to exactly
+        // what the endpoint rule needs (shift_pts+1 parked ticks): with
+        // count >= min_jump_pts (== shift_pts+2, computeZvShaper()'s own
+        // floor) that always leaves >=1 tick for the ramp. This is the same
+        // "report inactive rather than half-apply" rule P4 established for
+        // Pillar 3 -- reused via the `count >= min_jump_pts` gate below,
+        // not reinvented.
+        plan.move   = count - (shaper.shift_pts + 1);
+        plan.shaped = true;
+    } else {
+        plan.move   = count - blankSettlePts(count, cfg);
+        plan.shaped = false;
+    }
+
+    buildBlankTrajectory(x0, y0, x1, y1, plan, shaper,
+        [&](int i, float sx, float sy) {
+            sx = std::max(-32767.f, std::min(32767.f, sx));
+            sy = std::max(-32767.f, std::min(32767.f, sy));
+            out[i0 + (size_t)i] = LaserPoint((int16_t)sx, (int16_t)sy, 0, 0, 0, 1);
+        });
+}
+
+// Scans out[0..n) for contiguous blank==1 runs and reshapes each one via
+// reshapeBlankRun(). One function, not inlined at the call site -- matches
+// this file's "optimizer owns blanking, callers only call it" boundary
+// (emitBlankTo()'s own doc comment: "used by patterns that manage their own
+// point emission").
+void reshapeBlankRuns(LaserPoint* out, size_t n, const OptimizerConfig& cfg) {
+    size_t i = 0;
+    while (i < n) {
+        if (!out[i].blank) { i++; continue; }
+        size_t j = i;
+        while (j < n && out[j].blank) j++;
+        reshapeBlankRun(out, i, j, cfg);
+        i = j;
+    }
 }
 
 // Exterior angle (0..PI) between the incoming edge (prev->cur) and the
