@@ -33,6 +33,7 @@
       '--font-mono': "'JetBrains Mono', 'VT323', monospace",
       '--font-body': "'JetBrains Mono', 'VT323', monospace",
       '--glow-accent': '0 0 5px rgba(51,255,0,0.5), 0 0 10px rgba(51,255,0,0.25)',
+      '--glow-secondary': '0 0 5px rgba(255,176,0,0.5), 0 0 10px rgba(255,176,0,0.25)',
       '--glow-bad': '0 0 5px rgba(255,51,51,0.5), 0 0 10px rgba(255,51,51,0.25)',
       '--card-shadow': 'none'
     };
@@ -51,6 +52,7 @@
       '--font-mono': "'JetBrains Mono', monospace",
       '--font-body': "'Inter', sans-serif",
       '--glow-accent': '0 0 20px rgba(245,158,11,0.4)',
+      '--glow-secondary': '0 0 20px rgba(157,180,255,0.4)',
       '--glow-bad': '0 0 20px rgba(229,107,107,0.35)',
       '--card-shadow': '0 8px 30px rgba(0,0,0,0.35)'
     };
@@ -180,6 +182,17 @@ a { color: var(--accent); }
 h1, h2, h3 { font-family: var(--font-head); margin: 0 0 8px; color: var(--text); }
 p { margin: 0 0 8px; color: var(--text-dim); }
 .hidden { display: none !important; }
+
+/* Collapsible sub-section within a .card, styled like the h3 blocks it replaces. */
+details.collapsible { margin: 0 0 8px; border-top: 1px solid var(--border); padding-top: 8px; }
+details.collapsible summary {
+  cursor: pointer; font-family: var(--font-mono); color: var(--text);
+  list-style: none; user-select: none; display: flex; align-items: center; gap: 6px;
+}
+details.collapsible summary::-webkit-details-marker { display: none; }
+details.collapsible summary::before { content: '\25B8'; display: inline-block; transition: transform 0.15s ease; }
+details.collapsible[open] summary::before { transform: rotate(90deg); }
+details.collapsible .details-body { padding-top: 8px; }
 
 /* Banner + topbar are stacked inside one sticky wrapper (#topbar-wrap) instead
    of each carrying its own `position: sticky; top: 0`. Two sibling sticky
@@ -598,24 +611,28 @@ canvas { max-width: 100%; display: block; }
               </div>
             </div>
 
-            <h3>Points-Only Mode</h3>
-            <label class="row"><input type="checkbox" id="lv-points-only" onchange="sendLiveControls()"> Enabled</label>
-            <div class="grid grid-2">
-              <div class="field"><label>Point Count</label><div class="slider-row"><input type="range" id="lv-points-count" min="2" max="50" value="12" oninput="liveSlider('lv-points-count')"><output id="lv-points-count-val">12</output></div></div>
-              <div class="field"><label>Fade Direction</label>
-                <select id="lv-fade-dir" onchange="sendLiveControls()">
-                  <option value="0">Inside &rarr; Outside</option><option value="1">Outside &rarr; Inside</option>
-                  <option value="2">Left &rarr; Right</option><option value="3">Right &rarr; Left</option>
-                  <option value="4">Top &rarr; Bottom</option><option value="5">Bottom &rarr; Top</option>
-                </select>
+            <details class="collapsible">
+              <summary>Points-Only Mode</summary>
+              <div class="details-body">
+                <label class="row"><input type="checkbox" id="lv-points-only" onchange="sendLiveControls()"> Enabled</label>
+                <div class="grid grid-2">
+                  <div class="field"><label>Point Count</label><div class="slider-row"><input type="range" id="lv-points-count" min="2" max="50" value="12" oninput="liveSlider('lv-points-count')"><output id="lv-points-count-val">12</output></div></div>
+                  <div class="field"><label>Fade Direction</label>
+                    <select id="lv-fade-dir" onchange="sendLiveControls()">
+                      <option value="0">Inside &rarr; Outside</option><option value="1">Outside &rarr; Inside</option>
+                      <option value="2">Left &rarr; Right</option><option value="3">Right &rarr; Left</option>
+                      <option value="4">Top &rarr; Bottom</option><option value="5">Bottom &rarr; Top</option>
+                    </select>
+                  </div>
+                  <label class="row"><input type="checkbox" id="lv-fade-in-on" onchange="sendLiveControls()"> Fade In</label>
+                  <div class="field"><label>Fade In ms</label><input type="range" id="lv-fade-in-ms" min="0" max="5000" value="0" oninput="liveSlider('lv-fade-in-ms')"></div>
+                  <label class="row"><input type="checkbox" id="lv-fade-out-on" onchange="sendLiveControls()"> Fade Out</label>
+                  <div class="field"><label>Fade Out ms</label><input type="range" id="lv-fade-out-ms" min="0" max="5000" value="0" oninput="liveSlider('lv-fade-out-ms')"></div>
+                  <label class="row"><input type="checkbox" id="lv-static-mode" onchange="sendLiveControls()"> Static (full brightness)</label>
+                  <label class="row"><input type="checkbox" id="lv-points-bpm-sync" onchange="sendLiveControls()"> Blink on Beat (BPM Sync)</label>
+                </div>
               </div>
-              <label class="row"><input type="checkbox" id="lv-fade-in-on" onchange="sendLiveControls()"> Fade In</label>
-              <div class="field"><label>Fade In ms</label><input type="range" id="lv-fade-in-ms" min="0" max="5000" value="0" oninput="liveSlider('lv-fade-in-ms')"></div>
-              <label class="row"><input type="checkbox" id="lv-fade-out-on" onchange="sendLiveControls()"> Fade Out</label>
-              <div class="field"><label>Fade Out ms</label><input type="range" id="lv-fade-out-ms" min="0" max="5000" value="0" oninput="liveSlider('lv-fade-out-ms')"></div>
-              <label class="row"><input type="checkbox" id="lv-static-mode" onchange="sendLiveControls()"> Static (full brightness)</label>
-              <label class="row"><input type="checkbox" id="lv-points-bpm-sync" onchange="sendLiveControls()"> Blink on Beat (BPM Sync)</label>
-            </div>
+            </details>
 
             <div id="preset-extra-90" class="preset-extra-row hidden"><p>Starfield uses Speed=Twinkle, Size=Density above.</p></div>
             <div id="preset-extra-104" class="preset-extra-row hidden field"><label>Hold ms</label><input type="range" id="lv-hold-ms" min="50" max="5000" value="500" oninput="liveSlider('lv-hold-ms')"></div>
@@ -638,9 +655,14 @@ canvas { max-width: 100%; display: block; }
               <div class="field"><label>Dots</label><input type="range" id="lv-dots" min="10" max="60" value="30" oninput="liveSlider('lv-dots')"></div>
               <div class="field"><label>Tilt</label><input type="range" id="lv-tilt" min="20" max="80" value="45" oninput="liveSlider('lv-tilt')"></div>
             </div>
-
-            <div class="field"><label>Wave Amplitude</label><input type="range" id="lv-wave-amp" min="0.1" max="2" step="0.05" value="0.5" oninput="liveSlider('lv-wave-amp')"></div>
-            <div class="field"><label>Wave Frequency</label><input type="range" id="lv-wave-freq" min="0.25" max="4" step="0.05" value="1" oninput="liveSlider('lv-wave-freq')"></div>
+            <!-- Waves category, preset dispatch indices 33-50 (Sine Wave .. Wave Spectrum,
+                 see DISPATCH[] in src/patterns/preset_patterns.cpp) -- all read
+                 gLivePreset.wave_amp/wave_freq. Shown for the whole range by
+                 updatePresetHint()'s WAVE_PRESET_MIN/MAX check below. -->
+            <div id="preset-extra-waves" class="preset-extra-row hidden grid grid-2">
+              <div class="field"><label>Wave Amplitude</label><input type="range" id="lv-wave-amp" min="0.1" max="2" step="0.05" value="0.5" oninput="liveSlider('lv-wave-amp')"></div>
+              <div class="field"><label>Wave Frequency</label><input type="range" id="lv-wave-freq" min="0.25" max="4" step="0.05" value="1" oninput="liveSlider('lv-wave-freq')"></div>
+            </div>
             <button class="btn" onclick="resetLiveControls()">&#8630; Reset all</button>
           </div>
 
@@ -1410,7 +1432,7 @@ canvas { max-width: 100%; display: block; }
 /* =========================================================================
    GLOBAL STATE
    ========================================================================= */
-var UI_VERSION = '1.7.4';   // WebUI version -- independent from firmware version
+var UI_VERSION = '1.8.0';   // WebUI version -- independent from firmware version
 var NAV_TABS = [
   {id: 'dashboard', label: 'Dashboard', icon: '🏠', bottom: true},
   {id: 'presets', label: 'Presets', icon: '🎮', bottom: true},
@@ -1982,9 +2004,12 @@ async function deactivatePreset() {
   updatePresetHint(-1);
   toast('Preset off');
 }
+var WAVE_PRESET_MIN = 33, WAVE_PRESET_MAX = 50; // Sine Wave .. Wave Spectrum, see DISPATCH[] in preset_patterns.cpp
 function updatePresetHint(idx) {
   var hint = PRESET_PARAM_HINTS[idx];
   document.querySelectorAll('.preset-extra-row').forEach(function(r) { r.classList.add('hidden'); });
+  var wavesRow = document.getElementById('preset-extra-waves');
+  if (wavesRow) wavesRow.classList.toggle('hidden', !(idx >= WAVE_PRESET_MIN && idx <= WAVE_PRESET_MAX));
   if (hint) {
     var row = document.getElementById('preset-extra-' + idx);
     if (row) row.classList.remove('hidden');
@@ -4807,10 +4832,17 @@ async function saveStaticIp() {
   toast('Static IP saved');
 }
 async function setSafetyOverride(v) {
+  var cb1 = document.getElementById('cfg-safety-override');
+  var cb2 = document.getElementById('dash-safety-override');
+  if (v && !confirm('Safety Override bypasses E-Stop and Scan-Fail protection.\nOnly use with the laser disarmed and no audience present.\n\nEnable Safety Override?')) {
+    if (cb1) cb1.checked = false;
+    if (cb2) cb2.checked = false;
+    return;
+  }
   await apiCall('POST', '/api/safety-override', {enabled: v});
   var warn = document.getElementById('cfg-safety-override-warn'); if (warn) warn.classList.toggle('hidden', !v);
-  var cb1 = document.getElementById('cfg-safety-override'); if (cb1) cb1.checked = v;
-  var cb2 = document.getElementById('dash-safety-override'); if (cb2) cb2.checked = v;
+  if (cb1) cb1.checked = v;
+  if (cb2) cb2.checked = v;
 }
 async function doReboot() { if (confirm('Reboot the system now?')) await apiCall('POST', '/api/reboot'); }
 async function doFactoryReset() { if (confirm('Factory reset ALL settings? This cannot be undone.')) await apiCall('POST', '/api/factory-reset'); }
