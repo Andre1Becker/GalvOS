@@ -915,11 +915,147 @@ static void applyRadialCopy(size_t& n, uint8_t segments, bool altMirrorH, bool a
     n = o;
 }
 
+// ── Mirror Kaleidoscope (true dihedral fold, group D_S) ──────────────────
+// applyRadialCopy() above is a plain rotational copy (cyclic group C_S) --
+// it repeats the source wedge as-is, so what looks like a "kaleidoscope" is
+// really just N stamps of the same shape around a circle. A real kaleidoscope
+// mirror-folds space first: every source point is reflected into a single
+// [0, alpha] wedge, and THAT folded wedge is what gets stamped around,
+// alternating rotation with a reflection so adjacent copies mirror each
+// other across their shared edge (the actual optical kaleidoscope effect).
+//
+// Fold: two mirror lines through the origin, at 0 rad (normal N0) and at
+// alpha rad (normal N1), applied alternately for exactly segs/2 steps.
+// Reflecting across a line with unit normal N sends p -> p - 2*(p.N)*N
+// whenever p sits on the line's negative side (p.N < 0); nFold=segs/2
+// alternating passes provably walks any point into [0, alpha] since each
+// pass can only fold the point closer to the wedge it's already partly in.
+//
+// Stamp: copy k's transform is a 2x2 matrix, built once per copy (not per
+// point): even k is a plain rotation by k*alpha; odd k is a rotation by
+// (k+1)*alpha composed with a reflection across the x-axis. That composed
+// matrix is what makes copy k+1 the mirror image of copy k instead of a
+// repeat of it.
+//
+// Reuses applyRadialCopy()'s scratch buffer, budget/decimation and
+// interpolated blank-jump bridging verbatim -- only the per-point fold and
+// the per-copy transform differ. Segment count is even-only (2/4/6) so the
+// fold always closes exactly; enforced both here and at the config-parse
+// site in web_ui.cpp.
+static void applyMirrorKaleido(size_t& n, uint8_t segments) {
+    if (n == 0 || !s_pm_kaleido) return;  // PSRAM alloc failed in init() -- skip, don't crash
+
+    uint8_t segs = segments & ~(uint8_t)1;  // round down to even
+    if (segs < 2) segs = 2;
+    if (segs > KALEIDO_SEGMENTS_MAX) segs = KALEIDO_SEGMENTS_MAX;
+
+    const float   alpha = 2.0f * PI / segs;
+    const uint8_t nFold = segs / 2;
+    // Mirror line normals for the fold: N0 at 0 rad, N1 at alpha rad.
+    const float n0x = 0.0f,       n0y = 1.0f;
+    const float n1x = sinf(alpha), n1y = -cosf(alpha);
+
+    const uint8_t blankSamples = gOptimizerConfig.min_blank_samples;
+    uint16_t budget = gOptimizerConfig.max_pts_per_frame;
+    if (budget > PATTERN_POINTS_MAX) budget = PATTERN_POINTS_MAX;
+
+    size_t srcN = (n > PATTERN_POINTS_MAX) ? PATTERN_POINTS_MAX : n;
+
+    // segs copies + (segs-1) blank-jump transitions must fit the budget.
+    size_t jumpCost = (size_t)(segs - 1) * blankSamples;
+    if (budget <= jumpCost) return;  // no room even for the jumps -- leave source untouched
+    size_t maxPerCopy = (budget - jumpCost) / segs;
+    if (maxPerCopy < 2) return;  // degenerate -- no room for a visible wedge
+
+    // Snapshot the source wedge into PSRAM before overwriting s_frame in place.
+    memcpy(s_pm_kaleido, s_frame, srcN * sizeof(LaserPoint));
+
+    // Decimate in place if one copy can't afford the full wedge density.
+    if (srcN > maxPerCopy) {
+        float  stride   = (float)srcN / (float)maxPerCopy;
+        float  nextPick = 0.0f;
+        size_t w        = 0;
+        for (size_t i = 0; i < srcN; i++) {
+            if (s_pm_kaleido[i].blank || (float)i >= nextPick) {
+                s_pm_kaleido[w++] = s_pm_kaleido[i];
+                nextPick += stride;
+            }
+        }
+        srcN = w;
+    }
+
+    // Fold AFTER resampling/decimation so mirror-axis crossings land on
+    // existing points -- the resulting kinks are handled by Corner Dwell.
+    for (size_t i = 0; i < srcN; i++) {
+        float px = s_pm_kaleido[i].x, py = s_pm_kaleido[i].y;
+        for (uint8_t f = 0; f < nFold; f++) {
+            float nx = (f & 1) ? n1x : n0x;
+            float ny = (f & 1) ? n1y : n0y;
+            float d = px * nx + py * ny;
+            if (d < 0.0f) {
+                px -= 2.0f * d * nx;
+                py -= 2.0f * d * ny;
+            }
+        }
+        s_pm_kaleido[i].x = (int16_t)px;
+        s_pm_kaleido[i].y = (int16_t)py;
+    }
+
+    size_t o = 0;
+    for (uint8_t k = 0; k < segs; k++) {
+        if (o + srcN + blankSamples > PATTERN_POINTS_MAX) break;
+
+        // Per-copy 2x2 matrix [[m00,m01],[m10,m11]]: even k = pure rotation
+        // by k*alpha; odd k = rotation by (k+1)*alpha composed with a
+        // reflection across the x-axis (Rot(theta) * Ref_x).
+        float m00, m01, m10, m11;
+        if ((k & 1) == 0) {
+            float theta = k * alpha;
+            float ca = cosf(theta), sa = sinf(theta);
+            m00 = ca; m01 = -sa;
+            m10 = sa; m11 =  ca;
+        } else {
+            float theta = (k + 1) * alpha;
+            float ca = cosf(theta), sa = sinf(theta);
+            m00 = ca; m01 = sa;
+            m10 = sa; m11 = -ca;
+        }
+
+        // Blank jump from the end of the previous copy to the start of this
+        // one -- galvo must settle before the laser re-enables (distance-
+        // proportional single-point blanks cause streaks).
+        if (k > 0) {
+            const LaserPoint& first = s_pm_kaleido[0];
+            int16_t dstX = (int16_t)(m00 * first.x + m01 * first.y);
+            int16_t dstY = (int16_t)(m10 * first.x + m11 * first.y);
+            int16_t px = s_frame[o - 1].x, py = s_frame[o - 1].y;
+            for (uint8_t d = 0; d < blankSamples; d++) {
+                float t = (float)(d + 1) / (float)blankSamples;
+                s_frame[o++] = LaserPoint((int16_t)(px + (dstX - px) * t),
+                                          (int16_t)(py + (dstY - py) * t),
+                                          0, 0, 0, 1);
+            }
+        }
+
+        for (size_t i = 0; i < srcN; i++) {
+            const LaserPoint& src = s_pm_kaleido[i];
+            int16_t nx = (int16_t)(m00 * src.x + m01 * src.y);
+            int16_t ny = (int16_t)(m10 * src.x + m11 * src.y);
+            s_frame[o++] = LaserPoint(nx, ny, src.r, src.g, src.b, src.blank);
+        }
+    }
+    n = o;
+}
+
 // ── Kaleidoscope effect (global toggle, Preset + Curve mode) ─────────────
 static void applyKaleidoscope(size_t& n) {
     if (!gLivePreset.kaleido_enabled) return;
-    applyRadialCopy(n, gLivePreset.kaleido_segments,
-                     gLivePreset.kaleido_mirror_h, gLivePreset.kaleido_mirror_v);
+    if (gLivePreset.kaleido_mode == KALEIDO_MODE_MIRROR) {
+        applyMirrorKaleido(n, gLivePreset.kaleido_segments);
+    } else {
+        applyRadialCopy(n, gLivePreset.kaleido_segments,
+                         gLivePreset.kaleido_mirror_h, gLivePreset.kaleido_mirror_v);
+    }
 }
 
 // ── Mirror effect (global toggle, separate from Kaleidoscope) ────────────

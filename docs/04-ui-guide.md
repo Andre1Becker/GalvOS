@@ -204,8 +204,9 @@ A card that applies to every active preset in real time. Changes take effect imm
 
 **Kaleidoscope & Mirror:**
 
-- **Kaleidoscope** — replicates the pattern into N rotationally symmetric segments (2–8, default 3 since v6.36.0 — 8 already looks fully kaleidoscopic, higher counts just wasted slider travel). Mirror H and Mirror V options alternate between original and mirrored copies of each segment.
-- **Mirror** — simpler reflection: Off, X (horizontal flip), Y (vertical flip), Radial4 (4-fold copy without reflection).
+- **Mode** — **Kaleidoscope** (default) is a true dihedral mirror-fold: the source is folded into one wedge and stamped around it with alternating rotation/reflection, so adjacent segments mirror each other across their shared edge like a real optical kaleidoscope. **Radial Repeat** is the older plain rotational copy — the same wedge stamped around N times with no fold, optionally alternating Mirror H/Mirror V per segment (those two checkboxes only apply in this mode and are disabled under Kaleidoscope, which builds its own symmetry).
+- **Segments** — 2/4/6, even only (the dihedral fold requires an even count to close exactly; default 4 since v6.51.0).
+- **Mirror** — simpler reflection, independent of the above: Off, X (horizontal flip), Y (vertical flip), Radial4 (4-fold copy without reflection).
 
 **Color:**
 
