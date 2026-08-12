@@ -57,7 +57,7 @@ Yes, all of this is real, and yes, it's all running on a 6 Freedom Money ($) mic
 | Auto-rotation (independent X/Y/Z) + static rotation offset | Spin any pattern on any axis, at its own speed, because static geometry is for cowards. |
 | 7 color animation modes (Gradient, Chase, Strobe, Pulse, Twinkle, Flip, Seg) | Layer a light show on top of any preset's own color without touching its code. |
 | Points-Only Mode | Turns any pattern into a dot cloud with configurable fade-in/out and fade direction — instant particle show. |
-| Kaleidoscope (2–8-fold) & Mirror | Symmetric multiplication of whatever's on screen, because one hexagon is never enough. |
+| True Kaleidoscope (dihedral mirror-fold, 2/4/6-fold) + Radial Repeat mode & Mirror | Symmetric multiplication of whatever's on screen, because one hexagon is never enough. |
 | Global BPM clock (Manual / Tap Tempo / DMX) | The whole show keeps a beat — priority DMX > Tap > Manual, with a big satisfying TAP button. |
 | Preset Sequencer | A BPM-synced set list: walk presets step by step, beat-quantized, with optional blank transitions. Never auto-starts on boot — Class 4 lasers don't get autoplay. |
 | Modulation engine (8 slots × 16 bindings) | LFOs, noise, multi-point envelopes, and step sequencers routed onto scale, rotation, hue, speed, density... Patterns that breathe on their own. |

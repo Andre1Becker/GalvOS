@@ -574,9 +574,12 @@ canvas { max-width: 100%; display: block; }
                 <div class="field rot-axis"><label>Rotation Speed</label><input type="range" class="rot-speed-slider" min="-0.5" max="0.5" step="0.01" value="0" oninput="setRotSpeed(this.value)"></div>
                 <h3>Kaleidoscope &amp; Mirror</h3>
                 <label class="row"><input type="checkbox" id="lv-kaleido-on" onchange="sendLiveControls()"> Enabled</label>
-                <div class="field"><label>Segments</label><input type="range" id="lv-kaleido-segments" min="2" max="8" value="3" oninput="liveSlider('lv-kaleido-segments')"></div>
-                <label class="row"><input type="checkbox" id="lv-mirror-h" onchange="sendLiveControls()"> Mirror H</label>
-                <label class="row"><input type="checkbox" id="lv-mirror-v" onchange="sendLiveControls()"> Mirror V</label>
+                <div class="field"><label>Mode</label>
+                  <select id="lv-kaleido-mode" onchange="onKaleidoModeChange()"><option value="1" selected>Kaleidoscope</option><option value="0">Radial Repeat</option></select>
+                </div>
+                <div class="field"><label>Segments</label><input type="range" id="lv-kaleido-segments" min="2" max="6" step="2" value="4" oninput="liveSlider('lv-kaleido-segments')"></div>
+                <label class="row"><input type="checkbox" id="lv-mirror-h" onchange="sendLiveControls()" disabled> Mirror H</label>
+                <label class="row"><input type="checkbox" id="lv-mirror-v" onchange="sendLiveControls()" disabled> Mirror V</label>
                 <div class="row">
                   <button class="btn sm mirror-btn primary" onclick="setMirrorMode(0)">Off</button>
                   <button class="btn sm mirror-btn" onclick="setMirrorMode(1)">X</button>
@@ -1432,7 +1435,7 @@ canvas { max-width: 100%; display: block; }
 /* =========================================================================
    GLOBAL STATE
    ========================================================================= */
-var UI_VERSION = '1.8.0';   // WebUI version -- independent from firmware version
+var UI_VERSION = '1.9.0';   // WebUI version -- independent from firmware version
 var NAV_TABS = [
   {id: 'dashboard', label: 'Dashboard', icon: '🏠', bottom: true},
   {id: 'presets', label: 'Presets', icon: '🎮', bottom: true},
@@ -2095,6 +2098,16 @@ function liveSlider(id) {
   if (liveDebounce) clearTimeout(liveDebounce);
   liveDebounce = setTimeout(sendLiveControls, 50);
 }
+function onKaleidoModeChange() {
+  // Mirror H/V only affect Radial Repeat mode -- the true Kaleidoscope fold
+  // already builds its own mirror symmetry, so disable them for that mode.
+  var isMirrorMode = domVal('lv-kaleido-mode', 1) == 1;
+  var mh = document.getElementById('lv-mirror-h');
+  var mv = document.getElementById('lv-mirror-v');
+  if (mh) mh.disabled = isMirrorMode;
+  if (mv) mv.disabled = isMirrorMode;
+  sendLiveControls();
+}
 async function sendLiveControls() {
   // Field names match the firmware's /api/preset-live handler exactly
   // (src/net/web_ui.cpp) -- there is deliberately only one rot_speed input;
@@ -2105,7 +2118,8 @@ async function sendLiveControls() {
     autoscaleSpeed: domVal('lv-autoscale-speed', 0), autoscaleMode: domVal('lv-autoscale-mode', 0),
     rotation: domVal('lv-rotation', 0),
     rot_x: liveRotX, rot_y: liveRotY, rot_z: liveRotZ, rot_speed: liveRotSpeed,
-    kaleido_enabled: domVal('lv-kaleido-on', false), kaleido_segments: domVal('lv-kaleido-segments', 3),
+    kaleido_enabled: domVal('lv-kaleido-on', false), kaleido_mode: domVal('lv-kaleido-mode', 1),
+    kaleido_segments: domVal('lv-kaleido-segments', 4),
     kaleido_mirror_h: domVal('lv-mirror-h', false), kaleido_mirror_v: domVal('lv-mirror-v', false),
     mirror_mode: liveMirrorMode,
     col_override: domVal('lv-color-override', false),

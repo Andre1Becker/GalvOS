@@ -216,7 +216,7 @@ These constants are defined in `include/config.h` and require a firmware rebuild
 | `POINTS_MODE_MIN_DWELL` | `3` | Minimum dwell ticks per dot in Points-Only mode. Below this, the dot is invisible. |
 | `POINTS_MODE_MAX_DWELL` | `30` | Maximum dwell ticks per dot — prevents a small number of dots from consuming the whole frame budget. |
 | `RANDOM_PTS_MAX_COUNT` | `14` | UI slider ceiling for the Random Points preset "Amount" parameter. |
-| `KALEIDO_SEGMENTS_MAX` | `16` | UI slider ceiling for the Kaleidoscope effect segment count. |
+| `KALEIDO_SEGMENTS_MAX` | `6` | UI slider ceiling for the Kaleidoscope effect segment count (even only: 2/4/6). |
 
 ### Content Limits
 

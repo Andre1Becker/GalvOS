@@ -23,7 +23,7 @@ constexpr uint8_t  POINTS_MODE_MAX_DWELL = 30;  // ticks; cap so few dots don't 
 constexpr uint8_t  RANDOM_PTS_MAX_COUNT = 14;   // UI slider ceiling ("Amount")
 
 // Kaleidoscope effect (pattern_engine.cpp::applyKaleidoscope)
-constexpr uint8_t  KALEIDO_SEGMENTS_MAX = 8;   // UI slider ceiling
+constexpr uint8_t  KALEIDO_SEGMENTS_MAX = 6;   // UI slider ceiling (even only)
 
 // GalvOS v5 Point Optimizer (Pillar 1) -- runtime-tunable via WebUI slider.
 // Mirrors optimizer::OptimizerConfig's persisted/tunable fields -- NOT the
@@ -636,6 +636,12 @@ enum MirrorMode : uint8_t {
     MIRROR_RADIAL4 = 3,  // 4-fold rotational copy, no reflection
 };
 
+// Kaleidoscope modes (pattern_engine.cpp::applyKaleidoscope)
+enum KaleidoMode : uint8_t {
+    KALEIDO_MODE_RADIAL = 0,  // plain rotational copy (cyclic group C_S)
+    KALEIDO_MODE_MIRROR = 1,  // true dihedral fold+repeat (group D_S)
+};
+
 struct LivePresetControls {
     volatile uint8_t  speed        = 0;
     volatile uint8_t  size_val     = 255;
@@ -696,9 +702,10 @@ struct LivePresetControls {
     volatile uint8_t  mw_tilt            = 60;   // 20..80 % projection tilt (top-down slant)
     // Kaleidoscope effect (global toggle, Preset + Curve mode)
     volatile bool     kaleido_enabled   = false;
-    volatile uint8_t  kaleido_segments  = 3;      // 2..KALEIDO_SEGMENTS_MAX
-    volatile bool     kaleido_mirror_h  = false;  // alternate segments: flip X
-    volatile bool     kaleido_mirror_v  = false;  // alternate segments: flip Y
+    volatile uint8_t  kaleido_mode      = KALEIDO_MODE_MIRROR;
+    volatile uint8_t  kaleido_segments  = 4;      // 2..6, even only
+    volatile bool     kaleido_mirror_h  = false;  // Radial mode only: alternate segments flip X
+    volatile bool     kaleido_mirror_v  = false;  // Radial mode only: alternate segments flip Y
     // Mirror effect (separate from Kaleidoscope) -- Off/X/Y/Radial4
     volatile uint8_t  mirror_mode = MIRROR_OFF;
     // Auto-Scaling: oscillates size between 0 and size_val, speed-driven

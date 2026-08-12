@@ -336,8 +336,9 @@ Update live preset controls without changing the active preset. All fields are o
 | `wave_amp` | float | 0.1–2.0 | Wave amplitude multiplier |
 | `wave_freq` | float | 0.25–4.0 | Wave frequency multiplier |
 | `kaleido_enabled` | bool | — | Kaleidoscope effect |
-| `kaleido_segments` | int | 2–16 | Number of segments |
-| `kaleido_mirror_h/v` | bool | — | Mirror alternate segments |
+| `kaleido_mode` | int | 0–1 | 0=Radial Repeat (plain rotational copy), 1=Kaleidoscope (true dihedral mirror-fold, default) |
+| `kaleido_segments` | int | 2–6 | Number of segments, even only |
+| `kaleido_mirror_h/v` | bool | — | Mirror alternate segments (Radial Repeat mode only) |
 | `mirror_mode` | int | 0–3 | Mirror: 0=off, 1=X, 2=Y, 3=Radial4 |
 | `points_mode_enabled` | bool | — | Points-Only mode |
 | `points_count` | int | 2–80 | Number of dots |

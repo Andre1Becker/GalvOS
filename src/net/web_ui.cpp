@@ -1378,7 +1378,13 @@ void init() {
             if (doc["col_seg_dir"].is<int>())    gLivePreset.col_seg_dir    = (int8_t)(int)doc["col_seg_dir"];
             if (doc["rotation"].is<int>())     gLivePreset.rotation    = (int16_t)(int)doc["rotation"];
             if (doc["kaleido_enabled"].is<bool>())  gLivePreset.kaleido_enabled  = doc["kaleido_enabled"];
-            if (doc["kaleido_segments"].is<int>())  gLivePreset.kaleido_segments = (uint8_t)constrain((int)doc["kaleido_segments"], 2, KALEIDO_SEGMENTS_MAX);
+            if (doc["kaleido_mode"].is<int>())      gLivePreset.kaleido_mode     = (uint8_t)constrain((int)doc["kaleido_mode"], 0, 1);
+            if (doc["kaleido_segments"].is<int>()) {
+                uint8_t v = (uint8_t)constrain((int)doc["kaleido_segments"], 2, KALEIDO_SEGMENTS_MAX);
+                v &= ~(uint8_t)1;             // even only -- true kaleidoscope fold requires it
+                if (v < 2) v = 2;
+                gLivePreset.kaleido_segments = v;
+            }
             if (doc["kaleido_mirror_h"].is<bool>()) gLivePreset.kaleido_mirror_h = doc["kaleido_mirror_h"];
             if (doc["kaleido_mirror_v"].is<bool>()) gLivePreset.kaleido_mirror_v = doc["kaleido_mirror_v"];
             if (doc["mirror_mode"].is<int>())       gLivePreset.mirror_mode      = (uint8_t)constrain((int)doc["mirror_mode"], 0, 3);
