@@ -34,6 +34,11 @@ Target: GalvOS ESP32-S3 controller via REST (/api/calib-cam/*, /api/status).
                   that doesn't form one continuous piece, or doesn't close
                   when its category says it should, and always saves a
                   screenshot either way.
+ 10. calibrate-warp - solves the firmware's /api/warp/* keystone-correction
+                  grid: commands exact DAC positions (bypassing warp/
+                  calibration), measures where they land vs. a target
+                  rectangle, and POSTs the corrected grid. Independent of
+                  'calibrate'/homography.npz above (different purpose).
 
 ---
 
@@ -50,6 +55,8 @@ Target: GalvOS ESP32-S3 controller via REST (/api/calib-cam/*, /api/status).
   python optimizeGalvo.py autotune-camera --trials 30
   python optimizeGalvo.py autotune-colors
   python optimizeGalvo.py analyze-live
+  python optimizeGalvo.py calibrate-warp --grid-size 3 --target-rect 100,80,1180,720
+  python optimizeGalvo.py calibrate-warp --grid-size 2 --dry-run
   python optimizeGalvo.py --config myRig.json check
 
 ---
@@ -91,11 +98,17 @@ import requests
 # ── versioning ───────────────────────────────────────────────────────────────
 # Semantic version of this script (independent of GalvOS firmware version).
 # Bump on every behavioral change; see git log for change history.
-SCRIPT_VERSION = "2.13.1"
+SCRIPT_VERSION = "2.14.0"
 
 # GalvOS firmware version that introduced /api/calib-cam/* (see firmware git log:
 # "fw: v6.03.0 -- camera-in-the-loop calibration API (calib-cam)").
 MIN_FW_VERSION_CALIB_CAM = (6, 3, 0)
+
+# GalvOS firmware version that introduced /api/warp/* (Prompt 7a - Camera
+# Closed-Loop Keystone). 'calibrate-warp' also relies on /api/debug/hw and
+# /api/config's galvo_x/y_gain/offset/invert_x/invert_y/swap_xy/output_scale
+# fields, all of which predate this.
+MIN_FW_VERSION_WARP = (6, 55, 0)
 
 # Hard floor for resultViewHoldSeconds (camConfig.json) - the camera view window must
 # stay open at least this long after a command finishes, so the last capture is
@@ -433,6 +446,26 @@ DEFAULT_CONFIG = {
                                 # perfectly co-boresighted (see optimizeGalvo diagnose
                                 # geometry issues); switch to 1/2 to check a specific
                                 # channel's own alignment instead.
+    "warpCalibFrames": 10,      # frames MEDIAN-stacked per calibrate-warp control point
+                                # (deliberately separate from accumFrames: that's max()-
+                                # accumulated for a fast-scanned pattern that only lights
+                                # each pixel briefly per frame; a calibrate-warp point is a
+                                # STATIC dwell dot, lit continuously, so median rejects
+                                # transient sensor noise/reflections better than max would)
+    "warpCalibMinBlobAreaPx": 20,     # calibrate-warp: reject a detected point if its
+    "warpCalibMaxBlobAreaPx": 4000,   # blob area (px^2, after background subtraction +
+                                # threshold) falls outside this range - too small is
+                                # noise/dust, too large is a lens flare/reflection or the
+                                # laser itself out of focus
+    "warpCalibMinPeakVal": 60,        # calibrate-warp: reject a detected point if the
+                                # background-subtracted capture's peak pixel value is
+                                # below this (0..255) - the dot wasn't actually bright
+                                # enough to trust, even if a blob of plausible size and
+                                # position was still found by the threshold pass
+    "warpCalibToleranceCameraPx": 3.0,  # calibrate-warp: gridSize>2's iterative per-point
+                                # solve (measure -> correct -> measure, max 3 rounds)
+                                # stops early once a point's camera-pixel residual is
+                                # under this
     "showCameraView": True,     # live preview window during calibrate/measure/optimize
     "resultViewHoldSeconds": 5.0,  # minimum seconds the camera view window (if shown)
                                 # stays open and live after calibrate/measure/optimize/
@@ -545,6 +578,18 @@ def validateConfig(cfg: dict):
                             f"an out-of-range value is simply clamped/ignored by the driver)")
     if not isinstance(cfg.get("binaryThreshold"), (int, float)) or not (0 <= cfg["binaryThreshold"] <= 255):
         problems.append("binaryThreshold must be a number between 0 and 255")
+    if not isinstance(cfg.get("warpCalibFrames"), int) or cfg["warpCalibFrames"] < 1:
+        problems.append("warpCalibFrames must be an integer >= 1")
+    if (not isinstance(cfg.get("warpCalibMinBlobAreaPx"), (int, float))
+            or not isinstance(cfg.get("warpCalibMaxBlobAreaPx"), (int, float))
+            or cfg["warpCalibMinBlobAreaPx"] < 0
+            or cfg["warpCalibMinBlobAreaPx"] >= cfg["warpCalibMaxBlobAreaPx"]):
+        problems.append("warpCalibMinBlobAreaPx must be a non-negative number less than "
+                        "warpCalibMaxBlobAreaPx")
+    if not isinstance(cfg.get("warpCalibMinPeakVal"), (int, float)) or not (0 <= cfg["warpCalibMinPeakVal"] <= 255):
+        problems.append("warpCalibMinPeakVal must be a number between 0 and 255")
+    if not isinstance(cfg.get("warpCalibToleranceCameraPx"), (int, float)) or cfg["warpCalibToleranceCameraPx"] <= 0:
+        problems.append("warpCalibToleranceCameraPx must be a positive number")
     if not isinstance(cfg.get("liveAnalysisMinComponentPx"), (int, float)) or cfg["liveAnalysisMinComponentPx"] < 0:
         problems.append("liveAnalysisMinComponentPx must be a non-negative number")
     costWeights = cfg.get("costWeights")
@@ -850,6 +895,44 @@ class EspClient:
         1(R)/2(G)/3(B) individually for a single-channel test - channel=0 lights all
         three at once (see calib_thresh_ch decode in galvo_out.cpp)."""
         self._post("/api/calib-thresh-test", {"active": active, "channel": channel})
+
+    def debugHw(self, x: int, y: int, r: int, g: int, b: int) -> dict:
+        """POST /api/debug/hw - direct single-point galvo+laser control. x/y are RAW
+        DAC-space coordinates (-32767..32767, centered at 0) written straight to the
+        DAC8562 as x+32768 - this BYPASSES pattern generation, the warp stage, AND
+        applyCalibration()'s gain/offset/outputScale/mirror entirely, unlike every
+        other pattern path. 'calibrate-warp' uses this precisely because it needs to
+        command an EXACT DAC position and see where it physically lands, independent
+        of whatever warp grid is currently active. Requires laser_armed (or
+        gDebugNoHW on the firmware side)."""
+        return self._post("/api/debug/hw", {"x": x, "y": y, "r": r, "g": g, "b": b})
+
+    def debugHwOff(self) -> None:
+        """POST /api/debug/hw {cmd:off} - blanks the beam and releases debug-output
+        mode (galvoTask resumes normal ring-buffer consumption)."""
+        self._post("/api/debug/hw", {"cmd": "off"})
+
+    def warpGet(self) -> dict:
+        """GET /api/warp/get - current warp grid: {enabled, gridSize, points}."""
+        return self._get("/api/warp/get")
+
+    def warpSet(self, gridSize: int, points: list, enabled: bool | None = None) -> dict:
+        """POST /api/warp/set - full grid replace. points must be gridSize x gridSize
+        of [x,y] pairs, normalized [-1..1] (firmware validates -1.5..1.5)."""
+        payload = {"gridSize": gridSize, "points": points}
+        if enabled is not None:
+            payload["enabled"] = enabled
+        return self._post("/api/warp/set", payload)
+
+    def warpReset(self) -> dict:
+        """POST /api/warp/reset - grid back to identity (enabled untouched)."""
+        return self._post("/api/warp/reset")
+
+    def warpTest(self, active: bool) -> dict:
+        """POST /api/warp/test - toggles the WARP_GRID_TEST calibration pattern
+        (border + gWarp.gridSize interior lines), which goes through the real
+        optimizer pipeline including the live warp stage."""
+        return self._post("/api/warp/test", {"active": active})
 
 
 # ── live camera view ─────────────────────────────────────────────────────────
@@ -1186,6 +1269,19 @@ class Camera:
         """Capture with laser blanked - call while pattern stopped."""
         return self.grabAccumulated(4)
 
+    def grabMedian(self, nFrames: int) -> np.ndarray:
+        """Median-stack nFrames. Unlike grabAccumulated()'s max()-projection - built
+        for a fast-scanned pattern that only lights each pixel briefly per frame - a
+        single STATIC dwell point (calibrate-warp) is lit continuously across every
+        frame, so a median rejects transient sensor noise/reflections that max()
+        would instead bake in permanently."""
+        frames = [self.grabGray() for _ in range(max(1, nFrames))]
+        stacked = np.median(np.stack(frames, axis=0), axis=0).astype(frames[0].dtype)
+        self.lastAccumulated = stacked
+        if self.liveView:
+            self.liveView.lastFullFrame = stacked
+        return stacked
+
     def release(self):
         self.cap.release()
 
@@ -1219,6 +1315,31 @@ def detectDots(image: np.ndarray, expected: int, threshold: int) -> np.ndarray:
             f"{threshold}) not matching your setup."
         )
     return np.array([(x, y) for x, y, _ in centers[:expected]], dtype=np.float32)
+
+
+def detectSinglePoint(image: np.ndarray, threshold: int, minAreaPx: float,
+                      maxAreaPx: float, minPeakVal: float) -> tuple[float, float] | None:
+    """calibrate-warp's per-point detector: one bright dwell dot, subpixel centroid
+    via image moments. Returns None (does NOT raise) if no blob is found, or the
+    largest blob's area/the frame's peak brightness falls outside the expected
+    bounds - callers collect per-index failures and report them together (see
+    runCalibrateWarp), rather than aborting on the first bad point or silently
+    using a bad measurement."""
+    if float(image.max()) < minPeakVal:
+        return None
+    _, binary = cv2.threshold(image, threshold, 255, cv2.THRESH_BINARY)
+    binary = cv2.dilate(binary, np.ones((5, 5), np.uint8))
+    contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    if not contours:
+        return None
+    best = max(contours, key=cv2.contourArea)
+    area = cv2.contourArea(best)
+    if area < minAreaPx or area > maxAreaPx:
+        return None
+    m = cv2.moments(best)
+    if m["m00"] <= 0:
+        return None
+    return (m["m10"] / m["m00"], m["m01"] / m["m00"])
 
 
 def orderCorners(points: np.ndarray) -> np.ndarray:
@@ -1323,6 +1444,381 @@ def loadHomography() -> tuple[np.ndarray, np.ndarray]:
             f"{HOMOGRAPHY_FILE.name} is corrupted or incomplete ({e}). Delete it and "
             f"re-run 'optimizeGalvo.py calibrate'."
         ) from e
+
+
+# ── warp-grid calibration (Prompt 7b) ─────────────────────────────────────────
+#
+# Distinct from calibrate/homography.npz above: that homography maps CAMERA
+# PIXELS -> DAC space for SCORING optimizer trials against an ideal shape.
+# calibrate-warp instead SOLVES the /api/warp/* grid itself, by commanding
+# exact DAC-space points (POST /api/debug/hw, which bypasses pattern
+# generation, the warp stage, AND applyCalibration()'s gain/offset/
+# outputScale/mirror entirely - see EspClient.debugHw) and observing where
+# they physically land on camera, then working out what DAC position WOULD
+# need to be commanded - through the REAL pipeline, warp included - to land
+# each control point at its intended spot instead.
+
+@dataclass
+class CalibTransform:
+    """Models pattern_engine.cpp::applyCalibration()'s fixed per-axis affine
+    chain (mirror/invert/gain/offset/outputScale) exactly, using live values
+    read from GET /api/config. Warp operates on PATTERN-space coordinates
+    (BEFORE this chain runs); /api/debug/hw commands raw DAC-space
+    coordinates (AFTER it). This class converts between the two spaces, so
+    debug/hw can be used to precisely probe/position a point in DAC space
+    while still reasoning about the pattern-space coordinates the firmware's
+    warp grid actually operates on. Deliberately excludes the dac_limit
+    clamp (non-invertible, lossy) - callers must keep commanded points
+    within [dac_limit_min, dac_limit_max] themselves."""
+    swapXy: bool
+    invertX: bool
+    invertY: bool
+    gainX: float
+    gainY: float
+    offsetX: float
+    offsetY: float
+    outputScale: float
+
+    @classmethod
+    def fromEspConfig(cls, espCfg: dict) -> "CalibTransform":
+        return cls(
+            swapXy=bool(espCfg.get("swap_xy")),
+            invertX=bool(espCfg.get("invert_x")),
+            invertY=bool(espCfg.get("invert_y")),
+            gainX=float(espCfg.get("galvo_x_gain", 32767)) or 32767.0,
+            gainY=float(espCfg.get("galvo_y_gain", 32767)) or 32767.0,
+            offsetX=float(espCfg.get("galvo_x_offset", 0)),
+            offsetY=float(espCfg.get("galvo_y_offset", 0)),
+            outputScale=float(espCfg.get("output_scale", 1.0)) or 1.0,
+        )
+
+    def toDac(self, x: float, y: float) -> tuple[float, float]:
+        """Pattern-space -> DAC-space (mirrors applyCalibration() exactly, minus
+        the final dac_limit clamp)."""
+        if self.swapXy:
+            x, y = y, x
+        x = -x                              # fixed physical mirror (unconditional)
+        if self.invertX:
+            x = -x
+        if self.invertY:
+            y = -y
+        x = x * self.gainX / 32767.0
+        y = y * self.gainY / 32767.0
+        x += self.offsetX
+        y += self.offsetY
+        x *= self.outputScale
+        y *= self.outputScale
+        return x, y
+
+    def toPattern(self, dacX: float, dacY: float) -> tuple[float, float]:
+        """DAC-space -> pattern-space (exact inverse of toDac())."""
+        x = dacX / self.outputScale
+        y = dacY / self.outputScale
+        x -= self.offsetX
+        y -= self.offsetY
+        x = x * 32767.0 / self.gainX
+        y = y * 32767.0 / self.gainY
+        if self.invertX:
+            x = -x
+        if self.invertY:
+            y = -y
+        x = -x                              # undo fixed physical mirror
+        if self.swapXy:
+            x, y = y, x
+        return x, y
+
+
+def identityGridPatternPos(n: int, r: int, c: int, dacRange: float) -> tuple[float, float]:
+    """Pattern-space position of identity-grid control point (r,c) for an n x n
+    warp grid - matches config.h's WarpConfig::resetIdentity() exactly (its
+    normalized [-1..1] formula, scaled here to pattern-space DAC units by
+    dacRange)."""
+    u = (-1.0 + (2.0 * c) / (n - 1)) if n > 1 else 0.0
+    v = (-1.0 + (2.0 * r) / (n - 1)) if n > 1 else 0.0
+    return u * dacRange, v * dacRange
+
+
+def _parseTargetRect(spec: str | None) -> tuple[float, float, float, float] | None:
+    """Parses --target-rect's "X0,Y0,X1,Y1" into a tuple, or None if omitted (the
+    caller then falls back to the interactive click picker)."""
+    if spec is None:
+        return None
+    parts = [p.strip() for p in spec.split(",")]
+    if len(parts) != 4:
+        raise OptimizerError(
+            f"--target-rect must be X0,Y0,X1,Y1 (4 comma-separated numbers), got: {spec!r}"
+        )
+    try:
+        x0, y0, x1, y1 = (float(p) for p in parts)
+    except ValueError as e:
+        raise OptimizerError(f"--target-rect values must be numbers: {spec!r} ({e})") from e
+    if x1 <= x0 or y1 <= y0:
+        raise OptimizerError(
+            f"--target-rect: X1 must be > X0 and Y1 must be > Y0, got {spec!r}"
+        )
+    return (x0, y0, x1, y1)
+
+
+def _channelToRgb(channel: int) -> tuple[int, int, int]:
+    return {0: (255, 255, 255), 1: (255, 0, 0), 2: (0, 255, 0), 3: (0, 0, 255)}.get(
+        channel, (0, 0, 255))
+
+
+def _resolveTargetRect(cam: "Camera",
+                       targetRect: tuple[float, float, float, float] | None) -> np.ndarray:
+    """Returns the 4 target pixel corners [TL,TR,BR,BL] (image space) the warp grid
+    should map its outer edge onto."""
+    if targetRect is not None:
+        x0, y0, x1, y1 = targetRect
+        return np.array([[x0, y0], [x1, y0], [x1, y1], [x0, y1]], dtype=np.float32)
+    if not sys.stdin.isatty():
+        raise OptimizerError(
+            "calibrate-warp needs --target-rect in a non-interactive session "
+            "(no terminal to click corners in)"
+        )
+    return _clickTargetRect(cam)
+
+
+def _clickTargetRect(cam: "Camera") -> np.ndarray:
+    """Interactive fallback for --target-rect: shows one live-ish frame, lets the
+    user click the 4 corners of the intended rectangle in any order (ordered
+    afterwards via the same orderCorners() runCalibrate uses), 'q'/Esc cancels."""
+    frame = cam.grabGray()
+    display = cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR)
+    clicked: list[tuple[int, int]] = []
+
+    def onMouse(event, x, y, flags, param):
+        if event == cv2.EVENT_LBUTTONDOWN and len(clicked) < 4:
+            clicked.append((x, y))
+
+    winName = "calibrate-warp: click the 4 target-rectangle corners (any order), q to cancel"
+    cv2.namedWindow(winName)
+    cv2.setMouseCallback(winName, onMouse)
+    try:
+        while len(clicked) < 4:
+            frameDisp = display.copy()
+            for i, (x, y) in enumerate(clicked):
+                cv2.circle(frameDisp, (x, y), 8, (0, 255, 0), 2)
+                cv2.putText(frameDisp, str(i + 1), (x + 12, y), cv2.FONT_HERSHEY_SIMPLEX,
+                           0.7, (0, 255, 0), 2, cv2.LINE_AA)
+            cv2.putText(frameDisp, f"clicked {len(clicked)}/4", (10, 30),
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 255), 2, cv2.LINE_AA)
+            cv2.imshow(winName, frameDisp)
+            key = cv2.waitKey(30) & 0xFF
+            if key == ord('q') or key == 27:
+                raise OptimizerError("calibrate-warp: target-rectangle selection cancelled")
+    finally:
+        cv2.destroyWindow(winName)
+    return orderCorners(np.array(clicked, dtype=np.float32))
+
+
+def _commandAndMeasure(esp: EspClient, cam: "Camera", cfg: dict, background: np.ndarray,
+                       dacX: float, dacY: float, colorRgb: tuple[int, int, int],
+                       label: str) -> tuple[float, float] | None:
+    """Commands one raw DAC-space point (POST /api/debug/hw), captures + detects its
+    subpixel centroid. Returns None (does not raise) on detection failure."""
+    x = int(round(max(-32767.0, min(32767.0, dacX))))
+    y = int(round(max(-32767.0, min(32767.0, dacY))))
+    r, g, b = colorRgb
+    esp.debugHw(x, y, r, g, b)
+    time.sleep(cfg["settleSeconds"])
+    cam.statusText = f"calibrate-warp: {label}"
+    frame = cam.grabMedian(cfg["warpCalibFrames"])
+    diff = cv2.subtract(frame, background)
+    return detectSinglePoint(diff, cfg["binaryThreshold"], cfg["warpCalibMinBlobAreaPx"],
+                             cfg["warpCalibMaxBlobAreaPx"], cfg["warpCalibMinPeakVal"])
+
+
+def runCalibrateWarp(cfg: dict, esp: EspClient, cam: "Camera", gridSize: int,
+                     targetRect: tuple[float, float, float, float] | None,
+                     frames: int | None, dryRun: bool):
+    if frames is not None:
+        cfg = {**cfg, "warpCalibFrames": frames}
+    n = gridSize
+
+    espCfg = esp.getConfig()
+    transform = CalibTransform.fromEspConfig(espCfg)
+    dacRange = float(cfg["dacRange"])
+    limLo = int(espCfg.get("dac_limit_min", 0x0666)) - 32768
+    limHi = int(espCfg.get("dac_limit_max", 0xF999)) - 32768
+    colorRgb = _channelToRgb(cfg["camPatternChannel"])
+
+    esp.stop()          # in case a calib-cam session was left running
+    esp.warpTest(False)  # in case a previous calibrate-warp run was interrupted
+    esp.warpReset()      # POST /api/warp/reset first - calibration runs on an identity grid
+
+    # From here on, /api/debug/hw is commanded repeatedly - wrap in try/finally so
+    # a mid-loop error, a failed-detection abort, or Ctrl+C still blanks the beam
+    # instead of leaving it parked lit at the last commanded point.
+    try:
+        return _runCalibrateWarpBody(cfg, esp, cam, n, targetRect, dryRun, transform,
+                                    dacRange, limLo, limHi, colorRgb)
+    finally:
+        esp.debugHwOff()
+
+
+def _runCalibrateWarpBody(cfg: dict, esp: EspClient, cam: "Camera", n: int,
+                          targetRect: tuple[float, float, float, float] | None,
+                          dryRun: bool, transform: CalibTransform, dacRange: float,
+                          limLo: int, limHi: int, colorRgb: tuple[int, int, int]):
+    targetCorners = _resolveTargetRect(cam, targetRect)
+    pr("target rectangle (image pixels), TL/TR/BR/BL:")
+    for label, (px, py) in zip(("TL", "TR", "BR", "BL"), targetCorners):
+        pr(f"  {label}: ({px:.0f}, {py:.0f})")
+
+    def targetPixelFor(r: int, c: int) -> np.ndarray:
+        # Outer edge lands on targetCorners; interior control points are meant to
+        # sit on an evenly-spaced grid INSIDE it - bilinear across the 4 corners.
+        u = c / (n - 1) if n > 1 else 0.5
+        v = r / (n - 1) if n > 1 else 0.5
+        top = targetCorners[0] * (1 - u) + targetCorners[1] * u
+        bot = targetCorners[3] * (1 - u) + targetCorners[2] * u
+        return top * (1 - v) + bot * v
+
+    ids = [(r, c) for r in range(n) for c in range(n)]
+    pr(f"projecting {n * n} identity-grid control point(s) as single dwell dots ...")
+    background = cam.grabMedian(4)
+
+    measured: dict[tuple[int, int], tuple[float, float]] = {}
+    commandedDac: dict[tuple[int, int], tuple[float, float]] = {}
+    failed: list[str] = []
+    for idx, (r, c) in enumerate(ids):
+        patX, patY = identityGridPatternPos(n, r, c, dacRange)
+        dacX, dacY = transform.toDac(patX, patY)
+        if not (limLo <= dacX <= limHi and limLo <= dacY <= limHi):
+            failed.append(
+                f"({r},{c}): identity position clips dac_limit_min/max "
+                f"(DAC {dacX:.0f},{dacY:.0f} outside [{limLo},{limHi}]) - lower "
+                f"dacRange in {CONFIG_FILE.name} or widen the DAC scan limit in "
+                f"the Calibration tab"
+            )
+            continue
+        p = _commandAndMeasure(esp, cam, cfg, background, dacX, dacY, colorRgb,
+                              f"point {idx + 1}/{n * n} ({r},{c})")
+        if p is None:
+            failed.append(f"({r},{c}): no dot detected at commanded DAC ({dacX:.0f},{dacY:.0f})")
+            continue
+        measured[(r, c)] = p
+        commandedDac[(r, c)] = (dacX, dacY)
+    esp.debugHwOff()
+
+    if failed:
+        raise OptimizerError(
+            f"calibrate-warp: {len(failed)} of {n * n} control point(s) failed "
+            "detection:\n  " + "\n  ".join(failed) +
+            f"\nCheck the laser is armed, camera focus/exposure ('optimizeGalvo.py "
+            f"preview'), and warpCalibMinBlobAreaPx/warpCalibMaxBlobAreaPx/"
+            f"warpCalibMinPeakVal/binaryThreshold in {CONFIG_FILE.name}."
+        )
+
+    beforeErrs = [float(np.hypot(*(np.array(measured[k]) - targetPixelFor(*k)))) for k in ids]
+    prTable([("mean", f"{np.mean(beforeErrs):.1f} px"), ("max", f"{np.max(beforeErrs):.1f} px")],
+           headers=("before-correction residual", ""))
+
+    # ── Solve ────────────────────────────────────────────────────────────────
+    # H maps DAC-space -> measured pixel-space (fit from the 4 corners' known
+    # commanded DAC position and their measured pixel landing spot). Its inverse
+    # therefore maps a DESIRED pixel position to the DAC position that produces
+    # it - evaluating Hinv at the target pixel corners gives the corrected DAC
+    # coordinates directly. (Do NOT fit pixel->pixel here - that just gives back
+    # the original measured pixels, not a DAC position, since the target and
+    # measured corners share the same correspondence order by construction.)
+    cornerIds = [(0, 0), (0, n - 1), (n - 1, n - 1), (n - 1, 0)]  # TL,TR,BR,BL
+    dacCornerPts = np.array([commandedDac[k] for k in cornerIds], dtype=np.float32)
+    measuredCornerPts = np.array([measured[k] for k in cornerIds], dtype=np.float32)
+    H, _ = cv2.findHomography(dacCornerPts, measuredCornerPts)
+    if H is None:
+        raise OptimizerError(
+            "calibrate-warp: homography solve failed - the 4 corner measurements "
+            "may be degenerate (collinear/overlapping). Check camera framing "
+            "('optimizeGalvo.py preview') and re-run."
+        )
+    Hinv = np.linalg.inv(H)
+
+    def pixelToDacViaH(px: float, py: float) -> tuple[float, float]:
+        v = Hinv @ np.array([px, py, 1.0])
+        return float(v[0] / v[2]), float(v[1] / v[2])
+
+    solvedDac: dict[tuple[int, int], tuple[float, float]] = {}
+    if n == 2:
+        # Exactly 4 correspondences determine the homography - no further
+        # measurement needed, just evaluate it at the 4 target corners.
+        for k in ids:
+            solvedDac[k] = pixelToDacViaH(*targetPixelFor(*k))
+    else:
+        tolerancePx = cfg["warpCalibToleranceCameraPx"]
+        for (r, c) in ids:
+            target = targetPixelFor(r, c)
+            targetDac = pixelToDacViaH(*target)   # homography-seeded initial guess
+            guess = targetDac
+            for roundIdx in range(3):
+                gx = max(limLo, min(limHi, guess[0]))
+                gy = max(limLo, min(limHi, guess[1]))
+                p = _commandAndMeasure(esp, cam, cfg, background, gx, gy, colorRgb,
+                                      f"refine ({r},{c}) round {roundIdx + 1}/3")
+                if p is None:
+                    break   # keep the last guess rather than failing the whole run
+                errPx = float(np.hypot(p[0] - target[0], p[1] - target[1]))
+                guess = (gx, gy)
+                if errPx <= tolerancePx:
+                    break
+                # Feedback correction: pixelToDacViaH is a FIXED local linear model
+                # (the corner homography) of the real, non-projective (piecewise-
+                # bilinear-ish) transfer function. Its own self-consistency error at
+                # the currently commanded point - targetDac - pixelToDacViaH(measured)
+                # - is the model's estimate of how far off THIS guess is in DAC
+                # space, added back onto the guess (proportional/Newton-style
+                # feedback control, not a full per-point Jacobian).
+                modelDacAtMeasured = pixelToDacViaH(*p)
+                guess = (gx + (targetDac[0] - modelDacAtMeasured[0]),
+                        gy + (targetDac[1] - modelDacAtMeasured[1]))
+            solvedDac[(r, c)] = guess
+        esp.debugHwOff()
+
+    # ── Verify (after) ──────────────────────────────────────────────────────
+    afterErrs = []
+    for k in ids:
+        gx, gy = solvedDac[k]
+        gx = max(limLo, min(limHi, gx))
+        gy = max(limLo, min(limHi, gy))
+        p = _commandAndMeasure(esp, cam, cfg, background, gx, gy, colorRgb,
+                              f"verify ({k[0]},{k[1]})")
+        if p is not None:
+            target = targetPixelFor(*k)
+            afterErrs.append(float(np.hypot(p[0] - target[0], p[1] - target[1])))
+    esp.debugHwOff()
+    if afterErrs:
+        prTable([("mean", f"{np.mean(afterErrs):.1f} px"), ("max", f"{np.max(afterErrs):.1f} px")],
+               headers=("after-correction residual", ""))
+    else:
+        prWarn("after-correction verification capture failed for every point - "
+              "residual not re-measured (grid was still solved)")
+
+    # ── Emit normalized grid (firmware warpPoints format) ───────────────────
+    points = [[[0.0, 0.0] for _ in range(n)] for _ in range(n)]
+    clipped = []
+    for (r, c), (dx, dy) in solvedDac.items():
+        px, py = transform.toPattern(dx, dy)
+        u, v = px / dacRange, py / dacRange
+        if abs(u) > 1.5 or abs(v) > 1.5:
+            clipped.append(f"({r},{c})")
+        u = max(-1.5, min(1.5, u))
+        v = max(-1.5, min(1.5, v))
+        points[r][c] = [round(u, 5), round(v, 5)]
+    if clipped:
+        prWarn(f"control point(s) {', '.join(clipped)} needed a correction beyond the "
+              f"+-1.5 normalized range and were clamped - the required correction may "
+              f"be too large for this dacRange/projector geometry")
+
+    result = {"gridSize": n, "points": points, "enabled": True}
+    print(json.dumps(result, indent=2))
+
+    if dryRun:
+        prInfo("dry-run: nothing was POSTed to the ESP32")
+        return
+
+    esp.warpSet(n, points, enabled=True)
+    prOk("warp grid applied via /api/warp/set")
 
 
 # ── ideal pattern geometry (must match firmware calib patterns, DAC coords) ──
@@ -2747,7 +3243,7 @@ def runDiagnose(cfg: dict, esp: EspClient, cam: Camera, profile: str | None,
 # ESP32 at all; 'analyze-live' never starts/stops a pattern by design and does its
 # own non-blocking version of this same check inline (see runAnalyzeLive).
 LASER_REQUIRED_CMDS = ("calibrate", "measure", "optimize", "diagnose", "autotune-camera",
-                      "autotune-colors")
+                      "autotune-colors", "calibrate-warp")
 
 
 def requireLaserReady(esp: EspClient):
@@ -3586,11 +4082,14 @@ def main():
               7. autotune-camera  Optuna search over exposure/gain/binaryThreshold/
                             accumFrames (camera capture quality, not firmware params)
 
-            standalone (run any time after 'calibrate', doesn't fit the tuning order above):
+            standalone (run any time, doesn't fit the tuning order above):
               analyze-live  structural (no-reference) read of whatever preset is
                             live right now - flags gaps/breaks or an unexpectedly
                             open shape without needing a known ideal geometry, and
                             never starts/stops a pattern on the ESP32
+              calibrate-warp  solves the firmware's /api/warp/* keystone grid -
+                            independent of 'calibrate'/homography.npz, does NOT
+                            require it to have been run first
 
             {"-" * 78}
             files:
@@ -3951,6 +4450,56 @@ def main():
                      "the saved screenshot for anything more specific. Requires an "
                      "existing homography.npz - run 'calibrate' first.")
 
+    pWarp = sub.add_parser(
+        "calibrate-warp",
+        help="solve the /api/warp/* keystone-correction grid via camera feedback",
+        description="Solves GalvOS's N x N (2..5) warp-correction grid (Prompt 7a's "
+                     "/api/warp/*), independent of 'calibrate'/homography.npz above (a "
+                     "different purpose - that one scores optimizer trials, this one "
+                     "corrects projector keystone/perspective). Resets the firmware to "
+                     "an identity grid, then projects each identity-grid control point "
+                     "as a single bright dwell dot (POST /api/debug/hw - bypasses "
+                     "pattern generation, warp, AND applyCalibration() entirely, so "
+                     "each point lands at a precisely known DAC position regardless of "
+                     "whatever warp grid was previously active) and measures its pixel "
+                     "position (median of --frames captures, threshold, subpixel "
+                     "centroid via image moments). Rejects a point if its blob area or "
+                     "brightness falls outside warpCalibMin/MaxBlobAreaPx/"
+                     "warpCalibMinPeakVal in camConfig.json, and aborts with the full "
+                     "list of failed indices rather than silently using bad data. For "
+                     "--grid-size 2, solves one homography from the 4 corner "
+                     "measurements and inverts it - exact, no further measurement "
+                     "needed. For --grid-size 3..5, seeds every control point "
+                     "(interior points too) from that same corner homography, then "
+                     "iteratively re-measures and corrects each one (max 3 rounds, "
+                     "stops early once within warpCalibToleranceCameraPx) since a "
+                     "single homography can't exactly represent the firmware's "
+                     "piecewise-bilinear grid. Prints before/after residual (mean/max, "
+                     "camera pixels) and the resulting normalized grid JSON, then POSTs "
+                     "it via /api/warp/set (enabled=true) unless --dry-run. Target "
+                     "rectangle: --target-rect, or click 4 corners interactively if "
+                     "omitted (needs a terminal). Shows a live camera view window "
+                     "throughout (see --no-view/--zoom).")
+    pWarp.add_argument(
+        "--grid-size", type=int, choices=[2, 3, 4, 5], default=2, dest="gridSize",
+        help="warp grid size N (N x N control points), matching the firmware's "
+             "WARP_GRID_MAX range (default: 2 = plain 4-corner keystone)")
+    pWarp.add_argument(
+        "--target-rect", dest="targetRect", default=None,
+        metavar="X0,Y0,X1,Y1",
+        help="target rectangle in camera pixel space (top-left and bottom-right "
+             "corners, comma-separated) that the warp grid's outer edge should map "
+             "onto. Omit to click the 4 corners interactively instead (needs a "
+             "terminal / --no-view is ignored for this one step).")
+    pWarp.add_argument(
+        "--frames", type=int, default=None,
+        help="frames to median-stack per control point capture (default: "
+             "warpCalibFrames in camConfig.json, currently used to seed it if unset)")
+    pWarp.add_argument(
+        "--dry-run", action="store_true", dest="dryRun",
+        help="solve and print the resulting grid JSON, but do not POST it to the "
+             "ESP32 (/api/warp/set is skipped)")
+
     parser.add_argument(
         "--debug", action="store_true",
         help="on error, print a full Python traceback instead of a short message "
@@ -4009,7 +4558,7 @@ def dispatch(args):
 
     showView = cfg.get("showCameraView", True) and not args.noView
     viewCmds = ("calibrate", "measure", "optimize", "diagnose", "autotune-camera",
-               "autotune-colors", "analyze-live")
+               "autotune-colors", "analyze-live", "calibrate-warp")
     liveView = LiveView("GalvOS camera view", cfg["frameWidth"], cfg["frameHeight"],
                         zoomIdx=args.zoom - 1) \
         if showView and args.cmd in viewCmds else None
@@ -4056,6 +4605,9 @@ def dispatch(args):
                              autoApply=args.autoApply)
         elif args.cmd == "analyze-live":
             runAnalyzeLive(cfg, esp, cam)
+        elif args.cmd == "calibrate-warp":
+            targetRect = _parseTargetRect(args.targetRect)
+            runCalibrateWarp(cfg, esp, cam, args.gridSize, targetRect, args.frames, args.dryRun)
         if liveView:
             holdLiveView(cam, cfg.get("resultViewHoldSeconds", MIN_RESULT_VIEW_HOLD_SECONDS))
     finally:
