@@ -631,9 +631,9 @@ enum AutoScaleMode : uint8_t {
 // (see data/index.html::paintMirrorPoints()), independent of Kaleidoscope.
 enum MirrorMode : uint8_t {
     MIRROR_OFF     = 0,
-    MIRROR_X       = 1,  // flip horizontal (negate X)
-    MIRROR_Y       = 2,  // flip vertical (negate Y)
-    MIRROR_RADIAL4 = 3,  // 4-fold rotational copy, no reflection
+    MIRROR_X       = 1,  // negate Y -> symmetric across the X axis (top/bottom)
+    MIRROR_Y       = 2,  // negate X -> symmetric across the Y axis (left/right)
+    MIRROR_RADIAL4 = 3,  // 4-fold quadrant reflection
 };
 
 // Kaleidoscope modes (pattern_engine.cpp::applyKaleidoscope)

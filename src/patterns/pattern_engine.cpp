@@ -1059,27 +1059,86 @@ static void applyKaleidoscope(size_t& n) {
 }
 
 // ── Mirror effect (global toggle, separate from Kaleidoscope) ────────────
-// Off / Horizontal flip / Vertical flip / 4-fold radial copy -- same mode
-// set as Paint-by-Finger's mirror brush (see index.html::paintMirrorPoints()).
-// Append a mirrored copy of s_frame[0..srcN-1] after the original.
-// flip_x / flip_y define the reflection axes for the copy.
+// Off / X-symmetric fold / Y-symmetric fold / 4-fold radial copy -- same
+// mode set as Paint-by-Finger's mirror brush (see
+// index.html::paintMirrorPoints()).
+//
+// Fold-then-place: reflecting the raw frame about the origin (old behavior)
+// lands the copy directly on top of the origin-centered original -- a flip,
+// not a mirror. Instead the whole frame's bbox is scaled/shifted into one
+// half-plane (or quadrant), and every copy is that same folded geometry with
+// a per-axis sign flip -- so original and copies tile side by side instead
+// of overlapping. Canvas half-extent is 16384 units (quarter of the int16
+// range) either side of the fold line, giving every copy headroom to settle
+// without crossing back over it.
+//
+// Budget: (budget - (count-1)*blankSamples) / count per copy, so every mode
+// (2-way and 4-way) reserves blank-jump budget the same way Kaleidoscope
+// does (see applyMirrorKaleido() above).
+//
+// Copies are emitted forward for the canonical original (k=0) and in
+// REVERSE point order for every reflected copy (k>0) -- the blank jump into
+// a reversed copy then lands on the reflection of the previous copy's last
+// point, giving a shorter jump and a directionally continuous path instead
+// of doubling back to the copy's own start.
+//
 // Uses s_pm_kaleido as scratch (already allocated in init()).
-static void appendMirrorCopy(size_t& n, bool flipX, bool flipY) {
-    if (!s_pm_kaleido) return;
-    const uint8_t  blankSamples = gOptimizerConfig.min_blank_samples;
-    const uint16_t budget       = gOptimizerConfig.max_pts_per_frame < PATTERN_POINTS_MAX
-                                      ? gOptimizerConfig.max_pts_per_frame
-                                      : PATTERN_POINTS_MAX;
+static void applyMirror(size_t& n) {
+    MirrorMode mode = (MirrorMode)gLivePreset.mirror_mode;
+    if (mode == MIRROR_OFF || n == 0 || !s_pm_kaleido) return;
+
+    const uint8_t copies = (mode == MIRROR_RADIAL4) ? 4 : 2;
+
     size_t srcN = n < PATTERN_POINTS_MAX ? n : PATTERN_POINTS_MAX;
 
-    // How many points can the copy use?
-    size_t jumpCost = blankSamples;
-    if (budget <= jumpCost + srcN) {
-        // Decimate copy to fit budget (keep blank points intact).
-        size_t maxCopy = budget > jumpCost ? budget - jumpCost : 0;
-        if (maxCopy < 2) return;
-        memcpy(s_pm_kaleido, s_frame, srcN * sizeof(LaserPoint));
-        float  stride   = (float)srcN / (float)maxCopy;
+    // Frame bbox, computed once up front (X/Y modes only -- RADIAL4 always
+    // scales by a fixed 0.5, no clamp needed since 4 quadrant-sized copies
+    // already fit the canvas by construction).
+    float minX = 32767, maxX = -32768, minY = 32767, maxY = -32768;
+    for (size_t i = 0; i < srcN; i++) {
+        if (s_frame[i].x < minX) minX = s_frame[i].x;
+        if (s_frame[i].x > maxX) maxX = s_frame[i].x;
+        if (s_frame[i].y < minY) minY = s_frame[i].y;
+        if (s_frame[i].y > maxY) maxY = s_frame[i].y;
+    }
+    float cx = (minX + maxX) * 0.5f;
+    float cy = (minY + maxY) * 0.5f;
+    float bboxW = maxX - minX; if (bboxW < 1.0f) bboxW = 1.0f;
+    float bboxH = maxY - minY; if (bboxH < 1.0f) bboxH = 1.0f;
+
+    const uint8_t  blankSamples = gOptimizerConfig.min_blank_samples;
+    uint16_t budget = gOptimizerConfig.max_pts_per_frame;
+    if (budget > PATTERN_POINTS_MAX) budget = PATTERN_POINTS_MAX;
+
+    size_t jumpCost = (size_t)(copies - 1) * blankSamples;
+    if (budget <= jumpCost) return;
+    size_t perCopy = (budget - jumpCost) / copies;
+    if (perCopy < 2) return;
+
+    // Snapshot into PSRAM scratch, then fold every point into ONE canonical
+    // half-plane / quadrant (sign +1,+1 -- the shape each copy's per-axis
+    // sign flip is applied to below).
+    memcpy(s_pm_kaleido, s_frame, srcN * sizeof(LaserPoint));
+
+    float s = (mode == MIRROR_RADIAL4) ? 0.5f
+            : (mode == MIRROR_X)       ? fminf(1.0f, 16383.0f / bboxH)
+                                        : fminf(1.0f, 16383.0f / bboxW);
+    for (size_t i = 0; i < srcN; i++) {
+        float bx = (s_pm_kaleido[i].x - cx) * s;
+        float by = (s_pm_kaleido[i].y - cy) * s;
+        float fx, fy;
+        if (mode == MIRROR_X)      { fx = bx;            fy = by - 16384.0f; }
+        else if (mode == MIRROR_Y) { fx = bx - 16384.0f;  fy = by;           }
+        else                       { fx = bx + 16384.0f;  fy = by + 16384.0f; }
+        s_pm_kaleido[i].x = (int16_t)fx;
+        s_pm_kaleido[i].y = (int16_t)fy;
+    }
+
+    // Decimate the folded source in place if a single copy can't afford the
+    // full point count (keep blank points intact, same stride-pick as
+    // applyMirrorKaleido()).
+    if (srcN > perCopy) {
+        float  stride   = (float)srcN / (float)perCopy;
         float  nextPick = 0.0f;
         size_t w        = 0;
         for (size_t i = 0; i < srcN; i++) {
@@ -1089,110 +1148,49 @@ static void appendMirrorCopy(size_t& n, bool flipX, bool flipY) {
             }
         }
         srcN = w;
-    } else {
-        memcpy(s_pm_kaleido, s_frame, srcN * sizeof(LaserPoint));
     }
 
-    size_t o = n;
+    // Snapshot once -- avoid TOCTOU vs. live WebUI writes (same pattern as
+    // applyPointsOnlyMode() above).
+    optimizer::OptimizerConfig cfg;
+    cfg.blank_samples            = gOptimizerConfig.blank_samples;
+    cfg.min_blank_samples        = gOptimizerConfig.min_blank_samples;
+    cfg.blank_pts_per_1000_units = gOptimizerConfig.blank_pts_per_1000_units;
+    cfg.ringing_comp_enabled     = gOptimizerConfig.ringing_comp_enabled;
+    cfg.ring_freq_hz             = gOptimizerConfig.ring_freq_hz;
+    cfg.ring_damping_ratio       = gOptimizerConfig.ring_damping_ratio;
+    cfg.galvo_kpps               = gProjection.galvo_kpps;
 
-    // Blank jump: interpolate from last point to first reflected point.
-    {
-        const LaserPoint& first = s_pm_kaleido[0];
-        int16_t dstX = flipX ? -first.x : first.x;
-        int16_t dstY = flipY ? -first.y : first.y;
-        int16_t px   = s_frame[o - 1].x;
-        int16_t py   = s_frame[o - 1].y;
-        for (uint8_t d = 0; d < blankSamples && o < PATTERN_POINTS_MAX; d++) {
-            float t      = (float)(d + 1) / (float)blankSamples;
-            s_frame[o++] = LaserPoint((int16_t)(px + (dstX - px) * t),
-                                       (int16_t)(py + (dstY - py) * t),
-                                       0, 0, 0, 1);
+    // Gray-code quadrant sign order for RADIAL4: (+,+) (-,+) (-,-) (+,-) --
+    // each step flips exactly one axis, so adjacent quadrants share an edge.
+    static const int8_t kQuadX[4] = {  1, -1, -1,  1 };
+    static const int8_t kQuadY[4] = {  1,  1, -1, -1 };
+
+    size_t o = 0;
+    for (uint8_t k = 0; k < copies; k++) {
+        if (o + srcN + blankSamples > PATTERN_POINTS_MAX) break;
+
+        int8_t qx, qy;
+        if (mode == MIRROR_X)      { qx = 1;                qy = (k == 0) ? 1 : -1; }
+        else if (mode == MIRROR_Y) { qx = (k == 0) ? 1 : -1; qy = 1;                 }
+        else                       { qx = kQuadX[k];         qy = kQuadY[k];         }
+
+        bool reverse = (k > 0);
+        if (k > 0) {
+            size_t firstIdx = reverse ? (srcN - 1) : 0;
+            float dstX = qx * (float)s_pm_kaleido[firstIdx].x;
+            float dstY = qy * (float)s_pm_kaleido[firstIdx].y;
+            optimizer::emitBlankTo(s_frame, o, PATTERN_POINTS_MAX, dstX, dstY, cfg);
         }
-    }
 
-    // Reflected copy.
-    for (size_t i = 0; i < srcN && o < PATTERN_POINTS_MAX; i++) {
-        const LaserPoint& src = s_pm_kaleido[i];
-        s_frame[o++] = LaserPoint(flipX ? -src.x : src.x,
-                                   flipY ? -src.y : src.y,
-                                   src.r, src.g, src.b, src.blank);
+        for (size_t ii = 0; ii < srcN && o < PATTERN_POINTS_MAX; ii++) {
+            size_t i = reverse ? (srcN - 1 - ii) : ii;
+            const LaserPoint& src = s_pm_kaleido[i];
+            s_frame[o++] = LaserPoint((int16_t)(qx * src.x), (int16_t)(qy * src.y),
+                                       src.r, src.g, src.b, src.blank);
+        }
     }
     n = o;
-}
-
-static void applyMirror(size_t& n) {
-    switch (gLivePreset.mirror_mode) {
-        case MIRROR_X:
-            // Original + Y-reflected copy  →  symmetric across X-axis (top/bottom).
-            appendMirrorCopy(n, false, true);
-            break;
-        case MIRROR_Y:
-            // Original + X-reflected copy  →  symmetric across Y-axis (left/right).
-            appendMirrorCopy(n, true, false);
-            break;
-        case MIRROR_RADIAL4: {
-            // 4-quadrant reflection: original + flip-X + flip-Y + flip-XY.
-            // Each copy is placed with a blank-jump transition so the galvo
-            // doesn't streak between quadrants.
-            if (!s_pm_kaleido || n == 0) break;
-
-            const uint8_t  blankSamples = gOptimizerConfig.min_blank_samples;
-            const uint16_t budget       = gOptimizerConfig.max_pts_per_frame < PATTERN_POINTS_MAX
-                                              ? gOptimizerConfig.max_pts_per_frame
-                                              : PATTERN_POINTS_MAX;
-
-            // 4 copies + 3 blank-jump transitions must fit.
-            size_t jumpCost  = 3 * (size_t)blankSamples;
-            size_t maxPerCopy = (budget > jumpCost) ? (budget - jumpCost) / 4 : 0;
-            if (maxPerCopy < 2) break;
-
-            // Snapshot source into PSRAM scratch and decimate if needed.
-            size_t srcN = n < PATTERN_POINTS_MAX ? n : PATTERN_POINTS_MAX;
-            memcpy(s_pm_kaleido, s_frame, srcN * sizeof(LaserPoint));
-            if (srcN > maxPerCopy) {
-                float  stride   = (float)srcN / (float)maxPerCopy;
-                float  nextPick = 0.0f;
-                size_t w        = 0;
-                for (size_t i = 0; i < srcN; i++) {
-                    if (s_pm_kaleido[i].blank || (float)i >= nextPick) {
-                        s_pm_kaleido[w++] = s_pm_kaleido[i];
-                        nextPick += stride;
-                    }
-                }
-                srcN = w;
-            }
-
-            // Write 4 copies: (x,y) / (-x,y) / (x,-y) / (-x,-y).
-            const bool flips[4][2] = {{false,false},{true,false},{false,true},{true,true}};
-            size_t o = 0;
-            for (uint8_t k = 0; k < 4; k++) {
-                bool fx = flips[k][0], fy = flips[k][1];
-                if (k > 0) {
-                    // Blank jump to first point of this copy.
-                    const LaserPoint& first = s_pm_kaleido[0];
-                    int16_t dstX = fx ? -first.x : first.x;
-                    int16_t dstY = fy ? -first.y : first.y;
-                    int16_t px   = s_frame[o - 1].x, py = s_frame[o - 1].y;
-                    for (uint8_t d = 0; d < blankSamples && o < PATTERN_POINTS_MAX; d++) {
-                        float t      = (float)(d + 1) / (float)blankSamples;
-                        s_frame[o++] = LaserPoint((int16_t)(px + (dstX - px) * t),
-                                                   (int16_t)(py + (dstY - py) * t),
-                                                   0, 0, 0, 1);
-                    }
-                }
-                for (size_t i = 0; i < srcN && o < PATTERN_POINTS_MAX; i++) {
-                    const LaserPoint& src = s_pm_kaleido[i];
-                    s_frame[o++] = LaserPoint(fx ? -src.x : src.x,
-                                               fy ? -src.y : src.y,
-                                               src.r, src.g, src.b, src.blank);
-                }
-            }
-            n = o;
-            break;
-        }
-        default:
-            break;  // MIRROR_OFF
-    }
 }
 
 // ── Points-Only render mode (global toggle, Proposal B) ──────────────────
