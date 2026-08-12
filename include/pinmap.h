@@ -177,6 +177,16 @@
                                       sane display/logging; ILDA_MAX_PATH just has to be
                                       able to round-trip whatever's already on the card */
 
+/* SVG import file storage (see svg_store.cpp) -- flat /svg/ directory on the
+   same SD card, mirrors the ILDA_MAX_* conventions above with its own table. */
+#define SVG_MAX_FILES        40   /* Maximum count of .svg files on SD */
+#define SVG_MAX_PATH        255   /* matches ILDA_MAX_PATH -- FAT LFN limit */
+#define SVG_MAX_UPLOAD_NAME   60   /* max sanitized upload basename (excl. ".svg") */
+#define SVG_MAX_FILE_BYTES (256UL * 1024UL)   /* playability size cap -- keeps the
+                                      browser-side DOMParser/RDP pipeline (400 raw
+                                      samples/path) from choking on pathological
+                                      multi-MB SVGs (e.g. embedded raster data URIs) */
+
 /* ── alias definitions for legacy code references ──────────────────── */
 #define PIN_LASER_EN     PIN_LASER_ENABLE   /* emergencyStop alias */
 // PIN_DAC_CLR_N (GPIO13, J1-Pin19): /CLR of DAC8562 (Pin5) — hardware pull-up 10kΩ

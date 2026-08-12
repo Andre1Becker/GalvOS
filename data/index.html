@@ -938,6 +938,17 @@ canvas { max-width: 100%; display: block; }
         </div>
         <div>
           <div class="card">
+            <h2>SVG Files (SD)</h2>
+            <div class="ilda-row ilda-header" style="margin-top:10px">
+              <span class="ilda-col-play" style="visibility:hidden">&#9654; Play</span>
+              <span class="ilda-col-name">Filename</span>
+              <span class="ilda-col-size">Size</span>
+              <span class="ilda-col-date">Date</span>
+              <span class="ilda-col-actions"></span>
+            </div>
+            <div id="svg-file-list"><p>Loading&hellip;</p></div>
+          </div>
+          <div class="card">
             <h2>ILDA Player</h2>
             <label class="row"><input type="checkbox" id="ilda-enabled" onchange="ildaSetEnabled(this.checked)"> Enabled</label>
             <p><span id="ilda-now-playing">Nothing playing</span> — <span id="ilda-progress-label">0 / 0</span></p>
@@ -970,6 +981,33 @@ canvas { max-width: 100%; display: block; }
             <h2>ILDA Upload</h2>
             <button class="btn" onclick="uploadILDA()">&#8679; Upload .ild / .ilda files</button>
             <p style="font-size:0.75rem;color:var(--text-dim)">Max 40 files on SD card.</p>
+          </div>
+
+          <div class="card">
+            <h2>SVG Import</h2>
+            <canvas id="svg-preview" width="260" height="260" style="width:100%;aspect-ratio:1;background:#000"></canvas>
+            <p id="svg-status" style="font-size:0.75rem;color:var(--text-dim)">No SVG loaded</p>
+            <div class="row">
+              <button class="btn sm" onclick="svgLoadFile()">&#8679; Load SVG</button>
+              <button class="btn sm primary" onclick="svgProject()">&#128424; Project</button>
+              <button class="btn sm" onclick="svgOff()">&#9632; Off</button>
+            </div>
+            <div class="row" style="margin-top:8px">
+              <input type="color" id="svg-color" value="#ffffff" onchange="svgReprocess()">
+              <label><input type="checkbox" id="svg-use-colors" checked onchange="svgReprocess()"> Use SVG colors</label>
+            </div>
+            <div class="field"><label>Size</label><input type="range" id="svg-size" min="0" max="255" value="128" oninput="svgReprocess()"></div>
+            <div class="field"><label>Simplify</label><input type="range" id="svg-simplify" min="1" max="20" value="5" oninput="svgReprocess()"></div>
+            <div class="row">
+              <label><input type="checkbox" id="svg-invert-x" onchange="svgReprocess()"> Invert X</label>
+              <label><input type="checkbox" id="svg-invert-y" onchange="svgReprocess()"> Invert Y</label>
+              <label><input type="checkbox" id="svg-loop" checked> Loop</label>
+            </div>
+            <div class="row" style="margin-top:8px">
+              <button class="btn sm" onclick="svgSaveState()">&#128190; Save</button>
+              <button class="btn sm" onclick="svgRestoreState()">&#8635; Restore</button>
+              <button class="btn sm" onclick="svgSaveToSd()">&#8682; Save to SD</button>
+            </div>
           </div>
         </div>
       </div>
@@ -1446,7 +1484,7 @@ canvas { max-width: 100%; display: block; }
 /* =========================================================================
    GLOBAL STATE
    ========================================================================= */
-var UI_VERSION = '1.10.0';   // WebUI version -- independent from firmware version
+var UI_VERSION = '1.11.0';   // WebUI version -- independent from firmware version
 var NAV_TABS = [
   {id: 'dashboard', label: 'Dashboard', icon: '🏠', bottom: true},
   {id: 'presets', label: 'Presets', icon: '🎮', bottom: true},
@@ -3953,7 +3991,429 @@ function uploadILDA() {
   input.click();
 }
 
-registerTabLoader('ilda', function() { loadSdStatus(); updateIldaPlayerUI(); });
+/* =========================================================================
+   SVG IMPORT -- browser-side SVG-to-paint-canvas pipeline (no firmware
+   parsing). Budget mirrors include/config.h's PaintConfig exactly, so the
+   result always fits through the existing /api/paint/set path unchanged.
+   ========================================================================= */
+var SVG_MAX_STROKES   = 12;    // mirrors PAINT_STROKES_MAX (include/config.h)
+var SVG_MAX_VERTS     = 96;    // mirrors PAINT_VERTS_PER_STROKE (include/config.h)
+var SVG_MAX_TOTAL_PTS = 1152;  // 12*96, stays under opt_max_pts_per_frame (1300 cap)
+var SVG_SAMPLE_STEPS  = 400;   // raw samples per path before RDP simplification
+var SVGNS = 'http://www.w3.org/2000/svg';
+// Nested <svg> establishes its own viewport (viewBox/preserveAspectRatio may
+// re-scale the coordinate system) -- getCTM() across that boundary isn't the
+// simple ancestor-chain composition the rest of this pipeline relies on, so
+// skip rather than risk silently wrong coordinates for a rare case.
+var SVG_SKIP_TAGS  = {defs: 1, symbol: 1, clippath: 1, mask: 1, pattern: 1, style: 1, metadata: 1, title: 1, desc: 1, svg: 1};
+var SVG_SHAPE_TAGS = {path: 1, rect: 1, circle: 1, ellipse: 1, line: 1, polyline: 1, polygon: 1};
+
+var svgRawText     = null;                 // last loaded SVG source (Load SVG / Restore / SD Play)
+var svgViewBox      = {x: 0, y: 0, w: 1000, h: 1000};
+var svgLoadedPaths  = [];                  // [{raw:[[x,y]...], closed, color:{r,g,b}|null, origIdx}] -- sampled once per load
+var svgResult       = {kept: [], totalCount: 0, droppedCount: 0, totalPts: 0};
+var svgColorCtx     = null;
+
+function svgSandbox() {
+  // Parsed SVGs need to be attached to a rendered document for getCTM()/
+  // getPointAtLength() to work -- offscreen (not display:none, which skips
+  // layout entirely), reused across loads.
+  var el = document.getElementById('svg-import-sandbox');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'svg-import-sandbox';
+    el.style.cssText = 'position:absolute;left:-99999px;top:-99999px;width:0;height:0;overflow:hidden';
+    document.body.appendChild(el);
+  }
+  return el;
+}
+
+function svgLoadFile() {
+  var input = document.createElement('input');
+  input.type = 'file'; input.accept = '.svg,image/svg+xml';
+  input.onchange = function() {
+    var f = input.files[0]; if (!f) return;
+    var reader = new FileReader();
+    reader.onload = function() { svgParseText(String(reader.result)); };
+    reader.onerror = function() { toast('Failed to read file', true); };
+    reader.readAsText(f);
+  };
+  input.click();
+}
+
+function svgNum(el, name, def) {
+  var v = parseFloat(el.getAttribute(name));
+  return isFinite(v) ? v : (def || 0);
+}
+
+// Rewrites a non-path shape element into an equivalent path 'd' string --
+// see step 2 of the Part 1 pipeline. Returns null for degenerate geometry.
+function svgShapeToPathData(el, tag) {
+  if (tag === 'rect') {
+    var x = svgNum(el, 'x', 0), y = svgNum(el, 'y', 0), w = svgNum(el, 'width', 0), h = svgNum(el, 'height', 0);
+    var rx = svgNum(el, 'rx', 0), ry = svgNum(el, 'ry', rx);
+    if (w <= 0 || h <= 0) return null;
+    if (rx > 0 && ry > 0) {
+      rx = Math.min(rx, w / 2); ry = Math.min(ry, h / 2);
+      return 'M' + (x + rx) + ',' + y + ' H' + (x + w - rx) + ' A' + rx + ',' + ry + ' 0 0 1 ' + (x + w) + ',' + (y + ry) +
+             ' V' + (y + h - ry) + ' A' + rx + ',' + ry + ' 0 0 1 ' + (x + w - rx) + ',' + (y + h) +
+             ' H' + (x + rx) + ' A' + rx + ',' + ry + ' 0 0 1 ' + x + ',' + (y + h - ry) +
+             ' V' + (y + ry) + ' A' + rx + ',' + ry + ' 0 0 1 ' + (x + rx) + ',' + y + ' Z';
+    }
+    return 'M' + x + ',' + y + ' H' + (x + w) + ' V' + (y + h) + ' H' + x + ' Z';
+  }
+  if (tag === 'circle') {
+    var ccx = svgNum(el, 'cx', 0), ccy = svgNum(el, 'cy', 0), cr = svgNum(el, 'r', 0);
+    if (cr <= 0) return null;
+    return 'M' + (ccx + cr) + ',' + ccy + ' A' + cr + ',' + cr + ' 0 1 0 ' + (ccx - cr) + ',' + ccy +
+           ' A' + cr + ',' + cr + ' 0 1 0 ' + (ccx + cr) + ',' + ccy + ' Z';
+  }
+  if (tag === 'ellipse') {
+    var ecx = svgNum(el, 'cx', 0), ecy = svgNum(el, 'cy', 0), erx = svgNum(el, 'rx', 0), ery = svgNum(el, 'ry', 0);
+    if (erx <= 0 || ery <= 0) return null;
+    return 'M' + (ecx + erx) + ',' + ecy + ' A' + erx + ',' + ery + ' 0 1 0 ' + (ecx - erx) + ',' + ecy +
+           ' A' + erx + ',' + ery + ' 0 1 0 ' + (ecx + erx) + ',' + ecy + ' Z';
+  }
+  if (tag === 'line') {
+    return 'M' + svgNum(el, 'x1', 0) + ',' + svgNum(el, 'y1', 0) + ' L' + svgNum(el, 'x2', 0) + ',' + svgNum(el, 'y2', 0);
+  }
+  if (tag === 'polyline' || tag === 'polygon') {
+    var raw = (el.getAttribute('points') || '').trim();
+    if (!raw) return null;
+    var nums = raw.split(/[\s,]+/).map(Number);
+    if (nums.length < 4) return null;
+    var d = 'M' + nums[0] + ',' + nums[1];
+    for (var i = 2; i + 1 < nums.length; i += 2) d += ' L' + nums[i] + ',' + nums[i + 1];
+    if (tag === 'polygon') d += ' Z';
+    return d;
+  }
+  return null;
+}
+
+// path elements sample directly; everything else gets rewritten to a
+// synthetic <path> sibling (same parent + transform, so getCTM() below still
+// picks up the full ancestor chain) per the "Nicht-path-Elemente ... in
+// d-Attribut-Strings umschreiben" pipeline step.
+function svgToGeometryElement(el) {
+  var tag = el.tagName.toLowerCase();
+  if (tag === 'path') return el;
+  var d = svgShapeToPathData(el, tag);
+  if (!d) return null;
+  var p = document.createElementNS(SVGNS, 'path');
+  p.setAttribute('d', d);
+  var t = el.getAttribute('transform');
+  if (t) p.setAttribute('transform', t);
+  el.parentNode.insertBefore(p, el);
+  return p;
+}
+
+function svgCollectElements(node, out) {
+  var children = node.children || [];
+  for (var i = 0; i < children.length; i++) {
+    var el = children[i];
+    var tag = el.tagName ? el.tagName.toLowerCase() : '';
+    if (SVG_SKIP_TAGS[tag]) continue;
+    if (SVG_SHAPE_TAGS[tag]) { out.push(el); continue; }
+    svgCollectElements(el, out);   // <g>, nested <svg>, <a>, <switch>, ...
+  }
+}
+
+function svgViewBoxOf(root) {
+  var vb = root.getAttribute('viewBox');
+  if (vb) {
+    var parts = vb.trim().split(/[\s,]+/).map(Number);
+    if (parts.length === 4 && parts.every(function(n) { return isFinite(n); }))
+      return {x: parts[0], y: parts[1], w: parts[2], h: parts[3]};
+  }
+  return {x: 0, y: 0, w: parseFloat(root.getAttribute('width')) || 1000, h: parseFloat(root.getAttribute('height')) || 1000};
+}
+
+// stroke preferred over fill (step "Farb-Aufloesung"); getComputedStyle()
+// already resolves the CSS cascade/inheritance, so no manual parentElement
+// walk is needed here.
+function svgColorToRgb(str) {
+  if (!svgColorCtx) svgColorCtx = document.createElement('canvas').getContext('2d');
+  try {
+    svgColorCtx.fillStyle = '#000';
+    svgColorCtx.fillStyle = str;
+    var norm = svgColorCtx.fillStyle;
+    if (norm.charAt(0) === '#') {
+      var hex = norm.length === 4 ? norm.replace(/^#(.)(.)(.)$/, '#$1$1$2$2$3$3') : norm;
+      return {r: parseInt(hex.substr(1, 2), 16), g: parseInt(hex.substr(3, 2), 16), b: parseInt(hex.substr(5, 2), 16)};
+    }
+    var m = norm.match(/rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)/);
+    if (m) return {r: Math.round(+m[1]), g: Math.round(+m[2]), b: Math.round(+m[3])};
+  } catch (e) { /* invalid/unresolvable color string */ }
+  return null;
+}
+function svgResolveColor(el) {
+  var cs = getComputedStyle(el);
+  if (cs.stroke && cs.stroke !== 'none') { var c1 = svgColorToRgb(cs.stroke); if (c1) return c1; }
+  if (cs.fill && cs.fill !== 'none')     { var c2 = svgColorToRgb(cs.fill);   if (c2) return c2; }
+  return null;
+}
+
+function svgParseText(text) {
+  svgRawText = text;
+  var sandbox = svgSandbox();
+  sandbox.innerHTML = '';
+  var doc;
+  try { doc = new DOMParser().parseFromString(text, 'image/svg+xml'); } catch (e) { toast('SVG parse failed', true); return; }
+  var root = doc.documentElement;
+  if (!root || root.nodeName.toLowerCase() !== 'svg' || doc.getElementsByTagName('parsererror').length) {
+    toast('Invalid SVG file', true); return;
+  }
+  svgViewBox = svgViewBoxOf(root);
+  var imported = document.importNode(root, true);
+  sandbox.appendChild(imported);
+
+  var elements = [];
+  svgCollectElements(imported, elements);
+
+  var rawPaths = [];
+  elements.forEach(function(el, i) {
+    var geomEl = svgToGeometryElement(el);
+    if (!geomEl || typeof geomEl.getTotalLength !== 'function') return;
+    var len; try { len = geomEl.getTotalLength(); } catch (e) { return; }
+    if (!len || !isFinite(len)) return;
+    var ctm; try { ctm = geomEl.getCTM(); } catch (e) { ctm = null; }
+    if (!ctm) return;
+    var pts = [];
+    for (var s = 0; s <= SVG_SAMPLE_STEPS; s++) {
+      var p = geomEl.getPointAtLength(len * s / SVG_SAMPLE_STEPS).matrixTransform(ctm);
+      pts.push([p.x, p.y]);
+    }
+    var closed = /[Zz]\s*$/.test(geomEl.getAttribute('d') || '');
+    rawPaths.push({raw: pts, closed: closed, color: svgResolveColor(el), origIdx: i});
+  });
+
+  svgLoadedPaths = rawPaths;
+  svgReprocess();
+  toast('Loaded ' + rawPaths.length + ' path(s) from SVG');
+}
+
+// Ramer-Douglas-Peucker simplification, epsilon in root-<svg> user-space units.
+function svgPerpDist(p, a, b) {
+  var dx = b[0] - a[0], dy = b[1] - a[1];
+  var lenSq = dx * dx + dy * dy;
+  if (lenSq === 0) return Math.hypot(p[0] - a[0], p[1] - a[1]);
+  var t = ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / lenSq;
+  return Math.hypot(p[0] - (a[0] + t * dx), p[1] - (a[1] + t * dy));
+}
+function svgRdp(points, epsilon) {
+  if (points.length < 3) return points.slice();
+  var dmax = 0, index = 0, end = points.length - 1;
+  for (var i = 1; i < end; i++) {
+    var d = svgPerpDist(points[i], points[0], points[end]);
+    if (d > dmax) { dmax = d; index = i; }
+  }
+  if (dmax > epsilon) {
+    var left = svgRdp(points.slice(0, index + 1), epsilon);
+    var right = svgRdp(points.slice(index), epsilon);
+    return left.slice(0, -1).concat(right);
+  }
+  return [points[0], points[end]];
+}
+
+// SVG viewBox space -> galvo units (PAINT_RANGE = ~24000, matches PAINT_RANGE
+// used by the Paint tab). Fits the larger viewBox dimension to the full
+// range, centered; galvo Y is inverted relative to SVG Y (grows downward).
+function svgMapPoint(px, py) {
+  var vb = svgViewBox;
+  var cx = vb.x + vb.w / 2, cy = vb.y + vb.h / 2;
+  var scale = PAINT_RANGE / (Math.max(vb.w, vb.h) / 2 || 1);
+  var sizePct = domVal('svg-size', 128) / 128;
+  var gx = (px - cx) * scale * sizePct;
+  var gy = -(py - cy) * scale * sizePct;
+  if (domVal('svg-invert-x', false)) gx = -gx;
+  if (domVal('svg-invert-y', false)) gy = -gy;
+  return [Math.max(-32000, Math.min(32000, gx)), Math.max(-32000, Math.min(32000, gy))];
+}
+function svgG2C(canvas, gx, gy) {
+  var half = canvas.width / 2;
+  return [half + (-gx) / PAINT_RANGE * half, half + (-gy) / PAINT_RANGE * half];
+}
+
+// Re-simplify + re-allocate + re-map + redraw from the cached raw samples --
+// cheap (<=1152 pts), runs on every control change without re-parsing the SVG.
+function svgReprocess() {
+  if (!svgLoadedPaths.length) {
+    svgResult = {kept: [], totalCount: 0, droppedCount: 0, totalPts: 0};
+    svgRenderPreview(); svgUpdateStatus();
+    return;
+  }
+  var epsilon = domVal('svg-simplify', 5) / 1000;
+  var candidates = svgLoadedPaths.map(function(p) {
+    return {points: svgRdp(p.raw, epsilon), closed: p.closed, color: p.color, origIdx: p.origIdx};
+  });
+  // Priorisierung: longest (post-simplify) paths claim slots first; a path
+  // that still doesn't fit one SVG_MAX_VERTS slot is dropped whole, never
+  // truncated mid-path.
+  var sorted = candidates.slice().sort(function(a, b) { return b.points.length - a.points.length; });
+  var kept = [];
+  for (var i = 0; i < sorted.length && kept.length < SVG_MAX_STROKES; i++) {
+    var c = sorted[i];
+    if (c.points.length >= 2 && c.points.length <= SVG_MAX_VERTS) kept.push(c);
+  }
+  kept.sort(function(a, b) { return a.origIdx - b.origIdx; });   // restore document order for preview/projection
+
+  svgResult = {
+    kept: kept,
+    totalCount: candidates.length,
+    droppedCount: candidates.length - kept.length,
+    totalPts: kept.reduce(function(s, c) { return s + c.points.length; }, 0)
+  };
+  svgRenderPreview();
+  svgUpdateStatus();
+}
+
+function svgUpdateStatus() {
+  var el = document.getElementById('svg-status'); if (!el) return;
+  var r = svgResult;
+  if (!r.totalCount) { el.textContent = 'No SVG loaded'; el.style.color = 'var(--text-dim)'; return; }
+  if (r.droppedCount === 0) {
+    el.textContent = r.totalCount + ' paths · ' + r.totalPts + ' pts';
+    el.style.color = 'var(--text-dim)';
+  } else {
+    el.textContent = r.kept.length + '/' + r.totalCount + ' paths · ' + r.totalPts + ' pts · ' + r.droppedCount + ' dropped';
+    el.style.color = 'var(--warn)';
+  }
+}
+
+function svgRenderPreview() {
+  var canvas = document.getElementById('svg-preview'); if (!canvas) return;
+  var ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = '#000'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+  var useSvgColors = domVal('svg-use-colors', true);
+  var pickerColor = svgColorToRgb(domVal('svg-color', '#ffffff')) || {r: 255, g: 255, b: 255};
+  svgResult.kept.forEach(function(c) {
+    var col = (useSvgColors && c.color) ? c.color : pickerColor;
+    ctx.beginPath();
+    c.points.forEach(function(p, i) {
+      var g = svgMapPoint(p[0], p[1]);
+      var cv = svgG2C(canvas, g[0], g[1]);
+      if (i === 0) ctx.moveTo(cv[0], cv[1]); else ctx.lineTo(cv[0], cv[1]);
+    });
+    if (c.closed) ctx.closePath();
+    ctx.strokeStyle = 'rgb(' + col.r + ',' + col.g + ',' + col.b + ')';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+  });
+}
+
+function svgSerializeStrokes() {
+  var useSvgColors = domVal('svg-use-colors', true);
+  var pickerColor = svgColorToRgb(domVal('svg-color', '#ffffff')) || {r: 255, g: 255, b: 255};
+  return svgResult.kept.map(function(c) {
+    var col = (useSvgColors && c.color) ? c.color : pickerColor;
+    var xs = [], ys = [];
+    c.points.forEach(function(p) { var g = svgMapPoint(p[0], p[1]); xs.push(g[0]); ys.push(g[1]); });
+    return {x: xs, y: ys, closed: !!c.closed, r: col.r, g: col.g, b: col.b};
+  });
+}
+async function svgProject() {
+  if (!svgResult.kept.length) { toast('No SVG paths to project', true); return; }
+  // Galvo integers, not normalized [0,1] -- see docs/08-api-reference.md's Paint Mode section.
+  await apiCall('POST', '/api/paint/set', {strokes: svgSerializeStrokes(), active: true});
+  toast('Projecting SVG import');
+}
+async function svgOff() { await apiCall('POST', '/api/paint/off'); }
+
+function svgSaveState() {
+  try {
+    var state = {
+      raw: svgRawText,
+      simplify: domVal('svg-simplify', 5), size: domVal('svg-size', 128),
+      invertX: domVal('svg-invert-x', false), invertY: domVal('svg-invert-y', false),
+      loop: domVal('svg-loop', true), color: domVal('svg-color', '#ffffff'),
+      useSvgColors: domVal('svg-use-colors', true)
+    };
+    localStorage.setItem('galvos_svg_state', JSON.stringify(state));
+    toast('SVG import settings saved');
+  } catch (e) { toast('Save failed (localStorage unavailable)', true); }
+}
+function svgRestoreState() {
+  var raw = localStorage.getItem('galvos_svg_state');
+  if (!raw) { toast('No saved SVG state', true); return; }
+  try {
+    var state = JSON.parse(raw);
+    document.getElementById('svg-simplify').value = state.simplify != null ? state.simplify : 5;
+    document.getElementById('svg-size').value = state.size != null ? state.size : 128;
+    document.getElementById('svg-invert-x').checked = !!state.invertX;
+    document.getElementById('svg-invert-y').checked = !!state.invertY;
+    document.getElementById('svg-loop').checked = state.loop !== false;
+    document.getElementById('svg-color').value = state.color || '#ffffff';
+    document.getElementById('svg-use-colors').checked = state.useSvgColors !== false;
+    if (state.raw) svgParseText(state.raw); else svgReprocess();
+    toast('SVG import settings restored');
+  } catch (e) { toast('Restore failed (corrupt saved state)', true); }
+}
+
+/* ---- SD storage (Part 2) ---------------------------------------------- */
+var s_svgFiles = [];
+async function loadSvgList() {
+  var r = await apiCall('GET', '/api/svg/list');
+  if (!r || !r.files) return;
+  s_svgFiles = r.files;
+  renderSvgFileList(r);
+}
+function renderSvgFileList(listing) {
+  var el = document.getElementById('svg-file-list'); if (!el) return;
+  if (!listing.files.length) { el.innerHTML = '<p>No SVG files on card.</p>'; return; }
+  el.innerHTML = listing.files.map(function(f) {
+    var dateStr = f.mtime ? new Date(f.mtime * 1000).toISOString().slice(0, 10) : '';
+    var btn = f.playable ?
+      '<button class="btn sm" onclick="svgPlayFile(' + f.idx + ')">&#9654; Play</button>' :
+      '<button class="btn sm" disabled title="' + String(f.reason || '').replace(/"/g, '&quot;') + '">Blocked</button>';
+    return '<div class="ilda-row" style="border-bottom:1px solid var(--border);padding:4px 0">' +
+      '<span class="ilda-col-play">' + btn + '</span>' +
+      '<span class="ilda-col-name"><span class="ilda-col-name-inner">' + f.name + '</span></span>' +
+      '<span class="ilda-col-size">' + fmtBytes(f.size) + '</span>' +
+      '<span class="ilda-col-date">' + dateStr + '</span>' +
+      '<span class="ilda-col-actions">' +
+        '<button class="btn sm" title="Rename" onclick="svgRenameFile(' + f.idx + ')">&#9998;</button>' +
+        '<button class="btn sm danger" title="Delete" onclick="svgDeleteFile(' + f.idx + ')">&#10005;</button>' +
+      '</span></div>';
+  }).join('');
+}
+function svgFileByIdx(idx) { return s_svgFiles.filter(function(f) { return f.idx === idx; })[0]; }
+async function svgPlayFile(idx) {
+  var resp = await fetch('/api/svg/get?idx=' + idx);
+  if (!resp.ok) { toast('Failed to load SVG from SD', true); return; }
+  svgParseText(await resp.text());
+  await svgProject();
+}
+async function svgDeleteFile(idx) {
+  var f = svgFileByIdx(idx);
+  if (!confirm('Delete "' + (f ? f.name : ('#' + idx)) + '"? This cannot be undone.')) return;
+  var r = await apiCall('POST', '/api/svg/delete', {idx: idx});
+  if (r) { toast('Deleted'); loadSvgList(); }
+}
+async function svgRenameFile(idx) {
+  var f = svgFileByIdx(idx);
+  var oldName = f ? f.name : '';
+  var name = prompt('Rename to:', oldName);
+  if (!name || name === oldName) return;
+  var r = await apiCall('POST', '/api/svg/rename', {idx: idx, name: name});
+  if (r) { toast('Renamed'); loadSvgList(); }
+}
+async function svgSaveToSd() {
+  if (!svgRawText) { toast('No SVG loaded', true); return; }
+  var name = prompt('Save as filename:', 'import.svg');
+  if (!name) return;
+  var blob = new Blob([svgRawText], {type: 'image/svg+xml'});
+  var fd = new FormData(); fd.append('file', blob, name);
+  try {
+    var opts = {method: 'POST', body: fd, headers: {}};
+    if (window._apiToken) opts.headers['X-Auth'] = window._apiToken;
+    var resp = await fetch('/api/svg/upload', opts);
+    toast(resp.ok ? 'Saved to SD' : 'Save failed', !resp.ok);
+    loadSvgList();
+  } catch (e) { toast('Upload error', true); }
+}
+
+registerTabLoader('ilda', function() { loadSdStatus(); updateIldaPlayerUI(); loadSvgList(); });
 
 /* =========================================================================
    CALIBRATION TAB -- field names match /api/calib-live exactly

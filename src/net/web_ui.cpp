@@ -19,6 +19,7 @@
 #include "net/osc_in.h"
 #include "net/sacn_in.h"
 #include "storage/sd_card.h"
+#include "storage/svg_store.h"
 #include "pinmap.h"
 #include "sensors/temp_monitor.h"
 #include "util/log_buffer.h"
@@ -866,6 +867,34 @@ static String sanitizeIldaFilename(const String& rawIn) {
 
     if (base.length() == 0) base = "upload_" + String((uint32_t)millis());
     return base + ext;
+}
+
+// Same sanitization as sanitizeIldaFilename() (path-traversal strip, FAT-safe
+// charset, length cap) but always forces a ".svg" extension -- SVG imports are
+// stored flat under /svg/ regardless of what the source file was named.
+static bool s_svg_upload_ok = false;
+
+static String sanitizeSvgFilename(const String& rawIn) {
+    String raw = rawIn;
+    int slash  = raw.lastIndexOf('/');
+    int bslash = raw.lastIndexOf('\\');
+    int cut    = slash > bslash ? slash : bslash;
+    if (cut >= 0) raw = raw.substring(cut + 1);
+
+    String base = raw;
+    int dot = raw.lastIndexOf('.');
+    if (dot > 0) base = raw.substring(0, dot);
+
+    for (size_t i = 0; i < base.length(); i++) {
+        char c = base[i];
+        if (!(isalnum((unsigned char)c) || c == '_' || c == '-' || c == ' ' || c == '.'))
+            base.setCharAt(i, '_');
+    }
+    if (base.length() > SVG_MAX_UPLOAD_NAME) base = base.substring(0, SVG_MAX_UPLOAD_NAME);
+    while (base.length() && (base[base.length() - 1] == ' ' || base[base.length() - 1] == '.'))
+        base.remove(base.length() - 1);
+    if (base.length() == 0) base = "upload_" + String((uint32_t)millis());
+    return base + ".svg";
 }
 
 /* ============================================================
@@ -1874,6 +1903,104 @@ void init() {
             if (ok) sd_card::scanFiles();
             req->send(ok ? 200 : 500, "application/json",
                 ok ? "{\"ok\":true}" : "{\"ok\":false,\"error\":\"rename failed (name taken or SD error)\"}");
+        });
+
+    // ---- GET /api/svg/list ---- SVG file list on SD card (/svg/ directory) ----
+    // Separate index space from /api/sd's ILDA list -- own endpoints, own
+    // playability check (well-formedness + rough element count, not a
+    // PSRAM-budget estimate like ILDA's too_large).
+    s_server.on("/api/svg/list", HTTP_GET, [](AsyncWebServerRequest* req) {
+        JsonDocument doc(&jsonAllocator());
+        doc["ready"]      = sd_card::isReady();
+        doc["file_count"] = svg_store::fileCount();
+        doc["max_bytes"]  = svg_store::maxFileBytes();
+        JsonArray files = doc["files"].to<JsonArray>();
+        for (uint8_t i = 0; i < svg_store::fileCount(); i++) {
+            JsonObject fo = files.add<JsonObject>();
+            fo["idx"]      = i;
+            fo["name"]     = svg_store::fileName(i);
+            fo["size"]     = svg_store::fileSize(i);
+            fo["mtime"]    = svg_store::fileMTime(i);
+            fo["playable"] = svg_store::playable(i);
+            fo["reason"]   = svg_store::reason(i);
+        }
+        sendJsonPsram(req, doc);
+    });
+
+    // ---- GET /api/svg/get?idx=N ---- raw SVG text of a stored file ----
+    // Streamed straight from SD (like /api/sd/download) instead of buffered
+    // server-side -- no fixed-size body cap needed on this path, the client
+    // pipeline is what caps what it will usefully parse (see svg_store's
+    // SVG_MAX_FILE_BYTES playability check for the upload/list side).
+    s_server.on("/api/svg/get", HTTP_GET, [](AsyncWebServerRequest* req) {
+        if (!req->hasParam("idx")) { req->send(400, "text/plain", "idx required"); return; }
+        uint8_t idx = (uint8_t)req->getParam("idx")->value().toInt();
+        if (idx >= svg_store::fileCount()) { req->send(404, "text/plain", "not found"); return; }
+        AsyncWebServerResponse* resp = req->beginResponse(SD, svg_store::filePath(idx), "image/svg+xml", false);
+        if (!resp) { req->send(404, "text/plain", "file missing on SD"); return; }
+        req->send(resp);
+    });
+
+    // ---- POST /api/svg/delete ---- delete an SVG file by index ----
+    s_server.on("/api/svg/delete", HTTP_POST,
+        [](AsyncWebServerRequest* req) {},
+        nullptr,
+        [](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t, size_t) {
+            JsonDocument doc(&jsonAllocator());
+            if (deserializeJson(doc, data, len)) { req->send(400, "text/plain", "bad json"); return; }
+            uint8_t idx = doc["idx"] | 255;
+            if (idx == 255) { req->send(400, "text/plain", "idx required"); return; }
+            bool ok = svg_store::deleteFile(idx);
+            if (ok) svg_store::scanFiles();
+            req->send(ok ? 200 : 500, "application/json",
+                ok ? "{\"ok\":true}" : "{\"ok\":false,\"error\":\"delete failed\"}");
+        });
+
+    // ---- POST /api/svg/rename ---- rename an SVG file by index ----
+    s_server.on("/api/svg/rename", HTTP_POST,
+        [](AsyncWebServerRequest* req) {},
+        nullptr,
+        [](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t, size_t) {
+            JsonDocument doc(&jsonAllocator());
+            if (deserializeJson(doc, data, len)) { req->send(400, "text/plain", "bad json"); return; }
+            uint8_t idx = doc["idx"] | 255;
+            const char* rawName = doc["name"] | "";
+            if (idx == 255 || !rawName[0]) { req->send(400, "text/plain", "idx and name required"); return; }
+            String newName = sanitizeSvgFilename(String(rawName));
+            bool ok = svg_store::renameFile(idx, newName.c_str());
+            if (ok) svg_store::scanFiles();
+            req->send(ok ? 200 : 500, "application/json",
+                ok ? "{\"ok\":true}" : "{\"ok\":false,\"error\":\"rename failed (name taken or SD error)\"}");
+        });
+
+    // ---- POST /api/svg/upload ---- upload an SVG file to the SD card ----
+    // Mirrors "Feature 11" ILDA upload below (same chunked-multipart shape).
+    s_server.on("/api/svg/upload", HTTP_POST,
+        [](AsyncWebServerRequest* req) {
+            req->send(s_svg_upload_ok ? 200 : 400, "application/json",
+                s_svg_upload_ok ? "{\"status\":\"ok\",\"rescan\":true}"
+                                : "{\"error\":\"upload failed (could not create file on SD)\"}");
+            if (s_svg_upload_ok) svg_store::scanFiles();
+        },
+        [](AsyncWebServerRequest* req, String filename, size_t index,
+           uint8_t* data, size_t len, bool final) {
+            static File s_svg_upload_file;
+            if (index == 0) {
+                String path = "/svg/" + sanitizeSvgFilename(filename);
+                ESP_LOGI("upload", "Start: %s (orig: %s)", path.c_str(), filename.c_str());
+                { LOCK_SD();
+                  if (!SD.exists("/svg")) SD.mkdir("/svg");   // first upload may race scanFiles()'s own mkdir
+                  s_svg_upload_file = SD.open(path, FILE_WRITE);
+                }
+                s_svg_upload_ok = (bool)s_svg_upload_file;
+                if (!s_svg_upload_file) ESP_LOGE("upload", "could not create file: %s", path.c_str());
+            }
+            if (s_svg_upload_file && len)
+                s_svg_upload_file.write(data, len);
+            if (final && s_svg_upload_file) {
+                s_svg_upload_file.close();
+                ESP_LOGI("upload", "Done: %s (%u bytes)", filename.c_str(), index+len);
+            }
         });
 
     // ---- POST /api/ilda/play ---- play ILDA file
