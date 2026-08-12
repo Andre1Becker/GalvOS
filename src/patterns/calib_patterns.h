@@ -30,6 +30,13 @@
  *  15  CAM_CIRCLE         circle radius 15000, 128 base points -- density uniformity
  *  16  CAM_SPIRAL         3-turn Archimedean spiral, r 2250->15000 -- velocity clamps
  *
+ * 1 warp calibration pattern -- border rectangle + gWarp.gridSize's interior
+ * grid lines, goes through the normal optimizer::optimize() path so it picks
+ * up the live warp stage (point_optimizer.cpp) exactly like any other
+ * pattern. Selected via /api/warp/test (web_ui.cpp), not the plain idx-based
+ * /api/calib-pattern:
+ *  17  WARP_GRID_TEST     border + gWarp.gridSize interior lines -- keystone preview
+ *
  * API: POST /api/calib-pattern {"idx": 0-10, "brightness": 200}
  *      GET  /api/calib-pattern/list
  *      POST /api/calib-cam/start  {"pattern": "square"}
@@ -41,11 +48,15 @@
 
 namespace calib_patterns {
 
-constexpr uint8_t CALIB_PATTERN_COUNT = 17;
+constexpr uint8_t CALIB_PATTERN_COUNT = 18;
 
 // Camera-in-the-loop patterns occupy indices CALIB_CAM_BASE..+CALIB_CAM_COUNT-1.
 constexpr uint8_t CALIB_CAM_BASE  = 11;
 constexpr uint8_t CALIB_CAM_COUNT = 6;
+
+// Warp test-grid pattern, selected via /api/warp/test (not part of the
+// camPatternIndex()/camPatternName() name-based lookup above).
+constexpr uint8_t CALIB_WARP_GRID_IDX = 17;
 
 // corners4 dwell length: fixed regardless of the live optimizer overrides a
 // host tuning run may be sweeping (e.g. corner_angle_deg/max_corner_pts could

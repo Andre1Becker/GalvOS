@@ -1,4 +1,5 @@
 #include "point_optimizer.h"
+#include "warpGrid.h"
 #include <math.h>
 #include <algorithm>
 #if defined(ESP_PLATFORM) || defined(ARDUINO)
@@ -1062,14 +1063,15 @@ static bool planBlankTotal(const PathSegment* segments, size_t segment_count,
 
 // ── Transform stage (Phase 1) ────────────────────────────────────────────
 //
-// Pipeline order: Primitive -> [Transform] -> Segment Reorder -> Resample ->
-// Corner Dwell -> Jitter -> Blanking -> Velocity Clamp -> Acceleration Clamp ->
-// DAC. This is the Transform stage: every input vertex is pushed through
-// cfg.transform before any scanner-dependent processing (corner detection,
-// length-proportional resampling, blank jumps) sees it. Corner severity and edge lengths are
-// therefore computed in the transformed frame, which is what a downstream
-// resample/velocity stage needs (a rotated square still has 90 deg corners;
-// a scaled path has correspondingly scaled edge lengths).
+// Pipeline order: Primitive -> [Transform] -> Warp -> Segment Reorder ->
+// Resample -> Corner Dwell -> Jitter -> Blanking -> Velocity Clamp ->
+// Acceleration Clamp -> DAC. This is the Transform stage: every input vertex
+// is pushed through cfg.transform before any scanner-dependent processing
+// (corner detection, length-proportional resampling, blank jumps) sees it.
+// Corner severity and edge lengths are therefore computed in the transformed
+// frame, which is what a downstream resample/velocity stage needs (a rotated
+// square still has 90 deg corners; a scaled path has correspondingly scaled
+// edge lengths).
 //
 // Identity fast-path: when cfg.transform is the identity matrix (the default),
 // the original segment pointers are used unchanged -- no copy, no arithmetic,
@@ -1169,6 +1171,88 @@ static size_t applyTransform(const PathSegment* segments, size_t segment_count,
         seg_out++;
     }
     *out_segments = s_xf_segs;
+    return seg_out;
+}
+
+// ── Warp stage (Prompt 7a) ────────────────────────────────────────────────
+//
+// Pipeline order: Primitive -> Transform -> [Warp] -> Segment Reorder ->
+// Resample -> Corner Dwell -> Jitter -> Blanking -> Velocity Clamp ->
+// Acceleration Clamp -> DAC. Runs after Transform (so warp corrects the
+// already rotated/moved geometry, matching where the camera actually sees
+// it) and before Resample/Corner Dwell/Segment Reorder (so length-
+// proportional spacing, corner severity, and tour-distance all measure the
+// WARPED shape -- a warp that stretches one region should get proportionally
+// more resample points there, not the pre-warp count).
+//
+// Same lazy-PSRAM-scratch-copy convention as applyTransform() just above,
+// deliberately not merged with it: a call with both a non-identity transform
+// AND an active warp needs two independent copies (transform's output is
+// warp's input), and warp::isIdentity() is the overwhelmingly common case
+// (feature off) where this whole stage is skipped for free.
+namespace {
+    PathVertex*  s_warp_verts = nullptr;
+    PathSegment* s_warp_segs  = nullptr;
+}
+
+static size_t applyWarp(const PathSegment* segments, size_t segment_count,
+                         const PathSegment** out_segments) {
+    if (!s_warp_verts) {
+        s_warp_verts = (PathVertex*)heap_caps_malloc(
+            kMaxXfVerts * sizeof(PathVertex), MALLOC_CAP_SPIRAM);
+        s_warp_segs = (PathSegment*)heap_caps_malloc(
+            kMaxXfSegs * sizeof(PathSegment), MALLOC_CAP_SPIRAM);
+        if (!s_warp_verts || !s_warp_segs) {
+            // No PSRAM -> pass the input through unwarped, never crash. Same
+            // free+null-both reasoning as applyTransform()'s identical guard.
+            heap_caps_free(s_warp_verts);
+            heap_caps_free(s_warp_segs);
+            s_warp_verts = nullptr;
+            s_warp_segs  = nullptr;
+            *out_segments = segments;
+            return segment_count;
+        }
+        memreg::track("Optimizer Warp Scratch",
+                      kMaxXfVerts * sizeof(PathVertex) +
+                      kMaxXfSegs * sizeof(PathSegment), true);
+    }
+    size_t seg_out = 0;
+    size_t vtx_out = 0;
+    for (size_t s = 0; s < segment_count && seg_out < kMaxXfSegs; s++) {
+        const PathSegment& src = segments[s];
+        if (src.count == 0) {
+            s_warp_segs[seg_out] = PathSegment(nullptr, 0, src.closed);
+            seg_out++;
+            continue;
+        }
+        if (vtx_out + src.count > kMaxXfVerts) {
+            // Same degrade-not-overflow behavior as applyTransform() -- one-
+            // time log, trailing segments dropped rather than corrupting
+            // adjacent scratch.
+            static bool warned = false;
+            if (!warned) {
+                warned = true;
+                LOG_W(logbuf::CAT_GALVO,
+                      "applyWarp: scratch exhausted at %u/%u verts, "
+                      "%u segments dropped", (unsigned)vtx_out,
+                      (unsigned)kMaxXfVerts,
+                      (unsigned)(segment_count - s));
+            }
+            break;
+        }
+
+        PathVertex* dst = &s_warp_verts[vtx_out];
+        for (size_t i = 0; i < src.count; i++) {
+            const PathVertex& v = src.vertices[i];
+            float nx = v.x, ny = v.y;
+            warp::apply(nx, ny);
+            dst[i] = PathVertex(nx, ny, v.r, v.g, v.b, v.lift);
+        }
+        s_warp_segs[seg_out] = PathSegment(dst, src.count, src.closed);
+        vtx_out += src.count;
+        seg_out++;
+    }
+    *out_segments = s_warp_segs;
     return seg_out;
 }
 
@@ -1673,6 +1757,20 @@ size_t optimize(const PathSegment* segments, size_t segment_count,
         segment_count = applyTransform(segments, segment_count,
                                        cfg.transform, &xf_segments);
         segments = xf_segments;
+        if (segment_count == 0) return finishStats(st, out, 0);
+    }
+
+    // Stage 0.4 -- Warp (Prompt 7a). Camera closed-loop keystone correction.
+    // Runs BEFORE Segment Reorder (Stage 0.5) deliberately: reorder's
+    // nearest-neighbour tour minimizes blank-jump distance, which must be
+    // measured on the geometry the galvo will actually traverse -- i.e.
+    // post-warp, not pre-warp. isIdentity() (disabled, or grid numerically
+    // equals the identity grid) is the fast path: skip the whole scratch-copy
+    // stage, output stays byte-identical to the pre-warp optimizer.
+    if (!warp::isIdentity()) {
+        const PathSegment* warped_segments = nullptr;
+        segment_count = applyWarp(segments, segment_count, &warped_segments);
+        segments = warped_segments;
         if (segment_count == 0) return finishStats(st, out, 0);
     }
 

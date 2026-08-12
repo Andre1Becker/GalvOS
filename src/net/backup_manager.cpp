@@ -45,6 +45,7 @@ void BackupManager::serializeToJson(JsonDocument& doc) {
     calib["invert_y"]       = gConfig.invert_y;
     calib["dac_limit_min"]  = gConfig.dac_limit_min;
     calib["dac_limit_max"]  = gConfig.dac_limit_max;
+    calib["output_scale"]   = gConfig.outputScale;
     calib["gain_r"]         = gConfig.gain_r;
     calib["gain_g"]         = gConfig.gain_g;
     calib["gain_b"]         = gConfig.gain_b;
@@ -151,6 +152,7 @@ bool BackupManager::deserializeFromJson(JsonDocument& doc, JsonArray rejected) {
         CCHECK("thresh_g",       calib["thresh_g"].is<int>() && inRangeI(calib["thresh_g"].as<int>(), 0, 255));
         CCHECK("thresh_b",       calib["thresh_b"].is<int>() && inRangeI(calib["thresh_b"].as<int>(), 0, 255));
         CCHECK("gamma_enable",   calib["gamma_enable"].is<bool>());
+        CCHECK("output_scale",   calib["output_scale"].is<float>() && inRangeF(calib["output_scale"].as<float>(), 0.5f, 1.0f));
         if (!calib["dac_limit_min"].isNull() && !calib["dac_limit_max"].isNull() &&
             calib["dac_limit_min"].is<int>() && calib["dac_limit_max"].is<int>()) {
             if ((int)calib["dac_limit_min"] >= (int)calib["dac_limit_max"]) {
@@ -277,6 +279,7 @@ bool BackupManager::deserializeFromJson(JsonDocument& doc, JsonArray rejected) {
             if (!calib["thresh_g"].isNull())       gConfig.thresh_g = calib["thresh_g"];
             if (!calib["thresh_b"].isNull())       gConfig.thresh_b = calib["thresh_b"];
             if (!calib["gamma_enable"].isNull())   gConfig.gamma_enable = calib["gamma_enable"];
+            if (!calib["output_scale"].isNull())   gConfig.outputScale = calib["output_scale"];
         }
         if (!net.isNull()) {
             if (!net["dmx_address"].isNull())     gConfig.dmx_address     = net["dmx_address"];

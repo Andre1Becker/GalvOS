@@ -1035,6 +1035,7 @@ canvas { max-width: 100%; display: block; }
               <div class="field"><label>DAC Scan-Limit Max</label><input type="range" id="calib-dac-max" min="0" max="65535" value="63000" oninput="sendCalibLive()"></div>
             </div>
             <p id="calib-dac-warn" class="hidden" style="color:var(--bad)">Min must be less than Max &mdash; value not applied</p>
+            <div class="field"><label>Output Scale (<span id="calib-outscale-val">0.91</span>)</label><input type="range" id="calib-outscale" min="0.50" max="1.00" step="0.01" value="0.91" oninput="sendCalibLive()"></div>
             <button class="btn primary" onclick="calibSave()">&#128190; Save Calibration</button>
           </div>
 
@@ -1070,6 +1071,25 @@ canvas { max-width: 100%; display: block; }
               <button class="btn sm" onclick="saveZone()">Save Zone</button>
               <button class="btn sm" onclick="zoneResetRect()">Reset to Rectangle</button>
             </div>
+          </div>
+
+          <div class="card">
+            <h2>Warp (Camera Closed-Loop Keystone)</h2>
+            <canvas id="warp-canvas" width="420" height="420" style="width:100%;max-width:420px;aspect-ratio:1;background:#000"></canvas>
+            <div class="row" style="margin-top:8px">
+              <label>Grid Size <select id="warp-grid-size" onchange="warpSetGridSize(this.value)">
+                <option value="2">2x2</option><option value="3">3x3</option>
+                <option value="4">4x4</option><option value="5">5x5</option>
+              </select></label>
+              <span id="warp-enable-status" class="pill bad">Disabled</span>
+            </div>
+            <div class="row" style="margin-top:8px">
+              <button class="btn sm" onclick="warpToggleEnable()">Enable/Disable Warp</button>
+              <button class="btn sm" id="warp-test-btn" onclick="warpToggleTest()">Project Test Grid</button>
+              <button class="btn sm" onclick="warpSave()">Save Grid</button>
+              <button class="btn sm danger" onclick="warpReset()">Reset to Identity</button>
+            </div>
+            <p style="font-size:0.75rem;color:var(--text-dim)">Drag a control point to bend that part of the projected image toward it &mdash; used to correct keystone/perspective distortion from an off-axis projector. 2x2 = plain 4-corner keystone; larger grids add interior correction.</p>
           </div>
 
           <div class="card">
@@ -1484,7 +1504,7 @@ canvas { max-width: 100%; display: block; }
 /* =========================================================================
    GLOBAL STATE
    ========================================================================= */
-var UI_VERSION = '1.11.0';   // WebUI version -- independent from firmware version
+var UI_VERSION = '1.12.0';   // WebUI version -- independent from firmware version
 var NAV_TABS = [
   {id: 'dashboard', label: 'Dashboard', icon: '🏠', bottom: true},
   {id: 'presets', label: 'Presets', icon: '🎮', bottom: true},
@@ -2768,6 +2788,7 @@ async function bootSequence() {
   await loadModulators();
   if (typeof loadSdStatus === 'function') { await loadSdStatus(); startIldaRefresh(); }
   if (typeof initZoneEditor === 'function') initZoneEditor();
+  if (typeof initWarpEditor === 'function') initWarpEditor();
 }
 
 /* =========================================================================
@@ -4471,6 +4492,9 @@ function sendCalibLive() {
     var lo = domVal('calib-dac-min', 2600), hi = domVal('calib-dac-max', 63000);
     var warnEl = document.getElementById('calib-dac-warn');
     if (warnEl) warnEl.classList.toggle('hidden', lo < hi);
+    var outScale = domVal('calib-outscale', 0.91);
+    var outScaleVal = document.getElementById('calib-outscale-val');
+    if (outScaleVal) outScaleVal.textContent = outScale.toFixed(2);
     apiCall('POST', '/api/calib-live', {
       xoff: domVal('calib-xoff', 0), yoff: domVal('calib-yoff', 0),
       xgain: domVal('calib-xgain', 24200), ygain: domVal('calib-ygain', 24200),
@@ -4478,7 +4502,7 @@ function sendCalibLive() {
       gain_r: domVal('calib-gain-r', 255), gain_g: domVal('calib-gain-g', 255), gain_b: domVal('calib-gain-b', 255),
       thresh_r: domVal('calib-thresh-r', 0), thresh_g: domVal('calib-thresh-g', 0), thresh_b: domVal('calib-thresh-b', 0),
       gamma_enable: domVal('calib-gamma', false),
-      dac_limit_min: lo, dac_limit_max: hi
+      dac_limit_min: lo, dac_limit_max: hi, output_scale: outScale
     });
   }, 50);
 }
@@ -4542,6 +4566,8 @@ async function loadCalibrationFields() {
   setv('calib-thresh-r', c.thresh_r); setv('calib-thresh-g', c.thresh_g); setv('calib-thresh-b', c.thresh_b);
   document.getElementById('calib-gamma').checked = !!c.gamma_enable;
   setv('calib-dac-min', c.dac_limit_min); setv('calib-dac-max', c.dac_limit_max);
+  setv('calib-outscale', c.output_scale);
+  document.getElementById('calib-outscale-val').textContent = Number(c.output_scale).toFixed(2);
   document.getElementById('calib-xgain-val').textContent = (c.galvo_x_gain / 32767).toFixed(2);
   document.getElementById('calib-ygain-val').textContent = (c.galvo_y_gain / 32767).toFixed(2);
 }
@@ -4646,8 +4672,126 @@ function initZoneEditor() {
   loadZone();
 }
 
+/* ---- Warp grid editor (Calibration tab) -- Camera Closed-Loop Keystone ---- */
+var warpGridSize = 2;
+var warpPts = [];          // warpPts[row][col] = {x, y}, normalized [-1..1]
+var warpEnabled = false;
+var warpDrag = null;       // {r, c} or null
+var warpTestOn = false;
+function warpIdentityGrid(n) {
+  var g = [];
+  for (var r = 0; r < n; r++) {
+    var row = [];
+    for (var c = 0; c < n; c++) {
+      row.push({x: (n > 1) ? (-1 + (2 * c) / (n - 1)) : 0, y: (n > 1) ? (-1 + (2 * r) / (n - 1)) : 0});
+    }
+    g.push(row);
+  }
+  return g;
+}
+function warpG2C(nx, ny) {
+  var canvas = document.getElementById('warp-canvas'); var half = canvas.width / 2;
+  return [half + nx * half, half - ny * half];
+}
+function warpC2G(cx, cy) {
+  var canvas = document.getElementById('warp-canvas'); var half = canvas.width / 2;
+  return [(cx - half) / half, (half - cy) / half];
+}
+function warpRender() {
+  var canvas = document.getElementById('warp-canvas'); if (!canvas) return;
+  var ctx = canvas.getContext('2d'), w = canvas.width, h = canvas.height;
+  ctx.clearRect(0, 0, w, h); ctx.fillStyle = '#000'; ctx.fillRect(0, 0, w, h);
+  var n = warpGridSize;
+  ctx.strokeStyle = cssVar('--accent') || '#0f8'; ctx.lineWidth = 1.5;
+  for (var r = 0; r < n; r++) {
+    ctx.beginPath();
+    for (var c = 0; c < n; c++) { var p = warpPts[r][c]; var cc = warpG2C(p.x, p.y); if (c === 0) ctx.moveTo(cc[0], cc[1]); else ctx.lineTo(cc[0], cc[1]); }
+    ctx.stroke();
+  }
+  for (var c2 = 0; c2 < n; c2++) {
+    ctx.beginPath();
+    for (var r2 = 0; r2 < n; r2++) { var p2 = warpPts[r2][c2]; var cc2 = warpG2C(p2.x, p2.y); if (r2 === 0) ctx.moveTo(cc2[0], cc2[1]); else ctx.lineTo(cc2[0], cc2[1]); }
+    ctx.stroke();
+  }
+  for (var r3 = 0; r3 < n; r3++) for (var c3 = 0; c3 < n; c3++) {
+    var pc = warpG2C(warpPts[r3][c3].x, warpPts[r3][c3].y);
+    ctx.beginPath(); ctx.arc(pc[0], pc[1], 6, 0, Math.PI * 2); ctx.fillStyle = '#fff'; ctx.fill();
+  }
+}
+function warpEventXY(e) {
+  var canvas = document.getElementById('warp-canvas'); var rect = canvas.getBoundingClientRect();
+  var t = e.touches ? e.touches[0] : e;
+  return [(t.clientX - rect.left) * canvas.width / rect.width, (t.clientY - rect.top) * canvas.height / rect.height];
+}
+function warpPointerDown(e) {
+  var xy = warpEventXY(e);
+  for (var r = 0; r < warpGridSize; r++) for (var c = 0; c < warpGridSize; c++) {
+    var cc = warpG2C(warpPts[r][c].x, warpPts[r][c].y);
+    if (Math.hypot(cc[0] - xy[0], cc[1] - xy[1]) <= 12) { warpDrag = {r: r, c: c}; return; }
+  }
+}
+function warpPointerMove(e) {
+  if (!warpDrag) return;
+  e.preventDefault();
+  var xy = warpEventXY(e), g = warpC2G(xy[0], xy[1]);
+  warpPts[warpDrag.r][warpDrag.c] = {x: Math.max(-1.5, Math.min(1.5, g[0])), y: Math.max(-1.5, Math.min(1.5, g[1]))};
+  warpRender();
+}
+function warpPointerUp() { warpDrag = null; }
+async function warpLoad() {
+  var r = await apiCall('GET', '/api/warp/get');
+  if (r && r.gridSize && r.points) {
+    warpGridSize = r.gridSize;
+    warpPts = r.points.map(function(row) { return row.map(function(p) { return {x: p[0], y: p[1]}; }); });
+    warpEnabled = !!r.enabled;
+  } else {
+    warpGridSize = 2; warpPts = warpIdentityGrid(2); warpEnabled = false;
+  }
+  var sel = document.getElementById('warp-grid-size'); if (sel) sel.value = String(warpGridSize);
+  var enEl = document.getElementById('warp-enable-status');
+  if (enEl) { enEl.textContent = warpEnabled ? 'Enabled' : 'Disabled'; enEl.className = warpEnabled ? 'pill ok' : 'pill bad'; }
+  warpRender();
+}
+async function warpSave() {
+  var pts = warpPts.map(function(row) { return row.map(function(p) { return [p.x, p.y]; }); });
+  await apiCall('POST', '/api/warp/set', {gridSize: warpGridSize, points: pts, enabled: warpEnabled});
+  toast('Warp grid saved');
+}
+async function warpToggleEnable() {
+  warpEnabled = !warpEnabled;
+  var pts = warpPts.map(function(row) { return row.map(function(p) { return [p.x, p.y]; }); });
+  await apiCall('POST', '/api/warp/set', {gridSize: warpGridSize, points: pts, enabled: warpEnabled});
+  var enEl = document.getElementById('warp-enable-status');
+  if (enEl) { enEl.textContent = warpEnabled ? 'Enabled' : 'Disabled'; enEl.className = warpEnabled ? 'pill ok' : 'pill bad'; }
+}
+async function warpToggleTest() {
+  warpTestOn = !warpTestOn;
+  await apiCall('POST', '/api/warp/test', {active: warpTestOn});
+  var btn = document.getElementById('warp-test-btn'); if (btn) btn.textContent = warpTestOn ? 'Stop Test Grid' : 'Project Test Grid';
+}
+async function warpReset() {
+  await apiCall('POST', '/api/warp/reset', {});
+  await warpLoad();
+}
+function warpSetGridSize(v) {
+  var n = parseInt(v, 10);
+  if (n === warpGridSize) return;
+  warpGridSize = n;
+  warpPts = warpIdentityGrid(n);
+  warpRender();
+}
+function initWarpEditor() {
+  var canvas = document.getElementById('warp-canvas'); if (!canvas) return;
+  canvas.addEventListener('mousedown', warpPointerDown); canvas.addEventListener('mousemove', warpPointerMove);
+  window.addEventListener('mouseup', warpPointerUp);
+  canvas.addEventListener('touchstart', warpPointerDown); canvas.addEventListener('touchmove', warpPointerMove);
+  window.addEventListener('touchend', warpPointerUp);
+  warpPts = warpIdentityGrid(warpGridSize);
+  warpLoad();
+}
+
 registerTabLoader('calib', function() { loadCalibPatterns(); loadCalibrationFields(); });
-registerTabLeaveHook('calib', function() { stopThreshTest(); stopThreeCirclePattern(); });
+registerTabLeaveHook('calib', function() { stopThreshTest(); stopThreeCirclePattern(); if (warpTestOn) warpToggleTest(); });
 
 /* =========================================================================
    OPTIMIZER TAB -- field names match /api/optimizer-live exactly
