@@ -39,6 +39,12 @@ Target: GalvOS ESP32-S3 controller via REST (/api/calib-cam/*, /api/status).
                   calibration), measures where they land vs. a target
                   rectangle, and POSTs the corrected grid. Independent of
                   'calibrate'/homography.npz above (different purpose).
+ 11. measure-resonance - sweeps one galvo axis 50-2000Hz (firmware-generated
+                  sine drive, POST /api/debug/resonance) and reads the
+                  driven streak's spatial extent per frequency to build a
+                  Bode magnitude curve, extracting fRes/Q -> ring_freq_hz/
+                  ring_damping_ratio for the ZV-shaper ringing compensation.
+                  No homography needed - relative amplitude only.
 
 ---
 
@@ -57,6 +63,7 @@ Target: GalvOS ESP32-S3 controller via REST (/api/calib-cam/*, /api/status).
   python optimizeGalvo.py analyze-live
   python optimizeGalvo.py calibrate-warp --grid-size 3 --target-rect 100,80,1180,720
   python optimizeGalvo.py calibrate-warp --grid-size 2 --dry-run
+  python optimizeGalvo.py measure-resonance --axis x
   python optimizeGalvo.py --config myRig.json check
 
 ---
@@ -82,6 +89,7 @@ If wheels for your Python version are not yet published, use a Python
 
 import argparse
 import collections
+import csv
 import functools
 import json
 import os
@@ -98,7 +106,7 @@ import requests
 # ── versioning ───────────────────────────────────────────────────────────────
 # Semantic version of this script (independent of GalvOS firmware version).
 # Bump on every behavioral change; see git log for change history.
-SCRIPT_VERSION = "2.14.1"
+SCRIPT_VERSION = "2.15.0"
 
 # GalvOS firmware version that introduced /api/calib-cam/* (see firmware git log:
 # "fw: v6.03.0 -- camera-in-the-loop calibration API (calib-cam)").
@@ -109,6 +117,12 @@ MIN_FW_VERSION_CALIB_CAM = (6, 3, 0)
 # /api/config's galvo_x/y_gain/offset/invert_x/invert_y/swap_xy/output_scale
 # fields, all of which predate this.
 MIN_FW_VERSION_WARP = (6, 55, 0)
+
+# GalvOS firmware version that introduced /api/debug/resonance (Prompt 13 -
+# galvo resonance measurement). See docs/feature-prompts/DECISIONS.md, Prompt
+# 13: HTTP round trips are far too slow to synthesize a sweep from the Python
+# side, so the sine drive itself is generated firmware-side.
+MIN_FW_VERSION_RESONANCE = (6, 61, 0)
 
 # Hard floor for resultViewHoldSeconds (camConfig.json) - the camera view window must
 # stay open at least this long after a command finishes, so the last capture is
@@ -466,6 +480,39 @@ DEFAULT_CONFIG = {
                                 # solve (measure -> correct -> measure, max 3 rounds)
                                 # stops early once a point's camera-pixel residual is
                                 # under this
+    "resonanceAxis": "x",       # measure-resonance: which galvo axis to drive
+    "resonanceAmpFraction": 0.15,  # measure-resonance: test-drive peak amplitude as a
+                                # fraction of the safe DAC range (min(0x8000-dac_limit_min,
+                                # dac_limit_max-0x8000)). Deliberately conservative -
+                                # near resonance the SAME commanded amplitude produces the
+                                # LARGEST mechanical excursion of this entire toolkit's
+                                # test signals (see docs/feature-prompts/DECISIONS.md,
+                                # Prompt 13) - this is not a "how big can the pattern be"
+                                # knob like dacRange, raise it only deliberately.
+    "resonanceMinFreqHz": 50.0,
+    "resonanceMaxFreqHz": 2000.0,
+    "resonanceCoarsePoints": 30,   # log-spaced points across the full min/max range
+    "resonanceFinePoints": 15,     # linear-spaced points around the coarse peak, for
+                                # an accurate -3dB bandwidth/Q
+    "resonanceFineSpanFraction": 0.4,  # fine pass spans +-this fraction of the coarse
+                                # peak frequency (e.g. 0.4 @ 300Hz peak -> 180-420Hz)
+    "resonanceMinCycles": 3,    # per frequency step, the capture window (settle +
+                                # accumulated frames) must span at least this many
+                                # drive periods for a reliable streak-extent reading -
+                                # frame count is scaled up automatically at low
+                                # frequencies where the default accumFrames wouldn't
+                                # otherwise span enough cycles (camera frame rate is
+                                # far too slow to resolve the waveform itself at these
+                                # frequencies - this only needs the EXPOSURE-INTEGRATED
+                                # streak envelope to be complete, see DECISIONS.md)
+    "resonanceSettleSeconds": 0.15,  # wait after commanding a new frequency before
+                                # capturing, so the galvo's own transient response to
+                                # the frequency CHANGE itself has died down first
+    "resonanceMinExtentPx": 3.0,   # streak extent readings below this are treated as
+                                # noise floor / no visible response, not a real
+                                # (near-zero) amplitude data point
+    "resonanceChannel": 3,      # laser color for the resonance test: 0=white 1=R 2=G
+                                # 3=B (default, same reasoning as camPatternChannel)
     "showCameraView": True,     # live preview window during calibrate/measure/optimize
     "resultViewHoldSeconds": 5.0,  # minimum seconds the camera view window (if shown)
                                 # stays open and live after calibrate/measure/optimize/
@@ -592,6 +639,29 @@ def validateConfig(cfg: dict):
         problems.append("warpCalibToleranceCameraPx must be a positive number")
     if not isinstance(cfg.get("liveAnalysisMinComponentPx"), (int, float)) or cfg["liveAnalysisMinComponentPx"] < 0:
         problems.append("liveAnalysisMinComponentPx must be a non-negative number")
+    if cfg.get("resonanceAxis") not in ("x", "y"):
+        problems.append("resonanceAxis must be 'x' or 'y'")
+    if not isinstance(cfg.get("resonanceAmpFraction"), (int, float)) or not (0 < cfg["resonanceAmpFraction"] <= 1):
+        problems.append("resonanceAmpFraction must be a number between 0 (exclusive) and 1")
+    if (not isinstance(cfg.get("resonanceMinFreqHz"), (int, float))
+            or not isinstance(cfg.get("resonanceMaxFreqHz"), (int, float))
+            or cfg["resonanceMinFreqHz"] <= 0
+            or cfg["resonanceMinFreqHz"] >= cfg["resonanceMaxFreqHz"]):
+        problems.append("resonanceMinFreqHz must be a positive number less than resonanceMaxFreqHz")
+    if not isinstance(cfg.get("resonanceCoarsePoints"), int) or cfg["resonanceCoarsePoints"] < 3:
+        problems.append("resonanceCoarsePoints must be an integer >= 3")
+    if not isinstance(cfg.get("resonanceFinePoints"), int) or cfg["resonanceFinePoints"] < 3:
+        problems.append("resonanceFinePoints must be an integer >= 3")
+    if not isinstance(cfg.get("resonanceFineSpanFraction"), (int, float)) or not (0 < cfg["resonanceFineSpanFraction"] < 1):
+        problems.append("resonanceFineSpanFraction must be a number between 0 and 1 (exclusive)")
+    if not isinstance(cfg.get("resonanceMinCycles"), int) or cfg["resonanceMinCycles"] < 1:
+        problems.append("resonanceMinCycles must be an integer >= 1")
+    if not isinstance(cfg.get("resonanceSettleSeconds"), (int, float)) or cfg["resonanceSettleSeconds"] < 0:
+        problems.append("resonanceSettleSeconds must be a non-negative number")
+    if not isinstance(cfg.get("resonanceMinExtentPx"), (int, float)) or cfg["resonanceMinExtentPx"] < 0:
+        problems.append("resonanceMinExtentPx must be a non-negative number")
+    if not isinstance(cfg.get("resonanceChannel"), int) or not (0 <= cfg["resonanceChannel"] <= 3):
+        problems.append("resonanceChannel must be an integer 0-3 (0=white 1=R 2=G 3=B)")
     costWeights = cfg.get("costWeights")
     if not isinstance(costWeights, dict) or not all(
             isinstance(v, (int, float)) for v in costWeights.values()):
@@ -911,6 +981,29 @@ class EspClient:
         """POST /api/debug/hw {cmd:off} - blanks the beam and releases debug-output
         mode (galvoTask resumes normal ring-buffer consumption)."""
         self._post("/api/debug/hw", {"cmd": "off"})
+
+    def resonanceTest(self, axis: int, freqHz: float, amp: int,
+                      r: int, g: int, b: int) -> dict:
+        """POST /api/debug/resonance - free-runs a sine wave on one axis (axis:
+        0=X, 1=Y), generated firmware-side (galvoTask, per-tick) since HTTP round
+        trips are far too slow to synthesize a waveform anywhere near the 50-2000Hz
+        sweep range from here. amp is the DAC-space peak (-32767..32767); the
+        firmware clamps it server-side against dac_limit_min/max before arming and
+        reports {"clamped": true} if it had to. Requires laser_armed (or
+        gDebugNoHW), same guard as debugHw(). See docs/feature-prompts/
+        DECISIONS.md, Prompt 13."""
+        return self._post("/api/debug/resonance",
+                          {"axis": axis, "freq_hz": freqHz, "amp": amp,
+                           "r": r, "g": g, "b": b})
+
+    def resonanceOff(self) -> None:
+        """POST /api/debug/resonance {cmd:off} - blanks the beam and stops the
+        sine drive (galvoTask resumes normal ring-buffer consumption)."""
+        self._post("/api/debug/resonance", {"cmd": "off"})
+
+    def resonanceStatus(self) -> dict:
+        """GET /api/debug/resonance - {"active": bool, "armed": bool}."""
+        return self._get("/api/debug/resonance")
 
     def warpGet(self) -> dict:
         """GET /api/warp/get - current warp grid: {enabled, gridSize, points}."""
@@ -1340,6 +1433,29 @@ def detectSinglePoint(image: np.ndarray, threshold: int, minAreaPx: float,
     if m["m00"] <= 0:
         return None
     return (m["m10"] / m["m00"], m["m01"] / m["m00"])
+
+
+def detectStreakExtent(image: np.ndarray, threshold: int) -> float | None:
+    """measure-resonance's per-frequency-step detector: peak-to-peak amplitude of a
+    driven sine streak. Returns the largest blob's extent along its OWN long axis
+    (cv2.minAreaRect), NOT a centroid - a symmetric back-and-forth streak's
+    moments-centroid sits near the geometric middle regardless of amplitude (the
+    same read detectSinglePoint() above uses for a STATIC dwell dot is
+    amplitude-blind here), so extent is the only readout that actually tracks
+    displacement. Returns None (does NOT raise) if no contour is found at all -
+    callers additionally floor the returned extent against resonanceMinExtentPx
+    (a thin, near-zero-amplitude streak is expected to have SOME contour, not
+    zero). See docs/feature-prompts/DECISIONS.md, Prompt 13."""
+    _, binary = cv2.threshold(image, threshold, 255, cv2.THRESH_BINARY)
+    binary = cv2.dilate(binary, np.ones((3, 3), np.uint8))
+    contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    if not contours:
+        return None
+    best = max(contours, key=cv2.contourArea)
+    if len(best) < 2:
+        return None
+    (_, _), (w, h), _ = cv2.minAreaRect(best)
+    return float(max(w, h))
 
 
 def orderCorners(points: np.ndarray) -> np.ndarray:
@@ -1819,6 +1935,281 @@ def _runCalibrateWarpBody(cfg: dict, esp: EspClient, cam: "Camera", n: int,
 
     esp.warpSet(n, points, enabled=True)
     prOk("warp grid applied via /api/warp/set")
+
+
+# ── resonance measurement (Prompt 13) ─────────────────────────────────────────
+
+def _resonanceSafeAmpDac(espCfg: dict, ampFraction: float) -> int:
+    """Largest symmetric peak amplitude (DAC units) that keeps both +amp and -amp
+    inside [dac_limit_min, dac_limit_max], scaled down by ampFraction. Firmware
+    re-clamps this anyway (see EspClient.resonanceTest) - this is the "pick a
+    conservative test amplitude" half, not the safety net itself."""
+    limMin = int(espCfg.get("dac_limit_min", 0x0666))
+    limMax = int(espCfg.get("dac_limit_max", 0xF999))
+    safeMax = min(0x8000 - limMin, limMax - 0x8000)
+    return max(1, int(round(safeMax * ampFraction)))
+
+
+def _measureOneFrequency(cfg: dict, esp: EspClient, cam: "Camera", background: np.ndarray,
+                         axis: int, freqHz: float, ampDac: int,
+                         colorRgb: tuple[int, int, int]) -> float | None:
+    """Commands one frequency, waits out the transient, captures enough frames to
+    span resonanceMinCycles periods, and returns the streak extent (px) or None if
+    nothing measurable was detected. Frame count is scaled up at low frequencies -
+    the default accumFrames window (tuned for fast-scanned calib patterns) can be
+    shorter than one period down at the sweep's low end."""
+    r, g, b = colorRgb
+    result = esp.resonanceTest(axis, freqHz, ampDac, r, g, b)
+    if result.get("clamped"):
+        prWarn(f"  {freqHz:.1f}Hz: amp {ampDac} clamped to {result.get('amp')} by "
+              f"dac_limit_min/max")
+    time.sleep(cfg["resonanceSettleSeconds"])
+
+    fps = cfg.get("cameraFps") or 60.0
+    periodS = 1.0 / freqHz
+    framesForCycles = int(-(-(cfg["resonanceMinCycles"] * periodS * fps) // 1))  # ceil
+    nFrames = max(cfg["accumFrames"], framesForCycles, 3)
+
+    cam.statusText = f"measure-resonance: {freqHz:.1f}Hz axis={'Y' if axis else 'X'}"
+    frame = cam.grabAccumulated(nFrames)
+    diff = cv2.subtract(frame, background)
+    extent = detectStreakExtent(diff, cfg["binaryThreshold"])
+    if extent is None or extent < cfg["resonanceMinExtentPx"]:
+        return None
+    return extent
+
+
+def _sweepFrequencies(cfg: dict, esp: EspClient, cam: "Camera", background: np.ndarray,
+                      axis: int, ampDac: int, colorRgb: tuple[int, int, int],
+                      freqs: list[float], label: str) -> list[float | None]:
+    amps: list[float | None] = []
+    for i, f in enumerate(freqs):
+        pr(f"  [{label} {i + 1}/{len(freqs)}] {f:7.1f} Hz ...", end=" ")
+        a = _measureOneFrequency(cfg, esp, cam, background, axis, f, ampDac, colorRgb)
+        amps.append(a)
+        pr(f"{a:.1f}px" if a is not None else "no response")
+        waitWhilePaused(cam)
+    return amps
+
+
+def _bodePlotPng(freqs: list[float], amps: list[float | None], fRes: float | None,
+                 f3dbLo: float | None, f3dbHi: float | None, axisLabel: str) -> np.ndarray:
+    """Renders a log-frequency Bode-magnitude plot with plain cv2 drawing (no
+    matplotlib dependency - consistent with the rest of this script's
+    annotateCanvas()/annotateLiveGeometry() style camera-canvas rendering)."""
+    W, H = 900, 500
+    margin = {"l": 70, "r": 20, "t": 40, "b": 60}
+    canvas = np.full((H, W, 3), 255, dtype=np.uint8)
+    validPairs = [(f, a) for f, a in zip(freqs, amps) if a is not None]
+    if not validPairs:
+        cv2.putText(canvas, "no response detected at any swept frequency", (30, H // 2),
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 200), 2, cv2.LINE_AA)
+        return canvas
+
+    fMin, fMax = min(freqs), max(freqs)
+    aMax = max(a for _, a in validPairs)
+    plotW, plotH = W - margin["l"] - margin["r"], H - margin["t"] - margin["b"]
+
+    def xOf(f: float) -> int:
+        u = (np.log10(f) - np.log10(fMin)) / (np.log10(fMax) - np.log10(fMin) + 1e-9)
+        return margin["l"] + int(u * plotW)
+
+    def yOf(a: float) -> int:
+        v = a / (aMax + 1e-9)
+        return margin["t"] + plotH - int(v * plotH)
+
+    cv2.rectangle(canvas, (margin["l"], margin["t"]), (W - margin["r"], H - margin["b"]),
+                 (200, 200, 200), 1)
+    for f in (fMin, fMax) if fMin == fMax else np.geomspace(fMin, fMax, 6):
+        x = xOf(f)
+        cv2.line(canvas, (x, margin["t"]), (x, H - margin["b"]), (235, 235, 235), 1)
+        cv2.putText(canvas, f"{f:.0f}", (x - 15, H - margin["b"] + 18),
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.42, (60, 60, 60), 1, cv2.LINE_AA)
+
+    pts = [(xOf(f), yOf(a)) for f, a in validPairs]
+    for p0, p1 in zip(pts, pts[1:]):
+        cv2.line(canvas, p0, p1, (200, 120, 0), 2, cv2.LINE_AA)
+    for p in pts:
+        cv2.circle(canvas, p, 3, (200, 120, 0), -1, cv2.LINE_AA)
+
+    if fRes is not None:
+        x = xOf(fRes)
+        cv2.line(canvas, (x, margin["t"]), (x, H - margin["b"]), (0, 0, 220), 1, cv2.LINE_AA)
+        cv2.putText(canvas, f"fRes={fRes:.1f}Hz", (x + 6, margin["t"] + 16),
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 220), 1, cv2.LINE_AA)
+    if f3dbLo is not None and f3dbHi is not None:
+        yThresh = yOf(aMax / np.sqrt(2))
+        cv2.line(canvas, (margin["l"], yThresh), (W - margin["r"], yThresh),
+                (0, 160, 0), 1, cv2.LINE_AA)
+        cv2.putText(canvas, "-3dB", (margin["l"] + 4, yThresh - 4),
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.42, (0, 160, 0), 1, cv2.LINE_AA)
+
+    cv2.putText(canvas, f"Galvo resonance sweep - axis {axisLabel}", (margin["l"], 24),
+               cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 1, cv2.LINE_AA)
+    cv2.putText(canvas, "frequency (Hz, log scale)", (W // 2 - 90, H - 12),
+               cv2.FONT_HERSHEY_SIMPLEX, 0.45, (60, 60, 60), 1, cv2.LINE_AA)
+    return canvas
+
+
+def _halfPowerBandwidth(freqs: list[float], amps: list[float | None],
+                        peakIdx: int) -> tuple[float | None, float | None]:
+    """Linear-interpolated -3dB (1/sqrt(2) of peak) crossing frequencies on either
+    side of the peak. None on a side that never crosses (e.g. the sweep range
+    didn't extend far enough) - callers must handle a partial/missing bandwidth,
+    not assume both sides are always found."""
+    peakAmp = amps[peakIdx]
+    if peakAmp is None:
+        return None, None
+    target = peakAmp / np.sqrt(2)
+
+    def interp(iLo: int, iHi: int) -> float | None:
+        aLo, aHi = amps[iLo], amps[iHi]
+        if aLo is None or aHi is None:
+            return None
+        if (aLo - target) * (aHi - target) > 0:
+            return None   # no crossing between these two samples
+        t = (target - aLo) / (aHi - aLo) if aHi != aLo else 0.0
+        # log-interpolate frequency (sweep is log-spaced)
+        return float(np.exp(np.log(freqs[iLo]) + t * (np.log(freqs[iHi]) - np.log(freqs[iLo]))))
+
+    fLo = None
+    for i in range(peakIdx, 0, -1):
+        fLo = interp(i - 1, i)
+        if fLo is not None:
+            break
+    fHi = None
+    for i in range(peakIdx, len(freqs) - 1):
+        fHi = interp(i, i + 1)
+        if fHi is not None:
+            break
+    return fLo, fHi
+
+
+def runMeasureResonance(cfg: dict, esp: EspClient, cam: "Camera", axisName: str | None):
+    """Prompt 13: sweeps one galvo axis 50-2000Hz (default, see resonanceMin/
+    MaxFreqHz), reads the driven streak's spatial extent (NOT centroid - see
+    detectStreakExtent()) as an amplitude proxy, and extracts fRes/Q from the
+    resulting Bode-magnitude curve. Two-pass: a coarse log-spaced sweep across
+    the full range locates an approximate peak, then a fine linear-spaced pass
+    around it gets an accurate -3dB bandwidth. See docs/feature-prompts/
+    DECISIONS.md, Prompt 13 for the full design rationale/known limitations."""
+    # fw_version lives in /api/status (getStatus()), NOT /api/config - buildConfigJson()
+    # doesn't publish it at all, unlike buildStateJson()/api/status's own sprintf (see
+    # runCheckConnection() for the same read pattern).
+    status = esp.getStatus()
+    fwVersion = parseFwVersion(status.get("fw_version", ""))
+    if fwVersion is not None and fwVersion < MIN_FW_VERSION_RESONANCE:
+        minStr = ".".join(map(str, MIN_FW_VERSION_RESONANCE))
+        raise OptimizerError(
+            f"connected firmware is older than v{minStr} - /api/debug/resonance "
+            f"doesn't exist yet on this controller (Prompt 13). Update firmware first."
+        )
+    espCfg = esp.getConfig()
+
+    axis = 1 if (axisName or cfg["resonanceAxis"]).lower() == "y" else 0
+    axisLabel = "Y" if axis else "X"
+    ampDac = _resonanceSafeAmpDac(espCfg, cfg["resonanceAmpFraction"])
+    colorRgb = _channelToRgb(cfg["resonanceChannel"])
+
+    esp.stop()             # in case a calib-cam session was left running
+    esp.resonanceOff()     # in case a previous run was interrupted mid-sweep
+    try:
+        RESULTS_DIR.mkdir(exist_ok=True)
+    except OSError as e:
+        raise OptimizerError(f"cannot create {RESULTS_DIR.name}/: {e}") from e
+
+    pr(f"resonance sweep: axis={axisLabel} amp={ampDac} DAC units "
+      f"({cfg['resonanceAmpFraction'] * 100:.0f}% of safe range)")
+    background = cam.grabBackground()
+
+    try:
+        coarseFreqs = list(np.geomspace(cfg["resonanceMinFreqHz"], cfg["resonanceMaxFreqHz"],
+                                        cfg["resonanceCoarsePoints"]))
+        pr(f"coarse pass: {len(coarseFreqs)} points, "
+          f"{cfg['resonanceMinFreqHz']:.0f}-{cfg['resonanceMaxFreqHz']:.0f}Hz (log-spaced)")
+        coarseAmps = _sweepFrequencies(cfg, esp, cam, background, axis, ampDac, colorRgb,
+                                       coarseFreqs, "coarse")
+
+        validCoarse = [(f, a) for f, a in zip(coarseFreqs, coarseAmps) if a is not None]
+        if not validCoarse:
+            raise OptimizerError(
+                "no response detected at any coarse-sweep frequency - check the laser is "
+                "visible to the camera (aim/focus), raise resonanceAmpFraction, or widen "
+                "resonanceMinFreqHz/resonanceMaxFreqHz in the config"
+            )
+        coarsePeakFreq = max(validCoarse, key=lambda p: p[1])[0]
+        pr(f"coarse peak: ~{coarsePeakFreq:.1f}Hz")
+
+        span = cfg["resonanceFineSpanFraction"]
+        fineLo = max(cfg["resonanceMinFreqHz"], coarsePeakFreq * (1 - span))
+        fineHi = min(cfg["resonanceMaxFreqHz"], coarsePeakFreq * (1 + span))
+        fineFreqs = list(np.linspace(fineLo, fineHi, cfg["resonanceFinePoints"]))
+        pr(f"fine pass: {len(fineFreqs)} points, {fineLo:.1f}-{fineHi:.1f}Hz (linear-spaced)")
+        fineAmps = _sweepFrequencies(cfg, esp, cam, background, axis, ampDac, colorRgb,
+                                     fineFreqs, "fine")
+
+        allFreqs = coarseFreqs + fineFreqs
+        allAmps = coarseAmps + fineAmps
+        order = sorted(range(len(allFreqs)), key=lambda i: allFreqs[i])
+        freqs = [allFreqs[i] for i in order]
+        amps = [allAmps[i] for i in order]
+
+        validAll = [(i, a) for i, a in enumerate(amps) if a is not None]
+        if not validAll:
+            raise OptimizerError("no response detected in either sweep pass")
+        peakIdx = max(validAll, key=lambda p: p[1])[0]
+        fPeak = freqs[peakIdx]
+        peakAmp = amps[peakIdx]
+
+        f3dbLo, f3dbHi = _halfPowerBandwidth(freqs, amps, peakIdx)
+        result: dict = {"fPeakHz": fPeak, "peakAmplitudePx": peakAmp, "axis": axisLabel}
+        if f3dbLo is not None and f3dbHi is not None:
+            bandwidth = f3dbHi - f3dbLo
+            q = fPeak / bandwidth if bandwidth > 0 else None
+            if q is not None and q > 0:
+                zeta = 1.0 / (2.0 * q)
+                # f_peak = fn*sqrt(1-2*zeta^2) for a driven 2nd-order system - correct
+                # back to the UNDAMPED natural frequency the firmware's ZV shaper
+                # actually wants (ring_freq_hz = wn/2pi, point_optimizer.cpp
+                # computeZvShaper()), not the driven-response peak itself. Small at
+                # light damping (~2% at zeta=0.15) but not zero.
+                underRoot = 1.0 - 2.0 * zeta * zeta
+                fn = fPeak / np.sqrt(underRoot) if underRoot > 0 else fPeak
+                result.update({"f3dbLoHz": f3dbLo, "f3dbHiHz": f3dbHi, "bandwidthHz": bandwidth,
+                              "Q": q, "ringDampingRatio": zeta, "ringFreqHz": float(fn)})
+        else:
+            prWarn("could not resolve a full -3dB bandwidth on both sides of the peak - "
+                  "Q/ring_damping_ratio unavailable this run. Try a wider "
+                  "resonanceFineSpanFraction or check the coarse-sweep plot for a "
+                  "ragged/noisy curve near the peak.")
+
+        ts = time.strftime("%Y%m%d_%H%M%S")
+        csvPath = RESULTS_DIR / f"resonance_{axisLabel}_{ts}.csv"
+        with open(csvPath, "w", newline="") as fh:
+            w = csv.writer(fh)
+            w.writerow(["freq_hz", "amplitude_px"])
+            for f, a in zip(freqs, amps):
+                w.writerow([f, "" if a is None else a])
+        pngPath = RESULTS_DIR / f"resonance_{axisLabel}_{ts}.png"
+        plot = _bodePlotPng(freqs, amps, fPeak, f3dbLo, f3dbHi, axisLabel)
+        cv2.imwrite(str(pngPath), plot)
+        if cam.liveView:
+            cam.liveView.update(cv2.cvtColor(plot, cv2.COLOR_BGR2GRAY), "resonance sweep result")
+
+        pr()
+        prOk(f"fRes (driven peak) = {fPeak:.1f}Hz, amplitude = {peakAmp:.1f}px")
+        if "Q" in result:
+            prOk(f"Q = {result['Q']:.2f}  ->  ring_damping_ratio = {result['ringDampingRatio']:.3f}"
+                f"  ->  ring_freq_hz (corrected) = {result['ringFreqHz']:.1f}Hz")
+            prTip(f"apply via: POST /api/optimizer-live "
+                 f"{{ring_freq_hz: {result['ringFreqHz']:.1f}, "
+                 f"ring_damping_ratio: {result['ringDampingRatio']:.3f}, "
+                 f"ringing_comp_enabled: true, profile: <N>}}, then /api/optimizer-save "
+                 f"to persist - NOT auto-applied by this command.")
+        pr(f"saved: {csvPath.name}, {pngPath.name}")
+        return result
+    finally:
+        esp.resonanceOff()
 
 
 # ── ideal pattern geometry (must match firmware calib patterns, DAC coords) ──
@@ -3259,7 +3650,7 @@ def runDiagnose(cfg: dict, esp: EspClient, cam: Camera, profile: str | None,
 # ESP32 at all; 'analyze-live' never starts/stops a pattern by design and does its
 # own non-blocking version of this same check inline (see runAnalyzeLive).
 LASER_REQUIRED_CMDS = ("calibrate", "measure", "optimize", "diagnose", "autotune-camera",
-                      "autotune-colors", "calibrate-warp")
+                      "autotune-colors", "calibrate-warp", "measure-resonance")
 
 
 def requireLaserReady(esp: EspClient):
@@ -4106,6 +4497,10 @@ def main():
               calibrate-warp  solves the firmware's /api/warp/* keystone grid -
                             independent of 'calibrate'/homography.npz, does NOT
                             require it to have been run first
+              measure-resonance  sweeps a galvo axis, extracts fRes/Q ->
+                            ring_freq_hz/ring_damping_ratio for the ZV shaper -
+                            independent of 'calibrate'/homography.npz, no
+                            pixel<->DAC mapping needed (relative amplitude only)
 
             {"-" * 78}
             files:
@@ -4516,6 +4911,36 @@ def main():
         help="solve and print the resulting grid JSON, but do not POST it to the "
              "ESP32 (/api/warp/set is skipped)")
 
+    pRes = sub.add_parser(
+        "measure-resonance",
+        help="sweep a galvo axis and measure its mechanical resonance (fRes/Q)",
+        description="Sweeps one galvo axis over resonanceMinFreqHz-resonanceMaxFreqHz "
+                     "Hz (default 50-2000, camConfig.json) via a firmware-generated sine "
+                     "drive (POST /api/debug/resonance - requires firmware "
+                     f"v{'.'.join(map(str, MIN_FW_VERSION_RESONANCE))}+) and reads each "
+                     "step's driven streak SPATIAL EXTENT (not centroid - a symmetric "
+                     "back-and-forth streak's centroid is amplitude-blind) as an "
+                     "amplitude proxy. Two passes: a coarse log-spaced sweep across the "
+                     "full range locates an approximate peak, then a fine linear-spaced "
+                     "pass around it resolves an accurate -3dB bandwidth. Computes "
+                     "Q = fRes/bandwidth, ring_damping_ratio = 1/(2Q), and ring_freq_hz "
+                     "corrected from the driven-peak frequency back to the undamped "
+                     "natural frequency the firmware's ZV shaper actually wants "
+                     "(point_optimizer.cpp computeZvShaper()). Prints the result and the "
+                     "exact /api/optimizer-live call to apply it - NEVER applies it "
+                     "automatically. Saves a CSV (freq_hz, amplitude_px) and a Bode-plot "
+                     "PNG to results/resonance_<axis>_<timestamp>.{csv,png}. No "
+                     "homography needed (only RELATIVE amplitude matters here, unlike "
+                     "'calibrate'/'calibrate-warp'). Test amplitude is deliberately "
+                     "conservative (resonanceAmpFraction of the safe DAC range, further "
+                     "clamped firmware-side) - see docs/feature-prompts/DECISIONS.md, "
+                     "Prompt 13 for why a driven amplitude sweep needs that caution near "
+                     "resonance specifically. Shows a live camera view window throughout "
+                     "(see --no-view/--zoom).")
+    pRes.add_argument(
+        "--axis", choices=["x", "y"], default=None,
+        help="galvo axis to drive (default: resonanceAxis in camConfig.json, 'x')")
+
     parser.add_argument(
         "--debug", action="store_true",
         help="on error, print a full Python traceback instead of a short message "
@@ -4574,7 +4999,7 @@ def dispatch(args):
 
     showView = cfg.get("showCameraView", True) and not args.noView
     viewCmds = ("calibrate", "measure", "optimize", "diagnose", "autotune-camera",
-               "autotune-colors", "analyze-live", "calibrate-warp")
+               "autotune-colors", "analyze-live", "calibrate-warp", "measure-resonance")
     liveView = LiveView("GalvOS camera view", cfg["frameWidth"], cfg["frameHeight"],
                         zoomIdx=args.zoom - 1) \
         if showView and args.cmd in viewCmds else None
@@ -4624,6 +5049,8 @@ def dispatch(args):
         elif args.cmd == "calibrate-warp":
             targetRect = _parseTargetRect(args.targetRect)
             runCalibrateWarp(cfg, esp, cam, args.gridSize, targetRect, args.frames, args.dryRun)
+        elif args.cmd == "measure-resonance":
+            runMeasureResonance(cfg, esp, cam, args.axis)
         if liveView:
             holdLiveView(cam, cfg.get("resultViewHoldSeconds", MIN_RESULT_VIEW_HOLD_SECONDS))
     finally:

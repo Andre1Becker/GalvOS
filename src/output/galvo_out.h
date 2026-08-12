@@ -73,6 +73,19 @@ void setDebugOutput(int16_t x, int16_t y, uint8_t r, uint8_t g, uint8_t b);
 void clearDebugOutput();       // to center + laser OFF
 bool isDebugOutputActive();
 
+// ── Resonance test: fixed-frequency single-axis sine drive (Prompt 13) ───
+// Free-runs a sine wave on one axis (other axis held at center) at a
+// firmware-generated, precisely timed frequency -- HTTP round trips are far
+// too slow to synthesize this from the Python side (see
+// docs/feature-prompts/DECISIONS.md, Prompt 13). Same priority tier and
+// safety semantics as setDebugOutput(): takes absolute priority over
+// ring-buffer playback, auto-deactivates if laser_armed drops. Caller must
+// pre-clamp ampDac against dac_limit_min/max -- this API does not re-clamp.
+void setResonanceTest(uint8_t axis, float freqHz, int16_t ampDac,
+                       uint8_t r, uint8_t g, uint8_t b);
+void clearResonanceTest();     // to center + laser OFF
+bool isResonanceTestActive();
+
 // ── DAC / HW status ──────────────────────────────────────────────────────
 // dacOk()    : true if DAC8562 SPI init succeeded and self-test passed.
 //              Always false when noHwMode() is true.

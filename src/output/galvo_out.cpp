@@ -310,6 +310,21 @@ static volatile uint8_t s_dbg_r = 0;      // PWM 0..255
 static volatile uint8_t s_dbg_g = 0;
 static volatile uint8_t s_dbg_b = 0;
 
+// Resonance test (Prompt 13): free-running single-axis sine drive, generated
+// tick-by-tick in galvoTask itself -- HTTP round trips (~10-50ms) are far too
+// slow to synthesize anything near the 50-2000Hz sweep range from the Python
+// side, see docs/feature-prompts/DECISIONS.md, Prompt 13. s_res_tick counts
+// emitted samples since the last setResonanceTest() call (NOT wall-clock
+// time), so the resulting frequency is exact and jitter-free relative to the
+// actual DAC update cadence (period_us), unlike anything phase-accumulated
+// from esp_timer_get_time() drift.
+static volatile bool    s_res_test_active = false;
+static volatile uint8_t s_res_axis    = 0;      // 0=X, 1=Y
+static volatile float   s_res_freq_hz = 0.0f;
+static volatile int16_t s_res_amp     = 0;      // DAC-space peak, pre-clamped by caller
+static volatile uint8_t s_res_r = 0, s_res_g = 0, s_res_b = 0;
+static volatile uint32_t s_res_tick   = 0;      // Core-1-owned; reset on every setResonanceTest()
+
 // Raw DAC command request/result, executed by galvoTask (Core 1) to avoid
 // concurrent SPI2 access from the HTTP handler task (Core 0).
 static volatile bool    s_raw_cmd_pending = false;
@@ -610,6 +625,36 @@ static void IRAM_ATTR galvoTask(void*) {
             next_tick += period_us;
             while (esp_timer_get_time() < (int64_t)next_tick) {}
             continue;
+        } else if (s_res_test_active) {
+            // Resonance test (Prompt 13): same priority tier and safety
+            // semantics as s_hw_debug_active above -- checked before the
+            // ring-buffer branch for the same reason (an idle/empty ring
+            // must not fight this branch for the DAC every tick).
+            if (!gState.laser_armed.load()) {
+                s_res_test_active = false;  // Auto-deactivate if disarmed
+            } else {
+                __atomic_thread_fence(__ATOMIC_ACQUIRE);
+                float   freq = s_res_freq_hz;
+                int16_t amp  = s_res_amp;
+                uint8_t axis = s_res_axis;
+                uint8_t dr = s_res_r, dg = s_res_g, db = s_res_b;
+                // Phase from the sample count, not wall-clock time: exact and
+                // jitter-free relative to the actual DAC update cadence, and
+                // immune to float precision loss over a long-running sweep
+                // step (tick count is what's incremented, not an
+                // accumulated phase).
+                float t   = (float)s_res_tick * ((float)period_us * 1e-6f);
+                float val = (float)amp * sinf(TWO_PI * freq * t);
+                int16_t dv = (int16_t)lroundf(val);
+                int16_t dx = (axis == 0) ? dv : 0;
+                int16_t dy = (axis == 1) ? dv : 0;
+                writeDAC8562XY((uint16_t)(dx + 32768), (uint16_t)(dy + 32768));
+                rgbWrite(dr, dg, db, s_snap.thresh_r, s_snap.thresh_g, s_snap.thresh_b);
+                s_res_tick++;
+            }
+            next_tick += period_us;
+            while (esp_timer_get_time() < (int64_t)next_tick) {}
+            continue;
         } else {
             size_t tail = s_ring_tail;
             bool underrun = false;
@@ -903,14 +948,15 @@ bool pushFrame(const LaserPoint* pts, size_t count) {
     if (count == 0 || count > PATTERN_POINTS_MAX) return false;
     if (!s_ring[s_ring_head]) return false;   // Null-Guard: PSRAM-Alloc failed
 
-    // While hardware debug mode is active (Galvo & Laser test tab),
-    // galvoTask's consumer does not drain the ring buffer (it outputs the
-    // fixed debug X/Y/RGB values instead). If we accepted frames here, the
-    // ring would fill up and subsequent pushFrame() calls would fail for
-    // ~500ms -> pattern_engine emergency stop. Pretend success instead;
-    // the pattern data is simply discarded until the user exits debug mode
-    // (Hardware Test tab -> "Exit Debug Mode").
-    if (s_hw_debug_active) return true;
+    // While hardware debug mode is active (Galvo & Laser test tab), OR a
+    // resonance test (Prompt 13) is running, galvoTask's consumer does not
+    // drain the ring buffer (it outputs the fixed debug/sine values
+    // instead). If we accepted frames here, the ring would fill up and
+    // subsequent pushFrame() calls would fail for ~500ms -> pattern_engine
+    // emergency stop. Pretend success instead; the pattern data is simply
+    // discarded until the user exits debug mode (Hardware Test tab -> "Exit
+    // Debug Mode") or the resonance test is stopped.
+    if (s_hw_debug_active || s_res_test_active) return true;
 
     size_t next_head = (s_ring_head + 1) % RING_FRAMES;
     if (next_head == s_ring_tail) {
@@ -1150,6 +1196,45 @@ void clearDebugOutput() {
 }
 
 bool isDebugOutputActive() { return s_hw_debug_active; }
+
+// ── Resonance test API (Prompt 13) ────────────────────────────────────────
+void setResonanceTest(uint8_t axis, float freqHz, int16_t ampDac,
+                       uint8_t r, uint8_t g, uint8_t b) {
+    if (s_hw_debug_active) clearDebugOutput();   // debug modes are mutually exclusive
+    // Same fixed optical X-mirror + invert_x/invert_y convention as
+    // setDebugOutput() -- for a symmetric sine this is just a sign flip
+    // (a phase inversion), so applying it once here keeps "axis 0 = X"
+    // meaning the same thing everywhere in the system, without adding a
+    // branch to galvoTask's per-tick hot path.
+    if (axis == 0) { ampDac = -ampDac; if (gConfig.invert_x) ampDac = -ampDac; }
+    else            { if (gConfig.invert_y) ampDac = -ampDac; }
+    s_res_axis    = axis;
+    s_res_freq_hz = freqHz;
+    s_res_amp     = ampDac;
+    s_res_r = r; s_res_g = g; s_res_b = b;
+    s_res_tick = 0;   // reset phase reference for this frequency step
+    // RELEASE: ensure all fields (incl. the tick reset) are committed
+    // before galvoTask (Core 1) observes s_res_test_active=true via its
+    // ACQUIRE fence.
+    __atomic_thread_fence(__ATOMIC_RELEASE);
+    s_res_test_active = true;
+    ESP_LOGW(TAG, "Resonance test: axis=%c freq=%.1fHz amp=%d",
+             axis ? 'Y' : 'X', (double)freqHz, ampDac);
+    LOG_W(logbuf::CAT_GALVO, "Resonance test: axis=%c freq=%.1fHz amp=%d",
+          axis ? 'Y' : 'X', (double)freqHz, ampDac);
+}
+
+void clearResonanceTest() {
+    s_res_test_active = false;
+    s_res_freq_hz = 0.0f; s_res_amp = 0;
+    s_res_r = 0; s_res_g = 0; s_res_b = 0;
+    // Same reasoning as clearDebugOutput(): no direct writeDAC8562() here,
+    // galvoTask's next iteration (<33us later) settles the output itself.
+    if (!gDebugNoHW) { rgbOff(); }
+    ESP_LOGI(TAG, "Resonance test: stopped, galvo=center, laser=OFF");
+}
+
+bool isResonanceTestActive() { return s_res_test_active; }
 
 // DEBUG (gain live-update issue): expose snapshot state for /api/state.
 void snapDebug(uint32_t& updates, uint8_t& gr, uint8_t& gg, uint8_t& gb,
