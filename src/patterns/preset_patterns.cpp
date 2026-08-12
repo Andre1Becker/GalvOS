@@ -128,6 +128,61 @@ static size_t star(LaserPoint*o,size_t mx,int pts,float outer,float inner,float 
     return optimizer::optimize(&seg, 1, o, mx, liveOptimizerConfig());
 }
 
+// ngonSegmented() -- polygon with per-side colors.
+// Each edge sÔåÆ(s+1) is a separate open PathSegment so the optimizer
+// treats each side independently. Falls back to uniform ngon() when disabled.
+static size_t ngonSegmented(LaserPoint* o, size_t mx, int sides, float sc, float off) {
+    if (!gLivePreset.seg_colors_enabled)
+        return ngon(o, mx, sides, sc, off,
+                    gLivePreset.col_r, gLivePreset.col_g, gLivePreset.col_b);
+    if (sides < 3 || sides > 10) return 0;
+    optimizer::PathSegment segs[10];
+    optimizer::PathVertex  verts[10][2];
+    for (int s = 0; s < sides; s++) {
+        int ns = (s + 1) % sides;
+        float a0 = PI2 * s  / sides + off;
+        float a1 = PI2 * ns / sides + off;
+        uint8_t r = gLivePreset.seg_col_r[s % 10];
+        uint8_t g = gLivePreset.seg_col_g[s % 10];
+        uint8_t b = gLivePreset.seg_col_b[s % 10];
+        verts[s][0] = optimizer::PathVertex(cosf(a0)*sc, sinf(a0)*sc, r, g, b, false);
+        verts[s][1] = optimizer::PathVertex(cosf(a1)*sc, sinf(a1)*sc, r, g, b, false);
+        segs[s]     = optimizer::PathSegment(verts[s], 2, /*closed=*/false);
+    }
+    return optimizer::optimize(segs, (size_t)sides, o, mx, liveOptimizerConfig());
+}
+
+// starSegmented() -- star with per-spoke colors.
+// Each of the pts*2 edges (outerÔåÆinnerÔåÆouter) gets its own color slot,
+// cycling through the 10 color slots for stars with more than 10 edges
+// (e.g. an 8-point star has 16 edges). Falls back to uniform star() when
+// disabled. Array size (20) matches the nverts>20 guard below, NOT the
+// 10-slot color palette -- capping the arrays at 10 would silently drop
+// the tail edges of any star with more than 10 edges.
+static size_t starSegmented(LaserPoint* o, size_t mx, int pts, float outer, float inner, float off) {
+    if (!gLivePreset.seg_colors_enabled)
+        return star(o, mx, pts, outer, inner, off,
+                    gLivePreset.col_r, gLivePreset.col_g, gLivePreset.col_b);
+    const int nverts = pts * 2;
+    if (nverts < 4 || nverts > 20) return 0;
+    optimizer::PathSegment segs[20];
+    optimizer::PathVertex  verts[20][2];
+    for (int s = 0; s < nverts; s++) {
+        int ns = (s + 1) % nverts;
+        float a0 = PI2 * s  / nverts + off - (float)(M_PI/2);
+        float a1 = PI2 * ns / nverts + off - (float)(M_PI/2);
+        float r0 = (s  % 2 == 0) ? outer : inner;
+        float r1 = (ns % 2 == 0) ? outer : inner;
+        uint8_t r = gLivePreset.seg_col_r[s % 10];
+        uint8_t g = gLivePreset.seg_col_g[s % 10];
+        uint8_t b = gLivePreset.seg_col_b[s % 10];
+        verts[s][0] = optimizer::PathVertex(cosf(a0)*r0, sinf(a0)*r0, r, g, b, false);
+        verts[s][1] = optimizer::PathVertex(cosf(a1)*r1, sinf(a1)*r1, r, g, b, false);
+        segs[s]     = optimizer::PathSegment(verts[s], 2, /*closed=*/false);
+    }
+    return optimizer::optimize(segs, (size_t)nverts, o, mx, liveOptimizerConfig());
+}
+
 struct P3D{float x,y,z;};
 // prj() -- GalvOS v6.28: Phase 2 Camera. Adds roll (screen-plane Z rotation)
 // + dist (dolly along view Z) + fov (perspective divide strength) on top of
@@ -493,15 +548,15 @@ static size_t p00(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
         x=cosf(t)*sc; y=sinf(t)*sc; r=255; g=255; b=255;
     });
 }
-static size_t p01(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){return ngon(o,m,4,SC*ssc(sz)*.9f,aang(ph,sp),255,255,0);}
-static size_t p02(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){return ngon(o,m,3,SC*ssc(sz)*.9f,aang(ph,sp),0,255,255);}
-static size_t p03(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){return ngon(o,m,5,SC*ssc(sz)*.9f,aang(ph,sp),255,255,0);}
-static size_t p04(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){return ngon(o,m,6,SC*ssc(sz)*.9f,aang(ph,sp),0,255,0);}
-static size_t p05(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){return ngon(o,m,8,SC*ssc(sz)*.9f,aang(ph,sp),0,0,255);}
-static size_t p06(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){float s=SC*ssc(sz)*.9f;return star(o,m,4,s,s*.36f,aang(ph,sp),255,0,0);}
-static size_t p07(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){float s=SC*ssc(sz)*.9f;return star(o,m,5,s,s*.36f,aang(ph,sp),255,255,0);}
-static size_t p08(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){float s=SC*ssc(sz)*.9f;return star(o,m,6,s,s*.36f,aang(ph,sp),0,255,0);}
-static size_t p09(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){float s=SC*ssc(sz)*.9f;return star(o,m,8,s,s*.36f,aang(ph,sp),0,255,255);}
+static size_t p01(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){return ngonSegmented(o,m,4,SC*ssc(sz)*.9f,aang(ph,sp));}
+static size_t p02(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){return ngonSegmented(o,m,3,SC*ssc(sz)*.9f,aang(ph,sp));}
+static size_t p03(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){return ngonSegmented(o,m,5,SC*ssc(sz)*.9f,aang(ph,sp));}
+static size_t p04(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){return ngonSegmented(o,m,6,SC*ssc(sz)*.9f,aang(ph,sp));}
+static size_t p05(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){return ngonSegmented(o,m,8,SC*ssc(sz)*.9f,aang(ph,sp));}
+static size_t p06(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){float s=SC*ssc(sz)*.9f;return starSegmented(o,m,4,s,s*.36f,aang(ph,sp));}
+static size_t p07(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){float s=SC*ssc(sz)*.9f;return starSegmented(o,m,5,s,s*.36f,aang(ph,sp));}
+static size_t p08(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){float s=SC*ssc(sz)*.9f;return starSegmented(o,m,6,s,s*.36f,aang(ph,sp));}
+static size_t p09(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){float s=SC*ssc(sz)*.9f;return starSegmented(o,m,8,s,s*.36f,aang(ph,sp));}
 
 // ─── LINES 10-14 ────────────────────────────────────────────
 // These use line() which is now optimizer-backed. Grid p12 benefits
