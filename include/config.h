@@ -26,21 +26,35 @@ constexpr uint8_t  RANDOM_PTS_MAX_COUNT = 14;   // UI slider ceiling ("Amount")
 constexpr uint8_t  KALEIDO_SEGMENTS_MAX = 8;   // UI slider ceiling
 
 // GalvOS v5 Point Optimizer (Pillar 1) -- runtime-tunable via WebUI slider.
-// Mirrors optimizer::OptimizerConfig field-for-field; kept as a separate
-// struct here (rather than including point_optimizer.h) to avoid pulling
-// the optimizer's geometry types into every translation unit that already
-// includes config.h.
+// Mirrors optimizer::OptimizerConfig's persisted/tunable fields -- NOT the
+// full struct. Two OptimizerConfig fields are deliberately absent here:
+// galvo_kpps (set per-call from gProjection.galvo_kpps by configFromLive(),
+// not a stored preference) and transform (set per-frame from
+// optimizer::gLiveTransform). Per-call frame context (hasPrevPos/prevX/
+// prevY/frameBudgetRemaining) isn't a config value at all and has no
+// counterpart here either. Kept as a separate struct here (rather than
+// including point_optimizer.h) to avoid pulling the optimizer's geometry
+// types into every translation unit that already includes config.h.
 //
-// DEFAULT VALUES: tuned for 30kpps output rate (GALVO_SAMPLE_RATE_HZ=45000).
-// max_pts_per_frame=750 -> 30000/1010 = 30 Hz mostly flicker-free floor.
-// All OPT_DEFAULT_* macros are the single source of truth; point_optimizer.h
-// references them so both structs stay in sync automatically.
+// DEFAULT VALUES: tuned for a 30 kpps output rate (GALVO_SAMPLE_RATE_HZ,
+// see platformio.ini). max_pts_per_frame=1010 -> 30000/1010 ~= 30 Hz, a
+// mostly flicker-free floor at that rate (see optimize()'s frame-budget
+// comment for how frameBudgetRemaining spends this across multi-call
+// frames). All OPT_DEFAULT_* macros are the single source of truth;
+// point_optimizer.h references them so both structs stay in sync
+// automatically.
 #define OPT_DEFAULT_CORNER_ANGLE_DEG            25.0f
 #define OPT_DEFAULT_MIN_CORNER_PTS              2
 #define OPT_DEFAULT_MAX_CORNER_PTS              8
 #define OPT_DEFAULT_PTS_PER_1000_UNITS          6.0f
 #define OPT_DEFAULT_BLANK_SAMPLES               16
 #define OPT_DEFAULT_MAX_PTS_PER_FRAME           1010
+// Not mirrored in OptimizerLiveConfig above (see the struct's own header
+// comment) -- this is optimizer::OptimizerConfig::galvo_kpps' only default,
+// used when a caller constructs an OptimizerConfig directly instead of
+// through configFromLive(), which always overwrites it with the live
+// gProjection.galvo_kpps.
+#define OPT_DEFAULT_GALVO_KPPS                  30
 #define OPT_DEFAULT_MIN_BLANK_SAMPLES           6
 #define OPT_DEFAULT_BLANK_PTS_PER_1000_UNITS    8.0f
 #define OPT_DEFAULT_MIN_INTERIOR_PTS_PER_SEG    8

@@ -1062,11 +1062,11 @@ static bool planBlankTotal(const PathSegment* segments, size_t segment_count,
 
 // ── Transform stage (Phase 1) ────────────────────────────────────────────
 //
-// Pipeline order: Primitive -> [Transform] -> Resample -> Corner Dwell ->
-// Jitter -> Blanking -> Velocity Clamp -> Acceleration Clamp -> DAC. This is the
-// Transform stage: every input vertex is pushed through cfg.transform before
-// any scanner-dependent processing (corner detection, length-proportional
-// resampling, blank jumps) sees it. Corner severity and edge lengths are
+// Pipeline order: Primitive -> [Transform] -> Segment Reorder -> Resample ->
+// Corner Dwell -> Jitter -> Blanking -> Velocity Clamp -> Acceleration Clamp ->
+// DAC. This is the Transform stage: every input vertex is pushed through
+// cfg.transform before any scanner-dependent processing (corner detection,
+// length-proportional resampling, blank jumps) sees it. Corner severity and edge lengths are
 // therefore computed in the transformed frame, which is what a downstream
 // resample/velocity stage needs (a rotated square still has 90 deg corners;
 // a scaled path has correspondingly scaled edge lengths).
@@ -1743,37 +1743,12 @@ size_t optimize(const PathSegment* segments, size_t segment_count,
                                                         : cfg.max_pts_per_frame;
     size_t effective_cap = std::min(max_out, (size_t)frame_cap);
 
-    // Stage 1 (MUST run before Stage 2 below): shrink blank_samples FIRST,
-    // before touching interior density. Stage 1 triggers in two cases:
-    //  (a) fixed overhead (corners + blanking at the configured
-    //      blank_samples) alone exceeds the cap -- e.g. a 30-edge
-    //      dodecahedron, whose blank_overhead is hundreds of points on its
-    //      own, more still once the ZV tail extension is in play.
-    //  (b) fixed overhead fits the cap, but leaves less than
-    //      min_interior_pts_per_segment reserved per segment -- e.g. a
-    //      6-edge tetrahedron fits at 292/310, but only 18 points (3/edge)
-    //      remain for interior density, too sparse to read as a line
-    //      rather than a dotted/broken edge.
-    //
-    // Running this BEFORE the interior-density clamp (Stage 2) is
-    // required: Stage 2 computes available_for_interior using
-    // blank_overhead, and if that still reflects the un-reduced
-    // blank_samples, available_for_interior is driven to ~0 for any shape
-    // with more than a few segments -- collapsing every edge to isolated
-    // corner dots with no connecting line. THIS WAS THE ACTUAL BUG behind
-    // the "still no lines" report: an earlier patch pass left Stage 2
-    // (interior scale) physically ABOVE Stage 1 (blank shrink) in this
-    // file, so Stage 2 always ran against the inflated blank_overhead
-    // regardless of what Stage 1 later computed. Confirmed against real
-    // hardware logs (Cube/Octahedron/Tetrahedron: blank-point counts
-    // matched simulation exactly, lit-point counts were 5-8x too low --
-    // consistent with Stage 2 having scaled pts_per_1000_units down to
-    // its 0.1 floor before Stage 1 ever ran).
-    //
-    // Interim measure pending Pillar 2 (distance-proportional + eased
-    // blanking, see design doc Section 5) -- this just scales the
-    // existing fixed-count blanking down uniformly, it does not change
-    // its shape.
+    // Stage 1 (MUST run before Stage 2 below): shrinks blank_samples toward
+    // stage1_blank_target (falling back further to min_blank_samples) when
+    // fixed overhead -- corners + blank jumps at the configured
+    // blank_samples -- leaves too little of the budget for interior
+    // density. The ordering is load-bearing, not cosmetic -- see
+    // docs/05-optimizer.md's Stage 5 "Budget Interaction" section.
     uint32_t fixed_overhead_at_default_blank = corner_total + blank_overhead;
     uint32_t min_interior_reserve = (uint32_t)cfg.min_interior_pts_per_segment * segment_count;
     bool cap_exceeded   = fixed_overhead_at_default_blank > effective_cap;
@@ -1810,28 +1785,12 @@ size_t optimize(const PathSegment* segments, size_t segment_count,
         needed = planned_total + blank_overhead;
     }
 
-    // Stage 1.5: corner dwell is fixed overhead -- Stage 2 below only ever
-    // scales interior (length-proportional) density, never corner_total.
-    // That's fine as long as corner_total + blank_overhead fits under
-    // effective_cap; Stage 1 above already drove blank_samples to its
-    // floor trying to arrange that. But if corner_total ALONE (many
-    // vertices, e.g. a dense sampled curve or a many-sided polygon) still
-    // exceeds what's left after the floor blank overhead, nothing upstream
-    // can save it: emitAllSegments()'s hard per-point cap (see emit()) then
-    // truncates mid-shape once spending runs out mid-corner-loop. For a
-    // CLOSED path that always sacrifices whatever is written last -- the
-    // final edge, the closing dwell at vertex 0 -- i.e. the loop silently
-    // stops short of reconnecting, a real gap the eye reads as "not
-    // closed" (as opposed to merely a coarser corner). Observed on
-    // many-vertex closed shapes (Octagon and up, dense Lissajous/rose
-    // curves) once max_pts_per_frame is tuned low enough that even
-    // min_corner_pts per vertex doesn't fit.
-    //
-    // Scale min_corner_pts/max_corner_pts down together (floor 1 pt/vertex
-    // -- the minimum needed to actually visit every vertex) so corner_total
-    // itself shrinks to fit, then re-plan with the new corner budget. This
-    // trades corner sharpness/dwell for the one thing that must never be
-    // sacrificed: the shape actually closing.
+    // Stage 1.5: when corner dwell ALONE still exceeds what's left after
+    // blank overhead, scale min_corner_pts/max_corner_pts down together
+    // (floor 1 pt/vertex) and re-plan, trading corner sharpness for the one
+    // thing that must never be sacrificed: a closed path actually closing.
+    // See docs/05-optimizer.md's Stage 4 "Corner dwell vs. the frame
+    // budget" section for the failure this prevents and why it's needed.
     if (corner_total + blank_overhead > effective_cap && corner_total > 0) {
         st.stage15Triggered = true;
         float available_for_corners = (float)effective_cap - (float)blank_overhead;

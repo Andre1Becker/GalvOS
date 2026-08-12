@@ -81,7 +81,7 @@ struct PathSegment {
 
 // Affine 2x3 transform applied to every input vertex before the corner /
 // resample / blanking stages run (pipeline stage: Primitive -> Transform ->
-// Resample -> Corner Dwell -> Blanking -> ...). Row-major:
+// Segment Reorder -> Resample -> Corner Dwell -> Blanking -> ...). Row-major:
 //   x' = a*x + b*y + tx
 //   y' = c*x + d*y + ty
 // The default is the identity ({1,0,0, 0,1,0}), so callers that do not set a
@@ -125,8 +125,15 @@ struct OptimizerConfig {
     float    pts_per_1000_units = OPT_DEFAULT_PTS_PER_1000_UNITS; // interior straight-segment density
     uint8_t  blank_samples      = OPT_DEFAULT_BLANK_SAMPLES;      // blank-jump length ceiling (Pillar 2
                                                                     // makes this a max, not a constant)
-    uint16_t max_pts_per_frame  = OPT_DEFAULT_MAX_PTS_PER_FRAME;  // FLICKER BUDGET: 45000/750 = 60 Hz.
-                                                                    // Tune via WebUI slider.
+    uint16_t max_pts_per_frame  = OPT_DEFAULT_MAX_PTS_PER_FRAME;  // FLICKER BUDGET, per CALL:
+                                                                    // GALVO_SAMPLE_RATE_HZ / this =
+                                                                    // frame rate (30000/1010 ~= 30 Hz
+                                                                    // at the shipped default). A multi-
+                                                                    // call frame's real ceiling is
+                                                                    // frameBudgetRemaining (frameContext(),
+                                                                    // below), derived from this field and
+                                                                    // shared FCFS across calls -- see its
+                                                                    // doc comment. Tune via WebUI slider.
     uint8_t  min_blank_samples  = OPT_DEFAULT_MIN_BLANK_SAMPLES;  // floor for blank_samples when budget
                                                                     // clamp shrinks blanking (not just
                                                                     // interior density). Pillar 2 interim.
@@ -156,10 +163,13 @@ struct OptimizerConfig {
                                                                     // to pre-Pillar-3 output.
     float    ring_freq_hz         = OPT_DEFAULT_RING_FREQ_HZ;      // Measured galvo mechanical resonance (Hz).
     float    ring_damping_ratio   = OPT_DEFAULT_RING_DAMPING_RATIO; // Measured damping ratio zeta (0..~0.9).
-    uint16_t galvo_kpps           = 30;    // Mirrors gProjection.galvo_kpps -- passed explicitly rather
-                                            // than read as a global (same rule as the rest of this
-                                            // struct, see file header) so the ZV shaper can convert a
-                                            // physical time (half the ring period) into a point count.
+    uint16_t galvo_kpps           = OPT_DEFAULT_GALVO_KPPS;  // Mirrors gProjection.galvo_kpps -- passed
+                                            // explicitly rather than read as a global (same rule as the
+                                            // rest of this struct, see file header) so the ZV shaper can
+                                            // convert a physical time (half the ring period) into a point
+                                            // count. The one field here with no OptimizerLiveConfig
+                                            // counterpart -- configFromLive() always overwrites it with
+                                            // the live rate instead of a stored preference.
 
     // Transform stage (Phase 1). Applied to every input vertex before
     // corner/resample/blanking. Identity by default -> output is unchanged
