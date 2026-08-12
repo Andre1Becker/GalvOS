@@ -3551,6 +3551,81 @@ void init() {
         req->send(200, "application/json", buf);
     });
 
+    // ═══ POST /api/debug/resonance — Resonance test: single-axis sine drive ═
+    // Prompt 13 (galvo resonance measurement). Requires laser_armed (or
+    // gDebugNoHW), same guard as /api/debug/hw. See docs/feature-prompts/
+    // DECISIONS.md, Prompt 13 for why this exists as a firmware primitive
+    // instead of a Python-side HTTP loop (HTTP round trips are far too slow
+    // to synthesize a sweep anywhere near 2000Hz).
+    // Body JSON: {axis: 0|1, freq_hz: float, amp: int, r, g, b}
+    //   axis: 0=X, 1=Y. amp: DAC-space peak (-32767..32767), clamped
+    //   server-side against dac_limit_min/max before being armed -- unlike
+    //   /api/debug/hw's deliberately-unclamped single point, this endpoint
+    //   drives a SUSTAINED signal for an automated sweep, so a caller bug
+    //   can't park the beam outside the safe range for the whole sweep.
+    // Special command: {cmd:"off"}
+    s_server.on("/api/debug/resonance", HTTP_POST,
+        [](AsyncWebServerRequest* req) {},
+        nullptr,
+        [](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t, size_t) {
+            if (!gState.laser_armed.load() && !gDebugNoHW) {
+                req->send(403, "application/json",
+                    "{\"error\":\"Laser not armed and no debug mode\"}");
+                return;
+            }
+            JsonDocument doc(&jsonAllocator());
+            if (deserializeJson(doc, data, len)) {
+                req->send(400, "application/json", "{\"error\":\"JSON invalid\"}");
+                return;
+            }
+            if (doc["cmd"].is<const char*>() && strcmp(doc["cmd"], "off") == 0) {
+                galvo::clearResonanceTest();
+                req->send(200, "application/json", "{\"ok\":true,\"cmd\":\"off\"}");
+                return;
+            }
+
+            uint8_t axis   = (doc["axis"] | 0) ? 1 : 0;
+            float   freqHz = doc["freq_hz"] | 0.0f;
+            int32_t amp    = doc["amp"] | 0;
+            uint8_t r = doc["r"] | 0, g = doc["g"] | 0, b = doc["b"] | 0;
+
+            if (!(freqHz > 0.0f) || freqHz > 5000.0f) {
+                req->send(400, "application/json",
+                    "{\"error\":\"freq_hz out of range (0-5000)\"}");
+                return;
+            }
+
+            uint16_t limMin, limMax;
+            if (xSemaphoreTake(mtx::config, pdMS_TO_TICKS(10)) == pdTRUE) {
+                limMin = gConfig.dac_limit_min;
+                limMax = gConfig.dac_limit_max;
+                xSemaphoreGive(mtx::config);
+            } else {
+                limMin = 0x0666; limMax = 0xF999;   // fallback: factory-safe default
+            }
+            int32_t safeMax = std::min((int32_t)0x8000 - (int32_t)limMin,
+                                        (int32_t)limMax - (int32_t)0x8000);
+            bool clamped = false;
+            if (amp > safeMax)  { amp = safeMax;  clamped = true; }
+            if (amp < -safeMax) { amp = -safeMax; clamped = true; }
+
+            galvo::setResonanceTest(axis, freqHz, (int16_t)amp, r, g, b);
+
+            char buf[160];
+            snprintf(buf, sizeof(buf),
+                "{\"ok\":true,\"axis\":%u,\"freq_hz\":%.2f,\"amp\":%d,\"clamped\":%s}",
+                axis, (double)freqHz, (int)amp, clamped ? "true" : "false");
+            req->send(200, "application/json", buf);
+        });
+
+    // ═══ GET /api/debug/resonance — current resonance-test status ═══════
+    s_server.on("/api/debug/resonance", HTTP_GET, [](AsyncWebServerRequest* req) {
+        char buf[96];
+        snprintf(buf, sizeof(buf), "{\"active\":%d,\"armed\":%d}",
+            (int)galvo::isResonanceTestActive(), (int)gState.laser_armed.load());
+        req->send(200, "application/json", buf);
+    });
+
     // ═══ POST /api/debug/dac-cmd — raw DAC8562 command / hold-value test ═
     // Requires laser_armed (same guard as /api/debug/hw).
     // Body: {"op":"reset"}                          -- software reset (full)
@@ -3708,9 +3783,13 @@ void init() {
             bool prev_override = gState.ui_override.load();
             gState.ui_override.store(ui_override);
             gState.ui_master_dimmer.store(master_dim);
-            // Auto-exit HW debug mode only on rising edge of ui_override
+            // Auto-exit HW debug / resonance-test mode only on rising edge
+            // of ui_override -- switching back to normal WebUI operation
+            // shouldn't leave the galvo stuck driving a debug point or a
+            // resonance-test sine.
             if (ui_override && !prev_override) {
                 galvo::clearDebugOutput();
+                galvo::clearResonanceTest();
                 patterns::stopTestPattern();
             }
             JsonDocument resp(&jsonAllocator());
