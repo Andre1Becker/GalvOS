@@ -1804,6 +1804,41 @@ void init() {
             req->send(200, "text/plain", "OK");
         });
 
+    // ---- GET/POST /api/seg_colors ---- per-segment colors for line-based presets
+    s_server.on("/api/seg_colors", HTTP_GET, [](AsyncWebServerRequest* req) {
+        JsonDocument doc(&jsonAllocator());
+        doc["enabled"] = (bool)gLivePreset.seg_colors_enabled;
+        JsonArray r = doc["r"].to<JsonArray>();
+        JsonArray g = doc["g"].to<JsonArray>();
+        JsonArray b = doc["b"].to<JsonArray>();
+        for (int i = 0; i < 10; i++) {
+            r.add(gLivePreset.seg_col_r[i]);
+            g.add(gLivePreset.seg_col_g[i]);
+            b.add(gLivePreset.seg_col_b[i]);
+        }
+        sendJsonPsram(req, doc);
+    });
+    s_server.on("/api/seg_colors", HTTP_POST,
+        [](AsyncWebServerRequest* req) {},
+        nullptr,
+        [](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t, size_t) {
+            JsonDocument doc(&jsonAllocator());
+            if (deserializeJson(doc, data, len)) { req->send(400, "text/plain", "bad json"); return; }
+            if (doc["enabled"].is<bool>())
+                gLivePreset.seg_colors_enabled = doc["enabled"];
+            if (doc["r"].is<JsonArray>() && doc["g"].is<JsonArray>() && doc["b"].is<JsonArray>()) {
+                JsonArray ra = doc["r"].as<JsonArray>();
+                JsonArray ga = doc["g"].as<JsonArray>();
+                JsonArray ba = doc["b"].as<JsonArray>();
+                for (size_t i = 0; i < 10 && i < ra.size(); i++) {
+                    gLivePreset.seg_col_r[i] = (uint8_t)constrain((int)ra[i], 0, 255);
+                    gLivePreset.seg_col_g[i] = (uint8_t)constrain((int)ga[i], 0, 255);
+                    gLivePreset.seg_col_b[i] = (uint8_t)constrain((int)ba[i], 0, 255);
+                }
+            }
+            req->send(200, "text/plain", "OK");
+        });
+
     // ---- POST /api/text ---- text mode
     // ── /api/curves GET — curve state + param definitions ───────────────────
     s_server.on("/api/curves", HTTP_GET, [](AsyncWebServerRequest* req) {

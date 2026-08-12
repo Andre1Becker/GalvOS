@@ -756,6 +756,11 @@ struct LivePresetControls {
     volatile uint8_t  autoscaleSpeed  = 0;   // 0..100%, 0 = off
     volatile uint8_t  autoscaleMode   = AUTOSCALE_SMALL_BIG_SMALL;
     volatile float    autoscalePhase  = 0.f; // internal running phase 0..1
+    // Per-segment colors for line-based presets (polygons, stars, etc.)
+    volatile bool    seg_colors_enabled = false;
+    volatile uint8_t seg_col_r[10]      = {255,0,0,255,0,255,255,255,128,0};
+    volatile uint8_t seg_col_g[10]      = {0,255,0,255,255,0,128,255,0,128};
+    volatile uint8_t seg_col_b[10]      = {0,0,255,0,255,255,0,128,255,255};
 };
 
 extern LivePresetControls gLivePreset;
