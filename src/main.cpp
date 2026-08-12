@@ -69,6 +69,7 @@ static PaintConfig* allocPaintConfig() {
     return new (p) PaintConfig();
 }
 PaintConfig&     gPaint = *allocPaintConfig();  // paint-by-finger canvas
+WeldConfig       gWeld;                          // laser welding effect (RAM-only, small struct -> plain DRAM)
 volatile bool    gDebugNoHW = false;
 
 static const char* TAG = "main";

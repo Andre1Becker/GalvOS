@@ -887,6 +887,17 @@ canvas { max-width: 100%; display: block; }
             <button class="btn sm" onclick="paintInsertText()">Insert as strokes</button>
           </div>
           <div class="card">
+            <h2>Laser Welding</h2>
+            <label class="row"><input type="checkbox" id="weld-enabled" onchange="weldSet({enabled:this.checked})"> Enabled</label>
+            <div class="row"><label><input type="radio" name="weld-dir" value="0" checked onchange="weldSet({direction:0})"> Fwd</label>
+              <label><input type="radio" name="weld-dir" value="1" onchange="weldSet({direction:1})"> Rev</label>
+              <label><input type="radio" name="weld-dir" value="2" onchange="weldSet({direction:2})"> Ping-Pong</label></div>
+            <div class="field"><label>Speed</label><div class="slider-row"><input type="range" id="weld-speed" min="200" max="40000" step="100" value="6000"><output id="weld-speed-val">6000 u/s</output></div></div>
+            <div class="field"><label>Glow Length</label><div class="slider-row"><input type="range" id="weld-glow" min="200" max="20000" step="100" value="4000"><output id="weld-glow-val">4000 u</output></div></div>
+            <div class="field"><label>Sparks</label><div class="slider-row"><input type="range" id="weld-sparks" min="4" max="10" step="1" value="6"><output id="weld-sparks-val">6</output></div></div>
+            <div class="field"><label>Spark Life</label><div class="slider-row"><input type="range" id="weld-life" min="40" max="1200" step="10" value="260"><output id="weld-life-val">260 ms</output></div></div>
+          </div>
+          <div class="card">
             <h2>Segment Color Animation</h2>
             <label class="row"><input type="checkbox" onchange="paintToggleSegAnim(this.checked)"> Enabled</label>
             <div class="field"><label>Segments</label><input type="range" class="seg-count-slider" min="1" max="10" value="4" oninput="setSegCount(this.value)"></div>
@@ -1435,7 +1446,7 @@ canvas { max-width: 100%; display: block; }
 /* =========================================================================
    GLOBAL STATE
    ========================================================================= */
-var UI_VERSION = '1.9.0';   // WebUI version -- independent from firmware version
+var UI_VERSION = '1.10.0';   // WebUI version -- independent from firmware version
 var NAV_TABS = [
   {id: 'dashboard', label: 'Dashboard', icon: '🏠', bottom: true},
   {id: 'presets', label: 'Presets', icon: '🎮', bottom: true},
@@ -3734,6 +3745,37 @@ function paintSetColor(hex) {
   paintSelected.forEach(function(i) { paintStrokes[i].r = rgb[0]; paintStrokes[i].g = rgb[1]; paintStrokes[i].b = rgb[2]; });
   paintRender(); paintSyncDebounced();
 }
+/* ---- Laser Welding ---- */
+function weldSet(patch) { apiCall('POST', '/api/weld/set', patch); }
+
+// Table-driven slider wiring: input -> live label, change -> POST.
+var WELD_SLIDERS = [
+  {id: 'weld-speed',  key: 'speed',      unit: ' u/s'},
+  {id: 'weld-glow',   key: 'glow',       unit: ' u'},
+  {id: 'weld-sparks', key: 'sparks',     unit: ''},
+  {id: 'weld-life',   key: 'spark_life', unit: ' ms'}
+];
+function weldBindSliders() {
+  WELD_SLIDERS.forEach(function(sl) {
+    var el = document.getElementById(sl.id);
+    var out = document.getElementById(sl.id + '-val');
+    if (!el || !out) return;
+    el.addEventListener('input', function() { out.textContent = el.value + sl.unit; });
+    el.addEventListener('change', function() { var p = {}; p[sl.key] = parseInt(el.value); weldSet(p); });
+  });
+}
+async function weldLoad() {
+  var r = await apiCall('GET', '/api/weld');
+  if (!r) return;
+  var en = document.getElementById('weld-enabled'); if (en) en.checked = !!r.enabled;
+  var dir = document.querySelector('input[name="weld-dir"][value="' + r.direction + '"]'); if (dir) dir.checked = true;
+  WELD_SLIDERS.forEach(function(sl) {
+    var el = document.getElementById(sl.id);
+    var out = document.getElementById(sl.id + '-val');
+    if (el && r[sl.key] !== undefined) { el.value = r[sl.key]; if (out) out.textContent = el.value + sl.unit; }
+  });
+}
+
 function initPaintTab() {
   if (paintInited) return; paintInited = true;
   var canvas = document.getElementById('pt-canvas');
@@ -3744,6 +3786,8 @@ function initPaintTab() {
   paintSetTool('freehand'); paintSetMirror('off');
   paintLoadFromServer();
   paintLoadZoneGuide();
+  weldBindSliders();
+  weldLoad();
 }
 
 registerTabLoader('paint', function() { initPaintTab(); });

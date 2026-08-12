@@ -10,6 +10,7 @@
 #include "ilda/ilda_player.h"
 #include "patterns/calib_patterns.h"
 #include "patterns/point_optimizer.h"
+#include "patterns/weld_patterns.h"
 #include "mutex.h"
 #include "storage/playlist.h"
 #include "net/ota_update.h"
@@ -1692,6 +1693,45 @@ void init() {
     // ---- POST /api/paint/off ---- deactivate Paint mode, keep strokes ----
     s_server.on("/api/paint/off", HTTP_POST,
         [](AsyncWebServerRequest* req) { patterns::setPaintActive(false); req->send(200,"text/plain","OK"); });
+
+    // ---- POST /api/weld/set ---- Laser Welding effect, partial patch ----
+    // Registered BEFORE the prefix-matching GET /api/weld below (route-ordering
+    // rule). Body: {enabled?, direction?, speed?, glow?, sparks?, spark_life?}.
+    s_server.on("/api/weld/set", HTTP_POST,
+        [](AsyncWebServerRequest* req) {},
+        nullptr,
+        [](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t index, size_t total) {
+            if (index != 0 || len != total) { req->send(400, "text/plain", "chunked body unsupported"); return; }
+            JsonDocument doc(&jsonAllocator());
+            if (deserializeJson(doc, data, len)) { req->send(400, "text/plain", "bad json"); return; }
+            if (doc["enabled"].is<bool>()) {
+                bool en = doc["enabled"].as<bool>();
+                if (en && !gWeld.enabled) weld::reset();   // false -> true: fresh run
+                gWeld.enabled = en;
+            }
+            if (doc["direction"].is<int>()) {
+                uint8_t dir = (uint8_t)constrain(doc["direction"].as<int>(), 0, 2);
+                gWeld.direction = dir;
+                if (dir == WELD_DIR_REVERSE) weld::seekEnd();   // start at the far end
+            }
+            if (doc["speed"].is<int>())      gWeld.speed_units   = (uint16_t)constrain(doc["speed"].as<int>(), 200, 40000);
+            if (doc["glow"].is<int>())       gWeld.glow_units    = (uint16_t)constrain(doc["glow"].as<int>(), 200, 20000);
+            if (doc["sparks"].is<int>())     gWeld.spark_count   = (uint8_t)constrain(doc["sparks"].as<int>(), WELD_SPARK_COUNT_MIN, WELD_SPARK_COUNT_MAX);
+            if (doc["spark_life"].is<int>()) gWeld.spark_life_ms = (uint16_t)constrain(doc["spark_life"].as<int>(), 40, 1200);
+            req->send(200, "text/plain", "OK");
+        });
+
+    // ---- GET /api/weld ---- current welding settings (reload / multi-client) ----
+    s_server.on("/api/weld", HTTP_GET, [](AsyncWebServerRequest* req) {
+        JsonDocument doc(&jsonAllocator());
+        doc["enabled"]    = (bool)gWeld.enabled;
+        doc["direction"]  = (int)gWeld.direction;
+        doc["speed"]      = (int)gWeld.speed_units;
+        doc["glow"]       = (int)gWeld.glow_units;
+        doc["sparks"]     = (int)gWeld.spark_count;
+        doc["spark_life"] = (int)gWeld.spark_life_ms;
+        sendJsonPsram(req, doc);
+    });
 
     // ---- GET /api/sd/info ---- detailed SD card info ----
     // Registered *before* the plainer "/api/sd" route below: ESPAsyncWebServer

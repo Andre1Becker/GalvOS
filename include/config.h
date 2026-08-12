@@ -839,6 +839,29 @@ struct PaintConfig {
 // CONFIG_SPIRAM_BOOT_INIT registers the PSRAM heap before global ctors run.
 extern PaintConfig& gPaint;
 
+// ── Laser Welding Effect ─────────────────────────────────────────────────────
+// Alternative renderer of the same gPaint stroke list (see weld_patterns.cpp):
+// a bright torch head travels the drawn path, trailing an afterglow and throwing
+// ballistic sparks. RAM-only live control (not persisted to NVS), same as the
+// other Paint live controls. Active only while gPaint.active && gWeld.enabled.
+#define WELD_SPARK_COUNT_MIN  4
+#define WELD_SPARK_COUNT_MAX 10
+
+enum WeldDirection : uint8_t { WELD_DIR_FORWARD = 0, WELD_DIR_REVERSE = 1, WELD_DIR_PINGPONG = 2 };
+
+struct WeldConfig {
+    volatile bool     enabled       = false;
+    volatile uint8_t  direction     = WELD_DIR_FORWARD;
+    volatile uint16_t speed_units   = 6000;   // path units per second
+    volatile uint16_t glow_units    = 4000;   // afterglow length in path units
+    volatile uint8_t  spark_count   = 6;
+    volatile uint16_t spark_life_ms = 260;
+    volatile uint8_t  head_r  = 255, head_g  = 255, head_b = 255;  // white hot
+    volatile uint8_t  glow_r  = 255, glow_g  = 0,   glow_b = 0;    // cooling red
+    volatile uint8_t  spark_r = 255, spark_g = 255, spark_b = 0;   // yellow
+};
+extern WeldConfig gWeld;
+
 // ── Projection & Galvo Rate Configuration ───────────────────────────────────
 struct ProjectionConfig {
     // Galvo sample rate — user-adjustable at runtime
