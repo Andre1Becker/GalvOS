@@ -7,6 +7,13 @@
  * has been established (>=2 taps) and the last tap was recent (<=3s ago).
  * Falls back to Manual otherwise.
  *
+ * DMX mapping is 1:1, no BPM_MIN/BPM_MAX rescale: DMX value v in 1..255 =
+ * v BPM exactly. DMX value 0 is Beat-Stop: the beat phase freezes at
+ * whatever it last was (source stays SRC_DMX, does NOT fall through to
+ * Tap/Manual) until v goes back to >=1, at which point the beat resumes
+ * from the same fractional position instead of jumping -- see tickMs().
+ * clampBpm() (20-300 BPM) only applies to the Manual and Tap sources.
+ *
  * Lock-free by design (same tradeoff as galvo_out.cpp's gain/thresh
  * snapshot): all shared fields are single aligned scalars, written from
  * Core 0 (WebUI/DMX) and read from Core 1 (galvo frame loop). A torn read
