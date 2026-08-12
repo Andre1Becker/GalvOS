@@ -407,6 +407,16 @@ static ScanNetInfo* s_scan_nets   = nullptr;
 static const size_t PAINT_BODY_CAP  = 32768;
 static char*        s_paint_body    = nullptr;
 static size_t       s_paint_body_len = 0;
+// Owning request for the in-progress upload -- guards the single shared
+// buffer above against a second, overlapping /api/paint/set (e.g. Live
+// mode's 120ms debounce re-firing while a prior POST is still in flight on
+// a slow link). Without this, the second request's index==0 chunk resets
+// s_paint_body_len out from under the first, which then never reaches
+// index+len==total and never calls req->send() -- the client hangs until
+// its own AbortController fires ("Request timed out [POST /api/paint/set]"),
+// and that one stuck request can back up every other request behind it on
+// the async_tcp task (explains an "offline" conn-pill at the same time).
+static AsyncWebServerRequest* s_paint_body_owner = nullptr;
 
 /* ============================================================
  * Config Persistence
@@ -2165,8 +2175,24 @@ void init() {
             // Body may arrive across multiple TCP chunks (e.g. several Circle
             // strokes, 41 vertices each) -- buffer until fully received.
             if (!s_paint_body) { req->send(500, "text/plain", "no body buffer"); return; }
-            if (index == 0) s_paint_body_len = 0;
-            if (total >= PAINT_BODY_CAP) { req->send(400, "text/plain", "body too large"); return; }
+            if (index == 0) {
+                if (s_paint_body_owner && s_paint_body_owner != req) {
+                    // A different upload is already mid-flight -- refuse
+                    // instead of resetting its buffer out from under it.
+                    req->send(503, "text/plain", "paint upload busy, retry");
+                    return;
+                }
+                s_paint_body_owner = req;
+                s_paint_body_len   = 0;
+                req->onDisconnect([]() { s_paint_body_owner = nullptr; });
+            } else if (s_paint_body_owner != req) {
+                return; // stale chunk for a request we already rejected/finished
+            }
+            if (total >= PAINT_BODY_CAP) {
+                req->send(400, "text/plain", "body too large");
+                s_paint_body_owner = nullptr;
+                return;
+            }
             if (s_paint_body_len + len < PAINT_BODY_CAP) {
                 memcpy(s_paint_body + s_paint_body_len, data, len);
                 s_paint_body_len += len;
@@ -2175,6 +2201,9 @@ void init() {
             s_paint_body[s_paint_body_len] = 0;
             JsonDocument doc(&jsonAllocator());
             DeserializationError jerr = deserializeJson(doc, s_paint_body, s_paint_body_len);
+            // Buffer is fully consumed by this point (in-place parse or not) --
+            // free it for the next request before taking any early return.
+            s_paint_body_owner = nullptr;
             if (jerr) { req->send(400, "text/plain", "bad json"); return; }
             JsonArrayConst strokesArr = doc["strokes"];
             if (strokesArr.isNull() || strokesArr.size() > PAINT_STROKES_MAX) {
