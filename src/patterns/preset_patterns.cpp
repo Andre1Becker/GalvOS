@@ -3033,6 +3033,10 @@ static uint8_t     s_cacheIdx   = 0xFF;      // 0xFF = empty
 static uint8_t     s_cacheSpeed = 0;
 static uint8_t     s_cacheSize  = 0;
 static uint32_t    s_cacheGen   = 0xFFFFFFFF;
+// Optimizer telemetry captured on the miss that filled s_cacheBuf, replayed
+// on every subsequent hit -- see the "Live Telemetry" note in dispatchCached().
+static optimizer::Stats s_cacheFrameStats;
+static optimizer::Stats s_cacheLastStats;
 
 // Lazily allocate the cache buffer in PSRAM. Returns false if PSRAM is
 // exhausted -- caller then falls back to the uncached path (correct, just
@@ -3059,10 +3063,24 @@ static size_t dispatchCached(uint8_t idx, LaserPoint* out, size_t max_pts,
                (s_cacheCount > 0) && (s_cacheCount <= max_pts);
     if (hit) {
         memcpy(out, s_cacheBuf, s_cacheCount * sizeof(LaserPoint));
+        // A cache hit skips DISPATCH[idx]() entirely, so optimizer::optimize()
+        // never runs -- without this, gFrameStats (freshly zeroed by
+        // pattern_engine's per-frame resetFrameStats(), see its call site
+        // comment) would stay all-zero for every hit frame, i.e. almost every
+        // frame of a static preset's runtime. Replay the telemetry captured
+        // on the miss that produced this cache entry instead, so the WebUI's
+        // Live Telemetry panel reflects what the cached geometry actually
+        // costs rather than reading blank.
+        optimizer::gFrameStats.add(s_cacheFrameStats);
+        optimizer::gLastStats = s_cacheLastStats;
         return s_cacheCount;
     }
 
     // Miss: generate into the caller's buffer, then snapshot into the cache.
+    // presets::generate() (the sole caller of dispatchCached()) runs at most
+    // once per pattern-engine frame, and gFrameStats was zeroed at frame
+    // start -- so at this point it holds exactly this DISPATCH call's own
+    // optimize() contribution, safe to snapshot verbatim for future hits.
     size_t n = DISPATCH[idx](out, max_pts, safe_phase, speed, size_val);
     if (n > 0 && n <= PATTERN_POINTS_MAX) {
         memcpy(s_cacheBuf, out, n * sizeof(LaserPoint));
@@ -3071,6 +3089,8 @@ static size_t dispatchCached(uint8_t idx, LaserPoint* out, size_t max_pts,
         s_cacheSpeed = speed;
         s_cacheSize  = size_val;
         s_cacheGen   = gen;
+        s_cacheFrameStats = optimizer::gFrameStats;
+        s_cacheLastStats  = optimizer::gLastStats;
     } else {
         s_cacheIdx = 0xFF;   // don't cache empty/oversized results
     }
