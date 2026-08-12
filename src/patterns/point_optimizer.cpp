@@ -1,5 +1,6 @@
 #include "point_optimizer.h"
 #include "warpGrid.h"
+#include "brightnessField.h"
 #include <math.h>
 #include <algorithm>
 #if defined(ESP_PLATFORM) || defined(ARDUINO)
@@ -1449,6 +1450,28 @@ static size_t reorderSegments(const PathSegment* segments, size_t segment_count,
     return seg_out;
 }
 
+// ── Brightness compensation (Prompt 7c) ──────────────────────────────────
+//
+// Pipeline order: ... -> Blanking -> [Brightness] -> Velocity Clamp ->
+// Acceleration Clamp -> DAC. Runs on the already-emitted point stream, after
+// Blanking and before the Velocity/Acceleration clamp: blanked points are
+// skipped outright (their RGB doesn't reach the laser regardless), and
+// running before the clamp means any intermediate points it inserts inherit
+// already-gain-corrected RGB rather than being missed by a stage that ran
+// before the clamp added them. Output-stage only -- see brightnessField.h's
+// note on why this must never be written back into a pattern's own color
+// definition (0/255 default channel rule) or confused with col_override.
+static void applyBrightnessField(LaserPoint* out, size_t n) {
+    if (brightness::isIdentity()) return;
+    for (size_t i = 0; i < n; i++) {
+        if (out[i].blank) continue;
+        uint8_t g = brightness::gain(out[i].x, out[i].y);
+        out[i].r = (uint8_t)(((uint16_t)out[i].r * g) / 255);
+        out[i].g = (uint8_t)(((uint16_t)out[i].g * g) / 255);
+        out[i].b = (uint8_t)(((uint16_t)out[i].b * g) / 255);
+    }
+}
+
 // ── Velocity / Acceleration clamp (Phase 4) ──────────────────────────────
 //
 // Scanner-protection post-pass over the already-emitted lit point stream.
@@ -2037,6 +2060,8 @@ size_t optimize(const PathSegment* segments, size_t segment_count,
     //   - Jitter (Phase 4): active. Deterministic perpendicular offset on
     //     interior points, applied inline in emitSegment()'s interior loop.
     //   - Blanking: already active (emitBlankJump, Pillars 2/3).
+    //   - Brightness (Prompt 7c): active. applyBrightnessField(), called
+    //     below, right after this emit pass and before the clamp.
     //   - Velocity Clamp / Acceleration Clamp (Phase 4): a post-pass over the
     //     emitted out[0..n-1] that inserts intermediate points where the
     //     per-tick position (velocity) or its delta (acceleration) exceeds the
@@ -2053,6 +2078,14 @@ size_t optimize(const PathSegment* segments, size_t segment_count,
     // floor, and clampScannerLimits() below inserting into an already-full
     // frame. Truncation there is counted (Stats::truncated), never silent.
     size_t n = emitAllSegments(segments, segment_count, cfg, out, effective_cap);
+
+    // Brightness compensation (Prompt 7c). No-op (byte-identical) unless
+    // gBrightness.enabled and the grid is non-identity -- see
+    // applyBrightnessField() above. Runs after Blanking, before the
+    // Velocity/Acceleration clamp -- see that function's own doc comment for
+    // why the ordering relative to the clamp matters. Scales RGB only, never
+    // touches x/y, so it does not affect the clamp's own geometry.
+    applyBrightnessField(out, n);
 
     // Final scanner-protection stage. No-op (byte-identical) unless
     // cfg.vel_clamp_enabled / cfg.accel_clamp_enabled are set -- see

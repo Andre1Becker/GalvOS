@@ -1001,3 +1001,31 @@ struct WarpConfig {
     }
 };
 extern WarpConfig gWarp;
+
+// ── Per-Segment Brightness Compensation (Prompt 7c) ──────────────────────────
+// N x N gain grid -- same dimensions/gridSize bound (WARP_GRID_MAX) and
+// normalized [-1..1] space as WarpConfig above, so it reuses warp::
+// sampleGrid()'s bilinear cell/weight computation (see warpGrid.h) instead of
+// duplicating it. Independent grid STATE from gWarp though: this corrects
+// projector throw-distance/angle vignetting (a radiometric effect -- scan
+// speed, and therefore exposure per unit path length, varies across the
+// surface), warp corrects geometric keystone -- two unrelated physical
+// effects that only happen to share the same grid-editor math/UX.
+struct BrightnessConfig {
+    volatile bool    enabled  = false;
+    volatile uint8_t gridSize = 2;    // 2..WARP_GRID_MAX
+    // gain[row][col]: 0..255 maps to 0.0..1.0, default 255 (identity, no
+    // attenuation). Only the top-left gridSize x gridSize block is
+    // meaningful. uint8_t (not float, unlike WarpConfig::points) -- this is
+    // a straight multiplier on an already-8-bit RGB channel, no precision is
+    // gained by storing it wider.
+    uint8_t gain[WARP_GRID_MAX][WARP_GRID_MAX];
+
+    BrightnessConfig() { resetIdentity(); }
+    void resetIdentity() {
+        for (uint8_t r = 0; r < WARP_GRID_MAX; r++)
+            for (uint8_t c = 0; c < WARP_GRID_MAX; c++)
+                gain[r][c] = 255;
+    }
+};
+extern BrightnessConfig gBrightness;

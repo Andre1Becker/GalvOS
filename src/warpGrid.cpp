@@ -59,16 +59,14 @@ bool isIdentity() {
     return !gWarp.enabled || s_cachedIdentity;
 }
 
-void apply(float& x, float& y) {
-    if (isIdentity()) return;
-
-    uint8_t n = clampedGridSize();
+GridSample sampleGrid(uint8_t gridSize, float x, float y) {
+    uint8_t n = gridSize;
 
     // Normalize into [-1..1] grid space, then into fractional cell coords
     // [0..n-1]. Outside the unit square (a point past the outermost control
-    // points) is edge-clamped rather than extrapolated -- keeps the warp
-    // well-defined for off-canvas geometry (e.g. scrolling text) instead of
-    // diverging.
+    // points) is edge-clamped rather than extrapolated -- keeps both warp and
+    // brightness well-defined for off-canvas geometry (e.g. scrolling text)
+    // instead of diverging.
     float u = x / kFullScale;
     float v = y / kFullScale;
     float gx = (u + 1.0f) * 0.5f * (n - 1);
@@ -76,25 +74,33 @@ void apply(float& x, float& y) {
     gx = std::max(0.0f, std::min((float)(n - 1), gx));
     gy = std::max(0.0f, std::min((float)(n - 1), gy));
 
-    uint8_t c0 = (uint8_t)gx;
-    uint8_t r0 = (uint8_t)gy;
-    uint8_t c1 = (c0 + 1 < n) ? c0 + 1 : c0;
-    uint8_t r1 = (r0 + 1 < n) ? r0 + 1 : r0;
-    float fx = gx - c0;
-    float fy = gy - r0;
+    GridSample s;
+    s.c0 = (uint8_t)gx;
+    s.r0 = (uint8_t)gy;
+    s.c1 = (s.c0 + 1 < n) ? s.c0 + 1 : s.c0;
+    s.r1 = (s.r0 + 1 < n) ? s.r0 + 1 : s.r0;
+    s.fx = gx - s.c0;
+    s.fy = gy - s.r0;
+    return s;
+}
 
-    const float* p00 = gWarp.points[r0][c0];
-    const float* p10 = gWarp.points[r0][c1];
-    const float* p01 = gWarp.points[r1][c0];
-    const float* p11 = gWarp.points[r1][c1];
+void apply(float& x, float& y) {
+    if (isIdentity()) return;
 
-    float topX = p00[0] + (p10[0] - p00[0]) * fx;
-    float topY = p00[1] + (p10[1] - p00[1]) * fx;
-    float botX = p01[0] + (p11[0] - p01[0]) * fx;
-    float botY = p01[1] + (p11[1] - p01[1]) * fx;
+    GridSample s = sampleGrid(clampedGridSize(), x, y);
 
-    float outU = topX + (botX - topX) * fy;
-    float outV = topY + (botY - topY) * fy;
+    const float* p00 = gWarp.points[s.r0][s.c0];
+    const float* p10 = gWarp.points[s.r0][s.c1];
+    const float* p01 = gWarp.points[s.r1][s.c0];
+    const float* p11 = gWarp.points[s.r1][s.c1];
+
+    float topX = p00[0] + (p10[0] - p00[0]) * s.fx;
+    float topY = p00[1] + (p10[1] - p00[1]) * s.fx;
+    float botX = p01[0] + (p11[0] - p01[0]) * s.fx;
+    float botY = p01[1] + (p11[1] - p01[1]) * s.fx;
+
+    float outU = topX + (botX - topX) * s.fy;
+    float outV = topY + (botY - topY) * s.fy;
 
     float nx = outU * kFullScale;
     float ny = outV * kFullScale;

@@ -23,6 +23,24 @@
  */
 namespace warp {
 
+// Which 4 cells of an N x N grid surround a normalized-space point, and the
+// bilinear blend weights between them. Shared by apply() below (2-float
+// payload per cell: a target x/y position) and brightnessField.cpp's
+// gain() (1-byte payload per cell: a gain value) -- both need exactly the
+// same "map a point to its surrounding grid cell + fractional weights"
+// math, only the final blend of the 4 corner VALUES differs by payload
+// type, so that part stays separate/trivial in each caller.
+struct GridSample {
+    uint8_t r0, c0, r1, c1;   // surrounding cell indices (r1/c1 == r0/c0 at an
+                              // outer edge, i.e. blend weight 0 on that axis)
+    float   fx, fy;          // fractional position within the cell, 0..1
+};
+
+// gridSize must already be clamped to [2, WARP_GRID_MAX] by the caller.
+// x,y are native galvo-unit space (±32767, same as LaserPoint.x/y) -- NOT
+// normalized [-1..1] and NOT DAC codes.
+GridSample sampleGrid(uint8_t gridSize, float x, float y);
+
 // Call once at boot, after gWarp has been loaded from NVS (see
 // web_ui.cpp::loadWarp()). Primes the identity fast-path cache.
 void init();
