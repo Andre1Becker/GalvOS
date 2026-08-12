@@ -544,6 +544,23 @@ static float cornerSeverity(const PathSegment& seg, const OptimizerConfig& cfg,
     return std::max(0.0f, std::min(1.0f, angleT));
 }
 
+// Raw interior turn angle at vertex i (radians, 0..PI) -- the discrete
+// curvature proxy for curvature-adaptive resampling (P11b), i.e. the second
+// difference of the vertex sequence. Unlike cornerSeverity(), an open-path
+// endpoint returns 0 (SMOOTH), not 1.0: a curve fed as an open polyline has no
+// real corner at its free ends, and the P11b rule is that missing corner
+// metadata degrades to smooth (density there falls back to the base spacing).
+// Interior vertices return the plain exterior angle between adjacent edges.
+static float vertexTurnAngle(const PathSegment& seg, size_t i) {
+    if (seg.count < 3) return 0.0f;
+    if (isOpenEndpoint(seg, i)) return 0.0f;
+    size_t prev = (i == 0) ? seg.count - 1 : i - 1;
+    size_t next = (i + 1) % seg.count;
+    return exteriorAngle(seg.vertices[prev].x, seg.vertices[prev].y,
+                          seg.vertices[i].x,    seg.vertices[i].y,
+                          seg.vertices[next].x, seg.vertices[next].y);
+}
+
 // Number of points to place at a corner, scaled by severity between
 // cfg.min_corner_pts (severity 0) and cfg.max_corner_pts (severity 1).
 static uint8_t cornerPointCount(float severity, const OptimizerConfig& cfg) {
@@ -579,6 +596,7 @@ static uint8_t cornerPointCount(float severity, const OptimizerConfig& cfg) {
 namespace {
     float* s_geom_sev = nullptr;   // corner severity, one per vertex
     float* s_geom_len = nullptr;   // edge length, one per edge
+    float* s_geom_turn = nullptr;  // raw turn angle (P11b), one per vertex
     size_t s_geom_sev_n = 0;       // entries valid for the CURRENT call
     size_t s_geom_len_n = 0;
 }
@@ -605,18 +623,22 @@ static void buildGeomCache(const PathSegment* segments, size_t segment_count,
                                               MALLOC_CAP_SPIRAM);
         s_geom_len = (float*)heap_caps_malloc(sizeof(float) * kMaxXfVerts,
                                               MALLOC_CAP_SPIRAM);
-        if (!s_geom_sev || !s_geom_len) {
-            // No PSRAM -> compute on the fly forever. Free+null BOTH, same
+        s_geom_turn = (float*)heap_caps_malloc(sizeof(float) * kMaxXfVerts,
+                                               MALLOC_CAP_SPIRAM);
+        if (!s_geom_sev || !s_geom_len || !s_geom_turn) {
+            // No PSRAM -> compute on the fly forever. Free+null ALL, same
             // reasoning as applyTransform()'s failure path: leaving one live
             // means the next call's `if (!s_geom_sev)` guard reallocates over
             // it, one leaked block per frame.
             heap_caps_free(s_geom_sev);
             heap_caps_free(s_geom_len);
+            heap_caps_free(s_geom_turn);
             s_geom_sev = nullptr;
             s_geom_len = nullptr;
+            s_geom_turn = nullptr;
             return;
         }
-        memreg::track("Optimizer Geom Cache", sizeof(float) * kMaxXfVerts * 2, true);
+        memreg::track("Optimizer Geom Cache", sizeof(float) * kMaxXfVerts * 3, true);
     }
 
     size_t v = 0, e = 0;
@@ -624,8 +646,10 @@ static void buildGeomCache(const PathSegment* segments, size_t segment_count,
         const PathSegment& seg = segments[s];
         size_t ec = segEdgeCount(seg);
         if (v + seg.count > kMaxXfVerts || e + ec > kMaxXfVerts) break;
-        for (size_t i = 0; i < seg.count; i++)
-            s_geom_sev[v + i] = cornerSeverity(seg, cfg, i);
+        for (size_t i = 0; i < seg.count; i++) {
+            s_geom_sev[v + i]  = cornerSeverity(seg, cfg, i);
+            s_geom_turn[v + i] = vertexTurnAngle(seg, i);
+        }
         for (size_t k = 0; k < ec; k++) {
             size_t a = k, b = (k + 1) % seg.count;
             float dx = seg.vertices[b].x - seg.vertices[a].x;
@@ -667,9 +691,34 @@ static float shapeEdgeT(float t, float easeIn, float easeOut) {
 //     Point spacing is then absolute and length-independent (a short and a
 //     long edge get the same points-per-unit), which is what keeps galvo
 //     velocity uniform across a shape instead of scaling with edge length.
-static uint16_t edgeInteriorCount(float length, const OptimizerConfig& cfg) {
+// Below this turn angle (radians) an edge endpoint is treated as straight, so
+// curvature-adaptive resampling leaves it on the plain constant-spacing path
+// -- keeps a straight run byte-identical to the non-curvature resample result.
+static constexpr float kCurvatureEps = 1e-3f;
+
+// Curvature-adaptive spacing (P11b): scale the base resample spacing DOWN by
+// the local turn angle so bends get denser sampling, clamped to
+// [min_spacing_units, max_spacing_units]. Callers only invoke this once curv
+// exceeds kCurvatureEps, so a straight edge never reaches here and stays on
+// edgeInteriorCount()'s plain path.
+static float curvatureSpacing(float baseSpacing, float curv,
+                              const OptimizerConfig& cfg) {
+    float sp = baseSpacing / (1.0f + cfg.curvature_gain * curv);
+    float lo = cfg.min_spacing_units, hi = cfg.max_spacing_units;
+    if (hi < lo) hi = lo;   // defensive: inverted bracket collapses to the floor
+    if (sp < lo) sp = lo;
+    if (sp > hi) sp = hi;
+    return sp;
+}
+
+// spacingOverride > 0 replaces resample_spacing_units for this one edge
+// (curvature-adaptive path). 0 = use the config's own spacing, unchanged.
+static uint16_t edgeInteriorCount(float length, const OptimizerConfig& cfg,
+                                  float spacingOverride = 0.0f) {
     float raw;
-    if (cfg.resample_enabled && cfg.resample_spacing_units > 0.01f) {
+    if (spacingOverride > 0.01f) {
+        raw = (length / spacingOverride) - 1.0f;
+    } else if (cfg.resample_enabled && cfg.resample_spacing_units > 0.01f) {
         // -1: length/spacing counts the point intervals; interior points are
         // the divisions strictly between the two endpoints (which are corner
         // points), so one fewer than the interval count.
@@ -717,11 +766,19 @@ struct SegmentPlan {
     const OptimizerConfig* cfg = nullptr;
     const float*           sev = nullptr;   // per vertex, memo slice or null
     const float*           len = nullptr;   // per edge,   memo slice or null
+    const float*           turn = nullptr;  // per vertex, raw turn angle (P11b)
 
     size_t edgeCount() const { return segEdgeCount(*seg); }
 
     float severity(size_t i) const {
         return sev ? sev[i] : cornerSeverity(*seg, *cfg, i);
+    }
+
+    // Raw turn angle at vertex i (radians) -- the curvature-adaptive resample
+    // input. Memo slice when cached, computed otherwise (same fallback rule as
+    // severity()).
+    float turnAngle(size_t i) const {
+        return turn ? turn[i] : vertexTurnAngle(*seg, i);
     }
 
     float edgeLength(size_t e) const {
@@ -738,9 +795,23 @@ struct SegmentPlan {
     }
 
     // Interior points along edge e, excluding both endpoints -- those are the
-    // dwell points of the vertices the edge runs between.
+    // dwell points of the vertices the edge runs between. When curvature-
+    // adaptive resampling is on (P11b, needs resample mode active), the edge's
+    // effective spacing is reduced by its own local curvature -- the larger of
+    // the two endpoint turn angles -- so a bend densifies while a straight run
+    // (turn <= kCurvatureEps at both ends) collapses to the plain resample
+    // count. Both plan and emit passes read this one accessor, so their point
+    // counts agree by construction.
     uint16_t interiorPts(size_t e) const {
-        return edgeInteriorCount(edgeLength(e), *cfg);
+        float spacingOverride = 0.0f;
+        if (cfg->curvature_resample_enabled && cfg->resample_enabled &&
+            cfg->resample_spacing_units > 0.01f) {
+            size_t a = e, b = (e + 1) % seg->count;
+            float curv = std::max(turnAngle(a), turnAngle(b));
+            if (curv > kCurvatureEps)
+                spacingOverride = curvatureSpacing(cfg->resample_spacing_units, curv, *cfg);
+        }
+        return edgeInteriorCount(edgeLength(e), *cfg, spacingOverride);
     }
 
     // Edge-shaping severity (P19) -- deliberately NOT the same value as
@@ -793,6 +864,9 @@ struct PlanCursor {
             ebase + ec <= s_geom_len_n) {
             p.sev = s_geom_sev + vbase;
             p.len = s_geom_len + ebase;
+            // s_geom_turn is filled in lockstep with s_geom_sev over the same
+            // vertex range, so the same bound gates it.
+            if (s_geom_turn) p.turn = s_geom_turn + vbase;
         }
         vbase += seg.count;
         ebase += ec;
@@ -2205,6 +2279,71 @@ size_t optimize(const PathSegment* segments, size_t segment_count,
 void emitBlankTo(LaserPoint* out, size_t& n, size_t max,
                  float x1, float y1, const OptimizerConfig& cfg) {
     emitBlankJump(out, n, max, x1, y1, cfg);
+}
+
+// ── Curve ingestion (P11b) ───────────────────────────────────────────────
+// Lit runs above this count fall back to "not handled" (return 0) -- a
+// dot-cloud curve (phyllotaxis) would otherwise relaminate into hundreds of
+// one-vertex segments, each carrying a blank jump, which is neither a good
+// fit for curvature resampling nor worth the budget churn. Continuous curves
+// produce one lit run; only the dot-based ones approach this.
+static constexpr size_t kStreamMaxSegs = 96;
+namespace {
+    PathVertex*  s_stream_verts = nullptr;
+    PathSegment* s_stream_segs  = nullptr;
+}
+
+size_t optimizeStream(const LaserPoint* in, size_t n_in,
+                      LaserPoint* out, size_t max_out,
+                      const OptimizerConfig& cfg) {
+    if (!in || !out || n_in == 0) return 0;
+    if (n_in > kMaxXfVerts) return 0;   // more vertices than the scratch holds
+
+    if (!s_stream_verts) {
+        s_stream_verts = (PathVertex*)heap_caps_malloc(
+            kMaxXfVerts * sizeof(PathVertex), MALLOC_CAP_SPIRAM);
+        s_stream_segs = (PathSegment*)heap_caps_malloc(
+            kStreamMaxSegs * sizeof(PathSegment), MALLOC_CAP_SPIRAM);
+        if (!s_stream_verts || !s_stream_segs) {
+            // No PSRAM -> not handled; caller keeps its own stream. Free+null
+            // BOTH, same reasoning as the other lazy scratch singletons.
+            heap_caps_free(s_stream_verts);
+            heap_caps_free(s_stream_segs);
+            s_stream_verts = nullptr;
+            s_stream_segs  = nullptr;
+            return 0;
+        }
+        memreg::track("Optimizer Stream Scratch",
+                      kMaxXfVerts * sizeof(PathVertex) +
+                      kStreamMaxSegs * sizeof(PathSegment), true);
+    }
+
+    // Split the stream into contiguous lit runs -- one open PathSegment each,
+    // blank points dropped (optimize() re-adds its own blank jumps). Every
+    // segment's vertices point into s_stream_verts, which is fully populated
+    // before optimize() runs, so `in` and `out` may safely alias.
+    size_t vtx = 0, nseg = 0, runStart = 0;
+    bool   inRun = false;
+    for (size_t i = 0; i < n_in; i++) {
+        if (!in[i].blank) {
+            if (!inRun) { inRun = true; runStart = vtx; }
+            s_stream_verts[vtx++] = PathVertex((float)in[i].x, (float)in[i].y,
+                                               in[i].r, in[i].g, in[i].b, false);
+        } else if (inRun) {
+            if (nseg >= kStreamMaxSegs) return 0;
+            s_stream_segs[nseg++] = PathSegment(s_stream_verts + runStart,
+                                                vtx - runStart, /*closed=*/false);
+            inRun = false;
+        }
+    }
+    if (inRun) {
+        if (nseg >= kStreamMaxSegs) return 0;
+        s_stream_segs[nseg++] = PathSegment(s_stream_verts + runStart,
+                                            vtx - runStart, /*closed=*/false);
+    }
+    if (nseg == 0) return 0;   // stream was all-blank -> not handled
+
+    return optimize(s_stream_segs, nseg, out, max_out, cfg);
 }
 
 }  // namespace optimizer

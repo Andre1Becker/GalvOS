@@ -164,6 +164,18 @@ static void applyOptimizerOverrides(JsonObjectConst src, OptimizerLiveConfig& cf
         } else if (!strcmp(key, "resample_spacing_units") && val.is<float>()) {
             cfg.resample_spacing_units = constrain((float)val, 10.0f, 2000.0f);
             applied["resample_spacing_units"] = cfg.resample_spacing_units;
+        } else if (!strcmp(key, "curvature_resample_enabled") && val.is<bool>()) {
+            cfg.curvature_resample_enabled = (bool)val;
+            applied["curvature_resample_enabled"] = cfg.curvature_resample_enabled;
+        } else if (!strcmp(key, "curvature_gain") && val.is<float>()) {
+            cfg.curvature_gain = constrain((float)val, 0.0f, 20.0f);
+            applied["curvature_gain"] = cfg.curvature_gain;
+        } else if (!strcmp(key, "min_spacing_units") && val.is<float>()) {
+            cfg.min_spacing_units = constrain((float)val, 1.0f, 2000.0f);
+            applied["min_spacing_units"] = cfg.min_spacing_units;
+        } else if (!strcmp(key, "max_spacing_units") && val.is<float>()) {
+            cfg.max_spacing_units = constrain((float)val, 1.0f, 4000.0f);
+            applied["max_spacing_units"] = cfg.max_spacing_units;
         } else if (!strcmp(key, "ringing_comp_enabled") && val.is<bool>()) {
             cfg.ringing_comp_enabled = (bool)val;
             applied["ringing_comp_enabled"] = cfg.ringing_comp_enabled;
@@ -223,6 +235,10 @@ static void diffOptimizerOverrides(const OptimizerLiveConfig& cur,
     if (cur.stage1_blank_target != snap.stage1_blank_target) out["stage1_blank_target"] = cur.stage1_blank_target;
     if (cur.resample_enabled != snap.resample_enabled) out["resample_enabled"] = cur.resample_enabled;
     if (cur.resample_spacing_units != snap.resample_spacing_units) out["resample_spacing_units"] = cur.resample_spacing_units;
+    if (cur.curvature_resample_enabled != snap.curvature_resample_enabled) out["curvature_resample_enabled"] = cur.curvature_resample_enabled;
+    if (cur.curvature_gain != snap.curvature_gain) out["curvature_gain"] = cur.curvature_gain;
+    if (cur.min_spacing_units != snap.min_spacing_units) out["min_spacing_units"] = cur.min_spacing_units;
+    if (cur.max_spacing_units != snap.max_spacing_units) out["max_spacing_units"] = cur.max_spacing_units;
     if (cur.ringing_comp_enabled != snap.ringing_comp_enabled) out["ringing_comp_enabled"] = cur.ringing_comp_enabled;
     if (cur.ring_freq_hz != snap.ring_freq_hz) out["ring_freq_hz"] = cur.ring_freq_hz;
     if (cur.ring_damping_ratio != snap.ring_damping_ratio) out["ring_damping_ratio"] = cur.ring_damping_ratio;
@@ -463,6 +479,10 @@ static void persistConfig() {
         SAVE_U("opt_s1tgt", stage1_blank_target);
         SAVE_B("opt_rsen",  resample_enabled);
         SAVE_F("opt_rssp",  resample_spacing_units);
+        SAVE_B("opt_cven",  curvature_resample_enabled);
+        SAVE_F("opt_cvgn",  curvature_gain);
+        SAVE_F("opt_cvmn",  min_spacing_units);
+        SAVE_F("opt_cvmx",  max_spacing_units);
         SAVE_B("opt_rngen", ringing_comp_enabled);
         SAVE_B("opt_jten",  jitter_enabled);
         SAVE_F("opt_jtam",  jitter_amount_units);
@@ -716,6 +736,10 @@ static void buildConfigJson(JsonDocument& doc) {
             o["opt_stage1_blank_target"]          = p.stage1_blank_target;
             o["opt_resample_enabled"]             = p.resample_enabled;
             o["opt_resample_spacing_units"]       = p.resample_spacing_units;
+            o["opt_curvature_resample_enabled"]   = p.curvature_resample_enabled;
+            o["opt_curvature_gain"]               = p.curvature_gain;
+            o["opt_min_spacing_units"]            = p.min_spacing_units;
+            o["opt_max_spacing_units"]            = p.max_spacing_units;
             o["opt_ringing_comp_enabled"]         = p.ringing_comp_enabled;
             o["opt_ring_freq_hz"]                 = p.ring_freq_hz;
             o["opt_ring_damping_ratio"]           = p.ring_damping_ratio;
@@ -769,6 +793,10 @@ static void buildConfigJson(JsonDocument& doc) {
         doc["opt_stage1_blank_target"]          = p.stage1_blank_target;
         doc["opt_resample_enabled"]             = p.resample_enabled;
         doc["opt_resample_spacing_units"]       = p.resample_spacing_units;
+        doc["opt_curvature_resample_enabled"]   = p.curvature_resample_enabled;
+        doc["opt_curvature_gain"]               = p.curvature_gain;
+        doc["opt_min_spacing_units"]            = p.min_spacing_units;
+        doc["opt_max_spacing_units"]            = p.max_spacing_units;
         doc["opt_ringing_comp_enabled"]         = p.ringing_comp_enabled;
         doc["opt_ring_freq_hz"]                 = p.ring_freq_hz;
         doc["opt_ring_damping_ratio"]           = p.ring_damping_ratio;
@@ -1225,6 +1253,14 @@ void init() {
                 P.resample_enabled = (bool)doc["resample_enabled"];
             if (doc["resample_spacing_units"].is<float>())
                 P.resample_spacing_units = constrain((float)doc["resample_spacing_units"], 10.0f, 2000.0f);
+            if (doc["curvature_resample_enabled"].is<bool>())
+                P.curvature_resample_enabled = (bool)doc["curvature_resample_enabled"];
+            if (doc["curvature_gain"].is<float>())
+                P.curvature_gain = constrain((float)doc["curvature_gain"], 0.0f, 20.0f);
+            if (doc["min_spacing_units"].is<float>())
+                P.min_spacing_units = constrain((float)doc["min_spacing_units"], 1.0f, 2000.0f);
+            if (doc["max_spacing_units"].is<float>())
+                P.max_spacing_units = constrain((float)doc["max_spacing_units"], 1.0f, 4000.0f);
             if (doc["ringing_comp_enabled"].is<bool>())
                 P.ringing_comp_enabled = (bool)doc["ringing_comp_enabled"];
             if (doc["ring_freq_hz"].is<float>())

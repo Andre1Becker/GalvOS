@@ -19,8 +19,10 @@
  * defaults to false so unmeasured defaults can't make ringing worse.
  *
  * Scope: works for discrete-vertex geometry (polygons, stars, wireframes,
- * text-glyph strokes). NOT used for curve_patterns.cpp -- continuous
- * parametric curves have no discrete corners; see design doc Section 9.2.
+ * text-glyph strokes). Continuous parametric curves (curve_patterns.cpp) have
+ * no discrete corners (design doc Section 9.2), so they were originally kept
+ * out; P11b brings them in via optimizeStream() + curvature-adaptive resample,
+ * where density comes from the local turn angle rather than corner_angle_deg.
  */
 
 namespace optimizer {
@@ -149,6 +151,16 @@ struct OptimizerConfig {
                                                                     // points when resample_enabled. Smaller =
                                                                     // denser. Corner dwell runs on top of this
                                                                     // (see pipeline: Resample -> Corner Dwell).
+    bool     curvature_resample_enabled = OPT_DEFAULT_CURVATURE_RESAMPLE_ENABLED; // P11b: scale resample
+                                                                    // spacing DOWN by local turn angle so
+                                                                    // curved runs densify. Needs
+                                                                    // resample_enabled. false = plain
+                                                                    // constant-spacing resample, unchanged.
+    float    curvature_gain       = OPT_DEFAULT_CURVATURE_GAIN;    // curvature sensitivity: effective spacing
+                                                                    // = resample_spacing_units /
+                                                                    // (1 + curvature_gain * turnAngleRad).
+    float    min_spacing_units    = OPT_DEFAULT_MIN_SPACING_UNITS; // clamp floor for curvature spacing (densest)
+    float    max_spacing_units    = OPT_DEFAULT_MAX_SPACING_UNITS; // clamp ceiling for curvature spacing (sparsest)
     float    blank_pts_per_1000_units = OPT_DEFAULT_BLANK_PTS_PER_1000_UNITS;
                                                                     // PILLAR 2: distance-proportional blank
                                                                     // density. emitBlankJump() clamps to
@@ -351,6 +363,23 @@ size_t optimize(const PathSegment* segments, size_t segment_count,
                  LaserPoint* out, size_t max_out,
                  const OptimizerConfig& cfg);
 
+// P11b -- curve ingestion. Relaminates an already-emitted LaserPoint stream
+// (as produced by curve_patterns.cpp: lit runs separated by blank runs) back
+// into PathSegments -- one open segment per contiguous lit run, blank points
+// dropped -- and runs them through optimize() so continuous parametric curves
+// pick up the same corner/curvature/blanking/clamp pipeline as discrete
+// geometry. `in` and `out` MAY alias (the whole input is copied into an
+// internal PSRAM vertex scratch before optimize() writes `out`).
+//
+// Returns the optimized point count, or 0 to signal "not handled" when the
+// stream doesn't fit the relamination model (no PSRAM scratch, more lit runs
+// than kStreamMaxSegs, or more vertices than the scratch holds) -- the caller
+// then keeps its original stream. A 0 return therefore never means "render
+// nothing"; it means "use `in` unchanged".
+size_t optimizeStream(const LaserPoint* in, size_t n_in,
+                       LaserPoint* out, size_t max_out,
+                       const OptimizerConfig& cfg);
+
 // Builds a 2x3 affine from an in-plane rotation (radians, CCW) plus a
 // post-rotation translation (DAC units). Composition order matches the
 // legacy inline pass it replaces: rotate about the origin first, then
@@ -428,6 +457,11 @@ inline void applyPpsScaling(OptimizerConfig& cfg,
     const float r = ppsRatio(rated_kpps, output_kpps);
     cfg.pts_per_1000_units      *= (1.0f / r);
     cfg.resample_spacing_units  *= r;
+    // Curvature-adaptive clamp bracket is in the same spacing units as
+    // resample_spacing_units, so it tracks the same PPS scaling -- keeps the
+    // base spacing inside [min,max] at every output rate (P11b).
+    cfg.min_spacing_units       *= r;
+    cfg.max_spacing_units       *= r;
     cfg.blank_pts_per_1000_units *= (1.0f / r);
     cfg.max_step_units          *= r;
     cfg.max_accel_units         *= r * r;
@@ -472,6 +506,10 @@ inline OptimizerConfig configFromLive(const OptimizerLiveConfig& live,
     cfg.stage1_blank_target          = live.stage1_blank_target;
     cfg.resample_enabled             = live.resample_enabled;
     cfg.resample_spacing_units       = live.resample_spacing_units;
+    cfg.curvature_resample_enabled   = live.curvature_resample_enabled;
+    cfg.curvature_gain               = live.curvature_gain;
+    cfg.min_spacing_units            = live.min_spacing_units;
+    cfg.max_spacing_units            = live.max_spacing_units;
     cfg.ringing_comp_enabled         = live.ringing_comp_enabled;
     cfg.ring_freq_hz                 = live.ring_freq_hz;
     cfg.ring_damping_ratio           = live.ring_damping_ratio;

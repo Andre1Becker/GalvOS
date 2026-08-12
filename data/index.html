@@ -1195,6 +1195,11 @@ canvas { max-width: 100%; display: block; }
               <label class="row"><input type="checkbox" id="opt-resample-enabled" onchange="sendOptimizerLive()"> Enabled</label>
               <p class="param-hint">Replaces length-proportional density with constant point spacing along every edge.</p>
               <div class="field"><label>Point Spacing</label><div class="slider-row"><input type="range" id="opt-resample-spacing" min="10" max="2000" value="200" oninput="optSyncNum('opt-resample-spacing');optimizerSlider()"><input type="number" id="opt-resample-spacing-n" min="10" max="2000" value="200" onchange="optSyncSlider('opt-resample-spacing');optimizerSlider()"></div><p class="param-hint">Target spacing between resampled points, in DAC units. Only used while Resample is enabled.</p></div>
+              <label class="row"><input type="checkbox" id="opt-curvature-enabled" onchange="sendOptimizerLive()"> Curvature-Adaptive</label>
+              <p class="param-hint">Densifies resampling where the path bends (turn angle between edges) and thins it on straight runs &mdash; also brings continuous curve patterns into the optimizer. Requires Resample.</p>
+              <div class="field"><label>Curvature Gain</label><div class="slider-row"><input type="range" id="opt-curvature-gain" min="0" max="2000" value="200" data-scale="100" data-decimals="2" oninput="optSyncNum('opt-curvature-gain');optimizerSlider()"><input type="number" id="opt-curvature-gain-n" min="0" max="20" step="0.1" value="2" data-scale="100" data-decimals="2" onchange="optSyncSlider('opt-curvature-gain');optimizerSlider()"></div><p class="param-hint">How strongly a bend shortens spacing. 0 = off (base spacing everywhere).</p></div>
+              <div class="field"><label>Min Spacing</label><div class="slider-row"><input type="range" id="opt-min-spacing" min="1" max="2000" value="40" oninput="optSyncNum('opt-min-spacing');optimizerSlider()"><input type="number" id="opt-min-spacing-n" min="1" max="2000" value="40" onchange="optSyncSlider('opt-min-spacing');optimizerSlider()"></div><p class="param-hint">Densest allowed spacing at the sharpest bends (DAC units).</p></div>
+              <div class="field"><label>Max Spacing</label><div class="slider-row"><input type="range" id="opt-max-spacing" min="1" max="4000" value="400" oninput="optSyncNum('opt-max-spacing');optimizerSlider()"><input type="number" id="opt-max-spacing-n" min="1" max="4000" value="400" onchange="optSyncSlider('opt-max-spacing');optimizerSlider()"></div><p class="param-hint">Sparsest allowed spacing on nearly-straight runs (DAC units).</p></div>
             </div>
             <div class="param-group">
               <h3>Ringing Compensation</h3>
@@ -1534,7 +1539,7 @@ canvas { max-width: 100%; display: block; }
 /* =========================================================================
    GLOBAL STATE
    ========================================================================= */
-var UI_VERSION = '1.14.0';   // WebUI version -- independent from firmware version
+var UI_VERSION = '1.15.0';   // WebUI version -- independent from firmware version
 var NAV_TABS = [
   {id: 'dashboard', label: 'Dashboard', icon: '🏠', bottom: true},
   {id: 'presets', label: 'Presets', icon: '🎮', bottom: true},
@@ -4976,6 +4981,10 @@ function loadOptimizerConfig(c) {
   setv('opt-min-interior-pts', p[pfx + 'min_interior_pts_per_segment']);
   document.getElementById('opt-resample-enabled').checked = !!p[pfx + 'resample_enabled'];
   setv('opt-resample-spacing', p[pfx + 'resample_spacing_units']);
+  document.getElementById('opt-curvature-enabled').checked = !!p[pfx + 'curvature_resample_enabled'];
+  setv('opt-curvature-gain', Math.round((p[pfx + 'curvature_gain'] || 0) * 100));
+  setv('opt-min-spacing', p[pfx + 'min_spacing_units']);
+  setv('opt-max-spacing', p[pfx + 'max_spacing_units']);
   document.getElementById('opt-ringing-enabled').checked = !!p[pfx + 'ringing_comp_enabled'];
   setv('opt-ring-freq', p[pfx + 'ring_freq_hz']);
   setv('opt-ring-damping', Math.round((p[pfx + 'ring_damping_ratio'] || 0) * 100));
@@ -5024,6 +5033,8 @@ async function sendOptimizerLive() {
     min_blank_samples: domVal('opt-min-blank-samples', 4), blank_pts_per_1000_units: domVal('opt-blank-ppu', 80) / 10,
     min_interior_pts_per_segment: domVal('opt-min-interior-pts', 2), stage1_blank_target: domVal('opt-stage1-blank', 10),
     resample_enabled: domVal('opt-resample-enabled', false), resample_spacing_units: domVal('opt-resample-spacing', 200),
+    curvature_resample_enabled: domVal('opt-curvature-enabled', false), curvature_gain: domVal('opt-curvature-gain', 200) / 100,
+    min_spacing_units: domVal('opt-min-spacing', 40), max_spacing_units: domVal('opt-max-spacing', 400),
     ringing_comp_enabled: domVal('opt-ringing-enabled', false), ring_freq_hz: domVal('opt-ring-freq', 60), ring_damping_ratio: domVal('opt-ring-damping', 50) / 100,
     jitter_enabled: domVal('opt-jitter-enabled', false), jitter_amount_units: domVal('opt-jitter-amount', 0),
     vel_clamp_enabled: domVal('opt-vel-clamp-enabled', false), max_step_units: domVal('opt-max-step', 4000),
@@ -5092,7 +5103,9 @@ function resetOptimizerDefaults() {
   setv('opt-corner-angle', 30); setv('opt-min-corner-pts', 2); setv('opt-max-corner-pts', 8);
   setv('opt-ppu', 80); setv('opt-blank-samples', 12); setv('opt-max-pts-frame', 800);
   setv('opt-min-blank-samples', 4); setv('opt-blank-ppu', 80); setv('opt-min-interior-pts', 2); setv('opt-stage1-blank', 10);
+  setv('opt-curvature-gain', 200); setv('opt-min-spacing', 40); setv('opt-max-spacing', 400);
   document.getElementById('opt-resample-enabled').checked = false;
+  document.getElementById('opt-curvature-enabled').checked = false;
   document.getElementById('opt-ringing-enabled').checked = false;
   document.getElementById('opt-jitter-enabled').checked = false;
   document.getElementById('opt-vel-clamp-enabled').checked = false;

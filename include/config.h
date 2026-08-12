@@ -67,6 +67,24 @@ constexpr uint8_t  KALEIDO_SEGMENTS_MAX = 6;   // UI slider ceiling (even only)
 // so output stays byte-identical to the pre-resample optimizer.
 #define OPT_DEFAULT_RESAMPLE_ENABLED             false
 #define OPT_DEFAULT_RESAMPLE_SPACING_UNITS       160.0f
+// CURVATURE-ADAPTIVE RESAMPLE (P11b): a modifier on the resample stage above.
+// The constant resample spacing is a floor of density that ignores shape --
+// a tight arc and a straight run get the same points-per-unit. When enabled,
+// the local spacing is scaled down where the polyline actually bends: the
+// discrete turn angle at an edge's endpoints (second difference of the vertex
+// sequence, radians 0..PI) is read as a curvature proxy, and the effective
+// spacing becomes resample_spacing_units / (1 + curvature_gain * turnAngle),
+// clamped to [min_spacing_units, max_spacing_units]. A straight run (turn ~0)
+// keeps the base spacing -> byte-identical to the plain resample result there;
+// only curved regions densify. Feeds the SAME planSegment/budget/Stage-1
+// path, so curvature density scales down under max_pts_per_frame like
+// everything else. Brings continuous curve_patterns.cpp geometry (no discrete
+// corners) into the optimizer via a per-turn-angle density instead of
+// corner_angle_deg. Disabled by default -> resample stage unchanged.
+#define OPT_DEFAULT_CURVATURE_RESAMPLE_ENABLED    false
+#define OPT_DEFAULT_CURVATURE_GAIN                2.0f
+#define OPT_DEFAULT_MIN_SPACING_UNITS             40.0f
+#define OPT_DEFAULT_MAX_SPACING_UNITS             400.0f
 // PILLAR 3: ZV (Zero Vibration) input-shaping ringing compensation on
 // blank-jump moves. Disabled by default -- ring_freq_hz/ring_damping_ratio
 // must be measured on real hardware (step-response capture on a scope)
@@ -143,6 +161,10 @@ struct OptimizerLiveConfig {
     uint8_t  stage1_blank_target          = OPT_DEFAULT_STAGE1_BLANK_TARGET;
     bool     resample_enabled             = OPT_DEFAULT_RESAMPLE_ENABLED;
     float    resample_spacing_units       = OPT_DEFAULT_RESAMPLE_SPACING_UNITS;
+    bool     curvature_resample_enabled   = OPT_DEFAULT_CURVATURE_RESAMPLE_ENABLED;
+    float    curvature_gain               = OPT_DEFAULT_CURVATURE_GAIN;
+    float    min_spacing_units            = OPT_DEFAULT_MIN_SPACING_UNITS;
+    float    max_spacing_units            = OPT_DEFAULT_MAX_SPACING_UNITS;
     bool     ringing_comp_enabled         = OPT_DEFAULT_RINGING_COMP_ENABLED;
     float    ring_freq_hz                 = OPT_DEFAULT_RING_FREQ_HZ;
     float    ring_damping_ratio           = OPT_DEFAULT_RING_DAMPING_RATIO;

@@ -1627,6 +1627,25 @@ void task(void*) {
             params.r = cp.r; params.g = cp.g; params.b = cp.b;
 
             size_t n = curves::generate(ct, params, phase, s_frame, PATTERN_POINTS_MAX);
+
+            // P11b -- curve ingestion. When curvature-adaptive resampling is
+            // enabled, relaminate the curve's sampled polyline through the
+            // optimizer so it picks up the same corner/curvature density,
+            // blank-jump shaping, and scanner clamps as discrete geometry.
+            // Transform forced to identity: Curve Mode applies its own 3-axis
+            // rotation below, so the optimizer must not double-apply
+            // gLiveTransform. optimizeStream() returns 0 ("not handled") for
+            // streams that don't fit the model -- keep the raw stream then.
+            // Default off -> curve output byte-identical to before.
+            if (n > 0 && gOptimizerConfig.curvature_resample_enabled) {
+                optimizer::OptimizerConfig ocfg = optimizer::configFromLive(
+                    gOptimizerConfig, gProjection.galvo_rated_kpps, gProjection.galvo_kpps);
+                ocfg.transform = optimizer::AffineTransform();
+                size_t no = optimizer::optimizeStream(
+                    s_frame, n, s_frame, PATTERN_POINTS_MAX, ocfg);
+                if (no > 0) n = no;
+            }
+
             if (n > 0) {
                 // Apply color override / animation to curve points
                 if (gLivePreset.col_override) {

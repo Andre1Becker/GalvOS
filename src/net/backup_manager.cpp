@@ -72,6 +72,10 @@ void BackupManager::serializeToJson(JsonDocument& doc) {
         o["stage1_blank_target"]          = p.stage1_blank_target;
         o["resample_enabled"]             = p.resample_enabled;
         o["resample_spacing_units"]       = p.resample_spacing_units;
+        o["curvature_resample_enabled"]   = p.curvature_resample_enabled;
+        o["curvature_gain"]               = p.curvature_gain;
+        o["min_spacing_units"]            = p.min_spacing_units;
+        o["max_spacing_units"]            = p.max_spacing_units;
         o["ringing_comp_enabled"]         = p.ringing_comp_enabled;
         o["ring_freq_hz"]                 = p.ring_freq_hz;
         o["ring_damping_ratio"]           = p.ring_damping_ratio;
@@ -198,6 +202,12 @@ bool BackupManager::deserializeFromJson(JsonDocument& doc, JsonArray rejected) {
                     PCHECK("stage1_blank_target",           o["stage1_blank_target"].is<int>() && inRangeI(o["stage1_blank_target"].as<int>(), 1, 100));
                     PCHECK("resample_enabled",              o["resample_enabled"].is<bool>());
                     PCHECK("resample_spacing_units",        o["resample_spacing_units"].is<float>() && inRangeF(o["resample_spacing_units"].as<float>(), 10.0f, 2000.0f));
+                    // Optional (added P11b): backups predating these fields omit
+                    // them -- accept absence, reject only present-but-invalid.
+                    PCHECK("curvature_resample_enabled",    o["curvature_resample_enabled"].isNull() || o["curvature_resample_enabled"].is<bool>());
+                    PCHECK("curvature_gain",                o["curvature_gain"].isNull() || (o["curvature_gain"].is<float>() && inRangeF(o["curvature_gain"].as<float>(), 0.0f, 20.0f)));
+                    PCHECK("min_spacing_units",             o["min_spacing_units"].isNull() || (o["min_spacing_units"].is<float>() && inRangeF(o["min_spacing_units"].as<float>(), 1.0f, 2000.0f)));
+                    PCHECK("max_spacing_units",             o["max_spacing_units"].isNull() || (o["max_spacing_units"].is<float>() && inRangeF(o["max_spacing_units"].as<float>(), 1.0f, 4000.0f)));
                     PCHECK("ringing_comp_enabled",           o["ringing_comp_enabled"].is<bool>());
                     PCHECK("ring_freq_hz",                  o["ring_freq_hz"].is<float>() && inRangeF(o["ring_freq_hz"].as<float>(), 1.0f, 2000.0f));
                     PCHECK("ring_damping_ratio",             o["ring_damping_ratio"].is<float>() && inRangeF(o["ring_damping_ratio"].as<float>(), 0.0f, 0.9f));
@@ -330,6 +340,10 @@ bool BackupManager::deserializeFromJson(JsonDocument& doc, JsonArray rejected) {
                 if (!o["stage1_blank_target"].isNull())         P.stage1_blank_target = o["stage1_blank_target"];
                 if (!o["resample_enabled"].isNull())            P.resample_enabled = o["resample_enabled"];
                 if (!o["resample_spacing_units"].isNull())      P.resample_spacing_units = o["resample_spacing_units"];
+                if (!o["curvature_resample_enabled"].isNull())  P.curvature_resample_enabled = o["curvature_resample_enabled"];
+                if (!o["curvature_gain"].isNull())              P.curvature_gain = o["curvature_gain"];
+                if (!o["min_spacing_units"].isNull())           P.min_spacing_units = o["min_spacing_units"];
+                if (!o["max_spacing_units"].isNull())           P.max_spacing_units = o["max_spacing_units"];
                 if (!o["ringing_comp_enabled"].isNull())        P.ringing_comp_enabled = o["ringing_comp_enabled"];
                 if (!o["ring_freq_hz"].isNull())                P.ring_freq_hz = o["ring_freq_hz"];
                 if (!o["ring_damping_ratio"].isNull())          P.ring_damping_ratio = o["ring_damping_ratio"];
