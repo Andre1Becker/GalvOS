@@ -33,6 +33,7 @@
 #include "fixtures.h"
 #include "patterns/point_optimizer.h"
 #include "warpGrid.h"
+#include "brightnessField.h"
 
 using optimizer::OptimizerConfig;
 using optimizer::PathSegment;
@@ -651,6 +652,59 @@ void test_warpGridCornersInRange(void) {
     warp::refresh();
 }
 
+// ── Prompt 7c: brightness field multiplies RGB, leaves geometry untouched ──
+//
+// Not itself one of CONTRACT.md's numbered invariants -- applyBrightnessField()
+// never touches x/y or point count, so the I1/I2-style clamp risk warp's own
+// test covers does not apply here the same way. Pins down the new per-point
+// gain multiply directly instead: a 2x2 grid with one corner attenuated and
+// the opposite corner left at identity (255), checked against the segment's
+// own start/end vertices (corner dwell emits the literal vertex position, so
+// their pattern-space coordinates -- and therefore which grid corner's gain
+// applies -- are known exactly, unlike an interior/resampled point).
+void test_brightnessFieldAppliesGain(void) {
+    static const PathVertex v[2] = {
+        PathVertex(-32767.0f, -32767.0f, 200, 100, 50),
+        PathVertex( 32767.0f,  32767.0f, 200, 100, 50),
+    };
+    PathSegment seg(v, 2, false);
+
+    gBrightness.enabled    = true;
+    gBrightness.gridSize   = 2;
+    gBrightness.gain[0][0] = 128;   // corner (-1,-1) -> pattern (-32767,-32767)
+    gBrightness.gain[0][1] = 255;
+    gBrightness.gain[1][0] = 255;
+    gBrightness.gain[1][1] = 255;   // corner (1,1) -> pattern (32767,32767): identity
+    brightness::refresh();
+
+    OptimizerConfig cfg   = fx::baseCfg();
+    cfg.max_pts_per_frame = PATTERN_POINTS_MAX;
+
+    size_t n = optimizer::optimize(&seg, 1, gFrame, PATTERN_POINTS_MAX, cfg);
+    TEST_ASSERT_TRUE_MESSAGE(n >= 2, "brightness test produced too few points");
+
+    size_t first = 0;
+    while (first < n && gFrame[first].blank) first++;
+    TEST_ASSERT_TRUE_MESSAGE(first < n, "no lit point found");
+    snprintf(gMsg, sizeof(gMsg), "attenuated corner: got rgb(%u,%u,%u)",
+             gFrame[first].r, gFrame[first].g, gFrame[first].b);
+    TEST_ASSERT_EQUAL_UINT32_MESSAGE((200u * 128u) / 255u, (uint32_t)gFrame[first].r, gMsg);
+    TEST_ASSERT_EQUAL_UINT32_MESSAGE((100u * 128u) / 255u, (uint32_t)gFrame[first].g, gMsg);
+    TEST_ASSERT_EQUAL_UINT32_MESSAGE(( 50u * 128u) / 255u, (uint32_t)gFrame[first].b, gMsg);
+
+    size_t last = n - 1;
+    while (last > first && gFrame[last].blank) last--;
+    snprintf(gMsg, sizeof(gMsg), "identity corner: got rgb(%u,%u,%u)",
+             gFrame[last].r, gFrame[last].g, gFrame[last].b);
+    TEST_ASSERT_EQUAL_UINT32_MESSAGE(200u, (uint32_t)gFrame[last].r, gMsg);
+    TEST_ASSERT_EQUAL_UINT32_MESSAGE(100u, (uint32_t)gFrame[last].g, gMsg);
+    TEST_ASSERT_EQUAL_UINT32_MESSAGE( 50u, (uint32_t)gFrame[last].b, gMsg);
+
+    gBrightness.enabled = false;
+    gBrightness.resetIdentity();
+    brightness::refresh();
+}
+
 // ── 7. deterministicOutput ──────────────────────────────────────────────
 //
 // CLASS-IDENTICAL. Expected green already; if it ever goes red, that is a
@@ -836,6 +890,7 @@ int main(int, char**) {
     RUN_TEST(test_velocityAccelLimitsHold);
     RUN_TEST(test_dacRangeValid);
     RUN_TEST(test_warpGridCornersInRange);
+    RUN_TEST(test_brightnessFieldAppliesGain);
     RUN_TEST(test_deterministicOutput);
     RUN_TEST(test_statsConsistent);
     RUN_TEST(test_reorderSegmentsShortensJumps);

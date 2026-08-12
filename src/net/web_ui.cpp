@@ -1,6 +1,7 @@
 #include "web_ui.h"
 #include "config.h"
 #include "../warpGrid.h"
+#include "../brightnessField.h"
 #include "safety/safety.h"
 #include "output/galvo_out.h"
 #include "patterns/pattern_engine.h"
@@ -480,6 +481,9 @@ static void persistConfig() {
     s_prefs.putBool ("warp_en",   gWarp.enabled);
     s_prefs.putUChar("warp_grid", gWarp.gridSize);
     s_prefs.putBytes("warp_pts",  (const void*)gWarp.points, sizeof(gWarp.points));
+    s_prefs.putBool ("brt_en",    gBrightness.enabled);
+    s_prefs.putUChar("brt_grid",  gBrightness.gridSize);
+    s_prefs.putBytes("brt_gain",  (const void*)gBrightness.gain, sizeof(gBrightness.gain));
     s_prefs.end();
 }
 static void loadZone() {
@@ -506,6 +510,21 @@ static void loadWarp() {
     s_prefs.getBytes("warp_pts", (void*)gWarp.points, sizeof(gWarp.points));
     s_prefs.end();
     warp::init();
+}
+
+// Missing keys leave gBrightness untouched -- already default-constructed to
+// the identity grid (gain 255 everywhere) before this runs, same fallback
+// reasoning as loadWarp() above.
+static void loadBrightness() {
+    s_prefs.begin("laser", true);
+    gBrightness.enabled = s_prefs.getBool ("brt_en",   gBrightness.enabled);
+    uint8_t n           = s_prefs.getUChar("brt_grid", gBrightness.gridSize);
+    if (n < 2)              n = 2;
+    if (n > WARP_GRID_MAX)  n = WARP_GRID_MAX;
+    gBrightness.gridSize = n;
+    s_prefs.getBytes("brt_gain", (void*)gBrightness.gain, sizeof(gBrightness.gain));
+    s_prefs.end();
+    brightness::init();
 }
 
 /* ============================================================
@@ -925,6 +944,7 @@ void init() {
     generateAuthToken();
     loadZone();
     loadWarp();
+    loadBrightness();
 
     // Must run before any s_server.on(...) registration -- middleware wraps
     // every request the server handles, including static assets and API GETs.
@@ -1458,6 +1478,105 @@ void init() {
                 gState.calib_active = false;
             }
             req->send(200, "text/plain", active ? "TEST" : "STOP");
+        });
+
+    // ── Per-Segment Brightness Compensation (Prompt 7c) ──────────────────
+    // Same grid shape/validation conventions as /api/warp/* above -- no
+    // "test" pattern for this one (the prompt doesn't ask for one; the
+    // existing calib patterns already double as a live-brightness preview
+    // since the gain field applies to every pattern, not just a dedicated
+    // test shape).
+
+    // ---- GET /api/brightness/get ----
+    s_server.on("/api/brightness/get", HTTP_GET, [](AsyncWebServerRequest* req) {
+        JsonDocument doc(&jsonAllocator());
+        doc["enabled"]  = gBrightness.enabled;
+        doc["gridSize"] = gBrightness.gridSize;
+        JsonArray rows = doc["gain"].to<JsonArray>();
+        for (uint8_t r = 0; r < gBrightness.gridSize; r++) {
+            JsonArray row = rows.add<JsonArray>();
+            for (uint8_t c = 0; c < gBrightness.gridSize; c++)
+                row.add(gBrightness.gain[r][c]);
+        }
+        sendJsonPsram(req, doc);
+    });
+
+    // ---- POST /api/brightness/set ----
+    // Body: { "gridSize": 2..5, "gain": [[0..255,...],...], "enabled": bool }
+    // All fields optional; "gain", if present, must be a gridSize x gridSize
+    // array of 0..255 integers (using the request's own "gridSize" if given,
+    // else the currently stored one). Whole payload validated before
+    // anything is applied. Changing gridSize WITHOUT sending a matching
+    // "gain" array resets the grid to identity (255) for the new size.
+    s_server.on("/api/brightness/set", HTTP_POST,
+        [](AsyncWebServerRequest* req) {},
+        nullptr,
+        [](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t, size_t) {
+            JsonDocument doc(&jsonAllocator());
+            if (deserializeJson(doc, data, len)) { req->send(400, "text/plain", "bad json"); return; }
+
+            uint8_t gridSize = gBrightness.gridSize;
+            if (!doc["gridSize"].isNull()) {
+                int gs = doc["gridSize"].is<int>() ? (int)doc["gridSize"] : -1;
+                if (gs < 2 || gs > WARP_GRID_MAX) {
+                    req->send(400, "application/json",
+                        "{\"error\":\"gridSize must be an integer 2..5\"}");
+                    return;
+                }
+                gridSize = (uint8_t)gs;
+            }
+
+            uint8_t newGain[WARP_GRID_MAX][WARP_GRID_MAX];
+            bool haveGain = !doc["gain"].isNull();
+            if (haveGain) {
+                JsonArrayConst rows = doc["gain"];
+                if (rows.size() != gridSize) {
+                    req->send(400, "application/json",
+                        "{\"error\":\"gain must have gridSize rows\"}");
+                    return;
+                }
+                uint8_t r = 0;
+                for (JsonArrayConst row : rows) {
+                    if (row.size() != gridSize) {
+                        req->send(400, "application/json",
+                            "{\"error\":\"each gain row must have gridSize entries\"}");
+                        return;
+                    }
+                    uint8_t c = 0;
+                    for (JsonVariantConst cell : row) {
+                        int v = cell.is<int>() ? (int)cell : -1;
+                        if (v < 0 || v > 255) {
+                            req->send(400, "application/json",
+                                "{\"error\":\"each gain value must be an integer 0..255\"}");
+                            return;
+                        }
+                        newGain[r][c] = (uint8_t)v;
+                        c++;
+                    }
+                    r++;
+                }
+            }
+
+            gBrightness.gridSize = gridSize;
+            if (haveGain) {
+                for (uint8_t r = 0; r < gridSize; r++)
+                    for (uint8_t c = 0; c < gridSize; c++)
+                        gBrightness.gain[r][c] = newGain[r][c];
+            } else {
+                gBrightness.resetIdentity();
+            }
+            if (doc["enabled"].is<bool>()) gBrightness.enabled = doc["enabled"];
+            brightness::refresh();
+            persistConfig();
+            req->send(200, "text/plain", "OK");
+        });
+
+    // ---- POST /api/brightness/reset ---- (grid back to identity, enabled untouched)
+    s_server.on("/api/brightness/reset", HTTP_POST,
+        [](AsyncWebServerRequest* req) {
+            brightness::reset();
+            persistConfig();
+            req->send(200, "text/plain", "OK");
         });
 
     // ---- POST /api/calib-save ----

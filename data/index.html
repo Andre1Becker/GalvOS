@@ -320,6 +320,16 @@ label.row { min-height: 44px; cursor: pointer; }
   background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg);
   padding: 16px; margin-bottom: 16px;
 }
+.brightness-grid {
+  display: grid; gap: 3px; width: 100%; max-width: 420px; aspect-ratio: 1;
+  background: var(--border); border: 1px solid var(--border); border-radius: var(--radius);
+  overflow: hidden; user-select: none;
+}
+.brightness-cell {
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-mono); font-size: 0.7rem; font-weight: 600;
+  color: #000; cursor: ns-resize; touch-action: none;
+}
 .grid { display: grid; gap: 16px; }
 .grid-2 { grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
 .grid-3 { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
@@ -1093,6 +1103,24 @@ canvas { max-width: 100%; display: block; }
           </div>
 
           <div class="card">
+            <h2>Brightness Compensation</h2>
+            <div id="brightness-grid" class="brightness-grid"></div>
+            <div class="row" style="margin-top:8px">
+              <label>Grid Size <select id="brightness-grid-size" onchange="brightnessSetGridSize(this.value)">
+                <option value="2">2x2</option><option value="3">3x3</option>
+                <option value="4">4x4</option><option value="5">5x5</option>
+              </select></label>
+              <span id="brightness-enable-status" class="pill bad">Disabled</span>
+            </div>
+            <div class="row" style="margin-top:8px">
+              <button class="btn sm" onclick="brightnessToggleEnable()">Enable/Disable</button>
+              <button class="btn sm" onclick="brightnessSave()">Save Grid</button>
+              <button class="btn sm danger" onclick="brightnessReset()">Reset to Identity</button>
+            </div>
+            <p style="font-size:0.75rem;color:var(--text-dim)">Drag a cell up/down to compensate brightness across the image &mdash; corrects scan-speed/exposure falloff from projector throw distance/angle (darker cell = more attenuation). Same grid size as Warp, independent values.</p>
+          </div>
+
+          <div class="card">
             <h2>ILDA Standard Test Pattern (ITC Rev.002 1995)</h2>
             <div class="field"><label>Scan Size</label><input type="range" id="ilda-test-size" min="0" max="255" value="128"></div>
             <div class="row">
@@ -1504,7 +1532,7 @@ canvas { max-width: 100%; display: block; }
 /* =========================================================================
    GLOBAL STATE
    ========================================================================= */
-var UI_VERSION = '1.12.0';   // WebUI version -- independent from firmware version
+var UI_VERSION = '1.13.0';   // WebUI version -- independent from firmware version
 var NAV_TABS = [
   {id: 'dashboard', label: 'Dashboard', icon: '🏠', bottom: true},
   {id: 'presets', label: 'Presets', icon: '🎮', bottom: true},
@@ -2789,6 +2817,7 @@ async function bootSequence() {
   if (typeof loadSdStatus === 'function') { await loadSdStatus(); startIldaRefresh(); }
   if (typeof initZoneEditor === 'function') initZoneEditor();
   if (typeof initWarpEditor === 'function') initWarpEditor();
+  if (typeof initBrightnessEditor === 'function') initBrightnessEditor();
 }
 
 /* =========================================================================
@@ -4788,6 +4817,101 @@ function initWarpEditor() {
   window.addEventListener('touchend', warpPointerUp);
   warpPts = warpIdentityGrid(warpGridSize);
   warpLoad();
+}
+
+/* ---- Brightness compensation grid editor (Calibration tab) ---- */
+var brightnessGridSize = 2;
+var brightnessGain = [];   // brightnessGain[row][col] = 0..255
+var brightnessEnabled = false;
+var brightnessDrag = null; // {r, c, startY, startVal} or null
+function brightnessIdentityGrid(n) {
+  var g = [];
+  for (var r = 0; r < n; r++) { var row = []; for (var c = 0; c < n; c++) row.push(255); g.push(row); }
+  return g;
+}
+function brightnessCellColor(v) {
+  var pct = Math.round((v / 255) * 100);
+  return 'hsl(150, 70%, ' + Math.max(4, Math.min(92, pct * 0.85)) + '%)';
+}
+function brightnessRender() {
+  var el = document.getElementById('brightness-grid'); if (!el) return;
+  var n = brightnessGridSize;
+  el.style.gridTemplateColumns = 'repeat(' + n + ', 1fr)';
+  el.style.gridTemplateRows = 'repeat(' + n + ', 1fr)';
+  el.innerHTML = '';
+  for (var r = 0; r < n; r++) {
+    for (var c = 0; c < n; c++) {
+      var cell = document.createElement('div');
+      cell.className = 'brightness-cell';
+      cell.dataset.r = r; cell.dataset.c = c;
+      var v = brightnessGain[r][c];
+      cell.style.background = brightnessCellColor(v);
+      cell.textContent = v;
+      el.appendChild(cell);
+    }
+  }
+}
+function brightnessEventY(e) { var t = e.touches ? e.touches[0] : e; return t.clientY; }
+function brightnessPointerDown(e) {
+  var cell = e.target.closest ? e.target.closest('.brightness-cell') : null;
+  if (!cell) return;
+  e.preventDefault();
+  var r = parseInt(cell.dataset.r, 10), c = parseInt(cell.dataset.c, 10);
+  brightnessDrag = {r: r, c: c, startY: brightnessEventY(e), startVal: brightnessGain[r][c]};
+}
+function brightnessPointerMove(e) {
+  if (!brightnessDrag) return;
+  e.preventDefault();
+  var dy = brightnessEventY(e) - brightnessDrag.startY;
+  var v = Math.round(brightnessDrag.startVal - dy);   // drag up = brighter
+  v = Math.max(0, Math.min(255, v));
+  brightnessGain[brightnessDrag.r][brightnessDrag.c] = v;
+  brightnessRender();
+}
+function brightnessPointerUp() { brightnessDrag = null; }
+async function brightnessLoad() {
+  var r = await apiCall('GET', '/api/brightness/get');
+  if (r && r.gridSize && r.gain) {
+    brightnessGridSize = r.gridSize;
+    brightnessGain = r.gain;
+    brightnessEnabled = !!r.enabled;
+  } else {
+    brightnessGridSize = 2; brightnessGain = brightnessIdentityGrid(2); brightnessEnabled = false;
+  }
+  var sel = document.getElementById('brightness-grid-size'); if (sel) sel.value = String(brightnessGridSize);
+  var enEl = document.getElementById('brightness-enable-status');
+  if (enEl) { enEl.textContent = brightnessEnabled ? 'Enabled' : 'Disabled'; enEl.className = brightnessEnabled ? 'pill ok' : 'pill bad'; }
+  brightnessRender();
+}
+async function brightnessSave() {
+  await apiCall('POST', '/api/brightness/set', {gridSize: brightnessGridSize, gain: brightnessGain, enabled: brightnessEnabled});
+  toast('Brightness grid saved');
+}
+async function brightnessToggleEnable() {
+  brightnessEnabled = !brightnessEnabled;
+  await apiCall('POST', '/api/brightness/set', {gridSize: brightnessGridSize, gain: brightnessGain, enabled: brightnessEnabled});
+  var enEl = document.getElementById('brightness-enable-status');
+  if (enEl) { enEl.textContent = brightnessEnabled ? 'Enabled' : 'Disabled'; enEl.className = brightnessEnabled ? 'pill ok' : 'pill bad'; }
+}
+async function brightnessReset() {
+  await apiCall('POST', '/api/brightness/reset', {});
+  await brightnessLoad();
+}
+function brightnessSetGridSize(v) {
+  var n = parseInt(v, 10);
+  if (n === brightnessGridSize) return;
+  brightnessGridSize = n;
+  brightnessGain = brightnessIdentityGrid(n);
+  brightnessRender();
+}
+function initBrightnessEditor() {
+  var el = document.getElementById('brightness-grid'); if (!el) return;
+  el.addEventListener('mousedown', brightnessPointerDown); window.addEventListener('mousemove', brightnessPointerMove);
+  window.addEventListener('mouseup', brightnessPointerUp);
+  el.addEventListener('touchstart', brightnessPointerDown); window.addEventListener('touchmove', brightnessPointerMove);
+  window.addEventListener('touchend', brightnessPointerUp);
+  brightnessGain = brightnessIdentityGrid(brightnessGridSize);
+  brightnessLoad();
 }
 
 registerTabLoader('calib', function() { loadCalibPatterns(); loadCalibrationFields(); });
