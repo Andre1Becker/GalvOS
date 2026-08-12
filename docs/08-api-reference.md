@@ -22,6 +22,7 @@ The GalvOS REST API is served by the ESP32 WebUI server (ESPAsyncWebServer) at `
 - [Projection](#projection)
 - [Text Mode](#text-mode)
 - [Paint Mode](#paint-mode)
+- [SVG Import (SD Storage)](#svg-import-sd-storage)
 - [DMX & Art-Net](#dmx--art-net)
 - [Network Control Protocols (non-HTTP)](#network-control-protocols-non-http)
 - [ILDA & SD Card](#ilda--sd-card)
@@ -1018,14 +1019,17 @@ Upload canvas strokes and activate paint mode. Paint mode overrides presets, cur
     {
       "closed": false,
       "r": 255, "g": 0, "b": 0,
-      "x": [0.1, 0.5, 0.9],
-      "y": [0.5, 0.2, 0.8]
+      "x": [-8000, 0, 8000],
+      "y": [4000, -2000, 6000]
     }
   ]
 }
 ```
 
-Coordinates are normalized [0.0, 1.0] and mapped to the galvo coordinate space by the firmware. Maximum 12 strokes, 96 vertices per stroke.
+Coordinates are **galvo integers**, `int16` range `-32768..32767` (not normalized — the
+firmware takes `x`/`y` as-is into `PathVertex`, no scaling). The usable working area is
+`±24000` (`PAINT_RANGE`), matching the projection zone default. Maximum 12 strokes, 96
+vertices per stroke.
 
 ---
 
@@ -1038,6 +1042,56 @@ Clear all strokes from the canvas. Body: empty.
 ### `POST /api/paint/off`
 
 Deactivate paint mode. Body: empty.
+
+---
+
+## SVG Import (SD Storage)
+
+SVG files parsed and simplified in the browser (see [Chapter 4](04-ui-guide.md#tab-ilda--sd))
+project through the same `/api/paint/set` path above. These endpoints only manage the
+raw `.svg` files stored on the SD card, under `/svg/` — parsing/conversion never happens
+on the firmware side.
+
+### `GET /api/svg/list`
+
+```json
+{
+  "ready": true,
+  "file_count": 2,
+  "max_bytes": 262144,
+  "files": [
+    {"idx": 0, "name": "logo.svg", "size": 4213, "mtime": 1739200000, "playable": true, "reason": ""},
+    {"idx": 1, "name": "huge.svg", "size": 400000, "playable": false, "reason": "too large (max 256 KB)"}
+  ]
+}
+```
+
+`playable=false` covers three checks: file-size cap, well-formedness (`<svg>` root
+present), and a rough drawable-element count (`<path>`/`<rect>`/`<circle>`/`<ellipse>`/
+`<line>`/`<polyline>`/`<polygon>`) — mirrors ILDA's `too_large` flag pattern.
+
+---
+
+### `GET /api/svg/get?idx=N`
+
+Returns the raw SVG text of file `N` (`Content-Type: image/svg+xml`), streamed directly
+from SD. The WebUI feeds this straight into the same client-side parse pipeline used by
+"Load SVG".
+
+---
+
+### `POST /api/svg/upload`
+
+Multipart form upload (`file` field), same shape as `/api/ilda/upload`. Filenames are
+sanitized server-side and always stored with a `.svg` extension under `/svg/`.
+
+### `POST /api/svg/delete`
+
+Body: `{"idx": N}`.
+
+### `POST /api/svg/rename`
+
+Body: `{"idx": N, "name": "new.svg"}`.
 
 ---
 

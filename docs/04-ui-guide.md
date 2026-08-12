@@ -421,6 +421,31 @@ Sequential playback of multiple ILDA files (moved here from its own tab in v6.11
 
 Upload `.ild`/`.ilda` files to the SD card straight from the browser. Filenames are sanitized and length-capped server-side (v6.12.2/v6.12.3) — long names survive up to FAT's real 255-character limit, and hostile ones can't traverse directories or corrupt the index.
 
+### SVG Import
+
+Converts an SVG drawing into a Paint canvas (v6.54.0) — entirely in the browser, no firmware-side SVG parsing. The result projects through the same pipeline as the Paint tab's freehand shapes (`/api/paint/set`), so it inherits that budget:
+
+| Limit | Value | Matches |
+| --- | --- | --- |
+| Strokes (paths) | 12 | `PAINT_STROKES_MAX` |
+| Vertices per stroke | 96 | `PAINT_VERTS_PER_STROKE` |
+| Total points | 1152 (12×96) | stays under the 1300 optimizer frame budget |
+| Raw samples per path (pre-simplify) | 400 | — |
+
+**Pipeline:** `Load SVG` reads the file, walks the DOM (`<g>` recursed, `<defs>`/`<symbol>`/`<clipPath>`/etc. skipped), rewrites `rect`/`circle`/`ellipse`/`line`/`polyline`/`polygon` to equivalent `path` data, samples each path at 400 points via `getPointAtLength()` + `getCTM()` (so nested `transform`s resolve correctly), then simplifies with Ramer-Douglas-Peucker (`epsilon = Simplify / 1000`). Paths are then prioritized longest-first into the 12 stroke slots — a path that still doesn't fit one 96-vertex slot after simplification is dropped whole, never truncated mid-path.
+
+**Controls:**
+
+- **Preview canvas** — black background, redraws live on every slider change (Simplify/Size/Invert/color), without re-parsing the SVG.
+- **Status line** — `N paths · M pts` when everything fit; `N/T paths · M pts · D dropped` in amber otherwise.
+- **Load SVG** — local file picker. **Project** — pushes the current result to the Paint canvas and activates Paint mode. **Off** — deactivates Paint mode (keeps the canvas).
+- **Color picker + "Use SVG colors"** — per-path color resolves from `stroke` (preferred) or `fill`, walking the CSS cascade via `getComputedStyle()`; falls back to the picker color when a path has neither (or the checkbox is off).
+- **Size** (0–255, 128 = 100%) — scales around the drawing's center. **Simplify** (1–20) — RDP tolerance. **Invert X / Invert Y** — per-axis mirroring (SVG's Y axis is inverted against galvo Y by default, before this toggle). **Loop** — display-only preference (Paint mode loops inherently); saved/restored but never sent to the firmware.
+- **Save / Restore** — round-trips the full card state (including the raw SVG text) through `localStorage` (`galvos_svg_state`), same pattern as the theme picker.
+- **Save to SD** — uploads the currently loaded SVG text to the card (see below).
+
+**SD storage:** the "SVG Files (SD)" card lists `.svg` files under `/svg/` with the same layout as the ILDA file list. Files that fail a pre-check (too large, malformed — no `<svg>` root, or no drawable elements found) show a disabled "Blocked" button with the reason on hover, exactly like ILDA's oversized-file graying. Pressing Play fetches the raw text and runs it through the same import pipeline as a local "Load SVG".
+
 ---
 
 ## Tab: Calibration
