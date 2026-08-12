@@ -375,6 +375,10 @@ input[type=number] { min-width: 72px; max-width: 140px; }
 input[type=range] { min-height: 32px; width: 100%; accent-color: var(--accent); }
 textarea { resize: none; }
 input[type=checkbox] { width: 20px; height: 20px; min-height: 20px; accent-color: var(--accent); }
+/* Generic input padding shrinks input[type=color]'s swatch down to an
+   unclickable sliver (padding eats into the swatch box, not around it) --
+   override to a small fixed square so the color is actually visible/pickable. */
+input[type=color] { padding: 2px; width: 44px; min-width: 44px; cursor: pointer; }
 
 .slider-row { display: flex; align-items: center; gap: 10px; }
 .slider-row input[type=range] { flex: 1; }
@@ -588,8 +592,9 @@ canvas { max-width: 100%; display: block; }
                   <select id="lv-kaleido-mode" onchange="onKaleidoModeChange()"><option value="1" selected>Kaleidoscope</option><option value="0">Radial Repeat</option></select>
                 </div>
                 <div class="field"><label>Segments</label><input type="range" id="lv-kaleido-segments" min="2" max="6" step="2" value="4" oninput="liveSlider('lv-kaleido-segments')"></div>
-                <label class="row"><input type="checkbox" id="lv-mirror-h" onchange="sendLiveControls()" disabled> Mirror H</label>
-                <label class="row"><input type="checkbox" id="lv-mirror-v" onchange="sendLiveControls()" disabled> Mirror V</label>
+                <label class="row"><input type="checkbox" id="lv-mirror-h" onchange="onMirrorHVChange(this)" disabled> Mirror H</label>
+                <label class="row"><input type="checkbox" id="lv-mirror-v" onchange="onMirrorHVChange(this)" disabled> Mirror V</label>
+                <p class="param-hint">Only affects Radial Repeat mode -- checking either box switches Mode to Radial Repeat and turns Kaleidoscope on automatically.</p>
                 <div class="row">
                   <button class="btn sm mirror-btn primary" onclick="setMirrorMode(0)">Off</button>
                   <button class="btn sm mirror-btn" onclick="setMirrorMode(1)">X</button>
@@ -884,22 +889,20 @@ canvas { max-width: 100%; display: block; }
             <button class="btn sm paint-mirror-btn" data-mirror="x" onclick="paintSetMirror('x')">X</button>
             <button class="btn sm paint-mirror-btn" data-mirror="y" onclick="paintSetMirror('y')">Y</button>
             <button class="btn sm paint-mirror-btn" data-mirror="radial4" onclick="paintSetMirror('radial4')">Radial4</button>
-            <label><input type="checkbox" onchange="paintSnap=this.checked"> Snap</label>
             <input type="color" value="#ffffff" onchange="paintSetColor(this.value)">
           </div>
-          <canvas id="pt-canvas" width="700" height="700" style="width:100%;aspect-ratio:1;background:#000;touch-action:none"></canvas>
-          <p id="pt-status">0/12 shapes · 0/1152 points</p>
-          <div class="row">
+          <div class="row" style="margin-bottom:8px">
+            <label><input type="checkbox" onchange="paintSnap=this.checked"> Snap</label>
+            <label><input type="checkbox" id="pt-live" checked> Live</label>
             <button class="btn sm" onclick="paintUndo()">&#8630; Undo</button>
             <button class="btn sm" onclick="paintRedo()">&#8631; Redo</button>
             <button class="btn sm danger" onclick="paintDeleteSelected()">Delete Selected</button>
             <button class="btn sm danger" onclick="paintClear()">Clear</button>
-          </div>
-          <div class="row" style="margin-top:8px">
-            <label><input type="checkbox" id="pt-live" checked> Live</label>
             <button class="btn sm primary" onclick="paintProject()">&#128424; Project</button>
             <button class="btn sm" onclick="paintOff()">&#9632; Off</button>
           </div>
+          <canvas id="pt-canvas" width="700" height="700" style="width:100%;aspect-ratio:1;background:#000;touch-action:none"></canvas>
+          <p id="pt-status">0/12 shapes · 0/1152 points</p>
         </div>
         <div>
           <div class="card">
@@ -1551,7 +1554,7 @@ canvas { max-width: 100%; display: block; }
 /* =========================================================================
    GLOBAL STATE
    ========================================================================= */
-var UI_VERSION = '1.16.0';   // WebUI version -- independent from firmware version
+var UI_VERSION = '1.17.0';   // WebUI version -- independent from firmware version
 var NAV_TABS = [
   {id: 'dashboard', label: 'Dashboard', icon: '🏠', bottom: true},
   {id: 'presets', label: 'Presets', icon: '🎮', bottom: true},
@@ -2110,6 +2113,7 @@ async function activatePreset(idx) {
   var r = await apiCall('POST', '/api/preset', {idx: idx});
   if (r === null) return;
   s_activePresetIdx = idx;
+  paintForceStopLive();
   renderAllPresetGrids();
   updatePresetHint(idx);
   toast('Preset activated');
@@ -2301,6 +2305,20 @@ function onKaleidoModeChange() {
   var mv = document.getElementById('lv-mirror-v');
   if (mh) mh.disabled = isMirrorMode;
   if (mv) mv.disabled = isMirrorMode;
+  sendLiveControls();
+}
+// Checking Mirror H/V previously silently no-op'd whenever Kaleidoscope was
+// off or Mode was still on the default "Kaleidoscope" (full-fold) setting --
+// both are non-obvious prerequisites for a checkbox literally labeled
+// "Mirror H"/"Mirror V". Auto-satisfy them instead of just disabling the
+// checkbox and hoping the user finds the Mode dropdown.
+function onMirrorHVChange(el) {
+  if (el.checked) {
+    var modeSel = document.getElementById('lv-kaleido-mode');
+    if (modeSel && modeSel.value !== '0') { modeSel.value = '0'; onKaleidoModeChange(); }
+    var onCb = document.getElementById('lv-kaleido-on');
+    if (onCb && !onCb.checked) onCb.checked = true;
+  }
   sendLiveControls();
 }
 async function sendLiveControls() {
@@ -3124,6 +3142,7 @@ async function activateCommunityPreset(id) {
   var r = await apiCall('POST', '/api/community/activate', {id: id});
   if (r === null) return;
   s_activePresetIdx = -2;
+  paintForceStopLive();
   toast('Community preset activated');
   sendLiveControls();
 }
@@ -3555,12 +3574,17 @@ function textLive() {
 
 /* =========================================================================
    PAINT BY FINGER -- vector shape editor over a square canvas mapped to
-   galvo coordinate space. Coordinate mapping negates BOTH X and Y going
-   canvas<->galvo: confirmed on real hardware that Paint strokes still
-   render mirrored left/right with only the Y fix applied (every other
-   content source needs no JS-side X compensation because firmware's
-   global X-mirror already corrects those) -- this is deliberate, not a
-   per-tool inconsistency to normalize away.
+   galvo coordinate space. Coordinate mapping negates ONLY Y going
+   canvas<->galvo (canvas Y grows downward, galvo Y grows upward) -- X is
+   left as-is, same convention as the SVG-import pipeline's svgMapPoint().
+   pattern_engine::applyCalibration() applies a fixed, unconditional
+   optical X-mirror to every generated frame regardless of source (Preset/
+   Curve/Text/Paint/Weld alike), so pre-negating X here on top of that
+   double-flips it back to unmirrored -- the net effect was that Paint
+   strokes projected left/right-swapped relative to the canvas while every
+   other content source (which does NOT pre-negate X) came out correctly
+   mirror-corrected. Previously negated both axes; removed the X negation
+   (v1.17.0) to match every other content source.
    ========================================================================= */
 var PAINT_RANGE = 24000;
 var PAINT_MAX_VERTS = 96, PAINT_STROKES_MAX = 12;
@@ -3583,12 +3607,12 @@ var paintSyncTimer = null;
 function paintG2C(gx, gy) {
   var canvas = document.getElementById('pt-canvas');
   var half = canvas.width / 2;
-  return [half + (-gx) / PAINT_RANGE * half, half + (-gy) / PAINT_RANGE * half];
+  return [half + gx / PAINT_RANGE * half, half + (-gy) / PAINT_RANGE * half];
 }
 function paintC2G(cx, cy) {
   var canvas = document.getElementById('pt-canvas');
   var half = canvas.width / 2;
-  return [-(cx - half) / half * PAINT_RANGE, -(cy - half) / half * PAINT_RANGE];
+  return [(cx - half) / half * PAINT_RANGE, -(cy - half) / half * PAINT_RANGE];
 }
 function paintPushHistory() {
   paintHistory.push(JSON.parse(JSON.stringify(paintStrokes)));
@@ -3852,6 +3876,18 @@ async function paintPush(activeFlag) {
 }
 async function paintProject() { await paintPush(true); toast('Projecting paint canvas'); }
 async function paintOff() { await apiCall('POST', '/api/paint/off'); }
+// Switching to a Preset already clears gPaint.active server-side
+// (patterns::setPreset()) -- but if the Paint tab's "Live" checkbox is
+// still checked, the next paint edit's debounced sync (paintSyncDebounced())
+// silently re-activates Paint mode and steals the preset back. Called from
+// every preset-activation path (Presets tab, Community Presets) so the
+// switch actually sticks without the user having to remember to turn Live
+// off first.
+function paintForceStopLive() {
+  if (paintSyncTimer) { clearTimeout(paintSyncTimer); paintSyncTimer = null; }
+  var live = document.getElementById('pt-live');
+  if (live) live.checked = false;
+}
 function paintUpdateStatus() {
   var el = document.getElementById('pt-status'); if (!el) return;
   var verts = paintTotalVerts(), maxVerts = PAINT_STROKES_MAX * PAINT_MAX_VERTS;
