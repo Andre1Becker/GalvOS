@@ -958,6 +958,126 @@ void test_reorder2optNeverWorse(void) {
 #endif
 }
 
+// ── 8d. curvatureResampleDensifiesBends [P11b] ──────────────────────────
+//
+// CLASS-INVARIANT. cfg.curvature_resample_enabled defaults false; this is the
+// only test that turns it on. It modifies the resample stage, so resample must
+// also be on.
+//
+// A straight run has no turn angle, so curvature-adaptive resampling must
+// leave it byte-identical to plain constant-spacing resample. A bent run (a
+// right angle) has a real turn at its middle vertex, so its edges must
+// densify. Both share the same total path length and base spacing, so the only
+// thing that can differ is the curvature response.
+void test_curvatureResampleDensifiesBends(void) {
+#if GALVOS_OPT_HAS_STATS
+    static const PathVertex straight[2] = {
+        PathVertex(-8000.0f, 0.0f, 255, 255, 255),
+        PathVertex( 8000.0f, 0.0f, 255, 255, 255),
+    };
+    static const PathVertex bent[3] = {   // right angle at the origin
+        PathVertex(-8000.0f,    0.0f, 255, 255, 255),
+        PathVertex(    0.0f,    0.0f, 255, 255, 255),
+        PathVertex(    0.0f, 8000.0f, 255, 255, 255),
+    };
+    const PathSegment straightSeg(straight, 2, false);
+    const PathSegment bentSeg(bent, 3, false);
+
+    OptimizerConfig cfg      = fx::baseCfg();
+    cfg.max_pts_per_frame    = PATTERN_POINTS_MAX;
+    cfg.resample_enabled     = true;
+    cfg.resample_spacing_units = 400.0f;
+    cfg.curvature_gain       = 2.0f;
+    cfg.min_spacing_units    = 40.0f;
+    cfg.max_spacing_units    = 400.0f;
+
+    // Straight run: curvature OFF vs ON must be byte-identical (turn == 0).
+    cfg.curvature_resample_enabled = false;
+    size_t sOff = optimizer::optimize(&straightSeg, 1, gFrame, PATTERN_POINTS_MAX, cfg);
+    cfg.curvature_resample_enabled = true;
+    size_t sOn = optimizer::optimize(&straightSeg, 1, gFrameB, PATTERN_POINTS_MAX, cfg);
+    TEST_ASSERT_EQUAL_UINT32_MESSAGE((uint32_t)sOff, (uint32_t)sOn,
+        "curvature resample changed a straight run's point count");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, memcmp(gFrame, gFrameB, sOff * sizeof(LaserPoint)),
+        "curvature resample altered a straight run (must collapse to base spacing)");
+
+    // Bent run: ON must emit clearly more lit points than OFF.
+    cfg.curvature_resample_enabled = false;
+    optimizer::optimize(&bentSeg, 1, gFrame, PATTERN_POINTS_MAX, cfg);
+    uint32_t bentOff = optimizer::gLastStats.emittedLit;
+    cfg.curvature_resample_enabled = true;
+    size_t bOnN = optimizer::optimize(&bentSeg, 1, gFrameB, PATTERN_POINTS_MAX, cfg);
+    uint32_t bentOn = optimizer::gLastStats.emittedLit;
+
+    TEST_ASSERT_TRUE_MESSAGE(bOnN <= PATTERN_POINTS_MAX,
+        "curvature resample exceeded the frame budget");
+    snprintf(gMsg, sizeof(gMsg),
+        "curvature resample should densify a 90deg bend: off lit %u, on lit %u",
+        (unsigned)bentOff, (unsigned)bentOn);
+    TEST_ASSERT_TRUE_MESSAGE(bentOn > bentOff + bentOff / 2, gMsg);
+
+    // Determinism.
+    size_t bOnN2 = optimizer::optimize(&bentSeg, 1, gFrame, PATTERN_POINTS_MAX, cfg);
+    TEST_ASSERT_EQUAL_UINT32_MESSAGE((uint32_t)bOnN, (uint32_t)bOnN2,
+        "curvature_resample_enabled=true is not deterministic");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, memcmp(gFrame, gFrameB, bOnN * sizeof(LaserPoint)),
+        "curvature_resample_enabled=true produced different output on a repeat run");
+#else
+    TEST_IGNORE_MESSAGE("needs P1 telemetry (gLastStats) -- see contract_features.h");
+#endif
+}
+
+// ── 8e. optimizeStreamRelaminates [P11b] ────────────────────────────────
+//
+// CLASS-INVARIANT. optimizeStream() splits an emitted LaserPoint stream back
+// into PathSegments at blank boundaries and runs optimize() on them. Curves
+// feed it their sampled polyline (leading blank + lit run). Verifies it
+// handles a normal stream, tolerates in/out aliasing (the caller passes the
+// same buffer), and returns 0 ("not handled") for an all-blank stream.
+void test_optimizeStreamRelaminates(void) {
+#if GALVOS_OPT_HAS_STATS
+    // Leading blank jump + a 5-point lit polyline, exactly the shape a
+    // continuous curve emits.
+    LaserPoint stream[6] = {
+        LaserPoint(-8000,    0, 0, 0, 0, 1),      // blank jump to start
+        LaserPoint(-8000,    0, 255, 255, 255, 0),
+        LaserPoint(-4000, 3000, 255, 255, 255, 0),
+        LaserPoint(    0,    0, 255, 255, 255, 0),
+        LaserPoint( 4000, 3000, 255, 255, 255, 0),
+        LaserPoint( 8000,    0, 255, 255, 255, 0),
+    };
+
+    OptimizerConfig cfg   = fx::baseCfg();
+    cfg.max_pts_per_frame = PATTERN_POINTS_MAX;
+
+    size_t n = optimizer::optimizeStream(stream, 6, gFrame, PATTERN_POINTS_MAX, cfg);
+    TEST_ASSERT_TRUE_MESSAGE(n > 0, "optimizeStream did not handle a normal curve stream");
+    TEST_ASSERT_TRUE_MESSAGE(n <= PATTERN_POINTS_MAX, "optimizeStream exceeded the budget");
+    TEST_ASSERT_TRUE_MESSAGE(optimizer::gLastStats.emittedLit > 0,
+        "optimizeStream produced no lit points from a lit input");
+
+    // Aliasing: in == out must produce the same result as the non-aliased run.
+    memcpy(gFrameB, stream, sizeof(stream));
+    size_t nAlias = optimizer::optimizeStream(gFrameB, 6, gFrameB, PATTERN_POINTS_MAX, cfg);
+    TEST_ASSERT_EQUAL_UINT32_MESSAGE((uint32_t)n, (uint32_t)nAlias,
+        "optimizeStream point count changed when in and out aliased");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, memcmp(gFrame, gFrameB, n * sizeof(LaserPoint)),
+        "optimizeStream output changed when in and out aliased");
+
+    // All-blank stream: nothing to relaminate -> not handled (0).
+    LaserPoint allBlank[3] = {
+        LaserPoint(0, 0, 0, 0, 0, 1),
+        LaserPoint(0, 0, 0, 0, 0, 1),
+        LaserPoint(0, 0, 0, 0, 0, 1),
+    };
+    size_t nb = optimizer::optimizeStream(allBlank, 3, gFrame, PATTERN_POINTS_MAX, cfg);
+    TEST_ASSERT_EQUAL_UINT32_MESSAGE(0u, (uint32_t)nb,
+        "optimizeStream should return 0 for an all-blank stream");
+#else
+    TEST_IGNORE_MESSAGE("needs P1 telemetry (gLastStats) -- see contract_features.h");
+#endif
+}
+
 int main(int, char**) {
     UNITY_BEGIN();
 
@@ -980,6 +1100,8 @@ int main(int, char**) {
     RUN_TEST(test_statsConsistent);
     RUN_TEST(test_reorderSegmentsShortensJumps);
     RUN_TEST(test_reorder2optNeverWorse);
+    RUN_TEST(test_curvatureResampleDensifiesBends);
+    RUN_TEST(test_optimizeStreamRelaminates);
 
     return UNITY_END();
 }

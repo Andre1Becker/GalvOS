@@ -149,6 +149,10 @@ static void loadConfig() {
         LOAD_U("opt_s1tgt", stage1_blank_target,          pd.stage1_blank_target);
         LOAD_B("opt_rsen",  resample_enabled,             OPT_DEFAULT_RESAMPLE_ENABLED);
         LOAD_F("opt_rssp",  resample_spacing_units,       OPT_DEFAULT_RESAMPLE_SPACING_UNITS);
+        LOAD_B("opt_cven",  curvature_resample_enabled,   OPT_DEFAULT_CURVATURE_RESAMPLE_ENABLED);
+        LOAD_F("opt_cvgn",  curvature_gain,               OPT_DEFAULT_CURVATURE_GAIN);
+        LOAD_F("opt_cvmn",  min_spacing_units,            OPT_DEFAULT_MIN_SPACING_UNITS);
+        LOAD_F("opt_cvmx",  max_spacing_units,            OPT_DEFAULT_MAX_SPACING_UNITS);
         LOAD_B("opt_rngen", ringing_comp_enabled,         OPT_DEFAULT_RINGING_COMP_ENABLED);
         LOAD_F("opt_rngfq", ring_freq_hz,                 OPT_DEFAULT_RING_FREQ_HZ);
         LOAD_F("opt_rngdr", ring_damping_ratio,           OPT_DEFAULT_RING_DAMPING_RATIO);
