@@ -332,6 +332,12 @@ static void applyCalibration(LaserPoint* pts, size_t n) {
         y = (y * gConfig.galvo_y_gain) / 32767;
         x += gConfig.galvo_x_offset;
         y += gConfig.galvo_y_offset;
+        // Proportional pre-scale about center (x/y are already centered on 0
+        // here, so this is equivalent to scaling about 0x8000 in DAC space).
+        // Primary fit mechanism for full-range patterns; the dac_limit
+        // constrain below remains as the hard safety clamp.
+        x = (int32_t)lroundf((float)x * gConfig.outputScale);
+        y = (int32_t)lroundf((float)y * gConfig.outputScale);
         int32_t lim_lo = (int32_t)gConfig.dac_limit_min - 0x8000;
         int32_t lim_hi = (int32_t)gConfig.dac_limit_max - 0x8000;
         pts[i].x = (int16_t)constrain(x, lim_lo, lim_hi);

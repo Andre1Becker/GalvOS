@@ -60,6 +60,10 @@ volatile uint8_t    gActiveOptimizerProfile = OPT_PROFILE_VECTOR;
 optimizer::AffineTransform optimizer::gLiveTransform;  // Phase 3: live Z-rot + move affine, published per-frame by pattern_engine
 volatile uint32_t   gPatternCacheGen = 0; // Phase 2 static-preset cache invalidation
 ZoneConfig       gZone;                 // touch-defined projection zone
+// gWarp is defined in warpGrid.cpp (not here) -- that keeps warpGrid.cpp a
+// self-contained translation unit the native/host optimizer test build can
+// link on its own, same as point_optimizer.cpp itself. See platformio.ini's
+// [env:native] build_src_filter.
 // Paint canvas (~9 KB) lives in PSRAM: placement-new at static-init time
 // (PSRAM heap is registered before global ctors via CONFIG_SPIRAM_BOOT_INIT).
 // DRAM fallback keeps PSRAM-less debug setups alive.
@@ -85,6 +89,7 @@ static void loadConfig() {
     gConfig.galvo_y_gain    = s_prefs.getShort("ygain", 32767);
     gConfig.dac_limit_min   = s_prefs.getUShort("dac_lim_lo", 0x0666);
     gConfig.dac_limit_max   = s_prefs.getUShort("dac_lim_hi", 0xF999);
+    gConfig.outputScale     = s_prefs.getFloat("out_scale", 0.91f);
     gConfig.swap_xy         = s_prefs.getBool("swap", false);
     gConfig.invert_x        = s_prefs.getBool("invx", false);
     gConfig.invert_y        = s_prefs.getBool("invy", false);

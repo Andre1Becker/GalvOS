@@ -32,6 +32,7 @@
 #include "contract_features.h"
 #include "fixtures.h"
 #include "patterns/point_optimizer.h"
+#include "warpGrid.h"
 
 using optimizer::OptimizerConfig;
 using optimizer::PathSegment;
@@ -600,6 +601,56 @@ void test_dacRangeValid(void) {
     }
 }
 
+// ── Prompt 7a: warp grid corners stay in range (I2 extension) ───────────
+//
+// CONTRACT.md's I2 explicitly calls out "corners of the warp grid" as a
+// case Prompt 7 must cover: an aggressive, non-identity grid pushing
+// control points out to the REST API's own validation bound (+-1.5, see
+// web_ui.cpp's /api/warp/set) must still leave every emitted point's DAC
+// code inside 0..65535. This exercises warpGrid.cpp::apply()'s own clamp,
+// not the pre-existing optimizer clamp test_dacRangeValid above already
+// covers (which runs with warp untouched/identity).
+void test_warpGridCornersInRange(void) {
+    // Full-scale square: corners sit exactly at the +-32767 extremes the
+    // warp stage's [-1..1] normalization is built around.
+    static const PathVertex v[4] = {
+        PathVertex(-32767.0f, -32767.0f, 255, 255, 255),
+        PathVertex( 32767.0f, -32767.0f, 255, 255, 255),
+        PathVertex( 32767.0f,  32767.0f, 255, 255, 255),
+        PathVertex(-32767.0f,  32767.0f, 255, 255, 255),
+    };
+    PathSegment seg(v, 4, true);
+
+    gWarp.enabled  = true;
+    gWarp.gridSize = 2;
+    gWarp.points[0][0][0] = -1.5f; gWarp.points[0][0][1] = -1.5f;
+    gWarp.points[0][1][0] =  1.5f; gWarp.points[0][1][1] = -1.5f;
+    gWarp.points[1][0][0] = -1.5f; gWarp.points[1][0][1] =  1.5f;
+    gWarp.points[1][1][0] =  1.5f; gWarp.points[1][1][1] =  1.5f;
+    warp::refresh();
+
+    OptimizerConfig cfg   = fx::baseCfg();
+    cfg.max_pts_per_frame = PATTERN_POINTS_MAX;
+
+    size_t n = optimizer::optimize(&seg, 1, gFrame, PATTERN_POINTS_MAX, cfg);
+    TEST_ASSERT_TRUE_MESSAGE(n > 0, "warp corner test produced no points");
+    for (size_t k = 0; k < n; k++) {
+        int32_t codeX = (int32_t)gFrame[k].x + 0x8000;
+        int32_t codeY = (int32_t)gFrame[k].y + 0x8000;
+        snprintf(gMsg, sizeof(gMsg),
+                 "warpGridCorners: point %u at (%d,%d) encodes to (%d,%d), outside 0..65535",
+                 (unsigned)k, (int)gFrame[k].x, (int)gFrame[k].y, (int)codeX, (int)codeY);
+        TEST_ASSERT_TRUE_MESSAGE(codeX >= 0 && codeX <= 0xFFFF &&
+                                 codeY >= 0 && codeY <= 0xFFFF, gMsg);
+    }
+
+    // Restore the shared-process default (identity, disabled) so later
+    // tests in this binary see pre-7a behavior.
+    gWarp.enabled = false;
+    gWarp.resetIdentity();
+    warp::refresh();
+}
+
 // ── 7. deterministicOutput ──────────────────────────────────────────────
 //
 // CLASS-IDENTICAL. Expected green already; if it ever goes red, that is a
@@ -784,6 +835,7 @@ int main(int, char**) {
     RUN_TEST(test_stage2PlansWithinBudget);
     RUN_TEST(test_velocityAccelLimitsHold);
     RUN_TEST(test_dacRangeValid);
+    RUN_TEST(test_warpGridCornersInRange);
     RUN_TEST(test_deterministicOutput);
     RUN_TEST(test_statsConsistent);
     RUN_TEST(test_reorderSegmentsShortensJumps);

@@ -1,5 +1,6 @@
 #include "web_ui.h"
 #include "config.h"
+#include "../warpGrid.h"
 #include "safety/safety.h"
 #include "output/galvo_out.h"
 #include "patterns/pattern_engine.h"
@@ -399,6 +400,7 @@ static void persistConfig() {
     s_prefs.putShort("ygain",       gConfig.galvo_y_gain);
     s_prefs.putUShort("dac_lim_lo", gConfig.dac_limit_min);
     s_prefs.putUShort("dac_lim_hi", gConfig.dac_limit_max);
+    s_prefs.putFloat("out_scale",   gConfig.outputScale);
     s_prefs.putBool("swap",         gConfig.swap_xy);
     s_prefs.putBool("invx",         gConfig.invert_x);
     s_prefs.putBool("invy",         gConfig.invert_y);
@@ -475,6 +477,9 @@ static void persistConfig() {
     s_prefs.putUChar("zone_cnt",  gZone.count);
     s_prefs.putBytes("zone_x",    (const void*)gZone.x, sizeof(gZone.x));
     s_prefs.putBytes("zone_y",    (const void*)gZone.y, sizeof(gZone.y));
+    s_prefs.putBool ("warp_en",   gWarp.enabled);
+    s_prefs.putUChar("warp_grid", gWarp.gridSize);
+    s_prefs.putBytes("warp_pts",  (const void*)gWarp.points, sizeof(gWarp.points));
     s_prefs.end();
 }
 static void loadZone() {
@@ -486,6 +491,21 @@ static void loadZone() {
     s_prefs.getBytes("zone_x", (void*)gZone.x, sizeof(gZone.x));
     s_prefs.getBytes("zone_y", (void*)gZone.y, sizeof(gZone.y));
     s_prefs.end();
+}
+
+// Missing keys leave gWarp untouched -- it was already default-constructed
+// to the identity grid before this runs, so a fresh/pre-7a NVS falls back to
+// identity exactly as required (backward compatible).
+static void loadWarp() {
+    s_prefs.begin("laser", true);
+    gWarp.enabled  = s_prefs.getBool ("warp_en",   gWarp.enabled);
+    uint8_t n      = s_prefs.getUChar("warp_grid", gWarp.gridSize);
+    if (n < 2)              n = 2;
+    if (n > WARP_GRID_MAX)  n = WARP_GRID_MAX;
+    gWarp.gridSize = n;
+    s_prefs.getBytes("warp_pts", (void*)gWarp.points, sizeof(gWarp.points));
+    s_prefs.end();
+    warp::init();
 }
 
 /* ============================================================
@@ -641,6 +661,7 @@ static void buildConfigJson(JsonDocument& doc) {
     doc["dac_debug_log"]   = gConfig.dac_debug_log;
     doc["dac_limit_min"]   = gConfig.dac_limit_min;
     doc["dac_limit_max"]   = gConfig.dac_limit_max;
+    doc["output_scale"]    = gConfig.outputScale;
     doc["gamma_enable"]    = gConfig.gamma_enable;
     doc["opt_active_profile"] = (uint8_t)gActiveOptimizerProfile;
     {
@@ -903,6 +924,7 @@ static String sanitizeSvgFilename(const String& rawIn) {
 void init() {
     generateAuthToken();
     loadZone();
+    loadWarp();
 
     // Must run before any s_server.on(...) registration -- middleware wraps
     // every request the server handles, including static assets and API GETs.
@@ -1002,6 +1024,9 @@ void init() {
                     return;
                 }
             }
+            if (doc["output_scale"].is<float>()) {
+                gConfig.outputScale = constrain((float)doc["output_scale"], 0.5f, 1.0f);
+            }
             persistConfig();
             req->send(200, "text/plain", "OK");
         });
@@ -1099,6 +1124,9 @@ void init() {
                     gConfig.dac_limit_min = (uint16_t)lo;
                     gConfig.dac_limit_max = (uint16_t)hi;
                 }
+            }
+            if (doc["output_scale"].is<float>()) {
+                gConfig.outputScale = constrain((float)doc["output_scale"], 0.5f, 1.0f);
             }
             } // LOCK_CONFIG
             req->send(200, "text/plain", "OK");
@@ -1246,7 +1274,14 @@ void init() {
         [](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t, size_t) {
             bool on = !(len > 0 && data[0] == '0');
             if (on) {
-                gState.calib_idx     = calib_patterns::CALIB_PATTERN_COUNT - 1;  // zone_outline
+                // zone_outline is DISPATCH index 4 (see calib_patterns.h's
+                // pattern list) -- was previously (and incorrectly)
+                // `CALIB_PATTERN_COUNT - 1`, which drifts to whatever pattern
+                // happens to be appended last (most recently: cam_spiral,
+                // and now warp_test_grid) instead of staying pinned to
+                // zone_outline. Fixed as a direct consequence of Prompt 7a
+                // appending a new pattern (idx 17) to this same table.
+                gState.calib_idx     = 4;  // zone_outline
                 gState.calib_bright  = 200;
                 gState.calib_channel = 0;
                 gState.calib_active  = true;
@@ -1284,6 +1319,147 @@ void init() {
             persistConfig();
             req->send(200, "text/plain", "OK");
         });
+
+    // ── Camera Closed-Loop Keystone (Prompt 7a) ──────────────────────
+    // NOTE: specific routes registered before the /api/warp prefix would
+    // matter for -- there are none here, all four routes have distinct full
+    // paths, so ordering is not load-bearing the way /calib-pattern/stop vs
+    // /calib-pattern is.
+
+    // ---- GET /api/warp/get ----
+    s_server.on("/api/warp/get", HTTP_GET, [](AsyncWebServerRequest* req) {
+        JsonDocument doc(&jsonAllocator());
+        doc["enabled"]  = gWarp.enabled;
+        doc["gridSize"] = gWarp.gridSize;
+        JsonArray rows = doc["points"].to<JsonArray>();
+        for (uint8_t r = 0; r < gWarp.gridSize; r++) {
+            JsonArray row = rows.add<JsonArray>();
+            for (uint8_t c = 0; c < gWarp.gridSize; c++) {
+                JsonArray pt = row.add<JsonArray>();
+                pt.add(gWarp.points[r][c][0]);
+                pt.add(gWarp.points[r][c][1]);
+            }
+        }
+        sendJsonPsram(req, doc);
+    });
+
+    // ---- POST /api/warp/set ----
+    // Body: { "gridSize": 2..5, "points": [[[x,y],...],...], "enabled": bool }
+    // All fields optional; "points", if present, must be a gridSize x
+    // gridSize array of [x,y] pairs (using the request's own "gridSize" if
+    // given, else the currently stored one) with x,y in [-1.5..1.5]. Whole
+    // payload is validated before anything is applied -- no partial writes
+    // on a bad request. Changing gridSize WITHOUT sending a matching
+    // "points" array resets the grid to identity for the new size, rather
+    // than leaving stale control points computed for the old size.
+    s_server.on("/api/warp/set", HTTP_POST,
+        [](AsyncWebServerRequest* req) {},
+        nullptr,
+        [](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t, size_t) {
+            JsonDocument doc(&jsonAllocator());
+            if (deserializeJson(doc, data, len)) { req->send(400, "text/plain", "bad json"); return; }
+
+            uint8_t gridSize = gWarp.gridSize;
+            if (!doc["gridSize"].isNull()) {
+                int gs = doc["gridSize"].is<int>() ? (int)doc["gridSize"] : -1;
+                if (gs < 2 || gs > WARP_GRID_MAX) {
+                    req->send(400, "application/json",
+                        "{\"error\":\"gridSize must be an integer 2..5\"}");
+                    return;
+                }
+                gridSize = (uint8_t)gs;
+            }
+
+            float newPts[WARP_GRID_MAX][WARP_GRID_MAX][2];
+            bool havePts = !doc["points"].isNull();
+            if (havePts) {
+                JsonArrayConst rows = doc["points"];
+                if (rows.size() != gridSize) {
+                    req->send(400, "application/json",
+                        "{\"error\":\"points must have gridSize rows\"}");
+                    return;
+                }
+                uint8_t r = 0;
+                for (JsonArrayConst row : rows) {
+                    if (row.size() != gridSize) {
+                        req->send(400, "application/json",
+                            "{\"error\":\"each points row must have gridSize entries\"}");
+                        return;
+                    }
+                    uint8_t c = 0;
+                    for (JsonArrayConst pt : row) {
+                        float px = pt[0].is<float>() ? pt[0].as<float>() : 999.0f;
+                        float py = pt[1].is<float>() ? pt[1].as<float>() : 999.0f;
+                        if (pt.size() != 2 ||
+                            px < -1.5f || px > 1.5f || py < -1.5f || py > 1.5f) {
+                            req->send(400, "application/json",
+                                "{\"error\":\"each point must be [x,y] with x,y in -1.5..1.5\"}");
+                            return;
+                        }
+                        newPts[r][c][0] = px;
+                        newPts[r][c][1] = py;
+                        c++;
+                    }
+                    r++;
+                }
+            }
+
+            gWarp.gridSize = gridSize;
+            if (havePts) {
+                for (uint8_t r = 0; r < gridSize; r++)
+                    for (uint8_t c = 0; c < gridSize; c++) {
+                        gWarp.points[r][c][0] = newPts[r][c][0];
+                        gWarp.points[r][c][1] = newPts[r][c][1];
+                    }
+            } else {
+                gWarp.resetIdentity();
+            }
+            if (doc["enabled"].is<bool>()) gWarp.enabled = doc["enabled"];
+            warp::refresh();
+            persistConfig();
+            req->send(200, "text/plain", "OK");
+        });
+
+    // ---- POST /api/warp/reset ---- (grid back to identity, enabled untouched)
+    s_server.on("/api/warp/reset", HTTP_POST,
+        [](AsyncWebServerRequest* req) {
+            warp::reset();
+            persistConfig();
+            req->send(200, "text/plain", "OK");
+        });
+
+    // ---- POST /api/warp/test ---- { "active": bool }
+    // Toggles the WARP_GRID_TEST calibration pattern (border + gWarp.gridSize
+    // interior lines, calib_patterns.cpp) -- same gState.calib_* mechanism as
+    // /api/calib-pattern.
+    s_server.on("/api/warp/test", HTTP_POST,
+        [](AsyncWebServerRequest* req) {},
+        nullptr,
+        [](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t, size_t) {
+            JsonDocument doc(&jsonAllocator());
+            if (deserializeJson(doc, data, len)) { req->send(400, "text/plain", "bad json"); return; }
+            bool active = doc["active"] | false;
+            if (active) {
+                ilda::stop();
+                gTextConfig.active   = false;
+                gState.calib_idx     = calib_patterns::CALIB_WARP_GRID_IDX;
+                gState.calib_bright  = 200;
+                gState.calib_channel = 0;
+                gState.calib_no_thresh = false;
+                const uint8_t prof = calib_patterns::profileOf(gState.calib_idx);
+                if (prof != gActiveOptimizerProfile) {
+                    gActiveOptimizerProfile = prof;
+                    syncOptimizerConfig();
+                    gPatternCacheGen++;
+                }
+                if (gState.ui_master_dimmer.load() < 200) gState.ui_master_dimmer.store(200);
+                gState.calib_active = true;
+            } else {
+                gState.calib_active = false;
+            }
+            req->send(200, "text/plain", active ? "TEST" : "STOP");
+        });
+
     // ---- POST /api/calib-save ----
     s_server.on("/api/calib-save", HTTP_POST,
         [](AsyncWebServerRequest* req) {},

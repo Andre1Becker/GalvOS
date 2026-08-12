@@ -868,6 +868,64 @@ static size_t cam_spiral(LaserPoint* o, size_t m,
     return optimizer::optimize(&seg, 1, o, m, liveOptimizerConfig());
 }
 
+// ══════════════════════════════════════════════════════════════
+// PATTERN 17: WARP TEST GRID
+//
+// Border rectangle + gWarp.gridSize's interior grid lines (one pair of
+// lines per interior control-point column/row; gridSize 2 draws just the
+// border, same as N=2's plain-keystone case having no interior points).
+// Goes through the normal optimizer::optimize() path, so when Warp is
+// enabled (gWarp.enabled) it picks up the SAME warp stage every other
+// pattern uses (point_optimizer.cpp's Stage 0.4 Warp) -- what you see here
+// is exactly what the keystone correction is currently doing, not a
+// special-cased preview.
+//
+// HOW TO USE:
+//   1. Warp OFF: note where the grid lines land on the projection surface.
+//   2. Drag the Warp panel's control points (or run scripts/optimizegalvo.py
+//      calibrate-warp, see Prompt 7b) until the projected lines line up
+//      with the intended rectangle on the wall.
+// ══════════════════════════════════════════════════════════════
+static size_t warp_test_grid(LaserPoint* o, size_t mx,
+                              uint32_t /*phase*/, uint8_t bright, uint8_t ch) {
+    uint8_t r, g, b; camColorOut(ch, bright, r, g, b);
+
+    uint8_t n = gWarp.gridSize;
+    if (n < 2) n = 2;
+    if (n > WARP_GRID_MAX) n = WARP_GRID_MAX;
+    uint8_t interior = (n > 2) ? (uint8_t)(n - 2) : 0;
+
+    optimizer::PathVertex borderV[4] = {
+        optimizer::PathVertex(-CAM_H, -CAM_H, r, g, b, true),
+        optimizer::PathVertex( CAM_H, -CAM_H, r, g, b, false),
+        optimizer::PathVertex( CAM_H,  CAM_H, r, g, b, false),
+        optimizer::PathVertex(-CAM_H,  CAM_H, r, g, b, false),
+    };
+    static constexpr uint8_t kMaxInterior = WARP_GRID_MAX - 2;  // 3
+    optimizer::PathVertex vLineV[kMaxInterior][2];
+    optimizer::PathVertex hLineV[kMaxInterior][2];
+    optimizer::PathSegment segs[1 + 2 * kMaxInterior];
+    size_t segCount = 0;
+    segs[segCount++] = optimizer::PathSegment(borderV, 4, true);
+
+    for (uint8_t i = 0; i < interior; i++) {
+        float u = -1.0f + (2.0f * (i + 1)) / (n - 1);
+        float x = u * CAM_H;
+        vLineV[i][0] = optimizer::PathVertex(x, -CAM_H, r, g, b, true);
+        vLineV[i][1] = optimizer::PathVertex(x,  CAM_H, r, g, b, false);
+        segs[segCount++] = optimizer::PathSegment(vLineV[i], 2, false);
+    }
+    for (uint8_t i = 0; i < interior; i++) {
+        float v = -1.0f + (2.0f * (i + 1)) / (n - 1);
+        float y = v * CAM_H;
+        hLineV[i][0] = optimizer::PathVertex(-CAM_H, y, r, g, b, true);
+        hLineV[i][1] = optimizer::PathVertex( CAM_H, y, r, g, b, false);
+        segs[segCount++] = optimizer::PathSegment(hLineV[i], 2, false);
+    }
+
+    return optimizer::optimize(segs, segCount, o, mx, liveOptimizerConfig());
+}
+
 int8_t camPatternIndex(const char* name) {
     if (!name) return -1;
     static const char* NAMES[CALIB_CAM_COUNT] = {
@@ -913,6 +971,8 @@ uint8_t profileOf(uint8_t idx) {
         case 10: // Opt Vel/Accel    -- isolates max_step_units / max_accel
         case 16: // Cam Spiral       -- velocity clamps
             return OPT_PROFILE_WAVES;
+        case 17: // Warp Grid Test   -- blanked border + interior lines
+            return OPT_PROFILE_MULTIOBJECT;
         default:
             return OPT_PROFILE_VECTOR;
     }
@@ -1008,6 +1068,12 @@ const CalibPatternInfo CALIB_INFO[CALIB_PATTERN_COUNT] = {
      "3-turn Archimedean spiral, 512 base points -- velocity-clamp probe",
      "Selected via /api/calib-cam/start. Runs under OPT_PROFILE_WAVES."},
 
+    {"Warp Grid Test",
+     "Border rectangle + gWarp.gridSize interior lines -- keystone preview",
+     "Selected via /api/warp/test. Compare the projected grid against the "
+     "intended rectangle, then adjust the Warp panel's control points (or "
+     "run scripts/optimizegalvo.py calibrate-warp) until they line up."},
+
 };
 
 using PFn = size_t(*)(LaserPoint*, size_t, uint32_t, uint8_t, uint8_t);
@@ -1016,6 +1082,7 @@ static const PFn DISPATCH[CALIB_PATTERN_COUNT] = {
     dac_range_box, zone_outline, corner_color_map, three_circles,
     opt_corner_sweep, opt_density_ramp, opt_jump_ring, opt_vel_accel,
     cam_corners4, cam_square, cam_star, cam_segments, cam_circle, cam_spiral,
+    warp_test_grid,
 };
 
 

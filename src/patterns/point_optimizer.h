@@ -81,7 +81,7 @@ struct PathSegment {
 
 // Affine 2x3 transform applied to every input vertex before the corner /
 // resample / blanking stages run (pipeline stage: Primitive -> Transform ->
-// Segment Reorder -> Resample -> Corner Dwell -> Blanking -> ...). Row-major:
+// Warp -> Segment Reorder -> Resample -> Corner Dwell -> Blanking -> ...). Row-major:
 //   x' = a*x + b*y + tx
 //   y' = c*x + d*y + ty
 // The default is the identity ({1,0,0, 0,1,0}), so callers that do not set a

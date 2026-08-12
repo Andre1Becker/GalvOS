@@ -459,6 +459,15 @@ struct RuntimeConfig {
     uint16_t  dac_limit_min  = 0x0666;
     uint16_t  dac_limit_max  = 0xF999;
 
+    // Proportional pre-scale applied to X/Y about center (0x8000) so a
+    // pattern's extreme corners shrink into the galvo's linear range instead
+    // of being flattened by the dac_limit_min/max clamp above. 1.0 = no
+    // scale (rely on clamp only). Default 0.91 derived from the OPA4134's
+    // 2.2x hardware gain (~1/2.2*2.0 of usable code range) -- see
+    // docs/HARDWARE.md's DAC->Galvo transfer function. The dac_limit clamp
+    // stays in place as the final safety net after this scale is applied.
+    float     outputScale    = 0.91f;
+
     // white balance — calculated from laser specification:
     // R=1000mW × sens(638nm,0.265) = 265 mW_vis
     // G=1000mW × sens(520nm,0.710) = 710 mW_vis
@@ -953,3 +962,42 @@ struct ZoneConfig {
     }
 };
 extern ZoneConfig gZone;
+
+// ── Camera Closed-Loop Keystone (geometric warp correction) ─────────────────
+// N x N control-point grid mapping normalized [-1..1] pattern-space
+// coordinates onto normalized [-1..1] projected-surface coordinates via
+// bilinear interpolation between the surrounding four control points. N=2
+// is exactly a 4-corner quad warp (classic "keystone" correction); N>2 adds
+// interior control points for barrel/pincushion-style correction, same
+// bilinear code path. Applied in the optimizer pipeline right after the
+// Transform stage (see point_optimizer.cpp's pipeline-order comment), so
+// resample/corner-dwell/blank-jump geometry all see the warped shape.
+#define WARP_GRID_MAX 5
+
+struct WarpConfig {
+    volatile bool    enabled  = false;
+    volatile uint8_t gridSize = 2;    // 2..WARP_GRID_MAX
+    // points[row][col] = target position (normalized [-1..1]) for the
+    // control point whose IDENTITY position is
+    //   (-1 + col*2/(gridSize-1), -1 + row*2/(gridSize-1)).
+    // Only the top-left gridSize x gridSize block is meaningful; the rest of
+    // this fixed-size array is unused padding. Grid is tiny (max 5*5*2
+    // floats) -> plain DRAM member, no PSRAM needed.
+    float points[WARP_GRID_MAX][WARP_GRID_MAX][2];
+
+    WarpConfig() { resetIdentity(); }
+
+    // Rebuilds points[][][] as the identity grid for the CURRENT gridSize.
+    void resetIdentity() {
+        uint8_t n = gridSize;
+        if (n < 2) n = 2;
+        if (n > WARP_GRID_MAX) n = WARP_GRID_MAX;
+        for (uint8_t r = 0; r < WARP_GRID_MAX; r++) {
+            for (uint8_t c = 0; c < WARP_GRID_MAX; c++) {
+                points[r][c][0] = (n > 1) ? (-1.0f + (2.0f * c) / (n - 1)) : 0.0f;
+                points[r][c][1] = (n > 1) ? (-1.0f + (2.0f * r) / (n - 1)) : 0.0f;
+            }
+        }
+    }
+};
+extern WarpConfig gWarp;
