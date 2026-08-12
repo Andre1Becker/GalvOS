@@ -1225,6 +1225,8 @@ canvas { max-width: 100%; display: block; }
               <h3>Jump Order</h3>
               <label class="row"><input type="checkbox" id="opt-reorder-segments" onchange="sendOptimizerLive()"> Reorder Segments</label>
               <p class="param-hint">Nearest-neighbour blank-jump ordering across a call's segments (wireframes, text, paint) &mdash; shortens total jump distance instead of visiting them in input order. Closed shapes may rotate their start vertex; open segments may be traversed backwards.</p>
+              <label class="row"><input type="checkbox" id="opt-reorder-2opt" onchange="sendOptimizerLive()"> 2-opt Refinement</label>
+              <p class="param-hint">Refines the nearest-neighbour tour with bounded 2-opt block reversals &mdash; removes crossings the greedy order leaves behind for a shorter total jump path. Requires Reorder Segments; only kicks in below the per-frame segment-count cap.</p>
             </div>
           </div>
           <div class="row" style="margin-top:10px">
@@ -1532,7 +1534,7 @@ canvas { max-width: 100%; display: block; }
 /* =========================================================================
    GLOBAL STATE
    ========================================================================= */
-var UI_VERSION = '1.13.0';   // WebUI version -- independent from firmware version
+var UI_VERSION = '1.14.0';   // WebUI version -- independent from firmware version
 var NAV_TABS = [
   {id: 'dashboard', label: 'Dashboard', icon: '🏠', bottom: true},
   {id: 'presets', label: 'Presets', icon: '🎮', bottom: true},
@@ -4984,6 +4986,7 @@ function loadOptimizerConfig(c) {
   document.getElementById('opt-accel-clamp-enabled').checked = !!p[pfx + 'accel_clamp_enabled'];
   setv('opt-max-accel', p[pfx + 'max_accel_units']);
   document.getElementById('opt-reorder-segments').checked = !!p[pfx + 'reorder_segments'];
+  document.getElementById('opt-reorder-2opt').checked = !!p[pfx + 'reorder_2opt'];
   var effStep = (c.opt_profiles && c.opt_profiles[g_activeOptimizerProfile]) ? c.opt_profiles[g_activeOptimizerProfile].opt_eff_max_step_units : null;
   var effAccel = (c.opt_profiles && c.opt_profiles[g_activeOptimizerProfile]) ? c.opt_profiles[g_activeOptimizerProfile].opt_eff_max_accel_units : null;
   updateEffectivePpsDisplay(effStep, effAccel);
@@ -5025,7 +5028,8 @@ async function sendOptimizerLive() {
     jitter_enabled: domVal('opt-jitter-enabled', false), jitter_amount_units: domVal('opt-jitter-amount', 0),
     vel_clamp_enabled: domVal('opt-vel-clamp-enabled', false), max_step_units: domVal('opt-max-step', 4000),
     accel_clamp_enabled: domVal('opt-accel-clamp-enabled', false), max_accel_units: domVal('opt-max-accel', 4000),
-    reorder_segments: domVal('opt-reorder-segments', false)
+    reorder_segments: domVal('opt-reorder-segments', false),
+    reorder_2opt: domVal('opt-reorder-2opt', false)
   });
 }
 function ppsRatio() {
@@ -5094,6 +5098,7 @@ function resetOptimizerDefaults() {
   document.getElementById('opt-vel-clamp-enabled').checked = false;
   document.getElementById('opt-accel-clamp-enabled').checked = false;
   document.getElementById('opt-reorder-segments').checked = false;
+  document.getElementById('opt-reorder-2opt').checked = false;
   optimizerUpdateLabels(); sendOptimizerLive();
   toast('Defaults reset');
 }

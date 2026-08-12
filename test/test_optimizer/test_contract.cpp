@@ -873,6 +873,91 @@ void test_reorderSegmentsShortensJumps(void) {
 #endif
 }
 
+// ── 8c. reorder2optNeverWorse [P11a] ────────────────────────────────────
+//
+// CLASS-INVARIANT. cfg.reorder_2opt defaults false; this is the only test
+// that turns it on. It layers on top of reorder_segments.
+//
+// Five point-segments: a thin rectangle (four corners) plus one far outlier
+// above it. Greedy nearest-neighbour strands the outlier onto a long final
+// hop; 2-opt reverses a block of the tour to fold the outlier back between the
+// two near corners it belongs between. Since 2-opt starts from the greedy tour
+// and only keeps a reversal that strictly shortens the FULL emitted cycle
+// (closing blank included, see tourJumpCost()), the refined tour can never be
+// worse than greedy -- and on this deliberately NN-hostile layout it is
+// strictly shorter. No previous position, so both runs anchor identically.
+void test_reorder2optNeverWorse(void) {
+#if GALVOS_OPT_HAS_STATS
+    // Each segment is a 2-vertex dot (v0 == v1), so it is a pure point in the
+    // tour -- reversal is geometrically a no-op and only the visit order and
+    // the blank hops between points matter.
+    #define DOT(X, Y) { PathVertex((float)(X), (float)(Y), 255, 255, 255), \
+                        PathVertex((float)(X), (float)(Y), 255, 255, 255) }
+    static const PathVertex sA[2] = DOT(   0,    0);   // rect BL
+    static const PathVertex sB[2] = DOT(9000,    0);   // rect BR
+    static const PathVertex sC[2] = DOT(9000, 1800);   // rect TR
+    static const PathVertex sD[2] = DOT(   0, 1800);   // rect TL
+    static const PathVertex sE[2] = DOT(4500, 15000);  // far outlier above
+    #undef DOT
+    static const PathSegment segs[5] = {
+        PathSegment(sA, 2, false),
+        PathSegment(sB, 2, false),
+        PathSegment(sC, 2, false),
+        PathSegment(sD, 2, false),
+        PathSegment(sE, 2, false),
+    };
+
+    OptimizerConfig cfg   = fx::baseCfg();
+    cfg.max_pts_per_frame = PATTERN_POINTS_MAX;
+    cfg.reorder_segments  = true;
+
+    cfg.reorder_2opt = false;
+    size_t nNN = optimizer::optimize(segs, 5, gFrame, PATTERN_POINTS_MAX, cfg);
+    optimizer::Stats stNN = optimizer::gLastStats;
+
+    cfg.reorder_2opt = true;
+    size_t n2 = optimizer::optimize(segs, 5, gFrameB, PATTERN_POINTS_MAX, cfg);
+    optimizer::Stats st2 = optimizer::gLastStats;
+
+    TEST_ASSERT_TRUE_MESSAGE(nNN > 0 && n2 > 0, "reorder produced no output");
+
+    // Same geometry -- only the visit order changes, so the lit point count
+    // must be identical to the greedy-only run.
+    TEST_ASSERT_EQUAL_UINT32_MESSAGE((uint32_t)stNN.emittedLit,
+                                     (uint32_t)st2.emittedLit,
+                                     "2-opt changed the lit point count");
+
+    // Budget invariant still holds with 2-opt on.
+    TEST_ASSERT_TRUE_MESSAGE(n2 <= (size_t)cfg.max_pts_per_frame,
+                             "2-opt output exceeded the frame budget");
+
+    // Never worse than greedy, and strictly better on this crossed layout.
+    float tol = stNN.jumpDistanceTotal * 0.001f + 1.0f;
+    snprintf(gMsg, sizeof(gMsg),
+             "2-opt jumpDistanceTotal %.0f must be <= greedy %.0f",
+             (double)st2.jumpDistanceTotal, (double)stNN.jumpDistanceTotal);
+    TEST_ASSERT_TRUE_MESSAGE(
+        st2.jumpDistanceTotal <= stNN.jumpDistanceTotal + tol, gMsg);
+
+    snprintf(gMsg, sizeof(gMsg),
+             "2-opt should strictly shorten this NN-hostile layout: greedy %.0f, "
+             "2-opt %.0f", (double)stNN.jumpDistanceTotal,
+             (double)st2.jumpDistanceTotal);
+    TEST_ASSERT_TRUE_MESSAGE(
+        st2.jumpDistanceTotal < stNN.jumpDistanceTotal - 1.0f, gMsg);
+
+    // Determinism: identical config + input -> byte-identical output.
+    size_t n2b = optimizer::optimize(segs, 5, gFrame, PATTERN_POINTS_MAX, cfg);
+    TEST_ASSERT_EQUAL_UINT32_MESSAGE((uint32_t)n2, (uint32_t)n2b,
+                                     "reorder_2opt=true is not deterministic");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(
+        0, memcmp(gFrame, gFrameB, n2 * sizeof(LaserPoint)),
+        "reorder_2opt=true produced different output on a repeat run");
+#else
+    TEST_IGNORE_MESSAGE("needs P1 telemetry (gLastStats) -- see contract_features.h");
+#endif
+}
+
 int main(int, char**) {
     UNITY_BEGIN();
 
@@ -894,6 +979,7 @@ int main(int, char**) {
     RUN_TEST(test_deterministicOutput);
     RUN_TEST(test_statsConsistent);
     RUN_TEST(test_reorderSegmentsShortensJumps);
+    RUN_TEST(test_reorder2optNeverWorse);
 
     return UNITY_END();
 }

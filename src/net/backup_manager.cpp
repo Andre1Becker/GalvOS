@@ -82,6 +82,7 @@ void BackupManager::serializeToJson(JsonDocument& doc) {
         o["accel_clamp_enabled"]          = p.accel_clamp_enabled;
         o["max_accel_units"]              = p.max_accel_units;
         o["reorder_segments"]             = p.reorder_segments;
+        o["reorder_2opt"]                 = p.reorder_2opt;
     }
 
     JsonObject net = doc["net"].to<JsonObject>();
@@ -207,6 +208,10 @@ bool BackupManager::deserializeFromJson(JsonDocument& doc, JsonArray rejected) {
                     PCHECK("accel_clamp_enabled",            o["accel_clamp_enabled"].is<bool>());
                     PCHECK("max_accel_units",               o["max_accel_units"].is<float>() && inRangeF(o["max_accel_units"].as<float>(), 10.0f, 32767.0f));
                     PCHECK("reorder_segments",               o["reorder_segments"].is<bool>());
+                    // Optional (added P11a): a backup written before this field
+                    // existed omits it entirely -- accept absence, reject only a
+                    // present-but-wrong-typed value.
+                    PCHECK("reorder_2opt",                   o["reorder_2opt"].isNull() || o["reorder_2opt"].is<bool>());
                 }
                 #undef PCHECK
             }
@@ -335,6 +340,7 @@ bool BackupManager::deserializeFromJson(JsonDocument& doc, JsonArray rejected) {
                 if (!o["accel_clamp_enabled"].isNull())         P.accel_clamp_enabled = o["accel_clamp_enabled"];
                 if (!o["max_accel_units"].isNull())             P.max_accel_units = o["max_accel_units"];
                 if (!o["reorder_segments"].isNull())            P.reorder_segments = o["reorder_segments"];
+                if (!o["reorder_2opt"].isNull())                P.reorder_2opt = o["reorder_2opt"];
                 // Every field above passed its own range check, but the two
                 // range checks don't see each other -- an inverted min/max pair
                 // (min_blank_samples > blank_samples, min_corner_pts >

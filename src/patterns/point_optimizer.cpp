@@ -1296,12 +1296,78 @@ static size_t applyWarp(const PathSegment* segments, size_t segment_count,
 // reading and overwriting the same buffer.
 //
 // Gated by cfg.reorder_segments (default false -> byte-identical, segments
-// visited in input order). Degrades gracefully past kMaxXfSegs/kMaxXfVerts,
+// visited in input order). When cfg.reorder_2opt is also set, the greedy NN
+// tour is refined by a bounded 2-opt pass (Phase A.5) before the scratch copy
+// is built. Degrades gracefully past kMaxXfSegs/kMaxXfVerts,
 // same convention as applyTransform() -- input too large for the scratch is
 // passed through unreordered rather than overflowing.
 namespace {
     PathVertex*  s_reorder_verts = nullptr;
     PathSegment* s_reorder_segs  = nullptr;
+}
+
+// ── 2-opt refinement (P11a) ──────────────────────────────────────────────
+// Above this many valid segments, 2-opt is skipped and the greedy NN tour
+// stands -- an O(n^2)-per-pass sweep runs every frame while enabled, so the
+// cap bounds its cost on Core 1. Passes stop early once a full sweep finds no
+// improvement; the cap is a hard ceiling on top of that. Epsilon is in DAC
+// units squared-free (real distance), just large enough that float rounding
+// can't make an accepted move oscillate.
+static constexpr size_t kReorder2optMaxSegs  = 32;
+static constexpr int    kReorder2optMaxPasses = 6;
+static constexpr float  kReorder2optEps       = 0.5f;
+
+// Total straight-line blank-jump length emitAllSegments() will travel for a
+// tour: the beam-off hops from the previous galvo position (if known) into
+// each segment's entry point in visit order, PLUS the closing blank back to
+// the first emitted segment's entry (emitAllSegments() always appends it, so
+// 2-opt must count it or it would trade a shorter path for a longer return).
+// Each open segment enters/exits per its rev flag; closed segments always
+// enter at vertex 0 (matching Phase A's cost model and Phase B's later
+// rotation). Real Euclidean distance -- summing squared distances would rank a
+// different tour, so 2-opt must not reuse distSq() bare here.
+static float tourJumpCost(const PathSegment* segments, const size_t* order,
+                          const bool* rev, size_t validCount,
+                          const OptimizerConfig& cfg) {
+    if (validCount == 0) return 0.0f;
+    float total = 0.0f;
+    bool  have  = cfg.hasPrevPos;
+    float cx = cfg.prevX, cy = cfg.prevY;
+    for (size_t step = 0; step < validCount; step++) {
+        const PathSegment& s = segments[order[step]];
+        float inx = rev[step] ? s.vertices[s.count - 1].x : s.vertices[0].x;
+        float iny = rev[step] ? s.vertices[s.count - 1].y : s.vertices[0].y;
+        if (have) total += sqrtf(distSq(cx, cy, inx, iny));
+        if (rev[step]) { cx = s.vertices[0].x;             cy = s.vertices[0].y; }
+        else           { cx = s.vertices[s.count - 1].x;   cy = s.vertices[s.count - 1].y; }
+        have = true;
+    }
+    // Closing blank: last exit (cx,cy) back to the first segment's entry.
+    const PathSegment& first = segments[order[0]];
+    float e0x = rev[0] ? first.vertices[first.count - 1].x : first.vertices[0].x;
+    float e0y = rev[0] ? first.vertices[first.count - 1].y : first.vertices[0].y;
+    total += sqrtf(distSq(cx, cy, e0x, e0y));
+    return total;
+}
+
+// Reverse the tour's visit order over [lo..hi] and flip the traversal
+// direction of every OPEN segment in that block, so the beam still runs
+// continuously through the reversed run. Closed segments keep rev=false (they
+// have no reversible entry in this model). Its own inverse: applied twice it
+// restores the original order and flags, which is what lets the caller revert
+// a rejected 2-opt move by simply calling it again.
+static void reverseTourBlock(const PathSegment* segments, size_t* order,
+                             bool* rev, size_t lo, size_t hi) {
+    size_t a = lo, b = hi;
+    while (a < b) {
+        size_t to = order[a]; order[a] = order[b]; order[b] = to;
+        bool   tr = rev[a];   rev[a]   = rev[b];   rev[b]   = tr;
+        a++; b--;
+    }
+    for (size_t k = lo; k <= hi; k++) {
+        const PathSegment& s = segments[order[k]];
+        if (!s.closed && s.count > 1) rev[k] = !rev[k];
+    }
 }
 
 static size_t reorderSegments(const PathSegment* segments, size_t segment_count,
@@ -1401,6 +1467,47 @@ static size_t reorderSegments(const PathSegment* segments, size_t segment_count,
         else         { curX = chosen.vertices[chosen.count - 1].x;
                         curY = chosen.vertices[chosen.count - 1].y; }
         haveCur = true;
+    }
+
+    // ---- Phase A.5: optional 2-opt refinement of the tour (P11a). ----
+    // Take the greedy NN tour above and try reversing every contiguous block
+    // of the visit order, keeping a reversal only when it strictly shortens
+    // the total blank-jump path. Bounded segment count + pass count keep the
+    // per-frame cost in check; strict-improvement acceptance keeps it
+    // deterministic and guarantees the result is never worse than NN.
+    if (cfg.reorder_2opt && validCount >= 3 && validCount <= kReorder2optMaxSegs) {
+        float best = tourJumpCost(segments, order, rev, validCount, cfg);
+        bool  improved = true;
+        int   passes = 0;
+        while (improved && passes++ < kReorder2optMaxPasses) {
+            improved = false;
+            for (size_t i = 0; i < validCount; i++) {
+                for (size_t j = i + 1; j < validCount; j++) {
+                    reverseTourBlock(segments, order, rev, i, j);
+                    float c = tourJumpCost(segments, order, rev, validCount, cfg);
+                    if (c + kReorder2optEps < best) {
+                        best = c; improved = true;
+                    } else {
+                        reverseTourBlock(segments, order, rev, i, j);  // revert
+                    }
+                }
+            }
+        }
+
+        // 2-opt has rewritten order[]/rev[], so the per-step entry points
+        // Phase A recorded no longer match -- recompute them from the final
+        // tour before Phase B (which rotates closed segments toward their
+        // actual incoming point) reads them.
+        bool  have = cfg.hasPrevPos;
+        float cx = cfg.prevX, cy = cfg.prevY;
+        for (size_t step = 0; step < validCount; step++) {
+            const PathSegment& s = segments[order[step]];
+            if (have) { entryX[step] = cx;              entryY[step] = cy; }
+            else      { entryX[step] = s.vertices[0].x; entryY[step] = s.vertices[0].y; }
+            if (rev[step]) { cx = s.vertices[0].x;           cy = s.vertices[0].y; }
+            else           { cx = s.vertices[s.count - 1].x; cy = s.vertices[s.count - 1].y; }
+            have = true;
+        }
     }
 
     // ---- Phase B: closed segments may rotate their start vertex. ----

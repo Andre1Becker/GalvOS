@@ -117,6 +117,18 @@ constexpr uint8_t  KALEIDO_SEGMENTS_MAX = 6;   // UI slider ceiling (even only)
 // Disabled by default -> segments are visited in the caller-supplied order,
 // byte-identical to the pre-P20 optimizer.
 #define OPT_DEFAULT_REORDER_SEGMENTS              false
+// SEGMENT REORDER 2-OPT (P11a): an optional refinement layered on top of the
+// P20 nearest-neighbour tour above. Greedy NN never revisits a decision, so it
+// can leave crossings a local swap would remove; this takes the finished NN
+// tour and applies bounded 2-opt block reversals, each kept only when it
+// strictly shortens the total blank-jump path (open segments flip traversal
+// direction with the block; closed ones keep their v0 entry). Strict-
+// improvement acceptance over a symmetric metric makes it deterministic and
+// never worse than the NN tour it starts from. Only meaningful when
+// reorder_segments is on; skipped above the segment-count cap in
+// point_optimizer.cpp to bound the per-frame O(n^2)-per-pass cost on the S3.
+// Disabled by default -> byte-identical to the greedy-only reorder.
+#define OPT_DEFAULT_REORDER_2OPT                  false
 
 struct OptimizerLiveConfig {
     float    corner_angle_deg             = OPT_DEFAULT_CORNER_ANGLE_DEG;
@@ -141,6 +153,7 @@ struct OptimizerLiveConfig {
     bool     jitter_enabled               = OPT_DEFAULT_JITTER_ENABLED;
     float    jitter_amount_units          = OPT_DEFAULT_JITTER_AMOUNT_UNITS;
     bool     reorder_segments             = OPT_DEFAULT_REORDER_SEGMENTS;
+    bool     reorder_2opt                  = OPT_DEFAULT_REORDER_2OPT;
 };
 
 // Which OptimizerNormalizeResult field(s) normalizeOptimizerConfig() had to
