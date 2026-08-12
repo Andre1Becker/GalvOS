@@ -107,6 +107,7 @@ static void stopCalibCamSession() {
     s_calibcam_active = false;
     gState.calib_active    = false;
     gState.calib_no_thresh = false;
+    gState.calib_raw_duty  = false;
     if (gState.master_dimmer.load() == 0) gState.ui_master_dimmer.store(0);
 }
 
@@ -1545,6 +1546,7 @@ void init() {
                 gState.calib_bright  = 200;
                 gState.calib_channel = 0;
                 gState.calib_no_thresh = false;
+                gState.calib_raw_duty  = false;
                 const uint8_t prof = calib_patterns::profileOf(gState.calib_idx);
                 if (prof != gActiveOptimizerProfile) {
                     gActiveOptimizerProfile = prof;
@@ -2651,6 +2653,7 @@ void init() {
             gState.calib_channel = doc["channel"].is<int>()
                 ? (uint8_t)constrain((int)doc["channel"], 0, 3) : 3;
             gState.calib_no_thresh = false;
+            gState.calib_raw_duty  = false;
             if (gState.ui_master_dimmer.load() < 200) gState.ui_master_dimmer.store(200);
             gState.calib_active  = true;
 
@@ -2731,6 +2734,7 @@ void init() {
         [](AsyncWebServerRequest* req) {
             gState.calib_active    = false;
             gState.calib_no_thresh = false;
+            gState.calib_raw_duty  = false;
             // Release calib-forced dimmer only if no real DMX source active
             if (gState.master_dimmer.load() == 0)
                 gState.ui_master_dimmer.store(0);
@@ -2771,6 +2775,11 @@ void init() {
             // gain slider changes are not masked. All other patterns use the
             // normal threshold-remapped output path.
             gState.calib_no_thresh = (gState.calib_active && gState.calib_idx == 6);
+            // Color-ramp linearity patterns (idx 18-20): bypass gain/dimmer/
+            // gamma/threshold entirely -- see galvo_out.cpp's calib_raw_duty
+            // branch and calib_patterns.cpp's calibRampImpl() comment.
+            gState.calib_raw_duty = (gState.calib_active &&
+                                      calib_patterns::isRampIdx(gState.calib_idx));
             // Calib mode enabled -> disable ILDA and text
             if (gState.calib_active) {
                 ilda::stop();
@@ -2797,6 +2806,7 @@ void init() {
         [](AsyncWebServerRequest* req) {
             gState.calib_active    = false;
             gState.calib_no_thresh = false;
+            gState.calib_raw_duty  = false;
             req->send(200, "text/plain", "OK");
         });
 

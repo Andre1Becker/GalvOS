@@ -615,6 +615,13 @@ struct RuntimeState {
     // changes are not masked by the threshold floor. Set by /api/calib-pattern
     // when idx==6, cleared on stop or any other pattern selection.
     volatile bool          calib_no_thresh   = false;
+    // Color-ramp linearity patterns (calibRampR/G/B, idx 18-20): skip
+    // dimmer/thermal-scale/gain AND gamma AND threshold entirely -- the
+    // commanded duty must equal the PWM duty with nothing in between. See
+    // galvo_out.cpp galvoTask()'s calib_raw_duty branch. Set by
+    // /api/calib-pattern when idx is one of the ramp indices, cleared on
+    // stop or any other pattern selection.
+    volatile bool          calib_raw_duty    = false;
 };
 
 extern RuntimeState gState;

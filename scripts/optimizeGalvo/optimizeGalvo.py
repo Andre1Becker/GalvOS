@@ -114,7 +114,7 @@ import requests
 # ── versioning ───────────────────────────────────────────────────────────────
 # Semantic version of this script (independent of GalvOS firmware version).
 # Bump on every behavioral change; see git log for change history.
-SCRIPT_VERSION = "2.16.0"
+SCRIPT_VERSION = "2.17.0"
 
 # GalvOS firmware version that introduced /api/calib-cam/* (see firmware git log:
 # "fw: v6.03.0 -- camera-in-the-loop calibration API (calib-cam)").
@@ -979,6 +979,20 @@ class EspClient:
         1(R)/2(G)/3(B) individually for a single-channel test - channel=0 lights all
         three at once (see calib_thresh_ch decode in galvo_out.cpp)."""
         self._post("/api/calib-thresh-test", {"active": active, "channel": channel})
+
+    def calibPattern(self, idx: int, channel: int = 0, bright: int = 200,
+                     active: bool = True) -> None:
+        """POST /api/calib-pattern - idx-based calibration/test pattern select
+        (calib_patterns.cpp). Distinct from the name-based /api/calib-cam/* family
+        used by startPattern() above - this is the plain idx route every calib
+        pattern (including the color-ramp linearity patterns, idx 18-20) is
+        reachable through."""
+        self._post("/api/calib-pattern",
+                   {"idx": idx, "channel": channel, "bright": bright, "active": active})
+
+    def stopCalibPattern(self) -> None:
+        """POST /api/calib-pattern/stop"""
+        self._post("/api/calib-pattern/stop")
 
     def debugHw(self, x: int, y: int, r: int, g: int, b: int) -> dict:
         """POST /api/debug/hw - direct single-point galvo+laser control. x/y are RAW

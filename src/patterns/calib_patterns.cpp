@@ -926,6 +926,78 @@ static size_t warp_test_grid(LaserPoint* o, size_t mx,
     return optimizer::optimize(segs, segCount, o, mx, liveOptimizerConfig());
 }
 
+// ══════════════════════════════════════════════════════════════
+// PATTERNS 18-20: COLOR RAMP R/G/B -- duty->luminance linearity calibration
+//
+// CALIB_RAMP_FIELDS (32) equal-width vertical fields, left to right, PWM
+// duty 0..255 linear across the fields. Drives only the target channel; the
+// other two are forced to 0 (colorOut() is deliberately NOT used here --
+// see below). Every field is an identical small raster block (same row
+// count, same points per row, same dwell) -- geometry never varies, so
+// measured luminance differs ONLY because of the commanded duty.
+//
+// Built with direct ap()/line() calls, bypassing optimizer::optimize()
+// entirely (same style as three_circles/corner_color_map above): corner-
+// dwell/density/velocity shaping would make point count and dwell vary
+// between fields depending on the live optimizer sliders, which is exactly
+// what this pattern must not do -- "identical points and dwell per field"
+// is the whole measurement contract.
+//
+// gState.calib_raw_duty (set by /api/calib-pattern when idx is one of these
+// three, see galvo_out.cpp galvoTask()) bypasses gain/dimmer/gamma/
+// threshold entirely and feeds each point's r/g/b straight to PWM -- so the
+// duty computed below IS the wire duty. colorOut()'s brightness scaling is
+// therefore skipped too (it would reintroduce a `bright`-dependent
+// scale factor into what must stay a raw, controlled ramp).
+//
+// scripts/calibrateColor.py arms each ramp in turn, captures one frame per
+// ramp, and segments it into CALIB_RAMP_FIELDS equal-width column bins to
+// read back per-field mean luminance.
+// ══════════════════════════════════════════════════════════════
+static constexpr int RAMP_ROWS      = 4;  // horizontal raster lines per field
+static constexpr int RAMP_ROW_STEPS = 7;  // interpolated points per raster line
+
+static size_t calibRampImpl(LaserPoint* o, size_t mx, uint8_t targetCh) {
+    size_t n = 0;
+    const float RW = SC * 0.85f;   // ramp half-width (total scanned extent)
+    const float H  = SC * 0.35f;   // field half-height
+    const float colW   = (RW * 2.0f) / CALIB_RAMP_FIELDS;
+    const float rowGap = (H * 2.0f) / (RAMP_ROWS - 1);
+
+    for (int i = 0; i < CALIB_RAMP_FIELDS; i++) {
+        uint8_t duty = (uint8_t)((i * 255) / (CALIB_RAMP_FIELDS - 1));
+        uint8_t r = (targetCh == 1) ? duty : 0;
+        uint8_t g = (targetCh == 2) ? duty : 0;
+        uint8_t b = (targetCh == 3) ? duty : 0;
+
+        float xL = -RW + i * colW;
+        float xR = xL + colW;
+
+        // Zigzag raster fill within the field's column: each row starts
+        // exactly where the previous one ended, so only a small vertical
+        // hop (rowGap) needs to be blanked between rows -- no horizontal
+        // jump within a field. line() itself blanks its own first point.
+        for (int row = 0; row < RAMP_ROWS; row++) {
+            float y = H - row * rowGap;
+            bool leftToRight = (row % 2) == 0;
+            float x0 = leftToRight ? xL : xR;
+            float x1 = leftToRight ? xR : xL;
+            line(o, n, mx, x0, y, x1, y, r, g, b, RAMP_ROW_STEPS);
+        }
+    }
+    return n;
+}
+
+static size_t calib_ramp_r(LaserPoint* o, size_t mx, uint32_t, uint8_t, uint8_t) {
+    return calibRampImpl(o, mx, 1);
+}
+static size_t calib_ramp_g(LaserPoint* o, size_t mx, uint32_t, uint8_t, uint8_t) {
+    return calibRampImpl(o, mx, 2);
+}
+static size_t calib_ramp_b(LaserPoint* o, size_t mx, uint32_t, uint8_t, uint8_t) {
+    return calibRampImpl(o, mx, 3);
+}
+
 int8_t camPatternIndex(const char* name) {
     if (!name) return -1;
     static const char* NAMES[CALIB_CAM_COUNT] = {
@@ -972,6 +1044,10 @@ uint8_t profileOf(uint8_t idx) {
         case 16: // Cam Spiral       -- velocity clamps
             return OPT_PROFILE_WAVES;
         case 17: // Warp Grid Test   -- blanked border + interior lines
+            return OPT_PROFILE_MULTIOBJECT;
+        case 18: // Ramp R           -- 32 static duty fields, geometry fixed
+        case 19: // Ramp G
+        case 20: // Ramp B
             return OPT_PROFILE_MULTIOBJECT;
         default:
             return OPT_PROFILE_VECTOR;
@@ -1074,6 +1150,21 @@ const CalibPatternInfo CALIB_INFO[CALIB_PATTERN_COUNT] = {
      "intended rectangle, then adjust the Warp panel's control points (or "
      "run scripts/optimizegalvo.py calibrate-warp) until they line up."},
 
+    {"Color Ramp R",
+     "32 equal-width red duty fields, linear 0..255 left to right",
+     "Bypasses gain/dimmer/gamma/threshold -- measured luminance should equal "
+     "commanded duty. Run scripts/calibrateColor.py to capture and plot."},
+
+    {"Color Ramp G",
+     "32 equal-width green duty fields, linear 0..255 left to right",
+     "Bypasses gain/dimmer/gamma/threshold -- measured luminance should equal "
+     "commanded duty. Run scripts/calibrateColor.py to capture and plot."},
+
+    {"Color Ramp B",
+     "32 equal-width blue duty fields, linear 0..255 left to right",
+     "Bypasses gain/dimmer/gamma/threshold -- measured luminance should equal "
+     "commanded duty. Run scripts/calibrateColor.py to capture and plot."},
+
 };
 
 using PFn = size_t(*)(LaserPoint*, size_t, uint32_t, uint8_t, uint8_t);
@@ -1083,6 +1174,7 @@ static const PFn DISPATCH[CALIB_PATTERN_COUNT] = {
     opt_corner_sweep, opt_density_ramp, opt_jump_ring, opt_vel_accel,
     cam_corners4, cam_square, cam_star, cam_segments, cam_circle, cam_spiral,
     warp_test_grid,
+    calib_ramp_r, calib_ramp_g, calib_ramp_b,
 };
 
 

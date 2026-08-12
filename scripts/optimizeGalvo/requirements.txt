@@ -2,3 +2,4 @@ opencv-python>=4.10
 numpy>=2.0
 optuna>=4.0
 requests>=2.32
+matplotlib>=3.8
