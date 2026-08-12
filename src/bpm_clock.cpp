@@ -120,7 +120,11 @@ uint32_t tickMs() {
         }
     } else {
         s_dmx_paused = false;   // no DMX signal at all -- not a Beat-Stop freeze
-        if (s_tap_n >= 2 && (millis() - s_tap_ts[s_tap_n - 1]) <= TAP_RESET_GAP_MS) {
+        if (s_tap_n >= 2) {
+            // Tap tempo holds until a fresh tap sequence overwrites s_tap_bpm
+            // or DMX takes over above -- TAP_RESET_GAP_MS only governs when a
+            // new tap() call starts a fresh sequence instead of averaging
+            // into the old one, it is not a timeout for staying on SRC_TAP.
             bpm = s_tap_bpm;
             src = SRC_TAP;
         } else {
