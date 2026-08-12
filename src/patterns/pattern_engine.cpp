@@ -5,6 +5,7 @@
 #include "text_renderer.h"
 #include "curve_patterns.h"
 #include "paint_patterns.h"
+#include "weld_patterns.h"
 #include "point_optimizer.h"
 #include "duplicator.h"
 #include "dotter.h"
@@ -423,6 +424,7 @@ void setPaintActive(bool active) {
         gTextConfig.active = false;
         s_preset_idx = presets::Preset::None;
         gCurves.active_curve = -1;
+        weld::reset();   // fresh head/direction/sparks on (re)entry to Paint
     }
 }
 bool getPaintActive() { return gPaint.active; }
@@ -1549,14 +1551,19 @@ void task(void*) {
             { LOCK_STATE(); optimizer::gLiveTransform =
                   optimizer::makeTransform(rotZActive ? rotZAngle : 0.f, 0.f, 0.f); }
 
-            size_t n = paint::generate(s_frame, PATTERN_POINTS_MAX);
+            // Welding is an alternative renderer of the SAME gPaint stroke
+            // list (weld_patterns.cpp): torch head + afterglow + sparks. It
+            // owns its own color ramps, so applyColorAnim() is skipped for it.
+            bool weldOn = gWeld.enabled;
+            size_t n = weldOn ? weld::generate(s_frame, PATTERN_POINTS_MAX)
+                              : paint::generate(s_frame, PATTERN_POINTS_MAX);
             if (n == 0) { static LaserPoint blank_pt={0,0,0,0,0,1}; galvo::pushFrame(&blank_pt,1); vTaskDelay(pdMS_TO_TICKS(40)); continue; }  // guard: empty canvas
 
             // Color animation (same engine as Preset/Curve Live-Controls).
             // col_anim_type==OFF && !col_override leaves each stroke's own
             // picked color untouched (multi-color canvas); Segment mode
             // overrides all points with the cycling gradient.
-            applyColorAnim(n);
+            if (!weldOn) applyColorAnim(n);
 
             if (rotYActive) {
                 float cy = cosf(rotYAngle);

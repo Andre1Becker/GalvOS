@@ -8,8 +8,9 @@ namespace paint {
 
 // liveOptimizerConfig() -- the shared live->optimizer mapping, with no
 // specialization: paint strokes are user-drawn geometry and take the live
-// settings exactly as configured (see optimizer::configFromLive()).
-static inline optimizer::OptimizerConfig liveOptimizerConfig() {
+// settings exactly as configured (see optimizer::configFromLive()). Declared
+// in paint_patterns.h so weld_patterns.cpp reuses it (same stroke list).
+optimizer::OptimizerConfig liveOptimizerConfig() {
     return optimizer::configFromLive(gOptimizerConfig,
                                      gProjection.galvo_rated_kpps,
                                      gProjection.galvo_kpps);

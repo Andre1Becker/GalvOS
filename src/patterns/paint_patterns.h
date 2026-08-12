@@ -8,6 +8,7 @@
  * line/freehand) are resolved client-side before upload.
  */
 #include "config.h"
+#include "point_optimizer.h"
 #include <stddef.h>
 
 namespace paint {
@@ -19,5 +20,14 @@ namespace paint {
  * @return         point count (0 if canvas is empty)
  */
 size_t generate(LaserPoint* out, size_t max_pts);
+
+/**
+ * Shared live->optimizer config mapping for the Paint stroke list. Paint
+ * strokes are user-drawn geometry and take the live settings exactly as
+ * configured (no per-family specialization). Shared so the Welding renderer
+ * (weld_patterns.cpp), an alternative renderer of the same strokes, reuses it
+ * instead of duplicating configFromLive() a fifth time.
+ */
+optimizer::OptimizerConfig liveOptimizerConfig();
 
 } // namespace paint
