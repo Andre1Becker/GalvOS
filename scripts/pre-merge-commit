@@ -1,25 +1,51 @@
 #!/usr/bin/env bash
 # .git/hooks/pre-merge-commit
-# Runs the optimizer Contract tests before any merge commit is finalized.
-# Aborts the merge if an invariant is red. Local, offline, seconds.
+# Runs before every merge commit. Requires --no-ff so a merge commit is actually
+# created (fast-forward merges do NOT fire this hook).
 #
-# Install:
-#   cp pre-merge-commit .git/hooks/pre-merge-commit
-#   chmod +x .git/hooks/pre-merge-commit
+# Firmware changes -> pio test -e native   (the three CONTRACT invariants)
+# Python changes   -> pytest scripts/tests/
+# Both             -> run both
 #
-# Note: pre-merge-commit fires only when the merge creates a commit (i.e. NOT a
-# fast-forward). Merge your opt/* branches with --no-ff so the hook always runs:
-#   git merge --no-ff opt/<n>
-#
-# Bypass in a genuine emergency: git merge --no-verify ...
+# Any red result aborts the merge.
 
 set -euo pipefail
 
-echo "── running optimizer Contract tests before merge ──"
-if ! pio test -e native; then
-  echo
-  echo "!! Contract tests RED — merge aborted."
-  echo "   An invariant regressed. Do not merge this branch as-is."
-  exit 1
+# Files changed on the branch being merged, relative to the merge base.
+CHANGED="$(git diff --name-only ORIG_HEAD HEAD 2>/dev/null || git diff --name-only --cached)"
+
+need_pio=0
+need_py=0
+
+while IFS= read -r f; do
+  [ -z "$f" ] && continue
+  case "$f" in
+    src/*|include/*|lib/*|platformio.ini)          need_pio=1 ;;
+    scripts/*.py|scripts/tests/*)                  need_py=1  ;;
+  esac
+done <<< "$CHANGED"
+
+if [ "$need_pio" -eq 0 ] && [ "$need_py" -eq 0 ]; then
+  echo "pre-merge-commit: no firmware/python changes, skipping tests"
+  exit 0
 fi
-echo "── Contract green — merge proceeds ──"
+
+fail=0
+
+if [ "$need_pio" -eq 1 ]; then
+  echo "pre-merge-commit: pio test -e native"
+  if ! pio test -e native; then
+    echo "  native tests FAILED — merge aborted" >&2
+    fail=1
+  fi
+fi
+
+if [ "$need_py" -eq 1 ]; then
+  echo "pre-merge-commit: pytest scripts/tests/"
+  if ! python -m pytest scripts/tests/ -q; then
+    echo "  python tests FAILED — merge aborted" >&2
+    fail=1
+  fi
+fi
+
+exit "$fail"

@@ -1,100 +1,125 @@
 #!/usr/bin/env bash
-# setup.sh — one-time cold-start for the optimizer-refactor session workflow.
+# setup.sh — one-shot cold start for the GalvOS feature-prompt workflow.
 # Idempotent: safe to run more than once. Run from the repo root.
 #
-#   bash setup.sh
+# Does:
+#   1. verify we're in the GalvOS repo root
+#   2. create docs/feature-prompts/ and hide it via .git/info/exclude
+#   3. place the state files there if missing (STATE / CONTRACT / DECISIONS /
+#      SESSION-RUNBOOK / WRAPPER / feature-prompts-en) — never overwrites
+#   4. make the workflow scripts executable
+#   5. install the pre-merge-commit hook
+#   6. append [env:native] to platformio.ini if not already present
 #
-# Does NOT commit anything. Does NOT start Claude Code.
+# Assumes this script and its siblings live in scripts/ next to the repo, OR
+# that you point SRC at wherever you unpacked the delivered files.
+
 set -euo pipefail
 
-# ── locate things ────────────────────────────────────────────────────────────
+# Where the delivered files sit. Default: the directory this script is in plus
+# ../feature-prompts for the docs. Override with SRC=/path ./setup.sh
+SRC="${SRC:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
+DOCS_SRC="${DOCS_SRC:-$(cd "$SRC/../feature-prompts" 2>/dev/null && pwd || true)}"
+
+say()  { printf '  %s\n' "$*"; }
+ok()   { printf '  \033[32m✓\033[0m %s\n' "$*"; }
+warn() { printf '  \033[33m!\033[0m %s\n' "$*" >&2; }
+
+# --- 1. repo root -------------------------------------------------------------
 git rev-parse --is-inside-work-tree >/dev/null 2>&1 || {
-  echo "!! not inside a git repo — cd into the GalvOS repo first"; exit 1; }
+  warn "not inside a git repository — cd to the GalvOS repo root first"; exit 1; }
+
 ROOT="$(git rev-parse --show-toplevel)"
 cd "$ROOT"
-
-SCRIPTS_DIR="scripts"
-STATE_DIR="docs/optimizer-refactor"
-HOOK_SRC="$SCRIPTS_DIR/pre-merge-commit"
-HOOK_DST=".git/hooks/pre-merge-commit"
-PIO="platformio.ini"
-SNIPPET="$SCRIPTS_DIR/native-env-snippet.ini"
-
-note() { printf '  %s\n' "$*"; }
-step() { printf '\n== %s\n' "$*"; }
-
-# ── 1. scripts executable ────────────────────────────────────────────────────
-step "make scripts executable"
-for s in mkprompt.sh next-session.sh pre-merge-commit; do
-  if [ -f "$SCRIPTS_DIR/$s" ]; then chmod +x "$SCRIPTS_DIR/$s"; note "chmod +x $SCRIPTS_DIR/$s";
-  else note "MISSING $SCRIPTS_DIR/$s (copy it in, then re-run)"; fi
-done
-
-# ── 2. install the pre-merge hook ────────────────────────────────────────────
-step "install pre-merge-commit hook"
-if [ -f "$HOOK_SRC" ]; then
-  cp "$HOOK_SRC" "$HOOK_DST"; chmod +x "$HOOK_DST"; note "installed -> $HOOK_DST"
-  note "reminder: merge with --no-ff so the hook fires"
-else
-  note "MISSING $HOOK_SRC — hook not installed"
+if [ ! -f platformio.ini ]; then
+  warn "no platformio.ini here — is $ROOT really the GalvOS root?"; exit 1
 fi
+ok "repo root: $ROOT"
 
-# ── 3. state dir + local-only exclude ────────────────────────────────────────
-step "state files (local, untracked)"
+# --- 2. state dir + git exclude ----------------------------------------------
+STATE_DIR="docs/feature-prompts"
 mkdir -p "$STATE_DIR"
-for f in STATE.md CONTRACT.md DECISIONS.md; do
-  if [ -f "$STATE_DIR/$f" ]; then note "exists $STATE_DIR/$f (kept)";
-  elif [ -f "$f" ]; then cp "$f" "$STATE_DIR/"; note "copied $f -> $STATE_DIR/";
-  else note "MISSING $f in repo root — put the template there and re-run"; fi
-done
-# exclude via .git/info/exclude (never pushed), only add the line once
+ok "state dir: $STATE_DIR"
+
 EXCL=".git/info/exclude"
-if ! grep -qxF "$STATE_DIR/" "$EXCL" 2>/dev/null; then
-  echo "$STATE_DIR/" >> "$EXCL"; note "excluded $STATE_DIR/ in $EXCL"
+mkdir -p "$(dirname "$EXCL")"
+touch "$EXCL"
+if ! grep -qxF "$STATE_DIR/" "$EXCL"; then
+  printf '%s\n' "$STATE_DIR/" >> "$EXCL"
+  ok "excluded $STATE_DIR/ (untracked, shared across branches)"
 else
-  note "$STATE_DIR/ already excluded"
-fi
-# untrack if it was ever committed (keeps local copy)
-if git ls-files --error-unmatch "$STATE_DIR" >/dev/null 2>&1; then
-  git rm -r --cached "$STATE_DIR" >/dev/null; note "untracked previously-committed $STATE_DIR/"
+  say "$STATE_DIR/ already excluded"
 fi
 
-# ── 4. append native env to platformio.ini ───────────────────────────────────
-step "native (host) test env"
-if [ ! -f "$PIO" ]; then
-  note "MISSING $PIO — are you in the repo root?"
-elif grep -q '^\[env:native\]' "$PIO"; then
-  note "[env:native] already present in $PIO (left as-is)"
-elif [ -f "$SNIPPET" ]; then
-  printf '\n' >> "$PIO"; cat "$SNIPPET" >> "$PIO"
-  note "appended [env:native] from $SNIPPET"
+# --- 3. drop in state files (never overwrite) --------------------------------
+STATE_FILES="STATE.md CONTRACT.md DECISIONS.md SESSION-RUNBOOK.md WRAPPER.md feature-prompts-en.md"
+if [ -n "${DOCS_SRC:-}" ] && [ -d "$DOCS_SRC" ]; then
+  for f in $STATE_FILES; do
+    if [ -f "$STATE_DIR/$f" ]; then
+      say "$f exists — kept"
+    elif [ -f "$DOCS_SRC/$f" ]; then
+      cp "$DOCS_SRC/$f" "$STATE_DIR/$f"
+      ok "placed $f"
+    else
+      warn "$f not found in $DOCS_SRC — place it manually"
+    fi
+  done
 else
-  note "MISSING $SNIPPET — add [env:native] manually"
+  warn "state-file source dir not found (set DOCS_SRC=/path) — skipping file copy"
 fi
 
-# ── 5. PROMPT_FILE hint for mkprompt.sh ──────────────────────────────────────
-step "mkprompt.sh PROMPT_FILE"
-if [ -f "$SCRIPTS_DIR/mkprompt.sh" ]; then
-  CUR="$(grep -m1 'PROMPT_FILE:=' "$SCRIPTS_DIR/mkprompt.sh" || true)"
-  note "current default: ${CUR:-<none>}"
-  note "override per shell if needed:  export PROMPT_FILE=~/galvos-refactor/optimizer-claude-code-prompts-en.md"
+# --- 4. scripts executable ----------------------------------------------------
+SCRIPT_DIR="scripts"
+mkdir -p "$SCRIPT_DIR"
+for s in mkprompt.sh next-session.sh setup.sh; do
+  if [ -f "$SRC/$s" ] && [ ! -f "$SCRIPT_DIR/$s" ]; then
+    cp "$SRC/$s" "$SCRIPT_DIR/$s"
+    ok "placed scripts/$s"
+  fi
+  [ -f "$SCRIPT_DIR/$s" ] && chmod +x "$SCRIPT_DIR/$s" && say "chmod +x scripts/$s"
+done
+
+# --- 5. pre-merge-commit hook -------------------------------------------------
+HOOK_SRC=""
+for cand in "$SRC/pre-merge-commit" "$SCRIPT_DIR/pre-merge-commit"; do
+  [ -f "$cand" ] && HOOK_SRC="$cand" && break
+done
+HOOK_DST=".git/hooks/pre-merge-commit"
+if [ -n "$HOOK_SRC" ]; then
+  if [ -f "$HOOK_DST" ] && ! cmp -s "$HOOK_SRC" "$HOOK_DST"; then
+    cp "$HOOK_DST" "$HOOK_DST.bak.$(date +%s)"
+    warn "existing hook backed up to $HOOK_DST.bak.*"
+  fi
+  cp "$HOOK_SRC" "$HOOK_DST"
+  chmod +x "$HOOK_DST"
+  ok "installed pre-merge-commit hook"
+  say "remember: merge with --no-ff so the hook fires"
+else
+  warn "pre-merge-commit source not found — hook not installed"
 fi
 
-# ── 6. sanity ────────────────────────────────────────────────────────────────
-step "sanity check"
-note "git status (should NOT list $STATE_DIR/):"
-git status --short | sed 's/^/    /' || true
+# --- 6. append [env:native] to platformio.ini --------------------------------
+SNIP=""
+for cand in "$SRC/native-env-snippet.ini" "$SCRIPT_DIR/native-env-snippet.ini"; do
+  [ -f "$cand" ] && SNIP="$cand" && break
+done
+if grep -q '^\[env:native\]' platformio.ini; then
+  say "[env:native] already present in platformio.ini"
+elif [ -n "$SNIP" ]; then
+  # Strip the comment header of the snippet, keep only from [env:native] on.
+  printf '\n' >> platformio.ini
+  sed -n '/^\[env:native\]/,$p' "$SNIP" >> platformio.ini
+  ok "appended [env:native] to platformio.ini"
+  warn "review the build_src_filter paths — adjust to your actual sources/shims"
+else
+  warn "native-env-snippet.ini not found — add [env:native] manually"
+fi
 
-cat <<EOF
-
-== done. next steps ==
-  1) verify the native env compiles a stub:   pio run -e native   (may need Session A first)
-  2) start the first session:
-       ./scripts/next-session.sh contract
-       ./scripts/mkprompt.sh contract
-       claude --model opus      # then in-session:  /effort high
-  3) review -> pio test -e native -> commit yourself -> git merge --no-ff opt/contract
-
-Nothing here was committed. The state files are local-only and will not appear
-in git status or online.
-EOF
+# --- done ---------------------------------------------------------------------
+echo
+ok "setup complete"
+echo
+say "next:"
+say "  1. fill <HASH> / <x.y.z> in docs/feature-prompts/STATE.md"
+say "  2. ./scripts/next-session.sh 2      # clean-tree check + branch + model hint"
+say "  3. ./scripts/mkprompt.sh 2          # wrapper + prompt to clipboard"

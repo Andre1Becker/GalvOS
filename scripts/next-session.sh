@@ -1,68 +1,76 @@
 #!/usr/bin/env bash
-# next-session.sh — enforce a clean tree, create the session branch, and print
-# the model + effort recommended for this prompt (and the ready-to-run command).
-#
-# Usage:
-#   ./next-session.sh 15            -> branch opt/15,  model+effort for prompt 15
-#   ./next-session.sh 02-05         -> branch opt/02-05 (grouped session)
-#   ./next-session.sh contract      -> branch opt/contract (Session A)
-#
-# Model selection rationale (Claude Code v2.1.x):
-#   --model is a real startup flag; /effort is an IN-SESSION slash command.
-#   So we launch with --model and print the /effort line to run first.
-#   Aliases: opus (-> Opus 5), sonnet (-> Sonnet 5, the default).
-#   Effort:  high (default) | xhigh (hardest architectural/agentic work).
+# next-session.sh — enforce a clean tree and create the session branch.
+# Usage: ./next-session.sh 3          -> branch feat/3
+#        ./next-session.sh 14a        -> branch feat/14a
+#        ./next-session.sh 7 --sub 2  -> branch feat/7-s2 (warp sub-session 2)
+
 set -euo pipefail
 
-[ $# -eq 1 ] || { echo "usage: $0 <prompt-number | group | contract>"; exit 1; }
-KEY="$1"
-BR="opt/$KEY"
-
-first_num() {
-  case "$1" in contract) echo "contract"; return ;; esac
-  echo "$1" | sed 's/[^0-9].*//' | sed 's/^0*//'
-}
-
-pick() {
-  local n; n="$(first_num "$1")"
-  case "$n" in
-    contract)     MODEL=opus;   EFFORT=high  ; WHY="defines the invariants; foundation for every wave" ;;
-    16|17|18)     MODEL=opus;   EFFORT=xhigh ; WHY="structural refactor / bisection across many call sites" ;;
-    12|13|14)     MODEL=opus;   EFFORT=xhigh ; WHY="analyze-first: judgement call, gates the SegmentPlan design" ;;
-    2|3|4|5|6|7)  MODEL=opus;   EFFORT=high  ; WHY="P0 correctness — physics/budget critical but localized" ;;
-    1)            MODEL=opus;   EFFORT=high  ; WHY="telemetry base that later waves depend on" ;;
-    8|9|10|11)    MODEL=sonnet; EFFORT=high  ; WHY="P1 fix — mechanical, well-scoped" ;;
-    19|20|21|22)  MODEL=sonnet; EFFORT=high  ; WHY="additive feature behind a gate" ;;
-    23)           MODEL=sonnet; EFFORT=high  ; WHY="comment/doc cleanup, no behavior change" ;;
-    *)            MODEL=sonnet; EFFORT=high  ; WHY="default: scoped change" ;;
-  esac
-}
-pick "$KEY"
-
-git rev-parse --is-inside-work-tree >/dev/null 2>&1 || { echo "not a git repo"; exit 1; }
-
-if [ -n "$(git status --porcelain)" ]; then
-  echo "!! working tree dirty — a previous session is unmerged. Resolve first:"
-  git status --short
+if [ "$#" -lt 1 ]; then
+  echo "usage: $0 <prompt-number> [--sub <k>]" >&2
   exit 1
 fi
 
-CUR="$(git symbolic-ref --short HEAD 2>/dev/null || echo main)"
-case "$CUR" in opt/*) git checkout main 2>/dev/null || git checkout master ;; esac
+N="$1"; shift
+SUFFIX=""
+if [ "${1:-}" = "--sub" ] && [ -n "${2:-}" ]; then
+  SUFFIX="-s$2"
+fi
+BRANCH="feat/${N}${SUFFIX}"
 
-if git rev-parse --verify "$BR" >/dev/null 2>&1; then
-  echo "branch $BR exists — checking it out"; git checkout "$BR"
-else
-  git checkout -b "$BR"
+# Must be inside a git repo.
+git rev-parse --is-inside-work-tree >/dev/null 2>&1 || {
+  echo "not a git repository" >&2; exit 1; }
+
+# Tree must be clean (untracked state files under docs/feature-prompts/ are excluded
+# via .git/info/exclude, so they don't count here).
+if [ -n "$(git status --porcelain)" ]; then
+  echo "working tree not clean — commit or stash first:" >&2
+  git status --short >&2
+  exit 1
 fi
 
-echo "── on $BR ─────────────────────────────────────────"
-echo "model : $MODEL"
-echo "effort: $EFFORT   ($WHY)"
+# Base off the integration branch (adjust if you don't use main).
+BASE="main"
+git checkout "$BASE" >/dev/null 2>&1
+git pull --ff-only 2>/dev/null || true   # no-op on a local-only repo
+
+if git show-ref --verify --quiet "refs/heads/$BRANCH"; then
+  echo "branch $BRANCH already exists — checking it out" >&2
+  git checkout "$BRANCH"
+else
+  git checkout -b "$BRANCH"
+fi
+
+echo "on branch: $BRANCH (base: $BASE @ $(git rev-parse --short HEAD))"
+
+# --- Model + effort selection per prompt --------------------------------------
+# Opus 4.8 for the hard prompts: analyze-first signal processing, optimizer
+# hot-path (byte-identical guarantee), the weld algorithm, and the broad refactor.
+# Sonnet 5 for the well-specified, mechanical prompts (spec carries the work).
+# xhigh effort only where the reasoning depth actually pays off.
+# Key on the full session id incl. sub-suffix (e.g. 11a, 12b), falling back to
+# the base number. Override any time with --model / /model inside the session.
+
+SID="${N}${SUFFIX#-}"      # e.g. "7" + "-s2" -> "7s2"; plain sub ids like 11a pass N="11a" directly
+# If you invoke sub-sessions as e.g. `next-session.sh 11a`, N already carries the letter.
+
+MODEL="claude-sonnet-5"
+EFFORT="high"
+
+case "$SID" in
+  5)                      MODEL="claude-opus-4-8" ;;                 # weld algorithm + budget analysis
+  11a|11b)                MODEL="claude-opus-4-8" ;;                 # optimizer core, byte-identical
+  12a)                    MODEL="claude-opus-4-8"; EFFORT="xhigh" ;; # analyze-first: dithering model
+  12b|13)                 MODEL="claude-opus-4-8"; EFFORT="xhigh" ;; # analyze-first: IIR / resonance
+  16)                     MODEL="claude-opus-4-8" ;;                 # codebase-wide refactor
+  7a|7b|7c|9a|9b|2|3|4|6|8|10|14a|14b|15)
+                          MODEL="claude-sonnet-5" ;;                 # spec-driven / mechanical
+esac
+
 echo
-echo "1) ./mkprompt.sh $KEY            # wrapper + prompt(s) to clipboard"
-echo "2) claude --model $MODEL         # start session"
-echo "3) first line in the session:  /effort $EFFORT"
-echo "4) paste clipboard, run"
-echo "5) review: git diff   ->   pio test -e native"
-echo "6) commit yourself, then: git checkout main && git merge --no-ff $BR"
+echo "suggested model: $MODEL   (effort: $EFFORT)"
+echo "run:"
+echo "  claude --model $MODEL --effort $EFFORT"
+echo
+echo "(then paste the clipboard from mkprompt.sh $N)"
