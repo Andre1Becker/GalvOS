@@ -1078,3 +1078,40 @@ struct BrightnessConfig {
     }
 };
 extern BrightnessConfig gBrightness;
+
+// ── Model-Based Inverse Filtering / Galvo Deconvolution (Prompt 12b) ────────
+// Per-axis regularized inverse of the galvo's measured 2nd-order mechanical
+// resonance, pre-applied to the emitted point stream so the OPTICAL output
+// tracks the commanded trajectory instead of ringing at it. See
+// docs/feature-prompts/DECISIONS.md, Prompt 12b for the full model/
+// discretization derivation and rationale.
+//
+// Deliberately NOT the same fields as Pillar 3's ring_freq_hz/
+// ring_damping_ratio (point_optimizer.h): those are a single value SHARED
+// across X/Y, used only to time the ZV-shaped blank-jump. This is a genuine
+// per-axis trajectory pre-filter applied to every emitted point -- the two
+// galvos are physically distinct and can have different resonance, and the
+// two mechanisms (input-shaped blank jump vs. full inverse-filtered
+// trajectory) are independent, both still gate-able separately.
+struct InverseFilterAxisModel {
+    // Measured undamped natural frequency (Hz) / damping ratio (0..~0.9).
+    // wnHz <= 0 means "unmeasured" -- that axis is passed through unfiltered
+    // even when InverseFilterConfig::enabled is true.
+    float wnHz = 0.0f;
+    float zeta = 0.0f;
+};
+
+struct InverseFilterConfig {
+    volatile bool enabled = false;
+    // Regularization: sets the inverse filter's rolloff corner as a multiple
+    // of wn (see inverseFilter.cpp -- H_inv(s)'s denominator is
+    // (1 + regAlpha*s/wn)^2). Smaller = stronger correction of the fastest
+    // dynamics but more high-frequency gain (noise/jitter amplification);
+    // larger = safer/weaker. The resulting filter is BIBO-stable for any
+    // regAlpha > 0 regardless of zeta -- see inverseFilter.cpp's header
+    // comment for why.
+    float regAlpha = 0.35f;
+    InverseFilterAxisModel x;
+    InverseFilterAxisModel y;
+};
+extern InverseFilterConfig gInverseFilter;

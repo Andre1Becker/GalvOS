@@ -34,6 +34,7 @@
 #include "patterns/point_optimizer.h"
 #include "warpGrid.h"
 #include "brightnessField.h"
+#include "inverseFilter.h"
 
 using optimizer::OptimizerConfig;
 using optimizer::PathSegment;
@@ -57,6 +58,16 @@ inline float dist(const LaserPoint& a, const LaserPoint& b) {
     float dx = (float)b.x - (float)a.x;
     float dy = (float)b.y - (float)a.y;
     return sqrtf(dx * dx + dy * dy);
+}
+
+// Field-by-field (not a whole-struct assignment -- InverseFilterConfig::
+// enabled is volatile like WarpConfig/BrightnessConfig's own enabled flag,
+// same convention those structs' tests already follow).
+void resetInverseFilterConfig() {
+    gInverseFilter.enabled  = false;
+    gInverseFilter.regAlpha = 0.35f;
+    gInverseFilter.x = InverseFilterAxisModel();
+    gInverseFilter.y = InverseFilterAxisModel();
 }
 
 }  // namespace
@@ -705,6 +716,122 @@ void test_brightnessFieldAppliesGain(void) {
     brightness::refresh();
 }
 
+// ── Prompt 12b: inverse filter is a no-op when inactive ────────────────────
+//
+// Not one of CONTRACT.md's numbered invariants -- pins down the "falls back
+// to Pillar 3 behavior when disabled" requirement structurally: apply() must
+// be an exact pass-through, both when the feature is off and when an axis
+// has no measured model (wnHz<=0), independent of whatever regAlpha/zeta
+// happen to be sitting in config.
+void test_inverseFilterPassthroughWhenInactive(void) {
+    resetInverseFilterConfig();  // enabled=false, both axes unmeasured
+    invfilter::refresh(30000);
+    TEST_ASSERT_FALSE_MESSAGE(invfilter::isActive(), "disabled+unmeasured must report inactive");
+
+    float x = 12345.0f, y = -6789.0f;
+    invfilter::apply(x, y);
+    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(12345.0f, x, "disabled filter altered x");
+    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(-6789.0f, y, "disabled filter altered y");
+
+    // Enabled, but no axis measured yet -- still must pass through.
+    gInverseFilter.enabled = true;
+    invfilter::refresh(30000);
+    x = 500.0f; y = -250.0f;
+    invfilter::apply(x, y);
+    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(500.0f, x, "enabled-but-unmeasured filter altered x");
+    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(-250.0f, y, "enabled-but-unmeasured filter altered y");
+
+    resetInverseFilterConfig();
+    invfilter::refresh(30000);
+}
+
+// ── Prompt 12b: inverse filter has unity DC gain ────────────────────────────
+//
+// H_inv(0) = wn^2 / (wn^2 * 1) = 1 analytically, for ANY wn>0/zeta/regAlpha>0
+// -- the regularization only shapes the ROLLOFF, not the DC term. Since the
+// bilinear transform maps s=0 to z=1 exactly, the discrete filter's settled
+// response to a constant input must converge to that same input, regardless
+// of which (wn, zeta, regAlpha) triple is under test. A model-independent
+// invariant, so it doubles as a design-error trap: get the numerator/
+// denominator derivation wrong (see inverseFilter.cpp's header comment) and
+// this fails for every parameter combination, not just edge cases.
+void test_inverseFilterDcGainUnity(void) {
+    const float sampleRate = 30000.0f;
+    const float wnCases[]    = { 50.0f, 210.0f, 800.0f };
+    const float zetaCases[]  = { 0.0f, 0.15f, 0.6f };
+    const float alphaCases[] = { 0.1f, 0.35f, 1.0f };
+
+    for (float wn : wnCases) {
+        for (float zeta : zetaCases) {
+            for (float alpha : alphaCases) {
+                resetInverseFilterConfig();
+                gInverseFilter.enabled  = true;
+                gInverseFilter.regAlpha = alpha;
+                gInverseFilter.x.wnHz   = wn;
+                gInverseFilter.x.zeta   = zeta;
+                invfilter::refresh((uint32_t)sampleRate);
+                invfilter::resetState();
+                TEST_ASSERT_TRUE_MESSAGE(invfilter::isActive(), "expected filter to be active");
+
+                const float target = 8000.0f;
+                float x = target, y = 0.0f;
+                // Settle: a 2nd-order filter's step response needs several
+                // time constants: run for many periods of the SLOWEST
+                // relevant rate (wn) to be sure it has converged.
+                for (int i = 0; i < 4000; i++) { x = target; invfilter::apply(x, y); }
+
+                snprintf(gMsg, sizeof(gMsg),
+                         "DC gain != 1 for wn=%.0fHz zeta=%.2f alpha=%.2f: settled=%.2f (target=%.2f)",
+                         wn, zeta, alpha, x, target);
+                TEST_ASSERT_FLOAT_WITHIN_MESSAGE(1.0f, target, x, gMsg);
+            }
+        }
+    }
+
+    resetInverseFilterConfig();
+    invfilter::refresh((uint32_t)sampleRate);
+}
+
+// ── Prompt 12b: inverse filter stays bounded under pathological input ──────
+//
+// The filter's poles sit at a fixed double root s=-wn/regAlpha (left-half-
+// plane for any regAlpha>0, wn>0) BY CONSTRUCTION -- the regularization, not
+// the measured zeta, determines stability (see inverseFilter.cpp's header
+// comment). Drives an extreme (near-Nyquist wn, high zeta, small regAlpha)
+// configuration with a worst-case alternating (bang-bang) input for many
+// iterations and asserts the output never diverges -- this is the property
+// pattern_engine.cpp's own defense-in-depth clamp exists as a backstop for,
+// not a substitute for the filter itself being sound.
+void test_inverseFilterStableUnderPathologicalCoeffs(void) {
+    const float sampleRate = 30000.0f;
+    resetInverseFilterConfig();
+    gInverseFilter.enabled    = true;
+    gInverseFilter.regAlpha   = 0.05f;                 // smallest value the design floors to
+    gInverseFilter.x.wnHz     = sampleRate * 0.45f;     // close to Nyquist
+    gInverseFilter.x.zeta     = 0.9f;                    // clamp ceiling
+    gInverseFilter.y.wnHz     = sampleRate * 0.45f;
+    gInverseFilter.y.zeta     = 0.0f;                    // undamped extreme, other end
+    invfilter::refresh((uint32_t)sampleRate);
+    invfilter::resetState();
+    TEST_ASSERT_TRUE_MESSAGE(invfilter::isActive(), "expected filter to be active");
+
+    const float amp = 32767.0f;
+    for (int i = 0; i < 5000; i++) {
+        float x = (i % 2 == 0) ? amp : -amp;   // worst-case bang-bang excitation
+        float y = (i % 3 == 0) ? amp : -amp;
+        invfilter::apply(x, y);
+        snprintf(gMsg, sizeof(gMsg), "inverse filter diverged at iter %d: x=%.1f y=%.1f", i, x, y);
+        // Generous bound (not the DC-gain-1 tightness above) -- this test is
+        // about boundedness, not accuracy: a stable-but-ringy filter can
+        // legitimately overshoot a hard step several times over.
+        TEST_ASSERT_TRUE_MESSAGE(isfinite(x) && fabsf(x) < amp * 20.0f, gMsg);
+        TEST_ASSERT_TRUE_MESSAGE(isfinite(y) && fabsf(y) < amp * 20.0f, gMsg);
+    }
+
+    resetInverseFilterConfig();
+    invfilter::refresh((uint32_t)sampleRate);
+}
+
 // ── 7. deterministicOutput ──────────────────────────────────────────────
 //
 // CLASS-IDENTICAL. Expected green already; if it ever goes red, that is a
@@ -1096,6 +1223,9 @@ int main(int, char**) {
     RUN_TEST(test_dacRangeValid);
     RUN_TEST(test_warpGridCornersInRange);
     RUN_TEST(test_brightnessFieldAppliesGain);
+    RUN_TEST(test_inverseFilterPassthroughWhenInactive);
+    RUN_TEST(test_inverseFilterDcGainUnity);
+    RUN_TEST(test_inverseFilterStableUnderPathologicalCoeffs);
     RUN_TEST(test_deterministicOutput);
     RUN_TEST(test_statsConsistent);
     RUN_TEST(test_reorderSegmentsShortensJumps);

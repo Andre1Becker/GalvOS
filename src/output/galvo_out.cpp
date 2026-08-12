@@ -9,6 +9,7 @@
 #include "../util/log_buffer.h"
 #include "../util/mem_registry.h"
 #include "../util/stack_mon.h"
+#include "../inverseFilter.h"
 #include <esp_timer.h>
 #include <driver/spi_master.h>
 #include <driver/gpio.h>
@@ -1092,6 +1093,7 @@ static void autotuneTask(void*) {
     if (s_autotune_abort_req) {
         gProjection.galvo_kpps = s_autotune_saved_kpps;
         gPatternCacheGen++;
+        invfilter::refresh((uint32_t)gProjection.galvo_kpps * 1000);
         s_autotune.done = false;
         ESP_LOGI(TAG, "Autotune aborted, restored %u kpps", s_autotune_saved_kpps);
     } else {
@@ -1101,6 +1103,7 @@ static void autotuneTask(void*) {
                          ? best - AUTOTUNE_MARGIN_KPPS : best;
         gProjection.galvo_kpps    = result;
         gPatternCacheGen++;
+        invfilter::refresh((uint32_t)gProjection.galvo_kpps * 1000);
         s_autotune.result_kpps    = result;
         s_autotune.floor_unstable = !floor_ok;
         s_autotune.done           = true;
