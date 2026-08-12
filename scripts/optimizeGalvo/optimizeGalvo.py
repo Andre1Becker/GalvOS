@@ -45,6 +45,12 @@ Target: GalvOS ESP32-S3 controller via REST (/api/calib-cam/*, /api/status).
                   Bode magnitude curve, extracting fRes/Q -> ring_freq_hz/
                   ring_damping_ratio for the ZV-shaper ringing compensation.
                   No homography needed - relative amplitude only.
+ 12. tune-dac-range - projects the static 'square' test pattern and camera-
+                  closed-loop auto-tunes galvo_x/y_gain + galvo_x/y_offset
+                  (POST /api/calib-live) so its bounding box just fills the
+                  camera frame without running off it - shrinks a clipped
+                  side, expands an underscanning axis, freezes once
+                  converged. No homography needed.
 
 ---
 
@@ -64,6 +70,8 @@ Target: GalvOS ESP32-S3 controller via REST (/api/calib-cam/*, /api/status).
   python optimizeGalvo.py calibrate-warp --grid-size 3 --target-rect 100,80,1180,720
   python optimizeGalvo.py calibrate-warp --grid-size 2 --dry-run
   python optimizeGalvo.py measure-resonance --axis x
+  python optimizeGalvo.py tune-dac-range
+  python optimizeGalvo.py tune-dac-range --max-iterations 10 --dry-run
   python optimizeGalvo.py --config myRig.json check
 
 ---
@@ -106,7 +114,7 @@ import requests
 # ── versioning ───────────────────────────────────────────────────────────────
 # Semantic version of this script (independent of GalvOS firmware version).
 # Bump on every behavioral change; see git log for change history.
-SCRIPT_VERSION = "2.15.0"
+SCRIPT_VERSION = "2.16.0"
 
 # GalvOS firmware version that introduced /api/calib-cam/* (see firmware git log:
 # "fw: v6.03.0 -- camera-in-the-loop calibration API (calib-cam)").
@@ -480,6 +488,10 @@ DEFAULT_CONFIG = {
                                 # solve (measure -> correct -> measure, max 3 rounds)
                                 # stops early once a point's camera-pixel residual is
                                 # under this
+    "dacRangeTuneStepUnits": 600,  # tune-dac-range: bounded per-iteration gain/offset
+                                # adjustment, DAC-code units - see autoTuneDacRange().
+                                # Small enough that a single overshoot step can't jump
+                                # straight from clipped to badly underscanning.
     "resonanceAxis": "x",       # measure-resonance: which galvo axis to drive
     "resonanceAmpFraction": 0.15,  # measure-resonance: test-drive peak amplitude as a
                                 # fraction of the safe DAC range (min(0x8000-dac_limit_min,
@@ -637,6 +649,8 @@ def validateConfig(cfg: dict):
         problems.append("warpCalibMinPeakVal must be a number between 0 and 255")
     if not isinstance(cfg.get("warpCalibToleranceCameraPx"), (int, float)) or cfg["warpCalibToleranceCameraPx"] <= 0:
         problems.append("warpCalibToleranceCameraPx must be a positive number")
+    if not isinstance(cfg.get("dacRangeTuneStepUnits"), (int, float)) or cfg["dacRangeTuneStepUnits"] <= 0:
+        problems.append("dacRangeTuneStepUnits must be a positive number")
     if not isinstance(cfg.get("liveAnalysisMinComponentPx"), (int, float)) or cfg["liveAnalysisMinComponentPx"] < 0:
         problems.append("liveAnalysisMinComponentPx must be a non-negative number")
     if cfg.get("resonanceAxis") not in ("x", "y"):
@@ -1935,6 +1949,324 @@ def _runCalibrateWarpBody(cfg: dict, esp: EspClient, cam: "Camera", n: int,
 
     esp.warpSet(n, points, enabled=True)
     prOk("warp grid applied via /api/warp/set")
+
+
+# ── DAC-range clip detection + auto-tune (Prompt 10) ──────────────────────────
+#
+# Distinct from Prompt 9a's firmware-side dacClipX/Y counters (measureOnce() above):
+# those flag DAC-CODE clipping against dac_limit_min/max, the fixed OPA-safety clamp.
+# This is a CAMERA-side read - it looks at where the projected 'square' calib-cam
+# pattern's bounding box sits relative to the CAPTURED FRAME's own border, to catch
+# the image running off the visible/projectable area (or under-filling it), which is
+# a framing/calibration problem, not a DAC-safety one. Auto-tunes galvo_x/y_gain and
+# galvo_x/y_offset - the same live-settable fields (POST /api/calib-live) 7b/9b/the
+# WebUI's Calibration card already expose - rather than dac_limit_min/max itself,
+# since that clamp is the hardware OPA-clipping safety margin (docs/HARDWARE.md),
+# not a free per-axis framing knob. Like calibrate-warp/measure-resonance, needs no
+# prior homography.npz - it only ever reasons in camera-pixel space.
+
+# 'square' (calib_patterns.cpp's cam_square()) is a fixed, static, closed 4-vertex
+# outline at pattern-space +-CAM_H with sharp 90deg corners and single-channel
+# max-brightness color (camColorOut, same 0/255-only convention as every other
+# calib-cam pattern) - the thin rectangle-outline test pattern this feature needs.
+# Its corner-dwell points are the only place ringing/overshoot can show up; detecting
+# via the bounding rect's SIDES (never its corners, see detectClipping below) keeps
+# that isolated and out of the clip/underscan read.
+CALIB_CAM_SQUARE_HALF = 15000.0   # mirrors calib_patterns.cpp's CAM_H
+
+DAC_RANGE_TUNE_CLIP_MARGIN_FRAC = 0.03     # bbox within this fraction of the frame
+                                            # border on a side -> that side is CLIPped
+DAC_RANGE_TUNE_DEADBAND_FRAC = 0.025       # convergence guard: freeze a side once its
+                                            # margin sits within [CLIP_MARGIN_FRAC,
+                                            # CLIP_MARGIN_FRAC + this] - i.e. it just
+                                            # cleared the clip threshold with a small,
+                                            # safe margin (the goal: hug the frame border
+                                            # as closely as safely possible). Without
+                                            # this a side could shrink past the clip
+                                            # threshold and expand back past it forever.
+DAC_RANGE_TUNE_UNDERSCAN_FRAC = (DAC_RANGE_TUNE_CLIP_MARGIN_FRAC
+                                 + DAC_RANGE_TUNE_DEADBAND_FRAC)  # bbox clears this much
+                                            # margin on BOTH sides of an axis ->
+                                            # UNDERSCANning. Deliberately pinned to sit
+                                            # right at the deadband's outer edge, not a
+                                            # separately-tuned wider value - a gap between
+                                            # "frozen" and "underscan" would be a dead
+                                            # zone where a side is neither clipped,
+                                            # underscanning, nor within the freeze
+                                            # deadband, so autoTuneDacRange never touches
+                                            # it and the loop can never converge on it.
+DAC_RANGE_TUNE_MIN_SPAN_UNITS = 4000.0     # never let a shrink collapse an axis' span
+                                            # below this
+
+
+@dataclass
+class AxisClipStatus:
+    """Per-axis clip/underscan read for one 'tune-dac-range' capture. low/high refer
+    to the bounding box's near-zero-side / far-side edge (left/top vs. right/bottom in
+    frame pixels) - kept separate rather than one combined per-axis verdict because a
+    physically off-center projection can clip on only one side while the other
+    underscans."""
+    lowClipped: bool
+    highClipped: bool
+    underscan: bool
+    lowMarginFrac: float
+    highMarginFrac: float
+
+    @property
+    def label(self) -> str:
+        if self.lowClipped and self.highClipped:
+            return "CLIP_BOTH"
+        if self.lowClipped:
+            return "CLIP_LOW"
+        if self.highClipped:
+            return "CLIP_HIGH"
+        if self.underscan:
+            return "UNDERSCAN"
+        return "OK"
+
+
+def detectClipping(frame: np.ndarray, threshold: int) -> dict[str, AxisClipStatus]:
+    """Bounding-box-only clip/underscan detector for a projected calib-cam test
+    pattern capture (already background-subtracted). Deliberately does NOT do corner/
+    edge shape detection - thresholds frame to a binary mask, then cv2.boundingRect(
+    mask) alone gives the four extremes the beam actually reached. Reading the
+    resulting box's SIDES (never its corners) keeps corner-dwell ringing/overshoot -
+    which stays localized to the shape's actual corners - from ever contaminating the
+    edge-clip read. Returns {'x': AxisClipStatus, 'y': AxisClipStatus}."""
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY) if frame.ndim == 3 else frame
+    _, mask = cv2.threshold(gray, threshold, 255, cv2.THRESH_BINARY)
+    if not np.any(mask):
+        raise OptimizerError(
+            "detectClipping: nothing above threshold in the capture - check the laser "
+            "is armed and 'square' is actually projecting (see 'optimizeGalvo.py "
+            "preview' to verify focus/exposure)."
+        )
+    x, y, w, h = cv2.boundingRect(mask)
+    frameH, frameW = mask.shape[:2]
+
+    def axisStatus(lo: float, hi: float, span: float) -> AxisClipStatus:
+        lowFrac = lo / span
+        highFrac = (span - hi) / span
+        lowClipped = lowFrac <= DAC_RANGE_TUNE_CLIP_MARGIN_FRAC
+        highClipped = highFrac <= DAC_RANGE_TUNE_CLIP_MARGIN_FRAC
+        underscan = (not lowClipped and not highClipped
+                    and lowFrac >= DAC_RANGE_TUNE_UNDERSCAN_FRAC
+                    and highFrac >= DAC_RANGE_TUNE_UNDERSCAN_FRAC)
+        return AxisClipStatus(lowClipped, highClipped, underscan, lowFrac, highFrac)
+
+    return {
+        "x": axisStatus(x, x + w, frameW),
+        "y": axisStatus(y, y + h, frameH),
+    }
+
+
+def autoTuneDacRange(currentRange: tuple[float, float, float, float],
+                     clipStatus: dict[str, AxisClipStatus],
+                     step: float = 600.0) -> tuple[float, float, float, float]:
+    """One bounded adjustment step over (xMin, xMax, yMin, yMax) DAC-code-space
+    bounds: shrinks the side(s) that clipped (moving that bound inward, towards
+    center), expands both sides of an axis that's underscanning, and leaves a side
+    untouched otherwise - including when the caller has zeroed a frozen side's flags
+    (see runTuneDacRange's convergence guard). Clamps to the DAC8562's raw int16
+    range and enforces a minimum span so opposite-side clipping can never collapse an
+    axis to zero width."""
+    xMin, xMax, yMin, yMax = currentRange
+    xs, ys = clipStatus["x"], clipStatus["y"]
+
+    if xs.lowClipped:
+        xMin += step
+    elif xs.underscan:
+        xMin -= step
+    if xs.highClipped:
+        xMax -= step
+    elif xs.underscan:
+        xMax += step
+
+    if ys.lowClipped:
+        yMin += step
+    elif ys.underscan:
+        yMin -= step
+    if ys.highClipped:
+        yMax -= step
+    elif ys.underscan:
+        yMax += step
+
+    def clampSpan(lo: float, hi: float) -> tuple[float, float]:
+        lo = max(-32768.0, min(32767.0, lo))
+        hi = max(-32768.0, min(32767.0, hi))
+        if hi - lo < DAC_RANGE_TUNE_MIN_SPAN_UNITS:
+            mid = (lo + hi) / 2.0
+            lo = mid - DAC_RANGE_TUNE_MIN_SPAN_UNITS / 2.0
+            hi = mid + DAC_RANGE_TUNE_MIN_SPAN_UNITS / 2.0
+        return lo, hi
+
+    xMin, xMax = clampSpan(xMin, xMax)
+    yMin, yMax = clampSpan(yMin, yMax)
+    return xMin, xMax, yMin, yMax
+
+
+def _inDeadband(marginFrac: float) -> bool:
+    return (DAC_RANGE_TUNE_CLIP_MARGIN_FRAC <= marginFrac
+           <= DAC_RANGE_TUNE_CLIP_MARGIN_FRAC + DAC_RANGE_TUNE_DEADBAND_FRAC)
+
+
+def _squarePatternExtremes(transform: CalibTransform, half: float) -> tuple[float, float, float, float]:
+    """Returns (pXlo, pXhi, pYlo, pYhi): the 'square' pattern's two corner positions
+    per axis, AFTER mirror/invert/swap but BEFORE gain/offset/outputScale - evaluated
+    through a neutral transform (gain=32767, offset=0, outputScale=1, same swap/
+    invert bits as the real one) since those three steps of CalibTransform.toDac()
+    reduce to the identity at those neutral values. applyCalibration()'s gain/offset/
+    outputScale is then a pure per-axis affine step on top of these two fixed points -
+    see _solveGainOffset()."""
+    neutral = CalibTransform(swapXy=transform.swapXy, invertX=transform.invertX,
+                             invertY=transform.invertY, gainX=32767.0, gainY=32767.0,
+                             offsetX=0.0, offsetY=0.0, outputScale=1.0)
+    ax, ay = neutral.toDac(-half, -half)
+    bx, by = neutral.toDac(half, half)
+    xLo, xHi = sorted((ax, bx))
+    yLo, yHi = sorted((ay, by))
+    return xLo, xHi, yLo, yHi
+
+
+def _solveGainOffset(pLo: float, pHi: float, dacLo: float, dacHi: float,
+                     outputScale: float) -> tuple[float, float]:
+    """Exact inverse of applyCalibration()'s per-axis gain/offset/outputScale chain:
+    solves the (gain, offset) pair that makes pattern-space corner positions pLo/pHi
+    (already mirror/inverted - see _squarePatternExtremes()) land exactly on DAC
+    positions dacLo/dacHi, holding outputScale fixed (it's a single global knob shared
+    by both axes - 9b's own separate pre-clamp scale - not part of this per-axis
+    solve). Same "exact mechanical inverse, not an empirical fit" approach as
+    calibrate-warp's CalibTransform (Prompt 7b)."""
+    qLo, qHi = dacLo / outputScale, dacHi / outputScale
+    gain = (qHi - qLo) * 32767.0 / (pHi - pLo)
+    offset = qLo - pLo * gain / 32767.0
+    return gain, offset
+
+
+def runTuneDacRange(cfg: dict, esp: EspClient, cam: "Camera", maxIterations: int, dryRun: bool):
+    espCfg = esp.getConfig()
+    baseline = CalibTransform.fromEspConfig(espCfg)
+    limLo = int(espCfg.get("dac_limit_min", 0x0666)) - 32768
+    limHi = int(espCfg.get("dac_limit_max", 0xF999)) - 32768
+
+    def restoreBaseline():
+        esp.setCalibLive(galvo_x_gain=int(round(baseline.gainX)),
+                        galvo_y_gain=int(round(baseline.gainY)),
+                        galvo_x_offset=int(round(baseline.offsetX)),
+                        galvo_y_offset=int(round(baseline.offsetY)))
+
+    pXlo, pXhi, pYlo, pYhi = _squarePatternExtremes(baseline, CALIB_CAM_SQUARE_HALF)
+    dacXlo, dacYlo = baseline.toDac(-CALIB_CAM_SQUARE_HALF, -CALIB_CAM_SQUARE_HALF)
+    dacXhi, dacYhi = baseline.toDac(CALIB_CAM_SQUARE_HALF, CALIB_CAM_SQUARE_HALF)
+    currentRange = (min(dacXlo, dacXhi), max(dacXlo, dacXhi),
+                    min(dacYlo, dacYhi), max(dacYlo, dacYhi))
+    pr(f"starting DAC range (from live gain/offset): "
+      f"X [{currentRange[0]:.0f}, {currentRange[1]:.0f}]  "
+      f"Y [{currentRange[2]:.0f}, {currentRange[3]:.0f}]")
+
+    esp.stop()
+    time.sleep(0.3)
+    cam.statusText = "tune-dac-range: background (laser off)"
+    background = cam.grabBackground()
+
+    frozen = {"xLow": False, "xHigh": False, "yLow": False, "yHigh": False}
+    converged = False
+    lastGainOffset = (baseline.gainX, baseline.gainY, baseline.offsetX, baseline.offsetY)
+    try:
+        for i in range(maxIterations):
+            gainX, offsetX = _solveGainOffset(pXlo, pXhi, currentRange[0], currentRange[1],
+                                              baseline.outputScale)
+            gainY, offsetY = _solveGainOffset(pYlo, pYhi, currentRange[2], currentRange[3],
+                                              baseline.outputScale)
+            gainX = max(100.0, min(32767.0, gainX))
+            gainY = max(100.0, min(32767.0, gainY))
+            offsetX = max(-32768.0, min(32767.0, offsetX))
+            offsetY = max(-32768.0, min(32767.0, offsetY))
+            lastGainOffset = (gainX, gainY, offsetX, offsetY)
+            esp.setCalibLive(galvo_x_gain=int(round(gainX)), galvo_y_gain=int(round(gainY)),
+                             galvo_x_offset=int(round(offsetX)), galvo_y_offset=int(round(offsetY)))
+
+            waitWhilePaused(cam)  # safe boundary: laser is off (esp.stop() below already ran once)
+            esp.startPattern("square", channel=cfg["camPatternChannel"])
+            time.sleep(cfg["patternSwitchSettleSeconds"])
+            time.sleep(cfg["settleSeconds"])
+            cam.statusText = f"tune-dac-range: iteration {i + 1}/{maxIterations}"
+            capture = cam.grabAccumulated(cfg["accumFrames"])
+            esp.stop()
+            time.sleep(cfg["patternSwitchSettleSeconds"])
+
+            diff = cv2.subtract(capture, background)
+            status = detectClipping(diff, cfg["binaryThreshold"])
+            xs, ys = status["x"], status["y"]
+
+            pr(f"iter {i + 1}/{maxIterations}: X={xs.label} (margins {xs.lowMarginFrac:.1%}/"
+              f"{xs.highMarginFrac:.1%})  Y={ys.label} (margins {ys.lowMarginFrac:.1%}/"
+              f"{ys.highMarginFrac:.1%})  range X[{currentRange[0]:.0f},{currentRange[1]:.0f}] "
+              f"Y[{currentRange[2]:.0f},{currentRange[3]:.0f}]")
+
+            if not frozen["xLow"] and _inDeadband(xs.lowMarginFrac):
+                frozen["xLow"] = True
+            if not frozen["xHigh"] and _inDeadband(xs.highMarginFrac):
+                frozen["xHigh"] = True
+            if not frozen["yLow"] and _inDeadband(ys.lowMarginFrac):
+                frozen["yLow"] = True
+            if not frozen["yHigh"] and _inDeadband(ys.highMarginFrac):
+                frozen["yHigh"] = True
+
+            if all(frozen.values()):
+                converged = True
+                prOk(f"converged after {i + 1} iteration(s) - all four edges within the "
+                    f"target margin")
+                break
+
+            effStatus = {
+                "x": AxisClipStatus(xs.lowClipped and not frozen["xLow"],
+                                    xs.highClipped and not frozen["xHigh"],
+                                    xs.underscan and not (frozen["xLow"] or frozen["xHigh"]),
+                                    xs.lowMarginFrac, xs.highMarginFrac),
+                "y": AxisClipStatus(ys.lowClipped and not frozen["yLow"],
+                                    ys.highClipped and not frozen["yHigh"],
+                                    ys.underscan and not (frozen["yLow"] or frozen["yHigh"]),
+                                    ys.lowMarginFrac, ys.highMarginFrac),
+            }
+            currentRange = autoTuneDacRange(currentRange, effStatus,
+                                            step=cfg["dacRangeTuneStepUnits"])
+            # dac_limit_min/max is the tighter, real hardware-safety clamp (OPA
+            # clipping margin, docs/HARDWARE.md) - autoTuneDacRange only enforces the
+            # raw int16 DAC range, so re-clamp against it here before the next iteration.
+            currentRange = (max(limLo, currentRange[0]), min(limHi, currentRange[1]),
+                            max(limLo, currentRange[2]), min(limHi, currentRange[3]))
+        else:
+            stillMoving = [k for k, v in frozen.items() if not v]
+            prWarn(f"reached max-iterations ({maxIterations}) without full convergence - "
+                  f"{stillMoving} still adjusting")
+    finally:
+        esp.stop()
+
+    gainX, gainY, offsetX, offsetY = lastGainOffset
+    prTable([
+        ("galvo_x_gain", f"{baseline.gainX:.0f} -> {gainX:.0f}"),
+        ("galvo_y_gain", f"{baseline.gainY:.0f} -> {gainY:.0f}"),
+        ("galvo_x_offset", f"{baseline.offsetX:.0f} -> {offsetX:.0f}"),
+        ("galvo_y_offset", f"{baseline.offsetY:.0f} -> {offsetY:.0f}"),
+    ], headers=("field", "value"))
+
+    if dryRun:
+        prInfo("dry-run: leaving the original calibration live, nothing saved")
+        restoreBaseline()
+        return
+
+    if not converged and not askYesNo(
+            "did not fully converge - keep the last tuned values live anyway?", default=False):
+        restoreBaseline()
+        prInfo("reverted to the original calibration")
+        return
+
+    if askYesNo("save the tuned gain/offset to NVS (POST /api/calib-save)?", default=True):
+        esp.calibSave()
+        prOk("saved via /api/calib-save")
+    else:
+        prInfo("left live (not persisted) - values revert on the next ESP32 reboot")
 
 
 # ── resonance measurement (Prompt 13) ─────────────────────────────────────────
@@ -3650,7 +3982,8 @@ def runDiagnose(cfg: dict, esp: EspClient, cam: Camera, profile: str | None,
 # ESP32 at all; 'analyze-live' never starts/stops a pattern by design and does its
 # own non-blocking version of this same check inline (see runAnalyzeLive).
 LASER_REQUIRED_CMDS = ("calibrate", "measure", "optimize", "diagnose", "autotune-camera",
-                      "autotune-colors", "calibrate-warp", "measure-resonance")
+                      "autotune-colors", "calibrate-warp", "measure-resonance",
+                      "tune-dac-range")
 
 
 def requireLaserReady(esp: EspClient):
@@ -4501,6 +4834,10 @@ def main():
                             ring_freq_hz/ring_damping_ratio for the ZV shaper -
                             independent of 'calibrate'/homography.npz, no
                             pixel<->DAC mapping needed (relative amplitude only)
+              tune-dac-range  camera closed-loop auto-tune of per-axis galvo
+                            gain/offset framing (clip/underscan vs. the camera
+                            frame border) - independent of 'calibrate'/
+                            homography.npz, no pixel<->DAC mapping needed
 
             {"-" * 78}
             files:
@@ -4941,6 +5278,38 @@ def main():
         "--axis", choices=["x", "y"], default=None,
         help="galvo axis to drive (default: resonanceAxis in camConfig.json, 'x')")
 
+    pTune = sub.add_parser(
+        "tune-dac-range",
+        help="camera closed-loop auto-tune of per-axis galvo gain/offset framing",
+        description="Projects the static 'square' calib-cam pattern (thin rectangle "
+                     "outline, full-contrast single channel, sharp corners) and reads "
+                     "where its bounding box sits in the CAPTURED FRAME: a side within "
+                     "~3% of the frame border counts as clipped, both sides of an axis "
+                     "clearing ~5.5% counts as underscanning, otherwise OK (settled, "
+                     "converged). Each "
+                     "iteration solves and live-applies (POST /api/calib-live) the "
+                     "galvo_x/y_gain + galvo_x/y_offset that would realize the next "
+                     "candidate DAC-code range, re-measures, and adjusts again - "
+                     "shrinking a clipped side, expanding an underscanning axis, "
+                     "freezing a side once it settles within a small deadband of the "
+                     "clip threshold (avoids oscillating forever right at the edge). "
+                     "Distinct from Prompt 9a's dacClipX/Y (that flags DAC-CODE "
+                     "clipping against the fixed dac_limit_min/max safety clamp, not "
+                     "touched here) - this is a camera-pixel framing read, and (like "
+                     "calibrate-warp/measure-resonance) needs no prior homography.npz. "
+                     "Prints the tuned gain/offset table, then asks before persisting "
+                     "via /api/calib-save (declining leaves them live but reverts on "
+                     "next reboot) - or reverts to the original calibration entirely on "
+                     "--dry-run or a declined non-converged run. Shows a live camera "
+                     "view window throughout (see --no-view/--zoom).")
+    pTune.add_argument(
+        "--max-iterations", type=int, default=30, dest="maxIterations",
+        help="stop after this many iterations even if not fully converged (default: 30)")
+    pTune.add_argument(
+        "--dry-run", action="store_true", dest="dryRun",
+        help="run the tuning loop and print the result, but restore the original "
+             "gain/offset afterwards instead of asking to save")
+
     parser.add_argument(
         "--debug", action="store_true",
         help="on error, print a full Python traceback instead of a short message "
@@ -4999,7 +5368,8 @@ def dispatch(args):
 
     showView = cfg.get("showCameraView", True) and not args.noView
     viewCmds = ("calibrate", "measure", "optimize", "diagnose", "autotune-camera",
-               "autotune-colors", "analyze-live", "calibrate-warp", "measure-resonance")
+               "autotune-colors", "analyze-live", "calibrate-warp", "measure-resonance",
+               "tune-dac-range")
     liveView = LiveView("GalvOS camera view", cfg["frameWidth"], cfg["frameHeight"],
                         zoomIdx=args.zoom - 1) \
         if showView and args.cmd in viewCmds else None
@@ -5051,6 +5421,8 @@ def dispatch(args):
             runCalibrateWarp(cfg, esp, cam, args.gridSize, targetRect, args.frames, args.dryRun)
         elif args.cmd == "measure-resonance":
             runMeasureResonance(cfg, esp, cam, args.axis)
+        elif args.cmd == "tune-dac-range":
+            runTuneDacRange(cfg, esp, cam, args.maxIterations, args.dryRun)
         if liveView:
             holdLiveView(cam, cfg.get("resultViewHoldSeconds", MIN_RESULT_VIEW_HOLD_SECONDS))
     finally:
