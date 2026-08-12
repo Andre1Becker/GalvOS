@@ -484,6 +484,24 @@ inline OptimizerConfig configFromLive(const OptimizerLiveConfig& live,
 void emitBlankTo(LaserPoint* out, size_t& n, size_t max,
                  float x1, float y1, const OptimizerConfig& cfg);
 
+// P22: re-times an already-blank-flagged run of points IN PLACE
+// (out[i0..i1)) with the same smoothstep-ease(+ZV-shape) trajectory Pillar
+// 2/3 build for pattern-generated blank jumps -- for callers whose points
+// come pre-rendered (ILDA playback) rather than through optimize(). The
+// run's own point count never changes: no-op (leaves out[i0..i1) untouched)
+// if count < 2 or count > kMaxBlankPts (128, see point_optimizer.cpp).
+// Endpoints are out[i0]/out[i1-1] -- the run's OWN recorded coordinates,
+// never a neighboring frame's position, since ILDA keeps no cross-frame
+// position state. Only cfg.ring_freq_hz/.ring_damping_ratio/
+// .ringing_comp_enabled/.galvo_kpps/.min_blank_samples are read.
+void reshapeBlankRun(LaserPoint* out, size_t i0, size_t i1, const OptimizerConfig& cfg);
+
+// Scans out[0..n) for contiguous blank==1 runs and calls reshapeBlankRun()
+// on each. Used by pattern_engine.cpp's ILDA branch, gated on
+// ilda::ILDAConfig::blank_reshape_enabled (default false, so existing ILDA
+// playback is unaffected until opted in).
+void reshapeBlankRuns(LaserPoint* out, size_t n, const OptimizerConfig& cfg);
+
 // Velocity / Acceleration clamp (Phase 4) post-pass, exposed directly for
 // callers that own an already-emitted LaserPoint stream instead of
 // PathSegment geometry -- e.g. ILDA playback, whose frames come pre-

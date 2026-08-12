@@ -28,6 +28,17 @@ struct ILDAConfig {
     bool      invert_y   = false;  // mirror Y axis
     bool      col_override = false; // replace file's own colors with col_r/g/b
     uint8_t   col_r = 255, col_g = 255, col_b = 255;
+    // P22: re-shape the file's own blank runs with Pillar 2/3's smoothstep-
+    // ease(+ZV) trajectory (optimizer::reshapeBlankRuns()) instead of
+    // playing them back exactly as authored. Session-only, like every other
+    // field on this struct -- no NVS key, no backup/community-preset schema
+    // entry (see Session M/P18: ILDA's optimizer-adjacent config is
+    // deliberately hand-built, not routed through configFromLive()). ZV
+    // coefficients (ring_freq_hz/ring_damping_ratio/ringing_comp_enabled)
+    // still come from the single Optimizer-tab profile (gOptimizerConfig)
+    // -- this bool is only the on/off gate. Default false -> existing ILDA
+    // playback is byte-identical until opted in.
+    bool      blank_reshape_enabled = false;
     // Statistik (read-only)
     uint16_t  total_frames = 0;
     uint16_t  current_frame = 0;

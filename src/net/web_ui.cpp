@@ -1868,6 +1868,8 @@ void init() {
             if (doc["col_r"].is<int>())         ilda::gILDA.col_r        = doc["col_r"];
             if (doc["col_g"].is<int>())         ilda::gILDA.col_g        = doc["col_g"];
             if (doc["col_b"].is<int>())         ilda::gILDA.col_b        = doc["col_b"];
+            if (doc["blank_reshape_enabled"].is<bool>())
+                ilda::gILDA.blank_reshape_enabled = doc["blank_reshape_enabled"];
             req->send(200, "text/plain", "OK");
         });
 
@@ -1914,6 +1916,7 @@ void init() {
         doc["col_r"]   = ilda::gILDA.col_r;
         doc["col_g"]   = ilda::gILDA.col_g;
         doc["col_b"]   = ilda::gILDA.col_b;
+        doc["blank_reshape_enabled"] = ilda::gILDA.blank_reshape_enabled;
         if (ilda::gILDA.file_idx >= 0 && ilda::gILDA.file_idx < sd_card::fileCount())
             doc["name"] = sd_card::fileName(ilda::gILDA.file_idx);
         sendJsonPsram(req, doc);

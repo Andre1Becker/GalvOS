@@ -917,6 +917,7 @@ canvas { max-width: 100%; display: block; }
             <label class="row"><input type="checkbox" id="ilda-color-override" onchange="ildaParamChange()"> Color Override</label>
             <label class="row"><input type="checkbox" id="ilda-invert-x" onchange="ildaParamChange()"> Invert X</label>
             <label class="row"><input type="checkbox" id="ilda-invert-y" onchange="ildaParamChange()"> Invert Y</label>
+            <label class="row"><input type="checkbox" id="ilda-blank-reshape" onchange="ildaParamChange()"> ZV Blank Reshape</label>
           </div>
 
           <div class="card">
@@ -1409,7 +1410,7 @@ canvas { max-width: 100%; display: block; }
 /* =========================================================================
    GLOBAL STATE
    ========================================================================= */
-var UI_VERSION = '1.7.3';   // WebUI version -- independent from firmware version
+var UI_VERSION = '1.7.4';   // WebUI version -- independent from firmware version
 var NAV_TABS = [
   {id: 'dashboard', label: 'Dashboard', icon: '🏠', bottom: true},
   {id: 'presets', label: 'Presets', icon: '🎮', bottom: true},
@@ -3792,7 +3793,8 @@ async function ildaSetEnabled(v) { await apiCall('POST', '/api/ilda/enable', {en
 async function ildaParamChange() {
   await apiCall('POST', '/api/ilda/param', {
     speed: domVal('ilda-speed', 128), size: domVal('ilda-size', 128), loop: domVal('ilda-loop', false),
-    col_override: domVal('ilda-color-override', false), invert_x: domVal('ilda-invert-x', false), invert_y: domVal('ilda-invert-y', false)
+    col_override: domVal('ilda-color-override', false), invert_x: domVal('ilda-invert-x', false), invert_y: domVal('ilda-invert-y', false),
+    blank_reshape_enabled: domVal('ilda-blank-reshape', false)
   });
 }
 async function ildaStop() { await apiCall('POST', '/api/ilda/stop'); }
@@ -3811,6 +3813,7 @@ async function updateIldaPlayerUI() {
   setIfNotFocused('ilda-speed', r.speed); setIfNotFocused('ilda-size', r.size);
   setIfNotFocused('ilda-loop', r.loop, true); setIfNotFocused('ilda-color-override', r.col_override, true);
   setIfNotFocused('ilda-invert-x', r.invert_x, true); setIfNotFocused('ilda-invert-y', r.invert_y, true);
+  setIfNotFocused('ilda-blank-reshape', r.blank_reshape_enabled, true);
   var enEl = document.getElementById('ilda-enabled'); if (enEl && document.activeElement !== enEl) enEl.checked = !!r.enabled;
 }
 function startIldaRefresh() {

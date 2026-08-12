@@ -1278,11 +1278,13 @@ void task(void*) {
 
                     // Velocity clamp only -- protects the galvo if galvo_kpps
                     // is set low and the file contains point-to-point jumps
-                    // too large for that speed. Resample / corner dwell / ZV
-                    // blanking deliberately stay off: ILDA blanking is
-                    // already encoded by the file's author, and resampling
-                    // would destroy timing-dependent effects (flicker,
-                    // strobes) baked into the original point spacing.
+                    // too large for that speed. Resample / corner dwell stay
+                    // off: resampling would destroy timing-dependent effects
+                    // (flicker, strobes) baked into the original point
+                    // spacing. ZV blanking is selectively re-enabled below,
+                    // for detected blank runs only, when the ILDA card's
+                    // "ZV Blank Reshape" toggle is set (P22) -- otherwise
+                    // blanking stays exactly as the file's author encoded it.
                     optimizer::OptimizerConfig clampCfg;
                     clampCfg.vel_clamp_enabled   = gOptimizerConfig.vel_clamp_enabled;
                     clampCfg.max_step_units      = gOptimizerConfig.max_step_units;
@@ -1292,6 +1294,23 @@ void task(void*) {
                     optimizer::applyPpsScaling(clampCfg, gProjection.galvo_rated_kpps,
                                                gProjection.galvo_kpps);
                     n = optimizer::clampScannerLimits(s_frame, n, clampCfg, PATTERN_POINTS_MAX);
+
+                    // P22: re-time the file's own blank runs with Pillar 2/3's
+                    // ZV-shaped trajectory. Gated on ilda::gILDA (session-only,
+                    // no NVS/backup/community-preset entry -- see Session
+                    // M/P18: ILDA's optimizer-adjacent config stays hand-built,
+                    // not routed through configFromLive()); the ZV coefficients
+                    // themselves still come from the one Optimizer-tab profile,
+                    // same as clampCfg above. Default off -> byte-identical
+                    // playback until opted in.
+                    if (ilda::gILDA.blank_reshape_enabled) {
+                        optimizer::OptimizerConfig reshapeCfg;
+                        reshapeCfg.ringing_comp_enabled = gOptimizerConfig.ringing_comp_enabled;
+                        reshapeCfg.ring_freq_hz         = gOptimizerConfig.ring_freq_hz;
+                        reshapeCfg.ring_damping_ratio   = gOptimizerConfig.ring_damping_ratio;
+                        reshapeCfg.galvo_kpps           = gProjection.galvo_kpps;
+                        optimizer::reshapeBlankRuns(s_frame, n, reshapeCfg);
+                    }
 
                     applyCalibration(s_frame, n);
                     if (gState.master_dimmer.load() > 0) {
