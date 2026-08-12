@@ -198,6 +198,10 @@ struct OptimizerConfig {
     // OPT_DEFAULT_REORDER_SEGMENTS in config.h for the full description. Off
     // by default -> byte-identical (segments visited in input order).
     bool     reorder_segments     = OPT_DEFAULT_REORDER_SEGMENTS;
+    // 2-opt refinement on top of the NN tour (P11a) -- see
+    // OPT_DEFAULT_REORDER_2OPT in config.h. Only acts when reorder_segments is
+    // on; off by default -> byte-identical to the greedy-only reorder.
+    bool     reorder_2opt         = OPT_DEFAULT_REORDER_2OPT;
 
     // ── Frame context for multi-call callers ─────────────────────────────
     //
@@ -478,6 +482,7 @@ inline OptimizerConfig configFromLive(const OptimizerLiveConfig& live,
     cfg.accel_clamp_enabled          = live.accel_clamp_enabled;
     cfg.max_accel_units              = live.max_accel_units;
     cfg.reorder_segments             = live.reorder_segments;
+    cfg.reorder_2opt                 = live.reorder_2opt;
     cfg.galvo_kpps                   = outputKpps;
     cfg.transform                    = gLiveTransform;  // Phase 3: live Z-rot + move
     // PPS-derived scaling: density (both forms) + blank density + both clamps.

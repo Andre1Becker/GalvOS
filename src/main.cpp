@@ -159,6 +159,7 @@ static void loadConfig() {
         LOAD_B("opt_acen",  accel_clamp_enabled,          OPT_DEFAULT_ACCEL_CLAMP_ENABLED);
         LOAD_F("opt_acmax", max_accel_units,              OPT_DEFAULT_MAX_ACCEL_UNITS);
         LOAD_B("opt_reord", reorder_segments,             OPT_DEFAULT_REORDER_SEGMENTS);
+        LOAD_B("opt_ro2op", reorder_2opt,                 OPT_DEFAULT_REORDER_2OPT);
         #undef LOAD_F
         #undef LOAD_U
         #undef LOAD_S
