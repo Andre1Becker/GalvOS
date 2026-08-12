@@ -2,6 +2,7 @@
 #include "config.h"
 #include "../warpGrid.h"
 #include "../brightnessField.h"
+#include "../inverseFilter.h"
 #include "safety/safety.h"
 #include "output/galvo_out.h"
 #include "patterns/pattern_engine.h"
@@ -509,6 +510,12 @@ static void persistConfig() {
     s_prefs.putBool ("brt_en",    gBrightness.enabled);
     s_prefs.putUChar("brt_grid",  gBrightness.gridSize);
     s_prefs.putBytes("brt_gain",  (const void*)gBrightness.gain, sizeof(gBrightness.gain));
+    s_prefs.putBool ("if_en",     gInverseFilter.enabled);
+    s_prefs.putFloat("if_alpha",  gInverseFilter.regAlpha);
+    s_prefs.putFloat("if_wn_x",   gInverseFilter.x.wnHz);
+    s_prefs.putFloat("if_zt_x",   gInverseFilter.x.zeta);
+    s_prefs.putFloat("if_wn_y",   gInverseFilter.y.wnHz);
+    s_prefs.putFloat("if_zt_y",   gInverseFilter.y.zeta);
     s_prefs.end();
 }
 static void loadZone() {
@@ -550,6 +557,23 @@ static void loadBrightness() {
     s_prefs.getBytes("brt_gain", (void*)gBrightness.gain, sizeof(gBrightness.gain));
     s_prefs.end();
     brightness::init();
+}
+
+// Missing keys leave gInverseFilter untouched -- already default-constructed
+// to "disabled, both axes unmeasured" before this runs, same fallback
+// reasoning as loadWarp()/loadBrightness() above. gProjection.galvo_kpps
+// must already be loaded (main.cpp does this before web_ui::init()) since
+// invfilter::init() needs the live sample rate to design the biquads.
+static void loadInverseFilter() {
+    s_prefs.begin("laser", true);
+    gInverseFilter.enabled    = s_prefs.getBool ("if_en",    gInverseFilter.enabled);
+    gInverseFilter.regAlpha   = s_prefs.getFloat("if_alpha", gInverseFilter.regAlpha);
+    gInverseFilter.x.wnHz     = s_prefs.getFloat("if_wn_x",  gInverseFilter.x.wnHz);
+    gInverseFilter.x.zeta     = s_prefs.getFloat("if_zt_x",  gInverseFilter.x.zeta);
+    gInverseFilter.y.wnHz     = s_prefs.getFloat("if_wn_y",  gInverseFilter.y.wnHz);
+    gInverseFilter.y.zeta     = s_prefs.getFloat("if_zt_y",  gInverseFilter.y.zeta);
+    s_prefs.end();
+    invfilter::init((uint32_t)gProjection.galvo_kpps * 1000);
 }
 
 /* ============================================================
@@ -989,6 +1013,7 @@ void init() {
     loadZone();
     loadWarp();
     loadBrightness();
+    loadInverseFilter();
 
     // Must run before any s_server.on(...) registration -- middleware wraps
     // every request the server handles, including static assets and API GETs.
@@ -1629,6 +1654,90 @@ void init() {
     s_server.on("/api/brightness/reset", HTTP_POST,
         [](AsyncWebServerRequest* req) {
             brightness::reset();
+            persistConfig();
+            req->send(200, "text/plain", "OK");
+        });
+
+    // ---- GET /api/inverse-filter/get ----
+    s_server.on("/api/inverse-filter/get", HTTP_GET, [](AsyncWebServerRequest* req) {
+        JsonDocument doc(&jsonAllocator());
+        doc["enabled"]  = gInverseFilter.enabled;
+        doc["regAlpha"] = gInverseFilter.regAlpha;
+        doc["active"]   = invfilter::isActive();
+        JsonObject x = doc["x"].to<JsonObject>();
+        x["wnHz"] = gInverseFilter.x.wnHz;
+        x["zeta"] = gInverseFilter.x.zeta;
+        JsonObject y = doc["y"].to<JsonObject>();
+        y["wnHz"] = gInverseFilter.y.wnHz;
+        y["zeta"] = gInverseFilter.y.zeta;
+        sendJsonPsram(req, doc);
+    });
+
+    // ---- POST /api/inverse-filter/set ----
+    // Body: { "enabled": bool, "regAlpha": float, "x": {"wnHz","zeta"},
+    //         "y": {"wnHz","zeta"} } -- all fields optional. Whole payload
+    // validated before anything is applied. wnHz=0 means "unmeasured" for
+    // that axis (passed through unfiltered even when enabled). Never
+    // auto-applied by the calibration tooling -- see docs/feature-prompts/
+    // DECISIONS.md, Prompt 12b.
+    s_server.on("/api/inverse-filter/set", HTTP_POST,
+        [](AsyncWebServerRequest* req) {},
+        nullptr,
+        [](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t, size_t) {
+            JsonDocument doc(&jsonAllocator());
+            if (deserializeJson(doc, data, len)) { req->send(400, "text/plain", "bad json"); return; }
+
+            float regAlpha = gInverseFilter.regAlpha;
+            if (!doc["regAlpha"].isNull()) {
+                if (!doc["regAlpha"].is<float>() || (float)doc["regAlpha"] <= 0.0f) {
+                    req->send(400, "application/json",
+                        "{\"error\":\"regAlpha must be a positive number\"}");
+                    return;
+                }
+                regAlpha = doc["regAlpha"];
+            }
+
+            InverseFilterAxisModel newX = gInverseFilter.x, newY = gInverseFilter.y;
+            auto parseAxis = [&](JsonVariantConst obj, InverseFilterAxisModel& out) -> const char* {
+                if (obj.isNull()) return nullptr;
+                if (!obj["wnHz"].isNull()) {
+                    if (!obj["wnHz"].is<float>() || (float)obj["wnHz"] < 0.0f)
+                        return "wnHz must be a non-negative number";
+                    out.wnHz = obj["wnHz"];
+                }
+                if (!obj["zeta"].isNull()) {
+                    if (!obj["zeta"].is<float>()) return "zeta must be a number";
+                    out.zeta = constrain((float)obj["zeta"], 0.0f, 0.9f);
+                }
+                return nullptr;
+            };
+            if (const char* err = parseAxis(doc["x"], newX)) {
+                char buf[64]; snprintf(buf, sizeof(buf), "{\"error\":\"x.%s\"}", err);
+                req->send(400, "application/json", buf);
+                return;
+            }
+            if (const char* err = parseAxis(doc["y"], newY)) {
+                char buf[64]; snprintf(buf, sizeof(buf), "{\"error\":\"y.%s\"}", err);
+                req->send(400, "application/json", buf);
+                return;
+            }
+
+            gInverseFilter.regAlpha = regAlpha;
+            gInverseFilter.x = newX;
+            gInverseFilter.y = newY;
+            if (doc["enabled"].is<bool>()) gInverseFilter.enabled = doc["enabled"];
+            invfilter::refresh((uint32_t)gProjection.galvo_kpps * 1000);
+            gPatternCacheGen++;
+            persistConfig();
+            req->send(200, "text/plain", "OK");
+        });
+
+    // ---- POST /api/inverse-filter/reset ---- (both axes back to
+    // "unmeasured", enabled/regAlpha untouched)
+    s_server.on("/api/inverse-filter/reset", HTTP_POST,
+        [](AsyncWebServerRequest* req) {
+            invfilter::reset();
+            gPatternCacheGen++;
             persistConfig();
             req->send(200, "text/plain", "OK");
         });
@@ -3959,7 +4068,12 @@ void init() {
         bool changed = false;
         if (!doc["kpps"].isNull()) {
             uint16_t v = doc["kpps"];
-            if (v >= 12 && v <= 60) { gProjection.galvo_kpps = v; changed = true; gPatternCacheGen++; }
+            if (v >= 12 && v <= 60) {
+                gProjection.galvo_kpps = v; changed = true; gPatternCacheGen++;
+                // Inverse-filter biquads are designed for a specific sample
+                // rate (Prompt 12b) -- redesign them whenever it changes.
+                invfilter::refresh((uint32_t)gProjection.galvo_kpps * 1000);
+            }
         }
         if (!doc["scan_angle_mech"].isNull()) {
             float v = doc["scan_angle_mech"];

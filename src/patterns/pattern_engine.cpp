@@ -23,8 +23,10 @@
 #include "../sequencer.h"
 #include "../modulator_engine.h"
 #include "../bpm_clock.h"
+#include "../inverseFilter.h"
 #include <Arduino.h>
 #include <math.h>
+#include <algorithm>
 #include <esp_log.h>
 #include <esp_heap_caps.h>
 
@@ -50,6 +52,11 @@ void setPreset(presets::Preset idx) {
     s_preset_idx = idx;
     s_test_pattern = -1;
     gState.calib_active = false;
+    // A stale inverse-filter running state carried across a preset SWITCH
+    // (not just within one continuously-running preset) would inject a
+    // spurious transient into the new trajectory -- same class of bug as
+    // the v6.33.0 cross-preset blank-jump seam fix. See inverseFilter.h.
+    invfilter::resetState();
     if (idx != presets::Preset::None) { gPaint.active = false; }
     // Switch optimizer profile to match the new preset's class.
     if (idx != presets::Preset::None) {
@@ -332,6 +339,31 @@ static void applyCalibration(LaserPoint* pts, size_t n) {
         y = (y * gConfig.galvo_y_gain) / 32767;
         x += gConfig.galvo_x_offset;
         y += gConfig.galvo_y_offset;
+        // Model-based inverse filter (Prompt 12b, off by default): pre-
+        // shapes the commanded trajectory against the galvo's measured
+        // mechanical resonance so the OPTICAL output tracks it instead of
+        // ringing. Must run on already gain/offset-corrected coordinates
+        // (the real commanded DAC-space delta) and BEFORE outputScale, so
+        // its correction gets scaled uniformly along with everything else
+        // -- see docs/feature-prompts/DECISIONS.md, Prompt 12b. No-op when
+        // disabled or no axis has a measured model (invfilter::apply()
+        // checks internally).
+        if (invfilter::isActive()) {
+            float fx = (float)x, fy = (float)y;
+            invfilter::apply(fx, fy);
+            // Defense-in-depth clamp on the filter's own output, independent
+            // of the dac_limit safety clamp below: the filter is BIBO-stable
+            // by construction (see inverseFilter.cpp), but a pathological
+            // measured model could still produce a correction far larger
+            // than any real pattern geometry -- bound it to a generous
+            // multiple of the full coordinate range before it re-enters the
+            // int32 pipeline, purely as a NaN/runaway-magnitude guard.
+            constexpr float kInvFilterAbsClamp = 4.0f * 32768.0f;
+            fx = std::max(-kInvFilterAbsClamp, std::min(kInvFilterAbsClamp, fx));
+            fy = std::max(-kInvFilterAbsClamp, std::min(kInvFilterAbsClamp, fy));
+            x = (int32_t)lroundf(fx);
+            y = (int32_t)lroundf(fy);
+        }
         // Proportional pre-scale about center (x/y are already centered on 0
         // here, so this is equivalent to scaling about 0x8000 in DAC space).
         // Primary fit mechanism for full-range patterns; the dac_limit
