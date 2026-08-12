@@ -242,6 +242,12 @@ This S-curve has zero velocity at both endpoints: the mirror starts and ends the
 
 **Settle ticks:** The final `min_blank_samples` ticks of the blank jump are spent dwelling at the exact target position — giving the mirror additional time to settle. These settle ticks are carved from the total blank budget (not added on top), capped at `count / 2` to ensure there are always enough move ticks for smooth deceleration.
 
+### Budget Interaction: Blank Shrink Runs Before Density (since v6.05.0)
+
+When a frame's fixed overhead (corner dwell plus blank jumps at the configured `blank_samples`) doesn't leave enough of the point budget for interior density, `blank_samples` is scaled down toward `stage1_blank_target` — falling back further to `min_blank_samples` only if that still doesn't fit — *before* interior density is touched at all. Blank jumps carry no visual information, so shrinking them costs nothing to look at; interior density is what makes a line read as a line.
+
+The ordering is load-bearing, not cosmetic. An early version of this pass sat physically *after* the interior-density scaling stage, so density was always computed against the un-shrunk (inflated) blank overhead. On any shape with more than a few segments this drove interior density down to its floor before blank shrink ever got a chance to free up budget — every edge collapsed to isolated corner dots with no connecting line between them. Confirmed against real hardware logs at the time (Cube/Octahedron/Tetrahedron): blank-point counts matched simulation exactly, but lit-point counts were 5-8× too low. Blank shrink must run first.
+
 ---
 
 ## Stage 6 — Velocity Clamp
