@@ -23,6 +23,15 @@ static volatile uint32_t s_tap_ts[4] = {0};
 static volatile uint8_t  s_tap_n     = 0;
 static volatile float    s_tap_bpm   = 0.0f;
 
+// DMX Beat-Stop (v==0) state, read+written only from tickMs() (Core 1).
+// s_dmx_paused: true while frozen, so a v>=1 tick can tell "resuming from a
+// freeze" apart from "already running". s_phase_offset_ms: additive shift
+// applied to millis() before the beatMs modulo -- normally 0 (unchanged
+// behavior); set on resume so the beat continues from the frozen fractional
+// position instead of snapping to whatever millis() % beatMs happens to be.
+static bool  s_dmx_paused      = false;
+static float s_phase_offset_ms = 0.0f;
+
 static float clampBpm(float b) {
     if (b < BPM_MIN) return BPM_MIN;
     if (b > BPM_MAX) return BPM_MAX;
@@ -89,21 +98,43 @@ uint32_t tickMs() {
 
     if (dmx_in::isReceiving()) {
         uint8_t v = dmx_in::getChannel(s_dmx_channel);
-        bpm = BPM_MIN + ((float)v / 255.0f) * (BPM_MAX - BPM_MIN);
+        if (v == 0) {
+            // Beat-Stop: freeze -- keep bpm/source/phase exactly as they
+            // are, do NOT fall through to Tap/Manual, do NOT recompute
+            // phase from millis(). Idempotent across repeated 0-ticks.
+            s_dmx_paused = true;
+            gBpm.source  = SRC_DMX;
+            return gBpm.phase_ms;
+        }
+        bpm = (float)v;   // 1:1, no BPM_MIN/BPM_MAX rescale on the DMX path
         src = SRC_DMX;
-    } else if (s_tap_n >= 2 && (millis() - s_tap_ts[s_tap_n - 1]) <= TAP_RESET_GAP_MS) {
-        bpm = s_tap_bpm;
-        src = SRC_TAP;
+        if (s_dmx_paused) {
+            // Seamless resume: re-derive the fractional beat position the
+            // freeze left off at (bpm-agnostic: phase_ms/1000 of a cycle),
+            // then set the offset so this tick's elapsedMs lands exactly
+            // there instead of jumping to millis() % beatMs.
+            float beatMs = 60000.0f / bpm;
+            float frozenElapsedMs = (gBpm.phase_ms / 1000.0f) * beatMs;
+            s_phase_offset_ms = frozenElapsedMs - (float)millis();
+            s_dmx_paused = false;
+        }
     } else {
-        bpm = s_manual_bpm;
-        src = SRC_MANUAL;
+        s_dmx_paused = false;   // no DMX signal at all -- not a Beat-Stop freeze
+        if (s_tap_n >= 2 && (millis() - s_tap_ts[s_tap_n - 1]) <= TAP_RESET_GAP_MS) {
+            bpm = s_tap_bpm;
+            src = SRC_TAP;
+        } else {
+            bpm = s_manual_bpm;
+            src = SRC_MANUAL;
+        }
     }
 
     gBpm.bpm    = bpm;
     gBpm.source = src;
 
     float beatMs = 60000.0f / bpm;
-    float elapsedMs = fmodf((float)millis(), beatMs);
+    float elapsedMs = fmodf((float)millis() + s_phase_offset_ms, beatMs);
+    if (elapsedMs < 0.0f) elapsedMs += beatMs;
     uint32_t phase = (uint32_t)((elapsedMs / beatMs) * 1000.0f);
     if (phase > 999) phase = 999;
     gBpm.phase_ms = phase;
