@@ -37,7 +37,18 @@
  * /api/calib-pattern:
  *  17  WARP_GRID_TEST     border + gWarp.gridSize interior lines -- keystone preview
  *
- * API: POST /api/calib-pattern {"idx": 0-10, "brightness": 200}
+ * 3 color-ramp linearity patterns -- 32 equal-width single-channel fields,
+ * PWM duty 0..255 linear left to right. Selected via the plain idx-based
+ * /api/calib-pattern like patterns 0-10 (idx itself IS "which ramp is
+ * active" -- no separate selector field needed). Bypass gain/dimmer/gamma/
+ * threshold entirely (see gState.calib_raw_duty, galvo_out.cpp), so the
+ * commanded duty is the PWM duty with nothing in between -- for
+ * scripts/calibrateColor.py's per-channel duty->luminance measurement:
+ *  18  RAMP_R             32-field red duty ramp
+ *  19  RAMP_G             32-field green duty ramp
+ *  20  RAMP_B             32-field blue duty ramp
+ *
+ * API: POST /api/calib-pattern {"idx": 0-20, "brightness": 200}
  *      GET  /api/calib-pattern/list
  *      POST /api/calib-cam/start  {"pattern": "square"}
  *      POST /api/calib-cam/params {optimizer overrides...}
@@ -48,7 +59,7 @@
 
 namespace calib_patterns {
 
-constexpr uint8_t CALIB_PATTERN_COUNT = 18;
+constexpr uint8_t CALIB_PATTERN_COUNT = 21;
 
 // Camera-in-the-loop patterns occupy indices CALIB_CAM_BASE..+CALIB_CAM_COUNT-1.
 constexpr uint8_t CALIB_CAM_BASE  = 11;
@@ -57,6 +68,20 @@ constexpr uint8_t CALIB_CAM_COUNT = 6;
 // Warp test-grid pattern, selected via /api/warp/test (not part of the
 // camPatternIndex()/camPatternName() name-based lookup above).
 constexpr uint8_t CALIB_WARP_GRID_IDX = 17;
+
+// Color-ramp linearity patterns occupy indices CALIB_RAMP_BASE..+CALIB_RAMP_COUNT-1
+// (order: R, G, B). Selected via the plain idx-based /api/calib-pattern.
+constexpr uint8_t CALIB_RAMP_BASE  = 18;
+constexpr uint8_t CALIB_RAMP_COUNT = 3;
+
+// Number of equal-width duty fields each color-ramp pattern draws.
+constexpr uint8_t CALIB_RAMP_FIELDS = 32;
+
+// True if idx is one of the 3 color-ramp patterns (18-20) -- used by
+// /api/calib-pattern to set gState.calib_raw_duty.
+inline bool isRampIdx(uint8_t idx) {
+    return idx >= CALIB_RAMP_BASE && idx < CALIB_RAMP_BASE + CALIB_RAMP_COUNT;
+}
 
 // corners4 dwell length: fixed regardless of the live optimizer overrides a
 // host tuning run may be sweeping (e.g. corner_angle_deg/max_corner_pts could

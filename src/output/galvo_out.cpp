@@ -776,6 +776,16 @@ static void IRAM_ATTR galvoTask(void*) {
                         s_laser_on_hold--;
                     } else if (gState.calib_no_thresh) {
                         rgbWrite(r, g, b, 0, 0, 0);
+                    } else if (gState.calib_raw_duty) {
+                        // Color-ramp linearity calibration (Prompt 15): measured
+                        // luminance must equal the commanded duty with nothing in
+                        // between, so skip the dimmer/thermal/gain cascade that
+                        // built r/g/b above entirely and feed the point's own
+                        // logical p.r/p.g/p.b straight into rgbWrite with
+                        // skip_gamma=true and thresh=0 -- mapVisibleRange()'s
+                        // floor and applyGamma()'s curve can't touch it either.
+                        // See calib_patterns.cpp's calibRampImpl() comment.
+                        rgbWrite(p.r, p.g, p.b, 0, 0, 0, /*skip_gamma=*/true);
                     } else {
                         rgbWrite(r, g, b, s_snap.thresh_r, s_snap.thresh_g, s_snap.thresh_b);
                     }
