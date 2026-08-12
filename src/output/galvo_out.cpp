@@ -94,6 +94,16 @@ static volatile uint32_t s_frames_last  = 0;
 static volatile uint32_t s_last_fps_t   = 0;
 static volatile uint32_t s_fps_cached   = 0;
 
+// DAC output-limiting clip diagnostic (P9a). Single-writer accumulators for
+// the frame currently being consumed from the ring -- same volatile,
+// no-atomic-per-point convention as s_frames_total/s_points_total above
+// (only galvoTask() writes these; published to gState's atomics once per
+// frame boundary, not per point, per the project's updateSnapshot() rule).
+static volatile uint32_t s_clip_x_frame     = 0;
+static volatile uint32_t s_clip_y_frame     = 0;
+static volatile uint32_t s_clip_any_frame   = 0;
+static volatile uint32_t s_clip_total_frame = 0;
+
 /* ============================================================
  * DAC8562 Write (polled SPI, 24-Bit Frame)
  *
@@ -606,6 +616,16 @@ static void IRAM_ATTR galvoTask(void*) {
             // Debug: count underruns and log ring state every 5s
             __atomic_thread_fence(__ATOMIC_ACQUIRE);
             if (s_point_idx >= s_ring_sizes[tail]) {
+                // P9a clip diagnostic: publish the frame that just finished
+                // scanning out, then reset accumulators for the one about to
+                // start. Published on underrun replay too -- it's still "the
+                // frame that just finished", regardless of whether its
+                // content changed.
+                gState.dacClipCountX.store(s_clip_x_frame);
+                gState.dacClipCountY.store(s_clip_y_frame);
+                gState.dacClipCountAny.store(s_clip_any_frame);
+                gState.dacClipTotalPts.store(s_clip_total_frame);
+                s_clip_x_frame = s_clip_y_frame = s_clip_any_frame = s_clip_total_frame = 0;
                 size_t next_tail = (tail + 1) % RING_FRAMES;
                 if (next_tail != s_ring_head) {
                     s_ring_tail = next_tail;
@@ -647,8 +667,17 @@ static void IRAM_ATTR galvoTask(void*) {
                 // stripe at the projection edge for the whole glyph height as
                 // it scrolls through. Blank it instead; the mirror still
                 // parks at the rail, but the laser stays off.
-                bool rail_clip = x < s_snap.dac_limit_min || x > s_snap.dac_limit_max ||
-                                 y < s_snap.dac_limit_min || y > s_snap.dac_limit_max;
+                bool clip_x = x < s_snap.dac_limit_min || x > s_snap.dac_limit_max;
+                bool clip_y = y < s_snap.dac_limit_min || y > s_snap.dac_limit_max;
+                bool rail_clip = clip_x || clip_y;
+                // P9a clip diagnostic: pre-clamp saturation the optimizer/
+                // pattern layer can't see, since clamping happens here, after
+                // they've already run. Diagnostic-only accumulators, see the
+                // publish/reset at the frame boundary above.
+                if (clip_x)   s_clip_x_frame++;
+                if (clip_y)   s_clip_y_frame++;
+                if (rail_clip) s_clip_any_frame++;
+                s_clip_total_frame++;
                 x = constrain(x, (int32_t)s_snap.dac_limit_min, (int32_t)s_snap.dac_limit_max);
                 y = constrain(y, (int32_t)s_snap.dac_limit_min, (int32_t)s_snap.dac_limit_max);
             // Projection zone clip: a lit point outside the user-defined

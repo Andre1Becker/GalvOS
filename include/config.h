@@ -577,6 +577,15 @@ struct RuntimeState {
     std::atomic<uint32_t> frame_n           {0};      // total points in last rendered frame
     std::atomic<uint32_t> frame_lit         {0};      // lit (non-blank) points in last frame
     std::atomic<uint32_t> frame_blank       {0};      // blank points in last frame
+    // DAC output-limiting clip diagnostic (galvo_out.cpp galvoTask()): counts
+    // points whose pre-clamp DAC code fell outside [dac_limit_min, dac_limit_max]
+    // for the last fully-consumed frame, i.e. saturation the optimizer/pattern
+    // layer is blind to (clamping happens after they've already run). Diagnostic
+    // only -- nothing reads these to auto-correct anything.
+    std::atomic<uint32_t> dacClipCountX     {0};      // points clamped on X, last frame
+    std::atomic<uint32_t> dacClipCountY     {0};      // points clamped on Y, last frame
+    std::atomic<uint32_t> dacClipCountAny   {0};      // points clamped on X and/or Y, last frame (for dacClipPct)
+    std::atomic<uint32_t> dacClipTotalPts   {0};      // total points in that frame
     std::atomic<uint32_t> dmx_frame_count   {0};
     std::atomic<uint32_t> last_dmx_ms       {0};
     // UI Override: WebUI takes priority over DMX/Art-Net when active

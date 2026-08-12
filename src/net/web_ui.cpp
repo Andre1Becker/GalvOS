@@ -606,6 +606,15 @@ static void buildStateJson(JsonDocument& doc) {
     doc["frame_n"]          = gState.frame_n.load();
     doc["frame_lit"]        = gState.frame_lit.load();
     doc["frame_blank"]      = gState.frame_blank.load();
+    // P9a: DAC output-limiting clip diagnostic (galvo_out.cpp galvoTask()) --
+    // saturation from the last frame the optimizer/pattern layer can't see,
+    // since clamping to dac_limit_min/max happens after they've already run.
+    { uint32_t cx = gState.dacClipCountX.load(), cy = gState.dacClipCountY.load();
+      uint32_t cAny = gState.dacClipCountAny.load(), total = gState.dacClipTotalPts.load();
+      doc["dacClipX"]   = cx;
+      doc["dacClipY"]   = cy;
+      doc["dacClipPct"] = total ? (100.0f * (float)cAny / (float)total) : 0.0f;
+    }
     doc["buffer_fill"]     = galvo::bufferFillLevel();
     uint32_t age = millis() - gState.last_dmx_ms.load();
     doc["last_dmx_age_ms"] = (gState.last_dmx_ms.load() == 0) ? -1 : (int32_t)age;

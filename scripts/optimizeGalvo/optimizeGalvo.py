@@ -98,7 +98,7 @@ import requests
 # ── versioning ───────────────────────────────────────────────────────────────
 # Semantic version of this script (independent of GalvOS firmware version).
 # Bump on every behavioral change; see git log for change history.
-SCRIPT_VERSION = "2.14.0"
+SCRIPT_VERSION = "2.14.1"
 
 # GalvOS firmware version that introduced /api/calib-cam/* (see firmware git log:
 # "fw: v6.03.0 -- camera-in-the-loop calibration API (calib-cam)").
@@ -2202,6 +2202,22 @@ def measureOnce(esp: EspClient, cam: Camera, cfg: dict, homography: np.ndarray,
     time.sleep(cfg["settleSeconds"])
     cam.statusText = f"{statusPrefix}: {pattern}"
     capture = cam.grabAccumulated(cfg["accumFrames"])
+    # P9a clip diagnostic: DAC output-limiting clamps corners AFTER the
+    # optimizer/pattern layer has already run, so this tool's score is blind
+    # to it - poll while the pattern is still live so the numbers reflect
+    # what the camera just captured, and warn (never auto-correct: folding
+    # this into the objective would let Optuna "fix" saturation by shrinking
+    # geometry instead of the operator widening dac_limit_min/max or lowering
+    # outputScale).
+    try:
+        clipState = esp.getState()
+        dacClipPct = clipState.get("dacClipPct", 0.0)
+        if dacClipPct > 0:
+            prWarn(f"{pattern}: DAC clip {dacClipPct:.1f}% "
+                   f"(X={clipState.get('dacClipX', 0)} Y={clipState.get('dacClipY', 0)} pts) - "
+                   f"this trial's score is unreliable, corners are being clamped, not scaled")
+    except OptimizerError as e:
+        prWarn(f"{pattern}: could not poll DAC clip status: {e}")
     esp.stop()
     # Same grace period again, symmetrically, before whatever comes next (the next
     # pattern in this same trial, or the next trial's first pattern) is allowed to
