@@ -1306,13 +1306,29 @@ static void applyPointsOnlyMode(size_t& n) {
     // moving/ringing when the dwell lit up, showing as a streak instead of a
     // still point; scaling move+settle by actual jump distance fixes that.
     optimizer::OptimizerConfig cfg;  // snapshot once — avoid TOCTOU vs. live WebUI writes
-    cfg.blank_samples            = gOptimizerConfig.blank_samples;
     cfg.min_blank_samples        = gOptimizerConfig.min_blank_samples;
     cfg.blank_pts_per_1000_units = gOptimizerConfig.blank_pts_per_1000_units;
     cfg.ringing_comp_enabled     = gOptimizerConfig.ringing_comp_enabled;
     cfg.ring_freq_hz             = gOptimizerConfig.ring_freq_hz;
     cfg.ring_damping_ratio       = gOptimizerConfig.ring_damping_ratio;
     cfg.galvo_kpps               = gProjection.galvo_kpps;
+    // The Particles profile's own blank_samples ceiling (see config.h's
+    // OPT_PROFILE_DEFAULTS) is tuned for genuinely short particle-to-particle
+    // hops (Starfield/BouncingPoints, clustered within a tight visual field).
+    // Points-Only Mode instead subsamples an ARBITRARY preset's full geometry
+    // -- a Square's dwell dots can sit clear across the canvas -- so a jump
+    // that actually needs many more ticks to travel+settle was silently
+    // clamped down to that same short ceiling, leaving the galvo still mid-
+    // flight when the laser re-armed: a bright streak across the whole jump
+    // instead of a blanked move, i.e. the outline's lines never disappear.
+    // dwell already only spends HALF of each dot's (budget/count) share (see
+    // above); hand the other half to the blank ceiling instead of leaving it
+    // unused, so long jumps get proportionally more settle time to work with.
+    int perDot = count ? ((int)budget / count) : (int)budget;
+    int blankCeiling = perDot - dwell;
+    if (blankCeiling < (int)cfg.min_blank_samples) blankCeiling = cfg.min_blank_samples;
+    if (blankCeiling > 255) blankCeiling = 255;  // fits uint8_t
+    cfg.blank_samples = (uint8_t)blankCeiling;
 
     // Dotter (point distribution) -- scatters each dwelling dot away from its
     // sampled outline position; 0 (no modulator bound) leaves this pixel-
