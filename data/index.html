@@ -1555,7 +1555,7 @@ canvas { max-width: 100%; display: block; }
 /* =========================================================================
    GLOBAL STATE
    ========================================================================= */
-var UI_VERSION = '1.18.0';   // WebUI version -- independent from firmware version
+var UI_VERSION = '1.18.1';   // WebUI version -- independent from firmware version
 var NAV_TABS = [
   {id: 'dashboard', label: 'Dashboard', icon: '🏠', bottom: true},
   {id: 'presets', label: 'Presets', icon: '🎮', bottom: true},
@@ -3609,7 +3609,16 @@ registerStateHandler(function(s) {
    ========================================================================= */
 var PAINT_RANGE = 24000;
 var PAINT_MAX_VERTS = 96, PAINT_STROKES_MAX = 12;
-var PAINT_HANDLE_PX = 9;
+// Handle grab radius and edge/line hit tolerance, both in canvas px (the
+// canvas's fixed internal 700x700 resolution, not CSS display size --
+// paintEventToCanvas() already normalizes touch/mouse coords into that
+// space). A fingertip's effective touch accuracy is nowhere near mouse
+// precision -- 9px handles and a ~10px line-hit corridor (the old flat
+// 700-galvo-unit threshold) meant a tap almost never landed close enough
+// to a thin 2px stroke to select it. Sized for touch; still comfortable
+// with a mouse.
+var PAINT_HANDLE_PX = 20;
+var PAINT_HIT_PX = 20;
 var PAINT_SNAP_GRID = 500, PAINT_SNAP_TOL = 400;
 var PAINT_HISTORY_MAX = 30;
 var PAINT_SEG_SEQS = GRADIENT_SEQ_NAMES; // reuses the same 10 named sequences as Presets
@@ -3730,16 +3739,25 @@ function paintDistToSegment(pt, a, b) {
   var px = a[0] + t * dx, py = a[1] + t * dy;
   return Math.hypot(pt[0] - px, pt[1] - py);
 }
-function paintHitTestShape(gpt, s) {
+// Converts PAINT_HIT_PX (fixed canvas-px tolerance) into galvo units at the
+// current PAINT_RANGE, so the on-screen hit corridor stays finger-sized
+// regardless of zoom/zone scaling (PAINT_RANGE shrinks when a Zone Guide
+// is loaded -- see paintLoadZoneGuide()).
+function paintHitToleranceGalvo() {
+  var canvas = document.getElementById('pt-canvas');
+  return PAINT_HIT_PX / (canvas.width / 2) * PAINT_RANGE;
+}
+function paintHitTestShape(gpt, s, tolG) {
   var pts = paintStrokePoints(s);
   if (s.closed || s.type === 'rect' || s.type === 'triangle' || s.type === 'circle') {
     if (paintPointInPolygon(gpt, pts)) return true;
   }
-  for (var i = 0; i < pts.length - 1; i++) if (paintDistToSegment(gpt, pts[i], pts[i + 1]) <= 700) return true;
+  for (var i = 0; i < pts.length - 1; i++) if (paintDistToSegment(gpt, pts[i], pts[i + 1]) <= tolG) return true;
   return false;
 }
 function paintHitTest(gpt) {
-  for (var i = paintStrokes.length - 1; i >= 0; i--) if (paintHitTestShape(gpt, paintStrokes[i])) return i;
+  var tolG = paintHitToleranceGalvo();
+  for (var i = paintStrokes.length - 1; i >= 0; i--) if (paintHitTestShape(gpt, paintStrokes[i], tolG)) return i;
   return -1;
 }
 function paintTranslateShape(s, dx, dy) {
