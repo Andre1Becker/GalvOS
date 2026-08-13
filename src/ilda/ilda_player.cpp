@@ -203,11 +203,26 @@ static bool loadILDA(const char* path) {
         uint16_t npts = be16(&hdr_buf[24]);
         if (npts == 0) break;
 
+        uint8_t pt_size = 0;
+        switch (fmt) {
+            case 0: pt_size = 8;  break;  // 3D indexed
+            case 1: pt_size = 6;  break;  // 2D indexed
+            case 4: pt_size = 10; break;  // 3D true-color (with 1 pad byte)
+            case 5: pt_size = 8;  break;  // 2D true-color (with 1 pad byte)
+            default:
+                // Must mirror Pass 1's skip exactly -- Pass 1 never counted this
+                // section into total_frames/total_points, so writing it here would
+                // desync fi/pool_offset from the PSRAM allocation and overflow
+                // s_point_pool/s_frames.
+                ESP_LOGW(TAG, "Unknown ILDA format %u, skipping frame", fmt);
+                f.seek(f.position() + npts * 8);
+                continue;
+        }
+
         s_frames[fi].point_count = npts;
         s_frames[fi].points = &s_point_pool[pool_offset];
 
         uint8_t raw[10];  // max. 10 bytes per point
-        uint8_t pt_size = (fmt==0)?8 : (fmt==1)?6 : (fmt==4)?10 : 8;
 
         for (uint16_t pi = 0; pi < npts; pi++) {
             wdtYield();
