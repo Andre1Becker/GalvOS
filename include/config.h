@@ -341,6 +341,27 @@ constexpr uint8_t OPT_PROFILE_TEXT        = 7;
 // points at maxed-out Size sliders -- correct dim/sparse dots beat bright
 // streaks. stage1_blank_target (8) untouched, same rationale as Session P.
 //
+// v6.65.2 correction: leaving min_blank_samples at 6 above was wrong --
+// verified with a live camera capture (optimizeGalvo.py analyze-live),
+// Starfield still showed short streaks between unrelated stars after the
+// v6.65.1 widening. Root cause is a second bug in blankSettlePts()
+// (point_optimizer.cpp): `settle = min(min_blank_samples, count/2)`. Greedy
+// nearest-neighbor star order makes almost every jump SHORT (~3000 units
+// average for ~27 stars over the canvas), so blankCountForDistance() clamps
+// count down to min_blank_samples itself for nearly every jump -- which
+// makes count/2 collide with and HALVE the promised settle window (6 ->
+// 3 ticks, ~71us at this rig's 42kHz) on exactly the jumps Starfield mostly
+// makes. Vector/Waves/etc. don't hit this because their corner-to-corner
+// jumps are usually long enough that the distance-computed count already
+// exceeds 2x min_blank_samples before the floor ever applies. Raised
+// min_blank_samples 6 -> 32 (empirically walked 16/24/32 against live camera
+// captures; 24 still left one faint residual streak, 32 was clean) so the
+// floor-collision settle window is a real ~190us instead of ~71us. Costs
+// ~26 extra blank ticks per star at 42 kpps (~0.6ms/star, ~16ms total for a
+// budget-capped ~27-star frame) -- acceptable against the 44fps frame period
+// since the star count is already budget-capped by cfg.blank_samples (40),
+// not by this change.
+//
 // PROFILE_DEFAULTS is indexed by OPT_PROFILE_* and consumed by loadConfig()
 // as the NVS fallback, so a user's stored per-profile values still win.
 struct OptimizerProfileDefaults {
@@ -367,7 +388,7 @@ static const OptimizerProfileDefaults OPT_PROFILE_DEFAULTS[OPT_PROFILE_COUNT] = 
     {  35.f,   2,     6,    8.f,   16,    6,    12,    8.f,    8,   1300 },  // 2 Waves
     {  25.f,   2,     8,    6.f,   20,    4,    10,    0.8f,   6,   1300 },  // 3 Wireframe
     {  25.f,   2,     6,    5.f,   18,    4,    10,    1.5f,   6,   1300 },  // 4 MultiObject
-    {  25.f,   2,     4,    6.f,   40,    6,     8,    0.9f,   4,   1300 },  // 5 Particles
+    {  25.f,   2,     4,    6.f,   40,   32,     8,    0.9f,   4,   1300 },  // 5 Particles
     {  60.f,   3,     3,   11.f,   16,    6,    12,    8.f,    8,    880 },  // 6 Trails
     {  28.f,   2,     5,    6.f,   16,    4,     7,    1.0f,   1,   1300 },  // 7 Text
 };
