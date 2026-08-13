@@ -41,13 +41,14 @@ one-line note (commit hash / reason skipped) when done.
   File: [include/pinmap.h:67-70](include/pinmap.h#L67-L70),
   [src/output/galvo_out.cpp:863-866](src/output/galvo_out.cpp#L863-L866)
 
-- [ ] **6. Parked fallback keeps sending fake heartbeat**
-  File: [src/patterns/pattern_engine.cpp:1386-1395](src/patterns/pattern_engine.cpp#L1386-L1395)
-  Problem: after frame-buffer alloc failure, parked loop still calls
-  `safety::subsystemHeartbeat(0)` forever → watchdog thinks pattern engine is alive.
-  Risk: defeats "pattern engine missing → laser off" guarantee on this path.
-  Fix: stop sending heartbeat once parked, or call `safety::emergencyStop()`
-  before parking.
+- [x] **6. Parked fallback keeps sending fake heartbeat** — fixed: parked
+  loop no longer calls `safety::subsystemHeartbeat(0)`; calls
+  `safety::emergencyStop()` once before parking instead (forces
+  `PIN_LASER_ENABLE` LOW, clears `laser_armed`/arm request). `pio run`
+  (esp32-s3-devkitc-1) succeeds, no new warnings. Not reproducible without
+  forcing both the PSRAM and internal-DRAM `s_frame` allocations to fail —
+  logic re-derived by hand.
+  File: [src/patterns/pattern_engine.cpp:1398-1404](src/patterns/pattern_engine.cpp#L1398-L1404)
 
 ---
 
@@ -72,14 +73,12 @@ one-line note (commit hash / reason skipped) when done.
   branch both now default to `255,255,255`.
   File: [src/patterns/pattern_engine.cpp:272-282,298](src/patterns/pattern_engine.cpp#L272-L282)
 
-- [ ] **11. Duplicate `/api/calib-pattern/stop` route registration**
-  File: [src/net/web_ui.cpp:2763-2772](src/net/web_ui.cpp#L2763-L2772) vs
-  [2835-2841](src/net/web_ui.cpp#L2835-L2841)
-  Problem: registered twice; second copy is dead (ESPAsyncWebServer: first
-  registration wins) and missing the `ui_master_dimmer` release the first has.
-  Risk: any future edit at the dead 2835 spot is silently inert — already caused
-  divergence once.
-  Fix: delete the duplicate at 2835-2841.
+- [x] **11. Duplicate `/api/calib-pattern/stop` route registration** — fixed:
+  deleted the dead second registration (missing the `ui_master_dimmer`
+  release the first has). `pio run` (esp32-s3-devkitc-1) succeeds, no new
+  warnings.
+  File: [src/net/web_ui.cpp:2766-2776](src/net/web_ui.cpp#L2766-L2776)
+  (surviving copy)
 
 - [x] **12. Encoder dimmer writes get stomped every frame** — fixed: both
   `MODE_DIMMER`'s rotate handler and the long-press toggle now target

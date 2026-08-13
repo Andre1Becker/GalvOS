@@ -1397,7 +1397,12 @@ void task(void*) {
     // instead of dereferencing null and crashing the whole engine.
     if (!s_frame) {
         ESP_LOGE(TAG, "s_frame unavailable -- pattern task parked");
-        for (;;) { safety::subsystemHeartbeat(0); vTaskDelay(pdMS_TO_TICKS(1000)); }
+        // Force the laser off and stop pretending this task is alive --
+        // a fake heartbeat here would defeat subsystemsOk()'s "pattern
+        // engine missing -> laser off" guarantee for as long as the
+        // device stays up on this path.
+        safety::emergencyStop();
+        for (;;) { vTaskDelay(pdMS_TO_TICKS(1000)); }
     }
 
     for (;;) {

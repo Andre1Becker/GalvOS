@@ -2835,16 +2835,6 @@ void init() {
             req->send(200, "text/plain", "OK");
         });
 
-    // POST /api/calib-pattern/stop
-    s_server.on("/api/calib-pattern/stop", HTTP_POST,
-        [](AsyncWebServerRequest* req) {
-            gState.calib_active    = false;
-            gState.calib_no_thresh = false;
-            gState.calib_raw_duty  = false;
-            req->send(200, "text/plain", "OK");
-        });
-
-
     // ── Feature 5: safety configuration ──────────────────────
     s_server.on("/api/safety/config", HTTP_GET, [](AsyncWebServerRequest* req) {
         JsonDocument doc(&jsonAllocator());
