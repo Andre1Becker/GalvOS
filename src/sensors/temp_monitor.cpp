@@ -316,7 +316,7 @@ void task(void*) {
                     }
                     if (gTempState.crit_active[i]) {
                         gTempState.any_crit = true;
-                        LOG_E(logbuf::CAT_TEMP, "KRIT %s: %.1fC", sensor_names[i], t); ESP_LOGE(TAG, "CRITICAL %s: %.1fC >= %.1fC — EMERGENCY SHUTDOWN",
+                        LOG_E(logbuf::CAT_TEMP, "CRITICAL %s: %.1fC", sensor_names[i], t); ESP_LOGE(TAG, "CRITICAL %s: %.1fC >= %.1fC — EMERGENCY SHUTDOWN",
                                  sensor_names[i], t, thresholds[i].crit);
                     }
                 } else {

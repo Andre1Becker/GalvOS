@@ -3670,7 +3670,7 @@ void init() {
                 // Simple sweep commands: injected as preset into pattern engine
                 // Here only return as note (pattern task handles sweep)
                 req->send(200, "application/json",
-                    "{\"ok\":true,\"info\":\"Sweep via pattern_engine — verwende /api/preset\"}");
+                    "{\"ok\":true,\"info\":\"Sweep via pattern_engine — use /api/preset\"}");
                 return;
             }
 

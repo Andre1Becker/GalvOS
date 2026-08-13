@@ -286,8 +286,8 @@ static void dac8562Init() {
     // FIX v1.4: release /CLR (GPIO13 HIGH) — DAC exits reset
     // GPIO13 was set LOW in galvo::init() (safe boot).
     // Release only now, after SPI init and before the first transfer.
-    gpio_set_direction((gpio_num_t)13, GPIO_MODE_OUTPUT);
-    gpio_set_level((gpio_num_t)13, 1);   // /CLR = HIGH → DAC active
+    gpio_set_direction((gpio_num_t)PIN_DAC_CLR_N, GPIO_MODE_OUTPUT);
+    gpio_set_level((gpio_num_t)PIN_DAC_CLR_N, 1);   // /CLR = HIGH → DAC active
     vTaskDelay(pdMS_TO_TICKS(1));
 
     // DAC8562 unipolar 0..5V, internal ref active (VREFOUT pin10 = 2.5V):
@@ -345,7 +345,6 @@ static void dac8562Init() {
 static volatile uint8_t s_rgb_r = 0;
 static volatile uint8_t s_rgb_g = 0;
 static volatile uint8_t s_rgb_b = 0;
-// Removed for debugging static volatile bool    s_ledc_active = false;
 
 // Hardware debug: direct output bypassing pattern engine
 static volatile bool    s_hw_debug_active = false;
@@ -565,7 +564,7 @@ static void IRAM_ATTR galvoTask(void*) {
                            !gpio_get_level((gpio_num_t)PIN_HEARTBEAT));
             #endif
         }
-        // debug mode: no SPI, Ring-Buffer leeren so that Pattern-Task not blockiert
+        // Debug mode: no SPI, drain the ring buffer so pattern_engine doesn't block
         if (gDebugNoHW) {
             { uint16_t k = gProjection.galvo_kpps;
               if (k < 12) k = 12; if (k > 60) k = 60;

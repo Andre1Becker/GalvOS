@@ -197,29 +197,35 @@ one-line note (commit hash / reason skipped) when done.
 
 ## Style
 
-- [ ] **18. Magic GPIO literal `13` instead of `PIN_DAC_CLR_N`**
-  File: [src/output/galvo_out.cpp:245-246](src/output/galvo_out.cpp#L245-L246)
-  Fix: replace `13` with `PIN_DAC_CLR_N` (used correctly at 891-892).
+- [x] **18. Magic GPIO literal `13` instead of `PIN_DAC_CLR_N`** — fixed:
+  both the direction-set and level-set calls in `dac8562Init()` now use
+  `PIN_DAC_CLR_N`, matching the correct usage already at the CLR-reset site.
+  File: [src/output/galvo_out.cpp:289-290](src/output/galvo_out.cpp#L289-L290)
 
-- [ ] **19. Dead code disguised as comment**
-  File: [src/output/galvo_out.cpp:304](src/output/galvo_out.cpp#L304)
-  Fix: delete `// Removed for debugging static volatile bool s_ledc_active = false;`.
+- [x] **19. Dead code disguised as comment** — fixed: deleted the
+  `// Removed for debugging static volatile bool s_ledc_active = false;` line.
+  File: [src/output/galvo_out.cpp](src/output/galvo_out.cpp)
 
-- [ ] **20. German text in JSON API response**
-  File: [src/net/web_ui.cpp:3670](src/net/web_ui.cpp#L3670)
-  Fix: translate `"verwende /api/preset"` to English.
+- [x] **20. German text in JSON API response** — fixed: `"verwende
+  /api/preset"` → `"use /api/preset"`.
+  File: [src/net/web_ui.cpp:3673](src/net/web_ui.cpp#L3673)
 
-- [ ] **21. "KRIT" (WebUI log) vs "CRITICAL" (serial log) mismatch**
-  File: [src/sensors/temp_monitor.cpp:318](src/sensors/temp_monitor.cpp#L318)
-  Fix: use "CRITICAL" in both.
+- [x] **21. "KRIT" (WebUI log) vs "CRITICAL" (serial log) mismatch** —
+  fixed: `LOG_E` now says "CRITICAL" too, matching the `ESP_LOGE` call
+  right next to it.
+  File: [src/sensors/temp_monitor.cpp:319](src/sensors/temp_monitor.cpp#L319)
 
-- [ ] **22. Garbled bilingual comment in `galvoTask()`**
-  File: [src/output/galvo_out.cpp:524](src/output/galvo_out.cpp#L524)
-  Fix: rewrite in plain English.
+- [x] **22. Garbled bilingual comment in `galvoTask()`** — fixed: rewrote
+  the `gDebugNoHW` branch comment in plain English.
+  File: [src/output/galvo_out.cpp:567](src/output/galvo_out.cpp#L567)
 
-- [ ] **23. snake_case locals in `applyTransform()`**
-  File: [src/patterns/pattern_engine.cpp:312-313](src/patterns/pattern_engine.cpp#L312-L313)
-  Fix: rename `wave_amp`/`wave_phase` → `waveAmp`/`wavePhase`.
+- [x] **23. snake_case locals in `applyTransform()`** — fixed: renamed
+  `wave_amp`/`wave_phase` → `waveAmp`/`wavePhase`.
+  File: [src/patterns/pattern_engine.cpp:306-307](src/patterns/pattern_engine.cpp#L306-L307)
+
+Session H build: `pio run -e esp32-s3-devkitc-1` succeeds, only the four
+touched files recompiled, no new warnings. All six items are cosmetic-only
+(comment/string/rename), no behavior change.
 
 ---
 

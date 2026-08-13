@@ -303,12 +303,12 @@ static void applyTransform(LaserPoint* pts, size_t n, const DmxView& v, uint32_t
     float ca = cosf(angle), sa = sinf(angle);
     int16_t tx = (int16_t)(((int16_t)v.hmove - 128) * 100);
     int16_t ty = (int16_t)(((int16_t)v.vmove - 128) * 100);
-    float wave_amp = (v.wave_x >= 2) ? (v.wave_x / 32) * 500.0f : 0.0f;
-    float wave_phase = phase * 0.05f;
+    float waveAmp = (v.wave_x >= 2) ? (v.wave_x / 32) * 500.0f : 0.0f;
+    float wavePhase = phase * 0.05f;
 
     for (size_t i = 0; i < n; i++) {
         float x = pts[i].x, y = pts[i].y;
-        if (wave_amp > 0.0f) y += wave_amp * sinf(wave_phase + i * 0.1f);
+        if (waveAmp > 0.0f) y += waveAmp * sinf(wavePhase + i * 0.1f);
         float xr = x * ca - y * sa;
         float yr = x * sa + y * ca;
         pts[i].x = (int16_t)constrain(xr + tx, -32760.0f, 32760.0f);
