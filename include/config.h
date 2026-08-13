@@ -313,9 +313,33 @@ constexpr uint8_t OPT_PROFILE_TEXT        = 7;
 // stage1_blank_target (10/10/7) is untouched -- it already sits between each
 // new floor and ceiling, so it stays a valid Stage-1 shrink target with more
 // headroom above it than before. min_corner_pts/max_corner_pts/pts_per_1000_
-// units/max_pts_per_frame are untouched; this table's other rows (Vector,
-// Smooth, Waves, Particles, Trails) are out of this prompt's scope and
-// untouched.
+// units/max_pts_per_frame are untouched. Particles (index 5) was flagged in
+// that same session as "looks like the same issue" but out of scope -- fixed
+// below.
+//
+// Particles (6.65.1): flagged-not-fixed by Session P, confirmed by a bug
+// report of Starfield/RandomPoints/PointSpread/ConfettiBurst/BouncingPoints/
+// ExplosionSpread/Fireworks/MilkyWay all drawing connecting streaks instead
+// of isolated dots. Root cause was exactly Session P's class of bug: shipped
+// window was blank_samples=10, min_blank_samples=6, blppu=12.0 -> 500-833
+// DAC units. These presets scatter points across the FULL canvas (SC=18000,
+// so up to ~48,000 units corner-to-corner for Starfield/RandomPoints; several
+// of them -- RandomPoints, ConfettiBurst's launch order, PointSpread at low
+// N -- visit points in an order uncorrelated with position, so the jump is
+// effectively a random chord across the whole canvas, not a short hop between
+// neighbours). Every real jump clamped to the 10-tick ceiling: at 30 kpps
+// that is 333us total (166us of actual travel) commanded to cross up to
+// 48,000 units -- physically nowhere close, so the beam was still mid-flight
+// when the laser re-armed, painting the "connect the dots" streak. Widened
+// ceiling+slope (min_blank_samples left at 6 -- Starfield's own tight
+// clustered-hop case, the profile's original tuning target per
+// pattern_engine.cpp's applyPointsOnlyMode() comment, is still served by the
+// same floor):
+//   Particles: 10/6/12.0 -> 40/6/0.9   (window  500-833 -> 6,667-44,444)
+// Members that self-cap point count against cfg.blank_samples (Starfield's
+// nStars, RandomPoints has no such cap) will now show fewer simultaneous
+// points at maxed-out Size sliders -- correct dim/sparse dots beat bright
+// streaks. stage1_blank_target (8) untouched, same rationale as Session P.
 //
 // PROFILE_DEFAULTS is indexed by OPT_PROFILE_* and consumed by loadConfig()
 // as the NVS fallback, so a user's stored per-profile values still win.
@@ -343,7 +367,7 @@ static const OptimizerProfileDefaults OPT_PROFILE_DEFAULTS[OPT_PROFILE_COUNT] = 
     {  35.f,   2,     6,    8.f,   16,    6,    12,    8.f,    8,   1300 },  // 2 Waves
     {  25.f,   2,     8,    6.f,   20,    4,    10,    0.8f,   6,   1300 },  // 3 Wireframe
     {  25.f,   2,     6,    5.f,   18,    4,    10,    1.5f,   6,   1300 },  // 4 MultiObject
-    {  25.f,   2,     4,    6.f,   10,    6,     8,   12.f,    4,   1300 },  // 5 Particles
+    {  25.f,   2,     4,    6.f,   40,    6,     8,    0.9f,   4,   1300 },  // 5 Particles
     {  60.f,   3,     3,   11.f,   16,    6,    12,    8.f,    8,    880 },  // 6 Trails
     {  28.f,   2,     5,    6.f,   16,    4,     7,    1.0f,   1,   1300 },  // 7 Text
 };
