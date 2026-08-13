@@ -1319,6 +1319,17 @@ static void applyPointsOnlyMode(size_t& n) {
     // identical to pre-Dotter behavior. See dotter.h.
     float dotSpread = dotter::apply();
 
+    // Stock WebUI defaults are Fade In ms = 0 AND Fade Out ms = 0 (both "on"
+    // toggles unchecked). With no fade window configured at all, cycleMs
+    // collapses to 1 (clamped from 0+0), dotPhaseMs is always 0, "0 <
+    // fade_in_ms(0)" is false, and the fade-out branch below then forces
+    // v=0 unconditionally (points_fade_out_on off) -- every dwell dot
+    // renders fully black forever, i.e. Points-Only Mode looks completely
+    // dead the moment it's enabled. "No fade configured" must mean
+    // always-visible, same as Static, not always-invisible.
+    bool noFadeConfigured = gLivePreset.points_fade_in_ms == 0 &&
+                             gLivePreset.points_fade_out_ms == 0;
+
     size_t o = 0;
     for (uint8_t k = 0; k < count; k++) {
         if (o + (size_t)dwell + (size_t)cfg.blank_samples + 1 > PATTERN_POINTS_MAX) break;
@@ -1328,7 +1339,7 @@ static void applyPointsOnlyMode(size_t& n) {
         dotter::scatter(px, py, k, dotSpread);
 
         float v = 1.0f;
-        if (!gLivePreset.points_static_on) {
+        if (!gLivePreset.points_static_on && !noFadeConfigured) {
             float wipeT = fadeWipePosition(gLivePreset.points_fade_dir, src.x, src.y,
                                             cx, cy, minX, maxX, minY, maxY, halfDiag);
             uint32_t dotPhaseMs = (s_pm_acc_ms + (uint32_t)(wipeT * cycleMs)) % cycleMs;
