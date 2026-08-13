@@ -26,24 +26,20 @@ one-line note (commit hash / reason skipped) when done.
   frames → heap buffer overflow in PSRAM, corrupting adjacent structures.
   Fix: give Pass 2 the identical `default: seek-and-continue` branch Pass 1 has.
 
-- [ ] **4. OTA has no in-progress arm guard**
-  File: [src/net/ota_update.cpp:40-56](src/net/ota_update.cpp#L40-L56),
-  [src/net/web_ui.cpp:1164-1172](src/net/web_ui.cpp#L1164-L1172)
-  Problem: OTA blocks arm only once at upload start (`index==0`); `/api/arm` has
-  no OTA-in-progress check.
-  Risk: arm request mid-flash re-enables `PIN_LASER_ENABLE` while `Update.write()`
-  streams to flash.
-  Fix: add `s_fw_state.active || s_fs_state.active` check in `/api/arm` handler.
+- [x] **4. OTA has no in-progress arm guard** — fixed: new
+  `ota_update::uploadInProgress()` (returns `s_fw_state.active ||
+  s_fs_state.active`) checked in `/api/arm`'s handler before `arm==true` is
+  allowed through to `safety::requestArm()`; rejects with 409 while a flash
+  write is active. Disarm (`arm==false`) is left unguarded — always safe
+  direction. `pio run` (esp32-s3-devkitc-1) succeeds, no new warnings.
+  File: [src/net/ota_update.cpp:349-351](src/net/ota_update.cpp#L349-L351),
+  [src/net/web_ui.cpp:1170-1173](src/net/web_ui.cpp#L1170-L1173)
 
-- [ ] **5. Laser TTL fail-safe doc says pull-down, hardware needs pull-up**
+- [x] **5. Laser TTL fail-safe doc says pull-down, hardware needs pull-up**
+  — fixed: both comments corrected to pull-**up**, with the inverted-6N137
+  rationale (HIGH = laser OFF) spelled out inline so it can't drift back.
   File: [include/pinmap.h:67-70](include/pinmap.h#L67-L70),
-  [src/output/galvo_out.cpp:863-865](src/output/galvo_out.cpp#L863-L865)
-  Problem: comments claim 10kΩ pull-**down** as fail-safe; actual inverted
-  polarity (HIGH=off) requires pull-**up**, matching CLAUDE.md and
-  `docs/01-introduction.md:220`.
-  Risk: doc-only today, but a landmine if board is ever re-populated from these
-  comments — floating GPIO would default to laser-ON.
-  Fix: correct both comments to pull-up; cross-check against actual board.
+  [src/output/galvo_out.cpp:863-866](src/output/galvo_out.cpp#L863-L866)
 
 - [ ] **6. Parked fallback keeps sending fake heartbeat**
   File: [src/patterns/pattern_engine.cpp:1386-1395](src/patterns/pattern_engine.cpp#L1386-L1395)

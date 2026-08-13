@@ -66,8 +66,9 @@
 
 /* GPIO 35/36/37 BLOCKED on N16R8 -- are Octal-PSRAM pins!
  * Laser TTL moved to GPIO 7/8/21.
- * HARDWARE-MANDATORY: 10kΩ pull-down on each laser TTL pin!
- * Prevents laser-ON if GPIO floats (boot/crash). */
+ * HARDWARE-MANDATORY: 10kΩ pull-up (to +3V3) on each laser TTL pin!
+ * Inverted 6N137 logic: GPIO HIGH = laser OFF, so a pull-up is the
+ * fail-safe direction. Prevents laser-ON if GPIO floats (boot/crash). */
 
 /* ILDA RGB->TTL comparator (LM393, 2x DIP-8):
  * ILDA channel 0-5V analog -> LM393 threshold ~1.0V -> TTL HIGH/LOW -> laser

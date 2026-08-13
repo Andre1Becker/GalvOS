@@ -7,4 +7,5 @@
 namespace ota_update {
 void init();          // ArduinoOTA + HTTP-Endpoint register
 void handle();        // Call in loop (ArduinoOTA.handle())
+bool uploadInProgress(); // true while a firmware or filesystem flash write is active
 }

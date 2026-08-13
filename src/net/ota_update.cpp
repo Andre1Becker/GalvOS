@@ -347,4 +347,8 @@ void handle() {
     ArduinoOTA.handle();
 }
 
+bool uploadInProgress() {
+    return s_fw_state.active || s_fs_state.active;
+}
+
 } // namespace ota_update

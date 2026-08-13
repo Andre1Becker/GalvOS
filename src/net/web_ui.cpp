@@ -1167,6 +1167,10 @@ void init() {
         nullptr,
         [](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t, size_t) {
             bool arm = (len > 0 && data[0] == '1');
+            if (arm && ota_update::uploadInProgress()) {
+                req->send(409, "text/plain", "OTA in progress -- cannot arm");
+                return;
+            }
             safety::requestArm(arm);
             req->send(200, "text/plain", arm ? "ARMED" : "DISARMED");
         });

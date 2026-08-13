@@ -860,9 +860,10 @@ void init() {
     gpio_set_direction((gpio_num_t)PIN_GALVO_CS, GPIO_MODE_OUTPUT);
     gpio_set_level((gpio_num_t)PIN_GALVO_CS, 1);
 
-    // ── Safety: pull-downs on laser TTL pins (hardware interlock) ──
+    // ── Safety: drive laser TTL pins HIGH at boot (hardware interlock) ──
     // If the ESP32 crashes and GPIOs float -> laser stays OFF.
-    // IN ADDITION to the 10kOhm pull-down resistors on the board!
+    // IN ADDITION to the 10kOhm pull-up resistors on the board (inverted
+    // 6N137 logic: HIGH = laser OFF, so fail-safe direction is pull-up)!
     gpio_set_direction((gpio_num_t)PIN_LASER_R, GPIO_MODE_OUTPUT);
     gpio_set_direction((gpio_num_t)PIN_LASER_G, GPIO_MODE_OUTPUT);
     gpio_set_direction((gpio_num_t)PIN_LASER_B, GPIO_MODE_OUTPUT);
