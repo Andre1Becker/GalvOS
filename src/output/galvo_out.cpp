@@ -181,6 +181,34 @@ static inline void IRAM_ATTR writeDAC8562(uint8_t channel, uint16_t value) {
 // SPI2 W0 sends bit23 first -> pack cmd in W0[23:16], no byte-swap needed.
 //
 static bool s_spi_user_configured = false;
+
+// Bounded timeout for the SPI2 CMD-register busy-waits below. Normal
+// transfer time for a 24-bit word is a few 10ths of a microsecond at the
+// DAC's SPI clock; 200us is generous headroom while still bounding an SPI2
+// glitch/brown-out to a single stalled tick instead of hanging Core 1
+// forever (galvoTask is intentionally excluded from the TWDT — see
+// main.cpp — so this loop was previously the only unbounded wait in the
+// hot path). esp_timer_get_time() is already used elsewhere in this
+// IRAM_ATTR task (see galvoTask's next_tick), so it's known-safe here.
+static constexpr int64_t SPI2_POLL_TIMEOUT_US = 200;
+// Fault counter, written here (Core 1 / IRAM), logged from a normal-priority
+// Core 0 task -- same deferred-logging convention as s_dac_dbg_* above.
+// ESP_LOGx must not be called from this IRAM hot path: it can read flash
+// (format strings/config) which may be cache-disabled during OTA/NVS writes.
+static volatile uint32_t s_spi2_timeout_count = 0;
+static inline bool IRAM_ATTR spi2WaitClear(volatile uint32_t& cmd_reg, uint32_t bit) {
+    int64_t start = esp_timer_get_time();
+    while (cmd_reg & bit) {
+        if (esp_timer_get_time() - start > SPI2_POLL_TIMEOUT_US) {
+            s_spi2_timeout_count++;
+            return false;
+        }
+    }
+    return true;
+}
+
+static inline void rgbOff();  // fwd decl -- defined below, needed as the fail-safe on SPI2 timeout
+
 static inline void IRAM_ATTR writeDAC8562XY(uint16_t x, uint16_t y) {
     // Configure USER register once: set usr_mosi, preserve IDF clock-phase bits.
     // Blind overwrite of USER would destroy CPOL/CPHA bits set by IDF init.
@@ -213,19 +241,35 @@ static inline void IRAM_ATTR writeDAC8562XY(uint16_t x, uint16_t y) {
     // --- DAC-A (X) ---
     GALVO_SPI2_W0  = wordA;
     GALVO_SPI2_CMD = GALVO_SPI2_UPDATE;               // latch W0+DLEN into core
-    while (GALVO_SPI2_CMD & GALVO_SPI2_UPDATE) {}
+    if (!spi2WaitClear(GALVO_SPI2_CMD, GALVO_SPI2_UPDATE)) {
+        GALVO_GPIO_W1TS = GALVO_CS_MASK;              // CS HIGH -- release bus, fail-safe
+        rgbOff();                                     // SPI2 wedged: don't trust position, blank beam
+        return;
+    }
     GALVO_GPIO_W1TC = GALVO_CS_MASK;                  // CS LOW
     GALVO_SPI2_CMD  = GALVO_SPI2_USR;                 // start transfer
-    while (GALVO_SPI2_CMD & GALVO_SPI2_USR) {}        // poll USR bit — cleared when done
+    if (!spi2WaitClear(GALVO_SPI2_CMD, GALVO_SPI2_USR)) {
+        GALVO_GPIO_W1TS = GALVO_CS_MASK;
+        rgbOff();
+        return;
+    }
     GALVO_GPIO_W1TS = GALVO_CS_MASK;                  // CS HIGH — DAC-A latches
 
     // --- DAC-B (Y) ---
     GALVO_SPI2_W0  = wordB;
     GALVO_SPI2_CMD = GALVO_SPI2_UPDATE;
-    while (GALVO_SPI2_CMD & GALVO_SPI2_UPDATE) {}
+    if (!spi2WaitClear(GALVO_SPI2_CMD, GALVO_SPI2_UPDATE)) {
+        GALVO_GPIO_W1TS = GALVO_CS_MASK;
+        rgbOff();
+        return;
+    }
     GALVO_GPIO_W1TC = GALVO_CS_MASK;
     GALVO_SPI2_CMD  = GALVO_SPI2_USR;
-    while (GALVO_SPI2_CMD & GALVO_SPI2_USR) {}
+    if (!spi2WaitClear(GALVO_SPI2_CMD, GALVO_SPI2_USR)) {
+        GALVO_GPIO_W1TS = GALVO_CS_MASK;
+        rgbOff();
+        return;
+    }
     GALVO_GPIO_W1TS = GALVO_CS_MASK;                  // CS HIGH — DAC-B latches
 
     if (gConfig.dac_debug_log) {
@@ -1262,6 +1306,12 @@ bool dacOk()    { return s_dac_ok; }
 bool noHwMode() { return gDebugNoHW; }
 
 // Internal worker -- only called from galvoTask (Core 1), which owns SPI2.
+// No logging here: this runs inline in the 30-45kpps hot loop when a raw
+// command is pending (see galvoTask's s_raw_cmd_pending check). ESP_LOGI/
+// LOG_I do a UART write + take a mutex (up to 5ms) -- either stalls Core 1
+// for far longer than the per-point budget. Result is reported back via
+// s_raw_cmd_result; sendRawCommand() (below, Core 0, already blocking on
+// that result) does the logging instead.
 static bool sendRawCommandImpl(uint8_t cmd3, uint8_t addr3, uint16_t data) {
     if (!s_galvo_spi) return false;
     uint8_t tx[3];
@@ -1273,10 +1323,6 @@ static bool sendRawCommandImpl(uint8_t cmd3, uint8_t addr3, uint16_t data) {
     t.length    = 24;
     t.tx_buffer = tx;
     esp_err_t err = spi_device_polling_transmit(s_galvo_spi, &t);
-    ESP_LOGI(TAG, "[DAC] raw cmd: bytes=%02X %02X %02X (cmd=%u addr=%u data=0x%04X) -> %s",
-             tx[0], tx[1], tx[2], cmd3, addr3, data, esp_err_to_name(err));
-    LOG_I(logbuf::CAT_GALVO, "[DAC] raw cmd: %02X %02X %02X -> %s",
-          tx[0], tx[1], tx[2], esp_err_to_name(err));
     return err == ESP_OK;
 }
 
@@ -1297,7 +1343,15 @@ bool sendRawCommand(uint8_t cmd3, uint8_t addr3, uint16_t data) {
         ESP_LOGW(TAG, "[DAC] raw cmd timed out (galvoTask not running?)");
         return false;
     }
-    return s_raw_cmd_result == 1;
+    bool ok = s_raw_cmd_result == 1;
+    // Logging deferred to here (Core 0, this caller task) -- see
+    // sendRawCommandImpl()'s comment above.
+    uint8_t byte0 = ((cmd3 & 0x07) << 3) | (addr3 & 0x07);
+    ESP_LOGI(TAG, "[DAC] raw cmd: bytes=%02X %02X %02X (cmd=%u addr=%u data=0x%04X) -> %s",
+             byte0, (data >> 8) & 0xFF, data & 0xFF, cmd3, addr3, data, ok ? "OK" : "FAIL");
+    LOG_I(logbuf::CAT_GALVO, "[DAC] raw cmd: %02X %02X %02X -> %s",
+          byte0, (data >> 8) & 0xFF, data & 0xFF, ok ? "OK" : "FAIL");
+    return ok;
 }
 
 void holdChannelValue(uint8_t channel, uint16_t code, uint32_t durationMs) {
@@ -1332,6 +1386,26 @@ void logDacDebugIfPending() {
     uint16_t x = s_dac_dbg_x, y = s_dac_dbg_y;
     ESP_LOGI("galvo", "[DAC] X=0x%04X Y=0x%04X", x, y);
     LOG_I(logbuf::CAT_GALVO, "[DAC] X=0x%04X Y=0x%04X", x, y);
+}
+
+uint32_t spi2TimeoutCount() { return s_spi2_timeout_count; }
+
+// Deferred logger for spi2WaitClear()'s fault counter -- same convention as
+// logDacDebugIfPending() above: galvoTask (Core 1) only increments a
+// volatile counter, this normal-priority Core-0 task does the actual
+// ESP_LOGx/LOG_W. Polled alongside logDacDebugIfPending() (temp_monitor.cpp).
+void logSpi2FaultIfPending() {
+    static uint32_t s_last_seen = 0;
+    static uint32_t s_last_log_ms = 0;
+    uint32_t count = s_spi2_timeout_count;
+    if (count == s_last_seen) return;
+    uint32_t now = millis();
+    if (now - s_last_log_ms < 1000) return;  // rate-limited, mirrors ring-overflow logging
+    s_last_log_ms = now;
+    s_last_seen = count;
+    ESP_LOGW("galvo", "SPI2 poll timeout, cumulative count=%u (beam blanked on each occurrence)",
+             (unsigned)count);
+    LOG_W(logbuf::CAT_GALVO, "SPI2 poll timeout, count=%u", (unsigned)count);
 }
 
 }  // namespace galvo

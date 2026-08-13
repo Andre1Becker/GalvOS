@@ -273,6 +273,7 @@ void task(void*) {
         uint32_t now = millis();
 
         galvo::logDacDebugIfPending();
+        galvo::logSpi2FaultIfPending();
 
         // ---- request conversion (every 2 seconds) ----
         if (!conversion_pending && now - last_request >= 2000) {

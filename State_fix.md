@@ -93,26 +93,40 @@ one-line note (commit hash / reason skipped) when done.
 
 ## Real-Time Violations
 
-- [ ] **13. Blocking log call inside Core-1 hot loop**
-  File: [src/output/galvo_out.cpp:557-561,1275-1278](src/output/galvo_out.cpp#L557-L561)
-  Problem: `sendRawCommandImpl()` (serviced inline in `galvoTask`) calls
-  `ESP_LOGI`/`LOG_I`, violating the file's own no-logging-in-hot-path rule
-  (see comment at 153-156).
-  Risk: raw-DAC-command from Config tab during playback stalls `galvoTask` for a
-  UART write + up to 5ms mutex wait — ≈225 missed ticks at 45kpps, audible/visible
-  stutter.
-  Fix: defer raw-command logging to Core 0, or drop it for this debug path.
+- [x] **13. Blocking log call inside Core-1 hot loop** — fixed: moved the
+  `ESP_LOGI`/`LOG_I` calls out of `sendRawCommandImpl()` (runs inline in
+  `galvoTask`) into `sendRawCommand()` (the Core-0 caller, which already
+  blocks/polls up to 200ms for the result) — recomputes the tx bytes there
+  from the already-available `cmd3`/`addr3`/`data` instead of threading
+  `esp_err_to_name(err)` back through shared state, so the message is now
+  "-> OK"/"-> FAIL" instead of the IDF error string. `sendRawCommandImpl()`
+  itself no longer touches logging at all.
+  File: [src/output/galvo_out.cpp:1308-1358](src/output/galvo_out.cpp#L1308-L1358)
 
-- [ ] **14. Unbounded SPI2 busy-wait, no timeout, no heartbeat GPIO**
-  File: [src/output/galvo_out.cpp:216-228](src/output/galvo_out.cpp#L216-L228),
-  `PIN_HEARTBEAT` commented out at [include/pinmap.h:197](include/pinmap.h#L197)
-  Problem: SPI2 `UPDATE`/`USR` status-bit polling has no timeout; `galvoTask` is
-  also intentionally excluded from TWDT (main.cpp:494-511) because of its
-  busy-wait design, and the intended hang detector pin is disabled.
-  Risk: an SPI2 glitch/brown-out hangs Core 1 indefinitely; only recovery is
-  `safety::task()`'s 500ms subsystem-heartbeat timeout.
-  Fix: add a bounded retry/timeout on the polling loop, or re-wire
-  `PIN_HEARTBEAT` if hardware allows.
+- [x] **14. Unbounded SPI2 busy-wait, no timeout, no heartbeat GPIO** —
+  fixed (software side; `PIN_HEARTBEAT` re-wire is a hardware change, out of
+  scope here and not attempted). New `spi2WaitClear()` bounds each of the
+  4 `UPDATE`/`USR` CMD-bit polls in `writeDAC8562XY()` to 200us
+  (`esp_timer_get_time()`, already used elsewhere in this IRAM task) instead
+  of spinning forever. On timeout: CS released HIGH (bus fail-safe) and
+  `rgbOff()` called immediately (cheap ledcWrite, already used inline
+  elsewhere in this hot loop) — position can't be trusted after a wedged
+  transfer, so the beam is blanked rather than left lit at a stale point.
+  The fault only increments a `volatile` counter in the IRAM path (calling
+  ESP_LOGx there was rejected — same flash-cache-disabled hazard as #13);
+  a new deferred logger `logSpi2FaultIfPending()` (Core 0, polled from
+  `temp_monitor.cpp`'s existing loop next to `logDacDebugIfPending()`)
+  does the actual rate-limited warning log. `spi2TimeoutCount()` getter
+  added to `galvo_out.h` for future diagnostics/UI surfacing (not wired
+  into `/api/state` here — out of scope, `overflowCount()` next to it
+  isn't wired in either).
+  `pio run` (esp32-s3-devkitc-1) succeeds, no new warnings. Not verified
+  against a real SPI2 glitch/brown-out (no hardware attached this session,
+  and that fault is not practically reproducible without one) — logic
+  re-derived by hand against the existing register-poll sequence and the
+  file's own IRAM/no-logging conventions.
+  File: [src/output/galvo_out.cpp:183-275](src/output/galvo_out.cpp#L183-L275),
+  deferred logger at [1391-1409](src/output/galvo_out.cpp#L1391-L1409)
 
 ---
 

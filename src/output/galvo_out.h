@@ -42,6 +42,7 @@ uint32_t pointsPerSec();
 uint32_t fps();               // drawn frames/sec (real ring-tail advances)
 uint32_t bufferFillLevel();   // 0..100 %
 uint32_t overflowCount();     // cumulative ring buffer overflow events
+uint32_t spi2TimeoutCount();  // cumulative SPI2 busy-wait timeouts (writeDAC8562XY)
 
 // ── Sample-Rate Autotune ──────────────────────────────────────────────────
 // Empirically finds the highest galvo_kpps that runs without ring buffer
@@ -112,5 +113,6 @@ bool sendRawCommand(uint8_t cmd3, uint8_t addr3, uint16_t data);
 void holdChannelValue(uint8_t channel, uint16_t code, uint32_t durationMs);
 
 void logDacDebugIfPending();
+void logSpi2FaultIfPending();
 
 }  // namespace galvo
