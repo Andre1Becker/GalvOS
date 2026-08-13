@@ -1813,11 +1813,22 @@ def _runCalibrateWarpBody(cfg: dict, esp: EspClient, cam: "Camera", n: int,
     def targetPixelFor(r: int, c: int) -> np.ndarray:
         # Outer edge lands on targetCorners; interior control points are meant to
         # sit on an evenly-spaced grid INSIDE it - bilinear across the 4 corners.
+        #
+        # Row convention MUST match identityGridPatternPos()'s: r=0 -> v=-1, i.e.
+        # pattern-space BOTTOM (config.h's WarpConfig::resetIdentity() / firmware's
+        # warpGrid.cpp sampleGrid(), both v=-1 at r=0). targetCorners are in CAMERA
+        # PIXEL space, where row 0 (small y) is the image TOP - so r=0 must resolve
+        # to the BOTTOM target corners (BL/BR), not TOP. Getting this backwards (as
+        # a prior version did) commands each identity point at its true DAC
+        # position but solves it against the vertically-opposite pixel target,
+        # baking a full row-inversion into the fitted grid - invisible on
+        # point-symmetric calibration shapes (circle/square/star) but a hard
+        # top/bottom flip on anything asymmetric (text, triangles).
         u = c / (n - 1) if n > 1 else 0.5
         v = r / (n - 1) if n > 1 else 0.5
         top = targetCorners[0] * (1 - u) + targetCorners[1] * u
         bot = targetCorners[3] * (1 - u) + targetCorners[2] * u
-        return top * (1 - v) + bot * v
+        return bot * (1 - v) + top * v
 
     ids = [(r, c) for r in range(n) for c in range(n)]
     pr(f"projecting {n * n} identity-grid control point(s) as single dwell dots ...")
