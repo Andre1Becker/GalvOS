@@ -849,7 +849,7 @@ canvas { max-width: 100%; display: block; }
               <option value="0">Static</option><option value="1">Scroll Left</option><option value="2">Scroll Right</option>
               <option value="3">Bounce</option><option value="4">Typewriter</option><option value="5">Wave</option>
               <option value="6">Pulse</option><option value="7">Rotate</option><option value="8">Zoom</option>
-              <option value="9">Orbit (sphere-wrap)</option><option value="10">Star-Wars scroll</option>
+              <option value="10">Orbit (sphere-wrap)</option><option value="11">Star-Wars scroll</option>
             </select>
           </div>
           <div class="field"><label>Color</label><input type="color" id="tx-color" value="#ffffff" oninput="textLive()"></div>
@@ -858,6 +858,7 @@ canvas { max-width: 100%; display: block; }
           <button class="btn primary" onclick="startText(false)">&#9654; Show text</button>
           <button class="btn danger" onclick="stopText()">&#9632; Stop</button>
         </div>
+        <p id="tx-truncated-warn" class="hidden" style="font-size:0.75rem;color:var(--warn)">&#9888; Text ran out of frame buffer &mdash; part of the string was dropped. Lower Size or shorten the text.</p>
       </div>
       <div class="card">
         <h2>Parameters</h2>
@@ -1554,7 +1555,7 @@ canvas { max-width: 100%; display: block; }
 /* =========================================================================
    GLOBAL STATE
    ========================================================================= */
-var UI_VERSION = '1.17.2';   // WebUI version -- independent from firmware version
+var UI_VERSION = '1.18.0';   // WebUI version -- independent from firmware version
 var NAV_TABS = [
   {id: 'dashboard', label: 'Dashboard', icon: '🏠', bottom: true},
   {id: 'presets', label: 'Presets', icon: '🎮', bottom: true},
@@ -3571,6 +3572,14 @@ function textLive() {
   if (_txLiveTimer) clearTimeout(_txLiveTimer);
   _txLiveTimer = setTimeout(function() { startText(true); }, 120);
 }
+// text_truncated comes from /api/status (gState.text_truncated, set by
+// pattern_engine.cpp when textrender::wasTruncated() fires) -- warns when
+// the frame buffer ran out mid-string instead of the laser just silently
+// drawing an incomplete word.
+registerStateHandler(function(s) {
+  var warn = document.getElementById('tx-truncated-warn');
+  if (warn) warn.classList.toggle('hidden', !s.text_truncated);
+});
 
 /* =========================================================================
    PAINT BY FINGER -- vector shape editor over a square canvas mapped to

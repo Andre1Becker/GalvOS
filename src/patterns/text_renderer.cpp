@@ -52,7 +52,20 @@ static inline optimizer::OptimizerConfig textOptimizerConfig(float sc = 0.f) {
     // per-glyph corner/blank overhead inside one frame.
     if (sc > 1.f) {
         float ppu = 1400.f / sc;
-        if (ppu < 2.f)  ppu = 2.f;
+        // Floor was 2.f, meant only to keep ppu sane for pathological sc --
+        // but the whole point of ppu = K/sc is that it cancels the sc factor
+        // back out of interior-point count (see the comment above), so a
+        // floor that's actually reachable within the Text tool's own Size
+        // slider (0-255) breaks that cancellation: past sc ~700 (Size ~71,
+        // the reported "GALVOS only fully shows up to Size 80" bug) ppu got
+        // clamped to the floor instead of continuing to shrink, so per-glyph
+        // point count started growing linearly with size again instead of
+        // staying flat -- eventually overrunning the frame's point budget
+        // and silently dropping trailing glyphs. BASE_SCALE tops out at
+        // sc~1989 (Size=255), where the unclamped ppu is ~0.7, so 0.1f never
+        // engages across the slider's full range; it only guards against
+        // future/community-preset scales far past that.
+        if (ppu < 0.1f) ppu = 0.1f;
         if (ppu > 30.f) ppu = 30.f;
         // configFromLive() has already PPS-scaled the live density; this
         // override REPLACES that number, so it has to carry the same factor
@@ -391,7 +404,11 @@ static size_t renderTextString(LaserPoint* out, size_t max,
 // ============================================================
 // generate — public interface
 // ============================================================
-size_t generate(LaserPoint* out, size_t max_pts, const TextConfig& cfg, uint32_t phase) {
+static volatile bool s_lastTruncated = false;
+
+bool wasTruncated() { return s_lastTruncated; }
+
+static size_t generateImpl(LaserPoint* out, size_t max_pts, const TextConfig& cfg, uint32_t phase) {
     if (!cfg.active || !cfg.text[0]) return 0;
 
     const uint32_t safe_phase = phase % 0xFFFFFF;
@@ -669,6 +686,19 @@ size_t generate(LaserPoint* out, size_t max_pts, const TextConfig& cfg, uint32_t
             return renderTextString(out, max_pts, cfg.text, full_len,
                                     cfg, start_x, base_y, display_sc);
     }
+}
+
+size_t generate(LaserPoint* out, size_t max_pts, const TextConfig& cfg, uint32_t phase) {
+    size_t n = generateImpl(out, max_pts, cfg, phase);
+    // Buffer-exhaustion heuristic: every low-level point-add site
+    // (addPt/renderGlyph/optimize()) silently drops points once its budget
+    // is spent rather than growing the buffer, so there's no single choke
+    // point to instrument precisely. Landing within TRUNC_MARGIN of the full
+    // frame budget is a reliable proxy for "something got cut" without
+    // threading a truncation flag through every call site above.
+    static constexpr size_t TRUNC_MARGIN = 8;
+    s_lastTruncated = cfg.active && cfg.text[0] && (n + TRUNC_MARGIN >= max_pts);
+    return n;
 }
 
 // ============================================================

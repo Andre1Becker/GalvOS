@@ -641,6 +641,7 @@ static void buildStateJson(JsonDocument& doc) {
     doc["frame_n"]          = gState.frame_n.load();
     doc["frame_lit"]        = gState.frame_lit.load();
     doc["frame_blank"]      = gState.frame_blank.load();
+    doc["text_truncated"]   = gState.text_truncated.load();
     // P9a: DAC output-limiting clip diagnostic (galvo_out.cpp galvoTask()) --
     // saturation from the last frame the optimizer/pattern layer can't see,
     // since clamping to dac_limit_min/max happens after they've already run.

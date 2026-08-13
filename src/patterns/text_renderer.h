@@ -32,6 +32,15 @@ static constexpr int TEXT_MAX_STATIC_CHARS = 16;
 size_t generate(LaserPoint* out, size_t max_pts,
                 const TextConfig& cfg, uint32_t phase);
 
+/**
+ * Whether the most recent generate() call ran out of frame-buffer budget
+ * before the whole string/animation could be drawn (last character(s) or a
+ * glyph's stroke silently dropped by the point-budget guards inside
+ * generate()). Callers use this to warn instead of leaving a partially-drawn
+ * string unexplained -- see pattern_engine.cpp's Text Mode block.
+ */
+bool wasTruncated();
+
 // ============================================================
 // glyphOutlinePaths -- raw (un-optimized) glyph outline sub-paths
 // ============================================================

@@ -588,6 +588,11 @@ struct RuntimeState {
     std::atomic<uint32_t> dacClipTotalPts   {0};      // total points in that frame
     std::atomic<uint32_t> dmx_frame_count   {0};
     std::atomic<uint32_t> last_dmx_ms       {0};
+    // Text Mode ran out of frame-buffer budget and dropped part of the
+    // string/glyph -- see textrender::wasTruncated(). Surfaced on
+    // /api/status as text_truncated so the WebUI can warn instead of the
+    // laser just silently drawing an incomplete word.
+    std::atomic<bool>     text_truncated    {false};
     // UI Override: WebUI takes priority over DMX/Art-Net when active
     // ui_master_dimmer is always applied; ui_override also blocks DMX source
     std::atomic<bool>     ui_override       {false};  // true = ignore DMX, use WebUI

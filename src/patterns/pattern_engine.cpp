@@ -1569,6 +1569,19 @@ void task(void*) {
         { LOCK_STATE(); textSnap = gTextConfig; }
         if (textSnap.active && textSnap.text[0]) {
             size_t n = textrender::generate(s_frame, PATTERN_POINTS_MAX, textSnap, phase);
+            // Warn (once per rising edge, not every frame) when the text
+            // renderer ran out of point budget and had to drop part of the
+            // string -- see textrender::wasTruncated(). Rising-edge only so
+            // a long-running scroll/typewriter animation that stays
+            // truncated doesn't spam the log at ~25fps.
+            bool truncated = textrender::wasTruncated();
+            if (truncated != gState.text_truncated.load()) {
+                gState.text_truncated.store(truncated);
+                if (truncated) {
+                    LOG_W(logbuf::CAT_USER, "Text Mode: frame buffer full, string truncated (Size=%u, len=%u)",
+                          (unsigned)textSnap.size_val, (unsigned)strlen(textSnap.text));
+                }
+            }
             // Some animations legitimately return 0 pts for part of their
             // cycle (e.g. Typewriter's blank beat between retype passes).
             // phase MUST still advance here -- otherwise the animation
@@ -1588,6 +1601,10 @@ void task(void*) {
             phase++;
             vTaskDelay(pdMS_TO_TICKS(40));
             continue;
+        } else if (gState.text_truncated.load()) {
+            // Left Text Mode (or string cleared) -- don't leave a stale
+            // truncation warning showing for a mode that isn't running.
+            gState.text_truncated.store(false);
         }
 
         // ---- Paint-by-Finger Mode ----
