@@ -73,72 +73,65 @@ presets::Preset getPreset() { return s_preset_idx; }
 /* ============================================================
  * Geometrie-Primitives
  * ============================================================ */
-static size_t genCircle(LaserPoint* out, uint16_t radius, uint8_t r, uint8_t g, uint8_t b) {
-    const size_t N = 128;
-    static_assert(N <= PATTERN_POINTS_MAX, "genCircle exceeds frame buffer");
-    for (size_t i = 0; i < N; i++) {
-        float a = (2.0f * PI * i) / N;
-        out[i].x = (int16_t)(cosf(a) * radius);
-        out[i].y = (int16_t)(sinf(a) * radius);
-        out[i].r = r; out[i].g = g; out[i].b = b;
-        out[i].blank = 0;
-    }
-    return N;
+// Optimizer config for the legacy DMX-only shape path below (genCircle/
+// genSquare/genStar/genPattern's 32-gon branch) -- same
+// optimizer::configFromLive() call the preset path already makes (see
+// pattern_engine.cpp's other optimizer::configFromLive() call sites), just
+// without preset_patterns.cpp's OPT_DENSITY modulator scaling, since
+// modulators are a preset-only concept and this path never had one.
+static optimizer::OptimizerConfig legacyOptimizerConfig() {
+    return optimizer::configFromLive(gOptimizerConfig, gProjection.galvo_rated_kpps,
+                                      gProjection.galvo_kpps);
 }
 
-static size_t genSquare(LaserPoint* out, uint16_t size, uint8_t r, uint8_t g, uint8_t b) {
-    const size_t per_side = 40;  // more points = smoother on fast galvos
-    static_assert(1 + 4 * (40 + 1) <= PATTERN_POINTS_MAX, "genSquare exceeds frame buffer");
-    int16_t s = (int16_t)size;
-    // corners: bottom-left → bottom-right → top-right → top-left → close
-    int16_t corners[5][2] = {
-        {(int16_t)(-s), (int16_t)(-s)},  // 0: bottom-left  (start)
-        {s,             (int16_t)(-s)},  // 1: bottom-right
-        {s,             s            },  // 2: top-right
-        {(int16_t)(-s), s            },  // 3: top-left
-        {(int16_t)(-s), (int16_t)(-s)},  // 4: back to start (close)
+// genCircle/genSquare/genStar -- State_fix.md architecture #16: migrated to
+// point_optimizer. This is the legacy DMX-only shape path (no WebUI preset
+// selected, see genPattern()'s only caller) -- it previously hard-coded
+// point counts with no corner/density-adaptive resampling, easing, or
+// ZV ringing compensation, the exact defect class Pillars 1-3 fixed for the
+// WebUI preset path (preset_patterns.cpp). Each shape is now described as a
+// small PathSegment of corner vertices, same convention as
+// preset_patterns.cpp's ngon()/star() (e.g. its "Circle via ngon,
+// 32-vertex" comment) -- optimizer::optimize() decides actual output point
+// placement from geometry size and galvo_kpps rather than a fixed constant.
+static size_t genCircle(LaserPoint* out, size_t mx, uint16_t radius, int sides,
+                         uint8_t r, uint8_t g, uint8_t b) {
+    if (sides < 3) sides = 3;
+    if (sides > 64) sides = 64;
+    optimizer::PathVertex verts[64];
+    for (int i = 0; i < sides; i++) {
+        float a = (2.0f * PI * i) / sides;
+        verts[i] = optimizer::PathVertex(cosf(a) * radius, sinf(a) * radius, r, g, b, false);
+    }
+    optimizer::PathSegment seg(verts, (size_t)sides, /*closed=*/true);
+    return optimizer::optimize(&seg, 1, out, mx, legacyOptimizerConfig());
+}
+
+static size_t genSquare(LaserPoint* out, size_t mx, uint16_t size, uint8_t r, uint8_t g, uint8_t b) {
+    float s = (float)size;
+    optimizer::PathVertex verts[4] = {
+        optimizer::PathVertex(-s, -s, r, g, b, false),  // bottom-left
+        optimizer::PathVertex( s, -s, r, g, b, false),  // bottom-right
+        optimizer::PathVertex( s,  s, r, g, b, false),  // top-right
+        optimizer::PathVertex(-s,  s, r, g, b, false),  // top-left
     };
-    size_t idx = 0;
-    // Blank jump to start position
-    out[idx] = {corners[0][0], corners[0][1], 0, 0, 0, 1};  idx++;
-    // Draw 4 sides (corner 0→1, 1→2, 2→3, 3→4=0)
-    for (int seg = 0; seg < 4; seg++) {
-        for (size_t i = 0; i <= per_side; i++) {
-            float t = (float)i / per_side;
-            int16_t x = corners[seg][0] + (int16_t)((corners[seg+1][0] - corners[seg][0]) * t);
-            int16_t y = corners[seg][1] + (int16_t)((corners[seg+1][1] - corners[seg][1]) * t);
-            out[idx].x = x; out[idx].y = y;
-            out[idx].r = r; out[idx].g = g; out[idx].b = b;
-            out[idx].blank = (seg == 0 && i == 0) ? 1 : 0;  // blank only at very start
-            idx++;
-        }
-    }
-    return idx;
+    optimizer::PathSegment seg(verts, 4, /*closed=*/true);
+    return optimizer::optimize(&seg, 1, out, mx, legacyOptimizerConfig());
 }
 
-static size_t genStar(LaserPoint* out, uint16_t radius, uint8_t r, uint8_t g, uint8_t b) {
-    const size_t POINTS = 5;
-    const size_t per_seg = 40;
-    static_assert(5 * 40 <= PATTERN_POINTS_MAX, "genStar exceeds frame buffer");
-    int16_t verts[POINTS][2];
-    for (size_t i = 0; i < POINTS; i++) {
+static size_t genStar(LaserPoint* out, size_t mx, uint16_t radius, uint8_t r, uint8_t g, uint8_t b) {
+    // 5 vertices visited in {5/2} pentagram order (step = 2*72°) -- same
+    // vertex placement the original fixed-step version used, just fed to
+    // the optimizer as one closed PathSegment instead of a manual 40-step
+    // per-edge lerp.
+    const int POINTS = 5;
+    optimizer::PathVertex verts[POINTS];
+    for (int i = 0; i < POINTS; i++) {
         float a = (2.0f * PI * 2 * i) / POINTS - PI / 2;
-        verts[i][0] = (int16_t)(cosf(a) * radius);
-        verts[i][1] = (int16_t)(sinf(a) * radius);
+        verts[i] = optimizer::PathVertex(cosf(a) * radius, sinf(a) * radius, r, g, b, false);
     }
-    size_t idx = 0;
-    for (size_t s = 0; s < POINTS; s++) {
-        size_t n = (s + 1) % POINTS;
-        for (size_t i = 0; i < per_seg; i++) {
-            float t = (float)i / per_seg;
-            out[idx].x = verts[s][0] + (int16_t)((verts[n][0] - verts[s][0]) * t);
-            out[idx].y = verts[s][1] + (int16_t)((verts[n][1] - verts[s][1]) * t);
-            out[idx].r = r; out[idx].g = g; out[idx].b = b;
-            out[idx].blank = 0;
-            idx++;
-        }
-    }
-    return idx;
+    optimizer::PathSegment seg(verts, POINTS, /*closed=*/true);
+    return optimizer::optimize(&seg, 1, out, mx, legacyOptimizerConfig());
 }
 
 static size_t genCenterPoint(LaserPoint* out) {
@@ -289,19 +282,14 @@ static void resolveColor(uint8_t ch2, uint8_t& r, uint8_t& g, uint8_t& b) {
 
 static size_t genPattern(const DmxView& v, LaserPoint* out) {
     uint16_t radius = 5000 + (v.size * 12000) / 255;
-    if (v.pattern_group <= 24)  return genCircle(out, radius, 255, 255, 255);
-    if (v.pattern_group <= 49)  return genSquare(out, radius, 255, 255, 255);
-    if (v.pattern_group <= 74)  return genStar(out,   radius, 255, 255, 255);
-    if (v.pattern_group <= 99) {
-        size_t n = 32;
-        for (size_t i = 0; i < n; i++) {
-            float a = (2.0f * PI * i) / n;
-            out[i] = LaserPoint((int16_t)(cosf(a) * radius), (int16_t)(sinf(a) * radius),
-                                255, 255, 255, 0);
-        }
-        return n;
-    }
-    return genCircle(out, radius, 255, 255, 255);
+    const size_t mx = PATTERN_POINTS_MAX;
+    if (v.pattern_group <= 24)  return genCircle(out, mx, radius, 48, 255, 255, 255);
+    if (v.pattern_group <= 49)  return genSquare(out, mx, radius, 255, 255, 255);
+    if (v.pattern_group <= 74)  return genStar(out,   mx, radius, 255, 255, 255);
+    // 75-99: coarser polygon approximation of the same circle -- kept as its
+    // own DMX-selectable look (visibly faceted vs. the smooth default below).
+    if (v.pattern_group <= 99)  return genCircle(out, mx, radius, 16, 255, 255, 255);
+    return genCircle(out, mx, radius, 48, 255, 255, 255);
 }
 
 static void applyTransform(LaserPoint* pts, size_t n, const DmxView& v, uint32_t phase) {
@@ -828,6 +816,19 @@ static void applyDuplicator(size_t& n) {
         srcN = w;
     }
 
+    // Blank jumps between copies -- routed through the same
+    // optimizer::emitBlankTo() (distance-proportional, smoothstep-eased,
+    // optionally ZV-shaped) applyMirror() uses, instead of a hand-rolled
+    // linear lerp (State_fix.md architecture #17).
+    optimizer::OptimizerConfig cfg;
+    cfg.blank_samples            = gOptimizerConfig.blank_samples;
+    cfg.min_blank_samples        = gOptimizerConfig.min_blank_samples;
+    cfg.blank_pts_per_1000_units = gOptimizerConfig.blank_pts_per_1000_units;
+    cfg.ringing_comp_enabled     = gOptimizerConfig.ringing_comp_enabled;
+    cfg.ring_freq_hz             = gOptimizerConfig.ring_freq_hz;
+    cfg.ring_damping_ratio       = gOptimizerConfig.ring_damping_ratio;
+    cfg.galvo_kpps               = gProjection.galvo_kpps;
+
     const float stepCa = cosf(angleRad), stepSa = sinf(angleRad);
     // (curCa,curSa,curScale) = this copy's rotate+scale = step^k (matrix
     // power); (tx,ty) = this copy's translate = sum_{i<k} step^i * (offX,offY).
@@ -839,18 +840,12 @@ static void applyDuplicator(size_t& n) {
         if (k > 0) {
             const LaserPoint& first = s_pm_kaleido[0];
             float fsx = first.x * curScale, fsy = first.y * curScale;
-            int16_t dstX = (int16_t)constrain(fsx * curCa - fsy * curSa + tx, -32760.0f, 32760.0f);
-            int16_t dstY = (int16_t)constrain(fsx * curSa + fsy * curCa + ty, -32760.0f, 32760.0f);
-            int16_t px = s_frame[o - 1].x, py = s_frame[o - 1].y;
-            for (uint8_t d = 0; d < blankSamples; d++) {
-                float t = (float)(d + 1) / (float)blankSamples;
-                s_frame[o++] = LaserPoint((int16_t)(px + (dstX - px) * t),
-                                          (int16_t)(py + (dstY - py) * t),
-                                          0, 0, 0, 1);
-            }
+            float dstX = constrain(fsx * curCa - fsy * curSa + tx, -32760.0f, 32760.0f);
+            float dstY = constrain(fsx * curSa + fsy * curCa + ty, -32760.0f, 32760.0f);
+            optimizer::emitBlankTo(s_frame, o, PATTERN_POINTS_MAX, dstX, dstY, cfg);
         }
 
-        for (size_t i = 0; i < srcN; i++) {
+        for (size_t i = 0; i < srcN && o < PATTERN_POINTS_MAX; i++) {
             const LaserPoint& src = s_pm_kaleido[i];
             float sx = src.x * curScale, sy = src.y * curScale;
             int16_t nx = (int16_t)constrain(sx * curCa - sy * curSa + tx, -32760.0f, 32760.0f);
@@ -923,6 +918,18 @@ static void applyRadialCopy(size_t& n, uint8_t segments, bool altMirrorH, bool a
         srcN = w;
     }
 
+    // Blank jumps between wedges -- routed through the same
+    // optimizer::emitBlankTo() applyMirror() uses, instead of a hand-rolled
+    // linear lerp (State_fix.md architecture #17).
+    optimizer::OptimizerConfig cfg;
+    cfg.blank_samples            = gOptimizerConfig.blank_samples;
+    cfg.min_blank_samples        = gOptimizerConfig.min_blank_samples;
+    cfg.blank_pts_per_1000_units = gOptimizerConfig.blank_pts_per_1000_units;
+    cfg.ringing_comp_enabled     = gOptimizerConfig.ringing_comp_enabled;
+    cfg.ring_freq_hz             = gOptimizerConfig.ring_freq_hz;
+    cfg.ring_damping_ratio       = gOptimizerConfig.ring_damping_ratio;
+    cfg.galvo_kpps               = gProjection.galvo_kpps;
+
     size_t o = 0;
     for (uint8_t k = 0; k < segs; k++) {
         if (o + srcN + blankSamples > PATTERN_POINTS_MAX) break;
@@ -939,18 +946,12 @@ static void applyRadialCopy(size_t& n, uint8_t segments, bool altMirrorH, bool a
         if (k > 0) {
             const LaserPoint& first = s_pm_kaleido[0];
             float fsx = first.x * fx, fsy = first.y * fy;
-            int16_t dstX = (int16_t)(fsx * ca - fsy * sa);
-            int16_t dstY = (int16_t)(fsx * sa + fsy * ca);
-            int16_t px = s_frame[o - 1].x, py = s_frame[o - 1].y;
-            for (uint8_t d = 0; d < blankSamples; d++) {
-                float t = (float)(d + 1) / (float)blankSamples;
-                s_frame[o++] = LaserPoint((int16_t)(px + (dstX - px) * t),
-                                          (int16_t)(py + (dstY - py) * t),
-                                          0, 0, 0, 1);
-            }
+            float dstX = fsx * ca - fsy * sa;
+            float dstY = fsx * sa + fsy * ca;
+            optimizer::emitBlankTo(s_frame, o, PATTERN_POINTS_MAX, dstX, dstY, cfg);
         }
 
-        for (size_t i = 0; i < srcN; i++) {
+        for (size_t i = 0; i < srcN && o < PATTERN_POINTS_MAX; i++) {
             const LaserPoint& src = s_pm_kaleido[i];
             float sx = src.x * fx, sy = src.y * fy;
             int16_t nx = (int16_t)(sx * ca - sy * sa);
@@ -1047,6 +1048,18 @@ static void applyMirrorKaleido(size_t& n, uint8_t segments) {
         s_pm_kaleido[i].y = (int16_t)py;
     }
 
+    // Blank jumps between wedges -- routed through the same
+    // optimizer::emitBlankTo() applyMirror() uses, instead of a hand-rolled
+    // linear lerp (State_fix.md architecture #17).
+    optimizer::OptimizerConfig cfg;
+    cfg.blank_samples            = gOptimizerConfig.blank_samples;
+    cfg.min_blank_samples        = gOptimizerConfig.min_blank_samples;
+    cfg.blank_pts_per_1000_units = gOptimizerConfig.blank_pts_per_1000_units;
+    cfg.ringing_comp_enabled     = gOptimizerConfig.ringing_comp_enabled;
+    cfg.ring_freq_hz             = gOptimizerConfig.ring_freq_hz;
+    cfg.ring_damping_ratio       = gOptimizerConfig.ring_damping_ratio;
+    cfg.galvo_kpps               = gProjection.galvo_kpps;
+
     size_t o = 0;
     for (uint8_t k = 0; k < segs; k++) {
         if (o + srcN + blankSamples > PATTERN_POINTS_MAX) break;
@@ -1072,18 +1085,12 @@ static void applyMirrorKaleido(size_t& n, uint8_t segments) {
         // proportional single-point blanks cause streaks).
         if (k > 0) {
             const LaserPoint& first = s_pm_kaleido[0];
-            int16_t dstX = (int16_t)(m00 * first.x + m01 * first.y);
-            int16_t dstY = (int16_t)(m10 * first.x + m11 * first.y);
-            int16_t px = s_frame[o - 1].x, py = s_frame[o - 1].y;
-            for (uint8_t d = 0; d < blankSamples; d++) {
-                float t = (float)(d + 1) / (float)blankSamples;
-                s_frame[o++] = LaserPoint((int16_t)(px + (dstX - px) * t),
-                                          (int16_t)(py + (dstY - py) * t),
-                                          0, 0, 0, 1);
-            }
+            float dstX = m00 * first.x + m01 * first.y;
+            float dstY = m10 * first.x + m11 * first.y;
+            optimizer::emitBlankTo(s_frame, o, PATTERN_POINTS_MAX, dstX, dstY, cfg);
         }
 
-        for (size_t i = 0; i < srcN; i++) {
+        for (size_t i = 0; i < srcN && o < PATTERN_POINTS_MAX; i++) {
             const LaserPoint& src = s_pm_kaleido[i];
             int16_t nx = (int16_t)(m00 * src.x + m01 * src.y);
             int16_t ny = (int16_t)(m10 * src.x + m11 * src.y);
@@ -1434,8 +1441,8 @@ void task(void*) {
             switch (s_test_pattern) {
                 case 0: n = genCenterPoint(s_frame); break;
                 case 1: n = genCross(s_frame); break;
-                case 2: n = genSquare(s_frame, 18000, 255, 255, 255); break;
-                case 3: n = genCircle(s_frame, 15000, 0, 255, 0); break;
+                case 2: n = genSquare(s_frame, PATTERN_POINTS_MAX, 18000, 255, 255, 255); break;
+                case 3: n = genCircle(s_frame, PATTERN_POINTS_MAX, 15000, 48, 0, 255, 0); break;
                 case 4: n = genIldaTestPattern(s_frame); break;
             }
             gState.master_dimmer.store(255);

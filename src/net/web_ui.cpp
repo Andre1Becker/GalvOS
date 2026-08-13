@@ -590,10 +590,36 @@ static void loadInverseFilter() {
 /* ============================================================
  * JSON Builders
  * ============================================================ */
-static void buildStateJson(JsonDocument& doc) {
+// Core status fields shared by /api/state (buildStateJson(), the WebUI's
+// full state) and /api/status (external camera-autotuning script, see
+// docs/06-camera-autotuning.md and scripts/optimizeGalvo/optimizeGalvo.py's
+// getStatus()) -- one place computes these so the two responses can no
+// longer drift out of field-name/value sync (State_fix.md architecture #15).
+static void buildCoreStatusJson(JsonDocument& doc) {
     doc["estop_ok"]        = gState.estop_ok.load();
     doc["scanfail_ok"]     = gState.scanfail_ok.load();
     doc["laser_armed"]     = gState.laser_armed.load();
+    doc["source"]          = (int)gState.source;
+    doc["master_dimmer"]   = gState.master_dimmer.load();
+    doc["ui_override"]     = gState.ui_override.load();
+    doc["ui_master_dimmer"]= gState.ui_master_dimmer.load();
+    doc["points_per_sec"]  = galvo::pointsPerSec();
+    doc["buffer_fill"]     = galvo::bufferFillLevel();
+    uint32_t core_age = millis() - gState.last_dmx_ms.load();
+    doc["last_dmx_age_ms"] = (gState.last_dmx_ms.load() == 0) ? -1 : (int32_t)core_age;
+    doc["fw_version"]      = LASER_FW_VERSION;
+    { char pw[12]; snprintf(pw, sizeof(pw), "%08X", (uint32_t)(ESP.getEfuseMac() >> 16));
+      doc["ota_pass"] = pw; }
+    doc["hostname"]        = gConfig.hostname;
+    doc["ip"]              = WiFi.localIP().toString();
+    doc["rssi"]            = WiFi.RSSI();
+    doc["uptime_s"]        = millis() / 1000;
+    doc["free_heap"]       = ESP.getFreeHeap();
+    doc["free_psram"]      = ESP.getFreePsram();
+}
+
+static void buildStateJson(JsonDocument& doc) {
+    buildCoreStatusJson(doc);
     doc["watchdog_ok"]     = safety::watchdogOk();
     doc["subsystems_ok"]   = safety::subsystemsOk();
     doc["last_failsafe"]   = safety::lastFailsafeReason();
@@ -602,7 +628,6 @@ static void buildStateJson(JsonDocument& doc) {
     doc["ilda_active"]     = ilda::gILDA.active;
     doc["playlist_active"] = playlist::isActive();
     doc["safety_override"] = gConfig.safety_override;
-    doc["source"]          = (int)gState.source;
     doc["etherdream_connected"] = etherdream::isConnected();
     doc["etherdream_playing"]   = etherdream::isPlaying();
     doc["helios_net_connected"] = helios_net::isConnected();
@@ -633,10 +658,6 @@ static void buildStateJson(JsonDocument& doc) {
     doc["preset_idx"]      = static_cast<int8_t>(patterns::getPreset());
     doc["starfield_stars"] = presets::gStarfieldStarCount.load();
     doc["dmx_frame_count"] = gState.dmx_frame_count.load();
-    doc["master_dimmer"]   = gState.master_dimmer.load();
-    doc["ui_override"]        = gState.ui_override.load();
-    doc["ui_master_dimmer"]   = gState.ui_master_dimmer.load();
-    doc["points_per_sec"]  = galvo::pointsPerSec();
     doc["fps"]              = galvo::fps();
     doc["frame_n"]          = gState.frame_n.load();
     doc["frame_lit"]        = gState.frame_lit.load();
@@ -651,27 +672,15 @@ static void buildStateJson(JsonDocument& doc) {
       doc["dacClipY"]   = cy;
       doc["dacClipPct"] = total ? (100.0f * (float)cAny / (float)total) : 0.0f;
     }
-    doc["buffer_fill"]     = galvo::bufferFillLevel();
-    uint32_t age = millis() - gState.last_dmx_ms.load();
-    doc["last_dmx_age_ms"] = (gState.last_dmx_ms.load() == 0) ? -1 : (int32_t)age;
-    doc["hostname"]        = gConfig.hostname;
     doc["ntp_server"]      = gConfig.ntp_server;
     doc["ntp_tz"]          = gConfig.ntp_tz;
     doc["ntp_synced"]      = ntp_client::isSynced();
-    doc["ip"]              = WiFi.localIP().toString();
-    doc["rssi"]            = WiFi.RSSI();
-    doc["uptime_s"]        = millis() / 1000;
     doc["heap"]            = ESP.getFreeHeap();
-    doc["free_heap"]       = ESP.getFreeHeap();     // alias for dashboard
     doc["cpu0"]            = cpu_mon::load0();
     doc["cpu1"]            = cpu_mon::load1();
     doc["psram"]           = ESP.getFreePsram();
-    doc["free_psram"]      = ESP.getFreePsram();    // alias for dashboard
     // Dashboard extras
-    doc["fw_version"]      = LASER_FW_VERSION;
     doc["ntp_synced"]      = ntp_client::isSynced();
-    { char pw[12]; snprintf(pw, sizeof(pw), "%08X", (uint32_t)(ESP.getEfuseMac()>>16));
-      doc["ota_pass"] = pw; }
     doc["auth_token"]  = s_auth_token;
     // Temperaturees + Namen + founde sensors
     doc["found"] = temp::foundSensorCount();
@@ -3816,52 +3825,19 @@ void init() {
                 ok ? "{\"ok\":true}" : "{\"ok\":false,\"error\":\"SPI transfer failed\"}");
         });
 
-    // ---- GET /api/status ---- dashboard state (browser polls every 1-2s) ----
+    // ---- GET /api/status ---- lightweight status for external tooling
+    // (browser dashboard uses /api/state instead) ----
+    // Thin subset-projection of buildCoreStatusJson() -- same field names/
+    // values as /api/state's overlapping fields, so this can no longer drift
+    // out of sync with the WebUI's real state the way the old hand-rolled
+    // sprintf() did (State_fix.md architecture #15). Sole consumer is the
+    // external camera-autotuning script (scripts/optimizeGalvo/optimizeGalvo.py's
+    // getStatus(), docs/06-camera-autotuning.md).
     s_server.on("/api/status", HTTP_GET, [](AsyncWebServerRequest* req) {
-        // No JsonDocument/serializeJson — direct sprintf saves heap + CPU
-        static char buf[512];
-        // OTA password for dashboard (chip-ID based)
-        char ota_pw[12];
-        snprintf(ota_pw, sizeof(ota_pw), "%08X",
-                 (uint32_t)(ESP.getEfuseMac() >> 16));
-        char fw_ver[32];
-        snprintf(fw_ver, sizeof(fw_ver), "%s", LASER_FW_VERSION);
-        // Network info
-        String ip_str   = WiFi.localIP().toString();
-        String host_str = WiFi.getHostname() ? WiFi.getHostname() : gConfig.hostname;
-        int32_t rssi    = WiFi.RSSI();
-        uint32_t uptime = millis() / 1000;
-        // DMX last activity age
-        uint32_t dmx_age = gState.last_dmx_ms.load()
-                         ? (millis() - gState.last_dmx_ms.load()) : 0xFFFFFFFF;
-
-        snprintf(buf, sizeof(buf),
-            "{\"estop_ok\":%d,\"scanfail_ok\":%d,\"laser_armed\":%d,"
-            "\"source\":%d,\"master_dimmer\":%d,\"points_per_sec\":%lu,"
-            "\"buffer_fill\":%d,\"debug_mode\":%d,"
-            "\"ui_override\":%d,\"ui_master_dimmer\":%d,"
-            "\"fw_version\":\"%s\",\"ota_pass\":\"%s\","
-            "\"free_heap\":%u,\"free_psram\":%u,"
-            "\"hostname\":\"%s\",\"ip\":\"%s\","
-            "\"rssi\":%d,\"uptime_s\":%u,"
-            "\"last_dmx_age_ms\":%u}",
-            (int)gState.estop_ok.load(),
-            (int)gState.scanfail_ok.load(),
-            (int)gState.laser_armed.load(),
-            (int)gState.source.load(),
-            (int)gState.master_dimmer.load(),
-            (unsigned long)galvo::pointsPerSec(),
-            (int)galvo::bufferFillLevel(),
-            (int)gDebugNoHW,
-            (int)gState.ui_override.load(),
-            (int)gState.ui_master_dimmer.load(),
-            fw_ver, ota_pw,
-            (unsigned)ESP.getFreeHeap(),
-            (unsigned)ESP.getFreePsram(),
-            host_str.c_str(), ip_str.c_str(),
-            (int)rssi, (unsigned)uptime,
-            (unsigned)dmx_age);
-        req->send(200, "application/json", buf);
+        JsonDocument doc(&jsonAllocator());
+        buildCoreStatusJson(doc);
+        doc["debug_mode"] = galvo::noHwMode();  // same flag as /api/state's "no_hw_mode"
+        sendJsonPsram(req, doc);
     });
 
     // ---- POST /api/debug-mode ---- Safety-Bypass for Hardware-freien Test ----

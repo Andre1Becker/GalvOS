@@ -131,35 +131,67 @@ one-line note (commit hash / reason skipped) when done.
 
 ## Architecture
 
-- [ ] **15. Two independently-drifting JSON status builders**
-  File: [src/net/web_ui.cpp:3826-3871](src/net/web_ui.cpp#L3826-L3871) (`/api/status`,
-  hand-rolled snprintf) vs [593-707](src/net/web_ui.cpp#L593-L707)
-  (`buildStateJson()`/`/api/state`, the WebUI's real source)
-  Problem: different field names, smaller field set on `/api/status`; only
-  consumer is the external camera-autotuning script (`docs/06-camera-autotuning.md:113`).
-  Risk: future state-field changes only touch `buildStateJson()`, leaving the
-  autotuning script silently reading stale/incomplete data.
-  Fix: make `/api/status` a thin subset-projection of `buildStateJson()`, or
-  point the script at `/api/state`.
+- [x] **15. Two independently-drifting JSON status builders** — fixed: new
+  `buildCoreStatusJson()` computes the fields both endpoints share (estop_ok,
+  scanfail_ok, laser_armed, source, master_dimmer, ui_override,
+  ui_master_dimmer, points_per_sec, buffer_fill, last_dmx_age_ms, fw_version,
+  ota_pass, hostname, ip, rssi, uptime_s, free_heap, free_psram) exactly
+  once; `buildStateJson()` (`/api/state`) calls it and adds its own extra
+  fields, `/api/status`'s handler calls it and adds only `debug_mode`
+  (`galvo::noHwMode()`, the same flag `/api/state` publishes as
+  `no_hw_mode`). `/api/status` now goes through `JsonDocument`+
+  `SpiRamAllocator`/`sendJsonPsram()` like every other API route instead of
+  a hand-rolled `snprintf`, so the two responses can't drift apart again.
+  `hostname` now always sources from `gConfig.hostname` (previously
+  `/api/status` preferred `WiFi.getHostname()`, which is set from
+  `gConfig.hostname` at connect time anyway — see `main.cpp`'s
+  `WiFi.setHostname()` call, so no behavior change in practice) and
+  `last_dmx_age_ms`'s "never" case now reports `-1` like `/api/state`
+  instead of `0xFFFFFFFF` (the external script doesn't consume this field,
+  per `scripts/optimizeGalvo/optimizeGalvo.py`). `pio run`
+  (esp32-s3-devkitc-1) succeeds, no new warnings.
+  File: [src/net/web_ui.cpp:593-627](src/net/web_ui.cpp#L593-L627)
+  (`buildCoreStatusJson`), [3828-3841](src/net/web_ui.cpp#L3828-L3841) (`/api/status`)
 
-- [ ] **16. Legacy DMX shape generator bypasses the optimizer**
-  File: [src/patterns/pattern_engine.cpp:76-142,284-298](src/patterns/pattern_engine.cpp#L76-L142),
-  call site 2024
-  Problem: `genCircle/genSquare/genStar` use fixed point counts, no easing/
-  ZV-shaping/density scaling — the exact defect class Pillars 2/3 were built to fix.
-  Risk: DMX-only sessions (no WebUI preset) get lower-quality jumps that don't
-  track `galvo_kpps`/size; future optimizer improvements silently skip this path.
-  Fix: migrate to `PathSegment` + `optimizer::optimize()` like
-  `preset_patterns.cpp` already does.
+- [x] **16. Legacy DMX shape generator bypasses the optimizer** — fixed:
+  `genCircle`/`genSquare`/`genStar` now build an `optimizer::PathSegment` of
+  corner vertices (48-gon / 4-gon / 5-vertex pentagram — same vertex
+  placement as the originals) and call `optimizer::optimize()`, same
+  convention `preset_patterns.cpp`'s `ngon()`/`star()` already use, instead
+  of writing a hard-coded point count directly. `genPattern()`'s dead-code
+  32-point inline branch (DMX pattern_group 75-99) now calls `genCircle`
+  with `sides=16` — a deliberately coarser/faceted circle, kept as its own
+  distinct DMX-selectable look rather than silently merged into the smooth
+  default. `pio run` (esp32-s3-devkitc-1) succeeds, no new warnings. Not
+  verified on real DMX hardware this session (no board attached) — geometry
+  re-derived by hand against the original vertex math and cross-checked
+  against `preset_patterns.cpp`'s established `PathSegment` usage.
+  File: [src/patterns/pattern_engine.cpp:76-133](src/patterns/pattern_engine.cpp#L76-L133)
+  (generators), [283-292](src/patterns/pattern_engine.cpp#L283-L292) (`genPattern`)
 
-- [ ] **17. Duplicator/RadialCopy hand-roll a third blank-jump implementation**
-  File: [src/patterns/pattern_engine.cpp:793-867,884-956](src/patterns/pattern_engine.cpp#L793-L867)
-  Problem: own linear, un-eased blank jump, alongside
-  `optimizer::emitBlankJump()`/`reshapeBlankRun()`.
-  Risk: Duplicator/Kaleidoscope effects get jerkier, more ringing-prone jumps
-  than identical presets without them; jump-quality bugs now need fixing in
-  three places.
-  Fix: route both through `optimizer::emitBlankJump()`/`buildBlankTrajectory()`.
+- [x] **17. Duplicator/RadialCopy hand-roll a third blank-jump implementation**
+  — fixed: `applyDuplicator()` and `applyRadialCopy()` now call
+  `optimizer::emitBlankTo()` (distance-proportional, smoothstep-eased,
+  optionally ZV-shaped) instead of their own fixed-step linear lerp — same
+  primitive `applyMirror()` already used in this file. While in there, found
+  and fixed a **fourth** hand-rolled copy the backlog item's line numbers
+  didn't catch: `applyMirrorKaleido()` (true dihedral-fold Kaleidoscope, next
+  to `applyRadialCopy()`'s plain rotational-copy Kaleidoscope) had the
+  identical pattern and got the same fix. All three now build a shared
+  `OptimizerConfig` snapshot before their copy loop (same fields
+  `applyMirror()` snapshots) and their inner per-copy point loop gained an
+  `&& o < PATTERN_POINTS_MAX` guard, since `emitBlankTo()`'s eased run length
+  is distance-proportional (up to `cfg.blank_samples`) rather than the fixed
+  `min_blank_samples` the old per-iteration budget estimate assumed — same
+  guard `applyMirror()` already carries for the same reason.
+  `pio run` (esp32-s3-devkitc-1) succeeds, no new warnings. No `native` test
+  environment is currently configured in `platformio.ini` (only
+  `esp32-s3-devkitc-1` exists), so `test/test_optimizer` could not be run
+  from this session; not introduced by this change.
+  File: [src/patterns/pattern_engine.cpp:787-862](src/patterns/pattern_engine.cpp#L787-L862)
+  (`applyDuplicator`), [878-963](src/patterns/pattern_engine.cpp#L878-L963)
+  (`applyRadialCopy`), [979-1107](src/patterns/pattern_engine.cpp#L979-L1107)
+  (`applyMirrorKaleido`)
 
 ---
 
