@@ -21,6 +21,7 @@
 - [Optimizer Profiles](#optimizer-profiles)
 - [The Pattern Cache](#the-pattern-cache)
 - [The Three Pillars](#the-three-pillars)
+- [Telemetry — What the Optimizer Reports](#telemetry--what-the-optimizer-reports)
 - [Known Effective Limit](#known-effective-limit)
 - [Parameter Reference](#parameter-reference)
 
@@ -63,10 +64,13 @@ The optimizer sits between the pattern engine and the DAC output. Every frame, t
 Pattern Engine
   → [1] Primitive Generation   (vertices + colors as PathSegments)
   → [2] Transform              (rotation, scale, translation — affine)
-  → [2.5] Segment Reorder      (optional: nearest-neighbour jump-order)
-  → [3] Resample               (optional: constant-spacing point density)
+  → [2a] Warp                  (optional: grid keystone/surface correction)
+  → [2.5] Segment Reorder      (optional: nearest-neighbour jump-order, + 2-opt)
+  → [3] Resample               (optional: constant or curvature-adaptive spacing)
   → [4] Corner Dwell           (extra points at sharp direction changes)
+  → [4a] Jitter                (optional: perpendicular interior displacement)
   → [5] Blanking               (smoothstepped, distance-proportional jumps)
+  → [5a] Brightness Field      (optional: per-region RGB gain)
   → [6] Velocity Clamp         (subdivide lit steps that are too long)
   → [7] Acceleration Clamp     (limit velocity ramp rate)
   → [8] ZV Ringing Comp        (optional: input shaping on blank jumps)
@@ -75,7 +79,14 @@ Pattern Engine
 
 <img src="assets/diagrams/optimizer_pipeline.png" width="550" alt="Optimizer pipeline: 9 stages from Pattern Engine to Galvo Mirrors, with the optional stages 3/6/7/8 dashed">
 
-Stages 2.5, 3, 6, 7, and 8 are optional (disabled by default). When disabled, each stage produces output byte-identical to skipping it — there is no penalty for leaving them off until you need them.
+Stages 2a, 2.5, 3, 4a, 5a, 6, 7, and 8 are optional (disabled by default). When disabled, each stage produces output byte-identical to skipping it — there is no penalty for leaving them off until you need them.
+
+Two stage positions are worth knowing:
+
+- **Warp runs after Transform, before everything that measures the geometry.** It corrects the already rotated/moved shape (which is what the projection surface — and a camera aimed at it — actually sees), and because resample spacing, corner severity, and reorder tour distance all read the *warped* shape, a region the warp stretches gets proportionally more points instead of the pre-warp count.
+- **Brightness compensation runs after Blanking, before the clamps.** Blanked points stay blank, and the interpolated points the velocity clamp inserts inherit already-corrected RGB rather than being skipped by a stage that ran too early. It only ever scales the emitted color — it never writes back into a pattern's own color definition.
+
+One more correction sits *outside* the optimizer: the [inverse filter](03-build-and-config.md#warp-brightness--inverse-filter), a per-axis regularized inverse of the galvo's measured mechanical resonance, applied to every point as it is pushed to the output. Pillar 3 below shapes only the blank-jump move from a single shared resonance figure; the inverse filter pre-distorts the whole trajectory, per axis, and is enabled separately.
 
 ---
 
@@ -113,7 +124,7 @@ The `lift` flag is a small refinement on top of that, read only on a segment's *
 
 **Pattern color rule:** All patterns specify only `255` or `0` as default channel values (e.g. pure red = `255,0,0`; yellow = `255,255,0`). Mixed intermediate colors come in through the color override system in the WebUI Global Controls.
 
-**Wireframe note:** For 3D wireframe patterns, `buildWfChains()` must be called to group isolated 2-vertex edges into proper `PathSegment` chains. Without this, each edge is a 2-vertex segment with no `has_incoming || has_outgoing` relationship to its neighbor's, and corner dwell never fires — because a 2-vertex segment has no corners.
+**Wireframe note:** For 3D wireframe patterns, `buildWfChains` must be called to group isolated 2-vertex edges into proper `PathSegment` chains. Without this, each edge is a 2-vertex segment with no `has_incoming || has_outgoing` relationship to its neighbor's, and corner dwell never fires — because a 2-vertex segment has no corners.
 
 ---
 
@@ -147,7 +158,9 @@ When a single pattern draws several disconnected `PathSegment`s in one call — 
 
 This is purely a visitation-order change: no point is added or removed, so the lit geometry drawn is identical either way. What changes is the total distance travelled with the beam off — shorter jumps mean fewer blanking points spent (see Stage 5) and less ringing excitation (a shorter jump needs a shorter [Pillar 3](#stage-8--zv-ringing-compensation-pillar-3) shaper tail). Measured on a 12-edge cube wireframe listed face-by-face (a typical, unsorted generator order): total jump distance dropped ~51% with `reorder_segments` enabled.
 
-Disabled by default — segments are visited in the order the pattern handed them in, byte-identical to the pre-reorder optimizer.
+**2-opt refinement (`reorder_2opt`, requires `reorder_segments`):** a greedy nearest-neighbour tour is fast but leaves crossings behind — it commits to the closest next segment even when that strands a far one for later. The 2-opt pass repeatedly reverses bounded blocks of the tour wherever doing so shortens the total jump path, until no improvement remains. It only engages below a per-frame segment-count cap, so a pathologically segmented frame can't spend its budget on route planning instead of drawing.
+
+Disabled by default — segments are visited in the order the pattern handed them in, byte-identical output either way.
 
 ---
 
@@ -163,9 +176,16 @@ When `resample_enabled = true`, interior density switches to **constant spacing*
 - Galvo velocity (DAC units/tick) is constant along every edge in the pattern.
 - Useful for patterns where uniform galvo speed across all edges matters more than adaptive density.
 
+**Curvature-adaptive mode (`curvature_resample_enabled`, requires `resample_enabled`):** constant spacing spends the same number of points on a straight run as on a tight bend, which is exactly backwards — the straight run needs almost nothing, the bend needs everything. With this enabled, the local spacing is shortened in proportion to the turn angle between consecutive edges, scaled by `curvature_gain` and clamped to `[min_spacing_units, max_spacing_units]`:
+
+- `curvature_gain = 0` degenerates to plain constant spacing.
+- The clamp bracket is in the same units as `resample_spacing_units` and is PPS-scaled alongside it, so the base spacing stays inside the bracket at every output rate.
+
+This is also what brings continuously-curved patterns (Lissajous, roses, trochoids) properly under optimizer control: they arrive as very dense polylines whose "corners" are all gentle, so the corner-dwell heuristic has nothing to bite on, but curvature resampling still concentrates points where the path actually bends.
+
 The resample stage runs before corner dwell, so corner points are still added on top of the resampled interior density.
 
-When disabled (default), output is byte-identical to the pre-resample optimizer.
+When disabled (default), output is byte-identical to skipping the stage.
 
 ---
 
@@ -189,17 +209,17 @@ where `severity` runs from 0 (at `corner_angle_deg`) to 1 (at 180°).
 
 **Edge spacing near corners:**
 
-Interior points along an edge are not uniformly spaced — they are velocity-eased using a continuous `shapeEdgeT()` function. Points are denser near corners (where the mirror is decelerating or accelerating) and sparser in the middle of long straight runs (where the mirror has reached cruising speed). This avoids a velocity kink at the edge midpoint that would excite galvo ringing on every edge in the pattern.
+Interior points along an edge are not uniformly spaced — they are velocity-eased using a continuous `shapeEdgeT` function. Points are denser near corners (where the mirror is decelerating or accelerating) and sparser in the middle of long straight runs (where the mirror has reached cruising speed). This avoids a velocity kink at the edge midpoint that would excite galvo ringing on every edge in the pattern.
 
-Dwell count and edge shaping use severity differently at an open path endpoint (since v6.48.1). A free end — the loose end of a `line()` call or a text-stroke pen-up — always gets *maximum* corner dwell (it needs a full, unhurried stop), but *no* edge-shaping bias, since there is no real corner there to ease toward. Before this distinction existed, both used the same value: a straight two-point `line()` had both of its endpoints read as maximum severity, so the edge between them eased toward *both* ends at once — dense near each end, sparse in the middle, on a segment with nothing sharp anywhere. The visible result was a brightness gradient (dimmer middle) on every long straight line. Interior (non-endpoint) corners are unaffected — dwell and shaping still agree there, since both read the same exterior angle.
+Dwell count and edge shaping use severity differently at an open path endpoint. A free end — the loose end of a `line` call or a text-stroke pen-up — always gets *maximum* corner dwell (it needs a full, unhurried stop), but *no* edge-shaping bias, since there is no real corner there to ease toward. Before this distinction existed, both used the same value: a straight two-point `line` had both of its endpoints read as maximum severity, so the edge between them eased toward *both* ends at once — dense near each end, sparse in the middle, on a segment with nothing sharp anywhere. The visible result was a brightness gradient (dimmer middle) on every long straight line. Interior (non-endpoint) corners are unaffected — dwell and shaping still agree there, since both read the same exterior angle.
 
-**Corner dwell vs. the frame budget (since v6.05.0):**
+**Corner dwell vs. the frame budget:**
 
 `max_pts_per_frame` normally only scales down *interior* density to fit the budget — corner dwell is treated as fixed overhead, since a corner that doesn't get its full dwell still looks acceptable, just slightly less sharp. But on a many-vertex closed shape (an octagon and up, a dense Lissajous/rose/trochoid curve, Concentric Rings) at a heavily tuned-down `max_pts_per_frame`, corner dwell *alone* (plus the floor blanking overhead) could exceed the entire budget. Interior density has nothing left to give, and the point emitter silently truncates mid-shape — which for a closed path always sacrifices whatever would be written last: the final edge and the closing dwell back to the first vertex. The result reads as "the shape doesn't close," not "the corners look a bit soft."
 
-`optimize()` now runs an extra pass before scaling interior density: if corner dwell alone doesn't fit the available budget, `min_corner_pts`/`max_corner_pts` are scaled down together (floor: 1 point per vertex — just enough to actually visit every vertex) until corner dwell does fit, and the segment plan is recomputed against the new corner budget. This trades corner sharpness for the one thing that must never be sacrificed: the loop actually reconnecting. It is automatic and requires no configuration; if a gap still appears, `max_pts_per_frame` is too low even for 1 point per vertex on that shape.
+`optimize` now runs an extra pass before scaling interior density: if corner dwell alone doesn't fit the available budget, `min_corner_pts`/`max_corner_pts` are scaled down together (floor: 1 point per vertex — just enough to actually visit every vertex) until corner dwell does fit, and the segment plan is recomputed against the new corner budget. This trades corner sharpness for the one thing that must never be sacrificed: the loop actually reconnecting. It is automatic and requires no configuration; if a gap still appears, `max_pts_per_frame` is too low even for 1 point per vertex on that shape.
 
-**Fitting interior density to the budget (since v6.47.0):**
+**Fitting interior density to the budget:**
 
 Interior density is scaled by a single global factor, but each edge then rounds its own point count to a whole number. Those roundings accumulate: a single closed-form factor can land well over the budget (measured: a 480-vertex circle at a 1300-point budget planned 1300 and emitted 1464 — 12.6% over, so the frame was cut off mid-path exactly where the corner-dwell pass above exists to prevent it) or well under it (the frame simply draws sparser than it could).
 
@@ -242,7 +262,7 @@ This S-curve has zero velocity at both endpoints: the mirror starts and ends the
 
 **Settle ticks:** The final `min_blank_samples` ticks of the blank jump are spent dwelling at the exact target position — giving the mirror additional time to settle. These settle ticks are carved from the total blank budget (not added on top), capped at `count / 2` to ensure there are always enough move ticks for smooth deceleration.
 
-### Budget Interaction: Blank Shrink Runs Before Density (since v6.05.0)
+### Budget Interaction: Blank Shrink Runs Before Density
 
 When a frame's fixed overhead (corner dwell plus blank jumps at the configured `blank_samples`) doesn't leave enough of the point budget for interior density, `blank_samples` is scaled down toward `stage1_blank_target` — falling back further to `min_blank_samples` only if that still doesn't fit — *before* interior density is touched at all. Blank jumps carry no visual information, so shrinking them costs nothing to look at; interior density is what makes a line read as a line.
 
@@ -337,29 +357,33 @@ The final `LaserPoint[]` array is written to the DAC ISR ring buffer. The ISR ru
 2. The X coordinate is converted to a 16-bit DAC code: `dac_x = x + 0x8000`.
 3. The DAC code is clamped to `[dac_limit_min, dac_limit_max]`.
 4. The DAC8562 SPI write is performed via raw hardware register access (not IDF polling) — this achieves ~30,300 samples/sec throughput.
-5. The RGB PWM duty is updated via LEDC: the color goes through `mapVisibleRange()` → `applyGamma()` → `master_dimmer` scaling → `gain_r/g/b` white balance → LEDC duty.
+5. The RGB PWM duty is updated via LEDC: the color goes through `mapVisibleRange` → `applyGamma` → `master_dimmer` scaling → `gain_r/g/b` white balance → LEDC duty.
 
-**Critical constraint:** `updateSnapshot()` (which snapshots the live config for the ISR) must fire **once per frame boundary**, not once per point. At 30 kpps, each point has a 33 µs budget. Reading the live config struct inside the per-point ISR would exceed this budget and cause ring buffer underruns.
+**Critical constraint:** `updateSnapshot` (which snapshots the live config for the ISR) must fire **once per frame boundary**, not once per point. At 30 kpps, each point has a 33 µs budget. Reading the live config struct inside the per-point ISR would exceed this budget and cause ring buffer underruns.
 
 ---
 
 ## PPS Scaling
 
-The optimizer parameters are tuned at a specific galvo output rate. When you change `galvo_kpps` away from `galvo_rated_kpps`, the optimizer automatically rescales three parameters to compensate:
+The optimizer parameters are tuned at a specific galvo output rate. When you change `galvo_kpps` away from `galvo_rated_kpps`, the optimizer automatically rescales every rate-dependent parameter to compensate:
 
 ```text
 r = galvo_rated_kpps / galvo_kpps   (the "headroom ratio")
 
-pts_per_1000_units ×= 1/r    ← fewer points/unit at lower kpps (more time per tick)
-max_step_units     ×= r      ← larger steps allowed at lower kpps (more distance per tick)
-max_accel_units    ×= r²     ← acceleration scales as the square of the rate
+pts_per_1000_units       ×= 1/r   ← fewer points/unit at lower kpps (more time per tick)
+blank_pts_per_1000_units ×= 1/r   ← same, for blank-jump sample count
+resample_spacing_units   ×= r     ← wider spacing at lower kpps
+min_spacing_units        ×= r     ← curvature clamp bracket tracks the spacing
+max_spacing_units        ×= r
+max_step_units           ×= r     ← larger steps allowed at lower kpps
+max_accel_units          ×= r²    ← acceleration scales as the square of the rate
 ```
 
 **At `galvo_kpps == galvo_rated_kpps`:** r = 1, all values unchanged.
 
 **At half the rated speed (e.g., kpps=7.5 on a 15K galvo):** r = 2 → interior density is halved (each tick is twice as long, so you need half as many points to cover the same distance in the same time), velocity ceiling is doubled, acceleration ceiling is quadrupled.
 
-This scaling is applied in `applyPpsScaling()`, called from `configFromLive()` — the single mapping from the WebUI/NVS-tunable `OptimizerLiveConfig` to the optimizer's own `OptimizerConfig`. Every render path (presets, curves, text, paint, calibration, Helios net) builds its config through it, so no path can miss a live field or the scaling. A path that overrides one of the scaled parameters afterwards applies the same ratio itself via `ppsRatio()` — `text_renderer.cpp`'s per-glyph density is the one such case.
+This scaling is applied in `applyPpsScaling`, called from `configFromLive` — the single mapping from the WebUI/NVS-tunable `OptimizerLiveConfig` to the optimizer's own `OptimizerConfig`. Every render path (presets, curves, text, paint, calibration, Helios net) builds its config through it, so no path can miss a live field or the scaling. A path that overrides one of the scaled parameters afterwards applies the same ratio itself via `ppsRatio` — `text_renderer.cpp`'s per-glyph density is the one such case.
 
 The WebUI Optimizer tab shows the **effective values** (`opt_eff_*`) after scaling — these are the values the optimizer actually uses.
 
@@ -375,7 +399,7 @@ The WebUI Optimizer tab shows the **effective values** (`opt_eff_*`) after scali
 
 ## Optimizer Profiles
 
-GalvOS maintains **eight** independent optimizer profiles. The first six map 1:1 to `PresetClass` and switch automatically when a preset is activated, based on `presetClassOf()`. Two more are selected outside the preset system: **Trails** for meteor/comet-style presets whose fade tails need a smaller frame budget than plain Particles, and **Text** for the text renderer (many short, disconnected glyph strokes — not a `PresetClass` member; selected directly by the text renderer / calibration/Points-Only callers instead of `presetClassOf()`).
+GalvOS maintains **eight** independent optimizer profiles. The first six map 1:1 to `PresetClass` and switch automatically when a preset is activated, based on `presetClassOf`. Two more are selected outside the preset system: **Trails** for meteor/comet-style presets whose fade tails need a smaller frame budget than plain Particles, and **Text** for the text renderer (many short, disconnected glyph strokes — not a `PresetClass` member; selected directly by the text renderer / calibration/Points-Only callers instead of `presetClassOf`).
 
 | Profile | Index | Preset class | Primary workload | NVS suffix |
 | --- | --- | --- | --- | --- |
@@ -433,6 +457,26 @@ The cache is invalidated (and recomputed on the next frame) whenever `gPatternCa
 
 ---
 
+## Telemetry — What the Optimizer Reports
+
+Tuning by eye only tells you *that* something looks wrong. The optimizer keeps a per-call and per-frame statistics record (`optimizer::Stats`), exposed on `GET /api/optimizer-stats` and shown on the Optimizer tab's Live Telemetry card:
+
+| Field | Meaning |
+| --- | --- |
+| `emitted_lit` / `emitted_blank` | Points in the final buffer, split by beam state. A high blank share means the frame is spending its budget on travel, not content. |
+| `truncated` | Writes dropped at the budget cap. **Anything above zero means the shape is being cut off**, not merely thinned — the classic "the polygon doesn't close" signature. |
+| `planned_total` | `emitted + truncated`, counted independently as a cross-check. |
+| `jump_count` / `jump_distance_total` | Blank runs and total distance travelled with the beam off. This is the number [Stage 2.5](#stage-25--segment-reorder-optional) exists to reduce. |
+| `stage2_scale` | The interior-density factor actually applied (1.0 = Stage 2 never triggered). |
+| `stage1_triggered` / `stage15_triggered` | Whether blank samples, or corner point counts, had to be scaled down to fit the budget. |
+| `ringing_active` | Whether the ZV shaper actually shaped at least one jump while rendering. |
+
+The response carries two records: `last` (the most recent `optimize()` call) and `frame` (all calls of the last complete frame, accumulated).
+
+Pillar 3 also publishes a *static* status alongside the derived `opt_eff_*` values on `/api/config`: `opt_eff_ringing_active` and `opt_eff_ring_shift_pts`. The ZV shaper's impulse delay is a physical time converted into output points, so at a low `ring_freq_hz` or a high `galvo_kpps` it can need a longer blank jump than the optimizer will ever build — in which case the feature is ticked but does nothing. These two fields say so before you spend an evening wondering.
+
+---
+
 ## Known Effective Limit
 
 **`opt_max_pts_per_frame: 1300`** — no optical improvement is observed above this value on the JY-15K-BL hardware at 30 kpps. Above this point, the per-point time budget (33 µs) becomes the limiting factor, not the number of points. Setting this higher wastes frame budget without improving image quality.
@@ -458,7 +502,11 @@ Full table of all optimizer parameters, their defaults, valid ranges, and effect
 | `max_pts_per_frame` | 1010 | 1–2048 | <img src="assets/animations/frame_budget.svg" width="64" height="64" alt=""> Total point budget per frame. When exceeded, interior density is searched down (bisection over the frame plan) until the frame fits just under the budget. Effective ceiling: 1300 on JY-15K-BL. |
 | `min_interior_pts_per_seg` | 8 | 0–255 | <img src="assets/animations/stage3_resample.svg" width="64" height="64" alt=""> Interior points reserved per segment before blank budget is computed. Prevents very complex patterns from eliminating interior points entirely. |
 | `resample_enabled` | false | bool | <img src="assets/animations/stage3_resample.svg" width="64" height="64" alt=""> Enable constant-spacing resample stage. Off = length-proportional density (default). |
-| `resample_spacing_units` | 160.0 | 1–10000 | <img src="assets/animations/stage3_resample.svg" width="64" height="64" alt=""> Target spacing between resampled points in DAC units. Only used when `resample_enabled = true`. |
+| `resample_spacing_units` | 160.0 | 1–10000 | <img src="assets/animations/stage3_resample.svg" width="64" height="64" alt=""> Target spacing between resampled points in DAC units. Only used when `resample_enabled = true`. After PPS scaling. |
+| `curvature_resample_enabled` | false | bool | <img src="assets/animations/stage3_resample.svg" width="64" height="64" alt=""> Curvature-adaptive spacing on top of the resample stage — denser where the path bends, sparser on straight runs. Requires `resample_enabled`. |
+| `curvature_gain` | 2.0 | 0–20 | How strongly a bend shortens the local spacing. 0 = plain constant spacing. |
+| `min_spacing_units` | 40.0 | 1–2000 | Densest spacing allowed at the sharpest bend, in DAC units. After PPS scaling. |
+| `max_spacing_units` | 400.0 | 1–4000 | Sparsest spacing allowed on nearly-straight runs, in DAC units. After PPS scaling. |
 | `ringing_comp_enabled` | false | bool | <img src="assets/animations/stage8_ringing.svg" width="64" height="64" alt=""> Enable ZV input shaping. **Measure `ring_freq_hz` and `ring_damping_ratio` on hardware first.** |
 | `ring_freq_hz` | 200.0 | 1–2000 | <img src="assets/animations/stage8_ringing.svg" width="64" height="64" alt=""> Galvo mechanical resonant frequency in Hz. Must be measured. |
 | `ring_damping_ratio` | 0.15 | 0.01–0.9 | <img src="assets/animations/stage8_ringing.svg" width="64" height="64" alt=""> Galvo damping ratio ζ. Must be measured. Typical range: 0.05–0.3. |
@@ -466,6 +514,7 @@ Full table of all optimizer parameters, their defaults, valid ranges, and effect
 | `max_step_units` | 200.0 | 1–65535 | <img src="assets/animations/stage6_velocity_clamp.svg" width="64" height="64" alt=""> Maximum lit-step size in DAC units per tick. Steps exceeding this are linearly subdivided. After PPS scaling. |
 | `accel_clamp_enabled` | false | bool | <img src="assets/animations/stage7_accel_clamp.svg" width="64" height="64" alt=""> Enable acceleration clamp post-pass. |
 | `max_accel_units` | 800.0 | 1–65535 | <img src="assets/animations/stage7_accel_clamp.svg" width="64" height="64" alt=""> Maximum per-tick change in step magnitude (DAC units/tick²). After PPS scaling. |
-| `jitter_enabled` | false | bool | <img src="assets/animations/jitter.svg" width="64" height="64" alt=""> Point Distribution Modifier (v6.30.0): perpendicular displacement of interior points for a hand-drawn line texture. Disabled = output byte-identical to the pre-jitter optimizer. |
+| `jitter_enabled` | false | bool | <img src="assets/animations/jitter.svg" width="64" height="64" alt=""> Point Distribution Modifier: perpendicular displacement of interior points for a hand-drawn line texture. Disabled = output byte-identical to the pre-jitter optimizer. |
 | `jitter_amount_units` | 80.0 | 0–2000 | <img src="assets/animations/jitter.svg" width="64" height="64" alt=""> Maximum perpendicular jitter offset in DAC units. Deterministic per point (hash-based, not random per frame) — lines wobble, they don't shimmer. Corners, budgets, and dwell counts are computed *before* jitter, so it never destabilizes the pipeline. |
-| `reorder_segments` | false | bool | Nearest-neighbour jump-order optimization (v6.49.0, see [Stage 2.5](#stage-25--segment-reorder-optional)). Shortens total blank-jump distance for multi-segment calls (wireframes, text, paint) by reordering visitation order instead of drawing segments in input order. Disabled = byte-identical to the pre-reorder optimizer. |
+| `reorder_segments` | false | bool | Nearest-neighbour jump-order optimization (see [Stage 2.5](#stage-25--segment-reorder-optional)). Shortens total blank-jump distance for multi-segment calls (wireframes, text, paint) by reordering visitation order instead of drawing segments in input order. Disabled = byte-identical output. |
+| `reorder_2opt` | false | bool | 2-opt refinement of the nearest-neighbour tour — bounded block reversals that remove the crossings a greedy order leaves behind. Requires `reorder_segments`; skipped above a per-frame segment-count cap. |

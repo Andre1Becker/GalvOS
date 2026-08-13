@@ -38,7 +38,7 @@ The boot log tells you nearly everything: firmware version, chip ID, PSRAM size,
 | `=== GalvOS Laser FW x.x.x ===` | Firmware started successfully |
 | `Config loaded. DMX=x Hostname=x` | NVS config loaded OK |
 | `WiFi connected: x.x.x.x (RSSI -xx dBm)` | STA mode connected |
-| `AP started: galvOS` | AP mode started (no STA credentials) |
+| `WiFi timeout -- SoftAP 192.168.4.1` | Wi-Fi unreachable, fallback AP started (SSID/password also logged) |
 | `Ring buffer overflow #N` | Pattern engine is generating frames faster than the ISR drains them — see [Optimizer Issues](#optimizer--pattern-quality-issues) |
 | `TASK FAILED: name (Heap=N)` | A FreeRTOS task could not be created — internal heap exhausted at boot |
 | `last_failsafe: reason` | Why the safety system refused to arm last time |
@@ -73,14 +73,14 @@ If the ESP32 crashes with a Guru Meditation error, the serial monitor prints a b
 **Diagnosis:** Serial log shows `TASK FAILED: name (Heap=N)` with N near zero.  
 **Fix:** Something is allocating on internal DRAM that should be in PSRAM. Check that `BOARD_HAS_PSRAM` is defined and that the N16R8 OPI PSRAM is detected (`PSRAM: 8388608` in boot log).
 
-**Cause B:** Panic handler fired — laser turned off, `esp_restart()` called.  
-**Diagnosis:** Serial log shows `Guru Meditation` or `abort()` before the restart.  
+**Cause B:** Panic handler fired — laser turned off, `esp_restart` called.  
+**Diagnosis:** Serial log shows `Guru Meditation` or `abort` before the restart.  
 **Fix:** Decode the back trace with `esp32_exception_decoder`. The `last_failsafe` field in `/api/state` stores the reason in RTC memory across restarts.
 
 ### No Wi-Fi AP appears after first flash
 
-**Cause:** LittleFS not flashed — WebUI missing, but this should not prevent AP from starting.  
-**Fix:** Use `pio run --target upload_all`, not just `upload`. Confirm AP starts in serial log: `AP started: galvOS`.
+**Cause:** the AP only starts after the Wi-Fi connect attempt times out — give it a few seconds. A missing LittleFS image does not prevent it.  
+**Fix:** Use `pio run --target upload_all`, not just `upload`. Confirm the AP started in the serial log (`SoftAP '<ssid>' PW: '<password>'`) — the SSID is `Laser-XXXX`, not a fixed name.
 
 ### WebUI loads but shows "-- none --" everywhere
 
@@ -95,8 +95,8 @@ If the ESP32 crashes with a Guru Meditation error, the serial monitor prints a b
 
 ### Wi-Fi scan (Configuration tab) returns "error" or hangs
 
-**Cause:** `WiFi.scanNetworks()` on the Arduino core has several failure modes on the ESP32-S3 — a busy-bit that stays stuck after a mode switch, `WIFI_SCAN_FAILED` while STA is mid-(re)connect, or an async completion event that doesn't reliably fire under load. All were seen in the field between v6.00.3 and v6.00.7.  
-**Fix:** As of v6.00.7, the scan handler calls `esp_wifi_scan_start()`/`esp_wifi_scan_get_ap_records()` directly instead of going through `WiFiScanClass`, retries up to 3× on any negative result code, and reports a distinct `"error"` status to the UI instead of silently looping. If a scan still fails repeatedly, check the serial log for `esp_err_to_name()` plus internal-heap headroom — `esp_wifi_scan_start()` needs a contiguous internal-DRAM block, so heap pressure (see [Memory & Stability Issues](#memory--stability-issues)) is a plausible root cause of a stubborn failure.  
+**Cause:** `WiFi.scanNetworks` on the Arduino core has several failure modes on the ESP32-S3 — a busy-bit that stays stuck after a mode switch, `WIFI_SCAN_FAILED` while STA is mid-(re)connect, or an async completion event that doesn't reliably fire under load.  
+**Fix:** GalvOS calls `esp_wifi_scan_start`/`esp_wifi_scan_get_ap_records` directly instead of going through `WiFiScanClass`, retries up to 3× on any negative result code, and reports a distinct `"error"` status to the UI rather than silently looping. If a scan still fails repeatedly, check the serial log for `esp_err_to_name` plus internal-heap headroom — `esp_wifi_scan_start` needs a contiguous internal-DRAM block, so heap pressure (see [Memory & Stability Issues](#memory--stability-issues)) is a plausible root cause.  
 **Note:** An AP-mode (SoftAP) scan returning 0 networks is a separate, unfixable ESP-IDF channel-lock limitation — enter the SSID manually instead.
 
 ### Wi-Fi drops and does not reconnect
@@ -111,7 +111,8 @@ If the ESP32 crashes with a Guru Meditation error, the serial monitor prints a b
 
 ### Galvos go crazy when SD card is inserted
 
-**Cause:** SD card wired onto the DAC8562's SPI2 pins; the GPIO matrix let SD's real SPI3 traffic overwrite the DAC's clock/data lines. Fixed in firmware v5.90.0 (SD moved to its own SPI3 bus, GPIO5/6/1/42) and the perfboard has since been rewired to match — see [Known Issues](10-known-issues-and-todos.md#resolved-issues). If you still see this on your own build, verify your SD wiring matches GPIO5/6/1/42, not the old GPIO12/11/2/9.
+**Cause:** the SD card is wired onto the DAC8562's SPI2 pins. Arduino's `SPIClass(HSPI)` binds to the SPI3 peripheral on the ESP32-S3, so an SD card wired to SPI2's pins steals the DAC's clock/data lines through the GPIO matrix whenever the card is actually accessed.
+**Fix:** wire SD to its own bus — SCK=GPIO5, MOSI=GPIO6, MISO=GPIO1, CS=GPIO42 — with zero pin overlap with the DAC's SPI2 (GPIO10/11/12). This is what the firmware expects; see `include/pinmap.h`.
 
 ### Output is mirrored horizontally
 
@@ -150,7 +151,7 @@ If the ESP32 crashes with a Guru Meditation error, the serial monitor prints a b
 
 ### Closed shape has a visible gap instead of reconnecting
 
-**Cause (fixed in v6.05.0):** At a heavily tuned-down `max_pts_per_frame`, corner dwell was treated as fixed overhead — only interior density was ever scaled back to fit the frame budget. On a many-vertex closed shape (Octagon and up, dense Lissajous/rose/trochoid curves, Concentric Rings), corner dwell alone could exceed what was left of the budget, and the point emitter silently stopped mid-shape — always cutting off the final edge and closing dwell first, which reads as "the shape doesn't close."  
+**Cause:** At a heavily tuned-down `max_pts_per_frame`, corner dwell was treated as fixed overhead — only interior density was ever scaled back to fit the frame budget. On a many-vertex closed shape (Octagon and up, dense Lissajous/rose/trochoid curves, Concentric Rings), corner dwell alone could exceed what was left of the budget, and the point emitter silently stopped mid-shape — always cutting off the final edge and closing dwell first, which reads as "the shape doesn't close."  
 **Fix:** The optimizer now scales `min_corner_pts`/`max_corner_pts` down together (floor: 1 point per vertex) whenever corner dwell alone doesn't fit the budget, trading corner sharpness for a guaranteed closed loop. This is automatic — no configuration needed. If you still see a gap on current firmware, `max_pts_per_frame` is too low even for 1 point per vertex; raise it in the Optimizer tab.
 
 ### Straight lines look curved
@@ -178,7 +179,7 @@ If the ESP32 crashes with a Guru Meditation error, the serial monitor prints a b
 ### Laser fires at boot before ARM
 
 **What is happening:** The fail-safe pull-ups (R_FSR/G/B, 10 kΩ → +3.3V) on GPIO7/8/21 hold the GPIOs HIGH during boot. This makes the 6N137 LEDs dark, which pulls the optocoupler outputs to +1.65V (HIGH) — which is "laser ON" for the MN-1M5AT active-HIGH driver.  
-**Why this is expected:** This is the correct fail-safe behavior for the TTL signals. However, the laser power rail is controlled by PIN_LASER_ENABLE (GPIO38 → SSR1), which the safety system holds LOW until all conditions are satisfied. The laser cannot actually fire until `safety::allOk()` returns true and the user presses ARM.  
+**Why this is expected:** This is the correct fail-safe behavior for the TTL signals. However, the laser power rail is controlled by PIN_LASER_ENABLE (GPIO38 → SSR1), which the safety system holds LOW until all conditions are satisfied. The laser cannot actually fire until `safety::allOk` returns true and the user presses ARM.  
 **If the laser fires anyway:** The SSR1 is being energized before ARM. Check R_PD_EN (10 kΩ pull-down on GPIO38 → GND) is fitted. Measure GPIO38 at boot — it must be LOW before ARM.
 
 ### Laser does not turn on after ARM
@@ -207,16 +208,16 @@ If the ESP32 crashes with a Guru Meditation error, the serial monitor prints a b
 
 **Cause C:** Firmware LEDC channel detached.  
 **Diagnosis:** Check serial log for LEDC errors at boot.  
-**Note:** `ledcAttachPin()` is called once at `setup()` — never per blank/un-blank cycle. If you see this error, something is calling it in a loop.
+**Note:** `ledcAttachPin` is called once at `setup` — never per blank/un-blank cycle. If you see this error, something is calling it in a loop.
 
 ### Colors washed out or wrong after a color animation
 
-**Cause:** The color animation left `col_override = true` with an unintended color. The `_stopGradient()` function must send `col_override: false` to clear it.  
-**Fix:** Presets tab → Global Controls → **↺ Reset Colors** button. This calls `resetColorOverride()` which explicitly sends `col_override: false` to the firmware.
+**Cause:** The color animation left `col_override = true` with an unintended color. The `_stopGradient` function must send `col_override: false` to clear it.  
+**Fix:** Presets tab → Global Controls → **↺ Reset Colors** button. This calls `resetColorOverride` which explicitly sends `col_override: false` to the firmware.
 
 ### Master Dimmer set to 100% but laser is very dim
 
-**Cause:** `thresh_r/g/b` thresholds are set too high — the `mapVisibleRange()` function is compressing the effective range.  
+**Cause:** `thresh_r/g/b` thresholds are set too high — the `mapVisibleRange` function is compressing the effective range.  
 **Fix:** Run the visibility threshold calibration (Calibration tab → Start test beam → adjust Base R/G/B sliders). Alternatively, reduce the threshold values manually if you know your diodes' actual dead zone.
 
 ---
@@ -226,14 +227,14 @@ If the ESP32 crashes with a Guru Meditation error, the serial monitor prints a b
 ### Base color sliders in Calibration have no effect
 
 **Cause:** The test beam bypass is not active. `mapVisibleRange(255, any_threshold)` always returns 255 — a full-brightness signal bypasses the threshold mapping.  
-**Fix:** Press **▶ Start test beam** in the Calibration tab before adjusting threshold sliders. The test beam sends a logical level of ~1 (not 255), which goes through `mapVisibleRange()` and is therefore controlled by the threshold value.
+**Fix:** Press **▶ Start test beam** in the Calibration tab before adjusting threshold sliders. The test beam sends a logical level of ~1 (not 255), which goes through `mapVisibleRange` and is therefore controlled by the threshold value.
 
 ### Colors look blown out at mid-brightness (gamma issue)
 
 **Cause A:** Gamma enabled on a laser driver that already applies its own gamma correction — double-gamma.  
 **Fix:** Calibration tab → CIE 1931 Gamma → toggle off. Save calibration.
 
-**Cause B:** `calib_patterns.cpp:colorOut()` applies `applyGamma()` before storing into `LaserPoint.r/g/b`, but `galvo_out.cpp:rgbWrite()` applies it again.  
+**Cause B:** `calib_patterns.cpp:colorOut` applies `applyGamma` before storing into `LaserPoint.r/g/b`, but `galvo_out.cpp:rgbWrite` applies it again.  
 **Diagnosis:** This is a firmware bug pattern to be aware of when modifying calibration patterns. Each color value should go through gamma exactly once.
 
 ### Three-Circle Pattern colors do not match visually
@@ -266,8 +267,8 @@ If the ESP32 crashes with a Guru Meditation error, the serial monitor prints a b
 
 ### Wireframe corners look bad (rounded or missing)
 
-**Cause:** `buildWfChains()` not called for this wireframe pattern. Isolated 2-vertex `PathSegment` entries prevent `has_incoming && has_outgoing` from ever being true, so corner dwell never fires.  
-**Fix:** This is a firmware-side issue. When writing new 3D patterns, ensure `buildWfChains()` is called to group edge pairs into proper chains before passing to the optimizer.
+**Cause:** `buildWfChains` not called for this wireframe pattern. Isolated 2-vertex `PathSegment` entries prevent `has_incoming && has_outgoing` from ever being true, so corner dwell never fires.  
+**Fix:** This is a firmware-side issue. When writing new 3D patterns, ensure `buildWfChains` is called to group edge pairs into proper chains before passing to the optimizer.
 
 ### Optimizer parameter changes have no effect
 
@@ -289,8 +290,8 @@ If the ESP32 crashes with a Guru Meditation error, the serial monitor prints a b
 **Cause A:** LittleFS not flashed — `data/index.html` missing.  
 **Fix:** Run `pio run --target upload_all`.
 
-**Cause B:** ESP32 in AP mode and you are not connected to the `galvOS` AP.  
-**Fix:** Connect your device to the `galvOS` Wi-Fi network, then open `http://192.168.4.1`.
+**Cause B:** the ESP32 fell back to AP mode and you are not connected to its `Laser-XXXX` network.  
+**Fix:** Connect to the `Laser-XXXX` network (password in the serial log), then open `http://192.168.4.1`.
 
 **Cause C:** mDNS not resolving `galvOS.local`.  
 **Fix:** Use IP address directly (see Dashboard → System, or serial log).
@@ -315,27 +316,10 @@ If the ESP32 crashes with a Guru Meditation error, the serial monitor prints a b
 **Diagnosis:** Dashboard → System → WiFi Signal weaker than −70 dBm.  
 **Fix:** Move ESP32 or access point closer together, or switch Wi-Fi channels.
 
-**Cause C (historical, fixed in v6.24.3/v6.29.1):** on older firmware, dragging Modulator/Binding sliders fired a synchronous flash write per tick on the network task — a few seconds of slider action could starve the whole TCP stack (`tcp_accept(): pcb is NULL` in the log, 10-second-late slider feedback). Saves are debounced off the network path now; if you see this signature, update the firmware.
-
-### Dashboard shows almost nothing for the first minutes after boot
-
-**Cause:** fixed in v6.35.0 — a chart-rendering bug threw on the not-yet-filled CPU history and silently killed every Dashboard field update queued after it in the same handler, for ~3 minutes after boot. On current firmware the Dashboard populates from the first poll.  
-**Fix:** update the WebUI (`pio run --target uploadfs`).
-
-### Preset switching flashes a bright streak
-
-**Cause:** fixed in v6.33.0 — the seam bridge between frames tracked the galvo's last position per preset instead of as one physical position, so switching presets bridged from a stale point and fired the beam mid-jump.  
-**Fix:** update the firmware. If you still see flashes on switches, check `LASER_ON_HOLD_TICKS`-related tuning has not been modified.
-
 ### Laser show software connects but times out / desyncs (Ether Dream)
 
-**Cause:** a family of Ether Dream emulation bugs, all fixed between v6.15.1 and v6.23.1 — response framing desync, a permanent "warming up" state real clients wait on forever, silently dropped DATA frames above ~455 points (fatal for clients that pace off the advertised 1800-point buffer, e.g. QLC+, Pangolin, Modulaser), and unanswered unknown/lowercase commands.  
-**Fix:** update the firmware. For anything that remains, enable the Ether Dream **Debug Log** toggle (Configuration → Control Interfaces, v6.16.0) — it logs raw command bytes and response timing to the Log tab.
-
-### Streamed frames (Ether Dream/Helios) flicker against a preset pattern
-
-**Cause:** fixed in v6.20.2 — network stream frames used to interleave with the DMX/preset render in the output ring. The pattern engine now yields while a network client is actively playing.  
-**Fix:** update the firmware. `scripts/test_protocols.py` can stream test frames for verification.
+**Diagnosis:** enable the Ether Dream **Debug Log** toggle (Configuration → Control Interfaces). It logs raw command bytes and response timing to the Log tab, which is usually enough to tell "the client never sent anything" apart from "the client is waiting for a response it did not get".  
+**Fix:** check that the Ether Dream interface is enabled at all, that only one client is connected, and that the client is not pacing off a larger point buffer than GalvOS advertises. `scripts/test_protocols.py` streams test frames from a PC for a known-good comparison.
 
 ---
 
@@ -343,7 +327,8 @@ If the ESP32 crashes with a Guru Meditation error, the serial monitor prints a b
 
 ### SD card causes galvo malfunction
 
-**Cause:** SD card wired onto the DAC8562's SPI2 pins; the GPIO matrix let SD's real SPI3 traffic overwrite the DAC's clock/data lines. Fixed in firmware v5.90.0 (SD moved to its own SPI3 bus, GPIO5/6/1/42) and the perfboard has since been rewired to match — see [Known Issues](10-known-issues-and-todos.md#resolved-issues). Galvo output is unaffected by SD access now; if this still happens on your build, check your SD wiring against GPIO5/6/1/42.
+**Cause:** the SD card is wired onto the DAC8562's SPI2 pins — see [Galvos go crazy when SD card is inserted](#galvos-go-crazy-when-sd-card-is-inserted) above.  
+**Fix:** rewire SD to SPI3 (SCK=GPIO5, MOSI=GPIO6, MISO=GPIO1, CS=GPIO42).
 
 ### ILDA files not listed in the ILDA tab
 
@@ -353,22 +338,17 @@ If the ESP32 crashes with a Guru Meditation error, the serial monitor prints a b
 **Cause B:** SD card speed class insufficient.  
 **Fix:** Use Class 10 UHS-I minimum. Class 4 cards are incompatible with reliable SPI access at DAC-sharing speeds.
 
-**Note:** since v6.14.0 the card auto-mounts on a standing 5-second retry — a card inserted after boot gets picked up automatically. If the list stays empty, press **Rescan** in the ILDA/SD tab and check the SD status line for an error message.
+**Note:** the card auto-mounts on a standing 5-second retry — a card inserted after boot gets picked up automatically. If the list stays empty, press **Rescan** in the ILDA/SD tab and check the SD status line for an error message.
 
 ### `task_wdt` reset while loading a big ILDA file
 
-**Cause:** fixed across v6.10.2–v6.10.5 — the load loop had no yield points (starving the idle task), the SD mutex wasn't actually enforced against concurrent playlist access, and real SD cards can stall a single read for seconds during internal housekeeping.  
-**Fix:** update the firmware — loads now yield on a wall-clock schedule, SD access is genuinely exclusive, and the task watchdog timeout is 15 s to accommodate genuine SD stalls (this does **not** weaken any laser interlock: the safety and DMX tasks outrank anything that can block on SD, and the NE555 hardware chain doesn't involve software at all).
+**Cause:** a genuinely slow card. Real SD cards can stall a single read for seconds during internal housekeeping, and a large file means many of those reads.  
+**Fix:** loads yield on a wall-clock schedule and the task watchdog timeout is 15 s to accommodate such stalls, so a healthy card should not trip this — one that still does is failing or too slow (use Class 10 UHS-I). The longer timeout does **not** weaken any laser interlock: the safety and DMX tasks outrank anything that can block on SD, and the NE555 hardware chain doesn't involve software at all.
 
 ### ILDA playback stops by itself after a moment
 
-**Cause:** fixed in v6.10.0 — with no real DMX source connected, the DMX ILDA-select channel's fallback value (0 = stop) killed WebUI-started playback about 40 ms after it began. The select channel now only drives playback while a DMX/Art-Net/sACN source is actually live.  
-**Fix:** update the firmware. Also check the ILDA Player's **Enabled** master switch (v6.10.1) hasn't been turned off.
-
-### Playing a file returns an error / "file not found" for a file that's clearly there
-
-**Cause:** fixed in v6.12.2/v6.12.3 — over-long filenames were silently truncated in the index, so playback looked up a name that didn't exist on disk (uploads could even plant such names).  
-**Fix:** update the firmware — paths up to FAT's 255-character limit now work, uploads are sanitized. On old firmware: rename the file shorter.
+**Cause:** a live DMX/Art-Net/sACN source is holding the ILDA-select channel (CH17) at 0, which means "stop". That channel only drives playback while such a source is actually present, so this needs a real console connected.  
+**Fix:** set CH17 to the file you want, or disable the interface while working from the WebUI. Also check the ILDA Player's **Enabled** master switch hasn't been turned off.
 
 ---
 
@@ -418,15 +398,15 @@ If the ESP32 crashes with a Guru Meditation error, the serial monitor prints a b
 
 **Allocation rules:**
 
-- Buffers > 16 KB → `ps_malloc()` or `heap_caps_malloc(MALLOC_CAP_SPIRAM)`
-- All `JsonDocument` instances → `JsonDocument doc(&jsonAllocator())` (uses `SpiRamAllocator`)
-- API responses → `sendJsonPsram()` (chunked, PSRAM buffer)
+- Buffers > 16 KB → `ps_malloc` or `heap_caps_malloc(MALLOC_CAP_SPIRAM)`
+- All `JsonDocument` instances → `JsonDocument doc(&jsonAllocator)` (uses `SpiRamAllocator`)
+- API responses → `sendJsonPsram` (chunked, PSRAM buffer)
 
 **Fix:** If you have added code that allocates large buffers, move them to PSRAM.
 
 ### `heap_critical_bytes` threshold triggered restart
 
-**What happens:** If the largest free block of internal DRAM falls below `heap_critical_bytes` (default 6144 bytes), the firmware calls `esp_restart()`. This prevents the system from reaching a state where even small allocations fail and cause undefined behavior.
+**What happens:** If the largest free block of internal DRAM falls below `heap_critical_bytes` (default 6144 bytes), the firmware calls `esp_restart`. This prevents the system from reaching a state where even small allocations fail and cause undefined behavior.
 
 **Diagnosis:** Serial log shows a restart with no Guru Meditation. Check `last_failsafe`.
 
@@ -450,5 +430,3 @@ A quick-reference index of open issues documented in [Chapter 10](10-known-issue
 | --- | --- | --- |
 | Calibration channel selector not working | Minor | Calibrate with RGB combined |
 | ILDA Standard Test Pattern bad output | Minor | Use Crosshair/Grid patterns instead |
-
-All text-mode animation bugs from earlier releases (Bounce, Typewriter, Star Wars direction/dots) were fixed by v6.05.7; the scrolling-text edge streaks and the Star Wars rooftop lines went in v6.07.1/v6.07.2.

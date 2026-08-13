@@ -24,13 +24,12 @@
 - [How Scoring Works](#how-scoring-works)
 - [Session Semantics — Nothing Sticks Until You Apply It](#session-semantics--nothing-sticks-until-you-apply-it)
 - [Safety](#safety)
-- [Version History](#version-history)
 
 ---
 
 ## What This Is
 
-Firmware v6.03.0 added a REST API, `/api/calib-cam/*`, that lets an external program select a calibration pattern, live-override the active optimizer profile's parameters (RAM-only, never touching NVS), and read back exactly what has changed. `scripts/optimizeGalvo/optimizeGalvo.py` is the program that actually drives it: it opens a mono/global-shutter USB camera, projects one of six reference patterns, measures the result, and runs an [Optuna](11-glossary.md) search to find the parameter combination that produces the cleanest beam.
+The firmware exposes a REST API, `/api/calib-cam/*`, that lets an external program select a calibration pattern, live-override the active optimizer profile's parameters (RAM-only, never touching NVS), and read back exactly what has changed. `scripts/optimizeGalvo/optimizeGalvo.py` is the program that actually drives it: it opens a mono/global-shutter USB camera, projects one of six reference patterns, measures the result, and runs an [Optuna](11-glossary.md) search to find the parameter combination that produces the cleanest beam.
 
 This is **not** a replacement for the manual Galvo Calibration card in the WebUI (Chapter 4) — offset, gain, swap, and invert are still set by hand, because those are fixed hardware/wiring properties, not something a search should be exploring every run. What this tool auto-tunes is the **optimizer**: corner dwell, blanking, resample, ringing compensation — the parameters in [Chapter 5](05-optimizer.md#parameter-reference) that trade off against each other and are genuinely tedious to hand-tune by eye.
 
@@ -55,7 +54,7 @@ Camera and target share one rigid mount so the pixel→DAC [homography](11-gloss
 ## Requirements
 
 - A mono or global-shutter USB camera. The tool was built and tested against an **OV9281**-based module — a rolling-shutter webcam will smear a fast-moving beam and produce misleading measurements.
-- GalvOS firmware ≥ v6.04.1 (for per-channel pattern color; v6.03.0 works but always draws white).
+- A GalvOS device reachable over the network, with the `/api/calib-cam/*` API (any current firmware).
 - Python 3.12 or 3.13 is the safest bet — if wheels for `opencv-python`/`optuna`/`numpy` aren't published yet for your interpreter version, use a 3.12/3.13 v-env rather than fighting a source build.
 - The ESP32 and the machine running the script on the same network, with a known base URL (hostname or IP).
 
@@ -77,7 +76,7 @@ pip install -r requirements.txt
 | `camConfig.json` | Runtime config — ESP32 base URL, camera index/resolution/exposure, DAC calibration range, cost weights, diagnose thresholds, HTTP timeout/retry settings. Created by `wizard` on first run. |
 | `homography.npz` | Pixel→DAC homography matrix plus the stored background frame, written by `calibrate`. Required by `measure`, `optimize`, and `diagnose`. |
 | `searchSpace.json` | Parameter ranges per camera-tunable optimizer profile (`Vector`, `Smooth`, `Waves`, `MultiObject`). Edit this if you widen a parameter's firmware-side limits. |
-| `results/` | `optuna_study.db` (resumable search state), per-trial `.jsonl` logs, best-parameter JSON snapshots, and saved camera frames from `measure`/`calibrate`. Since v2.10.0, interactive runs offer to clean up stale files here (everything except the `.db`) at startup. |
+| `results/` | `optuna_study.db` (resumable search state), per-trial `.jsonl` logs, best-parameter JSON snapshots, and saved camera frames from `measure`/`calibrate`., interactive runs offer to clean up stale files here (everything except the `.db`) at startup. |
 
 Override the config path with `--config`, e.g. to keep separate configs for multiple camera rigs.
 
@@ -94,7 +93,7 @@ Six patterns exist on the firmware side purely for this tool (`calib_patterns.cp
 | `circle` | Continuous curve, no real corners — path deviation + brightness uniformity. |
 | `spiral` | Dense continuous curve — path deviation + brightness uniformity under high interior density. |
 
-Since v6.04.1, `/api/calib-cam/start` accepts a `channel` field (default: **blue**, channel 3) instead of always drawing white. A mono camera can see the R/G/B beams smear apart or land at slightly different positions if the laser diodes aren't perfectly co-bore sighted — measuring on one channel avoids that artifact entirely. `optimizeGalvo.py` drives this from `camPatternChannel` in `camConfig.json`.
+`/api/calib-cam/start` accepts a `channel` field (default: **blue**, channel 3) instead of always drawing white. A mono camera can see the R/G/B beams smear apart or land at slightly different positions if the laser diodes aren't perfectly co-bore sighted — measuring on one channel avoids that artifact entirely. `optimizeGalvo.py` drives this from `camPatternChannel` in `camConfig.json`.
 
 ## Workflow
 
@@ -163,7 +162,7 @@ Measures each selected profile's current live output (no overrides — a read, n
 python optimizeGalvo.py autotune-camera --trials 30 --apply
 ```
 
-Added in optimizeGalvo v2.4.0. Tunes the camera's own **capture** settings — exposure, gain, `binaryThreshold`, `accumFrames` — instead of firmware parameters, which are left exactly as currently live. Useful when `measure`/`diagnose` results look inconsistent for reasons that turn out to be the camera, not the beam: washed-out captures, blooming, background noise. Since v2.5.0, saturated pixels are flagged as their own metric (`saturationFrac`) — a global-shutter sensor blooms into neighboring pixels at saturation, which can otherwise inflate path-deviation/corner-hotspot readings with a camera artifact rather than a real scan problem; `diagnose` will suggest running this command instead of `optimize` when it detects that. On apply, updates `camConfig.json` and refreshes `homography.npz`'s stored background to match the new exposure/gain (background is exposure-dependent, so a stale one would corrupt every later diff-subtraction).
+Tunes the camera's own **capture** settings — exposure, gain, `binaryThreshold`, `accumFrames` — instead of firmware parameters, which are left exactly as currently live. Useful when `measure`/`diagnose` results look inconsistent for reasons that turn out to be the camera, not the beam: washed-out captures, blooming, background noise. Saturated pixels are flagged as their own metric (`saturationFrac`) — a global-shutter sensor blooms into neighboring pixels at saturation, which can otherwise inflate path-deviation/corner-hotspot readings with a camera artifact rather than a real scan problem; `diagnose` will suggest running this command instead of `optimize` when it detects that. On apply, updates `camConfig.json` and refreshes `homography.npz`'s stored background to match the new exposure/gain (background is exposure-dependent, so a stale one would corrupt every later diff-subtraction).
 
 ### 8. autotune-colors
 
@@ -171,7 +170,7 @@ Added in optimizeGalvo v2.4.0. Tunes the camera's own **capture** settings — e
 python optimizeGalvo.py autotune-colors --channels r,g,b --apply
 ```
 
-Added in optimizeGalvo v2.13.0. Automates the WebUI's two manual RGB calibration tools ([Chapter 4 — Parameter Card](04-ui-guide.md#parameter-card-visibility-threshold--white-balance)) with camera measurement instead of eyeballing:
+Automates the WebUI's two manual RGB calibration tools ([Chapter 4 — Parameter Card](04-ui-guide.md#parameter-card-visibility-threshold--white-balance)) with camera measurement instead of eyeballing:
 
 - **Phase 1 — visibility threshold ("Basiswert"):** per channel, binary-searches `thresh_r/g/b` using the existing static test beam, converging on the lowest duty that's reliably camera-visible plus a small margin (`--threshold-margin`, default 3).
 - **Phase 2 — brightness/gain matching:** projects the static `corners4` dwell pattern per channel (no scanning, so PWM duty is measured without conflating it with scan speed), finds each channel's maximum brightness at gain 255, then binary-searches the stronger channels' `gain_r/g/b` down to match the weakest — you can only dim a strong channel to match, never brighten the weak one further.
@@ -189,7 +188,7 @@ Two things make this command different from `optimize`:
 python optimizeGalvo.py analyze-live
 ```
 
-Added in optimizeGalvo v2.7.0. Unlike every other command, this **never** starts or stops anything on the ESP32 — it captures one frame of whatever is already projecting (any preset, ILDA file, or custom output) and leaves it running. Since there's no known "ideal" shape for an arbitrary preset the way there is for the 6 calib patterns, it runs a no-reference *structural* read instead of path-deviation scoring: does the beam trace form one continuous piece (vs. a real gap or disconnected segment), does it enclose an area (closed loop), and is the sensor saturating. It looks up the active preset's name/category via the API to label the report, and its "possibly broken" flag is a heuristic, never a hard fail — plenty of presets are legitimately multi-piece (particles, starfields, multi-object scenes), and known multi-piece presets are excepted since v2.7.1.
+Unlike every other command, this **never** starts or stops anything on the ESP32 — it captures one frame of whatever is already projecting (any preset, ILDA file, or custom output) and leaves it running. Since there's no known "ideal" shape for an arbitrary preset the way there is for the 6 calib patterns, it runs a no-reference *structural* read instead of path-deviation scoring: does the beam trace form one continuous piece (vs. a real gap or disconnected segment), does it enclose an area (closed loop), and is the sensor saturating. It looks up the active preset's name/category via the API to label the report, and its "possibly broken" flag is a heuristic, never a hard fail — plenty of presets are legitimately multi-piece (particles, starfields, multi-object scenes), and known multi-piece presets are excepted.
 
 ---
 
@@ -203,13 +202,13 @@ Every measurement reduces to a single weighted cost (`costWeights` in `camConfig
 | `blankLeakage` | Laser visible during a blank jump — insufficient hold-off or blanking overshoot. |
 | `cornerHotspot` | Excess brightness pooling at a corner — too much dwell relative to the rest of the shape. |
 | `brightnessNonUniformity` | Uneven brightness along a continuous curve — interior density or velocity-easing issues. |
-| `saturationFrac` (v2.5.0+) | Fraction of the traced beam at raw sensor saturation — flags a camera-artifact-inflated reading rather than a real defect. |
+| `saturationFrac` | Fraction of the traced beam at raw sensor saturation — flags a camera-artifact-inflated reading rather than a real defect. |
 
 `optimize` and `diagnose` share this cost function; `autotune-camera` adds `saturationFrac` and a background-brightness penalty on top, since capture-quality problems (washed-out frames) don't show up cleanly in the four geometry metrics above.
 
 ## Session Semantics — Nothing Sticks Until You Apply It
 
-A calib-cam session's overrides are **RAM-only** — they never touch NVS on their own. Starting a session (`/api/calib-cam/start`) snapshots the target profile's current values; every override applies on top of that snapshot; and `/stop` (or an E-Stop trip, which force-stops the session from `pattern_engine::task()`) **restores the snapshot**, discarding every change. This is deliberate — an interrupted or aborted tuning run must never leave a normal preset's optimizer profile silently altered.
+A calib-cam session's overrides are **RAM-only** — they never touch NVS on their own. Starting a session (`/api/calib-cam/start`) snapshots the target profile's current values; every override applies on top of that snapshot; and `/stop` (or an E-Stop trip, which force-stops the session from `pattern_engine::task`) **restores the snapshot**, discarding every change. This is deliberate — an interrupted or aborted tuning run must never leave a normal preset's optimizer profile silently altered.
 
 Practical upshot: `optimize --apply` (or `diagnose --autotune --apply`) is what makes a result permanent — it calls `/api/optimizer-live` with the winning values and `/api/optimizer-save` to persist them, before the session ends. Without `--apply`, an interactive run prompts you per profile; a non-interactive run (e.g. from a script or CI) applies nothing and the tuned values only exist in the `results/best_<profile>_<timestamp>.json` file.
 
@@ -217,20 +216,4 @@ Practical upshot: `optimize --apply` (or `diagnose --autotune --apply`) is what 
 
 This tool projects real geometry through the real laser via the normal `calib_active` render path — every hardware safety interlock in [Chapter 1](01-introduction.md#safety-interlock-chain) still applies unchanged (E-Stop, scan-fail, watchdog, ARM). Running an unattended multi-hour `optimize` session does not relax any of the precautions in [Chapter 1's Safety section](01-introduction.md#safety--read-this-first) — beam containment and eye protection rules apply exactly as they do to any other armed session.
 
-Since optimizeGalvo v2.11.0, every command that projects a pattern first checks that the laser is **armed and the safety chain is green** — and refuses to start otherwise. Arming stays a deliberate manual action in the WebUI; the script never arms the laser itself.
-
-## Version History
-
-| Version | Change |
-| --- | --- |
-| fw v6.03.0 | Initial `/api/calib-cam/*` API and the 6 camera patterns. |
-| fw v6.04.1 | Patterns default to blue; `channel` field on `/api/calib-cam/start`. |
-| fw v6.05.0 | Fixed closed shapes not reconnecting when a heavily-tuned-down `max_pts_per_frame` starved corner dwell — see [Chapter 5](05-optimizer.md#stage-4--corner-dwell). |
-| fw v6.05.5 | Fixed a phantom seam bridge: `calib_patterns` remembered each pattern's last-drawn position across sessions, so a fresh pattern's first frame bridged from wherever it left off ages ago — visible as an arc bleeding into captures. Caught by the tool's per-trial screenshots. |
-| optimizeGalvo v2.4.0 | Added `autotune-camera`. |
-| optimizeGalvo v2.5.0 | Added `saturationFrac` blooming metric. |
-| optimizeGalvo v2.7.0 | Added `analyze-live` (no-reference structural check of live output). |
-| optimizeGalvo v2.10.0 | Stale-`results/` cleanup prompt at the start of interactive runs. |
-| optimizeGalvo v2.11.0 | Commands that project require the laser to be armed/ready first. |
-| optimizeGalvo v2.13.0 | Added `autotune-colors` (camera-measured threshold + gain matching); camera capture-rate fix (was silently crawling at 5 fps on some backends). |
-| optimizeGalvo v2.13.1 | `preview` screenshots use the rolling max-smoothed frame (`displaySmoothFrames`) instead of one raw frame that catches only a fraction of a fast pattern. |
+Every command that projects a pattern first checks that the laser is **armed and the safety chain is green**, and refuses to start otherwise. Arming stays a deliberate manual action in the WebUI; the script never arms the laser itself.

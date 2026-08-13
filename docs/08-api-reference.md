@@ -17,6 +17,7 @@ The GalvOS REST API is served by the ESP32 WebUI server (ESPAsyncWebServer) at `
 - [Modulators](#modulators)
 - [Color Animations & Curves](#color-animations--curves)
 - [Calibration](#calibration)
+- [Geometry & Brightness Correction](#geometry--brightness-correction)
 - [Backup & Restore](#backup--restore)
 - [Optimizer](#optimizer)
 - [Projection](#projection)
@@ -33,6 +34,7 @@ The GalvOS REST API is served by the ESP32 WebUI server (ESPAsyncWebServer) at `
 - [Wi-Fi](#wi-fi)
 - [Log](#log)
 - [Debug & Diagnostics](#debug--diagnostics)
+- [Firmware & Filesystem Update](#firmware--filesystem-update)
 
 ---
 
@@ -109,7 +111,7 @@ Full system state. Polled by the WebUI every second.
 | `buffer_fill` | int | Ring buffer fill level (%) |
 | `last_dmx_age_ms` | int | ms since last DMX frame (−1 if never received) |
 | `preset_idx` | int | Active preset index (−1 if none) |
-| `starfield_stars` | int | Actual rendered star count for the Starfield preset (since v6.02.4) — the requested Size (0–255) can be capped lower by the Particles optimizer profile's `max_pts_per_frame` budget; the WebUI shows this value instead of echoing the raw slider |
+| `starfield_stars` | int | Actual rendered star count for the Starfield preset — the requested Size (0–255) can be capped lower by the Particles optimizer profile's `max_pts_per_frame` budget; the WebUI shows this value instead of echoing the raw slider |
 | `dac_ok` | bool | DAC8562 initialized and responding |
 | `no_hw_mode` | bool | No-HW debug mode active |
 | `heap` | int | Free internal heap (bytes) |
@@ -135,21 +137,20 @@ Full system state. Polled by the WebUI every second.
 | `sd_file_count` | int | Number of `.ild` files indexed |
 | `ntp_synced` | bool | NTP time synchronized |
 | `found` | int | Number of DS18B20 sensors found on 1-Wire bus |
-| `etherdream_connected` / `etherdream_playing` | bool | Ether Dream client TCP-connected / actively streaming points (since v6.08.0) |
-| `helios_net_connected` / `helios_net_playing` | bool | Helios network-DAC client TCP-connected / actively streaming (since v6.08.0) |
-| `helios_usb_connected` | bool | Always `false` — the Helios USB protocol is a stub (since v6.08.0) |
-| `osc_active` | bool | OSC packets received recently (since v6.08.0) |
-| `sacn_active` | bool | sACN/E1.31 frames received recently (since v6.08.0) |
-| `ui_override` / `ui_master_dimmer` | bool / int | WebUI-override state and WebUI master dimmer, echoed back so clients can stay in sync (since v6.09.0 — before that, only `/api/status` reported them) |
-| `bpm` | float | Effective BPM resolved from the active clock source (since v6.21.0) |
-| `bpm_source` | int | Active BPM source: 0=Manual, 1=Tap, 2=DMX (since v6.21.0) |
-| `bpm_phase` | int | Beat phase in permille (0–999) — drives the WebUI's beat-flash dot (since v6.21.0) |
-| `seq_running` / `seq_loop` | bool | Preset Sequencer transport state (since v6.22.0) |
-| `seq_current` / `seq_stepcount` | int | Current sequencer step / total steps — the full playlist comes from `GET /api/sequencer` (since v6.22.0) |
+| `etherdream_connected` / `etherdream_playing` | bool | Ether Dream client TCP-connected / actively streaming points |
+| `helios_net_connected` / `helios_net_playing` | bool | Helios network-DAC client TCP-connected / actively streaming |
+| `osc_active` | bool | OSC packets received recently |
+| `sacn_active` | bool | sACN/E1.31 frames received recently |
+| `ui_override` / `ui_master_dimmer` | bool / int | WebUI-override state and WebUI master dimmer, echoed back so clients can stay in sync |
+| `bpm` | float | Effective BPM resolved from the active clock source |
+| `bpm_source` | int | Active BPM source: 0=Manual, 1=Tap, 2=DMX |
+| `bpm_phase` | int | Beat phase in permille (0–999) — drives the WebUI's beat-flash dot |
+| `seq_running` / `seq_loop` | bool | Preset Sequencer transport state |
+| `seq_current` / `seq_stepcount` | int | Current sequencer step / total steps — the full playlist comes from `GET /api/sequencer` |
 
 ### Control Source Priority
 
-`source` resolves per-frame in `readDmx()` (`src/patterns/pattern_engine.cpp`). A higher-priority active source always wins; the Safety interlock overrides everything regardless of source.
+`source` resolves per-frame in `readDmx` (`src/patterns/pattern_engine.cpp`). A higher-priority active source always wins; the Safety interlock overrides everything regardless of source.
 
 <img src="assets/diagrams/control_priority.png" width="900" alt="Control source priority: Safety interlock, then ILDA Player, Network point stream, Calibration, Text Mode, Paint Mode, then WebUI/OSC over Art-Net over DMX-512 over sACN over Internal">
 
@@ -159,9 +160,11 @@ Priority, highest to lowest: **ILDA Player** > **Network point stream** (Ether D
 
 ### `GET /api/status`
 
-Lightweight status response. Lower overhead than `/api/state` — uses direct `snprintf` instead of JSON serialization. Suitable for high-frequency polling.
+Lightweight status response — the core status fields only, without the pattern/sequencer/interface detail `/api/state` carries. Suitable for high-frequency polling and used by the host-side camera tool.
 
 **Response fields:** `estop_ok`, `scanfail_ok`, `laser_armed`, `source`, `master_dimmer`, `points_per_sec`, `buffer_fill`, `debug_mode`, `ui_override`, `ui_master_dimmer`, `fw_version`, `ota_pass`, `free_heap`, `free_psram`, `hostname`, `ip`, `rssi`, `uptime_s`, `last_dmx_age_ms`.
+
+> Both endpoints build these fields from one shared helper, so a value can never mean two different things depending on which endpoint you asked.
 
 ---
 
@@ -204,7 +207,7 @@ Write one or more `RuntimeConfig` fields. Only fields present in the body are up
 {"thresh_r": 143, "thresh_g": 144, "thresh_b": 169}
 ```
 
-**Example — enable/disable control interfaces (since v6.08.0; Art-Net and Ether Dream toggles since v6.15.1):**
+**Example — enable/disable control interfaces (; Art-Net and Ether Dream toggles):**
 
 ```json
 {"osc_enabled": true, "sacn_enabled": false, "helios_net_enabled": true,
@@ -213,7 +216,7 @@ Write one or more `RuntimeConfig` fields. Only fields present in the body are up
 
 All five default to enabled and are persisted to NVS immediately. A disabled interface ignores received data; its listening socket stays open until the next reboot. The current values are returned by `GET /api/config` under the same field names.
 
-**Example — per-protocol debug logging (since v6.16.0):**
+**Example — per-protocol debug logging:**
 
 ```json
 {"debug_log_dmx": false, "debug_log_artnet": false, "debug_log_etherdream": true,
@@ -353,6 +356,21 @@ Update live preset controls without changing the active preset. All fields are o
 
 ---
 
+### `GET /api/seg_colors` / `POST /api/seg_colors`
+
+Per-segment color palette for line-based presets (polygons, stars): up to **10** colors that the renderer walks along the shape's segments instead of painting it in one flat color.
+
+```json
+{"enabled": true,
+ "r": [255, 0, 0, 255, 255, 0, 255, 128, 0, 64],
+ "g": [0, 255, 0, 255, 0, 128, 255, 0, 255, 64],
+ "b": [0, 0, 255, 0, 255, 255, 255, 128, 128, 255]}
+```
+
+All fields optional on POST. `r`/`g`/`b` must be sent together and are read up to 10 entries; each value is clamped 0–255. Live-only (RAM), like the other preset live controls.
+
+---
+
 ## Community Presets
 
 Manages GitHub-hosted community presets stored on LittleFS (`/presets/community/<id>.json`). The firmware never talks to GitHub — the WebUI (i.e. the browser) downloads the preset JSON from `raw.githubusercontent.com` and POSTs it to the device for validation and storage.
@@ -408,7 +426,7 @@ LittleFS storage stats for the Storage Monitor card.
 
 Body: a full preset document (see above). Validates and writes it to LittleFS.
 
-Validation was hardened in v6.07.6: `meta.name` and `meta.author` must be non-empty printable ASCII under a length cap, unknown top-level JSON keys are rejected outright (instead of silently ignored), and storage is capped at **20 presets** — updating an existing `id` doesn't count against the limit.
+Validation is strict: `meta.name` and `meta.author` must be non-empty printable ASCII under a length cap, unknown top-level JSON keys are rejected outright (instead of silently ignored), and storage is capped at **20 presets** — updating an existing `id` doesn't count against the limit.
 
 **Errors:** `413` preset too large, `400` bad JSON or a validation failure (the `error` field carries a human-readable reason, including "storage full" when the 20-preset cap is hit), `500` write failed.
 
@@ -454,7 +472,9 @@ Deletes the stored preset. Note the HTTP method: `DELETE` with a JSON body — o
 
 ## BPM Clock
 
-Added in v6.21.0 — a global tempo clock the Sequencer and Modulators sync to. Three input sources with fixed priority **DMX > Tap > Manual**: DMX counts only while a DMX signal is actually present, Tap only while a tempo has been established (≥2 taps) and the last tap is less than 3 s old. Otherwise the clock falls back to Manual. The resolved BPM, active source, and beat phase are reported in `/api/state` (`bpm`, `bpm_source`, `bpm_phase`).
+A global tempo clock the Sequencer and Modulators sync to. Three input sources with fixed priority **DMX > Tap > Manual**: DMX counts only while a DMX signal is actually present, Tap only while a tempo has been established (≥2 taps) and the last tap is less than 3 s old. Otherwise the clock falls back to Manual. The resolved BPM, active source, and beat phase are reported in `/api/state` (`bpm`, `bpm_source`, `bpm_phase`).
+
+The DMX mapping is **1:1 and unscaled**: channel value *v* in 1..255 means exactly *v* BPM. The 20–300 clamp applies to the Manual and Tap sources only. Channel value **0 is Beat-Stop** — the beat phase freezes at its current position, the source stays DMX rather than falling through to Tap/Manual, and playback resumes from the same fractional position once the value goes back to ≥1.
 
 ### `POST /api/bpm`
 
@@ -475,13 +495,11 @@ Current values are readable via `GET /api/config` (`bpm_manual`, `bpm_dmx_channe
 
 Register one tap of the Tap Tempo source. Body: empty. BPM is the average of the last up to 3 intervals; a gap of more than 3 s resets the tap history (and the clock falls back to DMX/Manual).
 
-> Historical footnote: until v6.25.1 this route was silently swallowed by `/api/bpm`'s prefix-matching registration and every tap returned 501. If your taps seem to be judged and ignored, update the firmware.
-
 ---
 
 ## Preset Sequencer
 
-Added in v6.22.0 — a BPM-synced playlist that walks built-in presets in order, advancing one beat-quantized step at a time, with an optional blank "transition" window before each advance. The sequencer **never auto-starts on boot**, no matter what state was persisted — a Class 4 laser resuming playback on power-up is not a feature anyone should want. Playlist persistence lives at `/sequencer.json` on LittleFS.
+A BPM-synced playlist that walks built-in presets in order, advancing one beat-quantized step at a time, with an optional blank "transition" window before each advance. The sequencer **never auto-starts on boot**, no matter what state was persisted — a Class 4 laser resuming playback on power-up is not a feature anyone should want. Playlist persistence lives at `/sequencer.json` on LittleFS.
 
 Transport status (`seq_running`, `seq_loop`, `seq_current`, `seq_stepcount`) is included in `/api/state`; the full playlist is fetched separately here.
 
@@ -506,7 +524,7 @@ Replace the whole playlist. Each step is validated and clamped; a malformed arra
 ```
 
 - `beats` — step duration in beats (the WebUI offers 1/2/4/8/16/32).
-- `transitionBeats` — blank window before the next step; `0` = hard cut. During the blank the frame is forced dark right before output, but pattern/modulator state keeps advancing (so nothing "freezes" — see the v6.24.0 fix).
+- `transitionBeats` — blank window before the next step; `0` = hard cut. During the blank the frame is forced dark right before output, but pattern/modulator state keeps advancing underneath — colors, rotation and modulators do not freeze.
 
 ---
 
@@ -529,14 +547,14 @@ All body-less except `step`:
 
 ## Modulators
 
-Added in v6.23.0, refactored into an extensible registry in v6.27.0 — the "Animation & Modulation System". **8 modulator slots** (Oscillator / Noise / Envelope / Step-Sequencer), each producing a per-frame value in [−1..1], routed onto live pattern parameters through **up to 16 bindings** (modulator → target, with depth + offset). BPM-synced (whole to sixteenth notes) or free-running in Hz. State persists at `/modulators.json` on LittleFS; old files auto-migrate on schema bumps.
+Added, refactored into an extensible registry — the "Animation & Modulation System". **8 modulator slots** (Oscillator / Noise / Envelope / Step-Sequencer), each producing a per-frame value in [−1..1], routed onto live pattern parameters through **up to 16 bindings** (modulator → target, with depth + offset). BPM-synced (whole to sixteenth notes) or free-running in Hz. State persists at `/modulators.json` on LittleFS; old files auto-migrate on schema bumps.
 
-Since v6.27.0 the type/shape/target id-spaces are a registry: self-contained modules register their own targets without touching the engine. Currently registered on top of the 10 built-in targets (transform scale/shift/rotation, color hue/sat/brightness, animation speed, point density):
+The type/shape/target id-spaces are a registry: self-contained modules register their own targets without touching the engine. Currently registered on top of the 10 built-in targets (transform scale/shift/rotation, color hue/sat/brightness, animation speed, point density):
 
-- **Camera** (v6.28.0) — `CAMERA_YAW/PITCH/ROLL/DIST/FOV`, driving the five 3D wireframe presets' view transform. All default neutral.
-- **Duplicator** (v6.29.1) — `DUP_COUNT/OFFSET_X/OFFSET_Y/ANGLE/SCALE`, chains N transformed copies (grid/radial/spiral) onto the final frame.
-- **Spatial Noise** (v6.30.0) — `NOISE2D` modulator *type*: 2D value-noise sampled along a BPM-synced time axis.
-- **Dotter** (v6.31.0) — `DOT_SPREAD`, scatters Points-Only-Mode dots in stable pseudo-random directions. API-only so far (bindable via the generic Bindings UI).
+- **Camera** — `CAMERA_YAW/PITCH/ROLL/DIST/FOV`, driving the five 3D wireframe presets' view transform. All default neutral.
+- **Duplicator** — `DUP_COUNT/OFFSET_X/OFFSET_Y/ANGLE/SCALE`, chains N transformed copies (grid/radial/spiral) onto the final frame.
+- **Spatial Noise** — `NOISE2D` modulator *type*: 2D value-noise sampled along a BPM-synced time axis.
+- **Dotter** — `DOT_SPREAD`, scatters Points-Only-Mode dots in stable pseudo-random directions. API-only so far (bindable via the generic Bindings UI).
 
 Modulators currently apply to the Preset render path (and `OPT_DENSITY`); Curve/Paint/Text/ILDA are not wired to them.
 
@@ -572,7 +590,7 @@ Fire an Envelope slot (the one genuinely stateful modulator type). Body: empty.
 
 ### `GET /api/modulators/bindings` / `POST /api/modulators/bindings`
 
-Read or replace the 16-slot binding matrix: `{"bindings": [{"enabled": true, "modIdx": 0, "target": 4, "depth": 0.5, "offset": 0.0}, ...]}`. Target ids come from `/api/modulators/meta`. Since v6.29.1, binding writes are flash-debounced (400 ms idle flush) — dragging a depth slider no longer fires dozens of blocking LittleFS writes per second.
+Read or replace the 16-slot binding matrix: `{"bindings": [{"enabled": true, "modIdx": 0, "target": 4, "depth": 0.5, "offset": 0.0},...]}`. Target ids come from `/api/modulators/meta`., binding writes are flash-debounced (400 ms idle flush) — dragging a depth slider no longer fires dozens of blocking LittleFS writes per second.
 
 ---
 
@@ -600,7 +618,7 @@ To stop an animation and clear the color override:
 > [Chapter 10 — Known Issues & Todos](10-known-issues-and-todos.md) for the cleanup TODO.
 
 `GET` returns the mathematical curve definitions and current parameter values. `POST` activates
-a curve and/or sets its parameters:
+Selects a curve and/or sets its parameters:
 
 ```json
 {
@@ -646,7 +664,7 @@ Body: empty or `{}`.
 
 ### Camera-in-the-Loop Calibration (`/api/calib-cam/*`)
 
-Added in v6.03.0 — a session-based API for the host-side camera auto-tuning tool (`scripts/optimizeGalvo/optimizeGalvo.py`, see [Chapter 6](06-camera-autotuning.md)). It projects one of 6 dedicated camera-reference patterns and lets the host apply optimizer overrides live, RAM-only, without touching NVS. There is no dedicated WebUI panel for this — it exists purely for the host tool to drive.
+A session-based API for the host-side camera auto-tuning tool (`scripts/optimizeGalvo/optimizeGalvo.py`, see [Chapter 6](06-camera-autotuning.md)). It projects one of 6 dedicated camera-reference patterns and lets the host apply optimizer overrides live, RAM-only, without touching NVS. There is no dedicated WebUI panel for this — it exists purely for the host tool to drive.
 
 All four routes are registered before `/api/calib-pattern/...` for the same route-ordering reason as `/api/calib-pattern/stop` — see [Route Registration Order](#route-registration-order).
 
@@ -660,7 +678,7 @@ Starts a session and activates one of the camera-reference patterns.
 
 `pattern`: one of `corners4`, `square`, `star`, `segments`, `circle`, `spiral`. `corners4` is the 4-dot homography reference used by the tool's `calibrate` command; the rest are used for measurement and tuning.
 
-`channel` (optional, since v6.04.1): `0` = white (R+G+B), `1` = R, `2` = G, `3` = B (**default**). Patterns default to blue rather than white because a mono/global-shutter camera can see the R/G/B beams smear apart or offset if the laser diodes aren't perfectly co-bore sighted — a single channel avoids that entirely.
+`channel` (optional): `0` = white (R+G+B), `1` = R, `2` = G, `3` = B (**default**). Patterns default to blue rather than white because a mono/global-shutter camera can see the R/G/B beams smear apart or offset if the laser diodes aren't perfectly co-bore sighted — a single channel avoids that entirely.
 
 Starting a session snapshots the current values of whichever optimizer profile the pattern belongs to, and switches the active profile to it if it isn't already active. Any previous session that was never cleanly `/stop`-ped (client crash, page reload mid-run) is force-restored first, so overrides can never leak across sessions.
 
@@ -765,15 +783,123 @@ Activate the ILDA standard test pattern.
 
 ---
 
+## Geometry & Brightness Correction
+
+Three independent correction stages, each persisted to NVS. See [Chapter 5 — Pipeline Overview](05-optimizer.md#pipeline-overview) for where they sit in the render pipeline.
+
+### `GET /api/warp/get`
+
+Returns the geometric warp grid.
+
+```json
+{"enabled": false, "gridSize": 2,
+ "points": [[[-1,-1],[1,-1]], [[-1,1],[1,1]]]}
+```
+
+`points[row][col]` is the **target** position, in normalized [−1..1] space, of the control point whose identity position is the corresponding grid node. Only the top-left `gridSize × gridSize` block is meaningful.
+
+---
+
+### `POST /api/warp/set`
+
+```json
+{"gridSize": 3, "points": [[[-1,-1],[0,-1],[1,-1]], ...], "enabled": true}
+```
+
+All fields optional. Validation is all-or-nothing — nothing is applied unless the whole payload passes:
+
+- `gridSize` — integer 2..5 (`WARP_GRID_MAX`).
+- `points` — exactly `gridSize` rows of `gridSize` `[x, y]` pairs, each coordinate in −1.5..1.5.
+- Changing `gridSize` **without** sending a matching `points` array resets the grid to identity for the new size, rather than leaving control points computed for the old one.
+
+Persisted on success.
+
+---
+
+### `POST /api/warp/reset`
+
+Resets the grid to identity. Body: empty. `enabled` is left untouched.
+
+---
+
+### `POST /api/warp/test`
+
+`{"active": true}` — projects the warp test grid (border plus `gridSize` interior lines) through the same calibration-pattern mechanism as `/api/calib-pattern`.
+
+---
+
+### `GET /api/brightness/get`
+
+Returns the brightness-compensation grid.
+
+```json
+{"enabled": false, "gridSize": 2, "gain": [[255,255],[255,255]]}
+```
+
+`gain[row][col]` is 0–255 (255 = no attenuation), sampled bilinearly in the same normalized space as the warp grid.
+
+---
+
+### `POST /api/brightness/set`
+
+```json
+{"gridSize": 3, "gain": [[255,240,255], [250,255,250], [255,240,255]], "enabled": true}
+```
+
+Same validation rules and all-or-nothing behavior as `/api/warp/set`; each gain value must be an integer 0–255.
+
+---
+
+### `POST /api/brightness/reset`
+
+Grid back to identity (255 everywhere). Body: empty. `enabled` untouched.
+
+---
+
+### `GET /api/inverse-filter/get`
+
+Returns the per-axis galvo deconvolution model.
+
+```json
+{"enabled": false, "regAlpha": 0.35, "active": false,
+ "x": {"wnHz": 0.0, "zeta": 0.0},
+ "y": {"wnHz": 0.0, "zeta": 0.0}}
+```
+
+- `active` — whether the filter is actually running (enabled **and** at least one axis has a measured model).
+- `wnHz <= 0` means that axis is unmeasured and passes through unfiltered.
+
+---
+
+### `POST /api/inverse-filter/set`
+
+```json
+{"enabled": true, "regAlpha": 0.35,
+ "x": {"wnHz": 210.0, "zeta": 0.14},
+ "y": {"wnHz": 195.0, "zeta": 0.17}}
+```
+
+All fields optional. `regAlpha` must be positive (smaller = stronger correction but more high-frequency gain); `zeta` is clamped to 0..0.9; `wnHz` must be non-negative. Coefficients are redesigned and the pattern cache invalidated on success, then persisted.
+
+> This is **not** the same setting as the optimizer's `ring_freq_hz`/`ring_damping_ratio`, which are shared across both axes and only shape the blank jump. Measure and enable them independently.
+
+---
+
+### `POST /api/inverse-filter/reset`
+
+Clears both axis models back to unmeasured. Body: empty. `enabled` and `regAlpha` are untouched.
+
+---
+
 ## Backup & Restore
 
-Added in v6.06.0. Snapshots the live in-RAM config (galvo calibration, all 8 optimizer profiles, network, projection/system/thermal settings) to a single JSON document and back — see `src/net/backup_manager.h`/`.cpp`.
+Snapshots the live in-RAM config (galvo calibration, all 8 optimizer profiles, network, projection/system/thermal settings) to a single JSON document and back — see `src/net/backup_manager.h`/`.cpp`.
 
 Restore validates every recognized key against the same bounds the live `/api/calib-live`, `/api/optimizer-live`, `/api/projection`, `/api/dmx/address`, and `/api/safety/config` endpoints enforce, **before applying anything**. A single rejected field aborts the whole restore — nothing partially applies. `galvo_kpps` and each profile's `max_pts_per_frame` additionally get a hard clamp to their `config.h` limits at apply time, on top of the reject-on-out-of-range check.
 
 ### `GET /api/backup`
 
-Downloads the full config snapshot as `application/json`. The WebUI names the file `galvos_backup_v<fw>_<yyyy-mm-dd-hh-mm-ss>.json` (since v6.07.4), so backups sort by date and identify their firmware version.
+Downloads the full config snapshot as `application/json`. The WebUI names the file `galvos_backup_v<fw>_<yyyy-mm-dd-hh-mm-ss>.json`, so backups sort by date and identify their firmware version.
 
 ---
 
@@ -810,6 +936,26 @@ Body: a full backup document (as produced by `GET /api/backup`). Validates every
 ---
 
 ## Optimizer
+
+### `GET /api/optimizer-stats`
+
+Read-only telemetry from the optimizer. Returns two records — `last` (the most recent `optimize()` call) and `frame` (every call of the last completed frame, accumulated):
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `emitted_lit` / `emitted_blank` | int | Points in the final buffer, by beam state |
+| `truncated` | int | Writes dropped at the budget cap — non-zero means geometry is being cut off |
+| `planned_total` | int | `emitted + truncated`, counted independently |
+| `jump_count` | int | Number of blank runs (one per blank jump) |
+| `jump_distance_total` | float | DAC units travelled with the beam off |
+| `calls` | int | `optimize()` calls folded into this record |
+| `stage2_scale` | float | Interior-density factor actually applied (1.0 = Stage 2 never triggered) |
+| `stage1_triggered` / `stage15_triggered` | bool | Blank samples / corner counts had to be scaled down to fit the budget |
+| `ringing_active` | bool | The ZV shaper actually shaped at least one jump |
+
+See [Chapter 5 — Telemetry](05-optimizer.md#telemetry--what-the-optimizer-reports) for how to read these.
+
+---
 
 ### `POST /api/optimizer-profile-switch`
 
@@ -974,7 +1120,7 @@ Activate text mode and set content. Text mode overrides presets and DMX while ac
 | --- | --- |
 | `font` | 0=Simple, 1=Bold, 2=Outline |
 | `anim` | 0=Static, 1=Scroll Left, 2=Scroll Right, 3=Bounce, 4=Typewriter, 5=Wave, 6=Pulse, 7=Rotate, 8=Zoom, 10=Orbit, 11=Star Wars |
-| `orbit_reverse` | bool — reverses spin direction for the Orbit animation only (since v6.05.7) |
+| `orbit_reverse` | bool — reverses spin direction for the Orbit animation only |
 
 Characters supported: A–Z, 0–9, `.,:!?-+`
 
@@ -1045,6 +1191,34 @@ Deactivate paint mode. Body: empty.
 
 ---
 
+### `GET /api/weld`
+
+Current Laser Welding settings (the alternative renderer for the Paint canvas — a travelling torch head with afterglow and sparks).
+
+```json
+{"enabled": false, "direction": 0, "speed": 6000,
+ "glow": 4000, "sparks": 6, "spark_life": 260}
+```
+
+---
+
+### `POST /api/weld/set`
+
+Partial patch — every field optional:
+
+| Field | Range | Meaning |
+| --- | --- | --- |
+| `enabled` | bool | Switching false → true restarts the run from the beginning |
+| `direction` | 0–2 | 0 = forward, 1 = reverse, 2 = ping-pong. Selecting reverse seeks to the far end of the path |
+| `speed` | 200–40000 | Head travel, path units per second (wall-clock driven, frame-rate independent) |
+| `glow` | 200–20000 | Afterglow trail length, path units |
+| `sparks` | 4–10 | Spark count |
+| `spark_life` | 40–1200 | Spark lifetime, ms |
+
+The effect only renders while Paint mode is active and `enabled` is true. Settings are live-only — not persisted to NVS.
+
+---
+
 ## SVG Import (SD Storage)
 
 SVG files parsed and simplified in the browser (see [Chapter 4](04-ui-guide.md#tab-ilda--sd))
@@ -1104,9 +1278,9 @@ Body: `{"idx": N, "name": "new.svg"}`.
 | 1  | Master Dimmer       | 0-255 | 0 = off, 255 = full; overridden by WebUI dimmer when `ui_override` active                                                                                            |
 | 2  | Color Preset        | 0-255 | Selects built-in color palette entry                                                                                                                                 |
 | 3  | Color Speed         | 0-255 | Color animation speed                                                                                                                                                |
-| 4  | Pattern Group       | 0-255 | 0=Geometry, 1=Waves, 2=3D, 3=Scenes, ...                                                                                                                             |
+| 4  | Pattern Group       | 0-255 | 0=Geometry, 1=Waves, 2=3D, 3=Scenes,...                                                                                                                             |
 | 5  | Pattern Select      | 0-255 | Pattern index within group                                                                                                                                           |
-| 6  | Effect Mode         | 0-255 | Dynamic effect (Rotation, Pulse, ...)                                                                                                                                |
+| 6  | Effect Mode         | 0-255 | Dynamic effect (Rotation, Pulse,...)                                                                                                                                |
 | 7  | Effect Speed        | 0-255 | Effect speed                                                                                                                                                         |
 | 8  | Size                | 0-255 | Pattern scale; 255 = full scan range                                                                                                                                 |
 | 9  | Auto-Scale          | 0-255 | 0 = off, >0 = auto-scale enabled                                                                                                                                     |
@@ -1126,7 +1300,7 @@ Body: `{"idx": N, "name": "new.svg"}`.
 | 23 | Color Anim Type     | 0-255 | 0=off, 1=gradient, 2=chase, 3=strobe, 4=pulse, 5=twinkle, 6=flip                                                                                                     |
 | 24 | Color Anim Sequence | 0-9   | Palette sequence index                                                                                                                                               |
 | 25 | Color Anim Speed    | 0-255 | Animation speed                                                                                                                                                      |
-| -- | BPM Clock           | 0-255 | Absolute CH 237 by default (configurable via `cfg-bpm-dmx-channel` / `bpm_clock::setDmxChannel()`); independent of the DMX start address -- 0-255 maps to 20-300 BPM |
+| -- | BPM Clock           | 0-255 | Absolute CH 237 by default (configurable via `cfg-bpm-dmx-channel` / `bpm_clock::setDmxChannel`); independent of the DMX start address -- 0-255 maps to 20-300 BPM |
 
 Source of truth: `include/config.h`'s `DmxChannel` enum + `DMX_CHANNEL_NAMES[25]`; BPM default verified in `src/bpm_clock.cpp` (`s_dmx_channel = 237`).
 
@@ -1194,7 +1368,7 @@ Returns Art-Net and Ether Dream connection status.
 
 ## Network Control Protocols (non-HTTP)
 
-Added in v6.08.0. These are not REST endpoints — they are raw network listeners that run alongside the HTTP API. Each can be individually enabled/disabled via `POST /api/config` (see [Configuration](#configuration)) or the Configuration tab's Control Interfaces card; per-interface activity is reported in `/api/state`.
+These are not REST endpoints — they are raw network listeners that run alongside the HTTP API. Each can be individually enabled/disabled via `POST /api/config` (see [Configuration](#configuration)) or the Configuration tab's Control Interfaces card; per-interface activity is reported in `/api/state`.
 
 ### OSC (Open Sound Control 1.0) — UDP port 9000
 
@@ -1222,12 +1396,12 @@ Emulates a Helios DAC's point-stream framing over TCP (5-byte header + 7-byte po
 
 ### `GET /api/sd`
 
-Returns SD status, the `.ild` file list, and current ILDA player state. Since v6.10.0 the scanner recurses into subfolders and reports per-file metadata:
+Returns SD status, the `.ild` file list, and current ILDA player state. the scanner recurses into subfolders and reports per-file metadata:
 
 | Field | Description |
 | --- | --- |
 | `ready` / `file_count` / `free_kb` / `total_kb` | SD card status |
-| `ilda_max_kb` | Largest ILDA file the device could currently load (worst-case PSRAM estimate: free PSRAM minus 1 MB headroom, at the densest possible point format) — since v6.12.0 |
+| `ilda_max_kb` | Largest ILDA file the device could currently load (worst-case PSRAM estimate: free PSRAM minus 1 MB headroom, at the densest possible point format) — |
 | `files[]` | Per file: `idx`, `name`, `path` (may include a subfolder prefix), `size`, `mtime`, and `too_large` — `true` if the file exceeds `ilda_max_kb`; the WebUI grays those out instead of letting you play PSRAM roulette |
 | `ilda_active` / `ilda_file` / `ilda_frame` / `ilda_total` / `ilda_points` | Current player state |
 
@@ -1241,7 +1415,7 @@ Returns SD card status (ready, type, total KB, free KB, file count, error messag
 
 ### `POST /api/sd/scan`
 
-Re-scan the SD card for `.ild` files (recursive since v6.10.0). Body: empty.
+Re-scan the SD card for `.ild` files (recursive). Body: empty.
 
 ---
 
@@ -1253,7 +1427,25 @@ Unmount and remount the SD card. Body: empty.
 
 ### `POST /api/sd/eject`
 
-Safely unmount the SD card. Body: empty. Since v6.14.0 an eject also disables the standing auto-mount watcher (which otherwise retries a mount every 5 s until a card shows up), so an intentional eject doesn't get instantly re-mounted behind your back — pressing Mount (`/api/sd/remount`) re-enables it.
+Safely unmount the SD card. Body: empty. an eject also disables the standing auto-mount watcher (which otherwise retries a mount every 5 s until a card shows up), so an intentional eject doesn't get instantly re-mounted behind your back — pressing Mount (`/api/sd/remount`) re-enables it.
+
+---
+
+### `GET /api/sd/download?idx=N`
+
+Streams the indexed `.ild` file back as `application/octet-stream` (a browser download). `400` if `idx` is missing, `404` if the index is out of range or the file has vanished from the card.
+
+---
+
+### `POST /api/sd/delete`
+
+`{"idx": 3}` — deletes the indexed file and rescans the card. If the file is currently playing, playback is stopped first. Responds `{"ok": true}` or `500` with an error message.
+
+---
+
+### `POST /api/sd/rename`
+
+`{"idx": 3, "name": "opener.ild"}` — renames the indexed file and rescans. The name is sanitized server-side (directory components stripped, unsafe characters replaced, length capped), and playback of that file is stopped first. Fails with `500` if the target name is taken or the card errors.
 
 ---
 
@@ -1271,7 +1463,7 @@ Start ILDA playback.
 }
 ```
 
-Large files take a few seconds to load (the response doesn't return until loading finishes — the WebUI shows a per-row "Loading…" indicator meanwhile). ILDA frames pass through only two optimizer stages: the live affine transform (position/size/rotation) and the velocity clamp derived from `galvo_kpps` — resample, corner dwell, and blanking stay untouched, on the theory that the `.ild` author already knew what they were doing (v6.13.0).
+Large files take a few seconds to load (the response doesn't return until loading finishes — the WebUI shows a per-row "Loading…" indicator meanwhile). ILDA frames pass through only two optimizer stages: the live affine transform (position/size/rotation) and the velocity clamp derived from `galvo_kpps` — resample, corner dwell, and blanking stay untouched, on the theory that the `.ild` author already knew what they were doing.
 
 ---
 
@@ -1289,7 +1481,7 @@ Pause/resume ILDA playback. Body: empty.
 
 ### `POST /api/ilda/param`
 
-Live playback parameter update — applied on the very next frame without reloading or stopping the file (since v6.14.0). All fields optional:
+Live playback parameter update — applied on the very next frame without reloading or stopping the file. All fields optional:
 
 ```json
 {"speed": 128, "size": 200, "loop": true, "invert_x": false, "invert_y": true,
@@ -1300,7 +1492,7 @@ Live playback parameter update — applied on the very next frame without reload
 
 ### `POST /api/ilda/enable`
 
-Master enable/disable for the ILDA player (`{"enabled": false}`). Disabling force-stops playback and turns `loadFile()`/DMX file selection into no-ops until re-enabled (since v6.10.1).
+Master enable/disable for the ILDA player (`{"enabled": false}`). Disabling force-stops playback and turns `loadFile`/DMX file selection into no-ops until re-enabled.
 
 ---
 
@@ -1312,7 +1504,7 @@ Returns current ILDA player state (active, file index, frame count, loop mode).
 
 ### `POST /api/ilda/upload`
 
-Upload a `.ild` file directly to the SD card via HTTP multipart. Used for OTA ILDA file transfer. Since v6.12.2, filenames are sanitized server-side (directory components stripped, unsafe characters replaced, basename length capped) so an over-long or path-traversing name can't corrupt the file index — genuinely failed SD writes now report an error instead of a cheerful false "ok".
+Upload a `.ild` file directly to the SD card via HTTP multipart. Used for OTA ILDA file transfer., filenames are sanitized server-side (directory components stripped, unsafe characters replaced, basename length capped) so an over-long or path-traversing name can't corrupt the file index — genuinely failed SD writes now report an error instead of a cheerful false "ok".
 
 ---
 
@@ -1441,6 +1633,12 @@ Set a calibration offset for a specific temperature sensor.
 
 ---
 
+### `POST /api/temp-unit`
+
+`{"unit": 0}` — WebUI temperature display unit: `0` = Celsius, `1` = Fahrenheit, `2` = Kelvin. Persisted on the device. Purely a display preference — the API and the firmware's own thresholds always use °C.
+
+---
+
 ### `POST /api/temp/name`
 
 Set a display name for a temperature sensor.
@@ -1548,6 +1746,27 @@ Returns log buffer statistics (total entries, dropped count, categories).
 
 ---
 
+### `POST /api/log/client`
+
+`{"msg": "..."}` — lets the WebUI push a client-side error into the device log (logged as a warning under the `USER` category), so a JavaScript failure leaves a trace in the same place as firmware messages.
+
+---
+
+### `GET /api/meminfo`
+
+Memory breakdown for the Log tab's Memory Viewer.
+
+```json
+{"heap":  {"total": 0, "free": 0, "largest": 0, "min_ever": 0, "critical": 6144},
+ "psram": {"total": 0, "free": 0, "largest": 0, "min_ever": 0},
+ "owners": [{"name": "Optimizer Warp Scratch", "bytes": 0, "psram": true}]}
+```
+
+- `heap.critical` — the `heap_critical_bytes` failsafe threshold that `min_ever` is judged against.
+- `owners` — registered static/long-lived allocations (`mem_registry.h`), so an oversized buffer or a slow leak can be attributed to a subsystem.
+
+---
+
 ## Debug & Diagnostics
 
 ### `GET /api/debug/hw`
@@ -1572,6 +1791,35 @@ Send a raw low-level DAC8562 command register write. **Hardware-level access —
 
 ---
 
+### `POST /api/debug/resonance`
+
+Drives one axis with a pure sine wave so the galvo's mechanical resonance can be measured (scope on the driver's position output, or a camera). This is the measurement that feeds `ring_freq_hz`/`ring_damping_ratio` and the [inverse filter](#post-apiinverse-filterset).
+
+```json
+{"axis": 0, "freq_hz": 200.0, "amp": 8000, "r": 0, "g": 0, "b": 255}
+```
+
+- `axis` — 0 = X, 1 = Y.
+- `freq_hz` — must be > 0 and ≤ 5000.
+- `amp` — DAC units around center; **clamped** to whatever `dac_limit_min`/`dac_limit_max` allow. The response reports `"clamped": true` when that happened.
+- `{"cmd": "off"}` ends the test.
+
+Requires the laser to be **armed**, or No-HW debug mode. Returns `403` otherwise.
+
+---
+
+### `GET /api/debug/resonance`
+
+Current resonance-test state (axis, frequency, amplitude, whether it is running).
+
+---
+
+### `POST /api/reboot`
+
+Restarts the device. Body: empty. The response is sent first and the restart is scheduled ~500 ms later on a separate timer task, so the HTTP response actually reaches the browser instead of dying with the connection.
+
+---
+
 ### `POST /api/debug-mode`
 
 Enable or disable No-HW mode (skips DAC/SPI at next boot).
@@ -1584,7 +1832,7 @@ Enable or disable No-HW mode (skips DAC/SPI at next boot).
 
 ### `POST /api/factory-reset`
 
-Clear all NVS configuration and restart. **Irreversible.** Wi-Fi credentials are lost; device returns to AP mode.
+Clear the `"laser"` NVS namespace and restart. **Irreversible.** Wi-Fi credentials are lost, so the device comes back on its own AP. Does not clear the `"projection"`, `"bpm"`, or `"temp_*"` namespaces — see [Chapter 3 — Resetting to Defaults](03-build-and-config.md#resetting-to-defaults).
 
 Body: empty.
 
@@ -1597,3 +1845,28 @@ Generic UI control endpoint used by the WebUI for actions not covered by other e
 ```json
 {"action": "smart_defaults", "profile": 0}
 ```
+
+---
+
+## Firmware & Filesystem Update
+
+Over-the-air updates are served from `/update` — an HTML page, not a REST endpoint — protected by HTTP Basic Auth (user `admin`, password = the `ota_pass` value from `/api/status`). See [Chapter 3 — Wireless / OTA Update](03-build-and-config.md#wireless--ota-update) for the walkthrough.
+
+The page posts to two multipart upload routes, which can also be driven directly:
+
+### `POST /api/ota/upload`
+
+Uploads a firmware image (`firmware.bin`) into whichever of `app0`/`app1` is not currently running.
+
+### `POST /api/ota/upload-fs`
+
+Uploads a LittleFS image (`littlefs.bin`) into the `spiffs` partition. The filesystem is unmounted before the write and remounted afterwards, since the partition being overwritten is the one currently mounted.
+
+Both routes share one body handler and behave identically otherwise:
+
+- The laser is **force-disarmed** the moment an upload starts, and OTA is refused outright while armed — same rule as [`POST /api/restore`](#post-apirestore).
+- The target size is left to the partition, so an image is rejected only if it genuinely does not fit.
+- `Update.write()`/`Update.end()` failures are reported back as JSON with the underlying error string, rather than a bare "update failed".
+- **Nothing reboots automatically on success** — call [`POST /api/reboot`](#post-apireboot) when every part of a multi-step update has finished.
+
+> `ArduinoOTA` (IDE/CLI push on port 3232, same password) runs in parallel and is unaffected by these routes.

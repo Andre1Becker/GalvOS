@@ -5,7 +5,6 @@
 ## Table of Contents
 
 - [Critical Issues](#critical-issues)
-- [Resolved Issues](#resolved-issues)
 - [Hardware Issues](#hardware-issues)
 - [Pattern Issues](#pattern-issues)
 - [Text Mode Issues](#text-mode-issues)
@@ -24,20 +23,12 @@ None currently open.
 
 ---
 
-## Resolved Issues
-
-### SD Card Caused Galvo Malfunction (resolved v6.09.0)
-
-**Severity:** Was Critical  
-**Status:** Resolved — perfboard rewired, SD/ILDA confirmed working (galvo output unaffected by card access)  
-**Symptom:** If an SD card was inserted, the galvos behaved erratically — incorrect output, uncontrolled movement.  
-**Root cause:** Not bus contention — the SD card was wired onto the DAC8562's SPI2 pins (SCK=GPIO12, MOSI=GPIO11, MISO=GPIO2, CS=GPIO9) under the assumption that Arduino's `SPIClass(HSPI)` attaches to SPI2_HOST on ESP32-S3. It does not: `HSPI` is bound to the independent SPI3 peripheral. Routing SPI3 onto SPI2's GPIOs meant two different peripherals both drove the same pins through the GPIO matrix, which only lets one peripheral own a pin's output at a time — `SPIClass::begin()` silently stole GPIO12/GPIO11 away from the DAC every time SD init ran, and real SD card traffic then appeared on the DAC's own clock/data lines, corrupting its output.  
-**Fix:** SD moved to fully independent GPIOs (SCK=GPIO5, MOSI=GPIO6, MISO=GPIO1, CS=GPIO42) on SPI3, with zero pin overlap with the DAC's SPI2, in firmware v5.90.0 — see `include/pinmap.h` and `hardware/netlist.txt`. The 4 SD wires on the perfboard have since been physically moved to GPIO5/6/1/42; `sd_card::init()` now finds the card and the WebUI ILDA/SD tab lists files correctly.  
-**Impact:** ILDA file playback from SD card works. The Show Playlist card (ILDA/SD tab) is functional.
-
----
-
 ## Hardware Issues
+
+### Fan Tacho Inputs Not Read
+
+**Status:** Open
+**Detail:** `PIN_FAN1_TACH` (GPIO2) and `PIN_FAN2_TACH` (GPIO9) are wired through 4.7 kΩ pull-ups on the board, but no firmware reads them. There is no RPM readout and no stalled-fan detection — thermal safety relies entirely on the DS18B20 sensors.
 
 ### OPA4134 Gain Deviation
 
@@ -79,20 +70,19 @@ None known at least...
 
 ### ILDA Standard Test Pattern — Incorrect Output
 
-**Status:** Open  
-**Symptom:** The ILDA standard test pattern (used to verify galvo linearity and speed) does not render correctly. This makes it unsuitable as a calibration reference until resolved.
-**Solution:** Remove completely as not needed
+**Status:** Open
+**Symptom:** The ILDA standard test pattern (ITC Rev.002 1995, used to verify galvo linearity and speed) does not render correctly, which makes it unusable as a calibration reference. Use the Crosshair and Grid patterns from the Pattern Library instead until this is fixed.
 
 ---
 
 ## UI Issues
 
-### Features Not Toggleable via UI
+### Disabled interfaces still hold their socket
 
-**Status:** Mostly resolved (v6.15.1)  
-**Detail:** OSC, sACN, Helios network DAC (v6.08.0) and Art-Net, Ether Dream (v6.15.1) all have enable/disable checkboxes in Config tab → "Control Interfaces", plus per-protocol Debug Log toggles (v6.16.0, DMX included). Sockets stay open at boot regardless; a disabled feature ignores received data instead of acting on it. Only DMX has no enable toggle — it is a hardware UART receiver with no radio/CPU cost worth toggling.
+**Status:** By design, documented here so it isn't reported as a bug
+**Detail:** OSC, sACN, Helios network DAC, Art-Net and Ether Dream each have an enable/disable checkbox in Config tab → "Control Interfaces", plus a per-protocol Debug Log toggle (DMX included). A disabled interface ignores received data instead of acting on it, but its listening socket stays open until the next reboot. Only DMX has no enable toggle — it is a hardware UART receiver with no radio/CPU cost worth toggling.
 
-### Telemetry "Source" label mismatch (since v6.32.0 rewrite)
+### Telemetry "Source" label mismatch
 
 **Status:** Open  
 **Detail:** The Dashboard Telemetry card maps `state.source` through the array `['DMX','ArtNet','EtherDream','Helios','OSC','sACN','Internal']`, but the firmware's `ControlSource` enum is `0=none, 1=DMX, 2=ArtNet, 3=EtherDream, 4=Helios, 5=Internal, 6=WebUI, 7=sACN, 8=OSC` — so e.g. an active DMX source (1) displays as "ArtNet" and WebUI (6) displays as "Internal". One-line fix in `data/index.html` (`dash-source` handler).
@@ -100,6 +90,16 @@ None known at least...
 ### Add a Restore button - not just text
 
 **Status:** Planned
+
+### Inverse filter has no UI
+
+**Status:** Open
+**Detail:** The per-axis galvo deconvolution (`/api/inverse-filter/*`) is fully implemented in firmware and persisted to NVS, but there is no card for it anywhere in the WebUI — it can currently only be measured and configured over the REST API. A panel next to Ringing Compensation on the Optimizer tab is the obvious home.
+
+### Hosted UI simulator drifts from the device UI
+
+**Status:** Open
+**Detail:** `docs/index.html` (served at [www.galvos.de](https://www.galvos.de)) is a standalone browser simulation of the WebUI, maintained by hand. It is not built from `data/index.html`, so it lags behind whenever the real UI changes.
 
 ---
 
@@ -110,7 +110,7 @@ These are features that are designed and intended, but not yet implemented.
 ### Control Interfaces
 
 | Interface | Status | Notes |
-|---|---|---|
+| --- | --- | --- |
 | Ether Dream (TCP) | ✅ Complete | Compatible with QLC+, Pangolin, LaserBoy, Shownet |
 | DMX512 (MAX485) | ✅ Complete | Hardware RX-only |
 | Art-Net (UDP) | ✅ Complete | DMX over IP |
@@ -123,14 +123,14 @@ These are features that are designed and intended, but not yet implemented.
 ### Multi-Controller
 
 | Feature | Status | Notes |
-|---|---|---|
+| --- | --- | --- |
 | ESP-NOW Sync | ❌ Planned | Peer-to-peer frame sync over WiFi hardware; ~1–2 ms latency; no extra hardware required; Master broadcasts frame counter + preset ID |
 | ArtNet Master Mode | ❌ Planned | GalvOS as ArtNet sender; enables sync via existing show software (Pangolin, QLC+) |
 
 ### Stand-alone & Integration
 
 | Feature | Status | Notes |
-|---|---|---|
+| --- | --- | --- |
 | Autostart Preset | ❌ Planned | Persist last active preset in NVS; replay on boot without WebUI interaction |
 | ILDA Output Header | ❌ Planned | Expose DAC X/Y + RGB TTL on standard ILDA 15-pin D-Sub; enables show software control without Art-Net |
 
@@ -143,8 +143,9 @@ If you fix one of the issues above, please see [Chapter 9 — Contributing](09-c
 When submitting a fix for a known issue, reference the issue name from this chapter in your commit message body:
 
 ```text
-Fix Typewriter animation looping
+fix: map Telemetry source labels to the real ControlSource enum
 
-Typewriter now restarts after completing one pass.
-Resolves: "Typewriter Animation — Runs Once Only" (docs/10-known-issues-and-todos.md)
+The Dashboard label array skipped SRC_NONE and SRC_WEBUI, so DMX
+displayed as ArtNet and WebUI as Internal.
+Resolves: "Telemetry \"Source\" label mismatch" (docs/10-known-issues-and-todos.md)
 ```

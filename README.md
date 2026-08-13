@@ -2,7 +2,6 @@
 
 <img width="1800" height="450" alt="90546" src="https://github.com/user-attachments/assets/8de820e4-a9df-43d1-8eac-350729139a18" />
 
-
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
 [![Hardware License: CERN-OHL-S](https://img.shields.io/badge/HW_License-CERN--OHL--S-orange.svg)](https://ohwr.org/cern_ohl_s_v2.txt)
 [![Platform: ESP32-S3](https://img.shields.io/badge/Platform-ESP32--S3-red.svg)](https://www.espressif.com/en/products/socs/esp32-s3)
@@ -35,7 +34,7 @@ The origin story: the stock firmware couldn't dim the laser — it was full-brig
 ## Full Feature List
 
 Yes, all of this is real, and yes, it's all running on a 6 Freedom Money ($) microcontroller.
-(That exclude all the other components you need - but hey, sounds much more impressive this way :-) )
+(That exclude all the other components you need - but hey, sounds much more impressive this way:-) )
 
 ### Output & Rendering
 
@@ -43,11 +42,18 @@ Yes, all of this is real, and yes, it's all running on a 6 Freedom Money ($) mic
 | --- | --- |
 | 16-bit galvo DAC (DAC8562) | 4× the resolution of the OEM's 12-bit — lines that were jagged are now just... lines. |
 | 9-stage point optimizer pipeline | Turns "draw a hexagon" into a stream the mirrors can physically survive — corner dwell, blanking, velocity/acceleration clamp, ZV ringing compensation. |
-| 6 optimizer profiles (Vector, Smooth, Waves, Wireframe, MultiObject, Particles) | One-size-fits-all optimizer settings don't exist, so pick per preset class instead. Auto-switches with the active preset. |
+| 8 optimizer profiles (Vector, Smooth, Waves, Wireframe, MultiObject, Particles, Trails, Text) | One-size-fits-all optimizer settings don't exist, so pick per preset class instead. Auto-switches with the active preset. |
+| Curvature-adaptive resampling | Spends points where the path actually bends and thins them out on straight runs, instead of pretending every millimetre is equally interesting. |
+| Jump-order optimization (nearest-neighbour + 2-opt) | Reorders which segment gets drawn when, so the beam stops zigzagging across the canvas with the laser off. |
+| Optimizer live telemetry | Lit/blank counts, truncated points, jump distance, which budget stage fired — tuning with numbers instead of vibes. |
 | Smart Defaults button | Computes sane optimizer parameters from your kpps and frame budget. For when guessing sliders gets old. |
 | Adjustable galvo sample rate (12–60 kpps) with Autotune | Binary-searches the highest rate your hardware handles before it starts buffering complaints. |
 | CIE 1931 gamma correction | γ≈2.2 so "50% brightness" actually looks like 50% brightness to your eyeballs, not to a linear sensor. |
 | Projection zone clipping | Draw a polygon, laser respects it. Points outside get blanked instead of redecorating your neighbor's wall. |
+| Grid warp (keystone / surface correction) | Up to 5×5 control points to bend the image onto an off-axis or non-flat wall — corrects everything the projector draws, presets to ILDA files. |
+| Brightness compensation grid | Same grid editor aimed at photons: evens out the exposure falloff you get from throw distance and angle. |
+| Model-based inverse filter | Per-axis deconvolution of the galvo's measured resonance, applied to every point — the mirrors track the commanded path instead of ringing around it. |
+| Output pre-scale | Shrinks the image proportionally so extreme corners stay in the galvo's linear range, instead of being flattened by the DAC clamp. |
 
 ### Patterns & Effects
 
@@ -62,8 +68,11 @@ Yes, all of this is real, and yes, it's all running on a 6 Freedom Money ($) mic
 | Preset Sequencer | A BPM-synced set list: walk presets step by step, beat-quantized, with optional blank transitions. Never auto-starts on boot — Class 4 lasers don't get autoplay. |
 | Modulation engine (8 slots × 16 bindings) | LFOs, noise, multi-point envelopes, and step sequencers routed onto scale, rotation, hue, speed, density... Patterns that breathe on their own. |
 | Modular modules: Camera, Duplicator, Spatial Noise, Dotter | Self-registering firmware modules that add 3D camera moves, frame cloning (grid/radial/spiral), organic wobble, and dot scatter — the UI discovers them automatically. |
-| Freehand Paint tab | Draw with your finger or mouse, project it as vectors. Shape tools included for people who can't draw circles. |
-| Laser Text mode | 3 fonts, 10 animations (scroll, bounce, typewriter, Star Wars crawl, ...), up to 127 characters. |
+| Freehand Paint tab | Draw with your finger or mouse, project it as vectors. Shape tools, mirror modes, undo/redo, and text insertion included for people who can't draw circles. |
+| Laser Welding effect | A travelling torch head with a fading afterglow and ballistic sparks, rendered from the same Paint canvas. Pure theatre, and worth it. |
+| SVG import | Load a vector drawing in the browser, simplify it to fit the point budget, and project it. Files can live on the SD card too. |
+| Per-segment colors | Give a polygon or star a different color per edge, with an optional travelling animation. |
+| Laser Text mode | 3 fonts, 10 animations (scroll, bounce, typewriter, Star Wars crawl,...), up to 127 characters. |
 | Countdown timer with laser payoff | Set a timer, and when it hits zero: show text or fire off an ILDA file. Genuinely useful for events. |
 | Community Presets (GitHub-hosted) | Browse a shared preset library straight from GitHub in the WebUI, download to the device, activate with one tap — each bundle carries a full optimizer tuning plus playback params. Now the internet can pick your colors too. |
 | Community Preset Builder | Offline browser tool ([`community-presets/builder.html`](community-presets/builder.html)) for creating those bundles — for people who'd rather drag sliders than write C++. Advanced Mode even has a point/curve editor that exports C++ snippets for new built-in presets. |
@@ -74,10 +83,10 @@ Yes, all of this is real, and yes, it's all running on a 6 Freedom Money ($) mic
 | --- | --- |
 | DMX-512 input (MAX485, 25 channels) | Talks to any real lighting desk like a grown-up fixture. |
 | Art-Net input | DMX over Ethernet/Wi-Fi for the desk-less crowd. |
-| sACN / E1.31 input (v6.08.0) | The standards-blessed way to do DMX over IP multicast. Same channel map, lowest priority of the three DMX-shaped sources. |
-| OSC input (v6.08.0) | `/galvos/*` on UDP 9000 — preset, color, speed, brightness, and override from TouchOSC & friends. |
+| sACN / E1.31 input | The standards-blessed way to do DMX over IP multicast. Same channel map, lowest priority of the three DMX-shaped sources. |
+| OSC input | `/galvos/*` on UDP 9000 — preset, color, speed, brightness, and override from TouchOSC & friends. |
 | Ether Dream protocol receiver | Laser software that speaks Ether Dream can stream point data straight to the projector. |
-| Helios DAC network emulation (v6.08.0) | Helios point-stream framing over TCP 7768 — the USB variant stays a stub, the network one actually works. |
+| Helios DAC network emulation | Helios point-stream framing over TCP 7768. The USB variant is not implemented (TinyUSB vendor class vs. the USB-CDC console). |
 | Live software DMX console (WebUI) | 25 sliders, no physical desk required, with instant test patterns (red circle, rainbow). |
 | WebUI override priority | WebUI wins over DMX on demand — for when you need to grab manual control mid-show. |
 | Master dimmer (WebUI + DMX CH1 combined) | One dial to rule the overall brightness, regardless of source. |
@@ -90,6 +99,7 @@ Yes, all of this is real, and yes, it's all running on a 6 Freedom Money ($) mic
 | Playlist manager | Queue multiple ILDA files with per-entry loop count and pause duration. |
 | PSRAM budget guard for ILDA files | Files too big to load safely are grayed out *before* you play them, instead of rebooting the controller mid-show. |
 | SD auto-mount watcher | Insert a card whenever — it gets picked up within 5 seconds. Eject means eject, until you say otherwise. |
+| SD file management from the browser | Download, rename, or delete `.ild` and `.svg` files on the card without pulling it out of the projector. |
 | Independent SPI3 bus for SD | SD reads no longer corrupt the DAC output mid-frame — SD card lives on its own SPI3 bus (GPIO5/6/1/42), fully independent of the DAC's SPI2. |
 
 ### Calibration & Tuning
@@ -101,6 +111,7 @@ Yes, all of this is real, and yes, it's all running on a 6 Freedom Money ($) mic
 | Visibility threshold calibration | Finds each laser diode's "dead zone" so 0–100% brightness maps to what's actually visible instead of a chunk of invisible PWM range. |
 | Auto White Balance | Calculates per-channel gain from configured laser power so R/G/B actually look equally bright. |
 | Camera-in-the-loop auto-tuning | A USB camera + Optuna search auto-tunes optimizer profiles against measured beam quality — no more "nudge a slider, squint at the wall" loop. See [Chapter 6](docs/06-camera-autotuning.md). |
+| Resonance sweep | Drives one axis with a pure sine at a chosen frequency so you can actually measure the galvo's resonance instead of guessing at it. |
 
 ### Safety & Reliability
 
@@ -111,8 +122,9 @@ Yes, all of this is real, and yes, it's all running on a 6 Freedom Money ($) mic
 | NE555 hardware watchdog | Independent of the ESP32's own watchdog; catches the case where the ESP32 itself locks up. |
 | Fail-safe opto-isolated RGB TTL | 10kΩ pull-ups keep every laser channel OFF by default on boot, reset, panic, or brownout. |
 | OTA update lockout while armed | Can't push new firmware to a live, armed laser. On purpose. |
+| Browser OTA for firmware *and* WebUI | An `/update` page that flashes either partition, reports real error strings, and refuses to auto-reboot into a half-finished update. |
 | Safety Assessment card | Live laser-class and audience-distance estimate from your configured power and beam angles. |
-| Thermal protection | Up to 5× DS18B20 sensors, configurable warn/reduce/shutdown thresholds, auto or manual fan control. |
+| Thermal protection | Up to 5× DS18B20 sensors with per-sensor names and calibration offsets, configurable warn/reduce/shutdown thresholds, auto or manual fan control, and a °C/°F/K display switch. |
 
 ### Connectivity & UI
 
@@ -124,7 +136,7 @@ Yes, all of this is real, and yes, it's all running on a 6 Freedom Money ($) mic
 | Per-protocol debug logging | A "snitch switch" per network protocol (DMX, Art-Net, Ether Dream, Helios, OSC, sACN) — raw traffic straight into the Log tab. |
 | Live Dashboard | Safety status, telemetry, CPU load, temperature history, DAC output rate, and frame composition — all scrolling in real time. |
 | Live log console + memory viewer | Streamed over WebSocket, color-coded by severity, plus a heap/PSRAM breakdown by subsystem for hunting leaks. |
-| Wi-Fi AP + STA mode, mDNS | Boots as its own access point out of the box; joins your network and answers at `galvOS.local` once configured. |
+| Wi-Fi AP + STA mode, mDNS | Joins your network and answers at `galvOS.local`; falls back to its own WPA-protected access point when the network is unreachable, while still retrying in the background. |
 | Static IP / DHCP configuration | For the tinfoil hatters who don't trust DHCP leases. |
 | REST API with token auth | Full external control surface — see [API Reference](docs/08-api-reference.md). |
 | Factory reset | Nukes all NVS config back to defaults when you've fat-fingered one setting too many. |
@@ -135,7 +147,7 @@ Yes, all of this is real, and yes, it's all running on a 6 Freedom Money ($) mic
 
 Feeling yolo? Take this route then:
 
-1. **Read the [Safety section](docs/01-introduction.md#safety)** — seriously.
+1. **Read the [Safety section](docs/01-introduction.md#safety--read-this-first)** — seriously.
 2. **Check [Prerequisites](docs/02-prerequisites.md)** — tools and hardware needed.
 3. **[Build & Flash](docs/03-build-and-config.md)** — PlatformIO build, firmware + WebUI upload.
 4. **[Connect to WebUI](docs/04-ui-guide.md)** — Wi-Fi, browser, done.
@@ -159,6 +171,8 @@ Need a good sleep aid? This is the one for you here:
 | [09 — Contributing](docs/09-contributing.md) | How to contribute, code style, patch workflow |
 | [10 — Known Issues & To-dos](docs/10-known-issues-and-todos.md) | Open bugs, missing features, planned work |
 | [11 — Glossary & Terminology](docs/11-glossary.md) | All (no but most) abbreviations and technical terms explained |
+
+Release history: [CHANGELOG.md](CHANGELOG.md).
 
 ---
 
@@ -195,8 +209,8 @@ GalvOS/
 │   ├── patterns/           # Pattern engine, presets, optimizer
 │   ├── safety/             # E-Stop, watchdog, scan-fail
 │   ├── sensors/            # DS18B20, temperature monitoring
-│   ├── storage/            # NVS config persistence
-│   └── util/               # Shared utilities
+│   ├── storage/            # SD card, ILDA playlists, SVG storage
+│   └── util/               # Shared utilities (log buffer, CPU/mem monitors, PSRAM scratch)
 ├── include/
 │   ├── config.h            # Runtime config struct, optimizer defaults
 │   └── pinmap.h            # All GPIO assignments
@@ -206,7 +220,8 @@ GalvOS/
 │   ├── index.json          # Preset index fetched by the WebUI's GitHub Browser
 │   ├── builder.html        # Community Preset Builder (offline browser tool, no backend)
 │   └── *.json              # The preset bundles themselves
-├── hardware/               # Netlist, wiring diagrams
+├── test/                   # Host-side (native) test suites
+├── hardware/               # Netlist, schematics, wiring diagrams
 ├── scripts/
 │   ├── upload_all.py       # PlatformIO target: flash firmware + LittleFS
 │   ├── gzip_assets.py      # Pre-build hook: gzip data/ assets

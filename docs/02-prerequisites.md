@@ -54,7 +54,7 @@ GalvOS was developed for and tested on the **Mikoy 5W RGB laser projector**. The
 | Component | Specification | Notes |
 | --- | --- | --- |
 | Galvo Set | Jolooyo JY-15K-BL | 15 kpps, ±20° optical, OEM driver board included |
-| Laser Module | MN-1M5AT | 3-channel, R: 638 nm ~1W, G: 520 nm ~1W, B: 445 nm ~3W |
+| Laser Module | MN-1W5AT | 3-channel, R: 638 nm ~1W, G: 520 nm ~1W, B: 445 nm ~3W |
 | Galvo PSU | ±12.8V (measured) | Provides ±15V rail to OPA4134 via the OEM galvo driver |
 | Housing | — | Reuse the original housing and beam path |
 
@@ -65,7 +65,7 @@ Other galvo sets and laser drivers may work, but will require tuning of the opti
 You will need to source and build:
 
 | Component | Part Number | Quantity | Notes |
-| --- | --- | --- | ---|
+| --- | --- | --- | --- |
 | MCU | ESP32-S3-DevKitC-1 (N16R8) | 1 | The N16R8 variant specifically — 16 MB Flash, 8 MB OPI PSRAM |
 | DAC | DAC8562 | 1 | 16-bit dual SPI DAC, available as MSOP-10 |
 | Op-Amp | OPA4134UA | 1 | Quad op-amp, SOIC-14 |
@@ -185,7 +185,7 @@ Work through this list before you power up anything with the laser connected.
 - [ ] PlatformIO extension installed and ESP32-S3 toolchain downloaded
 - [ ] First build completes without errors (`pio run`)
 - [ ] Firmware flashed to ESP32-S3 (`pio run --target upload_all`)
-- [ ] ESP32 appears on Wi-Fi (AP mode: SSID "galvOS") or connects to your network
+- [ ] ESP32 connects to your network, or falls back to its own AP (SSID `Laser-XXXX`, see [Chapter 4](04-ui-guide.md#accessing-the-webui))
 - [ ] WebUI accessible in browser
 - [ ] Serial monitor shows boot log without crash/restart loops (`pio device monitor`)
 

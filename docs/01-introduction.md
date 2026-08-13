@@ -48,7 +48,7 @@ The result is GalvOS — an open-source platform that replaces the OEM controlle
 - Officially supported by Mikoy, Espressif, or anyone else. It is a community project.
 - A substitute for understanding what you are building. Read the docs. All of them.
 
-**Tested hardware:** Jolooyo JY-15K-BL galvo set, MN-1M5AT laser driver, DAC8562 DAC, OPA4134 op-amp. Other galvo sets or laser drivers may require hardware or firmware adjustments.
+**Tested hardware:** Jolooyo JY-15K-BL galvo set, MN-1W5AT laser driver, DAC8562 DAC, OPA4134 op-amp. Other galvo sets or laser drivers may require hardware or firmware adjustments.
 
 ---
 
@@ -117,7 +117,7 @@ GalvOS is built on a custom perfboard (15 × 9 cm) that replaces the original Mi
 | DAC | DAC8562 | 16-bit dual-channel SPI DAC for X/Y galvo positioning |
 | Op-Amp | OPA4134UA (quad, SOIC-14) | Differential amplifier stage — converts DAC output to ±5V galvo drive |
 | Galvo Set | Jolooyo JY-15K-BL | 2-axis galvo scanner, 15 kpps rated, ±20° optical, 0.025 g·cm² inertia |
-| Laser Driver | MN-1M5AT | 3-channel constant-current buck driver, active-HIGH TTL control |
+| Laser Driver | MN-1W5AT | 3-channel constant-current buck driver, active-HIGH TTL control |
 | Optocouplers | 6N137 × 3 | Galvanically isolated laser TTL signals (R, G, B) |
 | DMX | MAX485 module | RS-485 receiver for DMX-512 input (receive-only) |
 | Watchdog | NE555 × 2 | Hardware scan-fail detection + hardware watchdog with SSR |
@@ -135,9 +135,9 @@ An early prototype status of the perfboard build.
 
 The ESP32-S3 N16R8 provides:
 
-- **16 MB SPI Flash** — partitioned into firmware (4 MB) and LittleFS (8 MB, holds the WebUI)
+- **16 MB SPI Flash** — partitioned into two 5 MB OTA app slots (`app0`/`app1`), a 5 MB LittleFS partition (holds the WebUI), 256 KB NVS, and a 64 KB coredump region (see [`partitions.csv`](../partitions.csv))
 - **8 MB OPI PSRAM** — used for large pattern buffers, JSON serialization, and the pattern cache. All allocations above ~16 KB must use `ps_malloc()` or `heap_caps_malloc(MALLOC_CAP_SPIRAM)`.
-- **~140 KB free internal DRAM** (post-boot, post-optimization) — still scarce (shared with the Wi-Fi/lwIP/AsyncTCP stack), but considerably less scarce than it used to be: firmware v6.04.0 moved ~120 KB of `static` scratch buffers (pattern verts/chains, paint canvas, EtherDream RX, SD file tables, optimizer transform scratch) from DRAM `.bss` into lazily-allocated PSRAM via `src/util/ps_scratch.h`. Static RAM footprint dropped from 180,728 B to 57,872 B. See [Known Issues → Optimize Heap Usage](10-known-issues-and-todos.md#planned-features) for the full breakdown.
+- **~140 KB free internal DRAM** (post-boot) — still scarce (shared with the Wi-Fi/lwIP/AsyncTCP stack), but considerably less scarce than it used to be: ~120 KB of `static` scratch buffers (pattern verts/chains, paint canvas, EtherDream RX, SD file tables, optimizer transform scratch) live in lazily-allocated PSRAM via `src/util/ps_scratch.h` instead of DRAM `.bss`. Static RAM footprint dropped from 180,728 B to 57,872 B. See [Known Issues → Optimize Heap Usage](10-known-issues-and-todos.md#planned-features) for the full breakdown.
 
 ---
 
@@ -151,11 +151,11 @@ GalvOS runs two FreeRTOS cores in parallel:
 - WebUI HTTP server (ESPAsyncWebServer)
 - Art-Net UDP receiver
 - DMX-512 receiver (MAX485)
-- sACN / E1.31 multicast receiver (v6.08.0)
-- OSC 1.0 receiver, UDP 9000 (v6.08.0)
+- sACN / E1.31 multicast receiver
+- OSC 1.0 receiver, UDP 9000
 - Ether Dream protocol receiver
-- Helios DAC network emulation, TCP 7768 (v6.08.0; the Helios USB protocol remains a stub)
-- Preset Sequencer step advance (v6.22.0)
+- Helios DAC network emulation, TCP 7768
+- Preset Sequencer step advance
 - Safety monitor task
 - Temperature monitoring
 - NTP client
@@ -164,8 +164,9 @@ GalvOS runs two FreeRTOS cores in parallel:
 
 - Galvo timer ISR — fires at the configured sample rate (default 30,000 times/second)
 - Pattern engine — generates `LaserPoint` streams from active preset or ILDA file
-- Point optimizer pipeline — processes raw points before DAC output
-- BPM clock + modulator engine tick — resolved once per frame boundary (v6.21.0/v6.23.0), feeding beat-synced parameter modulation into the pattern engine
+- Point optimizer pipeline — processes raw points before DAC output (resample, corner dwell, blanking, warp, brightness compensation, scanner clamps)
+- BPM clock + modulator engine tick — resolved once per frame boundary, feeding beat-synced parameter modulation into the pattern engine
+- Inverse filter — per-axis galvo deconvolution applied to every emitted point
 - DAC8562 SPI writes — raw hardware register access, not IDF polling
 
 The two cores share data through a small set of carefully designed shared structures (`gConfig`, `gState`, `gLivePreset`, etc.) protected by atomic operations and dedicated mutexes where needed.
@@ -185,7 +186,7 @@ Pattern Engine
   → galvo_out.cpp ISR
   → DAC code = coordinate + 0x8000  (maps [-32768..32767] → [0x0000..0xFFFF])
   → DAC output limited to [dac_limit_min .. dac_limit_max] (default 0x0666..0xF999)
-  → DAC8562 SPI (16-bit, ~30 kpps throughput via raw hardware register access, 40 MHz SPI clock since v6.02.2 — up from 20 MHz; the DAC8562 is rated for 50 MHz max and 40 MHz is the next clean APB/2 divider on the ESP32-S3's 80 MHz APB bus)
+  → DAC8562 SPI (16-bit, ~30 kpps throughput via raw hardware register access, 40 MHz SPI clock — the DAC8562 is rated for 50 MHz max and 40 MHz is the next clean APB/2 divider on the ESP32-S3's 80 MHz APB bus)
   → VOUTA / VOUTB (0 .. 2.5V relative to internal VREF)
   → OPA4134 differential amplifier (gain 2.2×, inverting)
      VOUT = 2 × (2.5V − VDAC)  →  range ≈ ±5V
@@ -212,7 +213,7 @@ Pattern Engine
      → V_HIGH (LED off, 6N137 blocking) = 1.65V  →  Laser TTL HIGH  →  Laser ON
      → V_LOW  (LED on,  6N137 saturating) ≈ 0V   →  Laser TTL LOW   →  Laser OFF
   → J_LASER R_TTL / G_TTL / B_TTL
-  → MN-1M5AT laser driver (active-HIGH: HIGH = laser on)
+  → MN-1W5AT laser driver (active-HIGH: HIGH = laser on)
 ```
 
 Note the logic inversion through the 6N137: a **high GPIO duty cycle = more time LOW at the optocoupler output = more time laser ON**. This is transparent to the firmware — `rgbWrite()` handles the inversion internally.

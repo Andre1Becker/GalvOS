@@ -28,8 +28,8 @@ Browse [Chapter 10 — Known Issues & To-dos](10-known-issues-and-todos.md) for 
 - **C++ new features** — new patterns, new modulator modules (see [Adding a Modulator Module](#adding-a-modulator-module)), extending the camera-in-the-loop auto-tuning API (Chapter 6) to more optimizer profiles
 - **JavaScript/HTML** — WebUI improvements, a dedicated Dotter UI
 - **Python** — `scripts/optimizeGalvo/` (camera auto-tuning tool, see Chapter 6)
-- **Documentation** — screenshot capture (the WebUI got a full visual rewrite in v6.32.0 — most screenshots want re-taking), diagram creation, corrections
-- **Hardware** — the Helios USB stub (TinyUSB vendor class vs. USB-CDC debug conflict), the planned ILDA output header
+- **Documentation** — screenshot capture (the WebUI got a full visual rewrite — most screenshots want re-taking), diagram creation, corrections
+- **Hardware** — fan tacho readback (GPIO2/GPIO9 are wired but unread), the planned ILDA output header
 
 Open an issue or a discussion on GitHub before starting larger changes — it avoids duplicate work.
 
@@ -42,9 +42,12 @@ Open an issue or a discussion on GitHub before starting larger changes — it av
 GalvOS/
 ├── src/
 │   ├── main.cpp                    # Entry point, global init, FreeRTOS task creation
-│   ├── bpm_clock.{cpp,h}           # Global BPM clock (Manual/Tap/DMX, v6.21.0)
-│   ├── sequencer.{cpp,h}           # BPM-synced preset sequencer (v6.22.0)
-│   ├── modulator_engine.{cpp,h}    # 8-slot modulation matrix + registry (v6.23.0/v6.27.0)
+│   ├── bpm_clock.{cpp,h}           # Global BPM clock (Manual/Tap/DMX)
+│   ├── sequencer.{cpp,h}           # BPM-synced preset sequencer
+│   ├── modulator_engine.{cpp,h}    # 8-slot modulation matrix + registry
+│   ├── warpGrid.{cpp,h}            # Geometric warp grid (bilinear sampling, shared with brightness)
+│   ├── brightnessField.{cpp,h}     # Per-region RGB gain field (output stage)
+│   ├── inverseFilter.{cpp,h}       # Per-axis galvo deconvolution biquad
 │   ├── control/
 │   │   ├── dmx_in.{cpp,h}          # DMX-512 receive (UART1 + MAX485)
 │   │   └── encoder.{cpp,h}         # Rotary encoder (currently unconnected hardware)
@@ -55,7 +58,6 @@ GalvOS/
 │   │   ├── artnet_in.{cpp,h}       # Art-Net UDP receiver
 │   │   ├── etherdream.{cpp,h}      # Ether Dream protocol
 │   │   ├── helios_net.{cpp,h}      # Helios DAC network emulation (TCP 7768)
-│   │   ├── helios_usb.{cpp,h}      # Helios USB DAC protocol (stub)
 │   │   ├── osc_in.{cpp,h}          # OSC 1.0 receiver (UDP 9000)
 │   │   ├── sacn_in.{cpp,h}         # sACN/E1.31 receiver (multicast, universe 1)
 │   │   ├── community_presets.{cpp,h} # Community preset storage (LittleFS)
@@ -70,12 +72,13 @@ GalvOS/
 │   │   ├── preset_patterns.{cpp,h} # All built-in presets + PresetClass assignment
 │   │   ├── calib_patterns.{cpp,h}  # Calibration patterns
 │   │   ├── curve_patterns.{cpp,h}  # Mathematical parametric curves (backend only — WebUI card removed)
-│   │   ├── camera.{cpp,h}          # Camera module: 3D view targets for the modulator registry (v6.28.0)
-│   │   ├── duplicator.{cpp,h}      # Duplicator module: grid/radial/spiral frame cloning (v6.29.1)
-│   │   ├── dotter.{cpp,h}          # Dotter module: Points-Only dot scatter (v6.31.0)
-│   │   ├── spatial_noise.{cpp,h}   # NOISE2D modulator type (v6.30.0)
+│   │   ├── camera.{cpp,h}          # Camera module: 3D view targets for the modulator registry
+│   │   ├── duplicator.{cpp,h}      # Duplicator module: grid/radial/spiral frame cloning
+│   │   ├── dotter.{cpp,h}          # Dotter module: Points-Only dot scatter
+│   │   ├── spatial_noise.{cpp,h}   # NOISE2D modulator type
 │   │   ├── text_renderer.{cpp,h}   # Vector text glyph renderer
 │   │   ├── paint_patterns.{cpp,h}  # Paint-by-finger canvas renderer
+│   │   ├── weld_patterns.{cpp,h}   # Laser Welding renderer for the Paint canvas
 │   │   └── countdown_timer.{cpp,h} # Countdown timer preset
 │   ├── safety/
 │   │   └── safety.{cpp,h}          # Hardware interlock aggregation, E-Stop, watchdog
@@ -83,10 +86,14 @@ GalvOS/
 │   │   └── temp_monitor.{cpp,h}    # DS18B20 1-Wire + fan PWM control
 │   ├── storage/
 │   │   ├── sd_card.{cpp,h}         # SD card (FAT32, independent SPI3 bus)
+│   │   ├── svg_store.{cpp,h}       # SVG file storage on SD (/svg/)
 │   │   └── playlist.{cpp,h}        # ILDA playlist management
 │   └── util/
 │       ├── log_buffer.{cpp,h}      # Ring log buffer (WebUI log stream)
 │       ├── cpu_monitor.{cpp,h}     # Per-core CPU load tracking
+│       ├── mem_registry.{cpp,h}    # Static/long-lived allocation registry (/api/meminfo)
+│       ├── ps_scratch.{h}          # Lazy PSRAM scratch buffers (keeps .bss small)
+│       ├── mutex.{cpp}             # Named mutex definitions
 │       ├── param_meta.{h}          # Parameter metadata for the modulator registry
 │       └── stack_mon.{cpp,h}       # FreeRTOS task stack monitoring
 ├── include/
@@ -104,11 +111,17 @@ GalvOS/
 │   ├── upload_all.py               # Custom PlatformIO target: flash firmware + LittleFS
 │   ├── gzip_assets.py              # Pre-build hook: gzip data/ assets
 │   ├── ov9281_probe.py             # Standalone OV9281 camera capability probe
-│   ├── test_protocols.py           # Manual Ether Dream/Helios stream test client (v6.20.2)
+│   ├── capture_screenshots.py      # WebUI screenshot capture for the docs (redacts IP/credentials)
+│   ├── test_protocols.py           # Manual Ether Dream/Helios stream test client
 │   └── optimizeGalvo/              # Host-side camera-in-the-loop auto-tuning tool (see Chapter 6)
 │       └── optimizeGalvo.py        # OpenCV + Optuna, drives /api/calib-cam/*
+├── test/
+│   ├── test_optimizer/             # Host-side optimizer contract tests
+│   └── test_ilda_reshape/          # Host-side ILDA reshaping tests
 ├── hardware/
-│   └── netlist.txt                 # Full wiring netlist
+│   ├── netlist.txt                 # Full wiring netlist
+│   └── schematics/                 # KiCad schematic + PCB
+├── partitions.csv                  # Flash partition table
 └── platformio.ini                  # Build configuration
 ```
 
@@ -130,8 +143,8 @@ All code, comments, log messages, and commit messages must be in **English**. Th
 
 ### Memory
 
-- Buffers larger than ~16 KB belong in PSRAM: use `ps_malloc()` or `heap_caps_malloc(MALLOC_CAP_SPIRAM)`
-- All `JsonDocument` instances must use `SpiRamAllocator`: `JsonDocument doc(&jsonAllocator())`
+- Buffers larger than ~16 KB belong in PSRAM: use `ps_malloc` or `heap_caps_malloc(MALLOC_CAP_SPIRAM)`
+- All `JsonDocument` instances must use `SpiRamAllocator`: `JsonDocument doc(&jsonAllocator)`
 - API responses that build JSON must use `sendJsonPsram(req, doc)` (chunked, PSRAM buffer)
 - Never allocate large buffers on the stack — the FreeRTOS task stacks are fixed-size
 
@@ -139,7 +152,7 @@ All code, comments, log messages, and commit messages must be in **English**. Th
 
 - The galvo ISR runs on Core 1 at 30,000 Hz. Only IRAM-safe functions may be called from it.
 - Shared state between Core 0 and Core 1 uses `std::atomic<>` for scalar flags, and named mutexes (from `mutex.h`) for structs.
-- The `LOCK_STATE()` macro acquires `mtx::state` — use it when writing to `gLivePreset` rotation fields from the web handler.
+- The `LOCK_STATE` macro acquires `mtx::state` — use it when writing to `gLivePreset` rotation fields from the web handler.
 - Never hold a mutex inside the ISR.
 
 ### Pattern Color Rule
@@ -149,7 +162,7 @@ All patterns that produce colored output must use only `255` or `0` as default c
 ### WebUI JavaScript
 
 - No `localStorage`, `sessionStorage`, or any browser storage API — these fail in the Claude.ai artifact sandbox and are unavailable in the embedded WebUI context.
-- Use `fetch()` for all API calls, not `XMLHttpRequest`.
+- Use `fetch` for all API calls, not `XMLHttpRequest`.
 - All state is held in JS variables for the session lifetime.
 - Validate JSON syntax: extract all `<script>` blocks and run `node --check` before submitting.
 
@@ -157,7 +170,7 @@ All patterns that produce colored output must use only `255` or `0` as default c
 
 ## Adding a New Preset Pattern
 
-Presets live in `src/patterns/preset_patterns.{cpp,h}`. The current count is 74 (`PRESET_COUNT = 74`).
+Presets live in `src/patterns/preset_patterns.{cpp,h}`. `PRESET_COUNT` in the header is the authoritative count — read it before you start, and the examples below use `N` for the index your preset will take.
 
 ### Step 1 — Declare the preset
 
@@ -166,7 +179,7 @@ In `preset_patterns.h`, add your preset to the `Preset` enum:
 ```cpp
 enum class Preset : int8_t {
     // ... existing presets ...
-    MyNewPattern = 74,
+    MyNewPattern = N,
     // ...
 };
 ```
@@ -174,12 +187,12 @@ enum class Preset : int8_t {
 Update `PRESET_COUNT` in the header:
 
 ```cpp
-constexpr uint8_t PRESET_COUNT = 75;
+constexpr uint8_t PRESET_COUNT = N + 1;
 ```
 
 ### Step 2 — Assign a PresetClass
 
-In `preset_patterns.cpp`, add a case in `presetClassOf()` to assign your pattern to the appropriate optimizer profile:
+In `preset_patterns.cpp`, add a case in `presetClassOf` to assign your pattern to the appropriate optimizer profile:
 
 ```cpp
 PresetClass presetClassOf(Preset p) {
@@ -214,9 +227,9 @@ const PresetInfo PRESETS[PRESET_COUNT] = {
 
 ### Step 4 — Implement the generator function
 
-Add a `static void p_myNewPattern(LaserPoint* buf, size_t& n, ...)` function and call it from the dispatch switch in `pattern_engine.cpp`.
+Add a `static void p_myNewPattern(LaserPoint* buf, size_t& n,...)` function and call it from the dispatch switch in `pattern_engine.cpp`.
 
-The generator writes `PathSegment` arrays and calls `optimizer::optimize()`:
+The generator writes `PathSegment` arrays and calls `optimizer::optimize`:
 
 ```cpp
 static void p_myNewPattern(LaserPoint* buf, size_t& n, size_t max,
@@ -283,7 +296,7 @@ The firmware rejects anything that fails these checks, so save yourself a review
 
 Calibration patterns live in `src/patterns/calib_patterns.{cpp,h}`.
 
-Key rule: **do not call `applyGamma()` inside `colorOut()` if `rgbWrite()` in `galvo_out.cpp` will call it again.** Each color value must go through the gamma LUT exactly once. This is the double-gamma bug pattern — see [Chapter 7 — Troubleshooting](07-troubleshooting.md#color--calibration-issues).
+Key rule: **do not call `applyGamma` inside `colorOut` if `rgbWrite` in `galvo_out.cpp` will call it again.** Each color value must go through the gamma LUT exactly once. This is the double-gamma bug pattern — see [Chapter 7 — Troubleshooting](07-troubleshooting.md#color--calibration-issues).
 
 Register the new pattern in the calibration pattern list (returned by `/api/calib-pattern/list`) and add a dispatch case in the calibration pattern handler.
 
@@ -291,26 +304,26 @@ Register the new pattern in the calibration pattern list (returned by `/api/cali
 
 ## Adding a Modulator Module
 
-Since v6.27.0 the modulator engine is registry-based, and this is the intended extension point for anything that should be *animatable*. A module lives in its own `.cpp/.h` under `src/patterns/` and registers its types/targets from its own `init()` (called after `modulator::init()` in `main.cpp`) via `registerModType()` / `registerWaveShape()` / `registerModTarget()` — **without editing `modulator_engine.h/.cpp` or the WebUI at all**. The WebUI's Bindings dropdown discovers new targets automatically through `GET /api/modulators/meta`.
+The modulator engine is registry-based, and this is the intended extension point for anything that should be *animatable*. A module lives in its own `.cpp/.h` under `src/patterns/` and registers its types/targets from its own `init` (called after `modulator::init` in `main.cpp`) via `registerModType` / `registerWaveShape` / `registerModTarget` — **without editing `modulator_engine.h/.cpp` or the WebUI at all**. The WebUI's Bindings dropdown discovers new targets automatically through `GET /api/modulators/meta`.
 
-Study the four existing modules as templates, in increasing complexity: `dotter.cpp` (one target), `camera.cpp` / `duplicator.cpp` (five targets each, consuming `modulator::apply()` in their render hook), and `spatial_noise.cpp` (registers a whole modulator *type* and shares the engine's BPM time base via `modulator::totalCycles()`). Pick target id constants that don't collide with the ones already assigned (see the `target_id` namespaces across those headers — currently 0–20 are taken).
+Study the four existing modules as templates, in increasing complexity: `dotter.cpp` (one target), `camera.cpp` / `duplicator.cpp` (five targets each, consuming `modulator::apply` in their render hook), and `spatial_noise.cpp` (registers a whole modulator *type* and shares the engine's BPM time base via `modulator::totalCycles`). Pick target id constants that don't collide with the ones already assigned (see the `target_id` namespaces across those headers — currently 0–20 are taken).
 
 ---
 
 ## Adding a New API Endpoint
 
-All endpoints are registered in `src/net/web_ui.cpp` inside the `webui::init()` function.
+All endpoints are registered in `src/net/web_ui.cpp` inside the `webui::init` function.
 
 **Route registration rules:**
 
 1. Register specific routes **before** any prefix-matching wildcard handler that would capture the same path. Failure to do this results in 404 on the specific route.
 2. The two known order-sensitive cases are `/api/calib-pattern/stop` (before `/api/calib-pattern`) and `/api/text/vertices` (before `/api/text`).
-3. Always place `serveStatic()` last.
+3. Always place `serveStatic` last.
 
 **Memory rules for handlers:**
 
-- Use `JsonDocument doc(&jsonAllocator())` for all JSON parsing and generation.
-- Use `sendJsonPsram(req, doc)` for JSON responses, not `req->send()` with a serialized String.
+- Use `JsonDocument doc(&jsonAllocator)` for all JSON parsing and generation.
+- Use `sendJsonPsram(req, doc)` for JSON responses, not `req->send` with a serialized String.
 - For small fixed-format responses, `snprintf` into a local `char buf[N]` is acceptable and avoids allocator overhead.
 
 **Authentication:** Write endpoints must call `isAuthorised(req)` and `denyUnauth(req)` if the check fails:
@@ -446,7 +459,7 @@ feat: add Shooting Star preset
 
 Implements a single bright point moving on a randomized parabolic
 arc with a 4-point fading trail. Uses Particles optimizer profile.
-Adds SVG thumbnail at preset index 75. Bumps PRESET_COUNT to 75.
+Adds the SVG thumbnail at the new preset index and bumps PRESET_COUNT.
 ```
 
 ```text
@@ -523,29 +536,20 @@ curl -X POST http://galvOS.local/api/preset \
 
 Roughly in priority order:
 
-**Bug fixes (firmware):**
-
-- Text: Bounce animation has no effect
-- Text: Typewriter runs once only — add loop logic
-- Text: Star Wars Scroll direction and rendering
-
 **Hardware:**
 
-- SD card / DAC SPI bus contention — root cause found and fixed in firmware (v5.90.0, SD moved to independent SPI3). Remaining work is physically rewiring the perfboard (SD → GPIO5/6/1/42) — see [Known Issues](10-known-issues-and-todos.md#critical-issues).
+- Fan tacho readback — GPIO2/GPIO9 carry the tach signals with pull-ups fitted, but no firmware reads them yet (no RPM display, no stalled-fan detection).
 
 **New patterns (firmware):**
 
-- Endless Spiral
-- Endless Tunnel
-- Mandelbrot Animation
-- Shooting Star
+- Mandelbrot animation, and anything else in the "that shouldn't be possible on a galvo" category
+- More Scenes-category compositions (the category is thinner than Geometry/Waves)
 
 **UI improvements (JavaScript/HTML):**
 
-- Point limit display in the status/telemetry bar
-- Point and stroke count shown under the Paint canvas
-- Feature toggles (enable/disable ArtNet, DMX independently)
-- kpps history graph on the Dashboard
+- A dedicated Dotter panel (the module is API-only and currently reachable only through a generic binding)
+- Inverse-filter editor (API-only today — no UI at all)
+- Fan RPM display, once the tacho inputs are read
 
 **Camera-in-the-loop auto-tuning (Python + firmware, see Chapter 6):**
 

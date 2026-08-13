@@ -101,7 +101,7 @@ How far the galvo mirrors deflect from their center position. Wider scan angles 
 ## Hardware Components
 
 **6N137**
-High-speed optocoupler used to galvanically isolate the ESP32's GPIO outputs from the laser TTL signal lines. The LED side is driven by the ESP32 (via a 220 Ω series resistor); the output collector side drives the laser TTL. Switching speed: up to 10 MHz. In GalvOS v3.2.2, a 1 kΩ pull-up + 1 kΩ pull-down divider on the output produces 1.65 V HIGH and 0 V LOW — matching the MN-1M5AT active-HIGH input requirement.
+High-speed optocoupler used to galvanically isolate the ESP32's GPIO outputs from the laser TTL signal lines. The LED side is driven by the ESP32 (via a 220 Ω series resistor); the output collector side drives the laser TTL. Switching speed: up to 10 MHz. A 1 kΩ pull-up + 1 kΩ pull-down divider on the output produces 1.65 V HIGH and 0 V LOW — matching the MN-1W5AT active-HIGH input requirement.
 
 **DAC8562**
 16-bit dual-channel SPI digital-to-analogue converter used to generate the X and Y galvo drive voltages. Output range: 0–2.5 V (relative to its internal 2.5 V reference). Two channels = one per galvo axis. Driven from the ESP32's SPI2 peripheral via raw hardware register writes (not the IDF polling API) to achieve the throughput needed for 30 kpps.
@@ -157,7 +157,7 @@ The positive supply voltage for a digital circuit. VCC historically refers to bi
 ## Firmware & Embedded Systems
 
 **Arduino framework**
-A C++ abstraction layer over the ESP-IDF that provides familiar `setup()` / `loop()` structure and a large ecosystem of libraries. GalvOS uses the Arduino framework via PlatformIO, but accesses hardware directly where performance requires it (SPI register writes for the DAC, hardware timer for the galvo ISR).
+A C++ abstraction layer over the ESP-IDF that provides familiar `setup` / `loop` structure and a large ecosystem of libraries. GalvOS uses the Arduino framework via PlatformIO, but accesses hardware directly where performance requires it (SPI register writes for the DAC, hardware timer for the galvo ISR).
 
 **Core 0 / Core 1**
 The two Xtensa LX7 CPU cores in the ESP32-S3. In GalvOS: Core 0 runs the Wi-Fi stack, WebUI, all network receivers (DMX, Art-Net, sACN, OSC, Ether Dream, Helios-net), NTP, and safety monitoring. Core 1 runs the galvo ISR and pattern engine. FreeRTOS assigns tasks to cores at creation time.
@@ -175,7 +175,7 @@ The real-time operating system running on both cores. Provides tasks (threads), 
 A function that executes in response to a hardware interrupt, interrupting normal program flow. The galvo ISR in GalvOS is triggered by a hardware timer at `GALVO_SAMPLE_RATE_HZ` (30,000 times/second). It dequeues one `LaserPoint` per tick and writes it to the DAC and LEDC. ISRs must be fast and must not call non-IRAM-safe functions.
 
 **LEDC (LED Control peripheral)**
-The ESP32's dedicated PWM hardware for LED control, repurposed in GalvOS for RGB laser modulation. Supports multiple channels, each with independently configurable frequency and duty cycle. GalvOS attaches the three laser GPIOs (7, 8, 21) to LEDC channels once at `setup()` — never per tick, because `ledcAttachPin()` is too expensive to call at 30 kpps.
+The ESP32's dedicated PWM hardware for LED control, repurposed in GalvOS for RGB laser modulation. Supports multiple channels, each with independently configurable frequency and duty cycle. GalvOS attaches the three laser GPIOs (7, 8, 21) to LEDC channels once at `setup` — never per tick, because `ledcAttachPin` is too expensive to call at 30 kpps.
 
 **OTA (Over-The-Air update)**
 Firmware update delivered over a network connection (Wi-Fi) without a physical cable. GalvOS supports OTA via an HTTP update endpoint (`http://<device>/update`, username `admin`, password = chip-ID hex). The partition table includes two app slots (app0, app1) so the running firmware is preserved until the new image is verified.
@@ -184,7 +184,7 @@ Firmware update delivered over a network connection (Wi-Fi) without a physical c
 The build system and IDE extension used to compile, link, and flash GalvOS firmware. Handles toolchain download, library management, upload targets, and the serial monitor. Configured via `platformio.ini`.
 
 **RTC memory**
-A small area of RAM (8 KB) on the ESP32 that retains its contents through a software reset (`esp_restart()`) but is cleared on power loss. GalvOS stores the last safety failsafe reason in RTC memory so it survives restarts and can be displayed in the Dashboard after a crash.
+A small area of RAM (8 KB) on the ESP32 that retains its contents through a software reset (`esp_restart`) but is cleared on power loss. GalvOS stores the last safety failsafe reason in RTC memory so it survives restarts and can be displayed in the Dashboard after a crash.
 
 **UART (Universal Asynchronous Receiver-Transmitter)**
 A serial communication standard. GalvOS uses UART0 for the debug serial console (TX on GPIO43, RX on GPIO44) and UART1 for DMX-512 reception (RX on GPIO4 via MAX485). The ESP32-S3 DevKitC-1 exposes UART0 through its built-in USB-to-serial bridge.
@@ -212,14 +212,14 @@ The ESP32's key-value store built on flash memory. Survives power cycles. GalvOS
 A high-speed PSRAM interface using 8 data lines simultaneously. The N16R8 module uses OPI PSRAM, configured via `board_build.psram_type = octal` and `board_build.arduino.memory_type = qio_opi` in `platformio.ini`. Provides ~80 MB/s bandwidth to PSRAM vs. ~40 MB/s for quad-SPI PSRAM.
 
 **PSRAM (Pseudo-Static RAM)**
-External RAM connected to the ESP32 via SPI. In the N16R8 module: 8 MB, OPI interface, mapped into the address space alongside internal DRAM. Slower than internal DRAM (higher latency) but vastly larger. GalvOS uses PSRAM for all large allocations: pattern buffers, JSON serialization, the pattern cache, and the Paint body buffer. Allocated via `ps_malloc()` or `heap_caps_malloc(MALLOC_CAP_SPIRAM)`.
+External RAM connected to the ESP32 via SPI. In the N16R8 module: 8 MB, OPI interface, mapped into the address space alongside internal DRAM. Slower than internal DRAM (higher latency) but vastly larger. GalvOS uses PSRAM for all large allocations: pattern buffers, JSON serialization, the pattern cache, and the Paint body buffer. Allocated via `ps_malloc` or `heap_caps_malloc(MALLOC_CAP_SPIRAM)`.
 
 ---
 
 ## Networking & Protocols
 
 **AP mode (Access Point mode)**
-The ESP32 creates its own Wi-Fi network. Other devices connect to it directly. GalvOS starts in AP mode on first boot (SSID: "galvOS", no password, IP: 192.168.4.1). Useful for initial configuration or when no external Wi-Fi network is available.
+The ESP32 creates its own Wi-Fi network. Other devices connect to it directly. GalvOS falls back to AP mode when it cannot reach the configured network (SSID `Laser-XXXX` from the chip's MAC, WPA-protected, IP 192.168.4.1) while the STA side keeps retrying in the background. Useful for initial configuration or when no external Wi-Fi network is available.
 
 **Art-Net**
 A royalty-free protocol for transmitting DMX-512 data over Ethernet/UDP/IP networks. Allows up to 32,768 universes (vs. one universe per cable for DMX). GalvOS receives Art-Net universe 0 by default, configurable in the WebUI. Useful for sending laser control data from a lighting console via Wi-Fi.
@@ -231,13 +231,13 @@ Automatically assigns IP addresses to devices joining a network. GalvOS uses DHC
 An open-source laser DAC protocol over Ethernet. GalvOS includes an Ether Dream receiver, allowing compatible laser software (Pangolin, BEYOND, etc.) to send ILDA-style point streams to GalvOS over the network.
 
 **Helios DAC**
-A popular open-source USB laser DAC. GalvOS emulates its point-stream protocol **over the network** (TCP port 7768, since v6.08.0) so laser software that speaks Helios can stream to GalvOS; the original USB variant remains an unimplemented stub. See [Chapter 8 — Network Control Protocols](08-api-reference.md#network-control-protocols-non-http).
+A popular open-source USB laser DAC. GalvOS emulates its point-stream protocol **over the network** (TCP port 7768) so laser software that speaks Helios can stream to GalvOS. The USB variant is not implemented and not planned — the TinyUSB vendor class conflicts with the USB-CDC serial console on the same OTG controller. See [Chapter 8 — Network Control Protocols](08-api-reference.md#network-control-protocols-non-http).
 
 **OSC (Open Sound Control)**
-A UDP message protocol popular in audio/VJ software (TouchOSC, Max/MSP, Ableton bridges). GalvOS listens on UDP port 9000 (since v6.08.0) for `/galvos/{preset,color,speed,brightness,enable}` messages — remote control of the basics without touching the HTTP API. Single messages only, no bundles.
+A UDP message protocol popular in audio/VJ software (TouchOSC, Max/MSP, Ableton bridges). GalvOS listens on UDP port 9000 for `/galvos/{preset,color,speed,brightness,enable}` messages — remote control of the basics without touching the HTTP API. Single messages only, no bundles.
 
 **sACN (Streaming ACN / E1.31)**
-The ANSI E1.31 standard for transporting DMX-512 universes over IP multicast — Art-Net's younger, standards-blessed sibling. GalvOS receives universe 1 on multicast 239.255.0.1:5568 (since v6.08.0), with the same channel map as DMX/Art-Net and the lowest priority of the three DMX-shaped sources.
+The ANSI E1.31 standard for transporting DMX-512 universes over IP multicast — Art-Net's younger, standards-blessed sibling. GalvOS receives universe 1 on multicast 239.255.0.1:5568, with the same channel map as DMX/Art-Net and the lowest priority of the three DMX-shaped sources.
 
 **IP address**
 The numerical identifier for a device on a network. In AP mode, GalvOS always uses 192.168.4.1. In STA mode, the assigned address is shown in the Dashboard → System card and in the serial boot log.
@@ -249,7 +249,7 @@ A protocol that allows devices to be discovered by hostname on a local network w
 Used to synchronize the ESP32's clock to an internet time server. GalvOS uses `pool.ntp.org` by default. Time zone is configured using a POSIX TZ string. NTP sync status is shown in the Dashboard → System card.
 
 **POSIX TZ string**
-A compact string that encodes a time zone's offset from UTC and its daylight saving rules. Example for Central European Time: `"CET-1CEST,M3.5.0,M10.5.0/3"`. Reference: https://www.gnu.org/software/libc/manual/html_node/TZ-Variable.html
+A compact string that encodes a time zone's offset from UTC and its daylight saving rules. Example for Central European Time: `"CET-1CEST,M3.5.0,M10.5.0/3"`. Reference: <https://www.gnu.org/software/libc/manual/html_node/TZ-Variable.html>
 
 **PWA (Progressive Web App)**
 A web application that can be installed on a device and launched like a native app. GalvOS's `index.html` is a PWA — it can be added to the home screen on iOS or Android and runs without browser chrome. The app icon, name, and display mode are configured in the WebUI manifest.
@@ -284,28 +284,28 @@ A group of 512 DMX channels. A single DMX cable carries one universe. Art-Net al
 ## Timing & Modulation
 
 **BPM (Beats Per Minute) / BPM Clock**
-Musical tempo. GalvOS's global BPM clock (`src/bpm_clock.*`, since v6.21.0) resolves the current tempo from three sources with fixed priority DMX > Tap > Manual, and exposes a per-frame beat phase that the Sequencer and Modulators sync to.
+Musical tempo. GalvOS's global BPM clock (`src/bpm_clock.*`) resolves the current tempo from three sources with fixed priority DMX > Tap > Manual, and exposes a per-frame beat phase that the Sequencer and Modulators sync to.
 
 **Tap Tempo**
 Setting a tempo by tapping a button in time with the music. GalvOS averages the intervals of the last few taps; a pause of more than 3 seconds resets the measurement.
 
 **Preset Sequencer**
-A BPM-synced playlist of built-in presets (`src/sequencer.*`, since v6.22.0). Each step has a preset, a duration in beats, and an optional blanked transition window. Deliberately never resumes playback on boot.
+A BPM-synced playlist of built-in presets (`src/sequencer.*`). Each step has a preset, a duration in beats, and an optional blanked transition window. Deliberately never resumes playback on boot.
 
 **Modulator**
-A generator producing a continuously changing control value in the range −1..1 — an Oscillator (LFO), Noise source, Envelope, or Step Sequencer. GalvOS provides 8 slots (`src/modulator_engine.*`, since v6.23.0), each BPM-synced or free-running.
+A generator producing a continuously changing control value in the range −1..1 — an Oscillator (LFO), Noise source, Envelope, or Step Sequencer. GalvOS provides 8 slots (`src/modulator_engine.*`), each BPM-synced or free-running.
 
 **LFO (Low-Frequency Oscillator)**
 An oscillator running at sub-audio rates (fractions of a Hz to a few Hz), used not to make sound/light directly but to *modulate* another parameter — the classic synthesizer concept, applied here to laser pattern parameters.
 
 **Envelope**
-A one-shot (or looping) control curve triggered by an event, rather than cycling freely like an LFO. Classically Attack/Sustain/Release; since v6.27.0 GalvOS also supports multi-point breakpoint envelopes with per-segment curve shapes.
+A one-shot (or looping) control curve triggered by an event, rather than cycling freely like an LFO. Classically Attack/Sustain/Release; GalvOS also supports multi-point breakpoint envelopes with per-segment curve shapes.
 
 **Binding**
 The routing entry that connects a modulator slot to a target parameter, with a depth (how strongly) and offset (around which center). GalvOS has 16 binding slots.
 
 **Modulator Registry**
-The extensibility mechanism (since v6.27.0) by which self-contained firmware modules register new modulator types and target parameters without modifying the engine or the WebUI. The Camera (3D view), Duplicator (frame cloning), Spatial Noise (2D value noise), and Dotter (dot scatter) modules all plug in this way — see [Chapter 9 — Adding a Modulator Module](09-contributing.md#adding-a-modulator-module).
+The extensibility mechanism by which self-contained firmware modules register new modulator types and target parameters without modifying the engine or the WebUI. The Camera (3D view), Duplicator (frame cloning), Spatial Noise (2D value noise), and Dotter (dot scatter) modules all plug in this way — see [Chapter 9 — Adding a Modulator Module](09-contributing.md#adding-a-modulator-module).
 
 ---
 
@@ -315,7 +315,7 @@ The extensibility mechanism (since v6.27.0) by which self-contained firmware mod
 The optimizer's Pillar 1: the number of interior points added to each edge scales with the edge length and is concentrated near corners. Longer edges get more points; sharper corners get more dwell time.
 
 **Calib-cam (camera-in-the-loop calibration)**
-The `/api/calib-cam/*` REST API (since v6.03.0) that lets a host-side tool (`optimizeGalvo.py`) select a camera-reference pattern and override optimizer parameters live, RAM-only, while measuring the projected result with a camera. See [Chapter 6 — Camera-in-the-Loop Auto-Tuning](06-camera-autotuning.md).
+The `/api/calib-cam/*` REST API that lets a host-side tool (`optimizeGalvo.py`) select a camera-reference pattern and override optimizer parameters live, RAM-only, while measuring the projected result with a camera. See [Chapter 6 — Camera-in-the-Loop Auto-Tuning](06-camera-autotuning.md).
 
 **Homography**
 A projective transformation that maps points from one plane to another — here, camera pixel coordinates to DAC coordinate space. `optimizeGalvo.py`'s `calibrate` command computes this once from 4 reference dots (the `corners4` pattern) so it can translate every later camera measurement back into DAC units for scoring.
@@ -375,7 +375,7 @@ A nonlinear adjustment of brightness values to compensate for the difference bet
 **Gain (color channel)**
 A scaling factor applied to the raw color value from the pattern, used to equalize the perceived brightness of the three laser channels (white balance). `gain_r`, `gain_g`, `gain_b` in RuntimeConfig. Values less than 255 reduce that channel's brightness. Default values (115, 43, 255) reflect the different perceived brightnesses of 1W red, 1W green, and 3W blue at their specific wavelengths.
 
-**mapVisibleRange()**
+**mapVisibleRange**
 A firmware function that remaps the logical 0–255 color range onto [thresh_x, 255]. This ensures "0% brightness" always means the laser is off (below threshold = invisible) and "100%" always means full power, regardless of the diode's physical dead zone. `mapVisibleRange(255, any_threshold)` always returns 255 — a full-brightness value bypasses threshold mapping entirely.
 
 **Threshold (thresh_r/g/b)**
