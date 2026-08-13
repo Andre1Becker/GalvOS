@@ -57,31 +57,24 @@ one-line note (commit hash / reason skipped) when done.
 
 ## Correctness
 
-- [ ] **7. `resolveMasterDimmer()` UI-wins instead of `max()`**
-  File: [src/patterns/pattern_engine.cpp:262-270](src/patterns/pattern_engine.cpp#L262-L270)
-  Problem: `if (ui_dim>0) return ui_dim;` short-circuits instead of
-  `max(dmxResolved, ui_dim)` — violates the documented master-dimmer rule.
-  Risk: stale nonzero `ui_master_dimmer` silently caps brightness below what a
-  DMX console commands (e.g. blackout ignored).
-  Fix: `return max(dmxResolved, ui_dim);`
+- [x] **7. `resolveMasterDimmer()` UI-wins instead of `max()`** — fixed:
+  now computes `dmx_dim` from DMX CH1 unconditionally and returns
+  `max(dmx_dim, ui_dim)` instead of short-circuiting on `ui_dim>0`.
+  File: [src/patterns/pattern_engine.cpp:262-275](src/patterns/pattern_engine.cpp#L262-L275)
 
-- [ ] **8. Paint-by-Finger double-dimming**
-  File: [src/patterns/pattern_engine.cpp:1675-1689](src/patterns/pattern_engine.cpp#L1675-L1689)
-  Problem: pre-scales RGB by `master_dimmer`, then `galvoTask` scales again by
-  `dimEff` → brightness².
-  Risk: at 50% dimmer, actual output ≈25%.
-  Fix: push raw 255/0 values; let `galvoTask` dim once.
+- [x] **8. Paint-by-Finger double-dimming** — fixed: removed the RGB
+  pre-scale loop before `pushFrame()`; `dim` is now only used to decide
+  push-vs-blank (matches Text Mode's existing gating pattern).
+  Dimming happens exactly once, in `galvoTask`.
+  File: [src/patterns/pattern_engine.cpp:1675-1682](src/patterns/pattern_engine.cpp#L1675-L1682)
 
-- [ ] **9. Curve Mode double-dimming**
-  File: [src/patterns/pattern_engine.cpp:1797-1810](src/patterns/pattern_engine.cpp#L1797-L1810)
-  Problem/Risk/Fix: same bug and same fix as #8.
+- [x] **9. Curve Mode double-dimming** — fixed, same change as #8.
+  File: [src/patterns/pattern_engine.cpp:1797-1802](src/patterns/pattern_engine.cpp#L1797-L1802)
 
-- [ ] **10. Gray `(200,200,200)` DMX color fallback violates 255/0 rule**
+- [x] **10. Gray `(200,200,200)` DMX color fallback violates 255/0 rule**
+  — fixed: `resolveColor()`'s fallback branch and `genPattern()`'s >99
+  branch both now default to `255,255,255`.
   File: [src/patterns/pattern_engine.cpp:272-282,298](src/patterns/pattern_engine.cpp#L272-L282)
-  Problem: `resolveColor()`/`genPattern()` default to gray instead of 255/0.
-  Risk: large chunks of the DMX color-channel range render dim gray instead of a
-  defined color; also compounds with master_dimmer.
-  Fix: default to `255,255,255`; use `col_override` for tinting instead.
 
 - [ ] **11. Duplicate `/api/calib-pattern/stop` route registration**
   File: [src/net/web_ui.cpp:2763-2772](src/net/web_ui.cpp#L2763-L2772) vs
@@ -92,15 +85,13 @@ one-line note (commit hash / reason skipped) when done.
   divergence once.
   Fix: delete the duplicate at 2835-2841.
 
-- [ ] **12. Encoder dimmer writes get stomped every frame**
-  File: [src/control/encoder.cpp:70-73,122](src/control/encoder.cpp#L70-L73) +
-  [src/patterns/pattern_engine.cpp:1441](src/patterns/pattern_engine.cpp#L1441)
-  Problem: encoder writes to `gState.master_dimmer`; `pattern_engine`
-  unconditionally overwrites `master_dimmer` from `resolveMasterDimmer()` every
-  tick.
-  Risk: standalone (no-DMX) front-panel dimmer knob is non-functional.
-  Fix: encoder should target `ui_master_dimmer` like the WebUI does, not
-  `master_dimmer` directly.
+- [x] **12. Encoder dimmer writes get stomped every frame** — fixed: both
+  `MODE_DIMMER`'s rotate handler and the long-press toggle now target
+  `gState.ui_master_dimmer` (same knob `/api/ui-control` drives) instead of
+  `gState.master_dimmer`, which `pattern_engine` overwrites every tick from
+  `resolveMasterDimmer()`.
+  File: [src/control/encoder.cpp:70-79,121-124](src/control/encoder.cpp#L70-L79) +
+  [src/patterns/pattern_engine.cpp:1447](src/patterns/pattern_engine.cpp#L1447)
 
 ---
 

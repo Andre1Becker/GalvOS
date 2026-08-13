@@ -68,8 +68,14 @@ static void applyDelta(int32_t delta) {
             break;
         }
         case MODE_DIMMER: {
-            int d = (int)gState.master_dimmer.load() + delta * 5;
-            gState.master_dimmer.store((uint8_t)constrain(d, 0, 255));
+            // Target ui_master_dimmer, not master_dimmer directly --
+            // pattern_engine's resolveMasterDimmer() overwrites master_dimmer
+            // from DMX/ui_master_dimmer every tick, which was stomping the
+            // encoder's writes and made the standalone (no-DMX) front-panel
+            // knob non-functional. ui_master_dimmer is the same knob the
+            // WebUI drives via /api/ui-control.
+            int d = (int)gState.ui_master_dimmer.load() + delta * 5;
+            gState.ui_master_dimmer.store((uint8_t)constrain(d, 0, 255));
             break;
         }
         case MODE_ILDA:
@@ -119,8 +125,10 @@ void task(void*) {
             s_btn_was_pressed = false;
 
             if (held >= LONG_PRESS_MS) {
-                gState.master_dimmer.store(gState.master_dimmer.load() > 0 ? 0 : 200);
-                ESP_LOGI(TAG, "LongPress → Dimmer=%d", gState.master_dimmer.load());
+                // Same reasoning as MODE_DIMMER above: toggle ui_master_dimmer,
+                // not master_dimmer (pattern_engine overwrites the latter every tick).
+                gState.ui_master_dimmer.store(gState.ui_master_dimmer.load() > 0 ? 0 : 200);
+                ESP_LOGI(TAG, "LongPress → Dimmer=%d", gState.ui_master_dimmer.load());
             } else {
                 if (now - s_last_click_ms < DOUBLE_CLICK_MS) {
                     s_click_count++;

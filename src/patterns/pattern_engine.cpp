@@ -260,13 +260,19 @@ static void readDmx(DmxView& v) {
 }
 
 static uint8_t resolveMasterDimmer(uint8_t v) {
-    // UI master dimmer always wins if set
     uint8_t ui_dim = gState.ui_master_dimmer.load();
-    if (ui_dim > 0) return ui_dim;
     // Normal DMX path
-    if (v < 10) return 0;
-    uint16_t mapped = ((uint16_t)(v - 10) * 255) / (255 - 10);
-    return (mapped > 255) ? 255 : (uint8_t)mapped;
+    uint8_t dmx_dim;
+    if (v < 10) {
+        dmx_dim = 0;
+    } else {
+        uint16_t mapped = ((uint16_t)(v - 10) * 255) / (255 - 10);
+        dmx_dim = (mapped > 255) ? 255 : (uint8_t)mapped;
+    }
+    // Documented master-dimmer rule: effective dimmer is max(dmx, ui), never
+    // a UI-wins short-circuit -- a stale nonzero ui_master_dimmer must not
+    // cap brightness below what DMX is actively commanding.
+    return max(dmx_dim, ui_dim);
 }
 
 static void resolveColor(uint8_t ch2, uint8_t& r, uint8_t& g, uint8_t& b) {
@@ -278,7 +284,7 @@ static void resolveColor(uint8_t ch2, uint8_t& r, uint8_t& g, uint8_t& b) {
     if (ch2 <= 59)       { r = 255; g = 255; b = 0;   return; }
     if (ch2 <= 69)       { r = 0;   g = 255; b = 0;   return; }
     if (ch2 >= 90 && ch2 <= 92) { r = 255; g = 0; b = 0; return; }
-    r = g = b = 200;
+    r = g = b = 255;
 }
 
 static size_t genPattern(const DmxView& v, LaserPoint* out) {
@@ -295,7 +301,7 @@ static size_t genPattern(const DmxView& v, LaserPoint* out) {
         }
         return n;
     }
-    return genCircle(out, radius, 200, 200, 200);
+    return genCircle(out, radius, 255, 255, 255);
 }
 
 static void applyTransform(LaserPoint* pts, size_t n, const DmxView& v, uint32_t phase) {
@@ -1672,14 +1678,11 @@ void task(void*) {
                 }
             }
 
+            // Dimming is applied once, in galvoTask (max(master_dimmer,
+            // ui_master_dimmer) per point) -- pre-scaling RGB here as well
+            // squared the effective brightness (e.g. 50% dimmer -> ~25%
+            // output). Push raw 255/0 values; only decide push-vs-blank here.
             uint8_t dim = gState.master_dimmer.load();
-            for (size_t i = 0; i < n; i++) {
-                if (!s_frame[i].blank) {
-                    s_frame[i].r = (s_frame[i].r * dim) >> 8;
-                    s_frame[i].g = (s_frame[i].g * dim) >> 8;
-                    s_frame[i].b = (s_frame[i].b * dim) >> 8;
-                }
-            }
             applyCalibration(s_frame, n);
             if (dim > 0) {
                 { uint32_t _t0=millis(); while (!galvo::pushFrame(s_frame, n)) { if (millis()-_t0 > 500) { safety::emergencyStop(); LOG_E(logbuf::CAT_SAFETY,"Pattern engine: pushFrame timeout, emergency stop"); break; } vTaskDelay(pdMS_TO_TICKS(2)); } }
@@ -1793,15 +1796,12 @@ void task(void*) {
 
                 applyKaleidoscope(n);
 
-                // Apply master dimmer
+                // Dimming is applied once, in galvoTask (max(master_dimmer,
+                // ui_master_dimmer) per point) -- pre-scaling RGB here as
+                // well squared the effective brightness (e.g. 50% dimmer ->
+                // ~25% output). Push raw 255/0 values; only decide
+                // push-vs-blank here.
                 uint8_t dim = gState.master_dimmer.load();
-                for (size_t i = 0; i < n; i++) {
-                    if (!s_frame[i].blank) {
-                        s_frame[i].r = (s_frame[i].r * dim) >> 8;
-                        s_frame[i].g = (s_frame[i].g * dim) >> 8;
-                        s_frame[i].b = (s_frame[i].b * dim) >> 8;
-                    }
-                }
                 applyCalibration(s_frame, n);
                 if (dim > 0) {
                     { uint32_t _t0=millis(); while (!galvo::pushFrame(s_frame, n)) { if (millis()-_t0 > 500) { safety::emergencyStop(); LOG_E(logbuf::CAT_SAFETY,"Pattern engine: pushFrame timeout, emergency stop"); break; } vTaskDelay(pdMS_TO_TICKS(2)); } }
