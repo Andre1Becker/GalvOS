@@ -1554,7 +1554,7 @@ canvas { max-width: 100%; display: block; }
 /* =========================================================================
    GLOBAL STATE
    ========================================================================= */
-var UI_VERSION = '1.17.0';   // WebUI version -- independent from firmware version
+var UI_VERSION = '1.17.1';   // WebUI version -- independent from firmware version
 var NAV_TABS = [
   {id: 'dashboard', label: 'Dashboard', icon: '🏠', bottom: true},
   {id: 'presets', label: 'Presets', icon: '🎮', bottom: true},
@@ -3574,17 +3574,22 @@ function textLive() {
 
 /* =========================================================================
    PAINT BY FINGER -- vector shape editor over a square canvas mapped to
-   galvo coordinate space. Coordinate mapping negates ONLY Y going
-   canvas<->galvo (canvas Y grows downward, galvo Y grows upward) -- X is
-   left as-is, same convention as the SVG-import pipeline's svgMapPoint().
-   pattern_engine::applyCalibration() applies a fixed, unconditional
-   optical X-mirror to every generated frame regardless of source (Preset/
-   Curve/Text/Paint/Weld alike), so pre-negating X here on top of that
-   double-flips it back to unmirrored -- the net effect was that Paint
-   strokes projected left/right-swapped relative to the canvas while every
-   other content source (which does NOT pre-negate X) came out correctly
-   mirror-corrected. Previously negated both axes; removed the X negation
-   (v1.17.0) to match every other content source.
+   galvo coordinate space. Coordinate mapping negates BOTH X and Y going
+   canvas<->galvo. v1.17.0 removed the X negation on the theory that it
+   just cancelled pattern_engine::applyCalibration()'s fixed X-mirror (which
+   every other content source relies on for correct orientation without
+   pre-negating X itself) -- but that theory had already been tried and
+   disproved on real hardware before v1.17.0 existed (Paint stayed
+   left/right-mirrored with only the Y negation applied), and reintroduced
+   exactly that regression: reported again on real hardware after v1.17.0
+   (2026-08-13), this time also visibly wrong on Y (a canvas-drawn apex-up
+   triangle projected apex-down, which a pure X-mirror cannot produce on a
+   left/right-symmetric shape) -- Y handling is unchanged by this revert
+   (identical negation in both v1.17.0 and here), so that part is NOT
+   explained yet; suspect gConfig.invert_y or something else entirely.
+   v1.17.1 restores the double-negation only -- re-test on hardware before
+   trusting either axis, and don't "simplify" this back to single-axis
+   without a fresh hardware test.
    ========================================================================= */
 var PAINT_RANGE = 24000;
 var PAINT_MAX_VERTS = 96, PAINT_STROKES_MAX = 12;
@@ -3607,12 +3612,12 @@ var paintSyncTimer = null;
 function paintG2C(gx, gy) {
   var canvas = document.getElementById('pt-canvas');
   var half = canvas.width / 2;
-  return [half + gx / PAINT_RANGE * half, half + (-gy) / PAINT_RANGE * half];
+  return [half + (-gx) / PAINT_RANGE * half, half + (-gy) / PAINT_RANGE * half];
 }
 function paintC2G(cx, cy) {
   var canvas = document.getElementById('pt-canvas');
   var half = canvas.width / 2;
-  return [(cx - half) / half * PAINT_RANGE, -(cy - half) / half * PAINT_RANGE];
+  return [-(cx - half) / half * PAINT_RANGE, -(cy - half) / half * PAINT_RANGE];
 }
 function paintPushHistory() {
   paintHistory.push(JSON.parse(JSON.stringify(paintStrokes)));
