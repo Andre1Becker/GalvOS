@@ -1945,6 +1945,7 @@ void init() {
             if (doc["fw_glitter"].is<bool>())     gLivePreset.fw_glitter      = doc["fw_glitter"];
             if (doc["mw_dots"].is<int>())         gLivePreset.mw_dots         = (uint8_t)constrain((int)doc["mw_dots"], 10, 60);
             if (doc["mw_tilt"].is<int>())         gLivePreset.mw_tilt         = (uint8_t)constrain((int)doc["mw_tilt"], 20, 80);
+            if (doc["hline_bounce"].is<bool>())   gLivePreset.hline_bounce    = doc["hline_bounce"];
             req->send(200, "text/plain", "OK");
         });
 
@@ -2550,15 +2551,22 @@ void init() {
             if (deserializeJson(doc, data, len)) { req->send(400); return; }
             uint8_t idx = doc["idx"] | 255;
             if (idx == 255) { req->send(400, "text/plain", "idx required"); return; }
-            bool ok = ilda::loadFile(idx);
+            // speed/size/loop are plain fields on gILDA, untouched by loadFile()/loadILDA(),
+            // so applying them up front (rather than after the load finishes) is equivalent.
             if (doc["speed"].is<int>())    ilda::gILDA.speed    = doc["speed"];
             if (doc["size"].is<int>())     ilda::gILDA.size_val = doc["size"];
             if (doc["loop"].is<bool>())    ilda::gILDA.loop     = doc["loop"];
-            if (ok) { req->send(200, "text/plain", "OK"); return; }
-            JsonDocument err(&jsonAllocator());
-            err["ok"]    = false;
-            err["error"] = ilda::errorMsg();
-            sendJsonPsram(req, err, 500);
+            // Runs the actual SD read/parse on a background task -- see startLoad()'s
+            // comment. This handler must return quickly; the frontend polls
+            // /api/ilda/status (gILDA.loading / errorMsg()) for the real outcome.
+            if (!ilda::startLoad(idx)) {
+                JsonDocument err(&jsonAllocator());
+                err["ok"]    = false;
+                err["error"] = ilda::errorMsg();
+                sendJsonPsram(req, err, 409);
+                return;
+            }
+            req->send(202, "text/plain", "loading");
         });
 
     // ---- POST /api/ilda/param ---- live-update speed/size/loop/color/invert
@@ -2613,6 +2621,8 @@ void init() {
     s_server.on("/api/ilda/status", HTTP_GET, [](AsyncWebServerRequest* req) {
         JsonDocument doc(&jsonAllocator());
         doc["active"]  = ilda::gILDA.active;
+        doc["loading"] = ilda::gILDA.loading;
+        doc["error"]   = ilda::errorMsg();  // "OK" when the last load succeeded (or none ran yet)
         doc["enabled"] = ilda::gILDA.enabled;
         doc["paused"]  = ilda::isPaused();
         doc["file_idx"]= ilda::gILDA.file_idx;

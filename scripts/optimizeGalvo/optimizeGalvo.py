@@ -114,7 +114,7 @@ import requests
 # ── versioning ───────────────────────────────────────────────────────────────
 # Semantic version of this script (independent of GalvOS firmware version).
 # Bump on every behavioral change; see git log for change history.
-SCRIPT_VERSION = "2.17.0"
+SCRIPT_VERSION = "2.18.0"
 
 # GalvOS firmware version that introduced /api/calib-cam/* (see firmware git log:
 # "fw: v6.03.0 -- camera-in-the-loop calibration API (calib-cam)").
@@ -508,6 +508,11 @@ DEFAULT_CONFIG = {
                                 # an accurate -3dB bandwidth/Q
     "resonanceFineSpanFraction": 0.4,  # fine pass spans +-this fraction of the coarse
                                 # peak frequency (e.g. 0.4 @ 300Hz peak -> 180-420Hz)
+    "resonanceFineSpanRetries": 2,  # if the -3dB crossing isn't found on both sides
+                                # (peak too sharp/narrow for the span, or a noisy edge),
+                                # double resonanceFineSpanFraction and re-sweep the fine
+                                # pass this many times before giving up on Q/
+                                # ring_damping_ratio for the run
     "resonanceMinCycles": 3,    # per frequency step, the capture window (settle +
                                 # accumulated frames) must span at least this many
                                 # drive periods for a reliable streak-extent reading -
@@ -668,6 +673,8 @@ def validateConfig(cfg: dict):
         problems.append("resonanceFinePoints must be an integer >= 3")
     if not isinstance(cfg.get("resonanceFineSpanFraction"), (int, float)) or not (0 < cfg["resonanceFineSpanFraction"] < 1):
         problems.append("resonanceFineSpanFraction must be a number between 0 and 1 (exclusive)")
+    if not isinstance(cfg.get("resonanceFineSpanRetries"), int) or cfg["resonanceFineSpanRetries"] < 0:
+        problems.append("resonanceFineSpanRetries must be a non-negative integer")
     if not isinstance(cfg.get("resonanceMinCycles"), int) or cfg["resonanceMinCycles"] < 1:
         problems.append("resonanceMinCycles must be an integer >= 1")
     if not isinstance(cfg.get("resonanceSettleSeconds"), (int, float)) or cfg["resonanceSettleSeconds"] < 0:
@@ -2497,28 +2504,48 @@ def runMeasureResonance(cfg: dict, esp: EspClient, cam: "Camera", axisName: str 
         coarsePeakFreq = max(validCoarse, key=lambda p: p[1])[0]
         pr(f"coarse peak: ~{coarsePeakFreq:.1f}Hz")
 
+        # Fine pass: linear-spaced around the coarse peak, for an accurate -3dB
+        # bandwidth. If the crossing doesn't land on both sides (peak too sharp/
+        # narrow for the span, or noisy near the edges), widen the span and
+        # re-sweep instead of giving up on Q/ring_damping_ratio outright - bounded
+        # by resonanceFineSpanRetries so a genuinely flat/noisy curve still stops.
         span = cfg["resonanceFineSpanFraction"]
-        fineLo = max(cfg["resonanceMinFreqHz"], coarsePeakFreq * (1 - span))
-        fineHi = min(cfg["resonanceMaxFreqHz"], coarsePeakFreq * (1 + span))
-        fineFreqs = list(np.linspace(fineLo, fineHi, cfg["resonanceFinePoints"]))
-        pr(f"fine pass: {len(fineFreqs)} points, {fineLo:.1f}-{fineHi:.1f}Hz (linear-spaced)")
-        fineAmps = _sweepFrequencies(cfg, esp, cam, background, axis, ampDac, colorRgb,
-                                     fineFreqs, "fine")
+        maxRetries = cfg["resonanceFineSpanRetries"]
+        attempt = 0
+        while True:
+            fineLo = max(cfg["resonanceMinFreqHz"], coarsePeakFreq * (1 - span))
+            fineHi = min(cfg["resonanceMaxFreqHz"], coarsePeakFreq * (1 + span))
+            pr(f"fine pass (attempt {attempt + 1}/{maxRetries + 1}): "
+              f"{cfg['resonanceFinePoints']} points, {fineLo:.1f}-{fineHi:.1f}Hz "
+              f"(linear-spaced, +-{span * 100:.0f}%)")
+            fineFreqs = list(np.linspace(fineLo, fineHi, cfg["resonanceFinePoints"]))
+            fineAmps = _sweepFrequencies(cfg, esp, cam, background, axis, ampDac, colorRgb,
+                                         fineFreqs, "fine")
 
-        allFreqs = coarseFreqs + fineFreqs
-        allAmps = coarseAmps + fineAmps
-        order = sorted(range(len(allFreqs)), key=lambda i: allFreqs[i])
-        freqs = [allFreqs[i] for i in order]
-        amps = [allAmps[i] for i in order]
+            allFreqs = coarseFreqs + fineFreqs
+            allAmps = coarseAmps + fineAmps
+            order = sorted(range(len(allFreqs)), key=lambda i: allFreqs[i])
+            freqs = [allFreqs[i] for i in order]
+            amps = [allAmps[i] for i in order]
 
-        validAll = [(i, a) for i, a in enumerate(amps) if a is not None]
-        if not validAll:
-            raise OptimizerError("no response detected in either sweep pass")
-        peakIdx = max(validAll, key=lambda p: p[1])[0]
-        fPeak = freqs[peakIdx]
-        peakAmp = amps[peakIdx]
+            validAll = [(i, a) for i, a in enumerate(amps) if a is not None]
+            if not validAll:
+                raise OptimizerError("no response detected in either sweep pass")
+            peakIdx = max(validAll, key=lambda p: p[1])[0]
+            fPeak = freqs[peakIdx]
+            peakAmp = amps[peakIdx]
 
-        f3dbLo, f3dbHi = _halfPowerBandwidth(freqs, amps, peakIdx)
+            f3dbLo, f3dbHi = _halfPowerBandwidth(freqs, amps, peakIdx)
+            if f3dbLo is not None and f3dbHi is not None:
+                break
+            spanExhausted = fineLo <= cfg["resonanceMinFreqHz"] and fineHi >= cfg["resonanceMaxFreqHz"]
+            if attempt >= maxRetries or spanExhausted:
+                break
+            attempt += 1
+            span = min(span * 2.0, 1.0) if span < 1.0 else span * 2.0
+            prWarn(f"-3dB crossing not resolved on both sides - retrying with a wider "
+                  f"fine-pass span (+-{span * 100:.0f}%)")
+
         result: dict = {"fPeakHz": fPeak, "peakAmplitudePx": peakAmp, "axis": axisLabel}
         if f3dbLo is not None and f3dbHi is not None:
             bandwidth = f3dbHi - f3dbLo
@@ -2535,10 +2562,10 @@ def runMeasureResonance(cfg: dict, esp: EspClient, cam: "Camera", axisName: str 
                 result.update({"f3dbLoHz": f3dbLo, "f3dbHiHz": f3dbHi, "bandwidthHz": bandwidth,
                               "Q": q, "ringDampingRatio": zeta, "ringFreqHz": float(fn)})
         else:
-            prWarn("could not resolve a full -3dB bandwidth on both sides of the peak - "
-                  "Q/ring_damping_ratio unavailable this run. Try a wider "
-                  "resonanceFineSpanFraction or check the coarse-sweep plot for a "
-                  "ragged/noisy curve near the peak.")
+            prWarn(f"could not resolve a full -3dB bandwidth on both sides of the peak after "
+                  f"{attempt + 1} fine-pass attempt(s) (final span +-{span * 100:.0f}%) - "
+                  f"Q/ring_damping_ratio unavailable this run. Raise resonanceFineSpanRetries "
+                  f"or check the coarse-sweep plot for a ragged/noisy curve near the peak.")
 
         ts = time.strftime("%Y%m%d_%H%M%S")
         csvPath = RESULTS_DIR / f"resonance_{axisLabel}_{ts}.csv"
@@ -3314,12 +3341,82 @@ def runAnalyzeLive(cfg: dict, esp: EspClient, cam: Camera):
 
 # ── optimization ─────────────────────────────────────────────────────────────
 
+def defaultSearchSpace() -> dict:
+    """Default searchSpace.json content - written to disk by loadSearchSpaceFile()
+    the first time the file is missing, the same way 'wizard' regenerates a missing
+    camConfig.json. There is no separate shipped example file to fall out of sync
+    with (the whole directory is gitignored, see .gitignore), so this IS the
+    source of truth for what a fresh checkout gets. Ranges are centered on each
+    profile's firmware default (OPT_PROFILE_DEFAULTS in include/config.h),
+    narrower than the WebUI sliders' full legal range so a first 'optimize' run
+    searches something useful out of the box instead of the entire range."""
+    return {
+        "_comment": "Auto-generated by loadSearchSpaceFile() because this file was "
+                    "missing - see that function's docstring. Ranges are a tuning "
+                    "starting point, not a firmware limit; edit freely. 'patterns' "
+                    "per profile is optional (defaults to the profile's own camera "
+                    "pattern(s), FW_PROFILE_PATTERNS in this script, if omitted).",
+        "Vector": {
+            "patterns": ["square", "star"],
+            "params": {
+                "corner_angle_deg": {"type": "float", "min": 10.0, "max": 60.0},
+                "min_corner_pts": {"type": "int", "min": 1, "max": 4},
+                "max_corner_pts": {"type": "int", "min": 4, "max": 14},
+                "pts_per_1000_units": {"type": "float", "min": 3.0, "max": 20.0},
+                "blank_samples": {"type": "int", "min": 8, "max": 30},
+                "min_blank_samples": {"type": "int", "min": 2, "max": 10},
+                "blank_pts_per_1000_units": {"type": "float", "min": 2.0, "max": 16.0},
+                "stage1_blank_target": {"type": "int", "min": 6, "max": 20},
+                "min_interior_pts_per_segment": {"type": "int", "min": 2, "max": 14},
+            },
+        },
+        "Smooth": {
+            "patterns": ["circle"],
+            "params": {
+                "max_corner_pts": {"type": "int", "min": 2, "max": 5},
+                "pts_per_1000_units": {"type": "float", "min": 5.0, "max": 25.0},
+                "blank_samples": {"type": "int", "min": 8, "max": 30},
+                "min_blank_samples": {"type": "int", "min": 2, "max": 10},
+                "min_interior_pts_per_segment": {"type": "int", "min": 4, "max": 16},
+            },
+        },
+        "Waves": {
+            "patterns": ["spiral"],
+            "params": {
+                "corner_angle_deg": {"type": "float", "min": 15.0, "max": 60.0},
+                "max_corner_pts": {"type": "int", "min": 3, "max": 10},
+                "pts_per_1000_units": {"type": "float", "min": 3.0, "max": 18.0},
+                "blank_samples": {"type": "int", "min": 8, "max": 30},
+                "min_blank_samples": {"type": "int", "min": 2, "max": 10},
+                "min_interior_pts_per_segment": {"type": "int", "min": 2, "max": 14},
+            },
+        },
+        "MultiObject": {
+            "patterns": ["segments"],
+            "params": {
+                "blank_samples": {"type": "int", "min": 10, "max": 40},
+                "min_blank_samples": {"type": "int", "min": 2, "max": 12},
+                "blank_pts_per_1000_units": {"type": "float", "min": 0.5, "max": 4.0},
+                "stage1_blank_target": {"type": "int", "min": 6, "max": 20},
+                "corner_angle_deg": {"type": "float", "min": 10.0, "max": 45.0},
+                "max_corner_pts": {"type": "int", "min": 3, "max": 10},
+            },
+        },
+    }
+
+
 def loadSearchSpaceFile() -> dict:
     if not SEARCH_SPACE_FILE.exists():
-        raise OptimizerError(
-            f"missing {SEARCH_SPACE_FILE.name} - create it with at least one profile "
-            f"before running 'optimize' (see the shipped example for the format)."
-        )
+        spaces = defaultSearchSpace()
+        try:
+            SEARCH_SPACE_FILE.write_text(json.dumps(spaces, indent=2))
+        except OSError as e:
+            raise OptimizerError(f"cannot create {SEARCH_SPACE_FILE}: {e}") from e
+        prWarn(f"{SEARCH_SPACE_FILE.name} was missing - regenerated with default "
+              f"ranges for Vector/Smooth/Waves/MultiObject (centered on each "
+              f"profile's firmware default). Review before relying on it for real "
+              f"tuning.")
+        return spaces
     try:
         spaces = json.loads(SEARCH_SPACE_FILE.read_text())
     except json.JSONDecodeError as e:

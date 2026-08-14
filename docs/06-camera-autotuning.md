@@ -21,6 +21,9 @@
   - [7. autotune-camera](#7-autotune-camera)
   - [8. autotune-colors](#8-autotune-colors)
   - [Standalone: analyze-live](#standalone-analyze-live)
+  - [Standalone: calibrate-warp](#standalone-calibrate-warp)
+  - [Standalone: measure-resonance](#standalone-measure-resonance)
+  - [Standalone: tune-dac-range](#standalone-tune-dac-range)
 - [How Scoring Works](#how-scoring-works)
 - [Session Semantics — Nothing Sticks Until You Apply It](#session-semantics--nothing-sticks-until-you-apply-it)
 - [Safety](#safety)
@@ -75,7 +78,7 @@ pip install -r requirements.txt
 | --- | --- |
 | `camConfig.json` | Runtime config — ESP32 base URL, camera index/resolution/exposure, DAC calibration range, cost weights, diagnose thresholds, HTTP timeout/retry settings. Created by `wizard` on first run. |
 | `homography.npz` | Pixel→DAC homography matrix plus the stored background frame, written by `calibrate`. Required by `measure`, `optimize`, and `diagnose`. |
-| `searchSpace.json` | Parameter ranges per camera-tunable optimizer profile (`Vector`, `Smooth`, `Waves`, `MultiObject`). Edit this if you widen a parameter's firmware-side limits. |
+| `searchSpace.json` | Parameter ranges per camera-tunable optimizer profile (`Vector`, `Smooth`, `Waves`, `MultiObject`). Regenerated with sensible defaults by `optimize`/`diagnose --autotune` if missing (same first-run behavior as `camConfig.json`) — edit the result if you widen a parameter's firmware-side limits. |
 | `results/` | `optuna_study.db` (resumable search state), per-trial `.jsonl` logs, best-parameter JSON snapshots, and saved camera frames from `measure`/`calibrate`., interactive runs offer to clean up stale files here (everything except the `.db`) at startup. |
 
 Override the config path with `--config`, e.g. to keep separate configs for multiple camera rigs.
@@ -189,6 +192,50 @@ python optimizeGalvo.py analyze-live
 ```
 
 Unlike every other command, this **never** starts or stops anything on the ESP32 — it captures one frame of whatever is already projecting (any preset, ILDA file, or custom output) and leaves it running. Since there's no known "ideal" shape for an arbitrary preset the way there is for the 6 calib patterns, it runs a no-reference *structural* read instead of path-deviation scoring: does the beam trace form one continuous piece (vs. a real gap or disconnected segment), does it enclose an area (closed loop), and is the sensor saturating. It looks up the active preset's name/category via the API to label the report, and its "possibly broken" flag is a heuristic, never a hard fail — plenty of presets are legitimately multi-piece (particles, starfields, multi-object scenes), and known multi-piece presets are excepted.
+
+### Standalone: calibrate-warp
+
+```bash
+python optimizeGalvo.py calibrate-warp --grid-size 3 --target-rect 100,80,1180,720
+python optimizeGalvo.py calibrate-warp --grid-size 2 --dry-run
+```
+
+Solves the firmware's N×N (2–5) `/api/warp/*` keystone-correction grid — independent of `calibrate`/`homography.npz` above (that one scores optimizer trials in pixel↔DAC space; this one corrects projector keystone/perspective, e.g. a projector mounted off-axis from the target surface). Resets the firmware to an identity grid, then projects each control point as a single bright dwell dot via `/api/debug/hw` — bypassing pattern generation, warp, and calibration entirely, so every point lands at a precisely known DAC position regardless of whatever grid was previously active — and measures where it lands (median of `--frames` captures, subpixel centroid).
+
+- `--grid-size 2` (default) solves one homography from the 4 corner measurements and inverts it exactly, no further measurement needed.
+- `--grid-size 3`–`5` seeds every control point (interior points too) from that same corner homography, then iteratively re-measures and corrects each one — up to 3 rounds, stopping early once within `warpCalibToleranceCameraPx`.
+- `--target-rect X0,Y0,X1,Y1` sets the target rectangle in camera pixel space directly; omit it to click the 4 corners interactively instead (needs a terminal).
+- Rejects a control point outright (aborting with the full list of failed indices) if its detected blob area or brightness falls outside `warpCalibMin/MaxBlobAreaPx`/`warpCalibMinPeakVal` in `camConfig.json`, rather than silently solving from bad data.
+- Prints the before/after residual (mean/max, camera pixels) and POSTs the resulting grid via `/api/warp/set` (`enabled=true`) unless `--dry-run`.
+
+Requires firmware v6.55.0+ (`/api/warp/*`). No prior `calibrate`/`homography.npz` needed.
+
+### Standalone: measure-resonance
+
+```bash
+python optimizeGalvo.py measure-resonance --axis x
+```
+
+Sweeps one galvo axis (`--axis x`/`y`, default `resonanceAxis` in `camConfig.json`) over `resonanceMinFreqHz`–`resonanceMaxFreqHz` Hz (default 50–2000) via a firmware-generated sine drive (`/api/debug/resonance`), reading each step's driven streak **spatial extent** (not centroid — a symmetric back-and-forth streak's centroid is amplitude-blind) as an amplitude proxy. Two passes: a coarse log-spaced sweep across the full range locates an approximate peak, then a fine linear-spaced pass around it (`resonanceFineSpanFraction`, default ±40% of the coarse peak) resolves an accurate -3dB bandwidth.
+
+If that fine pass can't resolve a clean -3dB crossing on *both* sides of the peak (too sharp for the span, or a noisy edge), it automatically widens the span (doubling it) and re-sweeps, up to `resonanceFineSpanRetries` times (default 2) before giving up on `Q`/`ring_damping_ratio` for that run and reporting `fRes` alone.
+
+Computes `Q = fRes / bandwidth`, `ring_damping_ratio = 1/(2Q)`, and `ring_freq_hz` — corrected from the driven-response peak back to the *undamped natural frequency* the firmware's ZV shaper actually wants (`point_optimizer.cpp`'s `computeZvShaper()`). Prints the result and the exact `/api/optimizer-live` call to apply it — **never applies it automatically**. Saves a CSV (`freq_hz`, `amplitude_px`) and a Bode-plot PNG to `results/resonance_<axis>_<timestamp>.{csv,png}`.
+
+Requires firmware v6.61.0+ (`/api/debug/resonance`). No homography needed — only *relative* amplitude matters, unlike `calibrate`/`calibrate-warp`. Test amplitude is deliberately conservative (`resonanceAmpFraction` of the safe DAC range, further clamped firmware-side) — near resonance, the same commanded amplitude produces the largest mechanical excursion of this entire toolkit's test signals.
+
+### Standalone: tune-dac-range
+
+```bash
+python optimizeGalvo.py tune-dac-range
+python optimizeGalvo.py tune-dac-range --max-iterations 10 --dry-run
+```
+
+Camera closed-loop auto-tune of per-axis galvo gain/offset **framing** — projects the static `square` calib-cam pattern (thin rectangle outline, sharp corners) and reads where its bounding box sits in the captured frame: a side within ~3% of the frame border counts as clipped, both sides of an axis clearing ~5.5% counts as underscanning, otherwise it's OK. Each iteration solves and live-applies (`/api/calib-live`) the `galvo_x/y_gain` + `galvo_x/y_offset` that would realize the next candidate DAC-code range, re-measures, and adjusts again — shrinking a clipped side, expanding an underscanning axis, freezing a side once it settles within a small deadband so it doesn't oscillate forever right at the edge.
+
+Distinct from the firmware's own `dacClipX/Y` (that flags DAC-*code* clipping against the fixed `dac_limit_min/max` safety clamp, untouched here) — this is a camera-*pixel* framing read. Prints the tuned gain/offset table, then asks before persisting via `/api/calib-save` (declining leaves the values live but reverts on next reboot) — or reverts to the original calibration entirely on `--dry-run` or a declined non-converged run.
+
+No homography needed, like `calibrate-warp`/`measure-resonance` above.
 
 ---
 

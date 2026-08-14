@@ -568,7 +568,11 @@ static size_t p12(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){size_
 static size_t p13(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     // Straight stroke -> line() (already optimizer-backed). The old fixed
     // 60-sample loop is exactly what edgeInteriorCount() derives from length.
-    size_t n=0;float s=SC*ssc(sz)*.9f,off=(aang(ph,sp)/PI2*2.f-1.f)*s;
+    size_t n=0;float s=SC*ssc(sz)*.9f,r=aang(ph,sp)/PI2;  // r: 0..1 sawtooth ramp
+    // Default: sawtooth ramp bottom->top, snapping back to bottom every wrap.
+    // Bounce: fold the ramp into a 0..1..0 triangle so the line eases back
+    // down instead of snapping (bugs01.md P3 #8 -- "not just bottom->top").
+    float tri=r<.5f?r*2.f:2.f-r*2.f, off=((gLivePreset.hline_bounce?tri:r)*2.f-1.f)*s;
     line(o,n,m,-s,off,s,off,255,255,0);
     return n;
 }
@@ -815,14 +819,24 @@ static size_t p33(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
 static size_t p35(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){return sinewave(o,m,.55f,1,aang(ph,sp),SC*ssc(sz)*.9f,0,255,255);}
 static size_t p36(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){float A=fabsf(sinf(aang(ph,sp)))*.8f+.1f;return sinewave(o,m,A,2,0,SC*ssc(sz)*.9f,0,255,0);}
 static size_t p37(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
-    size_t n=0;float sc=SC*ssc(sz)*.9f,t=aang(ph,sp);
+    size_t n=0;float sc=SC*ssc(sz)*.9f;
     // Three independent optimize() calls. frameContext() hands each one the
     // frame's remaining budget, but a remainder alone is first-come-first-
     // served: a dense first wave could take the whole frame and leave the
     // other two undrawn. All three carry equal weight here, so each is also
     // capped at an even third.
     const uint16_t share=(uint16_t)(gOptimizerConfig.max_pts_per_frame/3);
-    const float amps[3]={.3f,.2f,.15f}, freqs[3]={1.f,2.f,3.f}, phs[3]={t,t*1.5f,t*2.f};
+    // Each harmonic's phase must come from its OWN aang() call (multiplier
+    // applied before the internal fmodf wrap), not a post-hoc `t*1.5f` on an
+    // already-wrapped t -- aang(ph,sp) resets to 0 every 2*PI, and scaling
+    // that wrapped value afterward by a non-integer factor (1.5 here) jumps
+    // the fed phase by ~PI at every wrap instead of landing back on the same
+    // point in the cycle, i.e. a visible snap once per loop (bugs01.md P2
+    // #6: "Wave presets don't loop cleanly"). *2.f happened to be safe (an
+    // integer multiple always re-lands exactly on a 2*PI boundary) but is
+    // switched too for consistency/future-proofing.
+    const float amps[3]={.3f,.2f,.15f}, freqs[3]={1.f,2.f,3.f},
+                phs[3]={aang(ph,sp),aang(ph,sp,1.5f),aang(ph,sp,2.f)};
     const uint8_t cols[3][3]={{255,0,0},{0,255,0},{0,0,255}};
     for(int w=0;w<3;w++){
         optimizer::OptimizerConfig cfg=liveOptimizerConfig();
@@ -835,6 +849,11 @@ static size_t p37(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
 }
 static size_t p38(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     float sc=SC*ssc(sz)*.9f,t=aang(ph,sp);
+    // t2/t3 come from their own aang() calls (multiplier applied before the
+    // internal wrap) instead of t*1.7f/t*2.3f on the already-wrapped t --
+    // see the p37 comment for why a post-wrap non-integer multiply snaps the
+    // phase once per loop instead of looping cleanly (bugs01.md P2 #6).
+    float t2=aang(ph,sp,1.7f), t3=aang(ph,sp,2.3f);
     const float wa=gLivePreset.wave_amp,wf=gLivePreset.wave_freq;
     const int N=120;
     // Migrated to optimizer: sampled polyline -> one open PathSegment.
@@ -842,8 +861,8 @@ static size_t p38(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
         float xx=L(-1.f,1.f,i/(float)(N-1));
         x=xx*sc;
         y=wa*(.3f*sinf(4*wf*xx*(float)M_PI+t)
-             +.15f*sinf(8*wf*xx*(float)M_PI+t*1.7f)
-             +.08f*sinf(16*wf*xx*(float)M_PI+t*2.3f))*sc;
+             +.15f*sinf(8*wf*xx*(float)M_PI+t2)
+             +.08f*sinf(16*wf*xx*(float)M_PI+t3))*sc;
         r=0; g=0; b=255;
     });
 }
@@ -1045,7 +1064,11 @@ static size_t p50(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     });
 }
 static size_t p51(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
-    float sc=SC*ssc(sz)*.9f,t=aang(ph,sp);
+    float sc=SC*ssc(sz)*.9f;
+    // aang(ph,sp,.3f) (multiplier applied before the internal wrap), not
+    // aang(ph,sp)*.3f -- see the p37 comment for why the latter snaps once
+    // per loop instead of looping cleanly (bugs01.md P2 #6).
+    float t=aang(ph,sp,.3f);
     const float wa=gLivePreset.wave_amp,wf=gLivePreset.wave_freq;
     const int N=120;
     // Migrated to optimizer: sampled polyline -> one open PathSegment.
@@ -1053,21 +1076,29 @@ static size_t p51(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     // blank-jump easing and the frame budget.
     return curve(o,m,N+1,false,[&](int i,int N,float&x,float&y,uint8_t&r,uint8_t&g,uint8_t&b){
         float xx=L(-1.f,1.f,i/(float)(N-1)),build=.5f+.5f*xx;
-        x=xx*sc; y=build*.5f*wa*sinf(PI2*(xx*2*wf-t*.3f))*.7f*sc;
+        x=xx*sc; y=build*.5f*wa*sinf(PI2*(xx*2*wf-t))*.7f*sc;
         r=0; g=255; b=255;
     });
 }
 static size_t p52(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
-    float sc=SC*ssc(sz)*.9f,t=aang(ph,sp);
+    float sc=SC*ssc(sz)*.9f;
     const float wa=gLivePreset.wave_amp,wf=gLivePreset.wave_freq;
     const int N=120;
+    static const int ks[5]={1,2,3,4,5};
+    // Each of the 5 harmonics needs its own aang() call (multiplier applied
+    // before the internal wrap): j*.5f+.5f runs 0.5/1.0/1.5/2.0/2.5, and a
+    // post-hoc t*(j*.5f+.5f) on an already-wrapped t snaps 3 of the 5
+    // harmonics' phase once per loop instead of looping cleanly (only the
+    // two integer multipliers, 1.0 and 2.0, happened to stay continuous)
+    // -- bugs01.md P2 #6.
+    float phs[5];
+    for (int j = 0; j < 5; j++) phs[j] = aang(ph, sp, j * .5f + .5f);
     // Migrated to optimizer: sampled polyline -> one open PathSegment.
     // N is now shape fidelity only; the optimizer owns output density,
     // blank-jump easing and the frame budget.
     return curve(o,m,N+1,false,[&](int i,int N,float&x,float&y,uint8_t&r,uint8_t&g,uint8_t&b){
         float xx=L(-1.f,1.f,i/(float)(N-1));float yy=0;
-        static const int ks[5]={1,2,3,4,5};
-        for(int j=0;j<5;j++) yy+=sinf(ks[j]*wf*xx*PI2+t*(j*.5f+.5f))*.2f/ks[j];
+        for(int j=0;j<5;j++) yy+=sinf(ks[j]*wf*xx*PI2+phs[j])*.2f/ks[j];
         x=xx*sc; y=yy*wa*sc;
         r=255; g=200; b=50;
     });
@@ -1410,10 +1441,29 @@ static size_t p86(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){ // H
     segs[NP]=optimizer::PathSegment(vc,NC,true);
     return optimizer::optimize(segs,NP+1,o,m,liveOptimizerConfig());
 }
+// p88 Starburst Party (Kombi) -- v6.66.x: batched into one optimize() call,
+// same fix p59 got pre-migration. Previously: 24 separate line()->optimize()
+// calls, each budget-checked individually via frameContext() -- the frame's
+// point budget ran out ~12 spokes in and the rest were silently dropped
+// (half the burst missing, bbox ~2:1). See bugs01.md P4 #14.
 static size_t p88(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){ // Starburst (Kombi)
-    size_t n=0;float sc=SC*ssc(sz)*.9f,off=aang(ph,sp);
-    for(int i=0;i<24;i++){float a=PI2*i/24.f+off,inner=sc*.3f,outer=sc*(.7f+.3f*sinf(i*.8f));line(o,n,m,cosf(a)*inner,sinf(a)*inner,cosf(a)*outer,sinf(a)*outer,(uint8_t)(128+127*sinf(a)),(uint8_t)(128+127*cosf(a)),255,8);}
-    return n;
+    float sc=SC*ssc(sz)*.9f,off=aang(ph,sp);
+    const int nspokes=24;
+    optimizer::PathVertex verts[nspokes*2];
+    optimizer::PathSegment segs[nspokes];
+    for(int i=0;i<nspokes;i++){
+        float a=PI2*i/nspokes+off;
+        float inner=sc*.3f,outer=sc*(.7f+.3f*sinf(i*.8f));
+        uint8_t cr=(uint8_t)(128+127*sinf(a)),cg=(uint8_t)(128+127*cosf(a));
+        verts[i*2].x=cosf(a)*inner; verts[i*2].y=sinf(a)*inner;
+        verts[i*2].r=cr; verts[i*2].g=cg; verts[i*2].b=255;
+        verts[i*2].lift=true;
+        verts[i*2+1].x=cosf(a)*outer; verts[i*2+1].y=sinf(a)*outer;
+        verts[i*2+1].r=cr; verts[i*2+1].g=cg; verts[i*2+1].b=255;
+        verts[i*2+1].lift=false;
+        segs[i]=optimizer::PathSegment(&verts[i*2],2,false);
+    }
+    return optimizer::optimize(segs,nspokes,o,m,liveOptimizerConfig());
 }
 // ─── SZENEN 90 ─────────────────────────────────────────────
 // p90 Starfield: falling star field, top→bottom with wrap.

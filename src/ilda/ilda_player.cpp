@@ -345,6 +345,36 @@ bool loadFile(uint8_t idx) {
 
 const char* errorMsg() { return s_error_msg; }
 
+// ── Async load wrapper ──────────────────────────────────────────────
+// loadFile() blocks for the full SD read + parse (loadILDA()'s own comment
+// documents worst case: up to an 8s SD-mutex wait plus however long the
+// file takes to parse). POST /api/ilda/play used to call loadFile()
+// directly from the async_tcp request callback -- ESPAsyncWebServer
+// services all connections from that one task, so every other HTTP
+// request (including the WebUI's own 250ms /api/ilda/status poll) queued
+// up behind it and, on anything but a small file, blew past the
+// frontend's 10s apiCall() timeout. Symptom matched exactly: "ILDA Play
+// crashes the UI -- GET /api/ilda/status times out". Fixed by running the
+// load on its own task and letting /api/ilda/status report gILDA.loading.
+static uint8_t s_pending_load_idx = 0;
+
+static void loadTask(void*) {
+    loadFile(s_pending_load_idx);
+    gILDA.loading = false;
+    vTaskDelete(nullptr);
+}
+
+bool startLoad(uint8_t idx) {
+    if (gILDA.loading) {
+        strlcpy(s_error_msg, "Load already in progress", sizeof(s_error_msg));
+        return false;
+    }
+    gILDA.loading = true;
+    s_pending_load_idx = idx;
+    xTaskCreatePinnedToCore(loadTask, "ilda_load", 4096, nullptr, 4, nullptr, 0);
+    return true;
+}
+
 void stop() {
     s_playing = false;
     if (s_task) { vTaskDelay(pdMS_TO_TICKS(50)); s_task = nullptr; }

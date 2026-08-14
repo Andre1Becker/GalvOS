@@ -574,9 +574,25 @@ canvas { max-width: 100%; display: block; }
                 <div class="field"><label id="lv-size-label">Size</label><div class="slider-row"><input type="range" id="lv-size" min="0" max="255" value="128" oninput="liveSlider('lv-size')"><output id="lv-size-val">128</output></div></div>
                 <div class="field"><label>Autoscale Speed</label><input type="range" id="lv-autoscale-speed" min="0" max="100" value="0" oninput="liveSlider('lv-autoscale-speed')"></div>
                 <div class="field"><label>Autoscale Mode</label>
-                  <select id="lv-autoscale-mode" onchange="sendLiveControls()"><option value="0">Off</option><option value="1">Fit</option><option value="2">Fill</option></select>
+                  <!-- Values match firmware's AUTOSCALE_SMALL_BIG_SMALL/SMALL_BIG/BIG_SMALL
+                       (include/config.h) exactly -- there is no separate "off" enum value,
+                       Autoscale Speed=0 above is what actually disables it. The v6.32.0 WebUI
+                       rewrite had swapped these for "Off/Fit/Fill", which described a feature
+                       that was never implemented and made every mode selection a no-op from
+                       the user's perspective (bugs01.md P2 #4). -->
+                  <select id="lv-autoscale-mode" onchange="sendLiveControls()"><option value="0">Pulse (Small → Big → Small)</option><option value="1">Grow (Small → Big)</option><option value="2">Shrink (Big → Small)</option></select>
                 </div>
                 <div class="field"><label>Rotation</label><input type="range" id="lv-rotation" min="0" max="359" value="0" oninput="liveSlider('lv-rotation')"></div>
+                <div class="row" style="flex-wrap:wrap;gap:4px">
+                  <button class="btn sm" onclick="setRotationQuick(0)">0&deg;</button>
+                  <button class="btn sm" onclick="setRotationQuick(45)">45&deg;</button>
+                  <button class="btn sm" onclick="setRotationQuick(90)">90&deg;</button>
+                  <button class="btn sm" onclick="setRotationQuick(135)">135&deg;</button>
+                  <button class="btn sm" onclick="setRotationQuick(180)">180&deg;</button>
+                  <button class="btn sm" onclick="setRotationQuick(225)">225&deg;</button>
+                  <button class="btn sm" onclick="setRotationQuick(270)">270&deg;</button>
+                  <button class="btn sm" onclick="setRotationQuick(315)">315&deg;</button>
+                </div>
                 <p id="preset-hint-text" style="font-size:0.8rem"></p>
               </div>
               <div>
@@ -585,15 +601,15 @@ canvas { max-width: 100%; display: block; }
                 <div class="row rot-axis"><label><input type="checkbox" class="rot-x-cb" onchange="setRotAxis('x',this.checked)"> X</label>
                   <label><input type="checkbox" class="rot-y-cb" onchange="setRotAxis('y',this.checked)"> Y</label>
                   <label><input type="checkbox" class="rot-z-cb" onchange="setRotAxis('z',this.checked)"> Z</label></div>
-                <div class="field rot-axis"><label>Rotation Speed</label><input type="range" class="rot-speed-slider" min="-0.5" max="0.5" step="0.01" value="0" oninput="setRotSpeed(this.value)"></div>
+                <div class="field rot-axis"><label>Rotation Speed</label><input type="range" class="rot-speed-slider" min="-0.3" max="0.3" step="0.01" value="0" oninput="setRotSpeed(this.value)"></div>
                 <h3>Kaleidoscope &amp; Mirror</h3>
                 <label class="row"><input type="checkbox" id="lv-kaleido-on" onchange="sendLiveControls()"> Enabled</label>
                 <div class="field"><label>Mode</label>
                   <select id="lv-kaleido-mode" onchange="onKaleidoModeChange()"><option value="1" selected>Kaleidoscope</option><option value="0">Radial Repeat</option></select>
                 </div>
                 <div class="field"><label>Segments</label><input type="range" id="lv-kaleido-segments" min="2" max="6" step="2" value="4" oninput="liveSlider('lv-kaleido-segments')"></div>
-                <label class="row"><input type="checkbox" id="lv-mirror-h" onchange="onMirrorHVChange(this)" disabled> Mirror H</label>
-                <label class="row"><input type="checkbox" id="lv-mirror-v" onchange="onMirrorHVChange(this)" disabled> Mirror V</label>
+                <label class="row"><input type="checkbox" id="lv-mirror-h" onchange="onMirrorHVChange(this)"> Mirror H</label>
+                <label class="row"><input type="checkbox" id="lv-mirror-v" onchange="onMirrorHVChange(this)"> Mirror V</label>
                 <p class="param-hint">Only affects Radial Repeat mode -- checking either box switches Mode to Radial Repeat and turns Kaleidoscope on automatically.</p>
                 <div class="row">
                   <button class="btn sm mirror-btn primary" onclick="setMirrorMode(0)">Off</button>
@@ -652,6 +668,9 @@ canvas { max-width: 100%; display: block; }
               </div>
             </details>
 
+            <div id="preset-extra-13" class="preset-extra-row hidden field">
+              <label class="row"><input type="checkbox" id="lv-hline-bounce" onchange="sendLiveControls()"> Bounce (up &harr; down)</label>
+            </div>
             <div id="preset-extra-90" class="preset-extra-row hidden"><p>Starfield uses Speed=Twinkle, Size=Density above.</p></div>
             <div id="preset-extra-104" class="preset-extra-row hidden field"><label>Hold ms</label><input type="range" id="lv-hold-ms" min="50" max="5000" value="500" oninput="liveSlider('lv-hold-ms')"></div>
             <div id="preset-extra-73" class="preset-extra-row hidden grid grid-2">
@@ -936,7 +955,7 @@ canvas { max-width: 100%; display: block; }
             <div class="row"><label><input type="checkbox" class="rot-x-cb" onchange="setRotAxis('x',this.checked)"> X</label>
               <label><input type="checkbox" class="rot-y-cb" onchange="setRotAxis('y',this.checked)"> Y</label>
               <label><input type="checkbox" class="rot-z-cb" onchange="setRotAxis('z',this.checked)"> Z</label></div>
-            <div class="field"><label>Speed</label><input type="range" class="rot-speed-slider" min="-0.5" max="0.5" step="0.01" value="0" oninput="setRotSpeed(this.value)"></div>
+            <div class="field"><label>Speed</label><input type="range" class="rot-speed-slider" min="-0.3" max="0.3" step="0.01" value="0" oninput="setRotSpeed(this.value)"></div>
           </div>
         </div>
       </div>
@@ -1555,7 +1574,7 @@ canvas { max-width: 100%; display: block; }
 /* =========================================================================
    GLOBAL STATE
    ========================================================================= */
-var UI_VERSION = '1.18.1';   // WebUI version -- independent from firmware version
+var UI_VERSION = '1.19.0';   // WebUI version -- independent from firmware version
 var NAV_TABS = [
   {id: 'dashboard', label: 'Dashboard', icon: '🏠', bottom: true},
   {id: 'presets', label: 'Presets', icon: '🎮', bottom: true},
@@ -2080,7 +2099,8 @@ var PRESET_PARAM_HINTS = {
   77: {sp: 'Speed', sz: 'Rings', hint: 'Endless Tunnel: Size = ring count'},
   78: {sp: 'Speed', sz: 'Rays', hint: 'Explosion Spread: Size = ray count'},
   79: {sp: 'Speed', sz: 'Shells', hint: 'Fireworks: Size = shell count'},
-  80: {sp: 'Tilt', sz: 'Dots', hint: 'Milky Way: Size = dot count'}
+  80: {sp: 'Tilt', sz: 'Dots', hint: 'Milky Way: Size = dot count'},
+  13: {sp: 'Speed', sz: 'Size', hint: 'H Line: Bounce eases back down instead of snapping to bottom'}
 };
 
 var PRESET_GRID_CONTAINERS = [];
@@ -2298,14 +2318,22 @@ function liveSlider(id) {
   if (liveDebounce) clearTimeout(liveDebounce);
   liveDebounce = setTimeout(sendLiveControls, 50);
 }
+// Quick-set buttons for the Rotation slider (bugs01.md P3 #11) -- jumps
+// straight to a common angle instead of dragging the slider by hand.
+function setRotationQuick(deg) {
+  var el = document.getElementById('lv-rotation');
+  if (!el) return;
+  el.value = deg;
+  liveSlider('lv-rotation');
+}
 function onKaleidoModeChange() {
   // Mirror H/V only affect Radial Repeat mode -- the true Kaleidoscope fold
-  // already builds its own mirror symmetry, so disable them for that mode.
-  var isMirrorMode = domVal('lv-kaleido-mode', 1) == 1;
-  var mh = document.getElementById('lv-mirror-h');
-  var mv = document.getElementById('lv-mirror-v');
-  if (mh) mh.disabled = isMirrorMode;
-  if (mv) mv.disabled = isMirrorMode;
+  // already builds its own mirror symmetry. Used to `.disabled` the
+  // checkboxes for Kaleidoscope mode (the page's default), which left them
+  // permanently un-clickable since onMirrorHVChange()'s whole point is to
+  // switch OUT of that mode for you -- you can't click a disabled checkbox
+  // to trigger the switch that would un-disable it (bugs01.md P3 #10).
+  // Left enabled always; onMirrorHVChange() below handles the mode switch.
   sendLiveControls();
 }
 // Checking Mirror H/V previously silently no-op'd whenever Kaleidoscope was
@@ -2352,7 +2380,8 @@ async function sendLiveControls() {
     bp_trail_len: domVal('lv-trail', 6), bp_endless: domVal('lv-endless', false), bp_duration_sec: domVal('lv-duration-sec', 8),
     spiral_arms: domVal('lv-arms', 3), tunnel_rings: domVal('lv-rings', 8), tunnel_sides: domVal('lv-sides', 6),
     explosion_rays: domVal('lv-rays', 16), fw_max_shells: domVal('lv-shells', 2), fw_glitter: domVal('lv-glitter', false),
-    mw_dots: domVal('lv-dots', 30), mw_tilt: domVal('lv-tilt', 45)
+    mw_dots: domVal('lv-dots', 30), mw_tilt: domVal('lv-tilt', 45),
+    hline_bounce: domVal('lv-hline-bounce', false)
   };
   await apiCall('POST', '/api/preset-live', payload);
 }
@@ -3914,7 +3943,15 @@ async function paintPush(activeFlag) {
   await apiCall('POST', '/api/paint/set', {strokes: paintSerializeStrokes(), active: activeFlag});
 }
 async function paintProject() { await paintPush(true); toast('Projecting paint canvas'); }
-async function paintOff() { await apiCall('POST', '/api/paint/off'); }
+async function paintOff() {
+  // A finger stroke just before tapping Off leaves paintSyncDebounced()'s
+  // 120ms timer in flight; without cancelling it (and Live still checked)
+  // that timer's paintPush(true) fires right after this call and silently
+  // re-activates Paint mode -- "Off" snapping back on. Same guard as
+  // paintForceStopLive(), called here too so the button actually sticks.
+  paintForceStopLive();
+  await apiCall('POST', '/api/paint/off');
+}
 // Switching to a Preset already clears gPaint.active server-side
 // (patterns::setPreset()) -- but if the Paint tab's "Live" checkbox is
 // still checked, the next paint edit's debounced sync (paintSyncDebounced())
@@ -4130,8 +4167,12 @@ async function ildaPlayFile(idx) {
   var btn = document.getElementById('ilda-play-btn-' + idx);
   if (btn) { btn.disabled = true; btn.textContent = '⏳ Loading...'; }
   var speed = domVal('ilda-speed', 128), size = domVal('ilda-size', 128), loop = domVal('ilda-loop', false);
+  // /api/ilda/play only kicks the SD read off in the background now (202 "loading") --
+  // it no longer blocks until the file is actually parsed. updateIldaPlayerUI()'s poll
+  // (below, and the ilda-tab interval) reflects the real loading/active/error state once
+  // the background load finishes.
   var r = await apiCall('POST', '/api/ilda/play', {idx: idx, speed: speed, size: size, loop: loop});
-  if (btn) { btn.textContent = (r !== null) ? '✓ Done' : '✗ Error'; }
+  if (r === null && btn) { btn.disabled = false; btn.textContent = '▶ Play'; }
   setTimeout(function() { loadSdStatus(); updateIldaPlayerUI(); }, 400);
 }
 async function ildaSetEnabled(v) { await apiCall('POST', '/api/ilda/enable', {enabled: v}); }
@@ -4144,6 +4185,7 @@ async function ildaParamChange() {
 }
 async function ildaStop() { await apiCall('POST', '/api/ilda/stop'); }
 async function ildaPauseResume(paused) { await apiCall('POST', '/api/ilda/pause', {paused: paused}); }
+var s_ildaWasLoading = false;
 async function updateIldaPlayerUI() {
   var r = await apiCall('GET', '/api/ilda/status');
   if (!r) return;
@@ -4151,7 +4193,15 @@ async function updateIldaPlayerUI() {
     var el = document.getElementById(id); if (!el || document.activeElement === el) return;
     if (isCheckbox) el.checked = !!val; else el.value = val;
   };
-  document.getElementById('ilda-now-playing').textContent = r.active ? (r.name || ('#' + r.file_idx)) : 'Nothing playing';
+  // Background load in progress (see ildaPlayFile()) -- keep every Play/Restart button
+  // disabled so a slow SD read can't be started twice, and surface a failed load once
+  // (the 409 "already in progress" case toasts on its own via apiCall()).
+  document.querySelectorAll('[id^="ilda-play-btn-"]').forEach(function(b) { b.disabled = r.loading; });
+  if (s_ildaWasLoading && !r.loading && !r.active && r.error && r.error !== 'OK') {
+    toast('ILDA load failed: ' + r.error, true);
+  }
+  s_ildaWasLoading = r.loading;
+  document.getElementById('ilda-now-playing').textContent = r.loading ? 'Loading...' : (r.active ? (r.name || ('#' + r.file_idx)) : 'Nothing playing');
   var pct = r.total ? Math.round((r.frame / r.total) * 100) : 0;
   var bar = document.getElementById('ilda-progress-bar'); if (bar) bar.style.width = pct + '%';
   var lbl = document.getElementById('ilda-progress-label'); if (lbl) lbl.textContent = r.frame + ' / ' + r.total;

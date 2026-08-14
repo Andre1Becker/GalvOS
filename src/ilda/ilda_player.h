@@ -43,13 +43,26 @@ struct ILDAConfig {
     uint16_t  total_frames = 0;
     uint16_t  current_frame = 0;
     uint32_t  total_points  = 0;
+    // true while startLoad()'s background task is parsing a file off the SD
+    // card -- lets callers that must not block (the WebUI's async_tcp
+    // request task) poll for completion via /api/ilda/status instead of
+    // stalling every other HTTP request behind the load. See startLoad().
+    bool      loading = false;
 };
 
 extern ILDAConfig gILDA;
 
 /* Lifecycle */
 void init();
-bool loadFile(uint8_t idx);  // loads file into PSRAM, starts playback task
+bool loadFile(uint8_t idx);  // loads file into PSRAM, starts playback task -- BLOCKS the
+                              // calling task (SD read + parse can take seconds); only call
+                              // this from a dedicated task (playlist::task(), setFromDMX()'s
+                              // caller), never from the async_tcp HTTP request task.
+// Kicks loadFile() off on a background task instead of blocking the caller. Returns false
+// (and does nothing) if a load is already in progress. Poll gILDA.loading / errorMsg() (via
+// /api/ilda/status) for completion -- this is what the WebUI's play endpoint uses so a slow
+// SD read can't stall every other HTTP request behind it.
+bool startLoad(uint8_t idx);
 const char* errorMsg();      // reason the last loadFile() failed (valid after loadFile() returns false)
 void stop();
 void pause(bool paused);

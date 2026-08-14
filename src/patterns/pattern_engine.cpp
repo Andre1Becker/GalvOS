@@ -714,6 +714,12 @@ static void applyColorModulation(size_t n) {
 // retune if a specific loop duration is needed.
 static constexpr float kAutoScaleRate = 0.01f;
 
+// Reference frame period the animation-phase clock (`phase`, consumed by
+// every preset's aang()-based sweep/rotation) was tuned against -- the
+// ~25fps/40ms nominal rate documented in CLAUDE.md. See its use at the
+// preset-mode phase advance below (bugs01.md P2 #7).
+static constexpr float kAnimPhaseFrameMs = 40.0f;
+
 static uint8_t computeAutoScaleSize(uint8_t baseSize, float* outFrac) {
     if (gLivePreset.autoscaleSpeed == 0) { *outFrac = 1.0f; return baseSize; }
 
@@ -1398,6 +1404,9 @@ static void applyPointsOnlyMode(size_t& n) {
 
 void task(void*) {
     uint32_t phase = 0;
+    // Fractional carry for the preset-mode phase advance below -- see
+    // kAnimPhaseFrameMs.
+    float presetPhaseAccum = 0.f;
 
     // s_frame must exist (PSRAM, or internal-DRAM fallback in init()). If both
     // allocations failed the device is out of memory entirely -- park the task
@@ -2024,15 +2033,49 @@ void task(void*) {
                 phase++;
                 continue;
             }
-            phase++;
             // Dynamic delay: match push rate to galvoTask drain rate.
-            { uint32_t drain_ms = n / (uint32_t)gProjection.galvo_kpps;
-              if (drain_ms < 10) drain_ms = 10;  // FreeRTOS tick = 10ms minimum
-              vTaskDelay(pdMS_TO_TICKS(drain_ms + drain_ms / 4)); }
+            uint32_t drain_ms = n / (uint32_t)gProjection.galvo_kpps;
+            if (drain_ms < 10) drain_ms = 10;  // FreeRTOS tick = 10ms minimum
+            uint32_t delay_ms = drain_ms + drain_ms / 4;
+            // Advance the animation-phase clock by wall-clock time, not by
+            // loop iteration. drain_ms floors at 10ms above, so a point-
+            // sparse preset (H-Line's single 2-vertex line is the extreme
+            // case among Vector-class shapes) loops several times faster
+            // than a busy one -- a flat phase++ per iteration meant every
+            // aang()-based sweep/rotation rate scaled with how EMPTY a
+            // frame was instead of real time, so H-Line's Speed slider ran
+            // far faster than its value implied (bugs01.md P2 #7: "H-Line:
+            // max speed is 2x intended"). kAnimPhaseFrameMs is the
+            // reference period those speed constants assume.
+            presetPhaseAccum += (float)delay_ms / kAnimPhaseFrameMs;
+            uint32_t phaseStep = (uint32_t)presetPhaseAccum;
+            if (phaseStep > 0) { phase += phaseStep; presetPhaseAccum -= (float)phaseStep; }
+            vTaskDelay(pdMS_TO_TICKS(delay_ms));
             continue;
         }
 
-        // always fully calculate pattern (also needed for non-preset galvo output)
+        // Legacy DMX-emulation render (genPattern's shape-per-pattern_group
+        // circle/square/star). Only meaningful while an actual external/UI
+        // controller is driving the DMX channels it reads -- gOverride.active
+        // (manual /api/dmx-override), gState.ui_override (WebUI-takes-
+        // priority toggle), or a live DMX/Art-Net/sACN signal. Without any of
+        // those, readDmx() still fills `v` from gOverride.values' compiled-in
+        // defaults (pattern_group=0) purely as a safe fallback for the
+        // fields above, but blindly rendering from those defaults here drew
+        // a full-brightness circle any time every real mode (Preset/Text/
+        // Paint/ILDA) was switched off -- "Off" not actually meaning off.
+        // Fall through to a blanked beam instead, matching every other
+        // mode's own idle/off handling in this loop.
+        bool legacyDmxActive = gOverride.active || gState.ui_override.load() ||
+                                dmx_in::isReceiving() || artnet_in::isReceiving() ||
+                                sacn_in::isReceiving();
+        if (!legacyDmxActive) {
+            static LaserPoint blank_pt = {0, 0, 0, 0, 0, 1};
+            galvo::pushFrame(&blank_pt, 1);
+            vTaskDelay(pdMS_TO_TICKS(40));
+            continue;
+        }
+
         size_t n = genPattern(v, s_frame);
         uint8_t r, g, b;
         resolveColor(v.color, r, g, b);

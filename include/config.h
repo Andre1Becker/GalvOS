@@ -818,6 +818,10 @@ struct LivePresetControls {
     volatile bool     kaleido_mirror_v  = false;  // Radial mode only: alternate segments flip Y
     // Mirror effect (separate from Kaleidoscope) -- Off/X/Y/Radial4
     volatile uint8_t  mirror_mode = MIRROR_OFF;
+    // H-Line preset (preset_patterns.cpp::p13) -- false (default) sweeps
+    // bottom->top then snaps back to bottom every cycle (aang()'s own
+    // sawtooth wrap); true bounces back down instead (bugs01.md P3 #8).
+    volatile bool     hline_bounce = false;
     // Auto-Scaling: oscillates size between 0 and size_val, speed-driven
     volatile uint8_t  autoscaleSpeed  = 0;   // 0..100%, 0 = off
     volatile uint8_t  autoscaleMode   = AUTOSCALE_SMALL_BIG_SMALL;

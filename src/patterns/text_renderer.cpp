@@ -709,7 +709,16 @@ size_t glyphOutlinePaths(const char* text, float scale,
     if (!text || !text[0] || scale <= 0.f) return 0;
 
     const int len = (int)strlen(text);
-    const float tw = textWidth(text, len) * scale;
+    float tw = textWidth(text, len) * scale;
+    // Unlike generateImpl() (the main Text tab), nothing downstream clamps
+    // these raw glyph coordinates before paintInsertText() stores them as
+    // paint strokes -- a long string at a high Size slider value pushed
+    // points past the +/-32767 DAC range, which then rail-clamped into a
+    // flattened smear at the canvas edge instead of just staying big
+    // (bugs01.md P3 #12). Mirror generateImpl()'s width bound so the same
+    // Size value behaves consistently between the two text tools.
+    const float max_half = 30000.f;
+    if (tw * 0.5f > max_half) { scale *= max_half / (tw * 0.5f); tw = textWidth(text, len) * scale; }
     float cx = -tw / 2.f;
     const float cy = 0.f;
     size_t n = 0;

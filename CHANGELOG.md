@@ -8,8 +8,30 @@ The WebUI carries its own independent `UI_VERSION`; it is not tracked separately
 
 ---
 
-## 6.6x — Correction stages, cleanup (2026-08-12 → 2026-08-13)
+## 6.6x — Correction stages, cleanup (2026-08-12 → 2026-08-14)
 
+- **6.67** — Triage pass over `bugs01.md`'s backlog. Safety/UX: idle output (no Preset/Text/
+  Paint/ILDA/live DMX active) now blanks the beam instead of drawing a full-brightness legacy
+  circle; ILDA `/api/ilda/play` no longer blocks the async_tcp task for the whole SD read/parse
+  (was timing out `/api/ilda/status` polls and hanging the UI), running the load on its own
+  task instead. Correctness: animation phase now advances by wall-clock time instead of once
+  per loop iteration (H-Line's Speed slider ran up to 2x its intended rate on sparse frames);
+  Autoscale Mode's WebUI labels matched a never-implemented "Off/Fit/Fill" instead of the
+  firmware's actual Pulse/Grow/Shrink enum; Wave-preset harmonics fed a post-wrap multiplied
+  phase into `aang()` instead of their own call, snapping once per loop instead of looping
+  cleanly; Starburst Party's 24 spokes went through 24 separate per-spoke budget checks instead
+  of one batched call, silently dropping the back half of the burst once the frame budget ran
+  out. UI: Mirror H/V checkboxes were permanently disabled in Kaleidoscope mode, the one mode
+  their own click handler exists to switch out of; Auto-Rotation Speed range widened back to
+  the shipped default; quick-angle buttons added for Rotation; H-Line gained an optional bounce
+  mode (eases back down instead of snapping to the bottom every sweep); glyph outline text
+  (Paint's Text tool) now clamps to the DAC range like the main Text tab already did, instead of
+  rail-clamping into a smear at the canvas edge. Also: `scripts/optimizeGalvo/optimizeGalvo.py`
+  maintenance pass (host-side tooling, no firmware dependency) — `measure-resonance` retries
+  with a wider fine-sweep span instead of giving up on Q/`ring_damping_ratio`; `searchSpace.json`
+  regenerates with sensible defaults when missing instead of erroring about a "shipped example"
+  that never existed; `docs/06-camera-autotuning.md` gained the `calibrate-warp`/
+  `measure-resonance`/`tune-dac-range` coverage it never had.
 - **6.66** — Blank-jump emission de-duplicated into one shared helper; `/api/status` and
   `/api/state` now build their common fields from a single source so they cannot drift apart.
 - **6.65** — Fixes: Particles/Starfield blank-jump window widened (dots stopped drawing
