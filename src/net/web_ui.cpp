@@ -467,6 +467,7 @@ static void persistConfig() {
     s_prefs.putString("mask",       gConfig.wifi_mask);
     s_prefs.putString("dns",        gConfig.wifi_dns);
     s_prefs.putBool ("gw_wd_en",    gConfig.wifi_watchdog_reboot_enabled);
+    s_prefs.putULong("gw_wd_sto",   gConfig.wifi_watchdog_soft_timeout_ms);
     s_prefs.putULong("gw_wd_to",    gConfig.wifi_watchdog_timeout_ms);
     // Suffixes must match PROF_MAP in main.cpp::loadConfig().
     static const struct { const char* sfx; uint8_t idx; } PMAP[] = {
@@ -760,9 +761,11 @@ static void buildConfigJson(JsonDocument& doc) {
     doc["wifi_connected"]  = (WiFi.status() == WL_CONNECTED);
     doc["wifi_ip_current"] = WiFi.localIP().toString();
     doc["dac_debug_log"]   = gConfig.dac_debug_log;
-    doc["wifi_watchdog_reboot_enabled"] = gConfig.wifi_watchdog_reboot_enabled;
-    doc["wifi_watchdog_timeout_ms"]     = gConfig.wifi_watchdog_timeout_ms;
-    doc["gw_watchdog_age_ms"]           = wifi_watchdog::msSinceLastReply();
+    doc["wifi_watchdog_reboot_enabled"]  = gConfig.wifi_watchdog_reboot_enabled;
+    doc["wifi_watchdog_soft_timeout_ms"] = gConfig.wifi_watchdog_soft_timeout_ms;
+    doc["wifi_watchdog_timeout_ms"]      = gConfig.wifi_watchdog_timeout_ms;
+    doc["gw_watchdog_age_ms"]            = wifi_watchdog::msSinceLastReply();
+    doc["gw_watchdog_soft_recoveries"]   = wifi_watchdog::softRecoveryCount();
     doc["dac_limit_min"]   = gConfig.dac_limit_min;
     doc["dac_limit_max"]   = gConfig.dac_limit_max;
     doc["output_scale"]    = gConfig.outputScale;
@@ -1112,6 +1115,8 @@ void init() {
             if (doc["dac_debug_log"].is<bool>())    gConfig.dac_debug_log = doc["dac_debug_log"];
             if (doc["wifi_watchdog_reboot_enabled"].is<bool>())
                 gConfig.wifi_watchdog_reboot_enabled = doc["wifi_watchdog_reboot_enabled"];
+            if (doc["wifi_watchdog_soft_timeout_ms"].is<int>())
+                gConfig.wifi_watchdog_soft_timeout_ms = (uint32_t)constrain((int)doc["wifi_watchdog_soft_timeout_ms"], 10000, 300000);
             if (doc["wifi_watchdog_timeout_ms"].is<int>())
                 gConfig.wifi_watchdog_timeout_ms = (uint32_t)constrain((int)doc["wifi_watchdog_timeout_ms"], 60000, 3600000);
             if (doc["osc_enabled"].is<bool>())        gConfig.osc_enabled        = doc["osc_enabled"];

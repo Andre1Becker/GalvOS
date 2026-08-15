@@ -594,13 +594,24 @@ struct RuntimeConfig {
     bool      safety_override = false;
     bool      dac_debug_log   = false;  // log DAC8562 writes (hex) to Serial+UI, rate-limited
 
-    // Gateway watchdog: if the default gateway stops answering ICMP pings for
-    // wifi_watchdog_timeout_ms while the ESP still thinks it's WiFi-connected
-    // (an AsyncTCP/lwIP wedge or a router-side outage neither trips
-    // heap_critical_bytes nor drops WL_CONNECTED), force a failsafe reboot.
-    // See net/wifi_watchdog.cpp. User-toggleable in the WebUI Config tab.
-    bool      wifi_watchdog_reboot_enabled = true;
-    uint32_t  wifi_watchdog_timeout_ms     = 300000;  // 5 min
+    // Gateway watchdog: if the default gateway stops answering ICMP pings
+    // while the ESP still thinks it's WiFi-connected (the ESP32 WiFi driver
+    // can miss a silent AP-side drop -- no deauth frame received -- and
+    // WiFi.status() then lies WL_CONNECTED forever, so setAutoReconnect(true)
+    // never engages either). Two escalating tiers, see net/wifi_watchdog.cpp:
+    //   1. wifi_watchdog_soft_timeout_ms: WiFi.disconnect()+reconnect() --
+    //      re-associates the STA link only. Laser stays armed, pattern
+    //      engine/DMX/Art-Net keep running uninterrupted -- nothing a live
+    //      show would notice.
+    //   2. wifi_watchdog_timeout_ms: still unreachable after the soft
+    //      attempt -- true last resort, failsafeReboot(). Deliberately far
+    //      apart: an unplanned reboot mid-show is a much bigger problem than
+    //      a temporarily unreachable WebUI, so this only fires when the
+    //      gentle recovery has clearly failed to fix it.
+    // User-toggleable (fully, both tiers) in the WebUI Config tab.
+    bool      wifi_watchdog_reboot_enabled  = true;
+    uint32_t  wifi_watchdog_soft_timeout_ms = 30000;   // 30s -- soft reconnect
+    uint32_t  wifi_watchdog_timeout_ms      = 300000;  // 5 min -- hard reboot, last resort
 
     // network: DHCP or static
     bool      wifi_static   = false;

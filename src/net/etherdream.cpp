@@ -122,7 +122,15 @@ static uint32_t s_beacon_fail_since_ms = 0;  // 0 = currently healthy
 // the socket-rebuild-after-3 below isn't recovering it -- the shared lwIP
 // pool is starved and the WebUI/WS goes unreachable with it. Reboot rather
 // than let it dangle indefinitely.
-static const uint32_t BEACON_FAIL_REBOOT_MS = 30000;
+//
+// v6.71.0: was 30000. An unplanned reboot mid-show is a last-resort measure
+// (project rule), and 30s isn't that -- it was firing routinely as a side
+// effect of the Core-0 starvation fixed by pattern_engine.cpp's producer
+// frame-rate ceiling (see kMinFramePeriodMs there), turning "select a preset"
+// into "device reboots" with no chance to recover on its own first. Raised to
+// match wifi_watchdog.cpp's own hard-tier default (wifi_watchdog_timeout_ms,
+// 5 min) -- same "true last resort" bar, not a separate faster trigger.
+static const uint32_t BEACON_FAIL_REBOOT_MS = 300000;
 
 // response buffer
 static uint8_t  s_resp[64];

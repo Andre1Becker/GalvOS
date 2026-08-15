@@ -48,31 +48,15 @@ static volatile int      s_test_pattern  = -1;
 static volatile uint32_t s_test_started  = 0;
 static volatile presets::Preset s_preset_idx = presets::Preset::None;
 
-// ── Wall-clock animation decoupling + producer pacing (v6.68.0) ──────────
-// galvoTask (Core 1) drains the ring at a rock-steady busy-wait cadence and, on
-// underrun, REPLAYS the current frame from the start (galvo_out.cpp) instead of
-// blanking. If the producer here is paced slower than the consumer drains, the
-// ring sits near-empty and the consumer underruns on almost every frame -- each
-// animation frame then shows for a *variable* number of scans (1x or 2x its
-// scan time, depending on the drift between the two rates), which reads as
-// micro-stutter even though the geometry/optimizer output is perfect.
-//
-// Fix: paceRingToTarget() keeps ~kRingTargetFrames buffered so a fresh frame is
-// always ready at each scan boundary -> every frame is displayed exactly once
-// for exactly its (steady) scan duration -> smooth. Because that lifts the
-// producer to (at least) the consumer's frame rate -- higher and steadier than
-// before -- per-frame animation increments (phase, rotation, colour-anim,
-// autoscale) are scaled by s_frameDt = realElapsedMs / kAnimPhaseFrameMs so
-// animation speed stays tied to wall-clock time (the 25fps reference the speed
-// constants were authored against), not to the now-variable frame rate. Set
+// ── Wall-clock animation decoupling (v6.68.0) ────────────────────────────
+// Per-frame animation increments (phase, rotation, colour-anim, autoscale)
+// are scaled by s_frameDt = realElapsedMs / kAnimPhaseFrameMs so animation
+// speed stays tied to wall-clock time (the 25fps reference the speed
+// constants were authored against) instead of to loop iteration count. Set
 // once per loop iteration in task(); read by the render helpers and mode
-// branches below.
+// branches below. Kept from v6.68.0 -- this part is harmless on its own,
+// independent of the producer-pacing rollback below.
 static float s_frameDt = 1.0f;
-
-// Frames to keep buffered ahead of galvoTask (~3 of the usable slots): enough
-// cushion to absorb Core-0 (WiFi/web/network) generation-time jitter without
-// piling on input latency (each frame ~= one scan time).
-static constexpr uint32_t kRingTargetFrames = 3;
 
 // Scale a per-frame integer increment to wall-clock time. The scaled increments
 // all carry a non-zero floor (e.g. aspd*4+4), so rounding never fully stalls an
@@ -89,20 +73,28 @@ static inline void advancePhaseDt(uint32_t& phase, float& accum) {
     if (accum >= 1.0f) { uint32_t st = (uint32_t)accum; phase += st; accum -= (float)st; }
 }
 
-// Producer pace: block (yielding to Core-0 tasks) until the ring has drained
-// back to the target cushion, so the producer tracks the consumer's drain rate
-// and the ring stays a few frames deep. Replaces the old fixed "drain_ms * 1.25"
-// delay that ran the producer slower than the consumer and left the ring empty.
-// Bounded so a stalled/non-draining consumer can never block the producer
-// indefinitely -- the normal pushFrame() retry/timeout path then takes over.
-static inline void paceRingToTarget() {
-    uint32_t t0 = millis();
-    // do/while: always yield at least once so Core-0 idle (WiFi/web/TWDT) gets a
-    // slice every frame even when the ring is below target (fast refill path).
-    do {
-        vTaskDelay(1);
-        if (millis() - t0 > 200) break;
-    } while (galvo::ringDepth() > kRingTargetFrames);
+// ── Producer pacing: reverted to pre-v6.68.0 fixed delay (v6.71.1) ───────
+// v6.68.0 replaced this with paceRingToTarget(), which chased the consumer's
+// drain rate directly instead of a fixed delay -- fixed the intended
+// micro-stutter, but let the producer (Core 0: transform/mirror/kaleidoscope/
+// duplicator/calibration/pushFrame, run every frame regardless of the
+// static-preset geometry cache in preset_patterns.cpp) run at whatever rate
+// Core 0 could sustain. Measured live: master_dimmer>0 alone pushed cpu0 to
+// ~90-97%; an actual preset (Circle) on top made the WebUI/API unreachable
+// outright, and under real browser load (WebUI's own polling stacked on
+// top) the device stayed fully unreachable for 8+ minutes with no self-
+// recovery -- a v6.71.0 60fps producer cap wasn't enough margin either. This
+// reverts to the original fixed "drain_ms * 1.25" delay -- deliberately
+// slower than the real drain rate, which is what left the ring near-empty
+// and caused the original stutter report, but is the last known-safe/stable
+// behaviour. The stutter can come back once there's a real fix for the
+// per-frame pipeline cost itself (see CLAUDE.md: static patterns should be
+// generate -> cache -> transform; the geometry is cached, the transform
+// pipeline around it isn't) -- not by racing the producer against Core 0.
+static inline void paceProducer(uint32_t n) {
+    uint32_t drain_ms = n / (uint32_t)gProjection.galvo_kpps;
+    if (drain_ms < 10) drain_ms = 10;
+    vTaskDelay(pdMS_TO_TICKS(drain_ms + drain_ms / 4));
 }
 
 void setPreset(presets::Preset idx) {
@@ -1651,7 +1643,7 @@ void task(void*) {
                 applyCalibration(s_frame, n);
                 if (gState.master_dimmer.load() > 0 || gState.ui_master_dimmer.load() > 0) {
                     { uint32_t _t0=millis(); while (!galvo::pushFrame(s_frame, n)) { if (millis()-_t0 > 500) { safety::emergencyStop(); LOG_E(logbuf::CAT_SAFETY,"Pattern engine: pushFrame timeout, emergency stop"); break; } vTaskDelay(pdMS_TO_TICKS(2)); } }
-                    paceRingToTarget();
+                    paceProducer(n);
                 } else {
                     static LaserPoint blank = {0,0,0,0,0,1};
                     galvo::pushFrame(&blank, 1);
@@ -1692,7 +1684,7 @@ void task(void*) {
             applyCalibration(s_frame, n);
             if (gState.master_dimmer.load() > 0) {
                 { uint32_t _t0=millis(); while (!galvo::pushFrame(s_frame, n)) { if (millis()-_t0 > 500) { safety::emergencyStop(); LOG_E(logbuf::CAT_SAFETY,"Pattern engine: pushFrame timeout, emergency stop"); break; } vTaskDelay(pdMS_TO_TICKS(2)); } }
-                paceRingToTarget();
+                paceProducer(n);
             } else {
                 static LaserPoint blank_pt = {0,0,0,0,0,1};
                 galvo::pushFrame(&blank_pt, 1);
@@ -1779,7 +1771,7 @@ void task(void*) {
             applyCalibration(s_frame, n);
             if (dim > 0) {
                 { uint32_t _t0=millis(); while (!galvo::pushFrame(s_frame, n)) { if (millis()-_t0 > 500) { safety::emergencyStop(); LOG_E(logbuf::CAT_SAFETY,"Pattern engine: pushFrame timeout, emergency stop"); break; } vTaskDelay(pdMS_TO_TICKS(2)); } }
-                paceRingToTarget();
+                paceProducer(n);
             } else {
                 static LaserPoint blank_pt = {0,0,0,0,0,1};
                 galvo::pushFrame(&blank_pt, 1);
@@ -1897,7 +1889,7 @@ void task(void*) {
                 applyCalibration(s_frame, n);
                 if (dim > 0) {
                     { uint32_t _t0=millis(); while (!galvo::pushFrame(s_frame, n)) { if (millis()-_t0 > 500) { safety::emergencyStop(); LOG_E(logbuf::CAT_SAFETY,"Pattern engine: pushFrame timeout, emergency stop"); break; } vTaskDelay(pdMS_TO_TICKS(2)); } }
-                    paceRingToTarget();
+                    paceProducer(n);
                 } else {
                     static LaserPoint blank_pt = {0,0,0,0,0,1};
                     galvo::pushFrame(&blank_pt, 1);
@@ -2093,7 +2085,7 @@ void task(void*) {
             if (seqBlanking) for (size_t i = 0; i < n; i++) s_frame[i].blank = 1;
             if (gState.master_dimmer.load() > 0) {
                 { uint32_t _t0=millis(); while (!galvo::pushFrame(s_frame, n)) { if (millis()-_t0 > 500) { safety::emergencyStop(); LOG_E(logbuf::CAT_SAFETY,"Pattern engine: pushFrame timeout, emergency stop"); break; } vTaskDelay(pdMS_TO_TICKS(2)); } }
-                paceRingToTarget();
+                paceProducer(n);
             } else {
                 static LaserPoint blank_pt = {0,0,0,0,0,1};
                 galvo::pushFrame(&blank_pt, 1);
@@ -2153,7 +2145,7 @@ void task(void*) {
             if (n == 0) { static LaserPoint blank_pt={0,0,0,0,0,1}; galvo::pushFrame(&blank_pt,1); vTaskDelay(pdMS_TO_TICKS(40)); continue; }
             { uint32_t _t0=millis(); while (!galvo::pushFrame(s_frame, n)) { if (millis()-_t0 > 500) { safety::emergencyStop(); LOG_E(logbuf::CAT_SAFETY,"Pattern engine: pushFrame timeout, emergency stop"); break; } vTaskDelay(pdMS_TO_TICKS(2)); } }
             advancePhaseDt(phase, phaseAccum);
-            paceRingToTarget();
+            paceProducer(n);
         }
     }
 }

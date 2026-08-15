@@ -185,8 +185,9 @@ static void loadConfig() {
     s_prefs.getString("mask", gConfig.wifi_mask,  sizeof(gConfig.wifi_mask));
     s_prefs.getString("dns",  gConfig.wifi_dns,   sizeof(gConfig.wifi_dns));
     s_prefs.getString("auth_hash", gConfig.auth_hash, sizeof(gConfig.auth_hash));
-    gConfig.wifi_watchdog_reboot_enabled = s_prefs.getBool("gw_wd_en", true);
-    gConfig.wifi_watchdog_timeout_ms     = s_prefs.getULong("gw_wd_to", 300000);
+    gConfig.wifi_watchdog_reboot_enabled  = s_prefs.getBool("gw_wd_en", true);
+    gConfig.wifi_watchdog_soft_timeout_ms = s_prefs.getULong("gw_wd_sto", 30000);
+    gConfig.wifi_watchdog_timeout_ms      = s_prefs.getULong("gw_wd_to", 300000);
 
     // Generate unique hostname from last 3 MAC bytes if none stored in NVS
     if (strlen(gConfig.hostname) == 0) {

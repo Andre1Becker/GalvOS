@@ -1576,7 +1576,7 @@ canvas { max-width: 100%; display: block; }
 /* =========================================================================
    GLOBAL STATE
    ========================================================================= */
-var UI_VERSION = '1.19.1';   // WebUI version -- independent from firmware version
+var UI_VERSION = '1.19.4';   // WebUI version -- independent from firmware version
 var NAV_TABS = [
   {id: 'dashboard', label: 'Dashboard', icon: '🏠', bottom: true},
   {id: 'presets', label: 'Presets', icon: '🎮', bottom: true},
@@ -1609,15 +1609,21 @@ window.s_lastTempState = null;
    TOAST
    ========================================================================= */
 var s_toastTimer = null;
+var s_lastClientLogMs = 0;
 function toast(msg, isError) {
   var el = document.getElementById('toast');
   el.textContent = msg;
   el.className = isError ? 'show error' : 'show';
   if (s_toastTimer) clearTimeout(s_toastTimer);
   s_toastTimer = setTimeout(function() { el.className = ''; }, isError ? 5000 : 3000);
-  if (isError) {
-    // Best-effort mirror into the ESP32 log so the error survives after the toast fades.
-    // Plain fetch (not apiCall) — a failure here must not trigger another toast/loop.
+  // Rate-limited to 1/2s: a burst of failed requests (socket-pool pressure,
+  // WiFi hiccup) previously fired one of THESE per failure too -- each one
+  // itself a new outbound connection attempt, piling more load onto the
+  // exact shared resource that's already struggling. Deliberately outside
+  // queuedFetch() (best-effort, fire-and-forget survives even when the
+  // queue itself is backed up), so the rate limit is this function's own job.
+  if (isError && Date.now() - s_lastClientLogMs > 2000) {
+    s_lastClientLogMs = Date.now();
     try {
       var opts = {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({msg: msg})};
       if (window._apiToken) opts.headers['X-Auth'] = window._apiToken;
@@ -1629,6 +1635,50 @@ function toast(msg, isError) {
 /* =========================================================================
    API LAYER
    ========================================================================= */
+// Global fetch concurrency cap. The ESP32 side shares ONE fixed-size
+// CONFIG_LWIP_MAX_SOCKETS=16 pool across AsyncWebServer/AsyncTCP, EtherDream,
+// Art-Net, sACN, OSC, DMX and NTP (see web_ui.cpp's s_active_requests
+// comment) -- it cannot be resized without rebuilding lwIP from source
+// (Arduino-ESP32 ships it as a prebuilt static lib), so the only lever on
+// the WebUI side is never opening more than a handful of connections to it
+// at once. Several independent setInterval() pollers (state, wifi-status,
+// log, meminfo, ILDA, optimizer stats...) each look harmless alone but can
+// coincide by pure timing chance -- captured live via DevTools: preset,
+// sequencer, state, wifi-status and the error-toast's own /api/log/client
+// all pending at once, several past 10s, none completing. queuedFetch()
+// bounds the browser side to MAX_CONCURRENT_FETCHES in flight, queuing the
+// rest instead of firing them all at the socket layer simultaneously.
+// Kept low deliberately -- background firmware services (EtherDream,
+// Art-Net, sACN, OSC, DMX, NTP, the gateway watchdog's own ICMP ping) hold
+// or periodically grab sockets from the SAME CONFIG_LWIP_MAX_SOCKETS=16
+// pool independent of anything the browser does, so the browser's own
+// share needs real margin, not just "as many as fit."
+var MAX_CONCURRENT_FETCHES = 2;
+var _fetchActive = 0;
+var _fetchQueue = [];
+function _fetchDrain() {
+  if (_fetchActive >= MAX_CONCURRENT_FETCHES || _fetchQueue.length === 0) return;
+  var next = _fetchQueue.shift();
+  _fetchActive++;
+  next();
+}
+// Takes a thunk (zero-arg function returning a fetch() promise) rather than
+// a plain (url, opts) pair -- callers that attach their own AbortController
+// timeout (apiCall(), pollState()) need to start that timer at actual
+// dispatch time, not whenever they happened to call queuedFetch() while
+// still waiting in line. A plain fetch just wraps trivially: queuedFetch(
+// function() { return fetch(url, opts); }).
+function queuedFetch(startFn) {
+  return new Promise(function(resolve, reject) {
+    function run() {
+      startFn().then(function(r) { _fetchActive--; _fetchDrain(); resolve(r); },
+                      function(e) { _fetchActive--; _fetchDrain(); reject(e); });
+    }
+    _fetchQueue.push(run);
+    _fetchDrain();
+  });
+}
+
 async function apiCall(method, url, body) {
   var opts = {method: method, headers: {}};
   if (window._apiToken) opts.headers['X-Auth'] = window._apiToken;
@@ -1636,12 +1686,19 @@ async function apiCall(method, url, body) {
     opts.headers['Content-Type'] = 'application/json';
     opts.body = (typeof body === 'string') ? body : JSON.stringify(body);
   }
-  var ctrl = new AbortController();
-  var timer = setTimeout(function() { ctrl.abort(); }, 10000);
-  opts.signal = ctrl.signal;
   try {
-    var resp = await fetch(url, opts);
-    clearTimeout(timer);
+    // Abort timer is started inside the queued task, not here -- it must
+    // measure time-to-response from actual dispatch, not from however long
+    // the request waited its turn behind MAX_CONCURRENT_FETCHES others.
+    var resp = await queuedFetch(function() {
+      var ctrl = new AbortController();
+      var timer = setTimeout(function() { ctrl.abort(); }, 10000);
+      opts.signal = ctrl.signal;
+      return fetch(url, opts).then(
+        function(r) { clearTimeout(timer); return r; },
+        function(e) { clearTimeout(timer); throw e; }
+      );
+    });
     if (!resp.ok) {
       var msg = 'Error ' + resp.status;
       if (resp.status === 403) {
@@ -1659,7 +1716,6 @@ async function apiCall(method, url, body) {
     if (ct.indexOf('json') !== -1) return await resp.json();
     return await resp.text();
   } catch (e) {
-    clearTimeout(timer);
     if (e.name === 'AbortError') toast('Request timed out [' + method + ' ' + url + ']', true);
     else toast('Network error [' + method + ' ' + url + ']', true);
     return null;
@@ -1860,18 +1916,25 @@ document.getElementById('btn-tap').addEventListener('click', async function() {
 async function pollState() {
   if (s_pollInFlight) return;
   s_pollInFlight = true;
-  var ctrl = new AbortController();
-  var timer = setTimeout(function() { ctrl.abort(); }, 5000);
   try {
-    var resp = await fetch('/api/state', {signal: ctrl.signal});
-    clearTimeout(timer);
+    // Routed through queuedFetch() too -- see apiCall()'s comment above.
+    // Without this, pollState() bypassed the concurrency cap entirely (its
+    // own overlap guard only limits ITS OWN calls to one at a time; it did
+    // nothing to stop apiCall()-driven bursts from starving it of a socket).
+    var resp = await queuedFetch(function() {
+      var ctrl = new AbortController();
+      var timer = setTimeout(function() { ctrl.abort(); }, 5000);
+      return fetch('/api/state', {signal: ctrl.signal}).then(
+        function(r) { clearTimeout(timer); return r; },
+        function(e) { clearTimeout(timer); throw e; }
+      );
+    });
     if (!resp.ok) throw new Error('bad status');
     var s = await resp.json();
     setConnPill(true);
     try { handleStateUpdate(s); } catch (e1) { console.error('handleStateUpdate', e1); }
     try { handleTempState(s); } catch (e2) { console.error('handleTempState', e2); }
   } catch (e) {
-    clearTimeout(timer);
     setConnPill(false);
   } finally {
     s_pollInFlight = false;
@@ -4689,7 +4752,12 @@ async function svgSaveToSd() {
   } catch (e) { toast('Upload error', true); }
 }
 
-registerTabLoader('ilda', function() { loadSdStatus(); updateIldaPlayerUI(); loadSvgList(); });
+// Sequential/staggered -- see the 'presets' loader comment above.
+registerTabLoader('ilda', async function() {
+  await loadSdStatus();
+  await updateIldaPlayerUI();
+  await loadSvgList();
+});
 
 /* =========================================================================
    CALIBRATION TAB -- field names match /api/calib-live exactly
@@ -5140,7 +5208,11 @@ function initBrightnessEditor() {
   brightnessLoad();
 }
 
-registerTabLoader('calib', function() { loadCalibPatterns(); loadCalibrationFields(); });
+// Sequential/staggered -- see the 'presets' loader comment above.
+registerTabLoader('calib', async function() {
+  await loadCalibPatterns();
+  await loadCalibrationFields();
+});
 registerTabLeaveHook('calib', function() { stopThreshTest(); stopThreeCirclePattern(); if (warpTestOn) warpToggleTest(); });
 
 /* =========================================================================
@@ -5749,7 +5821,11 @@ function startMemRefresh() {
   }, 3000);
 }
 
-registerTabLoader('log', function() { loadLog(true); loadMemInfo(); });
+// Sequential/staggered -- see the 'presets' loader comment above.
+registerTabLoader('log', async function() {
+  await loadLog(true);
+  await loadMemInfo();
+});
 
 /* =========================================================================
    CONFIGURATION TAB
@@ -5824,7 +5900,11 @@ async function pollWifiScan() {
   sel.onchange = function() { document.getElementById('cfg-wifi-ssid').value = sel.value; };
 }
 async function refreshWifiStatus() {
-  var resp = await fetch('/api/wifi-status').catch(function() { return null; });
+  // Routed through queuedFetch() -- unlike loadLog()/loadMemInfo()'s pollers,
+  // this one runs unconditionally every 10s regardless of active tab (see
+  // its setInterval below), so it was a standing, always-on contender for
+  // the shared socket pool. See apiCall()'s queuedFetch() comment.
+  var resp = await queuedFetch(function() { return fetch('/api/wifi-status'); }).catch(function() { return null; });
   if (!resp || !resp.ok) return;
   var r = await resp.json();
   var led = document.getElementById('cfg-wifi-led'); var txt = document.getElementById('cfg-wifi-status-text');
@@ -5946,7 +6026,18 @@ async function hwDebugCmd(cmd) { await apiCall('POST', '/api/debug/hw', {cmd: cm
 registerTabLoader('config', function() { loadConfig(); });
 
 registerPresetGrid('presets-preset-grid', 'presets-cat-filter');
-registerTabLoader('presets', function() { loadCommunityPresets(); loadSequencer(); loadModulators(); });
+// Sequential/staggered like bootSequence() below -- these three each fire
+// their own apiCall()s; running them in parallel piled onto the same
+// CONFIG_LWIP_MAX_SOCKETS=16 pool as AsyncTCP/etherdream/artnet/ntp right
+// when the Presets tab (where users actually activate presets) opens,
+// occasionally starving an unrelated request for a socket for many seconds
+// (observed live: /api/preset-live and /api/ui-control hanging/timing out
+// right after a preset switch -- see web_ui.cpp's s_active_requests comment).
+registerTabLoader('presets', async function() {
+  await loadCommunityPresets();
+  await loadSequencer();
+  await loadModulators();
+});
 registerTabLoader('preset-manager', function() { loadCommunityPresets(); });
 // Canvas charts report offsetWidth 0 while their tab is display:none -- force
 // one redraw pass on tab entry (mirrors the original app's dedicated
