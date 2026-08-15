@@ -1481,6 +1481,8 @@ canvas { max-width: 100%; display: block; }
         <h2>Safety Configuration</h2>
         <label class="row"><input type="checkbox" id="cfg-safety-override" onchange="setSafetyOverride(this.checked)"> Safety Override</label>
         <p id="cfg-safety-override-warn" class="hidden" style="color:var(--bad)">&#9888; Override active — e-stop and scan-fail bypassed. Only use with laser disarmed and no audience present.</p>
+        <label class="row"><input type="checkbox" id="cfg-gw-watchdog" onchange="saveGwWatchdog(this.checked)"> Gateway Watchdog Reboot</label>
+        <p style="font-size:0.75rem;color:var(--text-dim)">Reboots automatically if the network gateway stops responding to pings for 5 minutes (catches a wedged WiFi/network stack that heap/E-Stop checks don't see).</p>
         <div class="row">
           <button class="btn danger" onclick="doReboot()">System Reboot</button>
           <button class="btn danger" onclick="doFactoryReset()">Factory Reset</button>
@@ -1574,7 +1576,7 @@ canvas { max-width: 100%; display: block; }
 /* =========================================================================
    GLOBAL STATE
    ========================================================================= */
-var UI_VERSION = '1.19.0';   // WebUI version -- independent from firmware version
+var UI_VERSION = '1.19.1';   // WebUI version -- independent from firmware version
 var NAV_TABS = [
   {id: 'dashboard', label: 'Dashboard', icon: '🏠', bottom: true},
   {id: 'presets', label: 'Presets', icon: '🎮', bottom: true},
@@ -5774,6 +5776,7 @@ async function loadConfig() {
   setv('cfg-wifi-ip', c.wifi_ip); setv('cfg-wifi-gw', c.wifi_gw); setv('cfg-wifi-mask', c.wifi_mask); setv('cfg-wifi-dns', c.wifi_dns);
   document.getElementById('cfg-dhcp-current-ip').textContent = c.wifi_ip_current || '--';
   setc('cfg-dac-debug-log', c.dac_debug_log);
+  setc('cfg-gw-watchdog', c.wifi_watchdog_reboot_enabled);
   await loadCalibrationFields();
   if (typeof loadOptimizerConfig === 'function') loadOptimizerConfig(c);
 }
@@ -5869,6 +5872,7 @@ async function doReboot() { if (confirm('Reboot the system now?')) await apiCall
 async function doFactoryReset() { if (confirm('Factory reset ALL settings? This cannot be undone.')) await apiCall('POST', '/api/factory-reset'); }
 async function setNoHwMode(v) { await apiCall('POST', '/api/debug-mode', {enabled: v}); toast('No-HW mode change requires a reboot to take effect'); }
 async function saveDacDebugLog(v) { await apiCall('POST', '/api/config', {dac_debug_log: v}); }
+async function saveGwWatchdog(v) { await apiCall('POST', '/api/config', {wifi_watchdog_reboot_enabled: v}); }
 async function downloadBackup() {
   var resp = await fetch('/api/backup');
   if (!resp.ok) { toast('Backup failed', true); return; }

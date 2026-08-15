@@ -594,6 +594,14 @@ struct RuntimeConfig {
     bool      safety_override = false;
     bool      dac_debug_log   = false;  // log DAC8562 writes (hex) to Serial+UI, rate-limited
 
+    // Gateway watchdog: if the default gateway stops answering ICMP pings for
+    // wifi_watchdog_timeout_ms while the ESP still thinks it's WiFi-connected
+    // (an AsyncTCP/lwIP wedge or a router-side outage neither trips
+    // heap_critical_bytes nor drops WL_CONNECTED), force a failsafe reboot.
+    // See net/wifi_watchdog.cpp. User-toggleable in the WebUI Config tab.
+    bool      wifi_watchdog_reboot_enabled = true;
+    uint32_t  wifi_watchdog_timeout_ms     = 300000;  // 5 min
+
     // network: DHCP or static
     bool      wifi_static   = false;
     char      wifi_ip[16]   = {0};      // e.g. "192.168.1.100"
