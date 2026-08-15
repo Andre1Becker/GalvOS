@@ -41,6 +41,7 @@ void applyCalibration(LaserPoint* pts, size_t n);
 uint32_t pointsPerSec();
 uint32_t fps();               // drawn frames/sec (real ring-tail advances)
 uint32_t bufferFillLevel();   // 0..100 %
+uint32_t ringDepth();         // occupied ring frames (head-tail)
 uint32_t overflowCount();     // cumulative ring buffer overflow events
 uint32_t spi2TimeoutCount();  // cumulative SPI2 busy-wait timeouts (writeDAC8562XY)
 

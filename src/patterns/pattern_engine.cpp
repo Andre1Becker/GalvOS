@@ -48,6 +48,63 @@ static volatile int      s_test_pattern  = -1;
 static volatile uint32_t s_test_started  = 0;
 static volatile presets::Preset s_preset_idx = presets::Preset::None;
 
+// ── Wall-clock animation decoupling + producer pacing (v6.68.0) ──────────
+// galvoTask (Core 1) drains the ring at a rock-steady busy-wait cadence and, on
+// underrun, REPLAYS the current frame from the start (galvo_out.cpp) instead of
+// blanking. If the producer here is paced slower than the consumer drains, the
+// ring sits near-empty and the consumer underruns on almost every frame -- each
+// animation frame then shows for a *variable* number of scans (1x or 2x its
+// scan time, depending on the drift between the two rates), which reads as
+// micro-stutter even though the geometry/optimizer output is perfect.
+//
+// Fix: paceRingToTarget() keeps ~kRingTargetFrames buffered so a fresh frame is
+// always ready at each scan boundary -> every frame is displayed exactly once
+// for exactly its (steady) scan duration -> smooth. Because that lifts the
+// producer to (at least) the consumer's frame rate -- higher and steadier than
+// before -- per-frame animation increments (phase, rotation, colour-anim,
+// autoscale) are scaled by s_frameDt = realElapsedMs / kAnimPhaseFrameMs so
+// animation speed stays tied to wall-clock time (the 25fps reference the speed
+// constants were authored against), not to the now-variable frame rate. Set
+// once per loop iteration in task(); read by the render helpers and mode
+// branches below.
+static float s_frameDt = 1.0f;
+
+// Frames to keep buffered ahead of galvoTask (~3 of the usable slots): enough
+// cushion to absorb Core-0 (WiFi/web/network) generation-time jitter without
+// piling on input latency (each frame ~= one scan time).
+static constexpr uint32_t kRingTargetFrames = 3;
+
+// Scale a per-frame integer increment to wall-clock time. The scaled increments
+// all carry a non-zero floor (e.g. aspd*4+4), so rounding never fully stalls an
+// animation even at the lowest speed setting.
+static inline int32_t scaleDt(int32_t perFrame) {
+    return (int32_t)lroundf((float)perFrame * s_frameDt);
+}
+
+// Advance the integer animation `phase` by wall-clock time, carrying the
+// fractional remainder across frames (generalises the old per-mode phase++ /
+// preset phase-accumulator to any frame rate).
+static inline void advancePhaseDt(uint32_t& phase, float& accum) {
+    accum += s_frameDt;
+    if (accum >= 1.0f) { uint32_t st = (uint32_t)accum; phase += st; accum -= (float)st; }
+}
+
+// Producer pace: block (yielding to Core-0 tasks) until the ring has drained
+// back to the target cushion, so the producer tracks the consumer's drain rate
+// and the ring stays a few frames deep. Replaces the old fixed "drain_ms * 1.25"
+// delay that ran the producer slower than the consumer and left the ring empty.
+// Bounded so a stalled/non-draining consumer can never block the producer
+// indefinitely -- the normal pushFrame() retry/timeout path then takes over.
+static inline void paceRingToTarget() {
+    uint32_t t0 = millis();
+    // do/while: always yield at least once so Core-0 idle (WiFi/web/TWDT) gets a
+    // slice every frame even when the ring is below target (fast refill path).
+    do {
+        vTaskDelay(1);
+        if (millis() - t0 > 200) break;
+    } while (galvo::ringDepth() > kRingTargetFrames);
+}
+
 void setPreset(presets::Preset idx) {
     s_preset_idx = idx;
     s_test_pattern = -1;
@@ -540,7 +597,7 @@ static void applyColorAnim(size_t n) {
         } else { return; }  // no override, no anim: leave points as generated
     } else if (atype == COL_ANIM_GRADIENT) {
         // BPM sync: one full gradient sweep per beat, col_anim_speed ignored.
-        s_anim_phase = bpmSync ? (uint32_t)(bpmFrac * 65536.0f) : s_anim_phase + (uint32_t)aspd * 10 + 10;
+        s_anim_phase = bpmSync ? (uint32_t)(bpmFrac * 65536.0f) : s_anim_phase + (uint32_t)scaleDt((int32_t)aspd * 10 + 10);
         const uint8_t (*stops)[3] = GRAD[aseq];
         int nstops = 0;
         while (nstops < 6 && !(stops[nstops][0]==0xFF && stops[nstops][1]==0xFF && stops[nstops][2]==0xFF)) nstops++;
@@ -563,7 +620,7 @@ static void applyColorAnim(size_t n) {
             // One step per beat, col_anim_speed ignored.
             s_chase_step = (uint8_t)((uint32_t)bpmTotalBeats() % nc);
         } else {
-            s_chase_acc += aspd + 1;
+            s_chase_acc += (uint32_t)scaleDt((int32_t)aspd + 1);
             if (s_chase_acc >= 4096) { s_chase_acc -= 4096; s_chase_step = (s_chase_step + 1) % nc; }
         }
         uint8_t step = s_chase_step % nc;
@@ -574,7 +631,7 @@ static void applyColorAnim(size_t n) {
             // One flash per beat: on for the first half, off for the second.
             s_strobe_on = bpmFrac < 0.5f;
         } else {
-            s_strobe_acc += (uint32_t)aspd * 4 + 4;
+            s_strobe_acc += (uint32_t)scaleDt((int32_t)aspd * 4 + 4);
             if (s_strobe_acc >= 1024) { s_strobe_acc -= 1024; s_strobe_on = !s_strobe_on; }
         }
         if (s_strobe_on) { ar = gLivePreset.col_r; ag = gLivePreset.col_g; ab = gLivePreset.col_b; }
@@ -585,7 +642,7 @@ static void applyColorAnim(size_t n) {
             // Peaks exactly on the beat, dims towards the next one.
             v = cosf(bpmFrac * 6.2832f) * 0.5f + 0.5f;
         } else {
-            s_anim_phase += (uint32_t)aspd * 5 + 5;
+            s_anim_phase += (uint32_t)scaleDt((int32_t)aspd * 5 + 5);
             v = sinf((float)(s_anim_phase & 0xFFFF) * 6.2832f / 65536.f) * 0.5f + 0.5f;
         }
         ar = (uint8_t)(gLivePreset.col_r * v);
@@ -597,6 +654,9 @@ static void applyColorAnim(size_t n) {
             uint32_t rnd = esp_random();
             s_twink_tgt = (rnd & 0xFF) > 200 ? (uint8_t)(rnd & 0xFF) : (uint8_t)(100 + (rnd & 0x63));
         }
+        // Random-walk shimmer: left at frame-rate (not scaleDt'd) -- it has no
+        // fixed period to preserve and the /4 easing + <8 retrigger below would
+        // stall if the step rounded to 0 at a low s_frameDt.
         s_twink_val = (uint8_t)(s_twink_val + ((int)s_twink_tgt - (int)s_twink_val) / 4);
         float v = s_twink_val / 255.f;
         ar = (uint8_t)(gLivePreset.col_r * v);
@@ -609,7 +669,7 @@ static void applyColorAnim(size_t n) {
             // One step per beat, col_anim_speed ignored.
             s_flip_step = (uint8_t)((uint32_t)bpmTotalBeats() % 4);
         } else {
-            s_flip_acc += (uint32_t)aspd * 4 + 4;
+            s_flip_acc += (uint32_t)scaleDt((int32_t)aspd * 4 + 4);
             if (s_flip_acc >= 1024) { s_flip_acc -= 1024; s_flip_step = (s_flip_step + 1) % 4; }
         }
         ar = FLIP[s_flip_step][0]; ag = FLIP[s_flip_step][1]; ab = FLIP[s_flip_step][2];
@@ -625,7 +685,7 @@ static void applyColorAnim(size_t n) {
             float f = (dir < 0) ? (1.0f - bpmFrac) : bpmFrac;
             s_seg_phase = (uint32_t)(f * 65536.0f);
         } else {
-            s_seg_phase = (uint32_t)((int32_t)s_seg_phase + dir * (int32_t)(((uint32_t)aspd * aspd) / 6 + 64));
+            s_seg_phase = (uint32_t)((int32_t)s_seg_phase + scaleDt(dir * (int32_t)(((uint32_t)aspd * aspd) / 6 + 64)));
         }
         size_t lit = 0;
         for (size_t i = 0; i < n; i++) if (!s_frame[i].blank) lit++;
@@ -725,8 +785,8 @@ static uint8_t computeAutoScaleSize(uint8_t baseSize, float* outFrac) {
 
     float phase;
     { LOCK_STATE();
-        gLivePreset.autoscalePhase += (gLivePreset.autoscaleSpeed / 100.0f) * kAutoScaleRate;
-        if (gLivePreset.autoscalePhase >= 1.0f) gLivePreset.autoscalePhase -= 1.0f;
+        gLivePreset.autoscalePhase += (gLivePreset.autoscaleSpeed / 100.0f) * kAutoScaleRate * s_frameDt;
+        while (gLivePreset.autoscalePhase >= 1.0f) gLivePreset.autoscalePhase -= 1.0f;
         phase = gLivePreset.autoscalePhase;
     }
 
@@ -1404,9 +1464,11 @@ static void applyPointsOnlyMode(size_t& n) {
 
 void task(void*) {
     uint32_t phase = 0;
-    // Fractional carry for the preset-mode phase advance below -- see
-    // kAnimPhaseFrameMs.
-    float presetPhaseAccum = 0.f;
+    // Fractional carry for the wall-clock phase advance below -- see
+    // advancePhaseDt() / kAnimPhaseFrameMs. Shared across all animated modes.
+    float phaseAccum = 0.f;
+    // Wall-clock reference for s_frameDt (real ms between loop iterations).
+    uint32_t lastLoopMs = millis();
 
     // s_frame must exist (PSRAM, or internal-DRAM fallback in init()). If both
     // allocations failed the device is out of memory entirely -- park the task
@@ -1422,6 +1484,17 @@ void task(void*) {
     }
 
     for (;;) {
+        // Wall-clock frame delta driving all per-frame animation advances
+        // (phase, rotation, colour-anim, autoscale) -- decouples animation
+        // speed from the now-variable/higher producer frame rate. See s_frameDt.
+        { uint32_t nowMs = millis();
+          uint32_t dtMs  = nowMs - lastLoopMs;
+          lastLoopMs = nowMs;
+          if (dtMs == 0) dtMs = 1;
+          s_frameDt = (float)dtMs / kAnimPhaseFrameMs;
+          if (s_frameDt > 6.0f) s_frameDt = 6.0f;  // cap after stalls / mode switches
+        }
+
         // Notify safety subsystem that the pattern engine is alive.
         // Without this, safety::subsystemsOk() would time out and DISARM
         // the laser mid-pattern, causing spurious blank-point frames.
@@ -1578,15 +1651,13 @@ void task(void*) {
                 applyCalibration(s_frame, n);
                 if (gState.master_dimmer.load() > 0 || gState.ui_master_dimmer.load() > 0) {
                     { uint32_t _t0=millis(); while (!galvo::pushFrame(s_frame, n)) { if (millis()-_t0 > 500) { safety::emergencyStop(); LOG_E(logbuf::CAT_SAFETY,"Pattern engine: pushFrame timeout, emergency stop"); break; } vTaskDelay(pdMS_TO_TICKS(2)); } }
-                    { uint32_t drain_ms = n / (uint32_t)gProjection.galvo_kpps;
-                      if (drain_ms < 10) drain_ms = 10;
-                      vTaskDelay(pdMS_TO_TICKS(drain_ms + drain_ms / 4)); }
+                    paceRingToTarget();
                 } else {
                     static LaserPoint blank = {0,0,0,0,0,1};
                     galvo::pushFrame(&blank, 1);
                     vTaskDelay(pdMS_TO_TICKS(40));
                 }
-                phase++;
+                advancePhaseDt(phase, phaseAccum);
                 continue;
             }
         }
@@ -1616,17 +1687,18 @@ void task(void*) {
             // frame and never moves again, which is why Typewriter used to
             // type out once and then stay stuck blank forever instead of
             // looping.
-            if (n == 0) { static LaserPoint blank_pt={0,0,0,0,0,1}; galvo::pushFrame(&blank_pt,1); phase++; vTaskDelay(pdMS_TO_TICKS(40)); continue; }  // guard
+            if (n == 0) { static LaserPoint blank_pt={0,0,0,0,0,1}; galvo::pushFrame(&blank_pt,1); advancePhaseDt(phase, phaseAccum); vTaskDelay(pdMS_TO_TICKS(40)); continue; }  // guard
             // ESP_LOGI("TXT","frame n=%d", (int)n);
             applyCalibration(s_frame, n);
             if (gState.master_dimmer.load() > 0) {
                 { uint32_t _t0=millis(); while (!galvo::pushFrame(s_frame, n)) { if (millis()-_t0 > 500) { safety::emergencyStop(); LOG_E(logbuf::CAT_SAFETY,"Pattern engine: pushFrame timeout, emergency stop"); break; } vTaskDelay(pdMS_TO_TICKS(2)); } }
+                paceRingToTarget();
             } else {
                 static LaserPoint blank_pt = {0,0,0,0,0,1};
                 galvo::pushFrame(&blank_pt, 1);
+                vTaskDelay(pdMS_TO_TICKS(40));
             }
-            phase++;
-            vTaskDelay(pdMS_TO_TICKS(40));
+            advancePhaseDt(phase, phaseAccum);
             continue;
         } else if (gState.text_truncated.load()) {
             // Left Text Mode (or string cleared) -- don't leave a stale
@@ -1646,15 +1718,15 @@ void task(void*) {
             float rotZAngle, rotYAngle, rotXAngle;
             { LOCK_STATE();
                 rotZActive = gLivePreset.rot_z;
-                if (rotZActive) gLivePreset.rot_angle_z += gLivePreset.rot_speed_z;
+                if (rotZActive) gLivePreset.rot_angle_z += gLivePreset.rot_speed_z * s_frameDt;
                 rotZAngle = gLivePreset.rot_angle_z;
 
                 rotYActive = gLivePreset.rot_y;
-                if (rotYActive) gLivePreset.rot_angle_y += gLivePreset.rot_speed_y;
+                if (rotYActive) gLivePreset.rot_angle_y += gLivePreset.rot_speed_y * s_frameDt;
                 rotYAngle = gLivePreset.rot_angle_y;
 
                 rotXActive = gLivePreset.rot_x;
-                if (rotXActive) gLivePreset.rot_angle_x += gLivePreset.rot_speed_x;
+                if (rotXActive) gLivePreset.rot_angle_x += gLivePreset.rot_speed_x * s_frameDt;
                 rotXAngle = gLivePreset.rot_angle_x;
             }
             { LOCK_STATE(); optimizer::gLiveTransform =
@@ -1707,14 +1779,13 @@ void task(void*) {
             applyCalibration(s_frame, n);
             if (dim > 0) {
                 { uint32_t _t0=millis(); while (!galvo::pushFrame(s_frame, n)) { if (millis()-_t0 > 500) { safety::emergencyStop(); LOG_E(logbuf::CAT_SAFETY,"Pattern engine: pushFrame timeout, emergency stop"); break; } vTaskDelay(pdMS_TO_TICKS(2)); } }
+                paceRingToTarget();
             } else {
                 static LaserPoint blank_pt = {0,0,0,0,0,1};
                 galvo::pushFrame(&blank_pt, 1);
+                vTaskDelay(pdMS_TO_TICKS(40));
             }
-            phase++;
-            { uint32_t drain_ms = n / (uint32_t)gProjection.galvo_kpps;
-              if (drain_ms < 10) drain_ms = 10;
-              vTaskDelay(pdMS_TO_TICKS(drain_ms + drain_ms / 4)); }
+            advancePhaseDt(phase, phaseAccum);
             continue;
         }
 
@@ -1770,15 +1841,15 @@ void task(void*) {
                 float rotZAngle, rotYAngle, rotXAngle;
                 { LOCK_STATE();
                     rotZActive = gLivePreset.rot_z;
-                    if (rotZActive) gLivePreset.rot_angle_z += gLivePreset.rot_speed_z;
+                    if (rotZActive) gLivePreset.rot_angle_z += gLivePreset.rot_speed_z * s_frameDt;
                     rotZAngle = gLivePreset.rot_angle_z;
 
                     rotYActive = gLivePreset.rot_y;
-                    if (rotYActive) gLivePreset.rot_angle_y += gLivePreset.rot_speed_y;
+                    if (rotYActive) gLivePreset.rot_angle_y += gLivePreset.rot_speed_y * s_frameDt;
                     rotYAngle = gLivePreset.rot_angle_y;
 
                     rotXActive = gLivePreset.rot_x;
-                    if (rotXActive) gLivePreset.rot_angle_x += gLivePreset.rot_speed_x;
+                    if (rotXActive) gLivePreset.rot_angle_x += gLivePreset.rot_speed_x * s_frameDt;
                     rotXAngle = gLivePreset.rot_angle_x;
                 }
                 if (rotZActive) {
@@ -1826,17 +1897,13 @@ void task(void*) {
                 applyCalibration(s_frame, n);
                 if (dim > 0) {
                     { uint32_t _t0=millis(); while (!galvo::pushFrame(s_frame, n)) { if (millis()-_t0 > 500) { safety::emergencyStop(); LOG_E(logbuf::CAT_SAFETY,"Pattern engine: pushFrame timeout, emergency stop"); break; } vTaskDelay(pdMS_TO_TICKS(2)); } }
+                    paceRingToTarget();
                 } else {
                     static LaserPoint blank_pt = {0,0,0,0,0,1};
                     galvo::pushFrame(&blank_pt, 1);
+                    vTaskDelay(pdMS_TO_TICKS(40));
                 }
-                phase++;
-                // Dynamic delay matching actual drain time (was fixed 35ms,
-                // artificially capping fps -- and thus animation speed -- for
-                // every curve shorter than the worst case/Butterfly).
-                { uint32_t drain_ms = n / (uint32_t)gProjection.galvo_kpps;
-                  if (drain_ms < 10) drain_ms = 10;
-                  vTaskDelay(pdMS_TO_TICKS(drain_ms + drain_ms / 4)); }
+                advancePhaseDt(phase, phaseAccum);
                 continue;
             }
         }
@@ -1878,15 +1945,15 @@ void task(void*) {
             float rotZAngle, rotYAngle, rotXAngle, rotationDeg;
             { LOCK_STATE();
                 rotZActive = gLivePreset.rot_z;
-                if (rotZActive) gLivePreset.rot_angle_z += gLivePreset.rot_speed_z;
+                if (rotZActive) gLivePreset.rot_angle_z += gLivePreset.rot_speed_z * s_frameDt;
                 rotZAngle = gLivePreset.rot_angle_z;
 
                 rotYActive = gLivePreset.rot_y;
-                if (rotYActive) gLivePreset.rot_angle_y += gLivePreset.rot_speed_y;
+                if (rotYActive) gLivePreset.rot_angle_y += gLivePreset.rot_speed_y * s_frameDt;
                 rotYAngle = gLivePreset.rot_angle_y;
 
                 rotXActive = gLivePreset.rot_x;
-                if (rotXActive) gLivePreset.rot_angle_x += gLivePreset.rot_speed_x;
+                if (rotXActive) gLivePreset.rot_angle_x += gLivePreset.rot_speed_x * s_frameDt;
                 rotXAngle = gLivePreset.rot_angle_x;
 
                 rotationDeg = gLivePreset.rotation;
@@ -2026,31 +2093,23 @@ void task(void*) {
             if (seqBlanking) for (size_t i = 0; i < n; i++) s_frame[i].blank = 1;
             if (gState.master_dimmer.load() > 0) {
                 { uint32_t _t0=millis(); while (!galvo::pushFrame(s_frame, n)) { if (millis()-_t0 > 500) { safety::emergencyStop(); LOG_E(logbuf::CAT_SAFETY,"Pattern engine: pushFrame timeout, emergency stop"); break; } vTaskDelay(pdMS_TO_TICKS(2)); } }
+                paceRingToTarget();
             } else {
                 static LaserPoint blank_pt = {0,0,0,0,0,1};
                 galvo::pushFrame(&blank_pt, 1);
                 vTaskDelay(pdMS_TO_TICKS(40));
-                phase++;
+                advancePhaseDt(phase, phaseAccum);
                 continue;
             }
-            // Dynamic delay: match push rate to galvoTask drain rate.
-            uint32_t drain_ms = n / (uint32_t)gProjection.galvo_kpps;
-            if (drain_ms < 10) drain_ms = 10;  // FreeRTOS tick = 10ms minimum
-            uint32_t delay_ms = drain_ms + drain_ms / 4;
-            // Advance the animation-phase clock by wall-clock time, not by
-            // loop iteration. drain_ms floors at 10ms above, so a point-
-            // sparse preset (H-Line's single 2-vertex line is the extreme
-            // case among Vector-class shapes) loops several times faster
-            // than a busy one -- a flat phase++ per iteration meant every
-            // aang()-based sweep/rotation rate scaled with how EMPTY a
-            // frame was instead of real time, so H-Line's Speed slider ran
-            // far faster than its value implied (bugs01.md P2 #7: "H-Line:
-            // max speed is 2x intended"). kAnimPhaseFrameMs is the
-            // reference period those speed constants assume.
-            presetPhaseAccum += (float)delay_ms / kAnimPhaseFrameMs;
-            uint32_t phaseStep = (uint32_t)presetPhaseAccum;
-            if (phaseStep > 0) { phase += phaseStep; presetPhaseAccum -= (float)phaseStep; }
-            vTaskDelay(pdMS_TO_TICKS(delay_ms));
+            // Advance the animation-phase clock by wall-clock time (s_frameDt),
+            // not by loop iteration -- otherwise every aang()-based sweep/
+            // rotation rate would scale with the frame rate (which now tracks
+            // the galvo drain rate, higher and point-count-dependent) instead
+            // of real time. Same intent as the old presetPhaseAccum, now shared
+            // by every animated mode. kAnimPhaseFrameMs is the reference period
+            // those speed constants assume (bugs01.md P2 #7: "H-Line: max speed
+            // is 2x intended").
+            advancePhaseDt(phase, phaseAccum);
             continue;
         }
 
@@ -2093,8 +2152,8 @@ void task(void*) {
         } else {
             if (n == 0) { static LaserPoint blank_pt={0,0,0,0,0,1}; galvo::pushFrame(&blank_pt,1); vTaskDelay(pdMS_TO_TICKS(40)); continue; }
             { uint32_t _t0=millis(); while (!galvo::pushFrame(s_frame, n)) { if (millis()-_t0 > 500) { safety::emergencyStop(); LOG_E(logbuf::CAT_SAFETY,"Pattern engine: pushFrame timeout, emergency stop"); break; } vTaskDelay(pdMS_TO_TICKS(2)); } }
-            phase++;
-            vTaskDelay(pdMS_TO_TICKS(50)); // max 25fps, save Core-0-CPU ressources
+            advancePhaseDt(phase, phaseAccum);
+            paceRingToTarget();
         }
     }
 }

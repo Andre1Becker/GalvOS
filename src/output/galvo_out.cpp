@@ -1067,6 +1067,16 @@ uint32_t bufferFillLevel() {
 
 uint32_t overflowCount() { return s_overflow_count; }
 
+// Occupied ring frames (head-tail), and usable capacity. Used by the pattern
+// engine's producer pacing to keep a small cushion of ready frames so
+// galvoTask always has a fresh frame at each scan boundary (no underrun
+// replay = no micro-stutter). See paceRingToTarget() in pattern_engine.cpp.
+uint32_t ringDepth() {
+    int32_t fill = (int32_t)s_ring_head - (int32_t)s_ring_tail;
+    if (fill < 0) fill += RING_FRAMES;
+    return (uint32_t)fill;
+}
+
 /* ============================================================
  * Sample-Rate Autotune
  *
