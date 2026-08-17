@@ -2782,6 +2782,10 @@ void init() {
             resp["ok"]      = true;
             resp["pattern"] = name;
             resp["channel"] = gState.calib_channel;
+            // Only meaningful for corners4, but cheap enough to always include -
+            // see calib_patterns::cornersRadius()'s doc comment for why the host
+            // must read this back instead of assuming a fixed dacRange.
+            resp["corner_r"] = calib_patterns::cornersRadius();
             sendJsonPsram(req, resp);
         });
 

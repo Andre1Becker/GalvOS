@@ -746,6 +746,27 @@ static inline void camColorOut(uint8_t ch, uint8_t bright,
 static constexpr float CAM_R = 30000.0f;
 static constexpr float CAM_H = CAM_R * 0.5f;   // 15000
 
+// corners4Radius() -- the DAC-space half-extent CAM_CORNERS4's 4 dots are
+// actually drawn at, derived fresh from the LIVE dac_limit_min/max
+// output-limiting window (Config tab -> Output Limiting) instead of the
+// fixed CAM_R design radius above. Without this, a dac_limit window tighter
+// than +-CAM_R force-blanks the corner dots outright (galvo_out.cpp's
+// rail-clip: any point outside [dac_limit_min, dac_limit_max] is clamped
+// AND blanked, never just dimmed) -- 'calibrate' then finds 0 dots even
+// though the laser is armed and every OTHER calib-cam pattern (CAM_H=15000,
+// half of CAM_R, comfortably inside any sane window) still renders fine.
+// Called fresh every generate() (not cached), so a live dac_limit retune
+// takes effect on the very next frame with no restart needed.
+static float corners4Radius() {
+    int32_t lo = (int32_t)gConfig.dac_limit_min - 0x8000;   // <= 0 typically
+    int32_t hi = (int32_t)gConfig.dac_limit_max - 0x8000;   // >= 0 typically
+    float safe = (float)min(-lo, hi);
+    // 3% headroom so the dwell dots sit safely inside the clamp rather than
+    // right on its edge (float/int rounding, DAC settling) -- never exceeds
+    // the original CAM_R design radius when the window is wide enough for it.
+    return constrain(safe * 0.97f, 1000.0f, CAM_R);
+}
+
 // PATTERN 11: CORNERS4 -- 4 static dots, homography reference.
 // Deliberately does NOT go through optimizer::optimize()'s corner-dwell
 // heuristic (corner_angle_deg/min_corner_pts/max_corner_pts): those are
@@ -758,8 +779,9 @@ static size_t cam_corners4(LaserPoint* o, size_t m,
                             uint32_t, uint8_t bright, uint8_t ch) {
     size_t n = 0;
     uint8_t wr, wg, wb; camColorOut(ch, bright, wr, wg, wb);
-    static const float dots[4][2] = {
-        { -CAM_R, -CAM_R }, { CAM_R, -CAM_R }, { CAM_R, CAM_R }, { -CAM_R, CAM_R },
+    const float r = corners4Radius();
+    const float dots[4][2] = {
+        { -r, -r }, { r, -r }, { r, r }, { -r, r },
     };
     const optimizer::OptimizerConfig cfg = liveOptimizerConfig();
     for (const auto& d : dots) {
@@ -769,6 +791,13 @@ static size_t cam_corners4(LaserPoint* o, size_t m,
     }
     return n;
 }
+
+// Exposed for /api/calib-cam/start's response (web_ui.cpp) so
+// optimizeGalvo.py's 'calibrate' can build its homography target corners
+// from the value the controller ACTUALLY used, instead of assuming a fixed
+// dacRange from camConfig.json that can silently drift out of sync with the
+// live dac_limit_min/max window.
+float cornersRadius() { return corners4Radius(); }
 
 // PATTERN 12: SQUARE -- half-size +-15000, sharp (90 deg) corners.
 static size_t cam_square(LaserPoint* o, size_t m,

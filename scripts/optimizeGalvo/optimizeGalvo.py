@@ -1506,9 +1506,6 @@ def orderCorners(points: np.ndarray) -> np.ndarray:
 
 
 def runCalibrate(cfg: dict, esp: EspClient, cam: Camera):
-    r = cfg["dacRange"]
-    # DAC convention: x right, y down -> TL=(-r,-r), TR=(r,-r), BR=(r,r), BL=(-r,r)
-    dacCorners = np.array([[-r, -r], [r, -r], [r, r], [-r, r]], dtype=np.float32)
     cornerNames = ["TL", "TR", "BR", "BL"]
 
     esp.stop()
@@ -1517,7 +1514,18 @@ def runCalibrate(cfg: dict, esp: EspClient, cam: Camera):
     background = cam.grabBackground()
 
     waitWhilePaused(cam)  # safe boundary: laser is off, nothing running yet
-    esp.startPattern("corners4", channel=cfg["camPatternChannel"])
+    startResp = esp.startPattern("corners4", channel=cfg["camPatternChannel"])
+    # corners4's actual DAC-space half-extent shrinks inward whenever the
+    # controller's live dac_limit_min/max output-limiting window is tighter
+    # than the nominal dacRange (see calib_patterns.cpp's cornersRadius()) -
+    # points outside that window get force-blanked, not just dimmed, which is
+    # exactly what made 'calibrate' find 0 dots despite the laser being armed.
+    # Read back the value the controller ACTUALLY used instead of assuming
+    # cfg["dacRange"] stayed in sync with it. Falls back to dacRange against
+    # older firmware whose /api/calib-cam/start response has no "corner_r".
+    r = startResp.get("corner_r", cfg["dacRange"])
+    # DAC convention: x right, y down -> TL=(-r,-r), TR=(r,-r), BR=(r,r), BL=(-r,r)
+    dacCorners = np.array([[-r, -r], [r, -r], [r, r], [-r, r]], dtype=np.float32)
     time.sleep(cfg["settleSeconds"])
     cam.statusText = "calibrate: corners4"
     image = cam.grabAccumulated(cfg["accumFrames"])

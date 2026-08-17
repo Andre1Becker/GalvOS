@@ -97,6 +97,15 @@ int8_t camPatternIndex(const char* name);
 // Inverse of camPatternIndex(): "" if idx is not a calib-cam pattern.
 const char* camPatternName(uint8_t idx);
 
+// DAC-space half-extent CAM_CORNERS4's 4 dots are actually drawn at right
+// now -- derived from the live dac_limit_min/max output-limiting window, so
+// it's always safely inside the configured safety clamp (see its definition
+// in calib_patterns.cpp). optimizeGalvo.py's 'calibrate' command reads this
+// back via /api/calib-cam/start's response and uses it to build its
+// homography target corners -- using a locally-assumed constant instead
+// would silently drift out of sync the moment dac_limit_min/max changes.
+float cornersRadius();
+
 // Clears generate()'s cross-frame seam-bridge memory for one pattern index, so
 // its next generate() call draws straight into its own shape instead of first
 // bridging (via a real, if blanked, ZV-shaped jump) from wherever that pattern
