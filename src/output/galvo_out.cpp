@@ -636,6 +636,21 @@ static void IRAM_ATTR galvoTask(void*) {
             if (!gState.laser_armed.load()) {
                 gState.calib_thresh_test = false;  // Auto-Deactiveierung if disarmed
             } else {
+                // This branch never advances s_point_idx (no ring buffer to
+                // drain), so the per-frame updateSnapshot() gate above
+                // (`s_point_idx == 0`) only fires here by accident of
+                // whatever value s_point_idx was frozen at when the test
+                // beam started -- Base R/G/B slider moves were otherwise
+                // invisible until Stop/Start Test Beam re-entered the normal
+                // render path and cycled s_point_idx through 0 again.
+                // Refresh independently here, rate-limited to ~50Hz (plenty
+                // for slider UI feedback, far below the point-rate budget).
+                static uint32_t s_lastThreshRefresh = 0;
+                uint32_t now = millis();
+                if (now - s_lastThreshRefresh >= 20) {
+                    s_lastThreshRefresh = now;
+                    updateSnapshot();
+                }
                 writeDAC8562XY(0x8000, 0x8000);
                 uint8_t ch = gState.calib_thresh_ch;
                 uint8_t r = (ch == 0 || ch == 1) ? 1 : 0;
