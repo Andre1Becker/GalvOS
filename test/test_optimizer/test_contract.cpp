@@ -35,6 +35,7 @@
 #include "warpGrid.h"
 #include "brightnessField.h"
 #include "inverseFilter.h"
+#include "test_preset_matrix.h"
 
 using optimizer::OptimizerConfig;
 using optimizer::PathSegment;
@@ -1232,6 +1233,14 @@ int main(int, char**) {
     RUN_TEST(test_reorder2optNeverWorse);
     RUN_TEST(test_curvatureResampleDensifiesBends);
     RUN_TEST(test_optimizeStreamRelaminates);
+
+    // Easy/Medium/Hard preset regression matrix (test_preset_matrix.cpp) --
+    // real preset geometry x a spread of OptimizerConfig combinations, see
+    // that file's header comment.
+    RUN_TEST(test_presetMatrixEasy);
+    RUN_TEST(test_presetMatrixMedium);
+    RUN_TEST(test_presetMatrixHard);
+    RUN_TEST(test_presetMatrixInvalidParamsDegradeGracefully);
 
     return UNITY_END();
 }
