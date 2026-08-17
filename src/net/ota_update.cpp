@@ -152,6 +152,10 @@ button.btn.primary { background:var(--accent); color:var(--bg); border-color:var
 .success p { color:var(--accent); font-size:0.85rem; margin:0 0 10px; }
 .guide ol { margin:0; padding-left:1.2em; font-size:0.8rem; color:var(--text-dim); line-height:1.6; }
 .guide li b { color:var(--text); }
+.filever { font-size:0.75rem; margin:-4px 0 12px; min-height:1em; }
+.filever.same { color:var(--text-dim); }
+.filever.newer { color:var(--accent); }
+.filever.older { color:var(--bad); }
 </style></head>
 <body><div class="wrap">
 <h1>GalvOS Laser Controller &mdash; Firmware Update</h1>
@@ -171,12 +175,13 @@ button.btn.primary { background:var(--accent); color:var(--bg); border-color:var
   <h2>Firmware</h2>
   <p class="hint">Upload a firmware .bin built for this board &mdash; conventionally
     <code>firmware_x.y.z.bin</code> in <code>.pio/build/esp32-s3-devkitc-1/</code>.</p>
-  <input type="file" id="fw-file" accept=".bin">
+  <input type="file" id="fw-file" accept=".bin" onchange="onFileChosen('fw')">
+  <div class="filever" id="fw-filever"></div>
   <div class="progress-wrap" id="fw-prog"><div class="progress-bar" id="fw-bar"></div></div>
   <span class="pct" id="fw-pct"></span>
   <div><button class="btn primary" id="fw-btn" onclick="doUpload('fw')">Upload Firmware</button></div>
   <div class="err" id="fw-err"></div>
-  <div class="success" id="fw-success"><p>Firmware written. Reboot to run it.</p>
+  <div class="success" id="fw-success"><p id="fw-success-msg">Firmware written. Reboot to run it.</p>
     <button class="btn primary" onclick="doReboot(this)">Reboot Now</button>
     <span class="pct reboot-status"></span></div>
 </div>
@@ -185,12 +190,13 @@ button.btn.primary { background:var(--accent); color:var(--bg); border-color:var
   <h2>WebUI / Filesystem</h2>
   <p class="hint">Upload a LittleFS filesystem image (WebUI assets) .bin &mdash; conventionally
     <code>littlefs_x.y.z.bin</code> in <code>.pio/build/esp32-s3-devkitc-1/</code>.</p>
-  <input type="file" id="fs-file" accept=".bin">
+  <input type="file" id="fs-file" accept=".bin" onchange="onFileChosen('fs')">
+  <div class="filever" id="fs-filever"></div>
   <div class="progress-wrap" id="fs-prog"><div class="progress-bar" id="fs-bar"></div></div>
   <span class="pct" id="fs-pct"></span>
   <div><button class="btn primary" id="fs-btn" onclick="doUpload('fs')">Upload Filesystem</button></div>
   <div class="err" id="fs-err"></div>
-  <div class="success" id="fs-success"><p>Filesystem written. Reboot to use it.</p>
+  <div class="success" id="fs-success"><p id="fs-success-msg">Filesystem written. Reboot to use it.</p>
     <button class="btn primary" onclick="doReboot(this)">Reboot Now</button>
     <span class="pct reboot-status"></span></div>
 </div>
@@ -203,13 +209,64 @@ button.btn.primary { background:var(--accent); color:var(--bg); border-color:var
 
 </div>
 <script>
+var RUNNING_FW = '{{FW_VER}}';
+var RUNNING_UI = null;  // filled in once '/' responds -- littlefs image carries the WebUI, compared against this
 fetch('/').then(function(r){ return r.text(); }).then(function(t){
   var m = t.match(/UI_VERSION\s*=\s*'([\d.]+)'/);
-  if (m) document.getElementById('ui-ver').textContent = m[1];
+  if (m) { RUNNING_UI = m[1]; document.getElementById('ui-ver').textContent = m[1]; }
 }).catch(function(){});
 
 var ENDPOINTS = { fw: '/api/ota/upload', fs: '/api/ota/upload-fs' };
 var FIELDS    = { fw: 'firmware',        fs: 'filesystem' };
+// Firmware images are conventionally named firmware_x.y.z.bin (FW_VERSION),
+// filesystem images littlefs_x.y.z.bin (UI_VERSION) -- see the hint text above
+// each upload card. Best-effort only: neither the .bin nor the multipart
+// upload carries a version field, so a file that doesn't follow the naming
+// convention just can't be compared and we say so rather than guess.
+var RUNNING_FOR = { fw: function() { return RUNNING_FW; }, fs: function() { return RUNNING_UI; } };
+
+function parseVersionFromFilename(name) {
+  var m = name.match(/(\d+)\.(\d+)\.(\d+)/);
+  return m ? [parseInt(m[1], 10), parseInt(m[2], 10), parseInt(m[3], 10)] : null;
+}
+
+function compareVersions(a, b) {
+  for (var i = 0; i < 3; i++) { if (a[i] !== b[i]) return a[i] < b[i] ? -1 : 1; }
+  return 0;
+}
+
+function onFileChosen(kind) {
+  var file = document.getElementById(kind + '-file').files[0];
+  var el   = document.getElementById(kind + '-filever');
+  el.className = 'filever';
+  document.getElementById(kind + '-success').style.display = 'none';
+  if (!file) { el.textContent = ''; return; }
+
+  var fileVer    = parseVersionFromFilename(file.name);
+  var runningStr = RUNNING_FOR[kind]();
+  var runningVer = runningStr ? parseVersionFromFilename(runningStr) : null;
+
+  if (!fileVer) {
+    el.textContent = 'Selected: ' + file.name + ' (version unknown -- non-standard filename)';
+    return;
+  }
+  var fileVerStr = fileVer.join('.');
+  if (!runningVer) {
+    el.textContent = 'Selected: v' + fileVerStr + ' (running version unknown)';
+    return;
+  }
+  var cmp = compareVersions(fileVer, runningVer);
+  if (cmp === 0) {
+    el.className = 'filever same';
+    el.textContent = 'Selected: v' + fileVerStr + ' -- same as running (v' + runningStr + ')';
+  } else if (cmp > 0) {
+    el.className = 'filever newer';
+    el.textContent = 'Selected: v' + fileVerStr + ' -- newer than running (v' + runningStr + ')';
+  } else {
+    el.className = 'filever older';
+    el.textContent = 'Selected: v' + fileVerStr + ' -- OLDER than running (v' + runningStr + ') -- downgrade';
+  }
+}
 
 // Pre-flight arm check -- the server rejects the upload outright while armed
 // (see ota_update.cpp's otaUploadBody()), but that rejection only happens
@@ -265,6 +322,11 @@ async function doUpload(kind) {
     if (xhr.status === 200 && res && res.ok) {
       bar.style.width = '100%';
       pct.textContent = '100%';
+      var fileVer = parseVersionFromFilename(file.name);
+      var label = fileVer ? ('v' + fileVer.join('.')) : file.name;
+      var noun = kind === 'fw' ? 'Firmware' : 'Filesystem';
+      var verb = kind === 'fw' ? 'run' : 'use';
+      document.getElementById(kind + '-success-msg').textContent = noun + ' ' + label + ' written. Reboot to ' + verb + ' it.';
       document.getElementById(kind + '-success').style.display = 'block';
     } else {
       errEl.textContent = (res && res.error) ? res.error : ('Upload failed (HTTP ' + xhr.status + ')');
