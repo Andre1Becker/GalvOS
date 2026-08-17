@@ -429,7 +429,16 @@ static inline uint8_t applyGamma(uint8_t v) {
  * fully off (no minimum-on floor).
  * ============================================================ */
 static inline uint8_t mapVisibleRange(uint8_t logical, uint8_t threshold) {
-    if (logical == 0 || threshold >= 255) return logical;
+    // threshold==255 is NOT special-cased to a logical-passthrough: that
+    // used to skip the remap entirely and return the raw (tiny) logical
+    // value, which -- fed through rgbWrite()'s `255 - mapVisibleRange(...)`
+    // -- landed the PWM duty right next to fully-OFF (254/255) instead of
+    // fully-ON. That made 255 the ONE threshold value that broke the
+    // otherwise-monotonic "higher logical = more visible" relationship
+    // (254 stayed correctly near-full-on). span=0 already makes the
+    // general formula collapse to `threshold` (255) on its own -- no
+    // special case needed, and it stays continuous with threshold=254.
+    if (logical == 0) return logical;
     uint16_t span = 255 - threshold;
     return threshold + (uint8_t)((span * logical + 127) / 255);
 }
