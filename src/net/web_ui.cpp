@@ -1,5 +1,6 @@
 #include "web_ui.h"
 #include "config.h"
+#include "upload_guard.h"
 #include "../warpGrid.h"
 #include "../brightnessField.h"
 #include "../inverseFilter.h"
@@ -969,6 +970,8 @@ static void wifiScanTask(void*) {
 // disk -- loadILDA() then failed with "file not found" and /api/ilda/play
 // surfaced that as a bare HTTP 500.
 static bool s_upload_ok = false;
+static bool s_upload_forbidden = false;   // armed-rejection -> 403 instead of 400
+static char s_upload_err[80] = "";
 
 static String sanitizeIldaFilename(const String& rawIn) {
     String raw = rawIn;
@@ -1011,6 +1014,9 @@ static String sanitizeIldaFilename(const String& rawIn) {
 // charset, length cap) but always forces a ".svg" extension -- SVG imports are
 // stored flat under /svg/ regardless of what the source file was named.
 static bool s_svg_upload_ok = false;
+static bool s_svg_upload_forbidden = false;   // armed-rejection -> 403 instead of 400
+static char s_svg_upload_err[80] = "";
+static char s_svg_upload_saved_name[SVG_MAX_UPLOAD_NAME + 8] = "";  // final sanitized name
 
 static String sanitizeSvgFilename(const String& rawIn) {
     String raw = rawIn;
@@ -1033,6 +1039,21 @@ static String sanitizeSvgFilename(const String& rawIn) {
         base.remove(base.length() - 1);
     if (base.length() == 0) base = "upload_" + String((uint32_t)millis());
     return base + ".svg";
+}
+
+// Shared guard for any endpoint that writes a new file/config to the device
+// (ILDA upload, SVG upload, config restore) -- refuses while armed instead of
+// letting the write race a live beam. See upload_guard.h for the rationale
+// and the (host-testable) decision logic; this wrapper just wires it to the
+// live arm state and sends the response. Returns true if the request was
+// rejected (caller must stop and ignore any further chunks).
+static bool rejectIfArmed(AsyncWebServerRequest* req, const char* action) {
+    char msg[80];
+    if (!upload_guard::rejected(gState.laser_armed.load(), action, msg, sizeof(msg))) return false;
+    char body[112];
+    snprintf(body, sizeof(body), "{\"error\":\"%s\"}", msg);
+    req->send(403, "application/json", body);
+    return true;
 }
 
 /* ============================================================
@@ -2528,32 +2549,60 @@ void init() {
         });
 
     // ---- POST /api/svg/upload ---- upload an SVG file to the SD card ----
-    // Mirrors "Feature 11" ILDA upload below (same chunked-multipart shape).
+    // Mirrors "Feature 11" ILDA upload below (same chunked-multipart shape),
+    // including the armed-rejection at index==0 (upload_guard.h). Used both
+    // by the SVG Import tab's "Save to SD" and Paint by Finger's "Save to SD"
+    // (data/index.html's paintSaveToSd() -- reuses this endpoint rather than
+    // inventing a second on-SD format for the same stroke/path data).
     s_server.on("/api/svg/upload", HTTP_POST,
         [](AsyncWebServerRequest* req) {
-            req->send(s_svg_upload_ok ? 200 : 400, "application/json",
-                s_svg_upload_ok ? "{\"status\":\"ok\",\"rescan\":true}"
-                                : "{\"error\":\"upload failed (could not create file on SD)\"}");
-            if (s_svg_upload_ok) svg_store::scanFiles();
+            if (s_svg_upload_ok) {
+                char body[SVG_MAX_UPLOAD_NAME + 64];
+                snprintf(body, sizeof(body), "{\"status\":\"ok\",\"rescan\":true,\"name\":\"%s\"}",
+                         s_svg_upload_saved_name);
+                req->send(200, "application/json", body);
+                svg_store::scanFiles();
+                return;
+            }
+            char body[112];
+            snprintf(body, sizeof(body), "{\"error\":\"%s\"}",
+                     s_svg_upload_err[0] ? s_svg_upload_err : "upload failed (could not create file on SD)");
+            req->send(s_svg_upload_forbidden ? 403 : 400, "application/json", body);
         },
         [](AsyncWebServerRequest* req, String filename, size_t index,
            uint8_t* data, size_t len, bool final) {
             static File s_svg_upload_file;
             if (index == 0) {
-                String path = "/svg/" + sanitizeSvgFilename(filename);
+                s_svg_upload_err[0] = '\0';
+                s_svg_upload_forbidden = upload_guard::rejected(gState.laser_armed.load(), "SVG upload",
+                                                                 s_svg_upload_err, sizeof(s_svg_upload_err));
+                if (s_svg_upload_forbidden) { s_svg_upload_ok = false; return; }
+                String name = sanitizeSvgFilename(filename);
+                String path = "/svg/" + name;
+                strlcpy(s_svg_upload_saved_name, name.c_str(), sizeof(s_svg_upload_saved_name));
                 ESP_LOGI("upload", "Start: %s (orig: %s)", path.c_str(), filename.c_str());
                 { LOCK_SD();
                   if (!SD.exists("/svg")) SD.mkdir("/svg");   // first upload may race scanFiles()'s own mkdir
                   s_svg_upload_file = SD.open(path, FILE_WRITE);
                 }
                 s_svg_upload_ok = (bool)s_svg_upload_file;
-                if (!s_svg_upload_file) ESP_LOGE("upload", "could not create file: %s", path.c_str());
+                if (!s_svg_upload_file) {
+                    snprintf(s_svg_upload_err, sizeof(s_svg_upload_err), "could not create file on SD");
+                    ESP_LOGE("upload", "could not create file: %s", path.c_str());
+                }
             }
-            if (s_svg_upload_file && len)
-                s_svg_upload_file.write(data, len);
+            if (s_svg_upload_forbidden) return;  // ignore remaining chunks of a rejected upload
+            if (s_svg_upload_file && len) {
+                size_t written = s_svg_upload_file.write(data, len);
+                if (written != len) {
+                    s_svg_upload_ok = false;
+                    snprintf(s_svg_upload_err, sizeof(s_svg_upload_err), "SD write failed (card full?)");
+                    ESP_LOGE("upload", "write mismatch: %u/%u", (unsigned)written, (unsigned)len);
+                }
+            }
             if (final && s_svg_upload_file) {
                 s_svg_upload_file.close();
-                ESP_LOGI("upload", "Done: %s (%u bytes)", filename.c_str(), index+len);
+                if (s_svg_upload_ok) ESP_LOGI("upload", "Done: %s (%u bytes)", filename.c_str(), index+len);
             }
         });
 
@@ -3185,28 +3234,50 @@ void init() {
     });
 
     // ── Feature 11: ILDA file upload via HTTP ────────────────
+    // Rejects while the laser is armed (see upload_guard.h) -- an SD write
+    // shouldn't be racing a live beam, same rationale as the OTA/restore
+    // guards. Checked at index==0, before any bytes touch the card.
     s_server.on("/api/ilda/upload", HTTP_POST,
         [](AsyncWebServerRequest* req) {
-            req->send(s_upload_ok ? 200 : 400, "application/json",
-                s_upload_ok ? "{\"status\":\"ok\",\"rescan\":true}"
-                            : "{\"error\":\"upload failed (could not create file on SD)\"}");
-            if (s_upload_ok) sd_card::scanFiles();  // SD neu scannen
+            if (s_upload_ok) {
+                req->send(200, "application/json", "{\"status\":\"ok\",\"rescan\":true}");
+                sd_card::scanFiles();  // SD neu scannen
+                return;
+            }
+            char body[112];
+            snprintf(body, sizeof(body), "{\"error\":\"%s\"}",
+                     s_upload_err[0] ? s_upload_err : "upload failed (could not create file on SD)");
+            req->send(s_upload_forbidden ? 403 : 400, "application/json", body);
         },
         [](AsyncWebServerRequest* req, String filename, size_t index,
            uint8_t* data, size_t len, bool final) {
             static File s_upload_file;
             if (index == 0) {
+                s_upload_err[0] = '\0';
+                s_upload_forbidden = upload_guard::rejected(gState.laser_armed.load(), "ILDA upload",
+                                                             s_upload_err, sizeof(s_upload_err));
+                if (s_upload_forbidden) { s_upload_ok = false; return; }
                 String path = "/ilda/" + sanitizeIldaFilename(filename);
                 ESP_LOGI("upload", "Start: %s (orig: %s)", path.c_str(), filename.c_str());
                 { LOCK_SD(); s_upload_file = SD.open(path, FILE_WRITE); }
                 s_upload_ok = (bool)s_upload_file;
-                if (!s_upload_file) ESP_LOGE("upload", "could not create file: %s", path.c_str());
+                if (!s_upload_file) {
+                    snprintf(s_upload_err, sizeof(s_upload_err), "could not create file on SD");
+                    ESP_LOGE("upload", "could not create file: %s", path.c_str());
+                }
             }
-            if (s_upload_file && len)
-                s_upload_file.write(data, len);
+            if (s_upload_forbidden) return;  // ignore remaining chunks of a rejected upload
+            if (s_upload_file && len) {
+                size_t written = s_upload_file.write(data, len);
+                if (written != len) {
+                    s_upload_ok = false;
+                    snprintf(s_upload_err, sizeof(s_upload_err), "SD write failed (card full?)");
+                    ESP_LOGE("upload", "write mismatch: %u/%u", (unsigned)written, (unsigned)len);
+                }
+            }
             if (final && s_upload_file) {
                 s_upload_file.close();
-                ESP_LOGI("upload", "Done: %s (%u bytes)", filename.c_str(), index+len);
+                if (s_upload_ok) ESP_LOGI("upload", "Done: %s (%u bytes)", filename.c_str(), index+len);
             }
         });
 
@@ -3464,11 +3535,7 @@ void init() {
         [](AsyncWebServerRequest* req) {},
         nullptr,
         [](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t, size_t) {
-            if (gState.laser_armed.load()) {
-                req->send(403, "application/json",
-                    "{\"error\":\"Laser armed — disarm before restoring\"}");
-                return;
-            }
+            if (rejectIfArmed(req, "restoring")) return;
             JsonDocument doc(&jsonAllocator());
             if (deserializeJson(doc, data, len) != DeserializationError::Ok) {
                 req->send(400, "application/json", "{\"error\":\"bad json\"}");

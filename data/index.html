@@ -92,6 +92,10 @@
   --card-shadow: none;
   --chamfer: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
   --chamfer-sm: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+  /* iOS home-indicator / Android gesture-nav inset -- 0px on browsers
+     without env() support (older/desktop), so every consumer below can rely
+     on var(--sait) unconditionally instead of repeating the env() fallback. */
+  --sait: env(safe-area-inset-bottom, 0px);
 }
 
 * { box-sizing: border-box; }
@@ -99,6 +103,14 @@ html, body { margin: 0; padding: 0; }
 body {
   background: var(--bg); color: var(--text); font-family: var(--font-body);
   min-height: 100vh; overflow-x: hidden;
+  /* 100vh is the LAYOUT viewport, which on mobile Safari/Chrome is taller
+     than what's actually visible while the address bar is expanded (e.g.
+     fresh page load in portrait) -- content sized against it can extend
+     below the real visible area. 100dvh ("dynamic viewport height") tracks
+     the real visible viewport and is supported by every engine this project
+     targets; kept as a progressive-enhancement override so browsers without
+     dvh support just keep the 100vh above. */
+  min-height: 100dvh;
   /* No `position: relative` here: nothing in this stylesheet needs body as an
      offset parent (fixed-position decor + .chart-wrap/.mem-tick carry their
      own positioning context). A positioned body with overflow-x set also
@@ -284,13 +296,23 @@ label.row { min-height: 44px; cursor: pointer; }
   #rightpanel.enabled { display: block; }
 }
 
+/* env(safe-area-inset-bottom) covers the iOS home-indicator strip / Android
+   gesture-nav bar, which otherwise sits on top of (or steals taps from) a
+   plain `bottom: 0` bar in both orientations. --sait defaults to 0 on
+   browsers without the env() (older/desktop), so the fallback is exact, not
+   approximate. overflow-x: auto + each button's own min-width (rather than
+   pure flex:1) means a future extra nav entry -- or a narrower screen than
+   any of these 5 buttons comfortably fit -- degrades to a scrollable strip
+   instead of squeezing labels below a readable/tappable size. */
 #bottom-tabs {
   display: none; position: fixed; bottom: 0; left: 0; right: 0; z-index: 400;
   background: var(--card); border-top: 1px solid var(--border);
+  overflow-x: auto; -webkit-overflow-scrolling: touch;
+  padding-bottom: var(--sait);
 }
 @media (max-width: 767px) {
   #bottom-tabs { display: flex; }
-  #app { padding-bottom: 60px; }
+  #app { padding-bottom: calc(60px + var(--sait, 0px)); }
   #sidebar { display: none; }
   /* armed-pill stays visible & reachable on mobile -- ARM state must never
      be hidden, even in the collapsed top bar (ARM/DISARM buttons themselves
@@ -303,11 +325,28 @@ label.row { min-height: 44px; cursor: pointer; }
   #topbar { padding-left: 8px; padding-right: 8px; }
 }
 #bottom-tabs button {
-  flex: 1; background: transparent; border: none; color: var(--text-dim); padding: 8px 4px;
+  /* flex-basis 0 + shrink:1 (not the flex:1 shorthand's default auto-basis,
+     which would size from content first and only shrink -- with
+     flex-shrink:0 as it briefly was here -- refuse to go below a long
+     label's natural width, overflowing 5 buttons past a ~375-390px screen).
+     The explicit min-width floor still wins over each button's own
+     content-driven minimum (CSS: a specified min-width overrides the
+     automatic content-based one), so labels stop shrinking at a still-legible
+     size and the row only becomes horizontally scrollable below that. */
+  flex: 1 1 0; min-width: 44px; background: transparent; border: none; color: var(--text-dim); padding: 8px 4px;
   min-height: 48px; display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 0.65rem;
   font-family: var(--font-body);
 }
 #bottom-tabs button.active { color: var(--accent); }
+/* width (not max-width): the button centers its children instead of
+   stretching them (align-items: center, for the icon), so without an
+   explicit width here the label has no box to actually clip text-overflow
+   against -- it would render at its full natural width and silently spill
+   past an already-shrunk button, widening #bottom-tabs's scrollable area
+   without ever showing the "..." that's supposed to signal truncation. */
+#bottom-tabs button span:last-child {
+  width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
 
 @media (min-width: 768px) and (max-width: 1199px) {
   #sidebar { width: 56px; }
@@ -416,6 +455,12 @@ input[type=color] { padding: 2px; width: 44px; min-width: 44px; cursor: pointer;
 }
 #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 #toast.show.error { border-color: var(--bad); color: var(--bad); }
+/* #toast's default bottom:20px sits squarely on top of #bottom-tabs (visible
+   below 768px, see above) and can visually swallow whichever nav labels it
+   doesn't outright cover -- push it above the bar + safe area on that range. */
+@media (max-width: 767px) {
+  #toast { bottom: calc(68px + var(--sait, 0px)); }
+}
 
 .help-icon { cursor: pointer; color: var(--tertiary); font-size: 0.8em; }
 #help-popup {
@@ -920,6 +965,7 @@ canvas { max-width: 100%; display: block; }
             <button class="btn sm danger" onclick="paintClear()">Clear</button>
             <button class="btn sm primary" onclick="paintProject()">&#128424; Project</button>
             <button class="btn sm" onclick="paintOff()">&#9632; Off</button>
+            <button class="btn sm" onclick="paintSaveToSd()">&#128190; Save to SD</button>
           </div>
           <canvas id="pt-canvas" width="700" height="700" style="width:100%;aspect-ratio:1;background:#000;touch-action:none"></canvas>
           <p id="pt-status">0/12 shapes · 0/1152 points</p>
@@ -1576,7 +1622,7 @@ canvas { max-width: 100%; display: block; }
 /* =========================================================================
    GLOBAL STATE
    ========================================================================= */
-var UI_VERSION = '1.19.4';   // WebUI version -- independent from firmware version
+var UI_VERSION = '1.20.0';   // WebUI version -- independent from firmware version
 var NAV_TABS = [
   {id: 'dashboard', label: 'Dashboard', icon: '🏠', bottom: true},
   {id: 'presets', label: 'Presets', icon: '🎮', bottom: true},
@@ -1720,6 +1766,36 @@ async function apiCall(method, url, body) {
     else toast('Network error [' + method + ' ' + url + ']', true);
     return null;
   }
+}
+
+/* =========================================================================
+   UPLOAD SAFETY CHECK -- shared pre-flight for any action that writes a new
+   file/config to the device (ILDA upload, SVG upload -- incl. Paint's "Save
+   to SD" which reuses the SVG endpoint). Server-side is the real guard
+   (upload_guard.h, checked again at request time -- see web_ui.cpp/
+   ota_update.cpp), this is the UX half: ask before spending an upload the
+   server would reject anyway, and offer to disarm instead of just failing.
+   Unreachable/unknown arm state refuses rather than guessing -- see the
+   dedicated test in test/test_optimizer/test_upload_guard.cpp for the
+   underlying accept/reject decision.
+   ========================================================================= */
+async function requireDisarmedForUpload(actionLabel) {
+  var r = await apiCall('GET', '/api/state');
+  if (!r || typeof r.laser_armed !== 'boolean') {
+    toast('Laser status unknown -- cannot ' + actionLabel, true);
+    return false;
+  }
+  if (!r.laser_armed) return true;
+  if (!confirm('Laser is armed. Disarm laser before ' + actionLabel + '?\n\nOK = Disarm & Continue\nCancel = Cancel')) return false;
+  var dr = await apiCall('POST', '/api/arm', '0');
+  if (dr === null) return false;   // apiCall already toasted the failure
+  var check = await apiCall('GET', '/api/state');
+  if (!check || check.laser_armed) {
+    toast('Disarm did not take effect -- ' + actionLabel + ' cancelled', true);
+    return false;
+  }
+  toast('Laser disarmed');
+  return true;
 }
 
 /* =========================================================================
@@ -4029,6 +4105,50 @@ function paintForceStopLive() {
   var live = document.getElementById('pt-live');
   if (live) live.checked = false;
 }
+
+/* ---- Paint by Finger: Save to SD ----------------------------------------
+   Reuses the existing SVG-on-SD file format/endpoint (svg_store.h,
+   /api/svg/upload) instead of inventing a parallel storage format -- the
+   Paint canvas is already just a set of colored open/closed vertex paths,
+   which SVG <path> elements represent exactly and losslessly. A saved
+   canvas therefore also shows up (and is deletable/renameable) in the
+   ILDA/SD tab's SVG file list, and can be reloaded via svgPlayFile(). ---- */
+function paintStrokesToSvg() {
+  var half = PAINT_RANGE;
+  var body = paintStrokes.map(function(s) {
+    var pts = paintStrokePoints(s);
+    if (pts.length < 2) return '';
+    var d = pts.map(function(p, i) {
+      // SVG Y grows downward, galvo Y grows upward (matches svgMapPoint()'s
+      // inverse in the SVG-import pipeline) -- negate Y so a re-import lines
+      // up the same way.
+      return (i === 0 ? 'M' : 'L') + p[0].toFixed(2) + ',' + (-p[1]).toFixed(2);
+    }).join(' ');
+    if (s.closed) d += ' Z';
+    var color = 'rgb(' + s.r + ',' + s.g + ',' + s.b + ')';
+    return '  <path d="' + d + '" stroke="' + color + '" fill="none" stroke-width="4"/>';
+  }).filter(function(s) { return s; }).join('\n');
+  return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="' + (-half) + ' ' + (-half) + ' ' + (half * 2) + ' ' + (half * 2) + '">\n' +
+    body + '\n</svg>\n';
+}
+async function paintSaveToSd() {
+  if (!paintStrokes.length) { toast('Canvas is empty -- nothing to save', true); return; }
+  var name = prompt('Save as filename:', 'paint_' + new Date().toISOString().slice(0, 10) + '.svg');
+  if (!name) return;
+  await loadSvgList();   // refresh -- the SD tab (where this list is normally loaded) may not have been visited yet
+  if (svgFileNameCollides(name) && !confirm('"' + name + '" already exists on SD. Overwrite?')) return;
+  if (!(await requireDisarmedForUpload('Paint save to SD'))) return;
+  var blob = new Blob([paintStrokesToSvg()], {type: 'image/svg+xml'});
+  var fd = new FormData(); fd.append('file', blob, name);
+  try {
+    var opts = {method: 'POST', body: fd, headers: {}};
+    if (window._apiToken) opts.headers['X-Auth'] = window._apiToken;
+    var resp = await fetch('/api/svg/upload', opts);
+    var body = null; try { body = await resp.json(); } catch (e) {}
+    if (resp.ok) toast('Saved as ' + (body && body.name ? body.name : name));
+    else toast((body && body.error) ? body.error : 'Save failed -- SD card not available?', true);
+  } catch (e) { toast('Upload error -- SD card not available?', true); }
+}
 function paintUpdateStatus() {
   var el = document.getElementById('pt-status'); if (!el) return;
   var verts = paintTotalVerts(), maxVerts = PAINT_STROKES_MAX * PAINT_MAX_VERTS;
@@ -4315,6 +4435,8 @@ function uploadILDA() {
   var input = document.createElement('input');
   input.type = 'file'; input.multiple = true; input.accept = '.ild,.ilda';
   input.onchange = async function() {
+    if (!input.files.length) return;
+    if (!(await requireDisarmedForUpload('ILDA upload'))) return;
     for (var i = 0; i < input.files.length; i++) {
       var f = input.files[i];
       var fd = new FormData(); fd.append('file', f);
@@ -4322,7 +4444,9 @@ function uploadILDA() {
         var opts = {method: 'POST', body: fd, headers: {}};
         if (window._apiToken) opts.headers['X-Auth'] = window._apiToken;
         var resp = await fetch('/api/ilda/upload', opts);
-        toast(resp.ok ? ('Uploaded ' + f.name) : ('Failed: ' + f.name), !resp.ok);
+        var body = null; try { body = await resp.json(); } catch (e) {}
+        var msg = resp.ok ? ('Uploaded ' + f.name) : ((body && body.error) ? body.error : ('Failed: ' + f.name));
+        toast(msg, !resp.ok);
       } catch (e) { toast('Upload error: ' + f.name, true); }
     }
     loadSdStatus();
@@ -4741,15 +4865,34 @@ async function svgSaveToSd() {
   if (!svgRawText) { toast('No SVG loaded', true); return; }
   var name = prompt('Save as filename:', 'import.svg');
   if (!name) return;
+  if (svgFileNameCollides(name) && !confirm('"' + name + '" already exists on SD. Overwrite?')) return;
+  if (!(await requireDisarmedForUpload('SVG save'))) return;
   var blob = new Blob([svgRawText], {type: 'image/svg+xml'});
   var fd = new FormData(); fd.append('file', blob, name);
   try {
     var opts = {method: 'POST', body: fd, headers: {}};
     if (window._apiToken) opts.headers['X-Auth'] = window._apiToken;
     var resp = await fetch('/api/svg/upload', opts);
-    toast(resp.ok ? 'Saved to SD' : 'Save failed', !resp.ok);
+    var body = null; try { body = await resp.json(); } catch (e) {}
+    if (resp.ok) toast('Saved as ' + (body && body.name ? body.name : name));
+    else toast((body && body.error) ? body.error : 'Save failed', true);
     loadSvgList();
   } catch (e) { toast('Upload error', true); }
+}
+// Best-effort mirror of sanitizeSvgFilename() (web_ui.cpp) -- only used to
+// decide whether to show an "overwrite?" prompt before spending an upload;
+// the server's own sanitization remains the source of truth for the name
+// actually written.
+function svgSanitizedName(raw) {
+  var base = String(raw).replace(/^.*[\/\\]/, '');
+  var dot = base.lastIndexOf('.');
+  if (dot > 0) base = base.substring(0, dot);
+  base = base.replace(/[^A-Za-z0-9_\- .]/g, '_').replace(/[ .]+$/, '');
+  return (base || 'upload') + '.svg';
+}
+function svgFileNameCollides(raw) {
+  var name = svgSanitizedName(raw);
+  return s_svgFiles.some(function(f) { return f.name === name; });
 }
 
 // Sequential/staggered -- see the 'presets' loader comment above.

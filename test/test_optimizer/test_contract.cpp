@@ -36,6 +36,7 @@
 #include "brightnessField.h"
 #include "inverseFilter.h"
 #include "test_preset_matrix.h"
+#include "test_upload_guard.h"
 
 using optimizer::OptimizerConfig;
 using optimizer::PathSegment;
@@ -1241,6 +1242,13 @@ int main(int, char**) {
     RUN_TEST(test_presetMatrixMedium);
     RUN_TEST(test_presetMatrixHard);
     RUN_TEST(test_presetMatrixInvalidParamsDegradeGracefully);
+
+    // Upload-safety-check admission decision (test_upload_guard.cpp) -- see
+    // that file's header comment for why only this half of the flow runs on
+    // the host.
+    RUN_TEST(test_uploadGuard_allowsWhenDisarmed);
+    RUN_TEST(test_uploadGuard_rejectsWhenArmed);
+    RUN_TEST(test_uploadGuard_messageNamesTheAction);
 
     return UNITY_END();
 }

@@ -211,13 +211,33 @@ fetch('/').then(function(r){ return r.text(); }).then(function(t){
 var ENDPOINTS = { fw: '/api/ota/upload', fs: '/api/ota/upload-fs' };
 var FIELDS    = { fw: 'firmware',        fs: 'filesystem' };
 
-function doUpload(kind) {
+// Pre-flight arm check -- the server rejects the upload outright while armed
+// (see ota_update.cpp's otaUploadBody()), but that rejection only happens
+// after the whole file has already been sent. This asks first and offers to
+// disarm, so a large firmware/filesystem image isn't uploaded just to be
+// thrown away. Unreachable/unknown status refuses rather than guessing.
+async function requireDisarmedForUpload() {
+  var r = await fetch('/api/state').then(function(x) { return x.ok ? x.json() : null; }).catch(function() { return null; });
+  if (!r || typeof r.laser_armed !== 'boolean') return { ok: false, msg: 'Laser status unknown -- cannot upload.' };
+  if (!r.laser_armed) return { ok: true };
+  if (!confirm('Laser is armed. Disarm laser before upload?\n\nOK = Disarm & Continue\nCancel = Cancel')) return { ok: false, msg: '' };
+  var dr = await fetch('/api/arm', { method: 'POST', body: '0' }).catch(function() { return null; });
+  if (!dr || !dr.ok) return { ok: false, msg: 'Disarm failed.' };
+  var chk = await fetch('/api/state').then(function(x) { return x.ok ? x.json() : null; }).catch(function() { return null; });
+  if (!chk || chk.laser_armed) return { ok: false, msg: 'Disarm did not take effect -- upload cancelled.' };
+  return { ok: true };
+}
+
+async function doUpload(kind) {
   var file = document.getElementById(kind + '-file').files[0];
   var errEl = document.getElementById(kind + '-err');
   var btn   = document.getElementById(kind + '-btn');
   errEl.textContent = '';
   document.getElementById(kind + '-success').style.display = 'none';
   if (!file) { errEl.textContent = 'Select a .bin file first.'; return; }
+
+  var guard = await requireDisarmedForUpload();
+  if (!guard.ok) { errEl.textContent = guard.msg; return; }
 
   var progWrap = document.getElementById(kind + '-prog');
   var bar      = document.getElementById(kind + '-bar');
