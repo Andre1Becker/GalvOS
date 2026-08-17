@@ -1,0 +1,55 @@
+
+<!-- Simulator Disclaimer Overlay -->
+<div id="disclaimer-overlay" class="hidden" style="
+  position:fixed; inset:0; z-index:9999;
+  display:flex; align-items:center; justify-content:center;
+  background:rgba(0,0,0,0.72); backdrop-filter:blur(6px);
+  transition:opacity 0.28s ease, transform 0.28s ease;
+">
+  <div style="
+    background:var(--card,#0d1117); border:1px solid var(--accent,#00f0ff);
+    border-radius:var(--radius-lg,12px); padding:32px 36px; max-width:480px; width:90%;
+    box-shadow:0 0 40px rgba(0,240,255,0.15), 0 8px 32px rgba(0,0,0,0.6);
+    text-align:center;
+  ">
+    <div style="font-size:2rem; margin-bottom:8px">⚡</div>
+    <h2 style="margin:0 0 8px; font-family:var(--font-head); color:var(--accent,#00f0ff); letter-spacing:0.05em">
+      GalvOS Simulator
+    </h2>
+    <p style="color:var(--text-dim); font-size:0.85rem; margin:0 0 16px; line-height:1.6">
+      This is an interactive browser-based simulator for the
+      <strong style="color:var(--text)">GalvOS</strong> open-source ESP32-S3 RGB laser galvo controller.
+      All data is mocked — no real hardware is connected.
+    </p>
+    <p style="color:var(--text-dim); font-size:0.8rem; margin:0 0 16px; line-height:1.55">
+      GalvOS replaces the proprietary OEM board in OEM RGB laser projectors,
+      controlling two galvanometers via a DAC8562 SPI DAC.
+      The firmware runs on PlatformIO / Arduino (ESP32-S3-WROOM-1 N16R8).
+    </p>
+    <p style="color:var(--text-dim); font-size:0.75rem; margin:0 0 24px; font-family:var(--font-mono)">
+      Firmware __FW_VERSION__ &middot; WebUI __UI_VERSION__ &middot; Simulator __SIM_VERSION__
+    </p>
+    <div style="margin-bottom:20px">
+      <a href="https://github.com/Andre1Becker/GalvOS" target="_blank" rel="noopener"
+         style="display:inline-flex; align-items:center; gap:8px; padding:10px 20px;
+                border:1px solid var(--accent,#00f0ff); border-radius:6px;
+                color:var(--accent,#00f0ff); text-decoration:none; font-size:0.85rem;
+                transition:background 0.2s;"
+         onmouseover="this.style.background='rgba(0,240,255,0.08)'"
+         onmouseout="this.style.background='transparent'">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0 1 12 6.844a9.59 9.59 0 0 1 2.504.337c1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.02 10.02 0 0 0 22 12.017C22 6.484 17.522 2 12 2z"/>
+        </svg>
+        GalvOS on GitHub
+      </a>
+    </div>
+    <button onclick="closeDisclaimer()" style="
+      padding:10px 32px; background:var(--accent,#00f0ff); color:#000;
+      border:none; border-radius:6px; font-weight:700; cursor:pointer;
+      font-family:var(--font-head); letter-spacing:0.05em; font-size:0.9rem;
+      transition:opacity 0.2s;
+    " onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">
+      Launch Simulator
+    </button>
+  </div>
+</div>

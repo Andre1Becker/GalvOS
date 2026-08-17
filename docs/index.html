@@ -33,6 +33,7 @@
       '--font-mono': "'JetBrains Mono', 'VT323', monospace",
       '--font-body': "'JetBrains Mono', 'VT323', monospace",
       '--glow-accent': '0 0 5px rgba(51,255,0,0.5), 0 0 10px rgba(51,255,0,0.25)',
+      '--glow-secondary': '0 0 5px rgba(255,176,0,0.5), 0 0 10px rgba(255,176,0,0.25)',
       '--glow-bad': '0 0 5px rgba(255,51,51,0.5), 0 0 10px rgba(255,51,51,0.25)',
       '--card-shadow': 'none'
     };
@@ -51,6 +52,7 @@
       '--font-mono': "'JetBrains Mono', monospace",
       '--font-body': "'Inter', sans-serif",
       '--glow-accent': '0 0 20px rgba(245,158,11,0.4)',
+      '--glow-secondary': '0 0 20px rgba(157,180,255,0.4)',
       '--glow-bad': '0 0 20px rgba(229,107,107,0.35)',
       '--card-shadow': '0 8px 30px rgba(0,0,0,0.35)'
     };
@@ -90,6 +92,10 @@
   --card-shadow: none;
   --chamfer: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
   --chamfer-sm: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+  /* iOS home-indicator / Android gesture-nav inset -- 0px on browsers
+     without env() support (older/desktop), so every consumer below can rely
+     on var(--sait) unconditionally instead of repeating the env() fallback. */
+  --sait: env(safe-area-inset-bottom, 0px);
 }
 
 * { box-sizing: border-box; }
@@ -97,6 +103,14 @@ html, body { margin: 0; padding: 0; }
 body {
   background: var(--bg); color: var(--text); font-family: var(--font-body);
   min-height: 100vh; overflow-x: hidden;
+  /* 100vh is the LAYOUT viewport, which on mobile Safari/Chrome is taller
+     than what's actually visible while the address bar is expanded (e.g.
+     fresh page load in portrait) -- content sized against it can extend
+     below the real visible area. 100dvh ("dynamic viewport height") tracks
+     the real visible viewport and is supported by every engine this project
+     targets; kept as a progressive-enhancement override so browsers without
+     dvh support just keep the 100vh above. */
+  min-height: 100dvh;
   /* No `position: relative` here: nothing in this stylesheet needs body as an
      offset parent (fixed-position decor + .chart-wrap/.mem-tick carry their
      own positioning context). A positioned body with overflow-x set also
@@ -180,6 +194,17 @@ a { color: var(--accent); }
 h1, h2, h3 { font-family: var(--font-head); margin: 0 0 8px; color: var(--text); }
 p { margin: 0 0 8px; color: var(--text-dim); }
 .hidden { display: none !important; }
+
+/* Collapsible sub-section within a .card, styled like the h3 blocks it replaces. */
+details.collapsible { margin: 0 0 8px; border-top: 1px solid var(--border); padding-top: 8px; }
+details.collapsible summary {
+  cursor: pointer; font-family: var(--font-mono); color: var(--text);
+  list-style: none; user-select: none; display: flex; align-items: center; gap: 6px;
+}
+details.collapsible summary::-webkit-details-marker { display: none; }
+details.collapsible summary::before { content: '\25B8'; display: inline-block; transition: transform 0.15s ease; }
+details.collapsible[open] summary::before { transform: rotate(90deg); }
+details.collapsible .details-body { padding-top: 8px; }
 
 /* Banner + topbar are stacked inside one sticky wrapper (#topbar-wrap) instead
    of each carrying its own `position: sticky; top: 0`. Two sibling sticky
@@ -271,13 +296,23 @@ label.row { min-height: 44px; cursor: pointer; }
   #rightpanel.enabled { display: block; }
 }
 
+/* env(safe-area-inset-bottom) covers the iOS home-indicator strip / Android
+   gesture-nav bar, which otherwise sits on top of (or steals taps from) a
+   plain `bottom: 0` bar in both orientations. --sait defaults to 0 on
+   browsers without the env() (older/desktop), so the fallback is exact, not
+   approximate. overflow-x: auto + each button's own min-width (rather than
+   pure flex:1) means a future extra nav entry -- or a narrower screen than
+   any of these 5 buttons comfortably fit -- degrades to a scrollable strip
+   instead of squeezing labels below a readable/tappable size. */
 #bottom-tabs {
   display: none; position: fixed; bottom: 0; left: 0; right: 0; z-index: 400;
   background: var(--card); border-top: 1px solid var(--border);
+  overflow-x: auto; -webkit-overflow-scrolling: touch;
+  padding-bottom: var(--sait);
 }
 @media (max-width: 767px) {
   #bottom-tabs { display: flex; }
-  #app { padding-bottom: 60px; }
+  #app { padding-bottom: calc(60px + var(--sait, 0px)); }
   #sidebar { display: none; }
   /* armed-pill stays visible & reachable on mobile -- ARM state must never
      be hidden, even in the collapsed top bar (ARM/DISARM buttons themselves
@@ -290,11 +325,28 @@ label.row { min-height: 44px; cursor: pointer; }
   #topbar { padding-left: 8px; padding-right: 8px; }
 }
 #bottom-tabs button {
-  flex: 1; background: transparent; border: none; color: var(--text-dim); padding: 8px 4px;
+  /* flex-basis 0 + shrink:1 (not the flex:1 shorthand's default auto-basis,
+     which would size from content first and only shrink -- with
+     flex-shrink:0 as it briefly was here -- refuse to go below a long
+     label's natural width, overflowing 5 buttons past a ~375-390px screen).
+     The explicit min-width floor still wins over each button's own
+     content-driven minimum (CSS: a specified min-width overrides the
+     automatic content-based one), so labels stop shrinking at a still-legible
+     size and the row only becomes horizontally scrollable below that. */
+  flex: 1 1 0; min-width: 44px; background: transparent; border: none; color: var(--text-dim); padding: 8px 4px;
   min-height: 48px; display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 0.65rem;
   font-family: var(--font-body);
 }
 #bottom-tabs button.active { color: var(--accent); }
+/* width (not max-width): the button centers its children instead of
+   stretching them (align-items: center, for the icon), so without an
+   explicit width here the label has no box to actually clip text-overflow
+   against -- it would render at its full natural width and silently spill
+   past an already-shrunk button, widening #bottom-tabs's scrollable area
+   without ever showing the "..." that's supposed to signal truncation. */
+#bottom-tabs button span:last-child {
+  width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
 
 @media (min-width: 768px) and (max-width: 1199px) {
   #sidebar { width: 56px; }
@@ -306,6 +358,16 @@ label.row { min-height: 44px; cursor: pointer; }
 .card {
   background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg);
   padding: 16px; margin-bottom: 16px;
+}
+.brightness-grid {
+  display: grid; gap: 3px; width: 100%; max-width: 420px; aspect-ratio: 1;
+  background: var(--border); border: 1px solid var(--border); border-radius: var(--radius);
+  overflow: hidden; user-select: none;
+}
+.brightness-cell {
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-mono); font-size: 0.7rem; font-weight: 600;
+  color: #000; cursor: ns-resize; touch-action: none;
 }
 .grid { display: grid; gap: 16px; }
 .grid-2 { grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
@@ -352,6 +414,10 @@ input[type=number] { min-width: 72px; max-width: 140px; }
 input[type=range] { min-height: 32px; width: 100%; accent-color: var(--accent); }
 textarea { resize: none; }
 input[type=checkbox] { width: 20px; height: 20px; min-height: 20px; accent-color: var(--accent); }
+/* Generic input padding shrinks input[type=color]'s swatch down to an
+   unclickable sliver (padding eats into the swatch box, not around it) --
+   override to a small fixed square so the color is actually visible/pickable. */
+input[type=color] { padding: 2px; width: 44px; min-width: 44px; cursor: pointer; }
 
 .slider-row { display: flex; align-items: center; gap: 10px; }
 .slider-row input[type=range] { flex: 1; }
@@ -379,7 +445,7 @@ input[type=checkbox] { width: 20px; height: 20px; min-height: 20px; accent-color
 .preset-tile:hover .p-icon polygon, .preset-tile:hover .p-icon polyline, .preset-tile:hover .p-icon rect {
   animation: p-icon-draw 0.7s ease;
 }
-.preset-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.preset-grid { display: grid; grid-template-columns: repeat(auto-fill, 120px); gap: 8px; }
 
 #toast {
   position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(20px);
@@ -389,6 +455,12 @@ input[type=checkbox] { width: 20px; height: 20px; min-height: 20px; accent-color
 }
 #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 #toast.show.error { border-color: var(--bad); color: var(--bad); }
+/* #toast's default bottom:20px sits squarely on top of #bottom-tabs (visible
+   below 768px, see above) and can visually swallow whichever nav labels it
+   doesn't outright cover -- push it above the bar + safe area on that range. */
+@media (max-width: 767px) {
+  #toast { bottom: calc(68px + var(--sait, 0px)); }
+}
 
 .help-icon { cursor: pointer; color: var(--tertiary); font-size: 0.8em; }
 #help-popup {
@@ -407,6 +479,8 @@ canvas { max-width: 100%; display: block; }
   .grid-2, .grid-3, .grid-70-30, .dash-top-row { grid-template-columns: 1fr; }
   .field-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+/* Simulator banner -- hidden below 768px, where the top bar collapses to
+   the connection/ARM pills and has no room for it. */
 @media (max-width: 767px) { .tb-sim-banner { display: none; } }
 </style>
 </head>
@@ -559,9 +633,25 @@ canvas { max-width: 100%; display: block; }
                 <div class="field"><label id="lv-size-label">Size</label><div class="slider-row"><input type="range" id="lv-size" min="0" max="255" value="128" oninput="liveSlider('lv-size')"><output id="lv-size-val">128</output></div></div>
                 <div class="field"><label>Autoscale Speed</label><input type="range" id="lv-autoscale-speed" min="0" max="100" value="0" oninput="liveSlider('lv-autoscale-speed')"></div>
                 <div class="field"><label>Autoscale Mode</label>
-                  <select id="lv-autoscale-mode" onchange="sendLiveControls()"><option value="0">Off</option><option value="1">Fit</option><option value="2">Fill</option></select>
+                  <!-- Values match firmware's AUTOSCALE_SMALL_BIG_SMALL/SMALL_BIG/BIG_SMALL
+                       (include/config.h) exactly -- there is no separate "off" enum value,
+                       Autoscale Speed=0 above is what actually disables it. The v6.32.0 WebUI
+                       rewrite had swapped these for "Off/Fit/Fill", which described a feature
+                       that was never implemented and made every mode selection a no-op from
+                       the user's perspective (bugs01.md P2 #4). -->
+                  <select id="lv-autoscale-mode" onchange="sendLiveControls()"><option value="0">Pulse (Small → Big → Small)</option><option value="1">Grow (Small → Big)</option><option value="2">Shrink (Big → Small)</option></select>
                 </div>
                 <div class="field"><label>Rotation</label><input type="range" id="lv-rotation" min="0" max="359" value="0" oninput="liveSlider('lv-rotation')"></div>
+                <div class="row" style="flex-wrap:wrap;gap:4px">
+                  <button class="btn sm" onclick="setRotationQuick(0)">0&deg;</button>
+                  <button class="btn sm" onclick="setRotationQuick(45)">45&deg;</button>
+                  <button class="btn sm" onclick="setRotationQuick(90)">90&deg;</button>
+                  <button class="btn sm" onclick="setRotationQuick(135)">135&deg;</button>
+                  <button class="btn sm" onclick="setRotationQuick(180)">180&deg;</button>
+                  <button class="btn sm" onclick="setRotationQuick(225)">225&deg;</button>
+                  <button class="btn sm" onclick="setRotationQuick(270)">270&deg;</button>
+                  <button class="btn sm" onclick="setRotationQuick(315)">315&deg;</button>
+                </div>
                 <p id="preset-hint-text" style="font-size:0.8rem"></p>
               </div>
               <div>
@@ -570,12 +660,16 @@ canvas { max-width: 100%; display: block; }
                 <div class="row rot-axis"><label><input type="checkbox" class="rot-x-cb" onchange="setRotAxis('x',this.checked)"> X</label>
                   <label><input type="checkbox" class="rot-y-cb" onchange="setRotAxis('y',this.checked)"> Y</label>
                   <label><input type="checkbox" class="rot-z-cb" onchange="setRotAxis('z',this.checked)"> Z</label></div>
-                <div class="field rot-axis"><label>Rotation Speed</label><input type="range" class="rot-speed-slider" min="-0.5" max="0.5" step="0.01" value="0" oninput="setRotSpeed(this.value)"></div>
+                <div class="field rot-axis"><label>Rotation Speed</label><input type="range" class="rot-speed-slider" min="-0.3" max="0.3" step="0.01" value="0" oninput="setRotSpeed(this.value)"></div>
                 <h3>Kaleidoscope &amp; Mirror</h3>
                 <label class="row"><input type="checkbox" id="lv-kaleido-on" onchange="sendLiveControls()"> Enabled</label>
-                <div class="field"><label>Segments</label><input type="range" id="lv-kaleido-segments" min="2" max="8" value="3" oninput="liveSlider('lv-kaleido-segments')"></div>
-                <label class="row"><input type="checkbox" id="lv-mirror-h" onchange="sendLiveControls()"> Mirror H</label>
-                <label class="row"><input type="checkbox" id="lv-mirror-v" onchange="sendLiveControls()"> Mirror V</label>
+                <div class="field"><label>Mode</label>
+                  <select id="lv-kaleido-mode" onchange="onKaleidoModeChange()"><option value="1" selected>Kaleidoscope</option><option value="0">Radial Repeat</option></select>
+                </div>
+                <div class="field"><label>Segments</label><input type="range" id="lv-kaleido-segments" min="2" max="6" step="2" value="4" oninput="liveSlider('lv-kaleido-segments')"></div>
+                <label class="row"><input type="checkbox" id="lv-mirror-h" onchange="onMirrorHVChange(this)"> Mirror H</label>
+                <label class="row"><input type="checkbox" id="lv-mirror-v" onchange="onMirrorHVChange(this)"> Mirror V</label>
+                <p class="param-hint">Only affects Radial Repeat mode -- checking either box switches Mode to Radial Repeat and turns Kaleidoscope on automatically.</p>
                 <div class="row">
                   <button class="btn sm mirror-btn primary" onclick="setMirrorMode(0)">Off</button>
                   <button class="btn sm mirror-btn" onclick="setMirrorMode(1)">X</button>
@@ -610,25 +704,32 @@ canvas { max-width: 100%; display: block; }
               </div>
             </div>
 
-            <h3>Points-Only Mode</h3>
-            <label class="row"><input type="checkbox" id="lv-points-only" onchange="sendLiveControls()"> Enabled</label>
-            <div class="grid grid-2">
-              <div class="field"><label>Point Count</label><div class="slider-row"><input type="range" id="lv-points-count" min="2" max="50" value="12" oninput="liveSlider('lv-points-count')"><output id="lv-points-count-val">12</output></div></div>
-              <div class="field"><label>Fade Direction</label>
-                <select id="lv-fade-dir" onchange="sendLiveControls()">
-                  <option value="0">Inside &rarr; Outside</option><option value="1">Outside &rarr; Inside</option>
-                  <option value="2">Left &rarr; Right</option><option value="3">Right &rarr; Left</option>
-                  <option value="4">Top &rarr; Bottom</option><option value="5">Bottom &rarr; Top</option>
-                </select>
+            <details class="collapsible">
+              <summary>Points-Only Mode</summary>
+              <div class="details-body">
+                <label class="row"><input type="checkbox" id="lv-points-only" onchange="sendLiveControls()"> Enabled</label>
+                <div class="grid grid-2">
+                  <div class="field"><label>Point Count</label><div class="slider-row"><input type="range" id="lv-points-count" min="2" max="50" value="12" oninput="liveSlider('lv-points-count')"><output id="lv-points-count-val">12</output></div></div>
+                  <div class="field"><label>Fade Direction</label>
+                    <select id="lv-fade-dir" onchange="sendLiveControls()">
+                      <option value="0">Inside &rarr; Outside</option><option value="1">Outside &rarr; Inside</option>
+                      <option value="2">Left &rarr; Right</option><option value="3">Right &rarr; Left</option>
+                      <option value="4">Top &rarr; Bottom</option><option value="5">Bottom &rarr; Top</option>
+                    </select>
+                  </div>
+                  <label class="row"><input type="checkbox" id="lv-fade-in-on" onchange="sendLiveControls()"> Fade In</label>
+                  <div class="field"><label>Fade In ms</label><input type="range" id="lv-fade-in-ms" min="0" max="5000" value="0" oninput="liveSlider('lv-fade-in-ms')"></div>
+                  <label class="row"><input type="checkbox" id="lv-fade-out-on" onchange="sendLiveControls()"> Fade Out</label>
+                  <div class="field"><label>Fade Out ms</label><input type="range" id="lv-fade-out-ms" min="0" max="5000" value="0" oninput="liveSlider('lv-fade-out-ms')"></div>
+                  <label class="row"><input type="checkbox" id="lv-static-mode" onchange="sendLiveControls()"> Static (full brightness)</label>
+                  <label class="row"><input type="checkbox" id="lv-points-bpm-sync" onchange="sendLiveControls()"> Blink on Beat (BPM Sync)</label>
+                </div>
               </div>
-              <label class="row"><input type="checkbox" id="lv-fade-in-on" onchange="sendLiveControls()"> Fade In</label>
-              <div class="field"><label>Fade In ms</label><input type="range" id="lv-fade-in-ms" min="0" max="5000" value="0" oninput="liveSlider('lv-fade-in-ms')"></div>
-              <label class="row"><input type="checkbox" id="lv-fade-out-on" onchange="sendLiveControls()"> Fade Out</label>
-              <div class="field"><label>Fade Out ms</label><input type="range" id="lv-fade-out-ms" min="0" max="5000" value="0" oninput="liveSlider('lv-fade-out-ms')"></div>
-              <label class="row"><input type="checkbox" id="lv-static-mode" onchange="sendLiveControls()"> Static (full brightness)</label>
-              <label class="row"><input type="checkbox" id="lv-points-bpm-sync" onchange="sendLiveControls()"> Blink on Beat (BPM Sync)</label>
-            </div>
+            </details>
 
+            <div id="preset-extra-13" class="preset-extra-row hidden field">
+              <label class="row"><input type="checkbox" id="lv-hline-bounce" onchange="sendLiveControls()"> Bounce (up &harr; down)</label>
+            </div>
             <div id="preset-extra-90" class="preset-extra-row hidden"><p>Starfield uses Speed=Twinkle, Size=Density above.</p></div>
             <div id="preset-extra-104" class="preset-extra-row hidden field"><label>Hold ms</label><input type="range" id="lv-hold-ms" min="50" max="5000" value="500" oninput="liveSlider('lv-hold-ms')"></div>
             <div id="preset-extra-73" class="preset-extra-row hidden grid grid-2">
@@ -650,9 +751,26 @@ canvas { max-width: 100%; display: block; }
               <div class="field"><label>Dots</label><input type="range" id="lv-dots" min="10" max="60" value="30" oninput="liveSlider('lv-dots')"></div>
               <div class="field"><label>Tilt</label><input type="range" id="lv-tilt" min="20" max="80" value="45" oninput="liveSlider('lv-tilt')"></div>
             </div>
-
-            <div class="field"><label>Wave Amplitude</label><input type="range" id="lv-wave-amp" min="0.1" max="2" step="0.05" value="0.5" oninput="liveSlider('lv-wave-amp')"></div>
-            <div class="field"><label>Wave Frequency</label><input type="range" id="lv-wave-freq" min="0.25" max="4" step="0.05" value="1" oninput="liveSlider('lv-wave-freq')"></div>
+            <!-- Geometry category, preset dispatch indices 1-9 (Square .. Star 8, see
+                 DISPATCH[]/PRESETS[] in src/patterns/preset_patterns.cpp) -- polygons and
+                 stars only, each side/spoke gets its own color slot (10 slots, cycled via
+                 modulo for shapes with more edges than slots -- see starSegmented()).
+                 Shown for the whole range by updatePresetHint()'s SEG_COLOR_MIN/MAX check. -->
+            <div id="preset-extra-segcolors" class="preset-extra-row hidden">
+              <label class="row"><input type="checkbox" id="segColEnabled" onchange="segColToggle(this.checked)"> Per-Side Colors</label>
+              <div class="row" style="margin:6px 0">
+                <button class="btn sm" onclick="segColRandomize()">Randomize</button>
+              </div>
+              <div id="segColSwatches" class="row" style="flex-wrap:wrap;gap:6px"></div>
+            </div>
+            <!-- Waves category, preset dispatch indices 33-50 (Sine Wave .. Wave Spectrum,
+                 see DISPATCH[] in src/patterns/preset_patterns.cpp) -- all read
+                 gLivePreset.wave_amp/wave_freq. Shown for the whole range by
+                 updatePresetHint()'s WAVE_PRESET_MIN/MAX check below. -->
+            <div id="preset-extra-waves" class="preset-extra-row hidden grid grid-2">
+              <div class="field"><label>Wave Amplitude</label><input type="range" id="lv-wave-amp" min="0.1" max="2" step="0.05" value="0.5" oninput="liveSlider('lv-wave-amp')"></div>
+              <div class="field"><label>Wave Frequency</label><input type="range" id="lv-wave-freq" min="0.25" max="4" step="0.05" value="1" oninput="liveSlider('lv-wave-freq')"></div>
+            </div>
             <button class="btn" onclick="resetLiveControls()">&#8630; Reset all</button>
           </div>
 
@@ -809,7 +927,7 @@ canvas { max-width: 100%; display: block; }
               <option value="0">Static</option><option value="1">Scroll Left</option><option value="2">Scroll Right</option>
               <option value="3">Bounce</option><option value="4">Typewriter</option><option value="5">Wave</option>
               <option value="6">Pulse</option><option value="7">Rotate</option><option value="8">Zoom</option>
-              <option value="9">Orbit (sphere-wrap)</option><option value="10">Star-Wars scroll</option>
+              <option value="10">Orbit (sphere-wrap)</option><option value="11">Star-Wars scroll</option>
             </select>
           </div>
           <div class="field"><label>Color</label><input type="color" id="tx-color" value="#ffffff" oninput="textLive()"></div>
@@ -818,6 +936,7 @@ canvas { max-width: 100%; display: block; }
           <button class="btn primary" onclick="startText(false)">&#9654; Show text</button>
           <button class="btn danger" onclick="stopText()">&#9632; Stop</button>
         </div>
+        <p id="tx-truncated-warn" class="hidden" style="font-size:0.75rem;color:var(--warn)">&#9888; Text ran out of frame buffer &mdash; part of the string was dropped. Lower Size or shorten the text.</p>
       </div>
       <div class="card">
         <h2>Parameters</h2>
@@ -829,6 +948,14 @@ canvas { max-width: 100%; display: block; }
         <label class="row"><input type="checkbox" id="tx-flip-x" onchange="textLive()"> Flip X</label>
         <label class="row"><input type="checkbox" id="tx-flip-y" onchange="textLive()"> Flip Y</label>
         <label class="row"><input type="checkbox" id="tx-orbit-reverse" onchange="textLive()"> Reverse spin (Orbit)</label>
+      </div>
+      <div class="card">
+        <h2>Laser Welding</h2>
+        <label class="row"><input type="checkbox" id="tx-weld-enabled" onchange="weldSetEnabled(this.checked)"> Enabled</label>
+        <div class="row"><label><input type="radio" name="tx-weld-dir" value="0" checked onchange="weldSetDirection(0)"> Fwd</label>
+          <label><input type="radio" name="tx-weld-dir" value="1" onchange="weldSetDirection(1)"> Rev</label>
+          <label><input type="radio" name="tx-weld-dir" value="2" onchange="weldSetDirection(2)"> Ping-Pong</label></div>
+        <p style="font-size:0.75rem;color:var(--text-dim)">Welds the text's static outline &mdash; Animation and Speed below are ignored while active. Speed/Glow/Sparks/Spark Life are shared with the Paint tab's Welding card.</p>
       </div>
     </section>
     <section class="tab" id="tab-paint">
@@ -849,22 +976,21 @@ canvas { max-width: 100%; display: block; }
             <button class="btn sm paint-mirror-btn" data-mirror="x" onclick="paintSetMirror('x')">X</button>
             <button class="btn sm paint-mirror-btn" data-mirror="y" onclick="paintSetMirror('y')">Y</button>
             <button class="btn sm paint-mirror-btn" data-mirror="radial4" onclick="paintSetMirror('radial4')">Radial4</button>
-            <label><input type="checkbox" onchange="paintSnap=this.checked"> Snap</label>
             <input type="color" value="#ffffff" onchange="paintSetColor(this.value)">
           </div>
-          <canvas id="pt-canvas" width="700" height="700" style="width:100%;aspect-ratio:1;background:#000;touch-action:none"></canvas>
-          <p id="pt-status">0/12 shapes · 0/1152 points</p>
-          <div class="row">
+          <div class="row" style="margin-bottom:8px">
+            <label><input type="checkbox" onchange="paintSnap=this.checked"> Snap</label>
+            <label><input type="checkbox" id="pt-live" checked> Live</label>
             <button class="btn sm" onclick="paintUndo()">&#8630; Undo</button>
             <button class="btn sm" onclick="paintRedo()">&#8631; Redo</button>
             <button class="btn sm danger" onclick="paintDeleteSelected()">Delete Selected</button>
             <button class="btn sm danger" onclick="paintClear()">Clear</button>
-          </div>
-          <div class="row" style="margin-top:8px">
-            <label><input type="checkbox" id="pt-live" checked> Live</label>
             <button class="btn sm primary" onclick="paintProject()">&#128424; Project</button>
             <button class="btn sm" onclick="paintOff()">&#9632; Off</button>
+            <button class="btn sm" onclick="paintSaveToSd()">&#128190; Save to SD</button>
           </div>
+          <canvas id="pt-canvas" width="700" height="700" style="width:100%;aspect-ratio:1;background:#000;touch-action:none"></canvas>
+          <p id="pt-status">0/12 shapes · 0/1152 points</p>
         </div>
         <div>
           <div class="card">
@@ -872,6 +998,17 @@ canvas { max-width: 100%; display: block; }
             <input type="text" id="pt-insert-text" maxlength="24" placeholder="TEXT">
             <div class="field"><label>Size</label><input type="range" id="pt-insert-size" min="0" max="255" value="128"></div>
             <button class="btn sm" onclick="paintInsertText()">Insert as strokes</button>
+          </div>
+          <div class="card">
+            <h2>Laser Welding</h2>
+            <label class="row"><input type="checkbox" id="weld-enabled" onchange="weldSetEnabled(this.checked)"> Enabled</label>
+            <div class="row"><label><input type="radio" name="weld-dir" value="0" checked onchange="weldSetDirection(0)"> Fwd</label>
+              <label><input type="radio" name="weld-dir" value="1" onchange="weldSetDirection(1)"> Rev</label>
+              <label><input type="radio" name="weld-dir" value="2" onchange="weldSetDirection(2)"> Ping-Pong</label></div>
+            <div class="field"><label>Speed</label><div class="slider-row"><input type="range" id="weld-speed" min="200" max="40000" step="100" value="6000"><output id="weld-speed-val">6000 u/s</output></div></div>
+            <div class="field"><label>Glow Length</label><div class="slider-row"><input type="range" id="weld-glow" min="200" max="20000" step="100" value="4000"><output id="weld-glow-val">4000 u</output></div></div>
+            <div class="field"><label>Sparks</label><div class="slider-row"><input type="range" id="weld-sparks" min="4" max="10" step="1" value="6"><output id="weld-sparks-val">6</output></div></div>
+            <div class="field"><label>Spark Life</label><div class="slider-row"><input type="range" id="weld-life" min="40" max="1200" step="10" value="260"><output id="weld-life-val">260 ms</output></div></div>
           </div>
           <div class="card">
             <h2>Segment Color Animation</h2>
@@ -886,7 +1023,7 @@ canvas { max-width: 100%; display: block; }
             <div class="row"><label><input type="checkbox" class="rot-x-cb" onchange="setRotAxis('x',this.checked)"> X</label>
               <label><input type="checkbox" class="rot-y-cb" onchange="setRotAxis('y',this.checked)"> Y</label>
               <label><input type="checkbox" class="rot-z-cb" onchange="setRotAxis('z',this.checked)"> Z</label></div>
-            <div class="field"><label>Speed</label><input type="range" class="rot-speed-slider" min="-0.5" max="0.5" step="0.01" value="0" oninput="setRotSpeed(this.value)"></div>
+            <div class="field"><label>Speed</label><input type="range" class="rot-speed-slider" min="-0.3" max="0.3" step="0.01" value="0" oninput="setRotSpeed(this.value)"></div>
           </div>
         </div>
       </div>
@@ -914,6 +1051,17 @@ canvas { max-width: 100%; display: block; }
         </div>
         <div>
           <div class="card">
+            <h2>SVG Files (SD)</h2>
+            <div class="ilda-row ilda-header" style="margin-top:10px">
+              <span class="ilda-col-play" style="visibility:hidden">&#9654; Play</span>
+              <span class="ilda-col-name">Filename</span>
+              <span class="ilda-col-size">Size</span>
+              <span class="ilda-col-date">Date</span>
+              <span class="ilda-col-actions"></span>
+            </div>
+            <div id="svg-file-list"><p>Loading&hellip;</p></div>
+          </div>
+          <div class="card">
             <h2>ILDA Player</h2>
             <label class="row"><input type="checkbox" id="ilda-enabled" onchange="ildaSetEnabled(this.checked)"> Enabled</label>
             <p><span id="ilda-now-playing">Nothing playing</span> — <span id="ilda-progress-label">0 / 0</span></p>
@@ -929,6 +1077,7 @@ canvas { max-width: 100%; display: block; }
             <label class="row"><input type="checkbox" id="ilda-color-override" onchange="ildaParamChange()"> Color Override</label>
             <label class="row"><input type="checkbox" id="ilda-invert-x" onchange="ildaParamChange()"> Invert X</label>
             <label class="row"><input type="checkbox" id="ilda-invert-y" onchange="ildaParamChange()"> Invert Y</label>
+            <label class="row"><input type="checkbox" id="ilda-blank-reshape" onchange="ildaParamChange()"> ZV Blank Reshape</label>
           </div>
 
           <div class="card">
@@ -945,6 +1094,33 @@ canvas { max-width: 100%; display: block; }
             <h2>ILDA Upload</h2>
             <button class="btn" onclick="uploadILDA()">&#8679; Upload .ild / .ilda files</button>
             <p style="font-size:0.75rem;color:var(--text-dim)">Max 40 files on SD card.</p>
+          </div>
+
+          <div class="card">
+            <h2>SVG Import</h2>
+            <canvas id="svg-preview" width="260" height="260" style="width:100%;aspect-ratio:1;background:#000"></canvas>
+            <p id="svg-status" style="font-size:0.75rem;color:var(--text-dim)">No SVG loaded</p>
+            <div class="row">
+              <button class="btn sm" onclick="svgLoadFile()">&#8679; Load SVG</button>
+              <button class="btn sm primary" onclick="svgProject()">&#128424; Project</button>
+              <button class="btn sm" onclick="svgOff()">&#9632; Off</button>
+            </div>
+            <div class="row" style="margin-top:8px">
+              <input type="color" id="svg-color" value="#ffffff" onchange="svgReprocess()">
+              <label><input type="checkbox" id="svg-use-colors" checked onchange="svgReprocess()"> Use SVG colors</label>
+            </div>
+            <div class="field"><label>Size</label><input type="range" id="svg-size" min="0" max="255" value="128" oninput="svgReprocess()"></div>
+            <div class="field"><label>Simplify</label><input type="range" id="svg-simplify" min="1" max="20" value="5" oninput="svgReprocess()"></div>
+            <div class="row">
+              <label><input type="checkbox" id="svg-invert-x" onchange="svgReprocess()"> Invert X</label>
+              <label><input type="checkbox" id="svg-invert-y" onchange="svgReprocess()"> Invert Y</label>
+              <label><input type="checkbox" id="svg-loop" checked> Loop</label>
+            </div>
+            <div class="row" style="margin-top:8px">
+              <button class="btn sm" onclick="svgSaveState()">&#128190; Save</button>
+              <button class="btn sm" onclick="svgRestoreState()">&#8635; Restore</button>
+              <button class="btn sm" onclick="svgSaveToSd()">&#8682; Save to SD</button>
+            </div>
           </div>
         </div>
       </div>
@@ -972,6 +1148,7 @@ canvas { max-width: 100%; display: block; }
               <div class="field"><label>DAC Scan-Limit Max</label><input type="range" id="calib-dac-max" min="0" max="65535" value="63000" oninput="sendCalibLive()"></div>
             </div>
             <p id="calib-dac-warn" class="hidden" style="color:var(--bad)">Min must be less than Max &mdash; value not applied</p>
+            <div class="field"><label>Output Scale (<span id="calib-outscale-val">0.91</span>)</label><input type="range" id="calib-outscale" min="0.50" max="1.00" step="0.01" value="0.91" oninput="sendCalibLive()"></div>
             <button class="btn primary" onclick="calibSave()">&#128190; Save Calibration</button>
           </div>
 
@@ -1010,6 +1187,43 @@ canvas { max-width: 100%; display: block; }
           </div>
 
           <div class="card">
+            <h2>Warp (Camera Closed-Loop Keystone)</h2>
+            <canvas id="warp-canvas" width="420" height="420" style="width:100%;max-width:420px;aspect-ratio:1;background:#000"></canvas>
+            <div class="row" style="margin-top:8px">
+              <label>Grid Size <select id="warp-grid-size" onchange="warpSetGridSize(this.value)">
+                <option value="2">2x2</option><option value="3">3x3</option>
+                <option value="4">4x4</option><option value="5">5x5</option>
+              </select></label>
+              <span id="warp-enable-status" class="pill bad">Disabled</span>
+            </div>
+            <div class="row" style="margin-top:8px">
+              <button class="btn sm" onclick="warpToggleEnable()">Enable/Disable Warp</button>
+              <button class="btn sm" id="warp-test-btn" onclick="warpToggleTest()">Project Test Grid</button>
+              <button class="btn sm" onclick="warpSave()">Save Grid</button>
+              <button class="btn sm danger" onclick="warpReset()">Reset to Identity</button>
+            </div>
+            <p style="font-size:0.75rem;color:var(--text-dim)">Drag a control point to bend that part of the projected image toward it &mdash; used to correct keystone/perspective distortion from an off-axis projector. 2x2 = plain 4-corner keystone; larger grids add interior correction.</p>
+          </div>
+
+          <div class="card">
+            <h2>Brightness Compensation</h2>
+            <div id="brightness-grid" class="brightness-grid"></div>
+            <div class="row" style="margin-top:8px">
+              <label>Grid Size <select id="brightness-grid-size" onchange="brightnessSetGridSize(this.value)">
+                <option value="2">2x2</option><option value="3">3x3</option>
+                <option value="4">4x4</option><option value="5">5x5</option>
+              </select></label>
+              <span id="brightness-enable-status" class="pill bad">Disabled</span>
+            </div>
+            <div class="row" style="margin-top:8px">
+              <button class="btn sm" onclick="brightnessToggleEnable()">Enable/Disable</button>
+              <button class="btn sm" onclick="brightnessSave()">Save Grid</button>
+              <button class="btn sm danger" onclick="brightnessReset()">Reset to Identity</button>
+            </div>
+            <p style="font-size:0.75rem;color:var(--text-dim)">Drag a cell up/down to compensate brightness across the image &mdash; corrects scan-speed/exposure falloff from projector throw distance/angle (darker cell = more attenuation). Same grid size as Warp, independent values.</p>
+          </div>
+
+          <div class="card">
             <h2>ILDA Standard Test Pattern (ITC Rev.002 1995)</h2>
             <div class="field"><label>Scan Size</label><input type="range" id="ilda-test-size" min="0" max="255" value="128"></div>
             <div class="row">
@@ -1034,6 +1248,24 @@ canvas { max-width: 100%; display: block; }
       <div class="card">
         <div class="row" id="opt-profile-bar" style="flex-wrap:wrap"></div>
       </div>
+      <div class="card">
+        <h2>Live Telemetry</h2>
+        <div class="field-grid">
+          <div class="field"><label>Lit / Blank Points</label><span id="opt-st-points">--</span></div>
+          <div class="field"><label>Truncated</label><span id="opt-st-trunc">--</span></div>
+          <div class="field"><label>Blank Jumps</label><span id="opt-st-jumps">--</span></div>
+          <div class="field"><label>Jump Distance</label><span id="opt-st-jumpdist">--</span></div>
+          <div class="field"><label>Budget Used</label><span id="opt-st-budget">--</span></div>
+          <div class="field"><label>optimize() Calls</label><span id="opt-st-calls">--</span></div>
+        </div>
+        <div class="row" style="margin-top:4px">
+          <span class="pill" id="opt-st-s1">Stage 1</span>
+          <span class="pill" id="opt-st-s15">Stage 1.5</span>
+          <span class="pill" id="opt-st-s2">Interior &times;1.00</span>
+          <span class="pill" id="opt-st-zv">ZV Shaper</span>
+        </div>
+        <p class="param-hint">Measured on the last rendered frame &mdash; all optimize() calls of that frame combined. Truncated counts points the budget dropped before they reached the galvo; the ZV Shaper pill lights only when ringing compensation actually shaped a jump.</p>
+      </div>
       <div class="grid" style="grid-template-columns:3.2fr 0.5fr">
         <div class="card">
           <h2>Settings</h2>
@@ -1047,7 +1279,6 @@ canvas { max-width: 100%; display: block; }
             <div class="param-group">
               <h3>Interior Density</h3>
               <div class="field"><label>Pts/1000 units</label><div class="slider-row"><input type="range" id="opt-ppu" min="1" max="500" value="80" oninput="optSyncNum('opt-ppu');optimizerSlider()"><input type="number" id="opt-ppu-n" data-scale="10" data-decimals="1" step="0.1" min="0.1" max="50" value="8.0" onchange="optSyncSlider('opt-ppu');optimizerSlider()"></div><p class="param-hint">Interior point density &mdash; points added per 1000 DAC units of segment length.</p></div>
-              <div class="field"><label>Min Segment Points</label><div class="slider-row"><input type="range" id="opt-min-seg-pts" min="2" max="20" value="3" oninput="optSyncNum('opt-min-seg-pts');optimizerSlider()"><input type="number" id="opt-min-seg-pts-n" min="2" max="20" value="3" onchange="optSyncSlider('opt-min-seg-pts');optimizerSlider()"></div><p class="param-hint">Minimum interior points per segment, even on very short edges.</p></div>
               <div class="field"><label>Min Interior Pts/Segment</label><div class="slider-row"><input type="range" id="opt-min-interior-pts" min="0" max="50" value="2" oninput="optSyncNum('opt-min-interior-pts');optimizerSlider()"><input type="number" id="opt-min-interior-pts-n" min="0" max="50" value="2" onchange="optSyncSlider('opt-min-interior-pts');optimizerSlider()"></div><p class="param-hint">Interior points reserved per segment before the blank-jump budget is computed.</p></div>
             </div>
             <div class="param-group">
@@ -1067,6 +1298,11 @@ canvas { max-width: 100%; display: block; }
               <label class="row"><input type="checkbox" id="opt-resample-enabled" onchange="sendOptimizerLive()"> Enabled</label>
               <p class="param-hint">Replaces length-proportional density with constant point spacing along every edge.</p>
               <div class="field"><label>Point Spacing</label><div class="slider-row"><input type="range" id="opt-resample-spacing" min="10" max="2000" value="200" oninput="optSyncNum('opt-resample-spacing');optimizerSlider()"><input type="number" id="opt-resample-spacing-n" min="10" max="2000" value="200" onchange="optSyncSlider('opt-resample-spacing');optimizerSlider()"></div><p class="param-hint">Target spacing between resampled points, in DAC units. Only used while Resample is enabled.</p></div>
+              <label class="row"><input type="checkbox" id="opt-curvature-enabled" onchange="sendOptimizerLive()"> Curvature-Adaptive</label>
+              <p class="param-hint">Densifies resampling where the path bends (turn angle between edges) and thins it on straight runs &mdash; also brings continuous curve patterns into the optimizer. Requires Resample.</p>
+              <div class="field"><label>Curvature Gain</label><div class="slider-row"><input type="range" id="opt-curvature-gain" min="0" max="2000" value="200" data-scale="100" data-decimals="2" oninput="optSyncNum('opt-curvature-gain');optimizerSlider()"><input type="number" id="opt-curvature-gain-n" min="0" max="20" step="0.1" value="2" data-scale="100" data-decimals="2" onchange="optSyncSlider('opt-curvature-gain');optimizerSlider()"></div><p class="param-hint">How strongly a bend shortens spacing. 0 = off (base spacing everywhere).</p></div>
+              <div class="field"><label>Min Spacing</label><div class="slider-row"><input type="range" id="opt-min-spacing" min="1" max="2000" value="40" oninput="optSyncNum('opt-min-spacing');optimizerSlider()"><input type="number" id="opt-min-spacing-n" min="1" max="2000" value="40" onchange="optSyncSlider('opt-min-spacing');optimizerSlider()"></div><p class="param-hint">Densest allowed spacing at the sharpest bends (DAC units).</p></div>
+              <div class="field"><label>Max Spacing</label><div class="slider-row"><input type="range" id="opt-max-spacing" min="1" max="4000" value="400" oninput="optSyncNum('opt-max-spacing');optimizerSlider()"><input type="number" id="opt-max-spacing-n" min="1" max="4000" value="400" onchange="optSyncSlider('opt-max-spacing');optimizerSlider()"></div><p class="param-hint">Sparsest allowed spacing on nearly-straight runs (DAC units).</p></div>
             </div>
             <div class="param-group">
               <h3>Ringing Compensation</h3>
@@ -1074,6 +1310,7 @@ canvas { max-width: 100%; display: block; }
               <p class="param-hint">Zero-Vibration (ZV) input shaping on blank jumps &mdash; measure your galvo's resonance before enabling.</p>
               <div class="field"><label>Frequency Hz</label><div class="slider-row"><input type="range" id="opt-ring-freq" min="1" max="2000" value="60" oninput="optSyncNum('opt-ring-freq');optimizerSlider()"><input type="number" id="opt-ring-freq-n" min="1" max="2000" value="60" onchange="optSyncSlider('opt-ring-freq');optimizerSlider()"></div><p class="param-hint">Galvo mechanical resonant frequency in Hz &mdash; must be measured on real hardware.</p></div>
               <div class="field"><label>Damping Ratio</label><div class="slider-row"><input type="range" id="opt-ring-damping" min="0" max="90" value="50" oninput="optSyncNum('opt-ring-damping');optimizerSlider()"><input type="number" id="opt-ring-damping-n" data-scale="100" data-decimals="2" step="0.01" min="0" max="0.9" value="0.50" onchange="optSyncSlider('opt-ring-damping');optimizerSlider()"></div><p class="param-hint">Galvo damping ratio &zeta; &mdash; must be measured on real hardware (typical 0.05&ndash;0.3).</p></div>
+              <p id="opt-eff-ringing" style="font-size:0.7rem;color:var(--text-dim)"></p>
             </div>
             <div class="param-group">
               <h3>Jitter</h3>
@@ -1091,6 +1328,13 @@ canvas { max-width: 100%; display: block; }
               <p class="param-hint">Limits how quickly commanded velocity can change between ticks, to avoid exciting galvo resonance.</p>
               <div class="field"><label>Max Accel</label><div class="slider-row"><input type="range" id="opt-max-accel" min="10" max="32767" value="4000" oninput="optSyncNum('opt-max-accel');optimizerSlider()"><input type="number" id="opt-max-accel-n" min="10" max="32767" value="4000" onchange="optSyncSlider('opt-max-accel');optimizerSlider()"></div></div>
               <p id="opt-eff-accel" style="font-size:0.7rem;color:var(--text-dim)"></p>
+            </div>
+            <div class="param-group">
+              <h3>Jump Order</h3>
+              <label class="row"><input type="checkbox" id="opt-reorder-segments" onchange="sendOptimizerLive()"> Reorder Segments</label>
+              <p class="param-hint">Nearest-neighbour blank-jump ordering across a call's segments (wireframes, text, paint) &mdash; shortens total jump distance instead of visiting them in input order. Closed shapes may rotate their start vertex; open segments may be traversed backwards.</p>
+              <label class="row"><input type="checkbox" id="opt-reorder-2opt" onchange="sendOptimizerLive()"> 2-opt Refinement</label>
+              <p class="param-hint">Refines the nearest-neighbour tour with bounded 2-opt block reversals &mdash; removes crossings the greedy order leaves behind for a shorter total jump path. Requires Reorder Segments; only kicks in below the per-frame segment-count cap.</p>
             </div>
           </div>
           <div class="row" style="margin-top:10px">
@@ -1305,6 +1549,8 @@ canvas { max-width: 100%; display: block; }
         <h2>Safety Configuration</h2>
         <label class="row"><input type="checkbox" id="cfg-safety-override" onchange="setSafetyOverride(this.checked)"> Safety Override</label>
         <p id="cfg-safety-override-warn" class="hidden" style="color:var(--bad)">&#9888; Override active — e-stop and scan-fail bypassed. Only use with laser disarmed and no audience present.</p>
+        <label class="row"><input type="checkbox" id="cfg-gw-watchdog" onchange="saveGwWatchdog(this.checked)"> Gateway Watchdog Reboot</label>
+        <p style="font-size:0.75rem;color:var(--text-dim)">Reboots automatically if the network gateway stops responding to pings for 5 minutes (catches a wedged WiFi/network stack that heap/E-Stop checks don't see).</p>
         <div class="row">
           <button class="btn danger" onclick="doReboot()">System Reboot</button>
           <button class="btn danger" onclick="doFactoryReset()">Factory Reset</button>
@@ -1397,7 +1643,17 @@ canvas { max-width: 100%; display: block; }
 /* ================================================================
    GalvOS Simulator Layer
    Intercepts /api/* fetch calls and drives the sim canvas.
+
+   Wrapped in an IIFE: the WebUI bundle below is data/index.html
+   verbatim and declares its own globals (OPT_PROFILES, PRESETS,
+   state, ...). Sharing the global scope with it means one added
+   WebUI variable can collide with a sim variable of the same name
+   and take the whole page down with a redeclaration SyntaxError --
+   which is exactly what happened when the sim was last re-synced.
+   Everything the outside world needs is published on
+   window.GALVOS_SIM / window.DEMO_LOG_ENTRIES instead.
    ================================================================ */
+(function() {
 'use strict';
 
 
@@ -1410,9 +1666,18 @@ canvas { max-width: 100%; display: block; }
 // Simulator build identity. FW_VERSION / FW_COMMIT track the firmware
 // revision this port was generated from -- bump both together whenever the
 // preset generators are re-synced with src/patterns/preset_patterns.cpp.
-const SIM_VERSION = '1.0.0';
-const FW_VERSION  = '6.41.3';
-const FW_COMMIT   = '13d6b8f';
+// SIM_UI_VERSION mirrors data/index.html's own UI_VERSION constant, which the
+// WebUI bundle below is copied from verbatim.
+const SIM_VERSION    = '1.1.0';
+const FW_VERSION     = '6.73.1';
+const FW_COMMIT      = 'f708417';
+const SIM_UI_VERSION = '1.21.0';
+
+// Reference animation frame period (pattern_engine.cpp's kAnimPhaseFrameMs).
+// The firmware advances the integer preset phase by wall-clock time / 40ms,
+// so a browser running the sim loop at 60fps must do the same instead of
+// advancing once per rAF -- otherwise every preset animates ~2.4x too fast.
+const ANIM_FRAME_MS = 40.0;
 
 const TAU = Math.PI * 2;
 const PI = Math.PI;
@@ -1532,8 +1797,23 @@ const live = {
   explosionRays: 16, fwShells: 2, fwGlitter: true,
   mwDots: 60, mwTilt: 60,
   trail: 6, randomHoldMs: 500,
-  countdownSec: 90, starfieldCount: 0
+  countdownSec: 90, starfieldCount: 0,
+  hlineBounce: false,
+  // Per-side/spoke colors for the Geometry polygons & stars (fw v6.59.0,
+  // gLivePreset.seg_colors_enabled / seg_col_r|g|b[10]).
+  segColors: false,
+  segR: [255, 0, 0, 255, 0, 255, 255, 255, 128, 0],
+  segG: [0, 255, 0, 255, 255, 0, 128, 255, 0, 128],
+  segB: [0, 0, 255, 0, 255, 255, 0, 128, 255, 255]
 };
+
+// Per-side color for edge s, cycling the 10 slots like ngonSegmented() /
+// starSegmented() do. Returns the flat preset color when disabled.
+function segCol(s, r, g, b) {
+  if (!live.segColors) return [r, g, b];
+  const i = ((s % 10) + 10) % 10;
+  return [live.segR[i], live.segG[i], live.segB[i]];
+}
 
 /* ── Preset table (order == firmware PRESETS[]) ────────────────────── */
 
@@ -1579,13 +1859,32 @@ const state = {};                       // persistent per-preset state
 function resetState() { for (const k in state) delete state[k]; }
 const nowMs = () => performance.now();
 
+// ngonSegmented()/starSegmented() equivalent: with Per-Side Colors on, every
+// edge becomes its own open segment so each one can carry a different color
+// (fw v6.59.0). Off, it stays a single closed path, exactly as before.
 function genNgon(sides, colR, colG, colB) {
-  return (f, ph, sp, sz) => f.seg(ngonVerts(sides, SC * ssc(sz) * 0.9, aang(ph, sp), colR, colG, colB), true);
+  return (f, ph, sp, sz) => {
+    const sc = SC * ssc(sz) * 0.9, off = aang(ph, sp);
+    if (!live.segColors) { f.seg(ngonVerts(sides, sc, off, colR, colG, colB), true); return; }
+    for (let s = 0; s < sides; s++) {
+      const a0 = TAU * s / sides + off, a1 = TAU * ((s + 1) % sides) / sides + off;
+      const c = segCol(s, colR, colG, colB);
+      f.line(Math.cos(a0) * sc, Math.sin(a0) * sc, Math.cos(a1) * sc, Math.sin(a1) * sc, c[0], c[1], c[2]);
+    }
+  };
 }
 function genStar(pts, colR, colG, colB) {
   return (f, ph, sp, sz) => {
-    const s = SC * ssc(sz) * 0.9;
-    f.seg(starVerts(pts, s, s * 0.36, aang(ph, sp), colR, colG, colB), true);
+    const s = SC * ssc(sz) * 0.9, inner = s * 0.36, off = aang(ph, sp);
+    if (!live.segColors) { f.seg(starVerts(pts, s, inner, off, colR, colG, colB), true); return; }
+    const nv = pts * 2;
+    for (let k = 0; k < nv; k++) {
+      const nk = (k + 1) % nv;
+      const a0 = TAU * k / nv + off - PI / 2, a1 = TAU * nk / nv + off - PI / 2;
+      const r0 = (k % 2 === 0) ? s : inner, r1 = (nk % 2 === 0) ? s : inner;
+      const c = segCol(k, colR, colG, colB);
+      f.line(Math.cos(a0) * r0, Math.sin(a0) * r0, Math.cos(a1) * r1, Math.sin(a1) * r1, c[0], c[1], c[2]);
+    }
   };
 }
 function genLissajous(N, fx, fy, phy, colR, colG, colB) {
@@ -1597,13 +1896,19 @@ function genLissajous(N, fx, fy, phy, colR, colG, colB) {
     }), true);
   };
 }
+// pa(m): phase for a harmonic running at m times the base rate. Must come
+// from its own aang() call (multiplier applied BEFORE the internal wrap) --
+// scaling the already-wrapped t afterwards by a non-integer factor jumps the
+// fed phase by ~PI at every wrap, i.e. a visible snap once per loop
+// (fw v6.67.0, bugs01.md P2 #6). yFn receives it as its 5th argument.
 function genWave(colR, colG, colB, yFn, N = 120) {
   return (f, ph, sp, sz) => {
     const sc = SC * ssc(sz) * 0.9, t = aang(ph, sp);
+    const pa = m => aang(ph, sp, m);
     const wa = live.waveAmp, wf_ = live.waveFreq;
     f.seg(curve(N + 1, (i, n) => {
       const xx = L(-1, 1, i / (n - 1));
-      return V(xx * sc, yFn(xx, t, wa, wf_) * sc, colR, colG, colB);
+      return V(xx * sc, yFn(xx, t, wa, wf_, pa) * sc, colR, colG, colB);
     }), false);
   };
 }
@@ -1645,7 +1950,12 @@ GEN[12] = (f, ph, sp, sz) => {                                  // Grid 3x3
   for (let i = 0; i <= 3; i++) { const y = -s + i * st; f.line(-s, y, s, y, 0, 255, 255); }
 };
 GEN[13] = (f, ph, sp, sz) => {                                  // H Line
-  const s = SC * ssc(sz) * 0.9, off = (aang(ph, sp) / TAU * 2 - 1) * s;
+  // Default: sawtooth ramp bottom->top, snapping back every wrap. Bounce
+  // (gLivePreset.hline_bounce, fw v6.67.0): fold the ramp into a 0..1..0
+  // triangle so the line eases back down instead of snapping.
+  const s = SC * ssc(sz) * 0.9, r = aang(ph, sp) / TAU;
+  const tri = r < 0.5 ? r * 2 : 2 - r * 2;
+  const off = ((live.hlineBounce ? tri : r) * 2 - 1) * s;
   f.line(-s, off, s, off, 255, 255, 0);
 };
 GEN[14] = (f, ph, sp, sz) => {                                  // Diagonal
@@ -1752,13 +2062,14 @@ GEN[34] = (f, ph, sp, sz) => {
   sinewave(f, A, 2, 0, SC * ssc(sz) * 0.9, 0, 255, 0);
 };
 GEN[35] = (f, ph, sp, sz) => {                                  // Multi Wave
-  const sc = SC * ssc(sz) * 0.9, t = aang(ph, sp);
-  sinewave(f, 0.3, 1, t, sc, 255, 0, 0);
-  sinewave(f, 0.2, 2, t * 1.5, sc, 0, 255, 0);
-  sinewave(f, 0.15, 3, t * 2, sc, 0, 0, 255);
+  // Each harmonic's phase from its own aang() call -- see genWave()'s pa().
+  const sc = SC * ssc(sz) * 0.9;
+  sinewave(f, 0.3, 1, aang(ph, sp), sc, 255, 0, 0);
+  sinewave(f, 0.2, 2, aang(ph, sp, 1.5), sc, 0, 255, 0);
+  sinewave(f, 0.15, 3, aang(ph, sp, 2), sc, 0, 0, 255);
 };
-GEN[36] = genWave(0, 0, 255, (x, t, wa, wf_) =>
-  wa * (0.3 * Math.sin(4 * wf_ * x * PI + t) + 0.15 * Math.sin(8 * wf_ * x * PI + t * 1.7) + 0.08 * Math.sin(16 * wf_ * x * PI + t * 2.3)));
+GEN[36] = genWave(0, 0, 255, (x, t, wa, wf_, pa) =>
+  wa * (0.3 * Math.sin(4 * wf_ * x * PI + t) + 0.15 * Math.sin(8 * wf_ * x * PI + pa(1.7)) + 0.08 * Math.sin(16 * wf_ * x * PI + pa(2.3))));
 GEN[37] = genWave(255, 255, 0, (x, t, wa, wf_) =>
   wa * 0.45 * (Math.sin(5 * wf_ * x * PI + t) + Math.sin(7 * wf_ * x * PI - t)) * 0.5);
 GEN[38] = genWave(255, 0, 0, (x, t, wa, wf_) => {
@@ -1831,11 +2142,11 @@ GEN[47] = genWave(0, 255, 0, (x, t, wa, wf_) => {
 });
 GEN[48] = genWave(255, 0, 255, (x, t, wa, wf_) =>
   Math.exp(-2 * Math.abs(x)) * wa * Math.sin(10 * wf_ * x * PI + t) * (0.4 + 0.4 * Math.abs(x)));
-GEN[49] = genWave(0, 255, 255, (x, t, wa, wf_) =>
-  (0.5 + 0.5 * x) * 0.5 * wa * Math.sin(TAU * (x * 2 * wf_ - t * 0.3)) * 0.7);
-GEN[50] = genWave(255, 200, 50, (x, t, wa, wf_) => {
+GEN[49] = genWave(0, 255, 255, (x, t, wa, wf_, pa) =>
+  (0.5 + 0.5 * x) * 0.5 * wa * Math.sin(TAU * (x * 2 * wf_ - pa(0.3))) * 0.7);
+GEN[50] = genWave(255, 200, 50, (x, t, wa, wf_, pa) => {
   let yy = 0;
-  for (let j = 0; j < 5; j++) { const k = j + 1; yy += Math.sin(k * wf_ * x * TAU + t * (j * 0.5 + 0.5)) * 0.2 / k; }
+  for (let j = 0; j < 5; j++) { const k = j + 1; yy += Math.sin(k * wf_ * x * TAU + pa(j * 0.5 + 0.5)) * 0.2 / k; }
   return yy * wa;
 });
 
@@ -2474,7 +2785,68 @@ GEN[80] = (f, ph, sp, sz) => {                                  // Milky Way
    Simplified point optimizer + post-processing + renderer
    ══════════════════════════════════════════════════════════════════════ */
 
-const optCfg = { maxPts: 1010, pts: 6.0, blank: 16, minBlank: 6, cornerMax: 8, cornerMin: 2, cornerAngle: 25 };
+// Per-profile optimizer parameters, mirroring OPT_PROFILE_DEFAULTS[] in
+// include/config.h (order == OPT_PROFILE_* indices). The sim's optimizer is a
+// simplified port -- corner dwell, length-proportional interior density and a
+// budget squeeze -- so only the parameters those three stages actually read
+// are carried here; the rest live in the /api/config mock below so the
+// Optimizer tab shows the real numbers.
+const OPT_PROFILES = [
+  { name: 'Vector',      cornerAngle: 30, cornerMin: 2, cornerMax: 8, pts: 9.0,  blank: 16, minBlank: 6,  maxPts: 1300 },
+  { name: 'Smooth',      cornerAngle: 60, cornerMin: 2, cornerMax: 3, pts: 11.0, blank: 16, minBlank: 6,  maxPts: 1300 },
+  { name: 'Waves',       cornerAngle: 35, cornerMin: 2, cornerMax: 6, pts: 8.0,  blank: 16, minBlank: 6,  maxPts: 1300 },
+  { name: 'Wireframe',   cornerAngle: 25, cornerMin: 2, cornerMax: 8, pts: 6.0,  blank: 20, minBlank: 4,  maxPts: 1300 },
+  { name: 'MultiObject', cornerAngle: 25, cornerMin: 2, cornerMax: 6, pts: 5.0,  blank: 18, minBlank: 4,  maxPts: 1300 },
+  { name: 'Particles',   cornerAngle: 25, cornerMin: 2, cornerMax: 4, pts: 6.0,  blank: 40, minBlank: 32, maxPts: 1300 },
+  { name: 'Trails',      cornerAngle: 60, cornerMin: 3, cornerMax: 3, pts: 11.0, blank: 16, minBlank: 6,  maxPts: 880  },
+  { name: 'Text',        cornerAngle: 28, cornerMin: 2, cornerMax: 5, pts: 6.0,  blank: 16, minBlank: 4,  maxPts: 1300 }
+];
+
+// presetClassOf() (preset_patterns.cpp) as a name -> profile map. Keyed by
+// PRESETS[] name rather than by index so a future insertion into PRESETS[]
+// cannot silently shift a whole class onto the wrong profile. Anything
+// unlisted falls back to Vector, exactly like the firmware's `default:`.
+const PROFILE_MEMBER_NAMES = [
+  ['Circle', 'Square', 'Triangle', 'Pentagon', 'Hexagon', 'Octagon',
+   'Star 4', 'Star 5', 'Star 6', 'Star 8', 'Pentagram',
+   'Cross +', 'X Shape', 'Grid 3x3', 'H Line', 'Diagonal', 'Three Circles'],
+  ['Endless Spiral', 'Archimedean Spiral', 'Double Spiral',
+   'Lissajous 1:2', 'Lissajous 2:3', 'Lissajous 3:4', 'Lissajous 3:5', 'Lissajous 5:6',
+   'Rose 3', 'Rose 4', 'Heart', 'Infinity', 'Astroid', 'Epitrochoid',
+   'Hypotrochoid', 'Butterfly', 'Spirograph 5/3', 'Pulsing Circle',
+   'DNA Helix', 'Yin Yang'],
+  ['Sine Wave', 'Standing Wave', 'Multi Wave', 'Ocean Wave', 'Wave Interference',
+   'Sawtooth', 'Square Wave', 'Wave Packet', 'Beat Wave', 'Radial Waves',
+   'FM Wave', 'Vortex', 'Sine Helix', 'Wave Field', 'Fourier Square',
+   'Gravity Waves', 'Tsunami', 'Wave Spectrum'],
+  ['Rotating Cube', 'Static Cube', 'Pyramid', 'Octahedron', 'Tetrahedron'],
+  ['Solar System', 'Concentric Rings', 'Nested Squares', 'Disco Ball',
+   'Laser Diamond', 'Starburst', 'Starburst Party', 'Hibiscus',
+   'Chaos Bouncer', 'Countdown Timer', 'Endless Tunnel', 'Pythagoras Tree'],
+  ['Starfield', 'Random Points', 'Point Spread', 'Confetti Burst',
+   'Bouncing Points', 'Explosion Spread', 'Fireworks', 'Milky Way'],
+  ['Shooting Stars'],
+  []   // Text -- selected by the text renderer, not by presetClassOf()
+];
+
+const PRESET_PROFILE = (function() {
+  const m = new Array(PRESETS.length).fill(0);
+  PROFILE_MEMBER_NAMES.forEach(function(names, prof) {
+    names.forEach(function(n) {
+      const i = PRESETS.findIndex(p => p[0] === n);
+      if (i >= 0) m[i] = prof;
+    });
+  });
+  return m;
+})();
+
+function profileForPreset(idx) {
+  const p = PRESET_PROFILE[idx];
+  return OPT_PROFILES[p === undefined ? 0 : p];
+}
+
+// Active config for the frame currently being rendered -- set by simTick().
+let optCfg = OPT_PROFILES[0];
 
 function blankTo(out, from, x, y, cfg) {
   const n = cfg.blank;
@@ -2491,6 +2863,11 @@ function exteriorAngleDeg(a, b, c) {
   const cosv = clamp((v1x * v2x + v1y * v2y) / (l1 * l2), -1, 1);
   return Math.acos(cosv) * 180 / PI;
 }
+
+// Interior-density scale the last optimize() call ended up with (1.0 = the
+// profile's requested density, below that = Stage 2 squeezed it to fit the
+// frame budget). Published as stage2_scale on /api/optimizer-stats.
+let simLastDensityScale = 1.0;
 
 function optimize(frame, cfg) {
   let density = cfg.pts;
@@ -2529,6 +2906,7 @@ function optimize(frame, cfg) {
     if (out.length <= cfg.maxPts || density <= 0.25) break;
     density = Math.max(0.25, density * (cfg.maxPts / out.length) * 0.96);
   }
+  simLastDensityScale = cfg.pts > 0 ? density / cfg.pts : 1.0;
   if (out.length > cfg.maxPts) out.length = cfg.maxPts;
   return out;
 }
@@ -2601,6 +2979,59 @@ function radialCopy(pts, segments, mirrorH, mirrorV, cfg) {
   return out;
 }
 
+// applyMirrorKaleido() -- true dihedral fold (group D_S), the default
+// Kaleidoscope mode since fw v6.67.0. radialCopy() above is the plain
+// rotational copy (C_S) the "Radial Repeat" mode still uses; this one first
+// mirror-folds every point into a single [0, alpha] wedge and then stamps
+// that wedge around, alternating rotation with a reflection so adjacent
+// copies mirror each other across their shared edge. Segment count is
+// even-only so the fold always closes.
+function mirrorKaleido(pts, segments, cfg) {
+  let segs = clamp(segments, 2, 8) & ~1;
+  if (segs < 2) segs = 2;
+  const alpha = TAU / segs, nFold = segs / 2;
+  const n0x = 0, n0y = 1, n1x = Math.sin(alpha), n1y = -Math.cos(alpha);
+  const jumpCost = (segs - 1) * cfg.minBlank;
+  if (cfg.maxPts <= jumpCost) return pts;
+  const maxPerCopy = Math.floor((cfg.maxPts - jumpCost) / segs);
+  if (maxPerCopy < 2) return pts;
+
+  // Fold AFTER decimation so mirror-axis crossings land on existing points.
+  const src = decimate(pts, maxPerCopy).map(function(p) {
+    let px = p.x, py = p.y;
+    for (let fi = 0; fi < nFold; fi++) {
+      const nx = (fi & 1) ? n1x : n0x, ny = (fi & 1) ? n1y : n0y;
+      const d = px * nx + py * ny;
+      if (d < 0) { px -= 2 * d * nx; py -= 2 * d * ny; }
+    }
+    return { x: px, y: py, r: p.r, g: p.g, b: p.b, blank: p.blank, dot: p.dot };
+  });
+
+  const out = [];
+  for (let k = 0; k < segs; k++) {
+    // Per-copy 2x2 matrix: even k = rotation by k*alpha; odd k = rotation by
+    // (k+1)*alpha composed with a reflection across the x-axis.
+    let m00, m01, m10, m11;
+    const theta = ((k & 1) === 0 ? k : k + 1) * alpha;
+    const ca = Math.cos(theta), sa = Math.sin(theta);
+    if ((k & 1) === 0) { m00 = ca; m01 = -sa; m10 = sa; m11 = ca; }
+    else               { m00 = ca; m01 = sa;  m10 = sa; m11 = -ca; }
+    if (k > 0) {
+      const first = src[0], prev = out[out.length - 1];
+      const dstX = m00 * first.x + m01 * first.y, dstY = m10 * first.x + m11 * first.y;
+      for (let d = 0; d < cfg.minBlank; d++) {
+        const t = (d + 1) / cfg.minBlank;
+        out.push({ x: prev.x + (dstX - prev.x) * t, y: prev.y + (dstY - prev.y) * t, r: 0, g: 0, b: 0, blank: 1 });
+      }
+    }
+    for (const p of src) {
+      out.push({ x: m00 * p.x + m01 * p.y, y: m10 * p.x + m11 * p.y,
+                 r: p.r, g: p.g, b: p.b, blank: p.blank, dot: p.dot });
+    }
+  }
+  return out;
+}
+
 function mirrorCopy(pts, flipX, flipY, cfg) {
   const maxPerCopy = Math.floor((cfg.maxPts - cfg.minBlank) / 2);
   if (maxPerCopy < 2) return pts;
@@ -2644,6 +3075,75 @@ function applyColor(pts, ui) {
     if (ui.colOverride) { p.r = ui.col[0]; p.g = ui.col[1]; p.b = ui.col[2]; }
     p.r = b255(p.r * dim); p.g = b255(p.g * dim); p.b = b255(p.b * dim);
   }
+}
+
+// applyPointsOnlyMode() -- subsamples the already-transformed frame down to a
+// handful of dwelling dots with a fade in/out cycle (pattern_engine.cpp).
+// Operates purely on the final point array, so it works for every preset.
+// The firmware's Dotter scatter and BPM-sync phase pinning are left out here
+// (both need modulator/BPM state the sim does not model); everything else --
+// dwell derived from the frame budget, the six wipe directions, the
+// "no fade configured means always visible" rule -- is ported as-is.
+const FADE_DIR = { IN_OUT: 0, OUT_IN: 1, LEFT_RIGHT: 2, RIGHT_LEFT: 3, TOP_BOTTOM: 4, BOTTOM_TOP: 5 };
+
+function fadeWipePosition(dir, x, y, cx, cy, minX, maxX, minY, maxY, halfDiag) {
+  const c01 = v => clamp(v, 0, 1);
+  const d = Math.hypot(x - cx, y - cy);
+  switch (dir) {
+    case FADE_DIR.OUT_IN:      return 1 - c01(d / halfDiag);
+    case FADE_DIR.LEFT_RIGHT:  return maxX > minX ? c01((x - minX) / (maxX - minX)) : 0;
+    case FADE_DIR.RIGHT_LEFT:  return maxX > minX ? 1 - c01((x - minX) / (maxX - minX)) : 0;
+    case FADE_DIR.TOP_BOTTOM:  return maxY > minY ? c01((y - minY) / (maxY - minY)) : 0;
+    case FADE_DIR.BOTTOM_TOP:  return maxY > minY ? 1 - c01((y - minY) / (maxY - minY)) : 0;
+    default:                   return c01(d / halfDiag);
+  }
+}
+
+let pmAccMs = 0;
+
+function pointsOnlyMode(pts, ui, cfg, dtMs) {
+  const count = clamp(Math.round(ui.pointsCount), 2, 50);
+  const lit = pts.filter(p => !p.blank);
+  if (!lit.length) return [];
+
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  for (const p of lit) {
+    if (p.x < minX) minX = p.x;
+    if (p.x > maxX) maxX = p.x;
+    if (p.y < minY) minY = p.y;
+    if (p.y > maxY) maxY = p.y;
+  }
+  const cx = (minX + maxX) * 0.5, cy = (minY + maxY) * 0.5;
+  const halfDiag = Math.max(1, Math.max(maxX - minX, maxY - minY) * 0.5);
+
+  const dwell = clamp(Math.floor(cfg.maxPts / count / 2), 3, 30);
+  const cycleMs = Math.max(1, ui.fadeInMs + ui.fadeOutMs);
+  pmAccMs = (pmAccMs + dtMs) % cycleMs;
+  const noFade = ui.fadeInMs === 0 && ui.fadeOutMs === 0;
+
+  const out = [];
+  let prev = null;
+  for (let k = 0; k < count; k++) {
+    const src = lit[Math.floor(k * lit.length / count)];
+    let v = 1;
+    if (!ui.pointsStatic && !noFade) {
+      const wipeT = fadeWipePosition(ui.fadeDir, src.x, src.y, cx, cy, minX, maxX, minY, maxY, halfDiag);
+      const dotPhaseMs = (pmAccMs + wipeT * cycleMs) % cycleMs;
+      if (dotPhaseMs < ui.fadeInMs) {
+        const t = ui.fadeInMs ? dotPhaseMs / ui.fadeInMs : 1;
+        v = ui.fadeInOn ? t * t * (3 - 2 * t) : 1;
+      } else {
+        const t = ui.fadeOutMs ? (dotPhaseMs - ui.fadeInMs) / ui.fadeOutMs : 1;
+        v = ui.fadeOutOn ? 1 - t * t * (3 - 2 * t) : 0;
+      }
+    }
+    if (prev) blankTo(out, prev, src.x, src.y, cfg);
+    for (let d = 0; d < dwell; d++) {
+      out.push({ x: src.x, y: src.y, r: b255(src.r * v), g: b255(src.g * v), b: b255(src.b * v), blank: 0, dot: 1 });
+    }
+    prev = out[out.length - 1];
+  }
+  return out;
 }
 
 /* ── Renderer ──────────────────────────────────────────────────────── */
@@ -2722,149 +3222,454 @@ function render(pts, ui) {
 }
 
 
-/* ── Sim UI state ------------------------------------------------ */
+/* ── Sim UI state (mirrors gLivePreset + gState) ------------------ */
 const simUI = {
   preset: 0, speed: 60, size: 180, rotation: 0, dimmer: 255,
   rotX: false, rotY: false, rotZ: false, rotSpeed: 0.03,
   rotAngleX: 0, rotAngleY: 0, rotAngleZ: 0,
-  kaleido: false, kalSeg: 3, kalMH: false, kalMV: false, mirrorMode: 0,
+  // kaleidoMode: 1 = Kaleidoscope (mirror fold, KALEIDO_MODE_MIRROR),
+  // 0 = Radial Repeat. Mirror H/V only affect Radial Repeat, same as fw.
+  kaleido: false, kaleidoMode: 1, kalSeg: 4, kalMH: false, kalMV: false,
+  mirrorMode: 0,
   colOverride: false, col: [0, 255, 136],
+  autoscaleSpeed: 0, autoscaleMode: 0,
+  pointsOnly: false, pointsCount: 12, pointsStatic: false,
+  fadeInOn: false, fadeOutOn: false, fadeInMs: 0, fadeOutMs: 0, fadeDir: 0,
   afterglow: true, showBlank: false, showPoints: false
 };
 
-/* ── Animated mock state ----------------------------------------- */
+/* ── Simulated hardware/config state ----------------------------- */
 const SIM_START_MS = performance.now();
+
+// Field names match buildStateJson()/buildCoreStatusJson() in
+// src/net/web_ui.cpp exactly -- the WebUI bundle below is the real one, so a
+// renamed key here shows up as an empty Dashboard field, not as an error.
 const SIM_MOCK_STATE = {
-  fw_version: '6.41.3', ui_ver: '1.6.5',
+  fw_version: FW_VERSION,
   hostname: 'galvos-sim', ip: 'simulator', rssi: -42,
-  uptime: 0, free_heap: 285000, psram_free: 7800000,
-  laser_armed: false, estop_ok: true, scanfail_ok: true,
-  safety_override: false, watchdog_ok: true, subsystems_ok: true,
-  no_hw_mode: true,
-  preset_idx: 0, points_per_sec: 28500, fps: 30,
-  frame_n: 0, frame_lit: 890, frame_blank: 120, master_dimmer: 255,
-  cpu0: 42, cpu1: 8,
+  uptime_s: 0, free_heap: 285000, free_psram: 7800000, heap: 285000, psram: 7800000,
+  laser_armed: false, arm_requested: false, estop_ok: true, scanfail_ok: true,
+  safety_override: false, watchdog_ok: true, subsystems_ok: true, last_failsafe: '',
+  no_hw_mode: true, dac_ok: true, source: 0,
+  preset_idx: 0, points_per_sec: 28500, fps: 25,
+  frame_n: 0, frame_lit: 0, frame_blank: 0, text_truncated: false,
+  starfield_stars: 0,
+  master_dimmer: 0, ui_override: true, ui_master_dimmer: 255,
+  cpu0: 42, cpu1: 8, ota_pass: 'S1MU1AT0', auth_token: '',
   bpm: 120.0, bpm_source: 0, bpm_phase: 0,
   seq_running: false, seq_current: 0, seq_stepcount: 0, seq_loop: false,
-  last_dmx_age_ms: 999999, dmx_frame_count: 0,
+  last_dmx_age_ms: -1, dmx_frame_count: 0,
   calib_active: false, ilda_active: false, playlist_active: false,
-  sd_ready: false, sd_fs_type: '', sd_free_kb: 0, sd_file_count: 0,
+  etherdream_connected: false, etherdream_playing: false,
+  helios_net_connected: false, helios_net_playing: false,
+  osc_active: false, sacn_active: false,
+  sd_ready: false, sd_fs_type: '', sd_free_kb: 0, sd_total_kb: 0, sd_file_count: 0,
   sd_error: 'No SD card (simulator)',
-  fan1_duty: 0, fan2_duty: 0, temps: [42.3, 38.1, 51.7, 35.4, 44.9], temp_unit: 'C', buffer_fill: 85,
-  ok: [true, true, true, true, true], found: [true, true, true, true, true],
+  ntp_server: '', ntp_tz: '', ntp_synced: false,
+  dacClipX: 0, dacClipY: 0, dacClipPct: 0,
+  fan1_duty: 0, fan2_duty: 0, temp_alert: false, temp_crit: false,
+  temps: [42.3, 38.1, 51.7, 35.4, 44.9], temp_raw: [42.3, 38.1, 51.7, 35.4, 44.9],
+  temp_unit: 'C', buffer_fill: 85,
+  ok: [true, true, true, true, true], found: 5,
   names: ['ESP32 Core', 'PSU', 'Galvo X Driver', 'Galvo Y Driver', 'Laser Module'],
   temp_offsets: [0, 0, 0, 0, 0]
 };
+
+// Everything the sim persists for a WebUI round trip. Written by the POST
+// branches of the mock, read back by the matching GET so the tabs behave like
+// the real device does across a tab switch / page reload.
+const SIM_STORE = {
+  weld: { enabled: false, direction: 0, speed: 6000, glow: 4000, sparks: 6, spark_life: 260 },
+  warp: { enabled: false, gridSize: 2, points: null, test: false },
+  brightness: { enabled: false, gridSize: 2, gain: null },
+  zone: { enabled: false, x: [], y: [] },
+  text: { text: 'GALVOS', font: 0, anim: 0, speed: 128, size: 128,
+          col_r: 255, col_g: 255, col_b: 255, rainbow: false,
+          flip_x: false, flip_y: false, orbit_reverse: false, active: false },
+  paint: { active: false, strokes: [] },
+  timer: { remaining: 90, running: false, expired: false },
+  activeProfile: 0
+};
+
+// WarpConfig::resetIdentity() (include/config.h) -- same row/column order and
+// the same -1..+1 mapping, so a grid saved in the sim would be byte-compatible
+// with one saved on the device.
+function identityWarp(size) {
+  const n = clamp(size, 2, 5);
+  const pts = [];
+  for (let r = 0; r < n; r++) {
+    const row = [];
+    for (let c = 0; c < n; c++) row.push([-1 + (2 * c) / (n - 1), -1 + (2 * r) / (n - 1)]);
+    pts.push(row);
+  }
+  return pts;
+}
+function identityGain(size) {
+  const g = [];
+  for (let r = 0; r < size; r++) g.push(new Array(size).fill(255));
+  return g;
+}
+SIM_STORE.warp.points = identityWarp(2);
+SIM_STORE.brightness.gain = identityGain(2);
+
+/* ── /api/config mock -------------------------------------------- */
+
+// The 8 optimizer profiles as the firmware serializes them: the tuned
+// per-profile defaults (OPT_PROFILE_DEFAULTS in include/config.h) plus the
+// generic OPT_DEFAULT_* values for every field that table does not cover.
+const OPT_PROFILE_EXTRA = {
+  resample_enabled: false, resample_spacing_units: 160,
+  curvature_resample_enabled: false, curvature_gain: 2.0,
+  min_spacing_units: 40, max_spacing_units: 400,
+  ringing_comp_enabled: false, ring_freq_hz: 200, ring_damping_ratio: 0.15,
+  jitter_enabled: false, jitter_amount_units: 80,
+  vel_clamp_enabled: false, max_step_units: 200,
+  accel_clamp_enabled: false, max_accel_units: 800,
+  reorder_segments: false, reorder_2opt: false
+};
+const OPT_PROFILE_STAGE1 = [12, 12, 12, 10, 10, 8, 12, 7];
+const OPT_PROFILE_BLPPU  = [8.0, 8.0, 8.0, 0.8, 1.5, 0.9, 8.0, 1.0];
+const OPT_PROFILE_MINIP  = [8, 8, 8, 6, 6, 4, 8, 1];
+
+const SIM_PROJECTION = {
+  rated_kpps: 15, kpps: 30, scan_angle_mech: 30, exit_angle: 45,
+  ilda_test_angle: 20, power_r_mw: 500, power_g_mw: 100, power_b_mw: 300,
+  active_preset: -1, scan_warp_enabled: false, warp_grid: []
+};
+
+// optimizer::ppsRatio() / applyPpsScaling() -- the effective values the
+// Optimizer tab shows next to each requested one.
+function ppsRatio(rated, out) {
+  if (!rated || !out) return 1.0;
+  return clamp(rated / out, 0.1, 10.0);
+}
+
+// optimizer::ringingStatus(): whether ZV shaping actually engages at these
+// settings. shift_pts is the impulse delay in points; the shaped tail must
+// fit inside kMaxBlankPts (128) at the LONGEST jump this config builds.
+function ringingStatusOf(p, kpps) {
+  if (!p.ringing_comp_enabled || p.ring_freq_hz <= 1 || !kpps) {
+    return { active: false, shift_pts: 0 };
+  }
+  const zeta = clamp(p.ring_damping_ratio, 0, 0.9);
+  const wn = TAU * p.ring_freq_hz;
+  const wd = Math.sqrt(Math.max(1 - zeta * zeta, 1e-6));
+  const K = Math.exp(-zeta * PI / wd);
+  const A2 = K / (1 + K);
+  let shift = Math.max(1, Math.round((PI / (wn * wd)) / (1 / (kpps * 1000))));
+  const hi = Math.min(Math.max(p.blank_samples, p.min_blank_samples), 128);
+  const settle = clamp(Math.min(p.min_blank_samples, Math.floor(hi / 2)), 1, hi);
+  const need = (hi - settle) + shift + 1;
+  return { active: A2 > 0 && need <= 128, shift_pts: shift };
+}
+
+function buildOptProfile(i) {
+  const base = OPT_PROFILES[i];
+  const p = {
+    opt_corner_angle_deg: base.cornerAngle,
+    opt_min_corner_pts: base.cornerMin,
+    opt_max_corner_pts: base.cornerMax,
+    opt_pts_per_1000_units: base.pts,
+    opt_blank_samples: base.blank,
+    opt_max_pts_per_frame: base.maxPts,
+    opt_min_blank_samples: base.minBlank,
+    opt_blank_pts_per_1000_units: OPT_PROFILE_BLPPU[i],
+    opt_min_interior_pts_per_segment: OPT_PROFILE_MINIP[i],
+    opt_stage1_blank_target: OPT_PROFILE_STAGE1[i]
+  };
+  for (const k in OPT_PROFILE_EXTRA) p['opt_' + k] = OPT_PROFILE_EXTRA[k];
+
+  const r = ppsRatio(SIM_PROJECTION.rated_kpps, SIM_PROJECTION.kpps);
+  p.opt_eff_pts_per_1000_units       = base.pts / r;
+  p.opt_eff_resample_spacing_units   = OPT_PROFILE_EXTRA.resample_spacing_units * r;
+  p.opt_eff_blank_pts_per_1000_units = OPT_PROFILE_BLPPU[i] / r;
+  p.opt_eff_max_step_units           = OPT_PROFILE_EXTRA.max_step_units * r;
+  p.opt_eff_max_accel_units          = OPT_PROFILE_EXTRA.max_accel_units * r * r;
+  const rs = ringingStatusOf({
+    ringing_comp_enabled: OPT_PROFILE_EXTRA.ringing_comp_enabled,
+    ring_freq_hz: OPT_PROFILE_EXTRA.ring_freq_hz,
+    ring_damping_ratio: OPT_PROFILE_EXTRA.ring_damping_ratio,
+    blank_samples: base.blank, min_blank_samples: base.minBlank
+  }, SIM_PROJECTION.kpps);
+  p.opt_eff_ringing_active = rs.active;
+  p.opt_eff_ring_shift_pts = rs.shift_pts;
+  return p;
+}
+
+function buildConfigResponse() {
+  const profiles = OPT_PROFILES.map(function(_, i) { return buildOptProfile(i); });
+  const active = profiles[SIM_STORE.activeProfile];
+  const cfg = {
+    dmx_address: 1, artnet_universe: 0, bpm_manual: 120, bpm_dmx_channel: 1,
+    osc_enabled: false, sacn_enabled: false, helios_net_enabled: false,
+    artnet_enabled: false, etherdream_enabled: false,
+    debug_log_dmx: false, debug_log_artnet: false, debug_log_etherdream: false,
+    debug_log_helios_net: false, debug_log_osc: false, debug_log_sacn: false,
+    galvo_x_offset: 0, galvo_y_offset: 0, galvo_x_gain: 24200, galvo_y_gain: 24200,
+    swap_xy: false, invert_x: false, invert_y: false,
+    gain_r: 255, gain_g: 255, gain_b: 255,
+    thresh_r: 0, thresh_g: 0, thresh_b: 0,
+    hostname: 'galvos-sim', ntp_server: '', ntp_tz: '', ntp_synced: false,
+    wifi_ssid: '', wifi_static: false, wifi_ip: '', wifi_gw: '', wifi_mask: '',
+    wifi_dns: '', wifi_connected: false, wifi_ip_current: 'simulator',
+    dac_debug_log: false,
+    wifi_watchdog_reboot_enabled: true,
+    wifi_watchdog_soft_timeout_ms: 30000,
+    wifi_watchdog_timeout_ms: 300000,
+    gw_watchdog_age_ms: 0, gw_watchdog_soft_recoveries: 0,
+    dac_limit_min: 0x2E18, dac_limit_max: 0xD28C, output_scale: 0.91,
+    gamma_enable: true,
+    galvo_rated_kpps: SIM_PROJECTION.rated_kpps,
+    safety_override: false,
+    ota_pass: SIM_MOCK_STATE.ota_pass,
+    opt_active_profile: SIM_STORE.activeProfile,
+    opt_profiles: profiles,
+    opt_profile_members: PROFILE_MEMBER_NAMES
+  };
+  // Top-level opt_* mirror the active profile, same as the firmware's
+  // backwards-compat block.
+  for (const k in active) if (k.indexOf('opt_eff_') !== 0) cfg[k] = active[k];
+  return cfg;
+}
+
+/* ── Live optimizer telemetry ------------------------------------ */
+// Measured off the frame the sim canvas actually drew, so /api/optimizer-stats
+// reports this simulation's own numbers rather than invented ones.
+const SIM_OPT_STATS = {
+  emitted_lit: 0, emitted_blank: 0, truncated: 0, planned_total: 0,
+  jump_count: 0, jump_distance_total: 0, calls: 1,
+  stage2_scale: 1.0, stage1_triggered: false, stage15_triggered: false,
+  ringing_active: false
+};
+
+function updateOptStats(pts, cfg) {
+  let lit = 0, blank = 0, jumps = 0, dist = 0, inJump = false;
+  let jx = 0, jy = 0;
+  for (let i = 0; i < pts.length; i++) {
+    const p = pts[i];
+    if (p.blank) {
+      blank++;
+      if (!inJump) { inJump = true; jumps++; jx = i > 0 ? pts[i - 1].x : p.x; jy = i > 0 ? pts[i - 1].y : p.y; }
+    } else {
+      if (inJump) { dist += Math.hypot(p.x - jx, p.y - jy); inJump = false; }
+      lit++;
+    }
+  }
+  SIM_OPT_STATS.emitted_lit = lit;
+  SIM_OPT_STATS.emitted_blank = blank;
+  SIM_OPT_STATS.planned_total = lit + blank;
+  SIM_OPT_STATS.truncated = 0;
+  SIM_OPT_STATS.jump_count = jumps;
+  SIM_OPT_STATS.jump_distance_total = Math.round(dist);
+  SIM_OPT_STATS.stage2_scale = simDensityScale;
+  SIM_OPT_STATS.stage1_triggered = simDensityScale < 0.999;
+  SIM_OPT_STATS.stage15_triggered = (lit + blank) >= cfg.maxPts;
+  SIM_MOCK_STATE.frame_lit = lit;
+  SIM_MOCK_STATE.frame_blank = blank;
+}
 
 /* ── Demo log entries -------------------------------------------- */
 (function() {
   var _base = Date.now() - 120000;
   var _entries = [
-    {ts: _base +   0, wall: '', lvl: 'INFO',  cat: 'SYS',    msg: 'GalvOS v6.41.3 booting — ESP32-S3 N16R8'},
+    {ts: _base +   0, wall: '', lvl: 'INFO',  cat: 'SYS',    msg: '=== GalvOS Laser FW ' + FW_VERSION + ' === ESP32-S3 N16R8'},
     {ts: _base +  80, wall: '', lvl: 'INFO',  cat: 'SYS',    msg: 'LittleFS mounted OK (2.1 MB free)'},
     {ts: _base + 150, wall: '', lvl: 'INFO',  cat: 'SYS',    msg: 'PSRAM detected: 8 MB'},
     {ts: _base + 210, wall: '', lvl: 'INFO',  cat: 'WIFI',   msg: 'AP mode started — SSID: GalvOS-SIM'},
-    {ts: _base + 290, wall: '', lvl: 'INFO',  cat: 'SYS',    msg: 'DAC8562 init OK — SPI2/HSPI @ 20 MHz'},
-    {ts: _base + 370, wall: '', lvl: 'INFO',  cat: 'GALVO',  msg: 'Galvo driver ready — rated 15 kpps'},
+    {ts: _base + 290, wall: '', lvl: 'INFO',  cat: 'SYS',    msg: 'DAC8562 init OK — SPI2 @ 20 MHz'},
+    {ts: _base + 370, wall: '', lvl: 'INFO',  cat: 'GALVO',  msg: 'Galvo driver ready — rated 15 kpps, output 30 kpps'},
     {ts: _base + 450, wall: '', lvl: 'INFO',  cat: 'TEMP',   msg: 'DS18B20 bus scan: 5 sensors found'},
-    {ts: _base + 510, wall: '', lvl: 'INFO',  cat: 'SYS',    msg: 'Optimizer pipeline init — max_pts=1300'},
-    {ts: _base + 600, wall: '', lvl: 'INFO',  cat: 'SYS',    msg: 'WebUI ready — heap 285 kB free'},
+    {ts: _base + 510, wall: '', lvl: 'INFO',  cat: 'SYS',    msg: 'Optimizer pipeline init — 8 profiles, Vector active'},
+    {ts: _base + 600, wall: '', lvl: 'INFO',  cat: 'SYS',    msg: 'WebUI ready — UI ' + SIM_UI_VERSION + ', heap 285 kB free'},
     {ts: _base + 700, wall: '', lvl: 'INFO',  cat: 'SAFETY', msg: 'E-Stop OK — watchdog armed'},
+    {ts: _base + 780, wall: '', lvl: 'INFO',  cat: 'WIFI',   msg: 'Gateway watchdog armed — soft 30 s, hard 300 s'},
     {ts: _base + 800, wall: '', lvl: 'INFO',  cat: 'SYS',    msg: 'Preset #0 (Circle) activated'},
     {ts: _base +2100, wall: '', lvl: 'WARN',  cat: 'TEMP',   msg: 'Sensor 2 (PSU) approaching WARN threshold (43.1 °C)'},
-    {ts: _base +4500, wall: '', lvl: 'INFO',  cat: 'USER',   msg: 'Preset changed → #12 (Lissajous)'},
-    {ts: _base +6200, wall: '', lvl: 'DEBUG', cat: 'GALVO',  msg: 'Frame 1024: lit=890 blank=120 fps=30'},
+    {ts: _base +4500, wall: '', lvl: 'INFO',  cat: 'USER',   msg: 'Preset changed → #16 (Lissajous 1:2), profile Smooth'},
+    {ts: _base +6200, wall: '', lvl: 'DEBUG', cat: 'GALVO',  msg: 'Frame 1024: lit=890 blank=120 fps=25'},
     {ts: _base +7800, wall: '', lvl: 'INFO',  cat: 'DMX',    msg: 'DMX frame received — addr=1 universe=0'},
     {ts: _base+10500, wall: '', lvl: 'WARN',  cat: 'SYS',    msg: 'Heap low event: free=241 kB (min_ever)'},
     {ts: _base+14000, wall: '', lvl: 'INFO',  cat: 'USER',   msg: 'Master dimmer set to 180'},
     {ts: _base+18000, wall: '', lvl: 'INFO',  cat: 'SAFETY', msg: 'Scan-fail detector: OK'},
     {ts: _base+25000, wall: '', lvl: 'ERROR', cat: 'WIFI',   msg: 'NTP sync failed — no upstream (AP mode)'},
     {ts: _base+32000, wall: '', lvl: 'INFO',  cat: 'SYS',    msg: 'BPM tap: 128.0 BPM (source=tap)'},
-    {ts: _base+45000, wall: '', lvl: 'DEBUG', cat: 'GALVO',  msg: 'Ringing comp active: f=800 Hz d=0.15'},
+    {ts: _base+45000, wall: '', lvl: 'DEBUG', cat: 'GALVO',  msg: 'ZV shaper inactive at 200 Hz / 30 kpps (shift 75 pts)'},
     {ts: _base+58000, wall: '', lvl: 'INFO',  cat: 'TEMP',   msg: 'Fan 1 auto: 47% (Galvo X 51.7 °C)'},
     {ts: _base+72000, wall: '', lvl: 'INFO',  cat: 'USER',   msg: 'Color override enabled — R=0 G=255 B=136'},
     {ts: _base+89000, wall: '', lvl: 'INFO',  cat: 'SYS',    msg: 'Sequencer started — 4 steps, loop=true'},
     {ts: _base+105000,wall: '', lvl: 'DEBUG', cat: 'DMX',    msg: 'BPM DMX ch=1 val=153 → 120.0 BPM'},
     {ts: _base+118000,wall: '', lvl: 'INFO',  cat: 'SAFETY', msg: 'All systems nominal — uptime 120 s'}
   ];
-  var _wall0 = new Date(Date.now() - 120000);
   _entries.forEach(function(e) {
     var d = new Date(e.ts);
-    e.wall = d.toTimeString().substr(0, 8) + '.' + String(d.getMilliseconds()).padStart(3,'0');
+    e.wall = d.toTimeString().substr(0, 8) + '.' + String(d.getMilliseconds()).padStart(3, '0');
   });
   window.DEMO_LOG_ENTRIES = _entries;
 })();
 
 /* ── Mock fetch -------------------------------------------------- */
+// Every /api/* request the WebUI makes is answered here; anything without an
+// explicit branch falls through to {ok:true}, which is what the real firmware
+// returns for the plain "apply this" POSTs.
 const _simOrigFetch = window.fetch.bind(window);
 window.fetch = async function(url, opts) {
   const urlStr = typeof url === 'string' ? url : String(url && url.url || url);
   if (!urlStr.startsWith('/api/')) return _simOrigFetch(url, opts);
 
   const method = (opts && opts.method || 'GET').toUpperCase();
+  const path = urlStr.split('?')[0];
   let body = {};
   if (opts && opts.body) {
-    try { body = JSON.parse(opts.body); } catch(e) { body = {}; }
+    try { body = JSON.parse(opts.body); } catch (e) { body = {}; }
   }
 
   let resp = {ok: true};
 
-  if (urlStr === '/api/state') {
-    SIM_MOCK_STATE.uptime = Math.floor((performance.now() - SIM_START_MS) / 1000);
+  if (path === '/api/state') {
+    SIM_MOCK_STATE.uptime_s = Math.floor((performance.now() - SIM_START_MS) / 1000);
     SIM_MOCK_STATE.frame_n = simPhase;
     SIM_MOCK_STATE.preset_idx = simUI.preset;
+    SIM_MOCK_STATE.ui_master_dimmer = Math.round(simUI.dimmer);
     SIM_MOCK_STATE.cpu0 = 30 + Math.round(Math.sin(Date.now() / 5000) * 10 + Math.random() * 8);
+    SIM_MOCK_STATE.cpu1 = 6 + Math.round(Math.random() * 5);
+    SIM_MOCK_STATE.starfield_stars = live.starfieldCount;
     var _t = Date.now();
     SIM_MOCK_STATE.temps = [
-      parseFloat((42.3 + Math.sin(_t/8000)*2.5  + Math.random()*0.3).toFixed(1)),
-      parseFloat((38.1 + Math.sin(_t/11000)*1.8 + Math.random()*0.2).toFixed(1)),
-      parseFloat((51.7 + Math.sin(_t/6000)*3.2  + Math.random()*0.4).toFixed(1)),
-      parseFloat((35.4 + Math.sin(_t/9500)*1.5  + Math.random()*0.2).toFixed(1)),
-      parseFloat((44.9 + Math.sin(_t/7000)*2.8  + Math.random()*0.35).toFixed(1))
+      parseFloat((42.3 + Math.sin(_t / 8000) * 2.5  + Math.random() * 0.3).toFixed(1)),
+      parseFloat((38.1 + Math.sin(_t / 11000) * 1.8 + Math.random() * 0.2).toFixed(1)),
+      parseFloat((51.7 + Math.sin(_t / 6000) * 3.2  + Math.random() * 0.4).toFixed(1)),
+      parseFloat((35.4 + Math.sin(_t / 9500) * 1.5  + Math.random() * 0.2).toFixed(1)),
+      parseFloat((44.9 + Math.sin(_t / 7000) * 2.8  + Math.random() * 0.35).toFixed(1))
     ];
+    SIM_MOCK_STATE.temp_raw = SIM_MOCK_STATE.temps.slice();
     resp = Object.assign({}, SIM_MOCK_STATE);
 
-  } else if (urlStr === '/api/presets') {
+  } else if (path === '/api/presets') {
     resp = PRESETS.map(function(p, i) { return {idx: i, name: p[0], cat: p[1]}; });
 
-  } else if (urlStr === '/api/projection') {
-    resp = {rated_kpps: 15, kpps: 15, scan_angle_mech: 30, exit_angle: 45, ilda_test_angle: 20, power_r_mw: 500, power_g_mw: 100, power_b_mw: 300, active_preset: -1, scan_warp_enabled: false, warp_grid: []};
-  } else if (urlStr === '/api/config') {
-    resp = {
-      dmx_address: 1, artnet_universe: 0, debug_log_dmx: false, bpm_dmx_channel: 1,
-      artnet_enabled: false, debug_log_artnet: false,
-      etherdream_enabled: false, debug_log_etherdream: false,
-      osc_enabled: false, debug_log_osc: false,
-      sacn_enabled: false, debug_log_sacn: false,
-      helios_net_enabled: false, debug_log_helios_net: false,
-      hostname: 'galvos-sim', ntp_server: '', ntp_tz: '', ntp_synced: false,
-      wifi_static: false, wifi_ip: '', wifi_gw: '', wifi_mask: '', wifi_dns: '',
-      wifi_ip_current: '', dac_debug_log: false, galvo_rated_kpps: 15,
-      opt_max_pts_per_frame: 1300, opt_pts_per_1000_units: 6.0,
-      opt_blank_samples: 16, opt_min_blank_samples: 6,
-      opt_corner_angle_deg: 25, opt_min_corner_pts: 2, opt_max_corner_pts: 8,
-      opt_min_segment_pts: 2, opt_blank_pts_per_1000_units: 4.0,
-      opt_stage1_blank_target: 8, opt_min_interior_pts_per_segment: 0,
-      opt_resample_enabled: false, opt_resample_spacing_units: 500,
-      opt_ringing_comp_enabled: false, opt_ring_freq_hz: 800, opt_ring_damping_ratio: 0.15,
-      opt_jitter_enabled: false, opt_jitter_amount_units: 50,
-      opt_vel_clamp_enabled: false, opt_max_step_units: 2000,
-      opt_accel_clamp_enabled: false, opt_max_accel_units: 4000,
-      ota_pass: '', opt_profiles: null, opt_profile_members: []
-    };
+  } else if (path === '/api/projection') {
+    resp = Object.assign({}, SIM_PROJECTION);
 
-  } else if (urlStr === '/api/community/list') {
-    resp = [];
-  } else if (urlStr === '/api/log/stats') {
-    resp = {count: DEMO_LOG_ENTRIES.length, capacity: 1000, full: false};
-  } else if (urlStr === '/api/log/client' || urlStr === '/api/log/clear') {
+  } else if (path === '/api/config') {
+    resp = buildConfigResponse();
+
+  } else if (path === '/api/optimizer-stats') {
+    resp = {last: Object.assign({}, SIM_OPT_STATS), frame: Object.assign({}, SIM_OPT_STATS)};
+
+  } else if (path === '/api/optimizer-profile-switch' && method === 'POST') {
+    if (body.profile !== undefined) {
+      const pr = parseInt(body.profile, 10);
+      if (pr >= 0 && pr < OPT_PROFILES.length) SIM_STORE.activeProfile = pr;
+    }
+
+  } else if (path === '/api/seg_colors') {
+    if (method === 'POST') {
+      if (body.enabled !== undefined) live.segColors = !!body.enabled;
+      if (body.r && body.g && body.b) {
+        live.segR = body.r.slice(0, 10);
+        live.segG = body.g.slice(0, 10);
+        live.segB = body.b.slice(0, 10);
+      }
+    }
+    resp = {enabled: live.segColors, r: live.segR, g: live.segG, b: live.segB};
+
+  } else if (path === '/api/weld' || path === '/api/weld/set') {
+    if (method === 'POST') Object.assign(SIM_STORE.weld, body);
+    resp = Object.assign({}, SIM_STORE.weld);
+
+  } else if (path === '/api/warp/get') {
+    resp = {enabled: SIM_STORE.warp.enabled, gridSize: SIM_STORE.warp.gridSize,
+            points: SIM_STORE.warp.points};
+  } else if (path === '/api/warp/set') {
+    if (body.gridSize !== undefined && body.gridSize !== SIM_STORE.warp.gridSize && !body.points) {
+      SIM_STORE.warp.points = identityWarp(parseInt(body.gridSize, 10));
+    }
+    if (body.gridSize !== undefined) SIM_STORE.warp.gridSize = parseInt(body.gridSize, 10);
+    if (body.points) SIM_STORE.warp.points = body.points;
+    if (body.enabled !== undefined) SIM_STORE.warp.enabled = !!body.enabled;
+    SIM_PROJECTION.scan_warp_enabled = SIM_STORE.warp.enabled;
+  } else if (path === '/api/warp/reset') {
+    SIM_STORE.warp.points = identityWarp(SIM_STORE.warp.gridSize);
+  } else if (path === '/api/warp/test') {
+    SIM_STORE.warp.test = !!body.enabled;
+
+  } else if (path === '/api/brightness/get') {
+    resp = {enabled: SIM_STORE.brightness.enabled, gridSize: SIM_STORE.brightness.gridSize,
+            gain: SIM_STORE.brightness.gain};
+  } else if (path === '/api/brightness/set') {
+    if (body.gridSize !== undefined && body.gridSize !== SIM_STORE.brightness.gridSize && !body.gain) {
+      SIM_STORE.brightness.gain = identityGain(parseInt(body.gridSize, 10));
+    }
+    if (body.gridSize !== undefined) SIM_STORE.brightness.gridSize = parseInt(body.gridSize, 10);
+    if (body.gain) SIM_STORE.brightness.gain = body.gain;
+    if (body.enabled !== undefined) SIM_STORE.brightness.enabled = !!body.enabled;
+  } else if (path === '/api/brightness/reset') {
+    SIM_STORE.brightness.gain = identityGain(SIM_STORE.brightness.gridSize);
+
+  } else if (path === '/api/zone') {
+    resp = {enabled: SIM_STORE.zone.enabled, count: SIM_STORE.zone.x.length,
+            x: SIM_STORE.zone.x, y: SIM_STORE.zone.y};
+  } else if (path === '/api/zone/enable') {
+    SIM_STORE.zone.enabled = !!body.enabled;
+
+  } else if (path === '/api/text') {
+    if (method === 'POST') Object.assign(SIM_STORE.text, body);
+    resp = Object.assign({}, SIM_STORE.text);
+  } else if (path === '/api/text/vertices') {
+    resp = {strokes: [], truncated: false};
+  } else if (path === '/api/text/off') {
+    SIM_STORE.text.active = false;
+
+  } else if (path === '/api/paint') {
+    resp = Object.assign({}, SIM_STORE.paint);
+  } else if (path === '/api/paint/set') {
+    if (body.strokes) SIM_STORE.paint.strokes = body.strokes;
+    if (body.active !== undefined) SIM_STORE.paint.active = !!body.active;
+  } else if (path === '/api/paint/clear') {
+    SIM_STORE.paint.strokes = [];
+  } else if (path === '/api/paint/off') {
+    SIM_STORE.paint.active = false;
+
+  } else if (path === '/api/timer/state') {
+    resp = Object.assign({}, SIM_STORE.timer);
+  } else if (path === '/api/timer/set') {
+    if (body.seconds !== undefined) SIM_STORE.timer.remaining = parseInt(body.seconds, 10);
+  } else if (path === '/api/timer/start') {
+    SIM_STORE.timer.running = true;
+  } else if (path === '/api/timer/stop' || path === '/api/timer/pause') {
+    SIM_STORE.timer.running = false;
+  } else if (path === '/api/timer/reset') {
+    SIM_STORE.timer.running = false; SIM_STORE.timer.expired = false;
+
+  } else if (path === '/api/sequencer') {
+    resp = {running: false, loop: true, currentStep: 0, stepCount: 0, steps: []};
+
+  } else if (path === '/api/modulators/meta') {
+    resp = SIM_MOD_META;
+  } else if (path === '/api/modulators') {
+    resp = {modulators: SIM_MODULATORS, bindings: SIM_BINDINGS};
+  } else if (path === '/api/modulators/bindings') {
+    resp = SIM_BINDINGS;
+  } else if (path === '/api/modulators/reset') {
+    buildModulatorSlots();
     resp = {ok: true};
-  } else if (urlStr.startsWith('/api/log')) {
-    var afterTs = parseInt((urlStr.match(/after=(\d+)/) || [0,0])[1]) || 0;
+
+  } else if (path === '/api/community/list') {
+    resp = [];
+  } else if (path === '/api/community/fs-info') {
+    resp = {total: 1048576, used: 0, free: 1048576, count: 0};
+
+  } else if (path === '/api/log/stats') {
+    resp = {count: DEMO_LOG_ENTRIES.length, capacity: 1000, full: false};
+  } else if (path === '/api/log/client' || path === '/api/log/clear') {
+    resp = {ok: true};
+  } else if (path.startsWith('/api/log')) {
+    var afterTs = parseInt((urlStr.match(/after=(\d+)/) || [0, 0])[1]) || 0;
     resp = DEMO_LOG_ENTRIES.filter(function(e) { return e.ts > afterTs; });
-  } else if (urlStr === '/api/meminfo') {
-    var mhf = Math.round(285000 + Math.sin(Date.now()/6000)*15000);
-    var mpf = Math.max(7100000, 7800000 - simPhase*180);
+
+  } else if (path === '/api/meminfo') {
+    var mhf = Math.round(285000 + Math.sin(Date.now() / 6000) * 15000);
+    var mpf = Math.max(7100000, 7800000 - simPhase * 180);
     resp = {
       heap: {free: mhf, total: 330000, min_ever: 245000},
       psram: {free: mpf, total: 8388608, min_ever: 7050000},
@@ -2874,19 +3679,48 @@ window.fetch = async function(url, opts) {
         {name: 'FrameBuf', bytes: 8388608 - mpf - 49152, psram: true}
       ]
     };
-  } else if (urlStr === '/api/wifi-status') {
-    resp = {connected: false, ssid: '', ip: '', rssi: 0, ap_clients: 0, mode: 'ap'};
-  } else if (urlStr === '/api/wifi-scan') {
+
+  } else if (path === '/api/wifi-status') {
+    resp = {connected: false, ssid: '', ip: '', rssi: 0, ap_clients: 1, mode: 'ap'};
+  } else if (path === '/api/wifi-scan') {
     resp = {networks: []};
-  } else if (urlStr.startsWith('/api/sd')) {
+
+  } else if (path === '/api/sd/info') {
+    resp = {ready: false, fs_type: '', total_kb: 0, free_kb: 0, used_kb: 0,
+            used_pct: 0, file_count: 0, error: 'Simulator mode — no SD card'};
+  } else if (path.startsWith('/api/sd')) {
     resp = {ready: false, error: 'Simulator mode — no SD card', files: []};
-  } else if (urlStr.startsWith('/api/calib')) {
+
+  } else if (path === '/api/svg/list') {
+    resp = {ready: false, file_count: 0, max_bytes: 65536, files: []};
+  } else if (path.startsWith('/api/svg')) {
+    resp = {ok: false, error: 'Simulator mode — no SD card'};
+
+  } else if (path === '/api/ilda/status') {
+    resp = {active: false, loading: false, error: 'OK', enabled: false, paused: false,
+            file_idx: -1, frame: 0, total: 0, speed: 128, size: 128, loop: true,
+            invert_x: false, invert_y: false, col_override: false,
+            col_r: 255, col_g: 255, col_b: 255, blank_reshape_enabled: false};
+  } else if (path.startsWith('/api/ilda')) {
+    resp = {ok: false, error: 'Simulator mode — no SD card'};
+
+  } else if (path === '/api/calib-pattern/list') {
+    resp = {
+      patterns: SIM_CALIB_PATTERNS.map(function(p, i) {
+        return {idx: i, name: p[0], desc: p[1], check: p[2]};
+      }),
+      active: false, idx: 0, bright: 200, channel: 0
+    };
+  } else if (path.startsWith('/api/calib')) {
     resp = {active: false, patterns: [], ok: true};
-  } else if (urlStr === '/api/modulators' || urlStr === '/api/modulators/meta' || urlStr === '/api/modulators/bindings') {
-    resp = urlStr.includes('binding') ? [] : {slots: [], meta: {}, ok: true};
-  } else if (urlStr === '/api/arm') {
-    resp = {ok: false, error: 'Simulator — hardware not connected'};
-  } else if (urlStr.startsWith('/api/preset') && method === 'POST') {
+
+  } else if (path === '/api/arm') {
+    resp = {ok: false, error: 'Simulator — no hardware connected, arming refused'};
+
+  } else if (path === '/api/reboot' || path === '/api/factory-reset') {
+    resp = {ok: false, error: 'Simulator — nothing to reboot'};
+
+  } else if (path.startsWith('/api/preset') && method === 'POST') {
     if (body.idx !== undefined)   { simUI.preset = parseInt(body.idx) || 0; SIM_MOCK_STATE.preset_idx = simUI.preset; }
     if (body.speed !== undefined)  simUI.speed  = Number(body.speed);
     if (body.size !== undefined)   simUI.size   = Number(body.size);
@@ -2895,7 +3729,10 @@ window.fetch = async function(url, opts) {
     if (body.rot_y !== undefined)  simUI.rotY   = !!body.rot_y;
     if (body.rot_z !== undefined)  simUI.rotZ   = !!body.rot_z;
     if (body.rot_speed !== undefined) simUI.rotSpeed = Number(body.rot_speed);
+    if (body.autoscaleSpeed !== undefined) simUI.autoscaleSpeed = Number(body.autoscaleSpeed);
+    if (body.autoscaleMode !== undefined)  simUI.autoscaleMode  = parseInt(body.autoscaleMode);
     if (body.kaleido_enabled !== undefined) simUI.kaleido = !!body.kaleido_enabled;
+    if (body.kaleido_mode !== undefined) simUI.kaleidoMode = parseInt(body.kaleido_mode);
     if (body.kaleido_segments !== undefined) simUI.kalSeg = parseInt(body.kaleido_segments);
     if (body.kaleido_mirror_h !== undefined) simUI.kalMH = !!body.kaleido_mirror_h;
     if (body.kaleido_mirror_v !== undefined) simUI.kalMV = !!body.kaleido_mirror_v;
@@ -2903,22 +3740,33 @@ window.fetch = async function(url, opts) {
     if (body.col_override !== undefined) simUI.colOverride = !!body.col_override;
     if (body.col_r !== undefined) simUI.col = [Number(body.col_r), Number(body.col_g || 0), Number(body.col_b || 0)];
     if (body.master_dimmer !== undefined) simUI.dimmer = Number(body.master_dimmer);
+    // Points-Only Mode
+    if (body.points_mode_enabled !== undefined) simUI.pointsOnly = !!body.points_mode_enabled;
+    if (body.points_count !== undefined)   simUI.pointsCount = parseInt(body.points_count);
+    if (body.points_static_on !== undefined) simUI.pointsStatic = !!body.points_static_on;
+    if (body.points_fade_in_on !== undefined)  simUI.fadeInOn  = !!body.points_fade_in_on;
+    if (body.points_fade_out_on !== undefined) simUI.fadeOutOn = !!body.points_fade_out_on;
+    if (body.points_fade_in_ms !== undefined)  simUI.fadeInMs  = parseInt(body.points_fade_in_ms);
+    if (body.points_fade_out_ms !== undefined) simUI.fadeOutMs = parseInt(body.points_fade_out_ms);
+    if (body.points_fade_dir !== undefined)    simUI.fadeDir   = parseInt(body.points_fade_dir);
     // preset-specific
     if (body.wave_amp !== undefined)        live.waveAmp         = Number(body.wave_amp);
     if (body.wave_freq !== undefined)       live.waveFreq        = Number(body.wave_freq);
+    if (body.hline_bounce !== undefined)    live.hlineBounce     = !!body.hline_bounce;
     if (body.bp_trail_len !== undefined)    live.trail           = parseInt(body.bp_trail_len);
     if (body.spiral_arms !== undefined)     live.spiralArms      = parseInt(body.spiral_arms);
     if (body.tunnel_rings !== undefined)    live.tunnelRings     = parseInt(body.tunnel_rings);
     if (body.tunnel_sides !== undefined)    live.tunnelSides     = parseInt(body.tunnel_sides);
     if (body.explosion_rays !== undefined)  live.explosionRays   = parseInt(body.explosion_rays);
-    if (body.fw_shells !== undefined)       live.fwShells        = parseInt(body.fw_shells);
+    if (body.fw_max_shells !== undefined)   live.fwShells        = parseInt(body.fw_max_shells);
     if (body.fw_glitter !== undefined)      live.fwGlitter       = !!body.fw_glitter;
     if (body.mw_dots !== undefined)         live.mwDots          = parseInt(body.mw_dots);
     if (body.mw_tilt !== undefined)         live.mwTilt          = parseInt(body.mw_tilt);
     if (body.random_pts_hold_ms !== undefined) live.randomHoldMs = parseInt(body.random_pts_hold_ms);
 
-  } else if (urlStr === '/api/ui-control' && method === 'POST') {
+  } else if (path === '/api/ui-control' && method === 'POST') {
     if (body.master_dimmer !== undefined) simUI.dimmer = Number(body.master_dimmer);
+    if (body.ui_override !== undefined) SIM_MOCK_STATE.ui_override = !!body.ui_override;
   }
 
   await new Promise(function(r) { setTimeout(r, 6 + Math.random() * 8); });
@@ -2927,6 +3775,87 @@ window.fetch = async function(url, opts) {
   });
 };
 
+/* ── Modulator engine mock (modulator_engine.cpp registry) -------- */
+const SIM_MOD_META = {
+  types: [
+    {id: 0, key: 'oscillator', label: 'Oscillator', usesShape: true,  usesEnvelope: false, usesSequencer: false, usesShapeParam: false, supportsTrigger: false},
+    {id: 1, key: 'noise',      label: 'Noise',      usesShape: false, usesEnvelope: false, usesSequencer: false, usesShapeParam: false, supportsTrigger: false},
+    {id: 2, key: 'envelope',   label: 'Envelope',   usesShape: false, usesEnvelope: true,  usesSequencer: false, usesShapeParam: false, supportsTrigger: true},
+    {id: 3, key: 'sequencer',  label: 'Sequencer',  usesShape: false, usesEnvelope: false, usesSequencer: true,  usesShapeParam: false, supportsTrigger: false}
+  ],
+  shapes: [
+    {id: 0, key: 'sine',     label: 'Sine',     supportsShapeParam: false},
+    {id: 1, key: 'triangle', label: 'Triangle', supportsShapeParam: true},
+    {id: 2, key: 'square',   label: 'Square',   supportsShapeParam: true},
+    {id: 3, key: 'saw',      label: 'Saw',      supportsShapeParam: false}
+  ],
+  targets: [
+    {id: 0, key: 'transform_scale_x', label: 'Scale X',       category: 'Transform', min: 0.1,     max: 3.0,   defaultVal: 1.0, step: 0.01, unit: 'x',   description: 'Horizontal scale multiplier', wraps: false},
+    {id: 1, key: 'transform_scale_y', label: 'Scale Y',       category: 'Transform', min: 0.1,     max: 3.0,   defaultVal: 1.0, step: 0.01, unit: 'x',   description: 'Vertical scale multiplier', wraps: false},
+    {id: 2, key: 'transform_shift_x', label: 'Shift X',       category: 'Transform', min: -20000,  max: 20000, defaultVal: 0,   step: 1,    unit: '',    description: 'Horizontal position offset (DAC units)', wraps: false},
+    {id: 3, key: 'transform_shift_y', label: 'Shift Y',       category: 'Transform', min: -20000,  max: 20000, defaultVal: 0,   step: 1,    unit: '',    description: 'Vertical position offset (DAC units)', wraps: false},
+    {id: 4, key: 'transform_rotation', label: 'Rotation',     category: 'Transform', min: -3600,   max: 3600,  defaultVal: 0,   step: 1,    unit: 'deg', description: 'Rotation offset in degrees', wraps: false},
+    {id: 5, key: 'color_hue',         label: 'Hue',           category: 'Color',     min: 0,       max: 1,     defaultVal: 0,   step: 0.01, unit: '',    description: 'Hue shift (wraps instead of clamping)', wraps: true},
+    {id: 6, key: 'color_saturation',  label: 'Saturation',    category: 'Color',     min: 0,       max: 2,     defaultVal: 1,   step: 0.01, unit: 'x',   description: 'Saturation multiplier', wraps: false},
+    {id: 7, key: 'color_brightness',  label: 'Brightness',    category: 'Color',     min: 0,       max: 2,     defaultVal: 1,   step: 0.01, unit: 'x',   description: 'Brightness (value) multiplier', wraps: false},
+    {id: 8, key: 'opt_speed',         label: 'Speed',         category: 'Optimizer', min: 0,       max: 255,   defaultVal: 127, step: 1,    unit: '',    description: 'Animation speed', wraps: false},
+    {id: 9, key: 'opt_density',       label: 'Point Density', category: 'Optimizer', min: 0.1,     max: 5,     defaultVal: 1,   step: 0.01, unit: 'x',   description: 'Optimizer output point density multiplier', wraps: false}
+  ],
+  curveTypes: ['Linear', 'Ease In', 'Ease Out', 'Exponential', 'Logarithmic', 'S-Curve']
+    .map(function(l, i) { return {id: i, label: l}; }),
+  loopModes: ['One Shot', 'Loop', 'Ping-Pong', 'Trigger']
+    .map(function(l, i) { return {id: i, label: l}; })
+};
+
+let SIM_MODULATORS = [], SIM_BINDINGS = [];
+function buildModulatorSlots() {
+  SIM_MODULATORS = [];
+  for (let i = 0; i < 8; i++) {
+    SIM_MODULATORS.push({
+      idx: i, enabled: false, type: 0, typeName: 'oscillator', shape: 0,
+      cycles: 1, phaseOffset: 0, phaseSpeed: 1, level: 1,
+      bpmSync: false, bpmDiv: 2, name: 'Mod ' + (i + 1), shapeParam: 0.5,
+      envAttackMs: 100, envSustainMs: 200, envReleaseMs: 300,
+      envData: {pointCount: 0, loopMode: 1, points: []},
+      seqStepCount: 4, seqValues: [0, 0.33, 0.66, 1, 0, 0, 0, 0],
+      noiseSeed: 1234 + i, output: 0
+    });
+  }
+  SIM_BINDINGS = [];
+  for (let i = 0; i < 16; i++) {
+    SIM_BINDINGS.push({idx: i, active: false, modulatorIdx: 0, targetParam: 0, depth: 1, offset: 0});
+  }
+}
+buildModulatorSlots();
+
+// calib_patterns::CALIB_INFO[] (names/descriptions only -- the sim canvas
+// renders presets, not the calibration patterns themselves).
+const SIM_CALIB_PATTERNS = [
+  ['Blanking Test', 'Alternating on/off segments — checks blanking accuracy',
+   'Dark segments must be completely dark (no light leakage)'],
+  ['Aspect Ratio', 'Square + circle of identical size — checks X/Y gain match',
+   'Circle must fit exactly inside the square corners'],
+  ['ILDA Test Pattern', 'Official ILDA standard test pattern — galvo alignment & scanner tuning',
+   'Circle must be perfectly round and touch inner square at 4 points'],
+  ['DAC Range Box', 'Rectangle + circle at exact dac_limit_max boundary — set safe scan range',
+   'Raise dac_limit_max until box corners just clip, then back off 5%']
+];
+
+/* ── Keep "Simulator" in the page title ── */
+// The WebUI's state handler rewrites #page-title to "FW: x - UI:y" on every
+// poll, which on a browser tab is indistinguishable from a real device. Re-add
+// the marker whenever it does; an observer (not a timer) so it never lags
+// behind a poll and costs nothing while the title is stable.
+(function() {
+  var el = document.getElementById('page-title');
+  if (!el || typeof MutationObserver === 'undefined') return;
+  const SUFFIX = ' — Simulator';
+  function mark() {
+    if (el.textContent.indexOf(SUFFIX) < 0) el.textContent = el.textContent + SUFFIX;
+  }
+  new MutationObserver(mark).observe(el, {childList: true, characterData: true, subtree: true});
+  mark();
+})();
 
 /* ── Topbar height sync for mobile drawer ── */
 (function() {
@@ -2944,32 +3873,81 @@ window.fetch = async function(url, opts) {
 })();
 
 /* ── Sim render loop --------------------------------------------- */
-let simPhase = 0, simFrames = 0, simLastFpsMs = performance.now();
+// simPhase is the firmware's integer animation phase and must advance by
+// wall-clock time / ANIM_FRAME_MS (pattern_engine.cpp's advancePhaseDt), not
+// once per requestAnimationFrame -- a 60fps browser would otherwise run every
+// preset ~2.4x faster than the device does.
+let simPhase = 0, simPhaseAcc = 0, simFrames = 0;
+let simLastFpsMs = performance.now(), simLastTickMs = performance.now();
+let simDensityScale = 1.0;
+
+// Autoscale (AUTOSCALE_SMALL_BIG_SMALL / SMALL_BIG / BIG_SMALL, config.h) --
+// a size multiplier driven by its own phase, disabled at speed 0.
+let simAutoPhase = 0;
+function autoscaleFactor(dtFrames) {
+  if (!simUI.autoscaleSpeed) return 1;
+  simAutoPhase = mod(simAutoPhase + simUI.autoscaleSpeed / 400 * dtFrames, 1);
+  if (simUI.autoscaleMode === 1) return 0.25 + simAutoPhase * 0.75;              // Grow
+  if (simUI.autoscaleMode === 2) return 1.0 - simAutoPhase * 0.75;               // Shrink
+  const tri = simAutoPhase < 0.5 ? simAutoPhase * 2 : 2 - simAutoPhase * 2;      // Pulse
+  return 0.25 + tri * 0.75;
+}
 
 function simTick() {
   if (canvas && ctx) {
+    const now = performance.now();
+    let dtMs = now - simLastTickMs;
+    simLastTickMs = now;
+    if (dtMs < 0) dtMs = 0;
+    if (dtMs > 240) dtMs = 240;                       // cap after a tab-switch stall
+    const dtFrames = dtMs / ANIM_FRAME_MS;
+    simPhaseAcc += dtFrames;
+    if (simPhaseAcc >= 1) { simPhase += Math.floor(simPhaseAcc); simPhaseAcc %= 1; }
+
+    optCfg = profileForPreset(simUI.preset);
+
     var f = new Frame();
     var gen = GEN[simUI.preset] || GEN[0];
-    try { gen(f, simPhase, Math.round(simUI.speed), Math.round(simUI.size)); } catch(e) {}
+    var sizeVal = clamp(Math.round(simUI.size * autoscaleFactor(dtFrames)), 0, 255);
+    try { gen(f, simPhase, Math.round(simUI.speed), sizeVal); } catch (e) {}
     var pts = optimize(f, optCfg);
-    if (simUI.rotZ) simUI.rotAngleZ += simUI.rotSpeed;
-    if (simUI.rotY) simUI.rotAngleY += simUI.rotSpeed;
-    if (simUI.rotX) simUI.rotAngleX += simUI.rotSpeed;
+    simDensityScale = simLastDensityScale;
+
+    if (simUI.rotZ) simUI.rotAngleZ += simUI.rotSpeed * dtFrames;
+    if (simUI.rotY) simUI.rotAngleY += simUI.rotSpeed * dtFrames;
+    if (simUI.rotX) simUI.rotAngleX += simUI.rotSpeed * dtFrames;
     applyRotations(pts, simUI);
-    if (simUI.kaleido) pts = radialCopy(pts, simUI.kalSeg, simUI.kalMH, simUI.kalMV, optCfg);
+
+    if (simUI.kaleido) {
+      pts = simUI.kaleidoMode === 0
+        ? radialCopy(pts, simUI.kalSeg, simUI.kalMH, simUI.kalMV, optCfg)
+        : mirrorKaleido(pts, simUI.kalSeg, optCfg);
+    }
     if (simUI.mirrorMode === 1) pts = mirrorCopy(pts, false, true, optCfg);
     else if (simUI.mirrorMode === 2) pts = mirrorCopy(pts, true, false, optCfg);
     else if (simUI.mirrorMode === 3) pts = radial4(pts, optCfg);
+
+    if (simUI.pointsOnly) pts = pointsOnlyMode(pts, simUI, optCfg, dtMs);
+
     applyColor(pts, simUI);
     render(pts, simUI);
+    updateOptStats(pts, optCfg);
+
+    // Frame rate is a property of the SIMULATED device, not of the browser:
+    // the galvo consumes points at a fixed rate, so fps = points/sec divided
+    // by the points this frame cost -- exactly what galvo::fps() reports. The
+    // browser's own rAF rate is irrelevant to the user and would contradict
+    // the Dashboard's own numbers if shown here instead.
+    var pps = SIM_PROJECTION.kpps * 1000;
+    var devFps = Math.max(1, Math.round(pps / Math.max(1, pts.length)));
+    SIM_MOCK_STATE.fps = devFps;
+    SIM_MOCK_STATE.points_per_sec = pps;
     var ptsEl = document.getElementById('sim-pts');
     if (ptsEl) ptsEl.textContent = pts.length + ' pts';
-    simPhase++;
     simFrames++;
-    var now = performance.now();
     if (now - simLastFpsMs >= 1000) {
       var fpsEl = document.getElementById('sim-fps');
-      if (fpsEl) fpsEl.textContent = Math.round(simFrames * 1000 / (now - simLastFpsMs)) + ' fps';
+      if (fpsEl) fpsEl.textContent = devFps + ' fps';
       simFrames = 0; simLastFpsMs = now;
     }
   }
@@ -2977,15 +3955,25 @@ function simTick() {
 }
 requestAnimationFrame(simTick);
 
-</script>
+// Debug/inspection handle -- the only sim symbol on the global object besides
+// the patched fetch and DEMO_LOG_ENTRIES.
+window.GALVOS_SIM = {
+  SIM_VERSION: SIM_VERSION, FW_VERSION: FW_VERSION, UI_VERSION: SIM_UI_VERSION,
+  FW_COMMIT: FW_COMMIT,
+  presets: PRESETS, profiles: OPT_PROFILES, presetProfile: PRESET_PROFILE,
+  ui: simUI, live: live, store: SIM_STORE, stats: SIM_OPT_STATS,
+  config: buildConfigResponse
+};
 
+})();
+</script>
 <script>
 'use strict';
 
 /* =========================================================================
    GLOBAL STATE
    ========================================================================= */
-var UI_VERSION = '1.6.5';   // WebUI version -- independent from firmware version
+var UI_VERSION = '1.21.0';   // WebUI version -- independent from firmware version
 var NAV_TABS = [
   {id: 'dashboard', label: 'Dashboard', icon: '🏠', bottom: true},
   {id: 'presets', label: 'Presets', icon: '🎮', bottom: true},
@@ -3018,15 +4006,21 @@ window.s_lastTempState = null;
    TOAST
    ========================================================================= */
 var s_toastTimer = null;
+var s_lastClientLogMs = 0;
 function toast(msg, isError) {
   var el = document.getElementById('toast');
   el.textContent = msg;
   el.className = isError ? 'show error' : 'show';
   if (s_toastTimer) clearTimeout(s_toastTimer);
   s_toastTimer = setTimeout(function() { el.className = ''; }, isError ? 5000 : 3000);
-  if (isError) {
-    // Best-effort mirror into the ESP32 log so the error survives after the toast fades.
-    // Plain fetch (not apiCall) — a failure here must not trigger another toast/loop.
+  // Rate-limited to 1/2s: a burst of failed requests (socket-pool pressure,
+  // WiFi hiccup) previously fired one of THESE per failure too -- each one
+  // itself a new outbound connection attempt, piling more load onto the
+  // exact shared resource that's already struggling. Deliberately outside
+  // queuedFetch() (best-effort, fire-and-forget survives even when the
+  // queue itself is backed up), so the rate limit is this function's own job.
+  if (isError && Date.now() - s_lastClientLogMs > 2000) {
+    s_lastClientLogMs = Date.now();
     try {
       var opts = {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({msg: msg})};
       if (window._apiToken) opts.headers['X-Auth'] = window._apiToken;
@@ -3038,6 +4032,50 @@ function toast(msg, isError) {
 /* =========================================================================
    API LAYER
    ========================================================================= */
+// Global fetch concurrency cap. The ESP32 side shares ONE fixed-size
+// CONFIG_LWIP_MAX_SOCKETS=16 pool across AsyncWebServer/AsyncTCP, EtherDream,
+// Art-Net, sACN, OSC, DMX and NTP (see web_ui.cpp's s_active_requests
+// comment) -- it cannot be resized without rebuilding lwIP from source
+// (Arduino-ESP32 ships it as a prebuilt static lib), so the only lever on
+// the WebUI side is never opening more than a handful of connections to it
+// at once. Several independent setInterval() pollers (state, wifi-status,
+// log, meminfo, ILDA, optimizer stats...) each look harmless alone but can
+// coincide by pure timing chance -- captured live via DevTools: preset,
+// sequencer, state, wifi-status and the error-toast's own /api/log/client
+// all pending at once, several past 10s, none completing. queuedFetch()
+// bounds the browser side to MAX_CONCURRENT_FETCHES in flight, queuing the
+// rest instead of firing them all at the socket layer simultaneously.
+// Kept low deliberately -- background firmware services (EtherDream,
+// Art-Net, sACN, OSC, DMX, NTP, the gateway watchdog's own ICMP ping) hold
+// or periodically grab sockets from the SAME CONFIG_LWIP_MAX_SOCKETS=16
+// pool independent of anything the browser does, so the browser's own
+// share needs real margin, not just "as many as fit."
+var MAX_CONCURRENT_FETCHES = 2;
+var _fetchActive = 0;
+var _fetchQueue = [];
+function _fetchDrain() {
+  if (_fetchActive >= MAX_CONCURRENT_FETCHES || _fetchQueue.length === 0) return;
+  var next = _fetchQueue.shift();
+  _fetchActive++;
+  next();
+}
+// Takes a thunk (zero-arg function returning a fetch() promise) rather than
+// a plain (url, opts) pair -- callers that attach their own AbortController
+// timeout (apiCall(), pollState()) need to start that timer at actual
+// dispatch time, not whenever they happened to call queuedFetch() while
+// still waiting in line. A plain fetch just wraps trivially: queuedFetch(
+// function() { return fetch(url, opts); }).
+function queuedFetch(startFn) {
+  return new Promise(function(resolve, reject) {
+    function run() {
+      startFn().then(function(r) { _fetchActive--; _fetchDrain(); resolve(r); },
+                      function(e) { _fetchActive--; _fetchDrain(); reject(e); });
+    }
+    _fetchQueue.push(run);
+    _fetchDrain();
+  });
+}
+
 async function apiCall(method, url, body) {
   var opts = {method: method, headers: {}};
   if (window._apiToken) opts.headers['X-Auth'] = window._apiToken;
@@ -3045,12 +4083,19 @@ async function apiCall(method, url, body) {
     opts.headers['Content-Type'] = 'application/json';
     opts.body = (typeof body === 'string') ? body : JSON.stringify(body);
   }
-  var ctrl = new AbortController();
-  var timer = setTimeout(function() { ctrl.abort(); }, 10000);
-  opts.signal = ctrl.signal;
   try {
-    var resp = await fetch(url, opts);
-    clearTimeout(timer);
+    // Abort timer is started inside the queued task, not here -- it must
+    // measure time-to-response from actual dispatch, not from however long
+    // the request waited its turn behind MAX_CONCURRENT_FETCHES others.
+    var resp = await queuedFetch(function() {
+      var ctrl = new AbortController();
+      var timer = setTimeout(function() { ctrl.abort(); }, 10000);
+      opts.signal = ctrl.signal;
+      return fetch(url, opts).then(
+        function(r) { clearTimeout(timer); return r; },
+        function(e) { clearTimeout(timer); throw e; }
+      );
+    });
     if (!resp.ok) {
       var msg = 'Error ' + resp.status;
       if (resp.status === 403) {
@@ -3068,11 +4113,40 @@ async function apiCall(method, url, body) {
     if (ct.indexOf('json') !== -1) return await resp.json();
     return await resp.text();
   } catch (e) {
-    clearTimeout(timer);
     if (e.name === 'AbortError') toast('Request timed out [' + method + ' ' + url + ']', true);
     else toast('Network error [' + method + ' ' + url + ']', true);
     return null;
   }
+}
+
+/* =========================================================================
+   UPLOAD SAFETY CHECK -- shared pre-flight for any action that writes a new
+   file/config to the device (ILDA upload, SVG upload -- incl. Paint's "Save
+   to SD" which reuses the SVG endpoint). Server-side is the real guard
+   (upload_guard.h, checked again at request time -- see web_ui.cpp/
+   ota_update.cpp), this is the UX half: ask before spending an upload the
+   server would reject anyway, and offer to disarm instead of just failing.
+   Unreachable/unknown arm state refuses rather than guessing -- see the
+   dedicated test in test/test_optimizer/test_upload_guard.cpp for the
+   underlying accept/reject decision.
+   ========================================================================= */
+async function requireDisarmedForUpload(actionLabel) {
+  var r = await apiCall('GET', '/api/state');
+  if (!r || typeof r.laser_armed !== 'boolean') {
+    toast('Laser status unknown -- cannot ' + actionLabel, true);
+    return false;
+  }
+  if (!r.laser_armed) return true;
+  if (!confirm('Laser is armed. Disarm laser before ' + actionLabel + '?\n\nOK = Disarm & Continue\nCancel = Cancel')) return false;
+  var dr = await apiCall('POST', '/api/arm', '0');
+  if (dr === null) return false;   // apiCall already toasted the failure
+  var check = await apiCall('GET', '/api/state');
+  if (!check || check.laser_armed) {
+    toast('Disarm did not take effect -- ' + actionLabel + ' cancelled', true);
+    return false;
+  }
+  toast('Laser disarmed');
+  return true;
 }
 
 /* =========================================================================
@@ -3269,18 +4343,25 @@ document.getElementById('btn-tap').addEventListener('click', async function() {
 async function pollState() {
   if (s_pollInFlight) return;
   s_pollInFlight = true;
-  var ctrl = new AbortController();
-  var timer = setTimeout(function() { ctrl.abort(); }, 5000);
   try {
-    var resp = await fetch('/api/state', {signal: ctrl.signal});
-    clearTimeout(timer);
+    // Routed through queuedFetch() too -- see apiCall()'s comment above.
+    // Without this, pollState() bypassed the concurrency cap entirely (its
+    // own overlap guard only limits ITS OWN calls to one at a time; it did
+    // nothing to stop apiCall()-driven bursts from starving it of a socket).
+    var resp = await queuedFetch(function() {
+      var ctrl = new AbortController();
+      var timer = setTimeout(function() { ctrl.abort(); }, 5000);
+      return fetch('/api/state', {signal: ctrl.signal}).then(
+        function(r) { clearTimeout(timer); return r; },
+        function(e) { clearTimeout(timer); throw e; }
+      );
+    });
     if (!resp.ok) throw new Error('bad status');
     var s = await resp.json();
     setConnPill(true);
     try { handleStateUpdate(s); } catch (e1) { console.error('handleStateUpdate', e1); }
     try { handleTempState(s); } catch (e2) { console.error('handleTempState', e2); }
   } catch (e) {
-    clearTimeout(timer);
     setConnPill(false);
   } finally {
     s_pollInFlight = false;
@@ -3510,7 +4591,8 @@ var PRESET_PARAM_HINTS = {
   77: {sp: 'Speed', sz: 'Rings', hint: 'Endless Tunnel: Size = ring count'},
   78: {sp: 'Speed', sz: 'Rays', hint: 'Explosion Spread: Size = ray count'},
   79: {sp: 'Speed', sz: 'Shells', hint: 'Fireworks: Size = shell count'},
-  80: {sp: 'Tilt', sz: 'Dots', hint: 'Milky Way: Size = dot count'}
+  80: {sp: 'Tilt', sz: 'Dots', hint: 'Milky Way: Size = dot count'},
+  13: {sp: 'Speed', sz: 'Size', hint: 'H Line: Bounce eases back down instead of snapping to bottom'}
 };
 
 var PRESET_GRID_CONTAINERS = [];
@@ -3544,6 +4626,7 @@ async function activatePreset(idx) {
   var r = await apiCall('POST', '/api/preset', {idx: idx});
   if (r === null) return;
   s_activePresetIdx = idx;
+  paintForceStopLive();
   renderAllPresetGrids();
   updatePresetHint(idx);
   toast('Preset activated');
@@ -3557,9 +4640,21 @@ async function deactivatePreset() {
   updatePresetHint(-1);
   toast('Preset off');
 }
+var WAVE_PRESET_MIN = 33, WAVE_PRESET_MAX = 50; // Sine Wave .. Wave Spectrum, see DISPATCH[] in preset_patterns.cpp
+var SEG_COLOR_MIN = 1, SEG_COLOR_MAX = 9; // Square .. Star 8, see PRESETS[]/DISPATCH[] in preset_patterns.cpp
+// idx -> edge count (polygon sides, or star points*2). Swatch UI caps at 10
+// (the firmware's seg_col_r/g/b slot count) -- shapes with more edges cycle
+// through the same 10 slots, see starSegmented() in preset_patterns.cpp.
+var SEG_EDGE_COUNT = {1:4, 2:3, 3:5, 4:6, 5:8, 6:8, 7:10, 8:12, 9:16};
 function updatePresetHint(idx) {
   var hint = PRESET_PARAM_HINTS[idx];
   document.querySelectorAll('.preset-extra-row').forEach(function(r) { r.classList.add('hidden'); });
+  var wavesRow = document.getElementById('preset-extra-waves');
+  if (wavesRow) wavesRow.classList.toggle('hidden', !(idx >= WAVE_PRESET_MIN && idx <= WAVE_PRESET_MAX));
+  var segColRow = document.getElementById('preset-extra-segcolors');
+  var segColShown = (idx >= SEG_COLOR_MIN && idx <= SEG_COLOR_MAX);
+  if (segColRow) segColRow.classList.toggle('hidden', !segColShown);
+  if (segColShown) segColRenderSwatches(SEG_EDGE_COUNT[idx] || 0);
   if (hint) {
     var row = document.getElementById('preset-extra-' + idx);
     if (row) row.classList.remove('hidden');
@@ -3573,6 +4668,76 @@ function updatePresetHint(idx) {
     var hintEl2 = document.getElementById('preset-hint-text');
     if (hintEl2) hintEl2.textContent = '';
   }
+}
+
+/* =========================================================================
+   SEGMENT COLORS -- per-side/spoke coloring for the Geometry polygon/star
+   presets (idx SEG_COLOR_MIN..SEG_COLOR_MAX). GET/POST /api/seg_colors.
+   ========================================================================= */
+var segColState = {
+  enabled: false,
+  r: [255,0,0,255,0,255,255,255,128,0],
+  g: [0,255,0,255,255,0,128,255,0,128],
+  b: [0,0,255,0,255,255,0,128,255,255]
+};
+function segColRenderSwatches(edgeCount) {
+  var el = document.getElementById('segColSwatches');
+  if (!el) return;
+  var n = Math.min(edgeCount, 10);
+  var html = '';
+  for (var i = 0; i < n; i++) {
+    var hex = '#' + [segColState.r[i], segColState.g[i], segColState.b[i]]
+      .map(function(v) { return v.toString(16).padStart(2, '0'); }).join('');
+    html += '<input type="color" value="' + hex + '" title="Side ' + (i + 1) + '" data-idx="' + i + '" ' +
+      'style="width:32px;height:32px;cursor:pointer;border:none;padding:0;border-radius:4px" oninput="segColSwatchChanged(this)">';
+  }
+  el.innerHTML = html;
+}
+function segColSwatchChanged(input) {
+  var idx = parseInt(input.dataset.idx, 10);
+  var v = input.value;
+  segColState.r[idx] = parseInt(v.slice(1, 3), 16);
+  segColState.g[idx] = parseInt(v.slice(3, 5), 16);
+  segColState.b[idx] = parseInt(v.slice(5, 7), 16);
+  segColApply();
+}
+function segColToggle(en) {
+  segColState.enabled = en;
+  segColApply();
+}
+function segColRandomize() {
+  // Pattern color rule: only 0/255 per channel.
+  var palette = [
+    [255,0,0],[0,255,0],[0,0,255],[255,255,0],
+    [0,255,255],[255,0,255],[255,255,255],[255,255,0],[0,255,0],[0,0,255]
+  ];
+  var pool = palette.slice();
+  for (var i = pool.length - 1; i > 0; i--) {
+    var j = Math.floor(Math.random() * (i + 1));
+    var t = pool[i]; pool[i] = pool[j]; pool[j] = t;
+  }
+  for (var k = 0; k < 10; k++) {
+    var c = pool[k % pool.length];
+    segColState.r[k] = c[0]; segColState.g[k] = c[1]; segColState.b[k] = c[2];
+  }
+  segColState.enabled = true;
+  var cb = document.getElementById('segColEnabled');
+  if (cb) cb.checked = true;
+  segColRenderSwatches(SEG_EDGE_COUNT[s_activePresetIdx] || 0);
+  segColApply();
+}
+function segColApply() {
+  apiCall('POST', '/api/seg_colors', segColState);
+}
+async function segColLoad() {
+  var r = await apiCall('GET', '/api/seg_colors');
+  if (!r) return;
+  segColState.enabled = !!r.enabled;
+  if (r.r) segColState.r = r.r;
+  if (r.g) segColState.g = r.g;
+  if (r.b) segColState.b = r.b;
+  var cb = document.getElementById('segColEnabled');
+  if (cb) cb.checked = segColState.enabled;
 }
 async function loadPresets() {
   var r = await apiCall('GET', '/api/presets');
@@ -3645,6 +4810,38 @@ function liveSlider(id) {
   if (liveDebounce) clearTimeout(liveDebounce);
   liveDebounce = setTimeout(sendLiveControls, 50);
 }
+// Quick-set buttons for the Rotation slider (bugs01.md P3 #11) -- jumps
+// straight to a common angle instead of dragging the slider by hand.
+function setRotationQuick(deg) {
+  var el = document.getElementById('lv-rotation');
+  if (!el) return;
+  el.value = deg;
+  liveSlider('lv-rotation');
+}
+function onKaleidoModeChange() {
+  // Mirror H/V only affect Radial Repeat mode -- the true Kaleidoscope fold
+  // already builds its own mirror symmetry. Used to `.disabled` the
+  // checkboxes for Kaleidoscope mode (the page's default), which left them
+  // permanently un-clickable since onMirrorHVChange()'s whole point is to
+  // switch OUT of that mode for you -- you can't click a disabled checkbox
+  // to trigger the switch that would un-disable it (bugs01.md P3 #10).
+  // Left enabled always; onMirrorHVChange() below handles the mode switch.
+  sendLiveControls();
+}
+// Checking Mirror H/V previously silently no-op'd whenever Kaleidoscope was
+// off or Mode was still on the default "Kaleidoscope" (full-fold) setting --
+// both are non-obvious prerequisites for a checkbox literally labeled
+// "Mirror H"/"Mirror V". Auto-satisfy them instead of just disabling the
+// checkbox and hoping the user finds the Mode dropdown.
+function onMirrorHVChange(el) {
+  if (el.checked) {
+    var modeSel = document.getElementById('lv-kaleido-mode');
+    if (modeSel && modeSel.value !== '0') { modeSel.value = '0'; onKaleidoModeChange(); }
+    var onCb = document.getElementById('lv-kaleido-on');
+    if (onCb && !onCb.checked) onCb.checked = true;
+  }
+  sendLiveControls();
+}
 async function sendLiveControls() {
   // Field names match the firmware's /api/preset-live handler exactly
   // (src/net/web_ui.cpp) -- there is deliberately only one rot_speed input;
@@ -3655,7 +4852,8 @@ async function sendLiveControls() {
     autoscaleSpeed: domVal('lv-autoscale-speed', 0), autoscaleMode: domVal('lv-autoscale-mode', 0),
     rotation: domVal('lv-rotation', 0),
     rot_x: liveRotX, rot_y: liveRotY, rot_z: liveRotZ, rot_speed: liveRotSpeed,
-    kaleido_enabled: domVal('lv-kaleido-on', false), kaleido_segments: domVal('lv-kaleido-segments', 3),
+    kaleido_enabled: domVal('lv-kaleido-on', false), kaleido_mode: domVal('lv-kaleido-mode', 1),
+    kaleido_segments: domVal('lv-kaleido-segments', 4),
     kaleido_mirror_h: domVal('lv-mirror-h', false), kaleido_mirror_v: domVal('lv-mirror-v', false),
     mirror_mode: liveMirrorMode,
     col_override: domVal('lv-color-override', false),
@@ -3674,7 +4872,8 @@ async function sendLiveControls() {
     bp_trail_len: domVal('lv-trail', 6), bp_endless: domVal('lv-endless', false), bp_duration_sec: domVal('lv-duration-sec', 8),
     spiral_arms: domVal('lv-arms', 3), tunnel_rings: domVal('lv-rings', 8), tunnel_sides: domVal('lv-sides', 6),
     explosion_rays: domVal('lv-rays', 16), fw_max_shells: domVal('lv-shells', 2), fw_glitter: domVal('lv-glitter', false),
-    mw_dots: domVal('lv-dots', 30), mw_tilt: domVal('lv-tilt', 45)
+    mw_dots: domVal('lv-dots', 30), mw_tilt: domVal('lv-tilt', 45),
+    hline_bounce: domVal('lv-hline-bounce', false)
   };
   await apiCall('POST', '/api/preset-live', payload);
 }
@@ -4251,10 +5450,13 @@ async function bootSequence() {
   if (typeof loadLog === 'function') { await loadLog(true); startLogRefresh(); }
   if (typeof loadMemInfo === 'function') { await loadMemInfo(); startMemRefresh(); }
   await loadPresets();
+  await segColLoad();
   await loadZoneQuick();
   await loadModulators();
   if (typeof loadSdStatus === 'function') { await loadSdStatus(); startIldaRefresh(); }
   if (typeof initZoneEditor === 'function') initZoneEditor();
+  if (typeof initWarpEditor === 'function') initWarpEditor();
+  if (typeof initBrightnessEditor === 'function') initBrightnessEditor();
 }
 
 /* =========================================================================
@@ -4462,6 +5664,7 @@ async function activateCommunityPreset(id) {
   var r = await apiCall('POST', '/api/community/activate', {id: id});
   if (r === null) return;
   s_activePresetIdx = -2;
+  paintForceStopLive();
   toast('Community preset activated');
   sendLiveControls();
 }
@@ -4890,19 +6093,58 @@ function textLive() {
   if (_txLiveTimer) clearTimeout(_txLiveTimer);
   _txLiveTimer = setTimeout(function() { startText(true); }, 120);
 }
+// text_truncated comes from /api/status (gState.text_truncated, set by
+// pattern_engine.cpp when textrender::wasTruncated() fires) -- warns when
+// the frame buffer ran out mid-string instead of the laser just silently
+// drawing an incomplete word.
+registerStateHandler(function(s) {
+  var warn = document.getElementById('tx-truncated-warn');
+  if (warn) warn.classList.toggle('hidden', !s.text_truncated);
+});
+// Loads the shared Welding state (see weldLoad() below, in the Paint tab
+// section) so the Text tab's mirrored Enabled/Direction controls and the
+// Animation/Speed disabled-state reflect gWeld on open, not just after the
+// Paint tab has been visited first.
+registerTabLoader('text', function() { weldLoad(); });
 
 /* =========================================================================
    PAINT BY FINGER -- vector shape editor over a square canvas mapped to
-   galvo coordinate space. Coordinate mapping negates BOTH X and Y going
-   canvas<->galvo: confirmed on real hardware that Paint strokes still
-   render mirrored left/right with only the Y fix applied (every other
-   content source needs no JS-side X compensation because firmware's
-   global X-mirror already corrects those) -- this is deliberate, not a
-   per-tool inconsistency to normalize away.
+   galvo coordinate space. Coordinate mapping negates ONLY Y going
+   canvas<->galvo (canvas Y grows downward, galvo Y grows upward); X is
+   left alone so pattern_engine::applyCalibration()'s fixed, unconditional
+   X-mirror (applied to every source) is the only thing that flips X --
+   same convention every other content source relies on.
+   History, because this axis has flip-flopped more than once and cost
+   real hardware-test cycles each time -- do not change it again without a
+   fresh on-device confirmation, from BOTH ends (canvas position on
+   screen vs. actual projected position), of exactly which case regressed:
+     - v1.16.x and earlier: negated both X and Y.
+     - v1.17.0: dropped the X negation (this comment's current state) --
+       reasoned as redundant against applyCalibration's fixed mirror.
+     - v1.17.1: restored the X negation, on a report that read as a
+       full diagonal flip -- but that report's photo was interpreted
+       secondhand (by Claude, from a screenshot pair), not stated
+       directly by Andre.
+     - v1.17.2 (2026-08-13): Andre directly confirmed, single-variable,
+       against the ACTUAL v1.17.1 double-negated build: Y was correct,
+       X alone was mirrored (canvas top-left -> projected top-right).
+       That only happens if X-negating is WRONG, i.e. v1.17.0's original,
+       no-pre-negate X handling was right all along -- restored it here.
+   If X is STILL mirrored after this, the bug is not this line at all --
+   check gConfig.invert_x on the Config tab before touching this file again.
    ========================================================================= */
 var PAINT_RANGE = 24000;
 var PAINT_MAX_VERTS = 96, PAINT_STROKES_MAX = 12;
-var PAINT_HANDLE_PX = 9;
+// Handle grab radius and edge/line hit tolerance, both in canvas px (the
+// canvas's fixed internal 700x700 resolution, not CSS display size --
+// paintEventToCanvas() already normalizes touch/mouse coords into that
+// space). A fingertip's effective touch accuracy is nowhere near mouse
+// precision -- 9px handles and a ~10px line-hit corridor (the old flat
+// 700-galvo-unit threshold) meant a tap almost never landed close enough
+// to a thin 2px stroke to select it. Sized for touch; still comfortable
+// with a mouse.
+var PAINT_HANDLE_PX = 20;
+var PAINT_HIT_PX = 20;
 var PAINT_SNAP_GRID = 500, PAINT_SNAP_TOL = 400;
 var PAINT_HISTORY_MAX = 30;
 var PAINT_SEG_SEQS = GRADIENT_SEQ_NAMES; // reuses the same 10 named sequences as Presets
@@ -4921,12 +6163,12 @@ var paintSyncTimer = null;
 function paintG2C(gx, gy) {
   var canvas = document.getElementById('pt-canvas');
   var half = canvas.width / 2;
-  return [half + (-gx) / PAINT_RANGE * half, half + (-gy) / PAINT_RANGE * half];
+  return [half + gx / PAINT_RANGE * half, half + (-gy) / PAINT_RANGE * half];
 }
 function paintC2G(cx, cy) {
   var canvas = document.getElementById('pt-canvas');
   var half = canvas.width / 2;
-  return [-(cx - half) / half * PAINT_RANGE, -(cy - half) / half * PAINT_RANGE];
+  return [(cx - half) / half * PAINT_RANGE, -(cy - half) / half * PAINT_RANGE];
 }
 function paintPushHistory() {
   paintHistory.push(JSON.parse(JSON.stringify(paintStrokes)));
@@ -5023,16 +6265,25 @@ function paintDistToSegment(pt, a, b) {
   var px = a[0] + t * dx, py = a[1] + t * dy;
   return Math.hypot(pt[0] - px, pt[1] - py);
 }
-function paintHitTestShape(gpt, s) {
+// Converts PAINT_HIT_PX (fixed canvas-px tolerance) into galvo units at the
+// current PAINT_RANGE, so the on-screen hit corridor stays finger-sized
+// regardless of zoom/zone scaling (PAINT_RANGE shrinks when a Zone Guide
+// is loaded -- see paintLoadZoneGuide()).
+function paintHitToleranceGalvo() {
+  var canvas = document.getElementById('pt-canvas');
+  return PAINT_HIT_PX / (canvas.width / 2) * PAINT_RANGE;
+}
+function paintHitTestShape(gpt, s, tolG) {
   var pts = paintStrokePoints(s);
   if (s.closed || s.type === 'rect' || s.type === 'triangle' || s.type === 'circle') {
     if (paintPointInPolygon(gpt, pts)) return true;
   }
-  for (var i = 0; i < pts.length - 1; i++) if (paintDistToSegment(gpt, pts[i], pts[i + 1]) <= 700) return true;
+  for (var i = 0; i < pts.length - 1; i++) if (paintDistToSegment(gpt, pts[i], pts[i + 1]) <= tolG) return true;
   return false;
 }
 function paintHitTest(gpt) {
-  for (var i = paintStrokes.length - 1; i >= 0; i--) if (paintHitTestShape(gpt, paintStrokes[i])) return i;
+  var tolG = paintHitToleranceGalvo();
+  for (var i = paintStrokes.length - 1; i >= 0; i--) if (paintHitTestShape(gpt, paintStrokes[i], tolG)) return i;
   return -1;
 }
 function paintTranslateShape(s, dx, dy) {
@@ -5189,7 +6440,71 @@ async function paintPush(activeFlag) {
   await apiCall('POST', '/api/paint/set', {strokes: paintSerializeStrokes(), active: activeFlag});
 }
 async function paintProject() { await paintPush(true); toast('Projecting paint canvas'); }
-async function paintOff() { await apiCall('POST', '/api/paint/off'); }
+async function paintOff() {
+  // A finger stroke just before tapping Off leaves paintSyncDebounced()'s
+  // 120ms timer in flight; without cancelling it (and Live still checked)
+  // that timer's paintPush(true) fires right after this call and silently
+  // re-activates Paint mode -- "Off" snapping back on. Same guard as
+  // paintForceStopLive(), called here too so the button actually sticks.
+  paintForceStopLive();
+  await apiCall('POST', '/api/paint/off');
+}
+// Switching to a Preset already clears gPaint.active server-side
+// (patterns::setPreset()) -- but if the Paint tab's "Live" checkbox is
+// still checked, the next paint edit's debounced sync (paintSyncDebounced())
+// silently re-activates Paint mode and steals the preset back. Called from
+// every preset-activation path (Presets tab, Community Presets) so the
+// switch actually sticks without the user having to remember to turn Live
+// off first.
+function paintForceStopLive() {
+  if (paintSyncTimer) { clearTimeout(paintSyncTimer); paintSyncTimer = null; }
+  var live = document.getElementById('pt-live');
+  if (live) live.checked = false;
+}
+
+/* ---- Paint by Finger: Save to SD ----------------------------------------
+   Reuses the existing SVG-on-SD file format/endpoint (svg_store.h,
+   /api/svg/upload) instead of inventing a parallel storage format -- the
+   Paint canvas is already just a set of colored open/closed vertex paths,
+   which SVG <path> elements represent exactly and losslessly. A saved
+   canvas therefore also shows up (and is deletable/renameable) in the
+   ILDA/SD tab's SVG file list, and can be reloaded via svgPlayFile(). ---- */
+function paintStrokesToSvg() {
+  var half = PAINT_RANGE;
+  var body = paintStrokes.map(function(s) {
+    var pts = paintStrokePoints(s);
+    if (pts.length < 2) return '';
+    var d = pts.map(function(p, i) {
+      // SVG Y grows downward, galvo Y grows upward (matches svgMapPoint()'s
+      // inverse in the SVG-import pipeline) -- negate Y so a re-import lines
+      // up the same way.
+      return (i === 0 ? 'M' : 'L') + p[0].toFixed(2) + ',' + (-p[1]).toFixed(2);
+    }).join(' ');
+    if (s.closed) d += ' Z';
+    var color = 'rgb(' + s.r + ',' + s.g + ',' + s.b + ')';
+    return '  <path d="' + d + '" stroke="' + color + '" fill="none" stroke-width="4"/>';
+  }).filter(function(s) { return s; }).join('\n');
+  return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="' + (-half) + ' ' + (-half) + ' ' + (half * 2) + ' ' + (half * 2) + '">\n' +
+    body + '\n</svg>\n';
+}
+async function paintSaveToSd() {
+  if (!paintStrokes.length) { toast('Canvas is empty -- nothing to save', true); return; }
+  var name = prompt('Save as filename:', 'paint_' + new Date().toISOString().slice(0, 10) + '.svg');
+  if (!name) return;
+  await loadSvgList();   // refresh -- the SD tab (where this list is normally loaded) may not have been visited yet
+  if (svgFileNameCollides(name) && !confirm('"' + name + '" already exists on SD. Overwrite?')) return;
+  if (!(await requireDisarmedForUpload('Paint save to SD'))) return;
+  var blob = new Blob([paintStrokesToSvg()], {type: 'image/svg+xml'});
+  var fd = new FormData(); fd.append('file', blob, name);
+  try {
+    var opts = {method: 'POST', body: fd, headers: {}};
+    if (window._apiToken) opts.headers['X-Auth'] = window._apiToken;
+    var resp = await fetch('/api/svg/upload', opts);
+    var body = null; try { body = await resp.json(); } catch (e) {}
+    if (resp.ok) toast('Saved as ' + (body && body.name ? body.name : name));
+    else toast((body && body.error) ? body.error : 'Save failed -- SD card not available?', true);
+  } catch (e) { toast('Upload error -- SD card not available?', true); }
+}
 function paintUpdateStatus() {
   var el = document.getElementById('pt-status'); if (!el) return;
   var verts = paintTotalVerts(), maxVerts = PAINT_STROKES_MAX * PAINT_MAX_VERTS;
@@ -5270,6 +6585,71 @@ function paintSetColor(hex) {
   paintSelected.forEach(function(i) { paintStrokes[i].r = rgb[0]; paintStrokes[i].g = rgb[1]; paintStrokes[i].b = rgb[2]; });
   paintRender(); paintSyncDebounced();
 }
+/* ---- Laser Welding ----
+   Shared across the Paint tab (welds the gPaint canvas) and the Text tab
+   (welds the current Text string's static outline, see weld_patterns.cpp)
+   -- one backend config (gWeld), two mirrored UI surfaces (same pattern as
+   Safety Override's cfg-/dash- pair, see setSafetyOverride()). */
+function weldSet(patch) { apiCall('POST', '/api/weld/set', patch); }
+
+// Table-driven slider wiring: input -> live label, change -> POST. Only the
+// Paint tab exposes these -- Text mirrors just Enabled/Direction and shares
+// the rest (see the Text tab's Welding card note).
+var WELD_SLIDERS = [
+  {id: 'weld-speed',  key: 'speed',      unit: ' u/s'},
+  {id: 'weld-glow',   key: 'glow',       unit: ' u'},
+  {id: 'weld-sparks', key: 'sparks',     unit: ''},
+  {id: 'weld-life',   key: 'spark_life', unit: ' ms'}
+];
+function weldBindSliders() {
+  WELD_SLIDERS.forEach(function(sl) {
+    var el = document.getElementById(sl.id);
+    var out = document.getElementById(sl.id + '-val');
+    if (!el || !out) return;
+    el.addEventListener('input', function() { out.textContent = el.value + sl.unit; });
+    el.addEventListener('change', function() { var p = {}; p[sl.key] = parseInt(el.value); weldSet(p); });
+  });
+}
+// Text Mode's own Animation/Speed controls are meaningless while Welding
+// drives the beam along the string's static outline instead (see
+// weld_patterns.h's generateText() doc comment) -- grey them out rather than
+// let the user set an animation that silently never runs.
+function updateTextWeldUI(enabled) {
+  var anim = document.getElementById('tx-anim');
+  var speed = document.getElementById('tx-speed');
+  if (anim) anim.disabled = enabled;
+  if (speed) speed.disabled = enabled;
+}
+function weldSetEnabled(v) {
+  var cb1 = document.getElementById('weld-enabled');
+  var cb2 = document.getElementById('tx-weld-enabled');
+  if (cb1) cb1.checked = v;
+  if (cb2) cb2.checked = v;
+  updateTextWeldUI(v);
+  weldSet({enabled: v});
+}
+function weldSetDirection(v) {
+  var d1 = document.querySelector('input[name="weld-dir"][value="' + v + '"]');
+  var d2 = document.querySelector('input[name="tx-weld-dir"][value="' + v + '"]');
+  if (d1) d1.checked = true;
+  if (d2) d2.checked = true;
+  weldSet({direction: v});
+}
+async function weldLoad() {
+  var r = await apiCall('GET', '/api/weld');
+  if (!r) return;
+  var en = document.getElementById('weld-enabled'); if (en) en.checked = !!r.enabled;
+  var txEn = document.getElementById('tx-weld-enabled'); if (txEn) txEn.checked = !!r.enabled;
+  updateTextWeldUI(!!r.enabled);
+  var dir = document.querySelector('input[name="weld-dir"][value="' + r.direction + '"]'); if (dir) dir.checked = true;
+  var txDir = document.querySelector('input[name="tx-weld-dir"][value="' + r.direction + '"]'); if (txDir) txDir.checked = true;
+  WELD_SLIDERS.forEach(function(sl) {
+    var el = document.getElementById(sl.id);
+    var out = document.getElementById(sl.id + '-val');
+    if (el && r[sl.key] !== undefined) { el.value = r[sl.key]; if (out) out.textContent = el.value + sl.unit; }
+  });
+}
+
 function initPaintTab() {
   if (paintInited) return; paintInited = true;
   var canvas = document.getElementById('pt-canvas');
@@ -5280,6 +6660,8 @@ function initPaintTab() {
   paintSetTool('freehand'); paintSetMirror('off');
   paintLoadFromServer();
   paintLoadZoneGuide();
+  weldBindSliders();
+  weldLoad();
 }
 
 registerTabLoader('paint', function() { initPaintTab(); });
@@ -5360,19 +6742,25 @@ async function ildaPlayFile(idx) {
   var btn = document.getElementById('ilda-play-btn-' + idx);
   if (btn) { btn.disabled = true; btn.textContent = '⏳ Loading...'; }
   var speed = domVal('ilda-speed', 128), size = domVal('ilda-size', 128), loop = domVal('ilda-loop', false);
+  // /api/ilda/play only kicks the SD read off in the background now (202 "loading") --
+  // it no longer blocks until the file is actually parsed. updateIldaPlayerUI()'s poll
+  // (below, and the ilda-tab interval) reflects the real loading/active/error state once
+  // the background load finishes.
   var r = await apiCall('POST', '/api/ilda/play', {idx: idx, speed: speed, size: size, loop: loop});
-  if (btn) { btn.textContent = (r !== null) ? '✓ Done' : '✗ Error'; }
+  if (r === null && btn) { btn.disabled = false; btn.textContent = '▶ Play'; }
   setTimeout(function() { loadSdStatus(); updateIldaPlayerUI(); }, 400);
 }
 async function ildaSetEnabled(v) { await apiCall('POST', '/api/ilda/enable', {enabled: v}); }
 async function ildaParamChange() {
   await apiCall('POST', '/api/ilda/param', {
     speed: domVal('ilda-speed', 128), size: domVal('ilda-size', 128), loop: domVal('ilda-loop', false),
-    col_override: domVal('ilda-color-override', false), invert_x: domVal('ilda-invert-x', false), invert_y: domVal('ilda-invert-y', false)
+    col_override: domVal('ilda-color-override', false), invert_x: domVal('ilda-invert-x', false), invert_y: domVal('ilda-invert-y', false),
+    blank_reshape_enabled: domVal('ilda-blank-reshape', false)
   });
 }
 async function ildaStop() { await apiCall('POST', '/api/ilda/stop'); }
 async function ildaPauseResume(paused) { await apiCall('POST', '/api/ilda/pause', {paused: paused}); }
+var s_ildaWasLoading = false;
 async function updateIldaPlayerUI() {
   var r = await apiCall('GET', '/api/ilda/status');
   if (!r) return;
@@ -5380,13 +6768,22 @@ async function updateIldaPlayerUI() {
     var el = document.getElementById(id); if (!el || document.activeElement === el) return;
     if (isCheckbox) el.checked = !!val; else el.value = val;
   };
-  document.getElementById('ilda-now-playing').textContent = r.active ? (r.name || ('#' + r.file_idx)) : 'Nothing playing';
+  // Background load in progress (see ildaPlayFile()) -- keep every Play/Restart button
+  // disabled so a slow SD read can't be started twice, and surface a failed load once
+  // (the 409 "already in progress" case toasts on its own via apiCall()).
+  document.querySelectorAll('[id^="ilda-play-btn-"]').forEach(function(b) { b.disabled = r.loading; });
+  if (s_ildaWasLoading && !r.loading && !r.active && r.error && r.error !== 'OK') {
+    toast('ILDA load failed: ' + r.error, true);
+  }
+  s_ildaWasLoading = r.loading;
+  document.getElementById('ilda-now-playing').textContent = r.loading ? 'Loading...' : (r.active ? (r.name || ('#' + r.file_idx)) : 'Nothing playing');
   var pct = r.total ? Math.round((r.frame / r.total) * 100) : 0;
   var bar = document.getElementById('ilda-progress-bar'); if (bar) bar.style.width = pct + '%';
   var lbl = document.getElementById('ilda-progress-label'); if (lbl) lbl.textContent = r.frame + ' / ' + r.total;
   setIfNotFocused('ilda-speed', r.speed); setIfNotFocused('ilda-size', r.size);
   setIfNotFocused('ilda-loop', r.loop, true); setIfNotFocused('ilda-color-override', r.col_override, true);
   setIfNotFocused('ilda-invert-x', r.invert_x, true); setIfNotFocused('ilda-invert-y', r.invert_y, true);
+  setIfNotFocused('ilda-blank-reshape', r.blank_reshape_enabled, true);
   var enEl = document.getElementById('ilda-enabled'); if (enEl && document.activeElement !== enEl) enEl.checked = !!r.enabled;
 }
 function startIldaRefresh() {
@@ -5428,6 +6825,8 @@ function uploadILDA() {
   var input = document.createElement('input');
   input.type = 'file'; input.multiple = true; input.accept = '.ild,.ilda';
   input.onchange = async function() {
+    if (!input.files.length) return;
+    if (!(await requireDisarmedForUpload('ILDA upload'))) return;
     for (var i = 0; i < input.files.length; i++) {
       var f = input.files[i];
       var fd = new FormData(); fd.append('file', f);
@@ -5435,7 +6834,9 @@ function uploadILDA() {
         var opts = {method: 'POST', body: fd, headers: {}};
         if (window._apiToken) opts.headers['X-Auth'] = window._apiToken;
         var resp = await fetch('/api/ilda/upload', opts);
-        toast(resp.ok ? ('Uploaded ' + f.name) : ('Failed: ' + f.name), !resp.ok);
+        var body = null; try { body = await resp.json(); } catch (e) {}
+        var msg = resp.ok ? ('Uploaded ' + f.name) : ((body && body.error) ? body.error : ('Failed: ' + f.name));
+        toast(msg, !resp.ok);
       } catch (e) { toast('Upload error: ' + f.name, true); }
     }
     loadSdStatus();
@@ -5443,7 +6844,453 @@ function uploadILDA() {
   input.click();
 }
 
-registerTabLoader('ilda', function() { loadSdStatus(); updateIldaPlayerUI(); });
+/* =========================================================================
+   SVG IMPORT -- browser-side SVG-to-paint-canvas pipeline (no firmware
+   parsing). Budget mirrors include/config.h's PaintConfig exactly, so the
+   result always fits through the existing /api/paint/set path unchanged.
+   ========================================================================= */
+var SVG_MAX_STROKES   = 12;    // mirrors PAINT_STROKES_MAX (include/config.h)
+var SVG_MAX_VERTS     = 96;    // mirrors PAINT_VERTS_PER_STROKE (include/config.h)
+var SVG_MAX_TOTAL_PTS = 1152;  // 12*96, stays under opt_max_pts_per_frame (1300 cap)
+var SVG_SAMPLE_STEPS  = 400;   // raw samples per path before RDP simplification
+var SVGNS = 'http://www.w3.org/2000/svg';
+// Nested <svg> establishes its own viewport (viewBox/preserveAspectRatio may
+// re-scale the coordinate system) -- getCTM() across that boundary isn't the
+// simple ancestor-chain composition the rest of this pipeline relies on, so
+// skip rather than risk silently wrong coordinates for a rare case.
+var SVG_SKIP_TAGS  = {defs: 1, symbol: 1, clippath: 1, mask: 1, pattern: 1, style: 1, metadata: 1, title: 1, desc: 1, svg: 1};
+var SVG_SHAPE_TAGS = {path: 1, rect: 1, circle: 1, ellipse: 1, line: 1, polyline: 1, polygon: 1};
+
+var svgRawText     = null;                 // last loaded SVG source (Load SVG / Restore / SD Play)
+var svgViewBox      = {x: 0, y: 0, w: 1000, h: 1000};
+var svgLoadedPaths  = [];                  // [{raw:[[x,y]...], closed, color:{r,g,b}|null, origIdx}] -- sampled once per load
+var svgResult       = {kept: [], totalCount: 0, droppedCount: 0, totalPts: 0};
+var svgColorCtx     = null;
+
+function svgSandbox() {
+  // Parsed SVGs need to be attached to a rendered document for getCTM()/
+  // getPointAtLength() to work -- offscreen (not display:none, which skips
+  // layout entirely), reused across loads.
+  var el = document.getElementById('svg-import-sandbox');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'svg-import-sandbox';
+    el.style.cssText = 'position:absolute;left:-99999px;top:-99999px;width:0;height:0;overflow:hidden';
+    document.body.appendChild(el);
+  }
+  return el;
+}
+
+function svgLoadFile() {
+  var input = document.createElement('input');
+  input.type = 'file'; input.accept = '.svg,image/svg+xml';
+  input.onchange = function() {
+    var f = input.files[0]; if (!f) return;
+    var reader = new FileReader();
+    reader.onload = function() { svgParseText(String(reader.result)); };
+    reader.onerror = function() { toast('Failed to read file', true); };
+    reader.readAsText(f);
+  };
+  input.click();
+}
+
+function svgNum(el, name, def) {
+  var v = parseFloat(el.getAttribute(name));
+  return isFinite(v) ? v : (def || 0);
+}
+
+// Rewrites a non-path shape element into an equivalent path 'd' string --
+// see step 2 of the Part 1 pipeline. Returns null for degenerate geometry.
+function svgShapeToPathData(el, tag) {
+  if (tag === 'rect') {
+    var x = svgNum(el, 'x', 0), y = svgNum(el, 'y', 0), w = svgNum(el, 'width', 0), h = svgNum(el, 'height', 0);
+    var rx = svgNum(el, 'rx', 0), ry = svgNum(el, 'ry', rx);
+    if (w <= 0 || h <= 0) return null;
+    if (rx > 0 && ry > 0) {
+      rx = Math.min(rx, w / 2); ry = Math.min(ry, h / 2);
+      return 'M' + (x + rx) + ',' + y + ' H' + (x + w - rx) + ' A' + rx + ',' + ry + ' 0 0 1 ' + (x + w) + ',' + (y + ry) +
+             ' V' + (y + h - ry) + ' A' + rx + ',' + ry + ' 0 0 1 ' + (x + w - rx) + ',' + (y + h) +
+             ' H' + (x + rx) + ' A' + rx + ',' + ry + ' 0 0 1 ' + x + ',' + (y + h - ry) +
+             ' V' + (y + ry) + ' A' + rx + ',' + ry + ' 0 0 1 ' + (x + rx) + ',' + y + ' Z';
+    }
+    return 'M' + x + ',' + y + ' H' + (x + w) + ' V' + (y + h) + ' H' + x + ' Z';
+  }
+  if (tag === 'circle') {
+    var ccx = svgNum(el, 'cx', 0), ccy = svgNum(el, 'cy', 0), cr = svgNum(el, 'r', 0);
+    if (cr <= 0) return null;
+    return 'M' + (ccx + cr) + ',' + ccy + ' A' + cr + ',' + cr + ' 0 1 0 ' + (ccx - cr) + ',' + ccy +
+           ' A' + cr + ',' + cr + ' 0 1 0 ' + (ccx + cr) + ',' + ccy + ' Z';
+  }
+  if (tag === 'ellipse') {
+    var ecx = svgNum(el, 'cx', 0), ecy = svgNum(el, 'cy', 0), erx = svgNum(el, 'rx', 0), ery = svgNum(el, 'ry', 0);
+    if (erx <= 0 || ery <= 0) return null;
+    return 'M' + (ecx + erx) + ',' + ecy + ' A' + erx + ',' + ery + ' 0 1 0 ' + (ecx - erx) + ',' + ecy +
+           ' A' + erx + ',' + ery + ' 0 1 0 ' + (ecx + erx) + ',' + ecy + ' Z';
+  }
+  if (tag === 'line') {
+    return 'M' + svgNum(el, 'x1', 0) + ',' + svgNum(el, 'y1', 0) + ' L' + svgNum(el, 'x2', 0) + ',' + svgNum(el, 'y2', 0);
+  }
+  if (tag === 'polyline' || tag === 'polygon') {
+    var raw = (el.getAttribute('points') || '').trim();
+    if (!raw) return null;
+    var nums = raw.split(/[\s,]+/).map(Number);
+    if (nums.length < 4) return null;
+    var d = 'M' + nums[0] + ',' + nums[1];
+    for (var i = 2; i + 1 < nums.length; i += 2) d += ' L' + nums[i] + ',' + nums[i + 1];
+    if (tag === 'polygon') d += ' Z';
+    return d;
+  }
+  return null;
+}
+
+// path elements sample directly; everything else gets rewritten to a
+// synthetic <path> sibling (same parent + transform, so getCTM() below still
+// picks up the full ancestor chain) per the "Nicht-path-Elemente ... in
+// d-Attribut-Strings umschreiben" pipeline step.
+function svgToGeometryElement(el) {
+  var tag = el.tagName.toLowerCase();
+  if (tag === 'path') return el;
+  var d = svgShapeToPathData(el, tag);
+  if (!d) return null;
+  var p = document.createElementNS(SVGNS, 'path');
+  p.setAttribute('d', d);
+  var t = el.getAttribute('transform');
+  if (t) p.setAttribute('transform', t);
+  el.parentNode.insertBefore(p, el);
+  return p;
+}
+
+function svgCollectElements(node, out) {
+  var children = node.children || [];
+  for (var i = 0; i < children.length; i++) {
+    var el = children[i];
+    var tag = el.tagName ? el.tagName.toLowerCase() : '';
+    if (SVG_SKIP_TAGS[tag]) continue;
+    if (SVG_SHAPE_TAGS[tag]) { out.push(el); continue; }
+    svgCollectElements(el, out);   // <g>, nested <svg>, <a>, <switch>, ...
+  }
+}
+
+function svgViewBoxOf(root) {
+  var vb = root.getAttribute('viewBox');
+  if (vb) {
+    var parts = vb.trim().split(/[\s,]+/).map(Number);
+    if (parts.length === 4 && parts.every(function(n) { return isFinite(n); }))
+      return {x: parts[0], y: parts[1], w: parts[2], h: parts[3]};
+  }
+  return {x: 0, y: 0, w: parseFloat(root.getAttribute('width')) || 1000, h: parseFloat(root.getAttribute('height')) || 1000};
+}
+
+// stroke preferred over fill (step "Farb-Aufloesung"); getComputedStyle()
+// already resolves the CSS cascade/inheritance, so no manual parentElement
+// walk is needed here.
+function svgColorToRgb(str) {
+  if (!svgColorCtx) svgColorCtx = document.createElement('canvas').getContext('2d');
+  try {
+    svgColorCtx.fillStyle = '#000';
+    svgColorCtx.fillStyle = str;
+    var norm = svgColorCtx.fillStyle;
+    if (norm.charAt(0) === '#') {
+      var hex = norm.length === 4 ? norm.replace(/^#(.)(.)(.)$/, '#$1$1$2$2$3$3') : norm;
+      return {r: parseInt(hex.substr(1, 2), 16), g: parseInt(hex.substr(3, 2), 16), b: parseInt(hex.substr(5, 2), 16)};
+    }
+    var m = norm.match(/rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)/);
+    if (m) return {r: Math.round(+m[1]), g: Math.round(+m[2]), b: Math.round(+m[3])};
+  } catch (e) { /* invalid/unresolvable color string */ }
+  return null;
+}
+function svgResolveColor(el) {
+  var cs = getComputedStyle(el);
+  if (cs.stroke && cs.stroke !== 'none') { var c1 = svgColorToRgb(cs.stroke); if (c1) return c1; }
+  if (cs.fill && cs.fill !== 'none')     { var c2 = svgColorToRgb(cs.fill);   if (c2) return c2; }
+  return null;
+}
+
+function svgParseText(text) {
+  svgRawText = text;
+  var sandbox = svgSandbox();
+  sandbox.innerHTML = '';
+  var doc;
+  try { doc = new DOMParser().parseFromString(text, 'image/svg+xml'); } catch (e) { toast('SVG parse failed', true); return; }
+  var root = doc.documentElement;
+  if (!root || root.nodeName.toLowerCase() !== 'svg' || doc.getElementsByTagName('parsererror').length) {
+    toast('Invalid SVG file', true); return;
+  }
+  svgViewBox = svgViewBoxOf(root);
+  var imported = document.importNode(root, true);
+  sandbox.appendChild(imported);
+
+  var elements = [];
+  svgCollectElements(imported, elements);
+
+  var rawPaths = [];
+  elements.forEach(function(el, i) {
+    var geomEl = svgToGeometryElement(el);
+    if (!geomEl || typeof geomEl.getTotalLength !== 'function') return;
+    var len; try { len = geomEl.getTotalLength(); } catch (e) { return; }
+    if (!len || !isFinite(len)) return;
+    var ctm; try { ctm = geomEl.getCTM(); } catch (e) { ctm = null; }
+    if (!ctm) return;
+    var pts = [];
+    for (var s = 0; s <= SVG_SAMPLE_STEPS; s++) {
+      var p = geomEl.getPointAtLength(len * s / SVG_SAMPLE_STEPS).matrixTransform(ctm);
+      pts.push([p.x, p.y]);
+    }
+    var closed = /[Zz]\s*$/.test(geomEl.getAttribute('d') || '');
+    rawPaths.push({raw: pts, closed: closed, color: svgResolveColor(el), origIdx: i});
+  });
+
+  svgLoadedPaths = rawPaths;
+  svgReprocess();
+  toast('Loaded ' + rawPaths.length + ' path(s) from SVG');
+}
+
+// Ramer-Douglas-Peucker simplification, epsilon in root-<svg> user-space units.
+function svgPerpDist(p, a, b) {
+  var dx = b[0] - a[0], dy = b[1] - a[1];
+  var lenSq = dx * dx + dy * dy;
+  if (lenSq === 0) return Math.hypot(p[0] - a[0], p[1] - a[1]);
+  var t = ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / lenSq;
+  return Math.hypot(p[0] - (a[0] + t * dx), p[1] - (a[1] + t * dy));
+}
+function svgRdp(points, epsilon) {
+  if (points.length < 3) return points.slice();
+  var dmax = 0, index = 0, end = points.length - 1;
+  for (var i = 1; i < end; i++) {
+    var d = svgPerpDist(points[i], points[0], points[end]);
+    if (d > dmax) { dmax = d; index = i; }
+  }
+  if (dmax > epsilon) {
+    var left = svgRdp(points.slice(0, index + 1), epsilon);
+    var right = svgRdp(points.slice(index), epsilon);
+    return left.slice(0, -1).concat(right);
+  }
+  return [points[0], points[end]];
+}
+
+// SVG viewBox space -> galvo units (PAINT_RANGE = ~24000, matches PAINT_RANGE
+// used by the Paint tab). Fits the larger viewBox dimension to the full
+// range, centered; galvo Y is inverted relative to SVG Y (grows downward).
+function svgMapPoint(px, py) {
+  var vb = svgViewBox;
+  var cx = vb.x + vb.w / 2, cy = vb.y + vb.h / 2;
+  var scale = PAINT_RANGE / (Math.max(vb.w, vb.h) / 2 || 1);
+  var sizePct = domVal('svg-size', 128) / 128;
+  var gx = (px - cx) * scale * sizePct;
+  var gy = -(py - cy) * scale * sizePct;
+  if (domVal('svg-invert-x', false)) gx = -gx;
+  if (domVal('svg-invert-y', false)) gy = -gy;
+  return [Math.max(-32000, Math.min(32000, gx)), Math.max(-32000, Math.min(32000, gy))];
+}
+function svgG2C(canvas, gx, gy) {
+  var half = canvas.width / 2;
+  return [half + (-gx) / PAINT_RANGE * half, half + (-gy) / PAINT_RANGE * half];
+}
+
+// Re-simplify + re-allocate + re-map + redraw from the cached raw samples --
+// cheap (<=1152 pts), runs on every control change without re-parsing the SVG.
+function svgReprocess() {
+  if (!svgLoadedPaths.length) {
+    svgResult = {kept: [], totalCount: 0, droppedCount: 0, totalPts: 0};
+    svgRenderPreview(); svgUpdateStatus();
+    return;
+  }
+  var epsilon = domVal('svg-simplify', 5) / 1000;
+  var candidates = svgLoadedPaths.map(function(p) {
+    return {points: svgRdp(p.raw, epsilon), closed: p.closed, color: p.color, origIdx: p.origIdx};
+  });
+  // Priorisierung: longest (post-simplify) paths claim slots first; a path
+  // that still doesn't fit one SVG_MAX_VERTS slot is dropped whole, never
+  // truncated mid-path.
+  var sorted = candidates.slice().sort(function(a, b) { return b.points.length - a.points.length; });
+  var kept = [];
+  for (var i = 0; i < sorted.length && kept.length < SVG_MAX_STROKES; i++) {
+    var c = sorted[i];
+    if (c.points.length >= 2 && c.points.length <= SVG_MAX_VERTS) kept.push(c);
+  }
+  kept.sort(function(a, b) { return a.origIdx - b.origIdx; });   // restore document order for preview/projection
+
+  svgResult = {
+    kept: kept,
+    totalCount: candidates.length,
+    droppedCount: candidates.length - kept.length,
+    totalPts: kept.reduce(function(s, c) { return s + c.points.length; }, 0)
+  };
+  svgRenderPreview();
+  svgUpdateStatus();
+}
+
+function svgUpdateStatus() {
+  var el = document.getElementById('svg-status'); if (!el) return;
+  var r = svgResult;
+  if (!r.totalCount) { el.textContent = 'No SVG loaded'; el.style.color = 'var(--text-dim)'; return; }
+  if (r.droppedCount === 0) {
+    el.textContent = r.totalCount + ' paths · ' + r.totalPts + ' pts';
+    el.style.color = 'var(--text-dim)';
+  } else {
+    el.textContent = r.kept.length + '/' + r.totalCount + ' paths · ' + r.totalPts + ' pts · ' + r.droppedCount + ' dropped';
+    el.style.color = 'var(--warn)';
+  }
+}
+
+function svgRenderPreview() {
+  var canvas = document.getElementById('svg-preview'); if (!canvas) return;
+  var ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = '#000'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+  var useSvgColors = domVal('svg-use-colors', true);
+  var pickerColor = svgColorToRgb(domVal('svg-color', '#ffffff')) || {r: 255, g: 255, b: 255};
+  svgResult.kept.forEach(function(c) {
+    var col = (useSvgColors && c.color) ? c.color : pickerColor;
+    ctx.beginPath();
+    c.points.forEach(function(p, i) {
+      var g = svgMapPoint(p[0], p[1]);
+      var cv = svgG2C(canvas, g[0], g[1]);
+      if (i === 0) ctx.moveTo(cv[0], cv[1]); else ctx.lineTo(cv[0], cv[1]);
+    });
+    if (c.closed) ctx.closePath();
+    ctx.strokeStyle = 'rgb(' + col.r + ',' + col.g + ',' + col.b + ')';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+  });
+}
+
+function svgSerializeStrokes() {
+  var useSvgColors = domVal('svg-use-colors', true);
+  var pickerColor = svgColorToRgb(domVal('svg-color', '#ffffff')) || {r: 255, g: 255, b: 255};
+  return svgResult.kept.map(function(c) {
+    var col = (useSvgColors && c.color) ? c.color : pickerColor;
+    var xs = [], ys = [];
+    c.points.forEach(function(p) { var g = svgMapPoint(p[0], p[1]); xs.push(g[0]); ys.push(g[1]); });
+    return {x: xs, y: ys, closed: !!c.closed, r: col.r, g: col.g, b: col.b};
+  });
+}
+async function svgProject() {
+  if (!svgResult.kept.length) { toast('No SVG paths to project', true); return; }
+  // Galvo integers, not normalized [0,1] -- see docs/08-api-reference.md's Paint Mode section.
+  await apiCall('POST', '/api/paint/set', {strokes: svgSerializeStrokes(), active: true});
+  toast('Projecting SVG import');
+}
+async function svgOff() { await apiCall('POST', '/api/paint/off'); }
+
+function svgSaveState() {
+  try {
+    var state = {
+      raw: svgRawText,
+      simplify: domVal('svg-simplify', 5), size: domVal('svg-size', 128),
+      invertX: domVal('svg-invert-x', false), invertY: domVal('svg-invert-y', false),
+      loop: domVal('svg-loop', true), color: domVal('svg-color', '#ffffff'),
+      useSvgColors: domVal('svg-use-colors', true)
+    };
+    localStorage.setItem('galvos_svg_state', JSON.stringify(state));
+    toast('SVG import settings saved');
+  } catch (e) { toast('Save failed (localStorage unavailable)', true); }
+}
+function svgRestoreState() {
+  var raw = localStorage.getItem('galvos_svg_state');
+  if (!raw) { toast('No saved SVG state', true); return; }
+  try {
+    var state = JSON.parse(raw);
+    document.getElementById('svg-simplify').value = state.simplify != null ? state.simplify : 5;
+    document.getElementById('svg-size').value = state.size != null ? state.size : 128;
+    document.getElementById('svg-invert-x').checked = !!state.invertX;
+    document.getElementById('svg-invert-y').checked = !!state.invertY;
+    document.getElementById('svg-loop').checked = state.loop !== false;
+    document.getElementById('svg-color').value = state.color || '#ffffff';
+    document.getElementById('svg-use-colors').checked = state.useSvgColors !== false;
+    if (state.raw) svgParseText(state.raw); else svgReprocess();
+    toast('SVG import settings restored');
+  } catch (e) { toast('Restore failed (corrupt saved state)', true); }
+}
+
+/* ---- SD storage (Part 2) ---------------------------------------------- */
+var s_svgFiles = [];
+async function loadSvgList() {
+  var r = await apiCall('GET', '/api/svg/list');
+  if (!r || !r.files) return;
+  s_svgFiles = r.files;
+  renderSvgFileList(r);
+}
+function renderSvgFileList(listing) {
+  var el = document.getElementById('svg-file-list'); if (!el) return;
+  if (!listing.files.length) { el.innerHTML = '<p>No SVG files on card.</p>'; return; }
+  el.innerHTML = listing.files.map(function(f) {
+    var dateStr = f.mtime ? new Date(f.mtime * 1000).toISOString().slice(0, 10) : '';
+    var btn = f.playable ?
+      '<button class="btn sm" onclick="svgPlayFile(' + f.idx + ')">&#9654; Play</button>' :
+      '<button class="btn sm" disabled title="' + String(f.reason || '').replace(/"/g, '&quot;') + '">Blocked</button>';
+    return '<div class="ilda-row" style="border-bottom:1px solid var(--border);padding:4px 0">' +
+      '<span class="ilda-col-play">' + btn + '</span>' +
+      '<span class="ilda-col-name"><span class="ilda-col-name-inner">' + f.name + '</span></span>' +
+      '<span class="ilda-col-size">' + fmtBytes(f.size) + '</span>' +
+      '<span class="ilda-col-date">' + dateStr + '</span>' +
+      '<span class="ilda-col-actions">' +
+        '<button class="btn sm" title="Rename" onclick="svgRenameFile(' + f.idx + ')">&#9998;</button>' +
+        '<button class="btn sm danger" title="Delete" onclick="svgDeleteFile(' + f.idx + ')">&#10005;</button>' +
+      '</span></div>';
+  }).join('');
+}
+function svgFileByIdx(idx) { return s_svgFiles.filter(function(f) { return f.idx === idx; })[0]; }
+async function svgPlayFile(idx) {
+  var resp = await fetch('/api/svg/get?idx=' + idx);
+  if (!resp.ok) { toast('Failed to load SVG from SD', true); return; }
+  svgParseText(await resp.text());
+  await svgProject();
+}
+async function svgDeleteFile(idx) {
+  var f = svgFileByIdx(idx);
+  if (!confirm('Delete "' + (f ? f.name : ('#' + idx)) + '"? This cannot be undone.')) return;
+  var r = await apiCall('POST', '/api/svg/delete', {idx: idx});
+  if (r) { toast('Deleted'); loadSvgList(); }
+}
+async function svgRenameFile(idx) {
+  var f = svgFileByIdx(idx);
+  var oldName = f ? f.name : '';
+  var name = prompt('Rename to:', oldName);
+  if (!name || name === oldName) return;
+  var r = await apiCall('POST', '/api/svg/rename', {idx: idx, name: name});
+  if (r) { toast('Renamed'); loadSvgList(); }
+}
+async function svgSaveToSd() {
+  if (!svgRawText) { toast('No SVG loaded', true); return; }
+  var name = prompt('Save as filename:', 'import.svg');
+  if (!name) return;
+  if (svgFileNameCollides(name) && !confirm('"' + name + '" already exists on SD. Overwrite?')) return;
+  if (!(await requireDisarmedForUpload('SVG save'))) return;
+  var blob = new Blob([svgRawText], {type: 'image/svg+xml'});
+  var fd = new FormData(); fd.append('file', blob, name);
+  try {
+    var opts = {method: 'POST', body: fd, headers: {}};
+    if (window._apiToken) opts.headers['X-Auth'] = window._apiToken;
+    var resp = await fetch('/api/svg/upload', opts);
+    var body = null; try { body = await resp.json(); } catch (e) {}
+    if (resp.ok) toast('Saved as ' + (body && body.name ? body.name : name));
+    else toast((body && body.error) ? body.error : 'Save failed', true);
+    loadSvgList();
+  } catch (e) { toast('Upload error', true); }
+}
+// Best-effort mirror of sanitizeSvgFilename() (web_ui.cpp) -- only used to
+// decide whether to show an "overwrite?" prompt before spending an upload;
+// the server's own sanitization remains the source of truth for the name
+// actually written.
+function svgSanitizedName(raw) {
+  var base = String(raw).replace(/^.*[\/\\]/, '');
+  var dot = base.lastIndexOf('.');
+  if (dot > 0) base = base.substring(0, dot);
+  base = base.replace(/[^A-Za-z0-9_\- .]/g, '_').replace(/[ .]+$/, '');
+  return (base || 'upload') + '.svg';
+}
+function svgFileNameCollides(raw) {
+  var name = svgSanitizedName(raw);
+  return s_svgFiles.some(function(f) { return f.name === name; });
+}
+
+// Sequential/staggered -- see the 'presets' loader comment above.
+registerTabLoader('ilda', async function() {
+  await loadSdStatus();
+  await updateIldaPlayerUI();
+  await loadSvgList();
+});
 
 /* =========================================================================
    CALIBRATION TAB -- field names match /api/calib-live exactly
@@ -5501,6 +7348,9 @@ function sendCalibLive() {
     var lo = domVal('calib-dac-min', 2600), hi = domVal('calib-dac-max', 63000);
     var warnEl = document.getElementById('calib-dac-warn');
     if (warnEl) warnEl.classList.toggle('hidden', lo < hi);
+    var outScale = domVal('calib-outscale', 0.91);
+    var outScaleVal = document.getElementById('calib-outscale-val');
+    if (outScaleVal) outScaleVal.textContent = outScale.toFixed(2);
     apiCall('POST', '/api/calib-live', {
       xoff: domVal('calib-xoff', 0), yoff: domVal('calib-yoff', 0),
       xgain: domVal('calib-xgain', 24200), ygain: domVal('calib-ygain', 24200),
@@ -5508,7 +7358,7 @@ function sendCalibLive() {
       gain_r: domVal('calib-gain-r', 255), gain_g: domVal('calib-gain-g', 255), gain_b: domVal('calib-gain-b', 255),
       thresh_r: domVal('calib-thresh-r', 0), thresh_g: domVal('calib-thresh-g', 0), thresh_b: domVal('calib-thresh-b', 0),
       gamma_enable: domVal('calib-gamma', false),
-      dac_limit_min: lo, dac_limit_max: hi
+      dac_limit_min: lo, dac_limit_max: hi, output_scale: outScale
     });
   }, 50);
 }
@@ -5572,6 +7422,8 @@ async function loadCalibrationFields() {
   setv('calib-thresh-r', c.thresh_r); setv('calib-thresh-g', c.thresh_g); setv('calib-thresh-b', c.thresh_b);
   document.getElementById('calib-gamma').checked = !!c.gamma_enable;
   setv('calib-dac-min', c.dac_limit_min); setv('calib-dac-max', c.dac_limit_max);
+  setv('calib-outscale', c.output_scale);
+  document.getElementById('calib-outscale-val').textContent = Number(c.output_scale).toFixed(2);
   document.getElementById('calib-xgain-val').textContent = (c.galvo_x_gain / 32767).toFixed(2);
   document.getElementById('calib-ygain-val').textContent = (c.galvo_y_gain / 32767).toFixed(2);
 }
@@ -5676,8 +7528,225 @@ function initZoneEditor() {
   loadZone();
 }
 
-registerTabLoader('calib', function() { loadCalibPatterns(); loadCalibrationFields(); });
-registerTabLeaveHook('calib', function() { stopThreshTest(); stopThreeCirclePattern(); });
+/* ---- Warp grid editor (Calibration tab) -- Camera Closed-Loop Keystone ---- */
+var warpGridSize = 2;
+var warpPts = [];          // warpPts[row][col] = {x, y}, normalized [-1..1]
+var warpEnabled = false;
+var warpDrag = null;       // {r, c} or null
+var warpTestOn = false;
+function warpIdentityGrid(n) {
+  var g = [];
+  for (var r = 0; r < n; r++) {
+    var row = [];
+    for (var c = 0; c < n; c++) {
+      row.push({x: (n > 1) ? (-1 + (2 * c) / (n - 1)) : 0, y: (n > 1) ? (-1 + (2 * r) / (n - 1)) : 0});
+    }
+    g.push(row);
+  }
+  return g;
+}
+function warpG2C(nx, ny) {
+  var canvas = document.getElementById('warp-canvas'); var half = canvas.width / 2;
+  return [half + nx * half, half - ny * half];
+}
+function warpC2G(cx, cy) {
+  var canvas = document.getElementById('warp-canvas'); var half = canvas.width / 2;
+  return [(cx - half) / half, (half - cy) / half];
+}
+function warpRender() {
+  var canvas = document.getElementById('warp-canvas'); if (!canvas) return;
+  var ctx = canvas.getContext('2d'), w = canvas.width, h = canvas.height;
+  ctx.clearRect(0, 0, w, h); ctx.fillStyle = '#000'; ctx.fillRect(0, 0, w, h);
+  var n = warpGridSize;
+  ctx.strokeStyle = cssVar('--accent') || '#0f8'; ctx.lineWidth = 1.5;
+  for (var r = 0; r < n; r++) {
+    ctx.beginPath();
+    for (var c = 0; c < n; c++) { var p = warpPts[r][c]; var cc = warpG2C(p.x, p.y); if (c === 0) ctx.moveTo(cc[0], cc[1]); else ctx.lineTo(cc[0], cc[1]); }
+    ctx.stroke();
+  }
+  for (var c2 = 0; c2 < n; c2++) {
+    ctx.beginPath();
+    for (var r2 = 0; r2 < n; r2++) { var p2 = warpPts[r2][c2]; var cc2 = warpG2C(p2.x, p2.y); if (r2 === 0) ctx.moveTo(cc2[0], cc2[1]); else ctx.lineTo(cc2[0], cc2[1]); }
+    ctx.stroke();
+  }
+  for (var r3 = 0; r3 < n; r3++) for (var c3 = 0; c3 < n; c3++) {
+    var pc = warpG2C(warpPts[r3][c3].x, warpPts[r3][c3].y);
+    ctx.beginPath(); ctx.arc(pc[0], pc[1], 6, 0, Math.PI * 2); ctx.fillStyle = '#fff'; ctx.fill();
+  }
+}
+function warpEventXY(e) {
+  var canvas = document.getElementById('warp-canvas'); var rect = canvas.getBoundingClientRect();
+  var t = e.touches ? e.touches[0] : e;
+  return [(t.clientX - rect.left) * canvas.width / rect.width, (t.clientY - rect.top) * canvas.height / rect.height];
+}
+function warpPointerDown(e) {
+  var xy = warpEventXY(e);
+  for (var r = 0; r < warpGridSize; r++) for (var c = 0; c < warpGridSize; c++) {
+    var cc = warpG2C(warpPts[r][c].x, warpPts[r][c].y);
+    if (Math.hypot(cc[0] - xy[0], cc[1] - xy[1]) <= 12) { warpDrag = {r: r, c: c}; return; }
+  }
+}
+function warpPointerMove(e) {
+  if (!warpDrag) return;
+  e.preventDefault();
+  var xy = warpEventXY(e), g = warpC2G(xy[0], xy[1]);
+  warpPts[warpDrag.r][warpDrag.c] = {x: Math.max(-1.5, Math.min(1.5, g[0])), y: Math.max(-1.5, Math.min(1.5, g[1]))};
+  warpRender();
+}
+function warpPointerUp() { warpDrag = null; }
+async function warpLoad() {
+  var r = await apiCall('GET', '/api/warp/get');
+  if (r && r.gridSize && r.points) {
+    warpGridSize = r.gridSize;
+    warpPts = r.points.map(function(row) { return row.map(function(p) { return {x: p[0], y: p[1]}; }); });
+    warpEnabled = !!r.enabled;
+  } else {
+    warpGridSize = 2; warpPts = warpIdentityGrid(2); warpEnabled = false;
+  }
+  var sel = document.getElementById('warp-grid-size'); if (sel) sel.value = String(warpGridSize);
+  var enEl = document.getElementById('warp-enable-status');
+  if (enEl) { enEl.textContent = warpEnabled ? 'Enabled' : 'Disabled'; enEl.className = warpEnabled ? 'pill ok' : 'pill bad'; }
+  warpRender();
+}
+async function warpSave() {
+  var pts = warpPts.map(function(row) { return row.map(function(p) { return [p.x, p.y]; }); });
+  await apiCall('POST', '/api/warp/set', {gridSize: warpGridSize, points: pts, enabled: warpEnabled});
+  toast('Warp grid saved');
+}
+async function warpToggleEnable() {
+  warpEnabled = !warpEnabled;
+  var pts = warpPts.map(function(row) { return row.map(function(p) { return [p.x, p.y]; }); });
+  await apiCall('POST', '/api/warp/set', {gridSize: warpGridSize, points: pts, enabled: warpEnabled});
+  var enEl = document.getElementById('warp-enable-status');
+  if (enEl) { enEl.textContent = warpEnabled ? 'Enabled' : 'Disabled'; enEl.className = warpEnabled ? 'pill ok' : 'pill bad'; }
+}
+async function warpToggleTest() {
+  warpTestOn = !warpTestOn;
+  await apiCall('POST', '/api/warp/test', {active: warpTestOn});
+  var btn = document.getElementById('warp-test-btn'); if (btn) btn.textContent = warpTestOn ? 'Stop Test Grid' : 'Project Test Grid';
+}
+async function warpReset() {
+  await apiCall('POST', '/api/warp/reset', {});
+  await warpLoad();
+}
+function warpSetGridSize(v) {
+  var n = parseInt(v, 10);
+  if (n === warpGridSize) return;
+  warpGridSize = n;
+  warpPts = warpIdentityGrid(n);
+  warpRender();
+}
+function initWarpEditor() {
+  var canvas = document.getElementById('warp-canvas'); if (!canvas) return;
+  canvas.addEventListener('mousedown', warpPointerDown); canvas.addEventListener('mousemove', warpPointerMove);
+  window.addEventListener('mouseup', warpPointerUp);
+  canvas.addEventListener('touchstart', warpPointerDown); canvas.addEventListener('touchmove', warpPointerMove);
+  window.addEventListener('touchend', warpPointerUp);
+  warpPts = warpIdentityGrid(warpGridSize);
+  warpLoad();
+}
+
+/* ---- Brightness compensation grid editor (Calibration tab) ---- */
+var brightnessGridSize = 2;
+var brightnessGain = [];   // brightnessGain[row][col] = 0..255
+var brightnessEnabled = false;
+var brightnessDrag = null; // {r, c, startY, startVal} or null
+function brightnessIdentityGrid(n) {
+  var g = [];
+  for (var r = 0; r < n; r++) { var row = []; for (var c = 0; c < n; c++) row.push(255); g.push(row); }
+  return g;
+}
+function brightnessCellColor(v) {
+  var pct = Math.round((v / 255) * 100);
+  return 'hsl(150, 70%, ' + Math.max(4, Math.min(92, pct * 0.85)) + '%)';
+}
+function brightnessRender() {
+  var el = document.getElementById('brightness-grid'); if (!el) return;
+  var n = brightnessGridSize;
+  el.style.gridTemplateColumns = 'repeat(' + n + ', 1fr)';
+  el.style.gridTemplateRows = 'repeat(' + n + ', 1fr)';
+  el.innerHTML = '';
+  for (var r = 0; r < n; r++) {
+    for (var c = 0; c < n; c++) {
+      var cell = document.createElement('div');
+      cell.className = 'brightness-cell';
+      cell.dataset.r = r; cell.dataset.c = c;
+      var v = brightnessGain[r][c];
+      cell.style.background = brightnessCellColor(v);
+      cell.textContent = v;
+      el.appendChild(cell);
+    }
+  }
+}
+function brightnessEventY(e) { var t = e.touches ? e.touches[0] : e; return t.clientY; }
+function brightnessPointerDown(e) {
+  var cell = e.target.closest ? e.target.closest('.brightness-cell') : null;
+  if (!cell) return;
+  e.preventDefault();
+  var r = parseInt(cell.dataset.r, 10), c = parseInt(cell.dataset.c, 10);
+  brightnessDrag = {r: r, c: c, startY: brightnessEventY(e), startVal: brightnessGain[r][c]};
+}
+function brightnessPointerMove(e) {
+  if (!brightnessDrag) return;
+  e.preventDefault();
+  var dy = brightnessEventY(e) - brightnessDrag.startY;
+  var v = Math.round(brightnessDrag.startVal - dy);   // drag up = brighter
+  v = Math.max(0, Math.min(255, v));
+  brightnessGain[brightnessDrag.r][brightnessDrag.c] = v;
+  brightnessRender();
+}
+function brightnessPointerUp() { brightnessDrag = null; }
+async function brightnessLoad() {
+  var r = await apiCall('GET', '/api/brightness/get');
+  if (r && r.gridSize && r.gain) {
+    brightnessGridSize = r.gridSize;
+    brightnessGain = r.gain;
+    brightnessEnabled = !!r.enabled;
+  } else {
+    brightnessGridSize = 2; brightnessGain = brightnessIdentityGrid(2); brightnessEnabled = false;
+  }
+  var sel = document.getElementById('brightness-grid-size'); if (sel) sel.value = String(brightnessGridSize);
+  var enEl = document.getElementById('brightness-enable-status');
+  if (enEl) { enEl.textContent = brightnessEnabled ? 'Enabled' : 'Disabled'; enEl.className = brightnessEnabled ? 'pill ok' : 'pill bad'; }
+  brightnessRender();
+}
+async function brightnessSave() {
+  await apiCall('POST', '/api/brightness/set', {gridSize: brightnessGridSize, gain: brightnessGain, enabled: brightnessEnabled});
+  toast('Brightness grid saved');
+}
+async function brightnessToggleEnable() {
+  brightnessEnabled = !brightnessEnabled;
+  await apiCall('POST', '/api/brightness/set', {gridSize: brightnessGridSize, gain: brightnessGain, enabled: brightnessEnabled});
+  var enEl = document.getElementById('brightness-enable-status');
+  if (enEl) { enEl.textContent = brightnessEnabled ? 'Enabled' : 'Disabled'; enEl.className = brightnessEnabled ? 'pill ok' : 'pill bad'; }
+}
+async function brightnessReset() {
+  await apiCall('POST', '/api/brightness/reset', {});
+  await brightnessLoad();
+}
+function brightnessSetGridSize(v) {
+  var n = parseInt(v, 10);
+  if (n === brightnessGridSize) return;
+  brightnessGridSize = n;
+  brightnessGain = brightnessIdentityGrid(n);
+  brightnessRender();
+}
+function initBrightnessEditor() {
+  var el = document.getElementById('brightness-grid'); if (!el) return;
+  el.addEventListener('mousedown', brightnessPointerDown); window.addEventListener('mousemove', brightnessPointerMove);
+  window.addEventListener('mouseup', brightnessPointerUp);
+  el.addEventListener('touchstart', brightnessPointerDown); window.addEventListener('touchmove', brightnessPointerMove);
+  window.addEventListener('touchend', brightnessPointerUp);
+  brightnessGain = brightnessIdentityGrid(brightnessGridSize);
+  brightnessLoad();
+}
+
+// Sequential/staggered -- see the 'presets' loader comment above.
+registerTabLoader('calib', async function() {
+  await loadCalibPatterns();
+  await loadCalibrationFields();
+});
+registerTabLeaveHook('calib', function() { stopThreshTest(); stopThreeCirclePattern(); if (warpTestOn) warpToggleTest(); });
 
 /* =========================================================================
    OPTIMIZER TAB -- field names match /api/optimizer-live exactly
@@ -5728,7 +7797,6 @@ function loadOptimizerConfig(c) {
   setv('opt-min-corner-pts', p[pfx + 'min_corner_pts']);
   setv('opt-max-corner-pts', p[pfx + 'max_corner_pts']);
   setv('opt-ppu', Math.round((p[pfx + 'pts_per_1000_units'] || 0) * 10));
-  setv('opt-min-seg-pts', p[pfx + 'min_segment_pts']);
   setv('opt-max-pts-frame', p[pfx + 'max_pts_per_frame']);
   setv('opt-blank-samples', p[pfx + 'blank_samples']);
   setv('opt-min-blank-samples', p[pfx + 'min_blank_samples']);
@@ -5737,6 +7805,10 @@ function loadOptimizerConfig(c) {
   setv('opt-min-interior-pts', p[pfx + 'min_interior_pts_per_segment']);
   document.getElementById('opt-resample-enabled').checked = !!p[pfx + 'resample_enabled'];
   setv('opt-resample-spacing', p[pfx + 'resample_spacing_units']);
+  document.getElementById('opt-curvature-enabled').checked = !!p[pfx + 'curvature_resample_enabled'];
+  setv('opt-curvature-gain', Math.round((p[pfx + 'curvature_gain'] || 0) * 100));
+  setv('opt-min-spacing', p[pfx + 'min_spacing_units']);
+  setv('opt-max-spacing', p[pfx + 'max_spacing_units']);
   document.getElementById('opt-ringing-enabled').checked = !!p[pfx + 'ringing_comp_enabled'];
   setv('opt-ring-freq', p[pfx + 'ring_freq_hz']);
   setv('opt-ring-damping', Math.round((p[pfx + 'ring_damping_ratio'] || 0) * 100));
@@ -5746,9 +7818,12 @@ function loadOptimizerConfig(c) {
   setv('opt-max-step', p[pfx + 'max_step_units']);
   document.getElementById('opt-accel-clamp-enabled').checked = !!p[pfx + 'accel_clamp_enabled'];
   setv('opt-max-accel', p[pfx + 'max_accel_units']);
+  document.getElementById('opt-reorder-segments').checked = !!p[pfx + 'reorder_segments'];
+  document.getElementById('opt-reorder-2opt').checked = !!p[pfx + 'reorder_2opt'];
   var effStep = (c.opt_profiles && c.opt_profiles[g_activeOptimizerProfile]) ? c.opt_profiles[g_activeOptimizerProfile].opt_eff_max_step_units : null;
   var effAccel = (c.opt_profiles && c.opt_profiles[g_activeOptimizerProfile]) ? c.opt_profiles[g_activeOptimizerProfile].opt_eff_max_accel_units : null;
   updateEffectivePpsDisplay(effStep, effAccel);
+  updateRingingStatusDisplay(c.opt_profiles ? c.opt_profiles[g_activeOptimizerProfile] : null);
   optimizerUpdateLabels();
   renderOptimizerMembers();
 }
@@ -5777,15 +7852,19 @@ async function sendOptimizerLive() {
   await apiCall('POST', '/api/optimizer-live', {
     profile: g_activeOptimizerProfile,
     corner_angle_deg: domVal('opt-corner-angle', 30), min_corner_pts: domVal('opt-min-corner-pts', 2), max_corner_pts: domVal('opt-max-corner-pts', 8),
-    pts_per_1000_units: domVal('opt-ppu', 80) / 10, min_segment_pts: domVal('opt-min-seg-pts', 3),
+    pts_per_1000_units: domVal('opt-ppu', 80) / 10,
     blank_samples: domVal('opt-blank-samples', 12), max_pts_per_frame: domVal('opt-max-pts-frame', 800),
     min_blank_samples: domVal('opt-min-blank-samples', 4), blank_pts_per_1000_units: domVal('opt-blank-ppu', 80) / 10,
     min_interior_pts_per_segment: domVal('opt-min-interior-pts', 2), stage1_blank_target: domVal('opt-stage1-blank', 10),
     resample_enabled: domVal('opt-resample-enabled', false), resample_spacing_units: domVal('opt-resample-spacing', 200),
+    curvature_resample_enabled: domVal('opt-curvature-enabled', false), curvature_gain: domVal('opt-curvature-gain', 200) / 100,
+    min_spacing_units: domVal('opt-min-spacing', 40), max_spacing_units: domVal('opt-max-spacing', 400),
     ringing_comp_enabled: domVal('opt-ringing-enabled', false), ring_freq_hz: domVal('opt-ring-freq', 60), ring_damping_ratio: domVal('opt-ring-damping', 50) / 100,
     jitter_enabled: domVal('opt-jitter-enabled', false), jitter_amount_units: domVal('opt-jitter-amount', 0),
     vel_clamp_enabled: domVal('opt-vel-clamp-enabled', false), max_step_units: domVal('opt-max-step', 4000),
-    accel_clamp_enabled: domVal('opt-accel-clamp-enabled', false), max_accel_units: domVal('opt-max-accel', 4000)
+    accel_clamp_enabled: domVal('opt-accel-clamp-enabled', false), max_accel_units: domVal('opt-max-accel', 4000),
+    reorder_segments: domVal('opt-reorder-segments', false),
+    reorder_2opt: domVal('opt-reorder-2opt', false)
   });
 }
 function ppsRatio() {
@@ -5801,6 +7880,32 @@ function updateEffectivePpsDisplay(effStep, effAccel) {
   var stepEl = document.getElementById('opt-eff-step'); if (stepEl) stepEl.textContent = 'Effective at ' + outputKpps + ' kpps (rated ' + s_galvoRatedKpps + 'k, ratio ' + ratio.toFixed(2) + '×): ' + Math.round(step) + ' units/tick';
   var accelEl = document.getElementById('opt-eff-accel'); if (accelEl) accelEl.textContent = 'Effective at ' + outputKpps + ' kpps (rated ' + s_galvoRatedKpps + 'k, ratio ' + ratio.toFixed(2) + '×): ' + Math.round(accel) + ' units/tick';
 }
+// Whether ringing compensation actually engages at the current settings. The
+// ZV shaper's impulse delay is a physical time (half the ring period) turned
+// into output points, so a low resonant frequency and/or a high point rate can
+// push it past the longest blank jump the optimizer builds -- in which case the
+// firmware falls back to an unshaped jump and says so here, instead of leaving
+// a ticked checkbox that does nothing. Values come from the firmware
+// (opt_eff_ringing_active / opt_eff_ring_shift_pts on /api/config), since the
+// decision depends on the device's own galvo_kpps.
+function updateRingingStatusDisplay(prof) {
+  var el = document.getElementById('opt-eff-ringing');
+  if (!el) return;
+  if (!prof || prof.opt_eff_ring_shift_pts === undefined) { el.textContent = ''; return; }
+  if (!prof.opt_ringing_comp_enabled) {
+    el.textContent = 'Inactive — not enabled.';
+    el.style.color = 'var(--text-dim)';
+    return;
+  }
+  var shift = prof.opt_eff_ring_shift_pts;
+  if (prof.opt_eff_ringing_active) {
+    el.textContent = 'Active — shaping blank jumps with a ' + shift + '-point impulse delay.';
+    el.style.color = 'var(--ok)';
+  } else {
+    el.textContent = 'NOT taking effect — needs a ' + shift + '-point impulse delay, longer than any blank jump this optimizer builds. Raise Frequency Hz or lower the output kpps.';
+    el.style.color = 'var(--warn)';
+  }
+}
 function applyOptimizerSmartDefaults() {
   var base = OPT_PROFILE_BASE[g_activeOptimizerProfile];
   var outputKpps = window.g_proj ? window.g_proj.kpps : 30;
@@ -5809,7 +7914,7 @@ function applyOptimizerSmartDefaults() {
   var maxPtsFrame = Math.max(60, Math.min(2048, Math.round(outputKpps * 1000 / targetFps)));
   var setv = function(id, v) { var el = document.getElementById(id); if (el) { el.value = v; optSyncNum(id); } };
   setv('opt-corner-angle', base.cad); setv('opt-min-corner-pts', base.mincp); setv('opt-max-corner-pts', base.maxcp);
-  setv('opt-ppu', Math.round(base.ppu / ratio * 10)); setv('opt-min-seg-pts', 3);
+  setv('opt-ppu', Math.round(base.ppu / ratio * 10));
   setv('opt-blank-samples', base.blank); setv('opt-max-pts-frame', maxPtsFrame);
   setv('opt-min-blank-samples', base.minbl); setv('opt-blank-ppu', Math.round(base.blppu / ratio * 10));
   setv('opt-min-interior-pts', base.minip); setv('opt-stage1-blank', base.s1tgt);
@@ -5820,13 +7925,17 @@ function applyOptimizerSmartDefaults() {
 function resetOptimizerDefaults() {
   var setv = function(id, v) { var el = document.getElementById(id); if (el) { el.value = v; optSyncNum(id); } };
   setv('opt-corner-angle', 30); setv('opt-min-corner-pts', 2); setv('opt-max-corner-pts', 8);
-  setv('opt-ppu', 80); setv('opt-min-seg-pts', 3); setv('opt-blank-samples', 12); setv('opt-max-pts-frame', 800);
+  setv('opt-ppu', 80); setv('opt-blank-samples', 12); setv('opt-max-pts-frame', 800);
   setv('opt-min-blank-samples', 4); setv('opt-blank-ppu', 80); setv('opt-min-interior-pts', 2); setv('opt-stage1-blank', 10);
+  setv('opt-curvature-gain', 200); setv('opt-min-spacing', 40); setv('opt-max-spacing', 400);
   document.getElementById('opt-resample-enabled').checked = false;
+  document.getElementById('opt-curvature-enabled').checked = false;
   document.getElementById('opt-ringing-enabled').checked = false;
   document.getElementById('opt-jitter-enabled').checked = false;
   document.getElementById('opt-vel-clamp-enabled').checked = false;
   document.getElementById('opt-accel-clamp-enabled').checked = false;
+  document.getElementById('opt-reorder-segments').checked = false;
+  document.getElementById('opt-reorder-2opt').checked = false;
   optimizerUpdateLabels(); sendOptimizerLive();
   toast('Defaults reset');
 }
@@ -5848,10 +7957,64 @@ function renderOptimizerMembers() {
   }).join('');
 }
 
+/* Live telemetry (/api/optimizer-stats). Polled only while the Optimizer tab
+   is open -- the numbers are only readable here, and the pattern task already
+   shares core 0 with the state poll. Shows the FRAME record: a preset that
+   draws several primitives calls optimize() once per primitive, and only the
+   sum is the frame the point budget applies to. */
+var s_optStatsTimer = null;
+var s_optStatsBusy = false;
+async function pollOptimizerStats() {
+  if (s_optStatsBusy) return;
+  s_optStatsBusy = true;
+  try {
+    var r = await apiCall('GET', '/api/optimizer-stats');
+    if (r && r.frame) renderOptimizerStats(r.frame);
+  } finally {
+    s_optStatsBusy = false;
+  }
+}
+function renderOptimizerStats(f) {
+  var setText = function(id, v, bad) {
+    var e = document.getElementById(id);
+    if (!e) return;
+    e.textContent = v;
+    e.style.color = bad ? 'var(--bad)' : '';
+  };
+  var lit = f.emitted_lit || 0, blank = f.emitted_blank || 0;
+  var emitted = lit + blank;
+  var trunc = f.truncated || 0;
+  setText('opt-st-points', lit + ' / ' + blank);
+  setText('opt-st-trunc', trunc, trunc > 0);
+  setText('opt-st-jumps', f.jump_count || 0);
+  setText('opt-st-jumpdist', Math.round(f.jump_distance_total || 0) + ' units');
+  var budget = domVal('opt-max-pts-frame', 0) || 0;
+  setText('opt-st-budget',
+          budget ? emitted + ' / ' + budget + ' (' + Math.round(emitted / budget * 100) + '%)' : emitted,
+          budget > 0 && emitted > budget);
+  setText('opt-st-calls', f.calls || 0);
+  var pill = function(id, label, state) {
+    var e = document.getElementById(id);
+    if (!e) return;
+    e.className = 'pill' + (state ? ' ' + state : '');
+    e.textContent = label;
+  };
+  var scale = (f.stage2_scale === undefined) ? 1 : f.stage2_scale;
+  pill('opt-st-s1', 'Stage 1 ' + (f.stage1_triggered ? 'active' : 'idle'), f.stage1_triggered ? 'bad' : '');
+  pill('opt-st-s15', 'Stage 1.5 ' + (f.stage15_triggered ? 'active' : 'idle'), f.stage15_triggered ? 'bad' : '');
+  pill('opt-st-s2', 'Interior ×' + scale.toFixed(2), scale < 0.999 ? 'bad' : '');
+  pill('opt-st-zv', 'ZV Shaper ' + (f.ringing_active ? 'shaping' : 'inactive'), f.ringing_active ? 'ok' : '');
+}
+
 registerTabLoader('optimizer', async function() {
   renderOptProfileBar();
   var c = await apiCall('GET', '/api/config');
   if (c) loadOptimizerConfig(c);
+  pollOptimizerStats();
+  if (!s_optStatsTimer) s_optStatsTimer = setInterval(pollOptimizerStats, 1000);
+});
+registerTabLeaveHook('optimizer', function() {
+  if (s_optStatsTimer) { clearInterval(s_optStatsTimer); s_optStatsTimer = null; }
 });
 
 /* =========================================================================
@@ -6191,7 +8354,11 @@ function startMemRefresh() {
   }, 3000);
 }
 
-registerTabLoader('log', function() { loadLog(true); loadMemInfo(); });
+// Sequential/staggered -- see the 'presets' loader comment above.
+registerTabLoader('log', async function() {
+  await loadLog(true);
+  await loadMemInfo();
+});
 
 /* =========================================================================
    CONFIGURATION TAB
@@ -6218,6 +8385,7 @@ async function loadConfig() {
   setv('cfg-wifi-ip', c.wifi_ip); setv('cfg-wifi-gw', c.wifi_gw); setv('cfg-wifi-mask', c.wifi_mask); setv('cfg-wifi-dns', c.wifi_dns);
   document.getElementById('cfg-dhcp-current-ip').textContent = c.wifi_ip_current || '--';
   setc('cfg-dac-debug-log', c.dac_debug_log);
+  setc('cfg-gw-watchdog', c.wifi_watchdog_reboot_enabled);
   await loadCalibrationFields();
   if (typeof loadOptimizerConfig === 'function') loadOptimizerConfig(c);
 }
@@ -6265,7 +8433,11 @@ async function pollWifiScan() {
   sel.onchange = function() { document.getElementById('cfg-wifi-ssid').value = sel.value; };
 }
 async function refreshWifiStatus() {
-  var resp = await fetch('/api/wifi-status').catch(function() { return null; });
+  // Routed through queuedFetch() -- unlike loadLog()/loadMemInfo()'s pollers,
+  // this one runs unconditionally every 10s regardless of active tab (see
+  // its setInterval below), so it was a standing, always-on contender for
+  // the shared socket pool. See apiCall()'s queuedFetch() comment.
+  var resp = await queuedFetch(function() { return fetch('/api/wifi-status'); }).catch(function() { return null; });
   if (!resp || !resp.ok) return;
   var r = await resp.json();
   var led = document.getElementById('cfg-wifi-led'); var txt = document.getElementById('cfg-wifi-status-text');
@@ -6297,15 +8469,23 @@ async function saveStaticIp() {
   toast('Static IP saved');
 }
 async function setSafetyOverride(v) {
+  var cb1 = document.getElementById('cfg-safety-override');
+  var cb2 = document.getElementById('dash-safety-override');
+  if (v && !confirm('Safety Override bypasses E-Stop and Scan-Fail protection.\nOnly use with the laser disarmed and no audience present.\n\nEnable Safety Override?')) {
+    if (cb1) cb1.checked = false;
+    if (cb2) cb2.checked = false;
+    return;
+  }
   await apiCall('POST', '/api/safety-override', {enabled: v});
   var warn = document.getElementById('cfg-safety-override-warn'); if (warn) warn.classList.toggle('hidden', !v);
-  var cb1 = document.getElementById('cfg-safety-override'); if (cb1) cb1.checked = v;
-  var cb2 = document.getElementById('dash-safety-override'); if (cb2) cb2.checked = v;
+  if (cb1) cb1.checked = v;
+  if (cb2) cb2.checked = v;
 }
 async function doReboot() { if (confirm('Reboot the system now?')) await apiCall('POST', '/api/reboot'); }
 async function doFactoryReset() { if (confirm('Factory reset ALL settings? This cannot be undone.')) await apiCall('POST', '/api/factory-reset'); }
 async function setNoHwMode(v) { await apiCall('POST', '/api/debug-mode', {enabled: v}); toast('No-HW mode change requires a reboot to take effect'); }
 async function saveDacDebugLog(v) { await apiCall('POST', '/api/config', {dac_debug_log: v}); }
+async function saveGwWatchdog(v) { await apiCall('POST', '/api/config', {wifi_watchdog_reboot_enabled: v}); }
 async function downloadBackup() {
   var resp = await fetch('/api/backup');
   if (!resp.ok) { toast('Backup failed', true); return; }
@@ -6379,7 +8559,18 @@ async function hwDebugCmd(cmd) { await apiCall('POST', '/api/debug/hw', {cmd: cm
 registerTabLoader('config', function() { loadConfig(); });
 
 registerPresetGrid('presets-preset-grid', 'presets-cat-filter');
-registerTabLoader('presets', function() { loadCommunityPresets(); loadSequencer(); loadModulators(); });
+// Sequential/staggered like bootSequence() below -- these three each fire
+// their own apiCall()s; running them in parallel piled onto the same
+// CONFIG_LWIP_MAX_SOCKETS=16 pool as AsyncTCP/etherdream/artnet/ntp right
+// when the Presets tab (where users actually activate presets) opens,
+// occasionally starving an unrelated request for a socket for many seconds
+// (observed live: /api/preset-live and /api/ui-control hanging/timing out
+// right after a preset switch -- see web_ui.cpp's s_active_requests comment).
+registerTabLoader('presets', async function() {
+  await loadCommunityPresets();
+  await loadSequencer();
+  await loadModulators();
+});
 registerTabLoader('preset-manager', function() { loadCommunityPresets(); });
 // Canvas charts report offsetWidth 0 while their tab is display:none -- force
 // one redraw pass on tab entry (mirrors the original app's dedicated
@@ -6446,10 +8637,13 @@ function closeDisclaimer() {
       <strong style="color:var(--text)">GalvOS</strong> open-source ESP32-S3 RGB laser galvo controller.
       All data is mocked — no real hardware is connected.
     </p>
-    <p style="color:var(--text-dim); font-size:0.8rem; margin:0 0 24px; line-height:1.55">
+    <p style="color:var(--text-dim); font-size:0.8rem; margin:0 0 16px; line-height:1.55">
       GalvOS replaces the proprietary OEM board in OEM RGB laser projectors,
       controlling two galvanometers via a DAC8562 SPI DAC.
       The firmware runs on PlatformIO / Arduino (ESP32-S3-WROOM-1 N16R8).
+    </p>
+    <p style="color:var(--text-dim); font-size:0.75rem; margin:0 0 24px; font-family:var(--font-mono)">
+      Firmware 6.73.1 &middot; WebUI 1.21.0 &middot; Simulator 1.1.0
     </p>
     <div style="margin-bottom:20px">
       <a href="https://github.com/Andre1Becker/GalvOS" target="_blank" rel="noopener"
@@ -6473,11 +8667,6 @@ function closeDisclaimer() {
     " onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">
       Launch Simulator
     </button>
-  </div>
-</div>
-</body>
-</html>
-utton>
   </div>
 </div>
 </body>
