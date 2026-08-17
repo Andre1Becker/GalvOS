@@ -978,10 +978,14 @@ struct PaintConfig {
 extern PaintConfig& gPaint;
 
 // ── Laser Welding Effect ─────────────────────────────────────────────────────
-// Alternative renderer of the same gPaint stroke list (see weld_patterns.cpp):
-// a bright torch head travels the drawn path, trailing an afterglow and throwing
-// ballistic sparks. RAM-only live control (not persisted to NVS), same as the
-// other Paint live controls. Active only while gPaint.active && gWeld.enabled.
+// Alternative renderer of whichever path-shaped mode currently owns the beam
+// (see weld_patterns.cpp): a bright torch head travels the path, trailing an
+// afterglow and throwing ballistic sparks. Two sources share this one config:
+//   - the gPaint stroke list, active while gPaint.active && gWeld.enabled
+//   - the Text Mode string's glyph outlines, active while gTextConfig.active
+//     && gWeld.enabled (Text Mode outranks Paint Mode, see pattern_engine.cpp)
+// RAM-only live control (not persisted to NVS), same as the other Paint live
+// controls.
 #define WELD_SPARK_COUNT_MIN  4
 #define WELD_SPARK_COUNT_MAX 10
 

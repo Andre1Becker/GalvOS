@@ -1658,13 +1658,20 @@ void task(void*) {
         TextConfig textSnap;
         { LOCK_STATE(); textSnap = gTextConfig; }
         if (textSnap.active && textSnap.text[0]) {
-            size_t n = textrender::generate(s_frame, PATTERN_POINTS_MAX, textSnap, phase);
-            // Warn (once per rising edge, not every frame) when the text
+            // Welding is an alternative renderer of the current Text string's
+            // STATIC glyph layout (weld_patterns.cpp), same shared torch/
+            // afterglow/spark implementation the Paint canvas uses below --
+            // Text's own animation (Scroll/Wave/Orbit/...) is bypassed since
+            // Welding supplies its own motion along the glyph outlines.
+            bool weldOn = gWeld.enabled;
+            size_t n = weldOn ? weld::generateText(textSnap, s_frame, PATTERN_POINTS_MAX)
+                              : textrender::generate(s_frame, PATTERN_POINTS_MAX, textSnap, phase);
+            // Warn (once per rising edge, not every frame) when the active
             // renderer ran out of point budget and had to drop part of the
-            // string -- see textrender::wasTruncated(). Rising-edge only so
-            // a long-running scroll/typewriter animation that stays
-            // truncated doesn't spam the log at ~25fps.
-            bool truncated = textrender::wasTruncated();
+            // string -- see textrender::wasTruncated() / weld::textWasTruncated().
+            // Rising-edge only so a long-running scroll/typewriter animation
+            // that stays truncated doesn't spam the log at ~25fps.
+            bool truncated = weldOn ? weld::textWasTruncated() : textrender::wasTruncated();
             if (truncated != gState.text_truncated.load()) {
                 gState.text_truncated.store(truncated);
                 if (truncated) {
@@ -1724,9 +1731,10 @@ void task(void*) {
             { LOCK_STATE(); optimizer::gLiveTransform =
                   optimizer::makeTransform(rotZActive ? rotZAngle : 0.f, 0.f, 0.f); }
 
-            // Welding is an alternative renderer of the SAME gPaint stroke
-            // list (weld_patterns.cpp): torch head + afterglow + sparks. It
-            // owns its own color ramps, so applyColorAnim() is skipped for it.
+            // Welding is an alternative renderer of the gPaint stroke list
+            // (weld_patterns.cpp, shared with the Text Mode block above):
+            // torch head + afterglow + sparks. It owns its own color ramps,
+            // so applyColorAnim() is skipped for it.
             bool weldOn = gWeld.enabled;
             size_t n = weldOn ? weld::generate(s_frame, PATTERN_POINTS_MAX)
                               : paint::generate(s_frame, PATTERN_POINTS_MAX);

@@ -935,6 +935,14 @@ canvas { max-width: 100%; display: block; }
         <label class="row"><input type="checkbox" id="tx-flip-y" onchange="textLive()"> Flip Y</label>
         <label class="row"><input type="checkbox" id="tx-orbit-reverse" onchange="textLive()"> Reverse spin (Orbit)</label>
       </div>
+      <div class="card">
+        <h2>Laser Welding</h2>
+        <label class="row"><input type="checkbox" id="tx-weld-enabled" onchange="weldSetEnabled(this.checked)"> Enabled</label>
+        <div class="row"><label><input type="radio" name="tx-weld-dir" value="0" checked onchange="weldSetDirection(0)"> Fwd</label>
+          <label><input type="radio" name="tx-weld-dir" value="1" onchange="weldSetDirection(1)"> Rev</label>
+          <label><input type="radio" name="tx-weld-dir" value="2" onchange="weldSetDirection(2)"> Ping-Pong</label></div>
+        <p style="font-size:0.75rem;color:var(--text-dim)">Welds the text's static outline &mdash; Animation and Speed below are ignored while active. Speed/Glow/Sparks/Spark Life are shared with the Paint tab's Welding card.</p>
+      </div>
     </section>
     <section class="tab" id="tab-paint">
       <h2>Paint by Finger</h2>
@@ -979,10 +987,10 @@ canvas { max-width: 100%; display: block; }
           </div>
           <div class="card">
             <h2>Laser Welding</h2>
-            <label class="row"><input type="checkbox" id="weld-enabled" onchange="weldSet({enabled:this.checked})"> Enabled</label>
-            <div class="row"><label><input type="radio" name="weld-dir" value="0" checked onchange="weldSet({direction:0})"> Fwd</label>
-              <label><input type="radio" name="weld-dir" value="1" onchange="weldSet({direction:1})"> Rev</label>
-              <label><input type="radio" name="weld-dir" value="2" onchange="weldSet({direction:2})"> Ping-Pong</label></div>
+            <label class="row"><input type="checkbox" id="weld-enabled" onchange="weldSetEnabled(this.checked)"> Enabled</label>
+            <div class="row"><label><input type="radio" name="weld-dir" value="0" checked onchange="weldSetDirection(0)"> Fwd</label>
+              <label><input type="radio" name="weld-dir" value="1" onchange="weldSetDirection(1)"> Rev</label>
+              <label><input type="radio" name="weld-dir" value="2" onchange="weldSetDirection(2)"> Ping-Pong</label></div>
             <div class="field"><label>Speed</label><div class="slider-row"><input type="range" id="weld-speed" min="200" max="40000" step="100" value="6000"><output id="weld-speed-val">6000 u/s</output></div></div>
             <div class="field"><label>Glow Length</label><div class="slider-row"><input type="range" id="weld-glow" min="200" max="20000" step="100" value="4000"><output id="weld-glow-val">4000 u</output></div></div>
             <div class="field"><label>Sparks</label><div class="slider-row"><input type="range" id="weld-sparks" min="4" max="10" step="1" value="6"><output id="weld-sparks-val">6</output></div></div>
@@ -1622,7 +1630,7 @@ canvas { max-width: 100%; display: block; }
 /* =========================================================================
    GLOBAL STATE
    ========================================================================= */
-var UI_VERSION = '1.20.0';   // WebUI version -- independent from firmware version
+var UI_VERSION = '1.21.0';   // WebUI version -- independent from firmware version
 var NAV_TABS = [
   {id: 'dashboard', label: 'Dashboard', icon: '🏠', bottom: true},
   {id: 'presets', label: 'Presets', icon: '🎮', bottom: true},
@@ -3750,6 +3758,11 @@ registerStateHandler(function(s) {
   var warn = document.getElementById('tx-truncated-warn');
   if (warn) warn.classList.toggle('hidden', !s.text_truncated);
 });
+// Loads the shared Welding state (see weldLoad() below, in the Paint tab
+// section) so the Text tab's mirrored Enabled/Direction controls and the
+// Animation/Speed disabled-state reflect gWeld on open, not just after the
+// Paint tab has been visited first.
+registerTabLoader('text', function() { weldLoad(); });
 
 /* =========================================================================
    PAINT BY FINGER -- vector shape editor over a square canvas mapped to
@@ -4229,10 +4242,16 @@ function paintSetColor(hex) {
   paintSelected.forEach(function(i) { paintStrokes[i].r = rgb[0]; paintStrokes[i].g = rgb[1]; paintStrokes[i].b = rgb[2]; });
   paintRender(); paintSyncDebounced();
 }
-/* ---- Laser Welding ---- */
+/* ---- Laser Welding ----
+   Shared across the Paint tab (welds the gPaint canvas) and the Text tab
+   (welds the current Text string's static outline, see weld_patterns.cpp)
+   -- one backend config (gWeld), two mirrored UI surfaces (same pattern as
+   Safety Override's cfg-/dash- pair, see setSafetyOverride()). */
 function weldSet(patch) { apiCall('POST', '/api/weld/set', patch); }
 
-// Table-driven slider wiring: input -> live label, change -> POST.
+// Table-driven slider wiring: input -> live label, change -> POST. Only the
+// Paint tab exposes these -- Text mirrors just Enabled/Direction and shares
+// the rest (see the Text tab's Welding card note).
 var WELD_SLIDERS = [
   {id: 'weld-speed',  key: 'speed',      unit: ' u/s'},
   {id: 'weld-glow',   key: 'glow',       unit: ' u'},
@@ -4248,11 +4267,39 @@ function weldBindSliders() {
     el.addEventListener('change', function() { var p = {}; p[sl.key] = parseInt(el.value); weldSet(p); });
   });
 }
+// Text Mode's own Animation/Speed controls are meaningless while Welding
+// drives the beam along the string's static outline instead (see
+// weld_patterns.h's generateText() doc comment) -- grey them out rather than
+// let the user set an animation that silently never runs.
+function updateTextWeldUI(enabled) {
+  var anim = document.getElementById('tx-anim');
+  var speed = document.getElementById('tx-speed');
+  if (anim) anim.disabled = enabled;
+  if (speed) speed.disabled = enabled;
+}
+function weldSetEnabled(v) {
+  var cb1 = document.getElementById('weld-enabled');
+  var cb2 = document.getElementById('tx-weld-enabled');
+  if (cb1) cb1.checked = v;
+  if (cb2) cb2.checked = v;
+  updateTextWeldUI(v);
+  weldSet({enabled: v});
+}
+function weldSetDirection(v) {
+  var d1 = document.querySelector('input[name="weld-dir"][value="' + v + '"]');
+  var d2 = document.querySelector('input[name="tx-weld-dir"][value="' + v + '"]');
+  if (d1) d1.checked = true;
+  if (d2) d2.checked = true;
+  weldSet({direction: v});
+}
 async function weldLoad() {
   var r = await apiCall('GET', '/api/weld');
   if (!r) return;
   var en = document.getElementById('weld-enabled'); if (en) en.checked = !!r.enabled;
+  var txEn = document.getElementById('tx-weld-enabled'); if (txEn) txEn.checked = !!r.enabled;
+  updateTextWeldUI(!!r.enabled);
   var dir = document.querySelector('input[name="weld-dir"][value="' + r.direction + '"]'); if (dir) dir.checked = true;
+  var txDir = document.querySelector('input[name="tx-weld-dir"][value="' + r.direction + '"]'); if (txDir) txDir.checked = true;
   WELD_SLIDERS.forEach(function(sl) {
     var el = document.getElementById(sl.id);
     var out = document.getElementById(sl.id + '-val');

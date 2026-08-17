@@ -32,6 +32,13 @@ static constexpr int TEXT_MAX_STATIC_CHARS = 16;
 size_t generate(LaserPoint* out, size_t max_pts,
                 const TextConfig& cfg, uint32_t phase);
 
+// Maps TextConfig::size_val (0..255) to a glyph-unit -> world-unit scale, the
+// same mapping generate()'s static/animated render uses (size_val=255 ->
+// letter height = 0.85 * 32767). Exported so weld_patterns.cpp's Text-Weld
+// path (glyphOutlinePaths()) sizes glyphs consistently with the plain Text
+// renderer instead of re-deriving BASE_SCALE.
+float sizeToScale(uint8_t size_val);
+
 /**
  * Whether the most recent generate() call ran out of frame-buffer budget
  * before the whole string/animation could be drawn (last character(s) or a

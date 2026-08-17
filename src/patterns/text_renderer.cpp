@@ -88,6 +88,13 @@ static inline optimizer::OptimizerConfig textOptimizerConfig(float sc = 0.f) {
 }
 namespace textrender {
 
+float sizeToScale(uint8_t size_val) {
+    // Font glyph spans +/-7 units vertically. BASE_SCALE set so that
+    // size_val=255 -> letter height = 0.85 * 32767 (half-axis).
+    const float BASE_SCALE = 32767.f * 0.85f / 14.f;  // ~1984
+    return BASE_SCALE * (0.1f + size_val / 255.f * 0.9f);
+}
+
 // ============================================================
 // Stroke-Font  (x,y) pairs, x=PU = Pen-Up, Terminator = {EN,EN}
 // coordinate space: x ∈ [-5,5], y ∈ [-7,7]  (+y = up)
@@ -414,10 +421,7 @@ static size_t generateImpl(LaserPoint* out, size_t max_pts, const TextConfig& cf
     const uint32_t safe_phase = phase % 0xFFFFFF;
 
     // FIX v2.0: larger base scale — at size_val=128, letters ~40% of scan height
-    // Font glyph spans ±7 units vertically. BASE_SCALE set so that
-    // size_val=255 → letter height = 0.85 * 32767 (half-axis).
-    const float BASE_SCALE = 32767.f * 0.85f / 14.f;  // ~1984
-    float sc  = BASE_SCALE * (0.1f + cfg.size_val / 255.f * 0.9f);
+    float sc = sizeToScale(cfg.size_val);
     // FIX v2.0: 4x faster animation
     float spd = cfg.speed / 255.f;
     float t   = safe_phase * spd * 0.08f;

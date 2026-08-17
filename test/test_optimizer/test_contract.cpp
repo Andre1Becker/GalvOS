@@ -37,6 +37,7 @@
 #include "inverseFilter.h"
 #include "test_preset_matrix.h"
 #include "test_upload_guard.h"
+#include "test_weld_path.h"
 
 using optimizer::OptimizerConfig;
 using optimizer::PathSegment;
@@ -1249,6 +1250,22 @@ int main(int, char**) {
     RUN_TEST(test_uploadGuard_allowsWhenDisarmed);
     RUN_TEST(test_uploadGuard_rejectsWhenArmed);
     RUN_TEST(test_uploadGuard_messageNamesTheAction);
+
+    // Text-Welding arc-length path builder (test_weld_path.cpp) -- see that
+    // file's header comment for what does/doesn't run on the host.
+    RUN_TEST(test_weldPath_singleOpenStroke);
+    RUN_TEST(test_weldPath_shortStrokeSkipped);
+    RUN_TEST(test_weldPath_closedStrokeWrapsToStart);
+    RUN_TEST(test_weldPath_emptyInputReturnsZero);
+    RUN_TEST(test_weldPath_nodeCapacityClamped);
+    RUN_TEST(test_weldPath_liftCapacityClamped);
+    RUN_TEST(test_weldPath_sampleOutOfRangeInvalid);
+    RUN_TEST(test_weldPath_sampleInterpolatesOnSegment);
+    RUN_TEST(test_weldPath_crossesLiftDetectsGapBetweenStrokes);
+    RUN_TEST(test_weldPath_crossesLiftFalseWithinOneStroke);
+    RUN_TEST(test_weldText_shortStringSingleGlyph);
+    RUN_TEST(test_weldText_longerStringManyGlyphsNoConnectingLine);
+    RUN_TEST(test_weldText_optimizerProducesNoInvalidPointsAndBlanksBetweenGlyphs);
 
     return UNITY_END();
 }

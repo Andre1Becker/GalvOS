@@ -1,5 +1,7 @@
 #include "weld_patterns.h"
+#include "weld_path.h"
 #include "paint_patterns.h"
+#include "text_renderer.h"
 #include "point_optimizer.h"
 #include "mutex.h"
 #include "util/ps_scratch.h"
@@ -23,22 +25,22 @@ static constexpr float FRAME_DT_MAX      = 0.1f;    // dt clamp after stalls / m
 static constexpr int   HEAD_DWELL_PTS    = 3;       // extra head-vertex repeats (hot spot)
 static constexpr float COORD_LIMIT       = 32000.f; // sparks leaving this range die
 
-// One flattened, arc-length-parameterized path node. `lift` marks a stroke's
-// first node; the gap between strokes costs zero arc length.
-struct PathNode { float x, y, s; bool lift; };
-
 // One spark particle (ballistic, drag + gravity).
 struct Spark { float x, y, vx, vy, life, lifeMax; };
 
-struct Sample { bool valid; float x, y; };
-
 // ── Persistent effect state (pattern task only -- single-threaded) ───────────
+// Shared across both path sources (Paint canvas / Text) -- only one of them
+// is ever the active render source at a time (Text Mode outranks Paint Mode
+// in pattern_engine.cpp), so one travelling-head state is correct, same as
+// it already tolerates the Paint canvas' own geometry changing under it
+// (edits, undo/redo) without a dedicated reset.
 static float    sHeadPos = 0.f;     // arc-length position of the torch head
 static int      sPingDir = 1;       // ping-pong travel sign (+1 / -1)
 static bool     sSeekEnd = false;   // one-shot: start from the far end
 static bool     sHasTime = false;   // millis() baseline captured yet
 static uint32_t sLastMs  = 0;
 static Spark    sSparks[WELD_SPARK_COUNT_MAX];
+static bool     sTextTruncated = false;
 
 // Small xorshift32 PRNG (deterministic, no rand()).
 static uint32_t sRng = 0x1234567u;
@@ -47,33 +49,6 @@ static inline uint32_t xorshift32() {
 }
 static inline float randf() { return (float)(xorshift32() >> 8) * (1.0f / 16777216.0f); } // [0,1)
 static inline float rand2() { return randf() * 2.0f; }                                     // [0,2)
-
-// Binary search for the highest node with node.s <= s, then linear interpolation
-// on that edge. Invalid outside [0, pathLen] so the trail fades at open ends
-// instead of wrapping across a jump.
-static Sample sampleAt(const PathNode* nodes, int count, float pathLen, float s) {
-    Sample r = {false, 0.f, 0.f};
-    if (count < 2 || s < 0.f || s > pathLen) return r;
-    int lo = 0, hi = count - 1, idx = 0;
-    while (lo <= hi) { int mid = (lo + hi) / 2; if (nodes[mid].s <= s) { idx = mid; lo = mid + 1; } else hi = mid - 1; }
-    if (idx >= count - 1) { r.valid = true; r.x = nodes[count - 1].x; r.y = nodes[count - 1].y; return r; }
-    const PathNode& a = nodes[idx];
-    const PathNode& b = nodes[idx + 1];
-    float ds = b.s - a.s;
-    float t = (ds > 1e-6f) ? (s - a.s) / ds : 0.f;
-    r.valid = true;
-    r.x = a.x + (b.x - a.x) * t;
-    r.y = a.y + (b.y - a.y) * t;
-    return r;
-}
-
-// True if any lift node's arc-length sits strictly between sa and sb (i.e. the
-// trail window crosses a stroke boundary / blank jump).
-static bool crossesLift(const float* liftS, int liftCount, float sa, float sb) {
-    float lo = sa < sb ? sa : sb, hi = sa < sb ? sb : sa;
-    for (int i = 0; i < liftCount; i++) { float ls = liftS[i]; if (ls > lo && ls < hi) return true; }
-    return false;
-}
 
 static void spawnSpark(Spark& sp, float hx, float hy, float tx, float ty) {
     // Cone around the BACK-travel axis (-tx,-ty).
@@ -101,48 +76,17 @@ void reset() {
 
 void seekEnd() { sSeekEnd = true; }
 
-size_t generate(LaserPoint* out, size_t maxPts) {
-    // PSRAM scratch: canvas snapshot (~9 KB) + flattened path buffer (~18 KB).
-    // Rebuilt every frame -- the canvas can change at any time. generate() runs
-    // only on the pattern task, so one shared buffer set is race-free.
-    static const int MAXNODES = PAINT_STROKES_MAX * (PAINT_VERTS_PER_STROKE + 1);
-    static PaintConfig* snapBuf = nullptr;
-    static PathNode*    nodes   = nullptr;
-    if (!psScratch(snapBuf, 1) || !psScratch(nodes, MAXNODES)) return 0;
-    static bool tracked = false;
-    if (!tracked) {
-        tracked = true;
-        memreg::track("Weld Scratch", sizeof(PaintConfig) + MAXNODES * sizeof(PathNode), true);
-    }
+bool textWasTruncated() { return sTextTruncated; }
 
-    // Thread-safe snapshot (same write-tear rule as paint::generate()).
-    PaintConfig& snap = *snapBuf;
-    { LOCK_PAINT(); memcpy(snapBuf, &gPaint, sizeof(PaintConfig)); }
-    if (snap.stroke_count == 0) return 0;
-
-    // ── Build the arc-length path ────────────────────────────────────────────
-    int   nc = 0;
-    float s  = 0.f;
-    float liftS[PAINT_STROKES_MAX];
-    int   liftCount = 0;
-    for (uint8_t st = 0; st < snap.stroke_count && st < PAINT_STROKES_MAX; st++) {
-        const PaintStroke& ps = snap.strokes[st];
-        if (ps.count < 2) continue;
-        uint16_t n = ps.count > PAINT_VERTS_PER_STROKE ? PAINT_VERTS_PER_STROKE : ps.count;
-        for (uint16_t i = 0; i < n; i++) {
-            if (i > 0) { float dx = ps.x[i] - ps.x[i - 1]; float dy = ps.y[i] - ps.y[i - 1]; s += sqrtf(dx * dx + dy * dy); }
-            nodes[nc].x = ps.x[i]; nodes[nc].y = ps.y[i]; nodes[nc].s = s; nodes[nc].lift = (i == 0);
-            if (i == 0 && liftCount < PAINT_STROKES_MAX) liftS[liftCount++] = s;
-            nc++;
-        }
-        if (ps.closed) {  // repeat vertex 0 as the closing node
-            float dx = ps.x[0] - ps.x[n - 1]; float dy = ps.y[0] - ps.y[n - 1]; s += sqrtf(dx * dx + dy * dy);
-            nodes[nc].x = ps.x[0]; nodes[nc].y = ps.y[0]; nodes[nc].s = s; nodes[nc].lift = false; nc++;
-        }
-    }
-    if (nc < 2) return 0;
-    float pathLen = nodes[nc - 1].s;
-    if (pathLen <= 1.f) return 0;
+// ── Shared torch/afterglow/spark renderer ────────────────────────────────────
+// Walks the already-flattened path (`nodes`/`liftS`/`pathLen`, built by
+// buildArcLengthPath() from whichever source called in) and assembles the
+// same torch-head + afterglow + spark geometry regardless of source.
+static size_t renderTorch(const PathNode* nodes, size_t nc,
+                           const float* liftS, size_t liftCount, float pathLen,
+                           LaserPoint* out, size_t maxPts,
+                           const optimizer::OptimizerConfig& optCfg) {
+    if (nc < 2 || pathLen <= 1.f) return 0;
 
     if (sSeekEnd) { sHeadPos = pathLen; sSeekEnd = false; }   // consumed after pathLen is known
 
@@ -272,8 +216,98 @@ size_t generate(LaserPoint* out, size_t maxPts) {
     }
 
     if (segCount == 0) return 0;
-    optimizer::OptimizerConfig cfg = paint::liveOptimizerConfig();
-    return optimizer::optimize(segs, segCount, out, maxPts, cfg);
+    return optimizer::optimize(segs, segCount, out, maxPts, optCfg);
+}
+
+size_t generate(LaserPoint* out, size_t maxPts) {
+    // PSRAM scratch: canvas snapshot (~9 KB) + flattened path buffer (~18 KB).
+    // Rebuilt every frame -- the canvas can change at any time. generate() runs
+    // only on the pattern task, so one shared buffer set is race-free.
+    static const size_t MAXNODES = PAINT_STROKES_MAX * (PAINT_VERTS_PER_STROKE + 1);
+    static PaintConfig* snapBuf = nullptr;
+    static PathNode*    nodes   = nullptr;
+    if (!psScratch(snapBuf, 1) || !psScratch(nodes, MAXNODES)) return 0;
+    static bool tracked = false;
+    if (!tracked) {
+        tracked = true;
+        memreg::track("Weld Scratch", sizeof(PaintConfig) + MAXNODES * sizeof(PathNode), true);
+    }
+
+    // Thread-safe snapshot (same write-tear rule as paint::generate()).
+    PaintConfig& snap = *snapBuf;
+    { LOCK_PAINT(); memcpy(snapBuf, &gPaint, sizeof(PaintConfig)); }
+    if (snap.stroke_count == 0) return 0;
+
+    SourceStroke srcStrokes[PAINT_STROKES_MAX];
+    size_t srcCount = 0;
+    for (uint8_t st = 0; st < snap.stroke_count && st < PAINT_STROKES_MAX; st++) {
+        const PaintStroke& ps = snap.strokes[st];
+        if (ps.count < 2) continue;
+        srcStrokes[srcCount].x      = ps.x;
+        srcStrokes[srcCount].y      = ps.y;
+        srcStrokes[srcCount].count  = ps.count > PAINT_VERTS_PER_STROKE ? PAINT_VERTS_PER_STROKE : ps.count;
+        srcStrokes[srcCount].closed = ps.closed;
+        srcCount++;
+    }
+    if (srcCount == 0) return 0;
+
+    float  liftS[PAINT_STROKES_MAX];
+    size_t liftCount = 0;
+    float  pathLen   = 0.f;
+    size_t nc = buildArcLengthPath(srcStrokes, srcCount, nodes, MAXNODES,
+                                   liftS, PAINT_STROKES_MAX, liftCount, pathLen);
+    if (nc == 0) return 0;
+
+    return renderTorch(nodes, nc, liftS, liftCount, pathLen, out, maxPts, paint::liveOptimizerConfig());
+}
+
+size_t generateText(const TextConfig& cfg, LaserPoint* out, size_t maxPts) {
+    if (!cfg.text[0]) return 0;
+
+    // PSRAM scratch: raw glyph outline sub-paths + flattened path buffer.
+    // Rebuilt every frame -- same race-free single-task rule as generate().
+    static const size_t MAXNODES = textrender::TEXT_VERTICES_MAX_PATHS *
+                                    (textrender::GlyphSubpath::MAX_PTS + 1);
+    static textrender::GlyphSubpath* glyphs = nullptr;
+    static PathNode*                 nodes  = nullptr;
+    if (!psScratch(glyphs, textrender::TEXT_VERTICES_MAX_PATHS) || !psScratch(nodes, MAXNODES)) return 0;
+    static bool tracked = false;
+    if (!tracked) {
+        tracked = true;
+        memreg::track("Weld Text Scratch",
+                      textrender::TEXT_VERTICES_MAX_PATHS * sizeof(textrender::GlyphSubpath) +
+                      MAXNODES * sizeof(PathNode), true);
+    }
+
+    // Static glyph-outline layout at the Text tab's own Size mapping --
+    // Welding supplies the path's motion, so the string's own animation mode
+    // never runs here (see weld_patterns.h's generateText() doc comment).
+    float  scale = textrender::sizeToScale(cfg.size_val);
+    size_t pathCount = textrender::glyphOutlinePaths(cfg.text, scale, glyphs,
+                                                      textrender::TEXT_VERTICES_MAX_PATHS);
+    if (pathCount == 0) return 0;
+    // TEXT_VERTICES_MAX_PATHS holds every sub-path glyphOutlinePaths() could
+    // produce before it silently stops adding more (see its own doc comment)
+    // -- landing exactly on the cap is the only observable signal that the
+    // string ran longer than the buffer, mirrors textrender::wasTruncated().
+    sTextTruncated = (pathCount >= textrender::TEXT_VERTICES_MAX_PATHS);
+
+    SourceStroke srcStrokes[textrender::TEXT_VERTICES_MAX_PATHS];
+    for (size_t i = 0; i < pathCount; i++) {
+        srcStrokes[i].x      = glyphs[i].x;
+        srcStrokes[i].y      = glyphs[i].y;
+        srcStrokes[i].count  = glyphs[i].count;
+        srcStrokes[i].closed = false;   // glyph strokes are pen paths, not filled regions
+    }
+
+    float  liftS[textrender::TEXT_VERTICES_MAX_PATHS];
+    size_t liftCount = 0;
+    float  pathLen   = 0.f;
+    size_t nc = buildArcLengthPath(srcStrokes, pathCount, nodes, MAXNODES,
+                                   liftS, textrender::TEXT_VERTICES_MAX_PATHS, liftCount, pathLen);
+    if (nc == 0) return 0;
+
+    return renderTorch(nodes, nc, liftS, liftCount, pathLen, out, maxPts, paint::liveOptimizerConfig());
 }
 
 } // namespace weld
