@@ -374,6 +374,26 @@ label.row { min-height: 44px; cursor: pointer; }
 .grid-3 { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
 .grid-70-30 { grid-template-columns: 7fr 3fr; align-items: start; }
 .grid-70-30 > div { display: flex; flex-direction: column; gap: 16px; }
+/* Main column + sidebar layouts (Presets, Paint, ILDA, Optimizer). The split
+   ratio differs per tab and stays with the markup as --side-split, but the
+   template itself must live in the stylesheet: an inline
+   grid-template-columns cannot be overridden by the mobile media query below
+   without !important, which is exactly how these four tabs ended up keeping a
+   two-column layout (and ~540px of horizontal overflow, merely hidden by
+   body's overflow-x) on a phone. */
+.grid-side { grid-template-columns: var(--side-split, 2fr 1fr); }
+/* A grid item's automatic minimum is its min-content width, so a column whose
+   content cannot otherwise shrink (the ILDA/SVG file rows; an unbreakable
+   single word like the "MEMBERS" heading or a long preset name in the
+   Optimizer tab's narrow Profile Members column, --side-split:3.2fr 0.5fr)
+   still widens its own track past the declared ratio and takes the page with
+   it -- the file rows' own overflow-x never even engages, because the card
+   is never asked to be narrower than its content. min-width: 0 hands that
+   shrink decision back to the track; overflow-wrap lets plain text do the
+   same, wrapping instead of overflowing once nothing else holds the column
+   open (only breaks between letters when a word would not otherwise fit at
+   all). */
+.grid-side > * { min-width: 0; overflow-wrap: break-word; }
 .dash-top-row { grid-template-columns: minmax(220px, 0.8fr) minmax(320px, 1.6fr) minmax(260px, 1.2fr); align-items: start; }
 .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
@@ -381,9 +401,19 @@ label.row { min-height: 44px; cursor: pointer; }
 .field-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 16px; }
 @media (max-width: 1400px) { .field-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 
-.ilda-row { display: flex; align-items: center; gap: 10px; }
+/* File-list rows are fixed-width columns (play/size/date/actions) plus one
+   flexible name column. Their combined minimum is ~430px, so the card that
+   holds them scrolls horizontally instead of pushing the whole page wider --
+   which is what it used to do: the row summed to ~950px of shrink-proof
+   columns, overflowing the viewport on every screen narrower than that
+   (merely hidden by body's overflow-x, but the page was that wide). */
+.ilda-list-card { overflow-x: auto; }
+.ilda-row { display: flex; align-items: center; gap: 10px; min-width: min-content; }
 .ilda-col-play { flex-shrink: 0; }
-.ilda-col-name { flex-shrink: 0; width: 50ch; max-width: 50ch; overflow: hidden; white-space: nowrap; position: relative; font-family: var(--font-mono); font-size: 1rem; }
+/* The name column is the one that gives: it takes the leftover width up to
+   50ch on a wide card and shrinks to 14ch on a narrow one (long names already
+   scroll inside .ilda-col-name-inner, so a shorter box loses no information). */
+.ilda-col-name { flex: 1 1 14ch; min-width: 14ch; max-width: 50ch; overflow: hidden; white-space: nowrap; position: relative; font-family: var(--font-mono); font-size: 1rem; }
 .ilda-col-name-inner { display: inline-block; white-space: nowrap; }
 .ilda-col-play { width: 108px; }
 .ilda-col-play button { width: 100%; }
@@ -476,7 +506,7 @@ canvas { max-width: 100%; display: block; }
 .masked { cursor: pointer; font-family: var(--font-mono); }
 
 @media (max-width: 767px) {
-  .grid-2, .grid-3, .grid-70-30, .dash-top-row { grid-template-columns: 1fr; }
+  .grid-2, .grid-3, .grid-70-30, .grid-side, .dash-top-row { grid-template-columns: 1fr; }
   .field-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 /* Simulator banner -- hidden below 768px, where the top bar collapses to
@@ -613,7 +643,7 @@ canvas { max-width: 100%; display: block; }
     </section>
     <section class="tab" id="tab-presets">
       <h2>Presets</h2>
-      <div class="grid" style="grid-template-columns:2.2fr 1fr">
+      <div class="grid grid-side" style="--side-split:2.2fr 1fr">
         <div>
           <div style="display:flex;justify-content:center;margin-bottom:16px">
             <div style="width:100%;max-width:480px;border:1px solid var(--border);overflow:hidden;border-radius:var(--radius-lg)">
@@ -960,7 +990,7 @@ canvas { max-width: 100%; display: block; }
     </section>
     <section class="tab" id="tab-paint">
       <h2>Paint by Finger</h2>
-      <div class="grid" style="grid-template-columns:2fr 1fr">
+      <div class="grid grid-side" style="--side-split:2fr 1fr">
         <div class="card">
           <div class="row" style="margin-bottom:8px">
             <button class="btn sm paint-tool-btn" data-tool="select" onclick="paintSetTool('select')">Select</button>
@@ -1030,8 +1060,8 @@ canvas { max-width: 100%; display: block; }
     </section>
     <section class="tab" id="tab-ilda">
       <h2>ILDA / SD</h2>
-      <div class="grid" style="grid-template-columns:7fr 3fr">
-        <div class="card">
+      <div class="grid grid-side" style="--side-split:7fr 3fr">
+        <div class="card ilda-list-card">
           <h2>SD Card</h2>
           <p id="ilda-sd-status">--</p>
           <div class="row">
@@ -1050,7 +1080,7 @@ canvas { max-width: 100%; display: block; }
           <div id="ilda-file-list"><p>Loading&hellip;</p></div>
         </div>
         <div>
-          <div class="card">
+          <div class="card ilda-list-card">
             <h2>SVG Files (SD)</h2>
             <div class="ilda-row ilda-header" style="margin-top:10px">
               <span class="ilda-col-play" style="visibility:hidden">&#9654; Play</span>
@@ -1266,7 +1296,7 @@ canvas { max-width: 100%; display: block; }
         </div>
         <p class="param-hint">Measured on the last rendered frame &mdash; all optimize() calls of that frame combined. Truncated counts points the budget dropped before they reached the galvo; the ZV Shaper pill lights only when ringing compensation actually shaped a jump.</p>
       </div>
-      <div class="grid" style="grid-template-columns:3.2fr 0.5fr">
+      <div class="grid grid-side" style="--side-split:3.2fr 0.5fr">
         <div class="card">
           <h2>Settings</h2>
           <div class="grid grid-3">
@@ -1668,10 +1698,10 @@ canvas { max-width: 100%; display: block; }
 // preset generators are re-synced with src/patterns/preset_patterns.cpp.
 // SIM_UI_VERSION mirrors data/index.html's own UI_VERSION constant, which the
 // WebUI bundle below is copied from verbatim.
-const SIM_VERSION    = '1.1.0';
+const SIM_VERSION    = '1.1.1';
 const FW_VERSION     = '6.73.1';
 const FW_COMMIT      = 'f708417';
-const SIM_UI_VERSION = '1.21.0';
+const SIM_UI_VERSION = '1.21.1';
 
 // Reference animation frame period (pattern_engine.cpp's kAnimPhaseFrameMs).
 // The firmware advances the integer preset phase by wall-clock time / 40ms,
@@ -2801,6 +2831,7 @@ const OPT_PROFILES = [
   { name: 'Trails',      cornerAngle: 60, cornerMin: 3, cornerMax: 3, pts: 11.0, blank: 16, minBlank: 6,  maxPts: 880  },
   { name: 'Text',        cornerAngle: 28, cornerMin: 2, cornerMax: 5, pts: 6.0,  blank: 16, minBlank: 4,  maxPts: 1300 }
 ];
+const OPT_PROFILE_PARTICLES = 5;   // OPT_PROFILE_* index, see include/config.h
 
 // presetClassOf() (preset_patterns.cpp) as a name -> profile map. Keyed by
 // PRESETS[] name rather than by index so a future insertion into PRESETS[]
@@ -3721,7 +3752,15 @@ window.fetch = async function(url, opts) {
     resp = {ok: false, error: 'Simulator — nothing to reboot'};
 
   } else if (path.startsWith('/api/preset') && method === 'POST') {
-    if (body.idx !== undefined)   { simUI.preset = parseInt(body.idx) || 0; SIM_MOCK_STATE.preset_idx = simUI.preset; }
+    if (body.idx !== undefined) {
+      simUI.preset = parseInt(body.idx) || 0;
+      SIM_MOCK_STATE.preset_idx = simUI.preset;
+      // patterns::setPreset() switches the active optimizer profile to the new
+      // preset's class (pattern_engine.cpp), so /api/config's
+      // opt_active_profile follows the preset here too -- otherwise the
+      // Optimizer tab would keep describing whichever profile was last opened.
+      SIM_STORE.activeProfile = PRESET_PROFILE[simUI.preset] || 0;
+    }
     if (body.speed !== undefined)  simUI.speed  = Number(body.speed);
     if (body.size !== undefined)   simUI.size   = Number(body.size);
     if (body.rotation !== undefined) simUI.rotation = Number(body.rotation);
@@ -3740,8 +3779,14 @@ window.fetch = async function(url, opts) {
     if (body.col_override !== undefined) simUI.colOverride = !!body.col_override;
     if (body.col_r !== undefined) simUI.col = [Number(body.col_r), Number(body.col_g || 0), Number(body.col_b || 0)];
     if (body.master_dimmer !== undefined) simUI.dimmer = Number(body.master_dimmer);
-    // Points-Only Mode
-    if (body.points_mode_enabled !== undefined) simUI.pointsOnly = !!body.points_mode_enabled;
+    // Points-Only Mode. Enabling it forces the Particles profile regardless of
+    // the preset's own class, exactly like web_ui.cpp's /api/preset-live
+    // handler does (dwelling dots want no corner dwell and long blank jumps).
+    if (body.points_mode_enabled !== undefined) {
+      simUI.pointsOnly = !!body.points_mode_enabled;
+      if (simUI.pointsOnly) SIM_STORE.activeProfile = OPT_PROFILE_PARTICLES;
+      else SIM_STORE.activeProfile = PRESET_PROFILE[simUI.preset] || 0;
+    }
     if (body.points_count !== undefined)   simUI.pointsCount = parseInt(body.points_count);
     if (body.points_static_on !== undefined) simUI.pointsStatic = !!body.points_static_on;
     if (body.points_fade_in_on !== undefined)  simUI.fadeInOn  = !!body.points_fade_in_on;
@@ -3904,7 +3949,11 @@ function simTick() {
     simPhaseAcc += dtFrames;
     if (simPhaseAcc >= 1) { simPhase += Math.floor(simPhaseAcc); simPhaseAcc %= 1; }
 
-    optCfg = profileForPreset(simUI.preset);
+    // Render with the profile the device would have active -- normally the
+    // preset's own class, but Points-Only Mode forces Particles, and an
+    // explicit switch from the Optimizer tab wins until the next preset change
+    // (SIM_STORE.activeProfile tracks all three, like gActiveOptimizerProfile).
+    optCfg = OPT_PROFILES[SIM_STORE.activeProfile] || profileForPreset(simUI.preset);
 
     var f = new Frame();
     var gen = GEN[simUI.preset] || GEN[0];
@@ -3973,7 +4022,7 @@ window.GALVOS_SIM = {
 /* =========================================================================
    GLOBAL STATE
    ========================================================================= */
-var UI_VERSION = '1.21.0';   // WebUI version -- independent from firmware version
+var UI_VERSION = '1.21.1';   // WebUI version -- independent from firmware version
 var NAV_TABS = [
   {id: 'dashboard', label: 'Dashboard', icon: '🏠', bottom: true},
   {id: 'presets', label: 'Presets', icon: '🎮', bottom: true},
@@ -7790,8 +7839,24 @@ function renderOptProfileBar() {
 function loadOptimizerConfig(c) {
   if (c.galvo_rated_kpps) s_galvoRatedKpps = c.galvo_rated_kpps;
   g_optProfileMembers = c.opt_profile_members || [];
+  // Adopt the device's active profile (gActiveOptimizerProfile, served as
+  // opt_active_profile). Without this the tab always opened on profile 0 no
+  // matter which one the device was running -- so the sliders described Vector
+  // while e.g. Particles was live, and the first slider move POSTed
+  // /api/optimizer-live with profile: 0, editing a profile the user was not
+  // looking at.
+  if (c.opt_active_profile !== undefined) g_activeOptimizerProfile = c.opt_active_profile;
   var p = (c.opt_profiles && c.opt_profiles[g_activeOptimizerProfile]) || c;
-  var pfx = c.opt_profiles ? '' : 'opt_';
+  // Both sources carry the SAME `opt_`-prefixed key names: web_ui.cpp's
+  // buildConfigJson() writes o["opt_corner_angle_deg"] etc. inside every
+  // opt_profiles[] entry, not just at the top level. Deriving the prefix from
+  // which source was picked (pfx = c.opt_profiles ? '' : 'opt_') therefore read
+  // p['corner_angle_deg'] === undefined for every field whenever opt_profiles
+  // was present -- i.e. always, on any real firmware: sliders silently kept
+  // their HTML defaults, and the three fields read as `(p[...] || 0)` were
+  // actively set to 0 (Interior Density and Blank Density showed 0.1, their
+  // slider minimum, regardless of what the device was actually running).
+  var pfx = 'opt_';
   var setv = function(id, v) { var el = document.getElementById(id); if (el && v !== undefined) { el.value = v; optSyncNum(id); } };
   setv('opt-corner-angle', p[pfx + 'corner_angle_deg']);
   setv('opt-min-corner-pts', p[pfx + 'min_corner_pts']);
@@ -7826,6 +7891,10 @@ function loadOptimizerConfig(c) {
   updateRingingStatusDisplay(c.opt_profiles ? c.opt_profiles[g_activeOptimizerProfile] : null);
   optimizerUpdateLabels();
   renderOptimizerMembers();
+  // Re-render the profile bar: the tab loader draws it before this fetch
+  // returns, so the highlighted button would otherwise stay on profile 0 after
+  // the adoption above.
+  renderOptProfileBar();
 }
 function optSyncNum(id) {
   var s = document.getElementById(id), n = document.getElementById(id + '-n');
@@ -8643,7 +8712,7 @@ function closeDisclaimer() {
       The firmware runs on PlatformIO / Arduino (ESP32-S3-WROOM-1 N16R8).
     </p>
     <p style="color:var(--text-dim); font-size:0.75rem; margin:0 0 24px; font-family:var(--font-mono)">
-      Firmware 6.73.1 &middot; WebUI 1.21.0 &middot; Simulator 1.1.0
+      Firmware 6.73.1 &middot; WebUI 1.21.1 &middot; Simulator 1.1.1
     </p>
     <div style="margin-bottom:20px">
       <a href="https://github.com/Andre1Becker/GalvOS" target="_blank" rel="noopener"

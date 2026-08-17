@@ -27,10 +27,10 @@
 // preset generators are re-synced with src/patterns/preset_patterns.cpp.
 // SIM_UI_VERSION mirrors data/index.html's own UI_VERSION constant, which the
 // WebUI bundle below is copied from verbatim.
-const SIM_VERSION    = '1.1.0';
+const SIM_VERSION    = '1.1.1';
 const FW_VERSION     = '6.73.1';
 const FW_COMMIT      = 'f708417';
-const SIM_UI_VERSION = '1.21.0';
+const SIM_UI_VERSION = '1.21.1';
 
 // Reference animation frame period (pattern_engine.cpp's kAnimPhaseFrameMs).
 // The firmware advances the integer preset phase by wall-clock time / 40ms,
@@ -1160,6 +1160,7 @@ const OPT_PROFILES = [
   { name: 'Trails',      cornerAngle: 60, cornerMin: 3, cornerMax: 3, pts: 11.0, blank: 16, minBlank: 6,  maxPts: 880  },
   { name: 'Text',        cornerAngle: 28, cornerMin: 2, cornerMax: 5, pts: 6.0,  blank: 16, minBlank: 4,  maxPts: 1300 }
 ];
+const OPT_PROFILE_PARTICLES = 5;   // OPT_PROFILE_* index, see include/config.h
 
 // presetClassOf() (preset_patterns.cpp) as a name -> profile map. Keyed by
 // PRESETS[] name rather than by index so a future insertion into PRESETS[]
@@ -2080,7 +2081,15 @@ window.fetch = async function(url, opts) {
     resp = {ok: false, error: 'Simulator — nothing to reboot'};
 
   } else if (path.startsWith('/api/preset') && method === 'POST') {
-    if (body.idx !== undefined)   { simUI.preset = parseInt(body.idx) || 0; SIM_MOCK_STATE.preset_idx = simUI.preset; }
+    if (body.idx !== undefined) {
+      simUI.preset = parseInt(body.idx) || 0;
+      SIM_MOCK_STATE.preset_idx = simUI.preset;
+      // patterns::setPreset() switches the active optimizer profile to the new
+      // preset's class (pattern_engine.cpp), so /api/config's
+      // opt_active_profile follows the preset here too -- otherwise the
+      // Optimizer tab would keep describing whichever profile was last opened.
+      SIM_STORE.activeProfile = PRESET_PROFILE[simUI.preset] || 0;
+    }
     if (body.speed !== undefined)  simUI.speed  = Number(body.speed);
     if (body.size !== undefined)   simUI.size   = Number(body.size);
     if (body.rotation !== undefined) simUI.rotation = Number(body.rotation);
@@ -2099,8 +2108,14 @@ window.fetch = async function(url, opts) {
     if (body.col_override !== undefined) simUI.colOverride = !!body.col_override;
     if (body.col_r !== undefined) simUI.col = [Number(body.col_r), Number(body.col_g || 0), Number(body.col_b || 0)];
     if (body.master_dimmer !== undefined) simUI.dimmer = Number(body.master_dimmer);
-    // Points-Only Mode
-    if (body.points_mode_enabled !== undefined) simUI.pointsOnly = !!body.points_mode_enabled;
+    // Points-Only Mode. Enabling it forces the Particles profile regardless of
+    // the preset's own class, exactly like web_ui.cpp's /api/preset-live
+    // handler does (dwelling dots want no corner dwell and long blank jumps).
+    if (body.points_mode_enabled !== undefined) {
+      simUI.pointsOnly = !!body.points_mode_enabled;
+      if (simUI.pointsOnly) SIM_STORE.activeProfile = OPT_PROFILE_PARTICLES;
+      else SIM_STORE.activeProfile = PRESET_PROFILE[simUI.preset] || 0;
+    }
     if (body.points_count !== undefined)   simUI.pointsCount = parseInt(body.points_count);
     if (body.points_static_on !== undefined) simUI.pointsStatic = !!body.points_static_on;
     if (body.points_fade_in_on !== undefined)  simUI.fadeInOn  = !!body.points_fade_in_on;
@@ -2263,7 +2278,11 @@ function simTick() {
     simPhaseAcc += dtFrames;
     if (simPhaseAcc >= 1) { simPhase += Math.floor(simPhaseAcc); simPhaseAcc %= 1; }
 
-    optCfg = profileForPreset(simUI.preset);
+    // Render with the profile the device would have active -- normally the
+    // preset's own class, but Points-Only Mode forces Particles, and an
+    // explicit switch from the Optimizer tab wins until the next preset change
+    // (SIM_STORE.activeProfile tracks all three, like gActiveOptimizerProfile).
+    optCfg = OPT_PROFILES[SIM_STORE.activeProfile] || profileForPreset(simUI.preset);
 
     var f = new Frame();
     var gen = GEN[simUI.preset] || GEN[0];
