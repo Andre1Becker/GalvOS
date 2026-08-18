@@ -1,28 +1,46 @@
-name: "KiBot Automation"
+name: KiBot Manufacturing Outputs
 
 on:
   push:
     paths:
-      - '**.kicad_sch'
-      - '**.kicad_pcb'
+      - '**/*.kicad_sch'
+      - '**/*.kicad_pcb'
+      - 'galvos.kibot.yml'
+      - '.github/workflows/workflow.kibot.yaml'
+
+  pull_request:
+    paths:
+      - '**/*.kicad_sch'
+      - '**/*.kicad_pcb'
+      - 'galvos.kibot.yml'
+      - '.github/workflows/workflow.kibot.yaml'
+
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   export:
+    name: Generate Manufacturing Data
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v6
 
       - name: Run KiBot
-        uses: INTI-CMNB/KiBot@v2
+        uses: INTI-CMNB/KiBot@v2_k10
         with:
           config: 'galvos.kibot.yml'
           board: 'hardware/schematics/Laser Controller.kicad_pcb'
           schema: 'hardware/schematics/Laser Controller.kicad_sch'
           dir: 'output'
 
-      - name: Upload Artifacts
-        uses: actions/upload-artifact@v4
+      - name: Upload manufacturing data
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
         with:
           name: Manufacturing-Data
           path: output
+          if-no-files-found: error

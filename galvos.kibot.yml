@@ -4,24 +4,51 @@ kibot:
 global:
   out_dir: Output
 
+# ─────────────────────────────────────────────────────────────
+# FILTERS
+# ─────────────────────────────────────────────────────────────
+
 filters:
+
+  # Exclude virtual components such as logos, test points,
+  # and other non-physical components from the BOM.
   - name: 'exclude_virtual'
-    comment: 'Exclude virtual components like logos and test points from the BOM'
+    comment: 'Exclude virtual components from the BOM'
     type: generic
     exclude_virtual: true
 
+
+# ─────────────────────────────────────────────────────────────
+# OUTPUTS
+# ─────────────────────────────────────────────────────────────
+
 outputs:
-  # 1. GERBER FILES (PCBWay compliant)
+
+  # ───────────────────────────────────────────────────────────
+  # 1. GERBER FILES
+  # PCBWay fabrication output
+  # ───────────────────────────────────────────────────────────
+
   - name: 'PCBWay_Gerbers'
-    comment: 'Gerber layers for fabrication'
+    comment: 'Gerber layers for PCBWay fabrication'
     type: gerber
     dir: 'PCBWay_Project/Gerber'
+
     options:
-      exclude_edge_layer: false
+      # Use auxiliary axis as the fabrication origin.
       use_aux_axis_as_origin: true
+
+      # Keep reference/value information in fabrication plots.
       plot_footprint_values: true
       plot_footprint_refs: true
+
+      # Disable Gerber X2 attributes for maximum PCB manufacturer
+      # compatibility.
       use_gerber_x2_attributes: false
+
+      # Keep board outline in the Gerber output.
+      exclude_edge_layer: false
+
     layers:
       - F.Cu
       - B.Cu
@@ -33,34 +60,71 @@ outputs:
       - B.Mask
       - Edge.Cuts
 
-  # 2. DRILL FILES (PCBWay compliant)
+
+  # ───────────────────────────────────────────────────────────
+  # 2. EXCELLON DRILL FILES
+  # PCBWay fabrication output
+  # ───────────────────────────────────────────────────────────
+
   - name: 'PCBWay_Drills'
-    comment: 'Excellon drill files'
+    comment: 'Excellon drill files for PCBWay fabrication'
     type: excellon
     dir: 'PCBWay_Project/Gerber'
+
     options:
-      metric_units: true          # FIX: was metric_format: 'mm' (invalid key)
+      # Generate metric drill coordinates.
+      metric_units: true
+
+      # Match the Gerber origin.
       use_aux_axis_as_origin: true
+
+      # Keep a complete Excellon header.
       minimal_header: false
 
-  # 3. PICK AND PLACE FILES (For SMT Assembly)
+
+  # ───────────────────────────────────────────────────────────
+  # 3. PICK AND PLACE
+  # SMT assembly output
+  # ───────────────────────────────────────────────────────────
+
   - name: 'PCBWay_Pick_and_Place'
-    comment: 'Component placement coordinates for assembly'
+    comment: 'Component placement coordinates for PCB assembly'
     type: position
     dir: 'PCBWay_Project/Assembly'
+
     options:
+      # CSV is the most universally usable format for assembly houses.
       format: CSV
-      units: millimeters          # FIX: was 'mm' (invalid value; valid: millimeters/inches/mils)
+
+      # Use metric coordinates.
+      units: millimeters
+
+      # Generate separate top and bottom placement files.
       separate_files_for_front_and_back: true
 
-  # 4. BILL OF MATERIALS (For SMT Assembly)
+      # Use the same fabrication origin as the Gerbers.
+      use_aux_axis_as_origin: true
+
+
+  # ───────────────────────────────────────────────────────────
+  # 4. BILL OF MATERIALS
+  # SMT assembly output
+  # ───────────────────────────────────────────────────────────
+
   - name: 'PCBWay_BOM'
-    comment: 'Bill of Materials in CSV format'
+    comment: 'Bill of Materials for PCB assembly'
     type: bom
     dir: 'PCBWay_Project/Assembly'
+
     options:
-      dnf_filter: 'exclude_virtual'  # FIX: filter moved into options; was top-level (invalid)
-      columns:                        # FIX: removed format: CSV (not a valid bom option key)
+      # Explicitly generate CSV.
+      format: CSV
+
+      # Exclude components matching the custom DNF filter.
+      dnf_filter: 'exclude_virtual'
+
+      # Explicit BOM columns.
+      columns:
         - Row
         - Description
         - References
@@ -68,20 +132,43 @@ outputs:
         - Value
         - Footprint
 
-  # 5. INTERACTIVE HTML BOM (For manual inspection and hand-soldering)
+      # Exclude components marked as "Exclude from BOM"
+      # in the schematic.
+      exclude_marked_in_sch: true
+
+      # Exclude components marked as "Exclude from BOM"
+      # in the PCB.
+      exclude_marked_in_pcb: true
+
+
+  # ───────────────────────────────────────────────────────────
+  # 5. INTERACTIVE HTML BOM
+  # Manual inspection / assembly
+  # ───────────────────────────────────────────────────────────
+
   - name: 'Interactive_BOM'
-    comment: 'Interactive HTML page for visual part tracking'
+    comment: 'Interactive HTML BOM for visual inspection and assembly'
     type: ibom
     dir: 'Documentation/HTML_BOM'
 
-  # 6. PCB DOCUMENTATION PDF (Multi-layer Board layout)
+
+  # ───────────────────────────────────────────────────────────
+  # 6. PCB DOCUMENTATION PDF
+  # Layered board documentation
+  # ───────────────────────────────────────────────────────────
+
   - name: 'PCB_Layout_PDF'
-    comment: 'Generates a PDF containing selected PCB layers'
+    comment: 'PCB layout documentation PDF'
     type: pdf_pcb_print
     dir: 'Documentation'
+
     options:
+      # 1:1 scale.
       scaling: 1.0
+
+      # One page per selected layer.
       separate_pages: true
+
     layers:
       - layer: F.Cu
       - layer: B.Cu
@@ -89,26 +176,47 @@ outputs:
       - layer: B.Silkscreen
       - layer: Edge.Cuts
 
-  # 7. HIGH-RESOLUTION BOARD IMAGES (2D Renders)
+
+  # ───────────────────────────────────────────────────────────
+  # 7. HIGH-RESOLUTION 2D PCB RENDER
+  # PcbDraw documentation image
+  # ───────────────────────────────────────────────────────────
+
   - name: 'Board_Images_2D'
-    comment: 'Generates photorealistic PNG images of the board layers'
+    comment: 'High-resolution 2D PCB render'
     type: pcbdraw
     dir: 'Documentation/Images'
-    options:
-      format: png
-      dpi: 300
-      show_components: 'none'     # FIX: quoted string; unquoted 'none' parses as YAML null
 
-  # 8. AUTOMATED ZIP PACKAGING
+    options:
+      # PNG output.
+      format: png
+
+      # High-resolution render.
+      dpi: 300
+
+      # Hide physical component models in the render.
+      show_components: 'none'
+
+
+  # ───────────────────────────────────────────────────────────
+  # 8. PCBWAY FABRICATION ZIP
+  # Gerber + Drill files only
+  # ───────────────────────────────────────────────────────────
+
   - name: 'PCBWay_Upload_Zip'
-    comment: 'Creates a clean zip archive containing only the fabrication files'
+    comment: 'PCBWay-ready ZIP containing fabrication files'
     type: compress
     dir: 'PCBWay_Project'
+
     options:
       format: ZIP
-      files:
-        - from_output: PCBWay_Gerbers
-          dest: /
-        - from_output: PCBWay_Drills
-          dest: /
 
+      files:
+
+        # Include all generated Gerber files.
+        - from_output: 'PCBWay_Gerbers'
+          dest: '/'
+
+        # Include all generated Excellon drill files.
+        - from_output: 'PCBWay_Drills'
+          dest: '/'
