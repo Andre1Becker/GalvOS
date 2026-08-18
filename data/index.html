@@ -1664,7 +1664,7 @@ canvas { max-width: 100%; display: block; }
 /* =========================================================================
    GLOBAL STATE
    ========================================================================= */
-var UI_VERSION = '1.21.2';   // WebUI version -- independent from firmware version
+var UI_VERSION = '1.21.3';   // WebUI version -- independent from firmware version
 var NAV_TABS = [
   {id: 'dashboard', label: 'Dashboard', icon: '🏠', bottom: true},
   {id: 'presets', label: 'Presets', icon: '🎮', bottom: true},
@@ -5495,7 +5495,20 @@ function renderOptProfileBar() {
   }).join('');
 }
 function loadOptimizerConfig(c) {
+  // Point rate + rated rate now come straight from /api/config (they used to
+  // live only on /api/projection). Every effective-value readout on this tab is
+  // scaled by rated/output, and window.g_proj was only ever filled by the
+  // Projection tab's own loader -- so opening Optimizer first showed the ratio
+  // computed from the hardcoded fallbacks (30 kpps, rated 15) instead of the
+  // device's real numbers. The line below it had the same problem from the
+  // other side: /api/config never actually carried galvo_rated_kpps, so it
+  // never fired.
   if (c.galvo_rated_kpps) s_galvoRatedKpps = c.galvo_rated_kpps;
+  if (c.galvo_kpps) {
+    window.g_proj = window.g_proj || {};
+    window.g_proj.kpps = c.galvo_kpps;
+    window.g_proj.rated_kpps = c.galvo_rated_kpps || window.g_proj.rated_kpps;
+  }
   g_optProfileMembers = c.opt_profile_members || [];
   // Adopt the device's active profile (gActiveOptimizerProfile, served as
   // opt_active_profile). Without this the tab always opened on profile 0 no

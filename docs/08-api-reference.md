@@ -182,6 +182,7 @@ Key response fields: all `RuntimeConfig` fields (see [Chapter 3](03-build-and-co
 | `opt_profiles` | Array of 6 profile objects, each containing all optimizer parameters and their effective values (`opt_eff_*`) |
 | `opt_profile_members` | Array of 6 arrays, each listing the preset names that belong to that profile |
 | `opt_*` (top-level) | Active profile values — provided for backwards compatibility |
+| `galvo_kpps` / `galvo_rated_kpps` | Read-only mirror of [`/api/projection`](#get-apiprojection)'s `kpps` / `rated_kpps`. Every `opt_eff_*` value is scaled by this pair, so a client no longer needs a second request to know the ratio. Written via `POST /api/projection` (`kpps`) — `galvo_rated_kpps` is also accepted by `POST /api/config`. |
 
 ---
 
@@ -951,6 +952,8 @@ Read-only telemetry from the optimizer. Returns two records — `last` (the most
 | `calls` | int | `optimize()` calls folded into this record |
 | `stage2_scale` | float | Interior-density factor actually applied (1.0 = Stage 2 never triggered) |
 | `stage1_triggered` / `stage15_triggered` | bool | Blank samples / corner counts had to be scaled down to fit the budget |
+| `stage1_blank_samples` | int | `blank_samples` value Stage 1 settled on (`0` = Stage 1 never triggered) |
+| `stage1_blank_clamped` | bool | `stage1_blank_target` did not fit the budget; Stage 1 used the largest value that did |
 | `ringing_active` | bool | The ZV shaper actually shaped at least one jump |
 
 See [Chapter 5 — Telemetry](05-optimizer.md#telemetry--what-the-optimizer-reports) for how to read these.

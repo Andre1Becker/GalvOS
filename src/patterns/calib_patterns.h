@@ -48,7 +48,21 @@
  *  19  RAMP_G             32-field green duty ramp
  *  20  RAMP_B             32-field blue duty ramp
  *
- * API: POST /api/calib-pattern {"idx": 0-20, "brightness": 200}
+ * 3 further camera-in-the-loop patterns -- a second block, appended rather
+ * than inserted next to 11-16 so CALIB_WARP_GRID_IDX / CALIB_RAMP_BASE (both
+ * mirrored outside this file: web_ui.cpp, scripts/calibrateColor.py) keep
+ * their indices. They close the camera-validation gap for the three
+ * profiles that had no camera pattern at all; selected by name via
+ * /api/calib-cam/start exactly like 11-16:
+ *  21  CAM_WIREFRAME      cube, orthographic, 4 open 3-edge chains -- OPT_PROFILE_WIREFRAME
+ *  22  CAM_TEXT           fixed string via text_renderer -- OPT_PROFILE_TEXT
+ *  23  CAM_PARTICLES      12 isolated dwell dots, graded jump distances -- OPT_PROFILE_PARTICLES
+ *
+ * OPT_PROFILE_TRAILS deliberately has no camera pattern: its ground truth is
+ * a trajectory over time (a decaying tail), which a single accumulated frame
+ * cannot separate from a static shape -- see docs/06-camera-autotuning.md.
+ *
+ * API: POST /api/calib-pattern {"idx": 0-23, "brightness": 200}
  *      GET  /api/calib-pattern/list
  *      POST /api/calib-cam/start  {"pattern": "square"}
  *      POST /api/calib-cam/params {optimizer overrides...}
@@ -59,11 +73,17 @@
 
 namespace calib_patterns {
 
-constexpr uint8_t CALIB_PATTERN_COUNT = 21;
+constexpr uint8_t CALIB_PATTERN_COUNT = 24;
 
 // Camera-in-the-loop patterns occupy indices CALIB_CAM_BASE..+CALIB_CAM_COUNT-1.
 constexpr uint8_t CALIB_CAM_BASE  = 11;
 constexpr uint8_t CALIB_CAM_COUNT = 6;
+
+// Second camera-in-the-loop block (wireframe/text/particles), appended after
+// the ramps. Same name-based /api/calib-cam/start lookup as the first block --
+// camPatternIndex()/camPatternName() walk both.
+constexpr uint8_t CALIB_CAM2_BASE  = 21;
+constexpr uint8_t CALIB_CAM2_COUNT = 3;
 
 // Warp test-grid pattern, selected via /api/warp/test (not part of the
 // camPatternIndex()/camPatternName() name-based lookup above).
@@ -90,8 +110,8 @@ inline bool isRampIdx(uint8_t idx) {
 constexpr uint8_t CALIB_CAM_DOT_DWELL_PTS = 50;
 
 // Maps a calib-cam pattern name ("corners4","square","star","segments",
-// "circle","spiral") to its calib_patterns:: index (11..16), or -1 if the
-// name is not recognized.
+// "circle","spiral","wireframe","text","particles") to its calib_patterns::
+// index (11..16 or 21..23), or -1 if the name is not recognized.
 int8_t camPatternIndex(const char* name);
 
 // Inverse of camPatternIndex(): "" if idx is not a calib-cam pattern.

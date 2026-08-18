@@ -264,7 +264,9 @@ This S-curve has zero velocity at both endpoints: the mirror starts and ends the
 
 ### Budget Interaction: Blank Shrink Runs Before Density
 
-When a frame's fixed overhead (corner dwell plus blank jumps at the configured `blank_samples`) doesn't leave enough of the point budget for interior density, `blank_samples` is scaled down toward `stage1_blank_target` — falling back further to `min_blank_samples` only if that still doesn't fit — *before* interior density is touched at all. Blank jumps carry no visual information, so shrinking them costs nothing to look at; interior density is what makes a line read as a line.
+When a frame's fixed overhead (corner dwell plus blank jumps at the configured `blank_samples`) doesn't leave enough of the point budget for interior density, `blank_samples` is scaled down toward `stage1_blank_target` — *before* interior density is touched at all. Blank jumps carry no visual information, so shrinking them costs nothing to look at; interior density is what makes a line read as a line.
+
+If `stage1_blank_target` itself doesn't fit — the fixed overhead at that value plus `min_interior_pts_per_segment × segments` still exceeds the budget — the stage degrades to the **largest** value that does fit, bounded below by `min_blank_samples`. It does not drop straight to `min_blank_samples`: doing so meant that raising `stage1_blank_target` past what the budget could carry produced the *shortest* possible blank runs, i.e. the opposite of the request. What the stage settled on is published as `stage1_blank_samples` on `GET /api/optimizer-stats`, together with `stage1_blank_clamped` when the target could not be applied.
 
 The ordering is load-bearing, not cosmetic. An early version of this pass sat physically *after* the interior-density scaling stage, so density was always computed against the un-shrunk (inflated) blank overhead. On any shape with more than a few segments this drove interior density down to its floor before blank shrink ever got a chance to free up budget — every edge collapsed to isolated corner dots with no connecting line between them. Confirmed against real hardware logs at the time (Cube/Octahedron/Tetrahedron): blank-point counts matched simulation exactly, but lit-point counts were 5-8× too low. Blank shrink must run first.
 
@@ -469,6 +471,8 @@ Tuning by eye only tells you *that* something looks wrong. The optimizer keeps a
 | `jump_count` / `jump_distance_total` | Blank runs and total distance travelled with the beam off. This is the number [Stage 2.5](#stage-25--segment-reorder-optional) exists to reduce. |
 | `stage2_scale` | The interior-density factor actually applied (1.0 = Stage 2 never triggered). |
 | `stage1_triggered` / `stage15_triggered` | Whether blank samples, or corner point counts, had to be scaled down to fit the budget. |
+| `stage1_blank_samples` | The `blank_samples` value Stage 1 settled on (`0` = Stage 1 never triggered). Compare against `stage1_blank_target` to see what was actually applied. |
+| `stage1_blank_clamped` | `stage1_blank_target` did not fit the budget, so Stage 1 degraded to the largest value that did — the one reported above. |
 | `ringing_active` | Whether the ZV shaper actually shaped at least one jump while rendering. |
 
 The response carries two records: `last` (the most recent `optimize()` call) and `frame` (all calls of the last complete frame, accumulated).

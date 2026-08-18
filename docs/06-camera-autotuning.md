@@ -10,6 +10,7 @@
 - [Installation](#installation)
 - [Files](#files)
 - [The Camera Patterns](#the-camera-patterns)
+  - [Why Trails has no camera pattern](#why-trails-has-no-camera-pattern)
 - [Workflow](#workflow)
   - [0. wizard](#0-wizard)
   - [1. check](#1-check)
@@ -32,7 +33,7 @@
 
 ## What This Is
 
-The firmware exposes a REST API, `/api/calib-cam/*`, that lets an external program select a calibration pattern, live-override the active optimizer profile's parameters (RAM-only, never touching NVS), and read back exactly what has changed. `scripts/optimizeGalvo/optimizeGalvo.py` is the program that actually drives it: it opens a mono/global-shutter USB camera, projects one of six reference patterns, measures the result, and runs an [Optuna](11-glossary.md) search to find the parameter combination that produces the cleanest beam.
+The firmware exposes a REST API, `/api/calib-cam/*`, that lets an external program select a calibration pattern, live-override the active optimizer profile's parameters (RAM-only, never touching NVS), and read back exactly what has changed. `scripts/optimizeGalvo/optimizeGalvo.py` is the program that actually drives it: it opens a mono/global-shutter USB camera, projects one of nine reference patterns, measures the result, and runs an [Optuna](11-glossary.md) search to find the parameter combination that produces the cleanest beam.
 
 This is **not** a replacement for the manual Galvo Calibration card in the WebUI (Chapter 4) — offset, gain, swap, and invert are still set by hand, because those are fixed hardware/wiring properties, not something a search should be exploring every run. What this tool auto-tunes is the **optimizer**: corner dwell, blanking, resample, ringing compensation — the parameters in [Chapter 5](05-optimizer.md#parameter-reference) that trade off against each other and are genuinely tedious to hand-tune by eye.
 
@@ -78,23 +79,44 @@ pip install -r requirements.txt
 | --- | --- |
 | `camConfig.json` | Runtime config — ESP32 base URL, camera index/resolution/exposure, DAC calibration range, cost weights, diagnose thresholds, HTTP timeout/retry settings. Created by `wizard` on first run. |
 | `homography.npz` | Pixel→DAC homography matrix plus the stored background frame, written by `calibrate`. Required by `measure`, `optimize`, and `diagnose`. |
-| `searchSpace.json` | Parameter ranges per camera-tunable optimizer profile (`Vector`, `Smooth`, `Waves`, `MultiObject`). Regenerated with sensible defaults by `optimize`/`diagnose --autotune` if missing (same first-run behavior as `camConfig.json`) — edit the result if you widen a parameter's firmware-side limits. |
+| `searchSpace.json` | Parameter ranges per camera-tunable optimizer profile (`Vector`, `Smooth`, `Waves`, `MultiObject`, `Wireframe`, `Text`, `Particles`). Regenerated with sensible defaults by `optimize`/`diagnose --autotune` if missing (same first-run behavior as `camConfig.json`) — edit the result if you widen a parameter's firmware-side limits. An **existing** file is never rewritten, so one created before v6.75.0 has no `Wireframe`/`Text`/`Particles` block and those profiles are silently skipped by `optimize`; the tool warns when it detects this — delete the file to regenerate it, or copy the missing blocks in by hand. |
 | `results/` | `optuna_study.db` (resumable search state), per-trial `.jsonl` logs, best-parameter JSON snapshots, and saved camera frames from `measure`/`calibrate`., interactive runs offer to clean up stale files here (everything except the `.db`) at startup. |
 
 Override the config path with `--config`, e.g. to keep separate configs for multiple camera rigs.
 
 ## The Camera Patterns
 
-Six patterns exist on the firmware side purely for this tool (`calib_patterns.cpp`, indices 11–16), geometrically matching the ground truth the script rasterizes internally so measured error is directly comparable to the ideal:
+Nine patterns exist on the firmware side purely for this tool (`calib_patterns.cpp`, indices 11–16 and 21–23), geometrically matching the ground truth the script rasterizes internally so measured error is directly comparable to the ideal:
 
-| Pattern | Used for |
-| --- | --- |
-| `corners4` | 4 static dots at the DAC-range corners — the homography reference. Uses a fixed manual dwell so it stays camera-visible regardless of what corner-dwell overrides a search throws at it. |
-| `square` | Sharp 90° corners — corner hotspot + path deviation. |
-| `star` | 5-point pentagram (self-intersecting) — corner hotspot + path deviation. |
-| `segments` | 4 parallel vertical lines — blank-jump leakage between disconnected strokes. |
-| `circle` | Continuous curve, no real corners — path deviation + brightness uniformity. |
-| `spiral` | Dense continuous curve — path deviation + brightness uniformity under high interior density. |
+| Pattern | Profile | Used for |
+| --- | --- | --- |
+| `corners4` | — | 4 static dots at the DAC-range corners — the homography reference. Uses a fixed manual dwell so it stays camera-visible regardless of what corner-dwell overrides a search throws at it. |
+| `square` | Vector | Sharp 90° corners — corner hotspot + path deviation. |
+| `star` | Vector | 5-point pentagram (self-intersecting) — corner hotspot + path deviation. |
+| `segments` | MultiObject | 4 parallel vertical lines — blank-jump leakage between disconnected strokes. |
+| `circle` | Smooth | Continuous curve, no real corners — path deviation + brightness uniformity. |
+| `spiral` | Waves | Dense continuous curve — path deviation + brightness uniformity under high interior density. |
+| `wireframe` | Wireframe | Projected cube drawn as 4 open 3-edge chains — corner hotspot, path deviation, and blank leakage on the jumps between chains. |
+| `text` | Text | The fixed string `GAL` through the real stroke font (`text_renderer.cpp`) — same metrics as `wireframe`, on many short strokes instead of a few long ones. |
+| `particles` | Particles | 12 isolated dwell dots at graded jump distances (10k–36k DAC units) — blob count, blob elongation, and blob centroid error. |
+
+The last three (firmware v6.75.0) close the gap for the three profiles that previously had no camera pattern at all. `wireframe`/`text` are scored as paths; `particles` is scored as **dots**, which is a genuinely different measurement — see [How Scoring Works](#how-scoring-works).
+
+`particles` is the pattern that would have caught the v6.65.1 Starfield regression, where a Particles blank window sized for short hops left the beam still in flight when the laser re-armed and painted "connect the dots" streaks. Each of its dots is a degenerate two-vertex open segment, so its dwell comes entirely from the live profile's `max_corner_pts` — unlike `corners4` there is deliberately **no** fixed-dwell override, because the dwell is part of what is under test.
+
+### Why Trails has no camera pattern
+
+`OPT_PROFILE_TRAILS` is the one profile that is not camera-tunable, and this is a property of the profile, not a missing feature.
+
+Every metric in this tool compares one accumulated camera frame against one static rasterized ideal. A Trails preset's ground truth is not a shape — it is a **trajectory over time**: a head plus a tail whose brightness decays with age. A single accumulated exposure integrates the whole tail into the same image as the head, so:
+
+- The "ideal" a scorer would compare against is not defined without also modelling exposure time, decay rate, and where in the animation phase the shutter opened.
+- Path deviation and corner hotspot would read the decaying tail as legitimate lit path, i.e. the correct behavior and the streak defect look identical.
+- The dot metrics do not apply either — a trail is not a set of isolated blobs.
+
+A static proxy pattern (some fixed shape run under the Trails profile) could be written, and it would produce numbers. It would not be measuring Trails: the profile's distinguishing parameters are exactly the ones that govern how a *moving* head and a *fading* tail behave, and a static shape exercises none of them. A number that does not respond to the thing you are tuning is worse than no number, so none is produced.
+
+Tuning Trails correctly would need a fundamentally different rig — a high-frame-rate camera synchronized to the frame boundary, scoring a sequence rather than an accumulation. That is out of scope for this tool. Until then, Trails stays on hand tuning via the WebUI Optimizer tab.
 
 `/api/calib-cam/start` accepts a `channel` field (default: **blue**, channel 3) instead of always drawing white. A mono camera can see the R/G/B beams smear apart or land at slightly different positions if the laser diodes aren't perfectly co-bore sighted — measuring on one channel avoids that artifact entirely. `optimizeGalvo.py` drives this from `camPatternChannel` in `camConfig.json`.
 
@@ -136,7 +158,7 @@ Captures a dark background, projects `corners4`, detects the four dots, and solv
 python optimizeGalvo.py measure --pattern square
 ```
 
-Projects one pattern with currently-live parameters, captures, and prints path-deviation RMS, blank-leakage, corner hotspot, brightness non-uniformity, and the weighted cost. Requires `homography.npz`.
+Projects one pattern with currently-live parameters, captures, and prints path-deviation RMS, blank-leakage, corner hotspot, brightness non-uniformity, and the weighted cost. `--pattern` accepts any of the eight non-`corners4` patterns above; `particles` prints the blob metrics instead of corner hotspot. Requires `homography.npz`.
 
 ### 5. optimize
 
@@ -146,7 +168,7 @@ python optimizeGalvo.py optimize --profile Vector --trials 40 --apply
 
 The main event. Queries the ESP32 for its optimizer profiles and preset membership, runs one Optuna study per selected profile against its `searchSpace.json` ranges, and prints a before/after report — every parameter marked changed, unchanged-not-searched, or unchanged-behind-a-disabled-gate. Each trial calls `/api/calib-cam/params` with candidate values and sums the cost across the profile's pattern(s).
 
-- `--profile Vector,Smooth` or `--profile all` selects profiles directly; `--preset "Milky Way"` tunes whichever profile drives a named preset instead (errors out for Wireframe/Trails/Text — not camera-tunable, no camera pattern exists for them). Omit both for an interactive menu.
+- `--profile Vector,Smooth` or `--profile all` selects profiles directly; `--preset "Milky Way"` tunes whichever profile drives a named preset instead (errors out for Trails — see [Why Trails has no camera pattern](#why-trails-has-no-camera-pattern)). Omit both for an interactive menu.
 - Studies persist in SQLite (`--storage`, default `results/optuna_study.db`) under `--study-name` (default: the profile name) — Ctrl+C or a crash loses nothing, just re-run the same command to resume. `--fresh` starts over instead.
 - `--apply` applies the winning values to the ESP32 and persists them via `/api/optimizer-save` without asking. **Without it, results only go to the JSON file** — see [Session Semantics](#session-semantics--nothing-sticks-until-you-apply-it).
 - `space` pauses between trials, `q` aborts early (like Ctrl+C; completed trials are kept).
@@ -249,9 +271,20 @@ Every measurement reduces to a single weighted cost (`costWeights` in `camConfig
 | `blankLeakage` | Laser visible during a blank jump — insufficient hold-off or blanking overshoot. |
 | `cornerHotspot` | Excess brightness pooling at a corner — too much dwell relative to the rest of the shape. |
 | `brightnessNonUniformity` | Uneven brightness along a continuous curve — interior density or velocity-easing issues. |
+| `blankCorridorLeakage` | Laser visible in the region that should be dark — derived from the pattern's own ideal geometry rather than from hand-listed jump corridors, so it works on every pattern, not just `segments`. |
 | `saturationFrac` | Fraction of the traced beam at raw sensor saturation — flags a camera-artifact-inflated reading rather than a real defect. |
 
-`optimize` and `diagnose` share this cost function; `autotune-camera` adds `saturationFrac` and a background-brightness penalty on top, since capture-quality problems (washed-out frames) don't show up cleanly in the four geometry metrics above.
+Three further metrics apply only to `particles` (they are exactly `0` for every path pattern, so the cost formula is unchanged for the other eight):
+
+| Metric | What it catches |
+| --- | --- |
+| `blobCountError` | Fewer distinct blobs than dots drawn — streaks that merge neighboring dots into one connected region. |
+| `blobElongation` | Blob major/minor axis ratio — a dot smeared into a dash because the beam was still moving when the laser re-armed. |
+| `blobCentroidErrorUnits` | Distance from each blob's centroid to its nearest ideal dot, in DAC units — dots landing short of where they were commanded. |
+
+`optimize` and `diagnose` share this cost function; `autotune-camera` adds `saturationFrac` and a background-brightness penalty on top, since capture-quality problems (washed-out frames) don't show up cleanly in the geometry metrics above.
+
+A measurement that cannot see anything meaningful reports `valid = false` with the reasons why (`invalidReasons`) and a `NaN` cost, rather than a worst-case constant that reads downstream like a real number.
 
 ## Session Semantics — Nothing Sticks Until You Apply It
 

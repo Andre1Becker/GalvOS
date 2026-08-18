@@ -9,6 +9,7 @@
 #include "calib_patterns.h"
 #include "config.h"
 #include "point_optimizer.h"
+#include "text_renderer.h"
 #include "util/mem_registry.h"
 #include "util/ps_scratch.h"
 #include <math.h>
@@ -1027,22 +1028,201 @@ static size_t calib_ramp_b(LaserPoint* o, size_t mx, uint32_t, uint8_t, uint8_t)
     return calibRampImpl(o, mx, 3);
 }
 
+// ══════════════════════════════════════════════════════════════
+// PATTERNS 21-23: SECOND CAMERA BLOCK
+//
+// One camera pattern each for the three optimizer profiles that previously
+// had none (Wireframe / Text / Particles), so the host tool can score them
+// instead of leaving them tuned by eye. Same contract as 11-16: static
+// geometry, flat camColorOut() color (a per-vertex hue would show up as
+// real brightness non-uniformity), and everything routed through
+// liveOptimizerConfig() so what the camera sees is what the live sliders
+// actually do. Geometry is mirrored exactly in optimizeGalvo.py's
+// idealPolylines() -- change one, change the other.
+// ══════════════════════════════════════════════════════════════
+
+// PATTERN 21: WIREFRAME -- cube, orthographic projection, 4 open 3-edge chains.
+//
+// Projection: the first two rows of a yaw-35deg / pitch-25deg rotation
+// matrix, written out as literal coefficients rather than sinf/cosf calls so
+// the firmware and the host's NumPy mirror produce identical numbers with no
+// trig-implementation drift. A classic isometric view was rejected: it
+// collapses two of the eight cube vertices onto the projected center and
+// makes three edge pairs overlap, which reads as false double brightness in
+// every brightness/deviation metric.
+//
+// Chain decomposition: every cube vertex has odd degree (3), so the 12 edges
+// cannot be walked in one stroke -- 4 open trails of 3 edges each is the
+// minimum, and each vertex ends up an endpoint of exactly one trail and an
+// interior vertex of exactly one other. That is deliberately the same shape
+// of geometry the Wireframe profile exists for: shared vertices between
+// chains (open-endpoint full-dwell, see cornerSeverity()) plus three real
+// blank jumps per frame for blankCorridorLeakage to score.
+static constexpr float CAM_WF_HALF = CAM_H * 0.63f;   // 9450 -- projected
+                                                       // extent stays < CAM_H
+static size_t cam_wireframe(LaserPoint* o, size_t m,
+                             uint32_t, uint8_t bright, uint8_t ch) {
+    uint8_t wr, wg, wb; camColorOut(ch, bright, wr, wg, wb);
+    static constexpr float PX_X = 0.81915f, PX_Z = 0.57358f;
+    static constexpr float PY_X = 0.24238f, PY_Y = 0.90631f, PY_Z = 0.34614f;
+    const float s = CAM_WF_HALF;
+
+    float vx[8], vy[8];
+    for (int i = 0; i < 8; i++) {
+        // bit0 = x sign, bit1 = y sign, bit2 = z sign
+        float x = (i & 1) ? s : -s;
+        float y = (i & 2) ? s : -s;
+        float z = (i & 4) ? s : -s;
+        vx[i] = PX_X * x + PX_Z * z;
+        vy[i] = PY_X * x + PY_Y * y - PY_Z * z;
+    }
+
+    static const uint8_t CHAINS[4][4] = {
+        {1, 0, 2, 6},   // edges 0-1, 0-2, 2-6
+        {2, 3, 1, 5},   // edges 2-3, 1-3, 1-5
+        {0, 4, 5, 7},   // edges 0-4, 4-5, 5-7
+        {4, 6, 7, 3},   // edges 4-6, 6-7, 3-7
+    };
+    optimizer::PathVertex verts[4][4];
+    optimizer::PathSegment segs[4];
+    for (int c = 0; c < 4; c++) {
+        for (int k = 0; k < 4; k++) {
+            uint8_t v = CHAINS[c][k];
+            verts[c][k] = optimizer::PathVertex(vx[v], vy[v], wr, wg, wb, k == 0);
+        }
+        segs[c] = optimizer::PathSegment(verts[c], 4, false);
+    }
+    return optimizer::optimize(segs, 4, o, m, liveOptimizerConfig());
+}
+
+// PATTERN 22: TEXT -- fixed short string, real glyph geometry.
+//
+// Uses textrender::glyphOutlinePaths(), i.e. the SAME stroke font and the
+// same layout math (advance widths, half-advance cell centering, string
+// centered on x=0) the Text tool renders with -- not a hand-copied outline.
+// What it deliberately does NOT reuse is text_renderer.cpp's internal
+// textOptimizerConfig(): that applies a text-specific density override on
+// top of the live profile, which would mean the camera scored something
+// other than the Text profile's own sliders. Here the raw pen strokes go
+// straight into optimizer::optimize() under liveOptimizerConfig().
+//
+// Three glyphs, not the full project name: at 3 chars the strokes are large
+// enough for the host's corner ROIs (24 px across) to resolve individual
+// vertices; at 6+ chars neighbouring strokes fall inside one ROI and
+// cornerHotspot stops meaning anything.
+static const char CAM_TEXT_STRING[] = "GAL";
+static constexpr float CAM_TEXT_SCALE = 950.0f;   // half-width 13775, half-height 6650
+static size_t cam_text(LaserPoint* o, size_t m,
+                        uint32_t, uint8_t bright, uint8_t ch) {
+    uint8_t wr, wg, wb; camColorOut(ch, bright, wr, wg, wb);
+    static constexpr size_t MAX_PATHS = 16;
+    static constexpr size_t MAX_VERTS = MAX_PATHS * textrender::GlyphSubpath::MAX_PTS;
+
+    // PSRAM, not stack: GlyphSubpath is ~164 B, so 16 of them plus the
+    // flattened vertex array would be ~10 KB against patterns::task's 12 KB
+    // budget (same reasoning as cam_circle/cam_spiral above).
+    static textrender::GlyphSubpath* paths = nullptr;
+    static optimizer::PathVertex*    verts = nullptr;
+    if (!psScratch(paths, MAX_PATHS)) return 0;
+    if (!psScratch(verts, MAX_VERTS)) return 0;
+    static bool tracked = false;
+    if (!tracked) {
+        tracked = true;
+        trackScratch(MAX_PATHS * sizeof(textrender::GlyphSubpath) +
+                     MAX_VERTS * sizeof(optimizer::PathVertex));
+    }
+
+    size_t np = textrender::glyphOutlinePaths(CAM_TEXT_STRING, CAM_TEXT_SCALE,
+                                               paths, MAX_PATHS);
+    if (np == 0) return 0;
+
+    optimizer::PathSegment segs[MAX_PATHS];
+    size_t vn = 0, sn = 0;
+    for (size_t p = 0; p < np; p++) {
+        const textrender::GlyphSubpath& sp = paths[p];
+        if (sp.count < 2 || vn + sp.count > MAX_VERTS) continue;
+        optimizer::PathVertex* base = verts + vn;
+        for (uint8_t k = 0; k < sp.count; k++)
+            verts[vn++] = optimizer::PathVertex(sp.x[k], sp.y[k], wr, wg, wb, k == 0);
+        segs[sn++] = optimizer::PathSegment(base, sp.count, false);
+    }
+    if (sn == 0) return 0;
+    return optimizer::optimize(segs, sn, o, m, liveOptimizerConfig());
+}
+
+// PATTERN 23: PARTICLES -- 12 isolated dwell dots, graded jump distances.
+//
+// This is the pattern that would have caught the v6.65.1 Starfield streaking
+// regression: a Particles blank window sized for short hops, applied to a
+// preset that scatters points across the whole canvas, leaves the beam still
+// in flight when the laser re-arms -- "connect the dots" streaks instead of
+// dots.
+//
+// Each dot is a degenerate 2-vertex OPEN segment (both vertices at the same
+// coordinate). That is not a trick: both vertices are open endpoints, so
+// cornerSeverity() returns 1.0 for each and the dot's dwell is exactly
+// 2 x max_corner_pts, straight from the live profile. The edge between them
+// has zero length, so it contributes no interior points at any density.
+// Unlike cam_corners4 there is deliberately NO fixed-dwell override here --
+// the whole measurement is "what does the LIVE config do to an isolated
+// dot", so both the dwell and the jump into it must come from the sliders
+// under test.
+//
+// Layout: a 4x3 grid (10000 units apart in x, 15000 in y, all inside the
+// same +-CAM_H box the other camera patterns use, so the camera framing and
+// the host's homography are unchanged). The visit order below is NOT the
+// grid order -- it is chosen so the 12 jumps span short (10000-15000),
+// medium (18000-25000) and long (31000-36000 units) in one frame, which is
+// what makes a too-small blank window visible as elongation on the long
+// jumps while the short ones still look fine.
+static constexpr int CAM_PARTICLE_COUNT = 12;
+static size_t cam_particles(LaserPoint* o, size_t m,
+                             uint32_t, uint8_t bright, uint8_t ch) {
+    uint8_t wr, wg, wb; camColorOut(ch, bright, wr, wg, wb);
+    // {column 0..3, row 0..2} in visit order.
+    static const uint8_t ORDER[CAM_PARTICLE_COUNT][2] = {
+        {0,0}, {1,0}, {1,1}, {0,1}, {0,2}, {2,0},
+        {3,2}, {2,1}, {3,0}, {1,2}, {3,1}, {2,2},
+    };
+    const float colStep = CAM_H * (2.0f / 3.0f);   // 10000
+
+    optimizer::PathVertex verts[CAM_PARTICLE_COUNT][2];
+    optimizer::PathSegment segs[CAM_PARTICLE_COUNT];
+    for (int i = 0; i < CAM_PARTICLE_COUNT; i++) {
+        float x = -CAM_H + ORDER[i][0] * colStep;
+        float y = -CAM_H + ORDER[i][1] * CAM_H;
+        verts[i][0] = optimizer::PathVertex(x, y, wr, wg, wb, false);
+        verts[i][1] = optimizer::PathVertex(x, y, wr, wg, wb, false);
+        segs[i] = optimizer::PathSegment(verts[i], 2, false);
+    }
+    return optimizer::optimize(segs, CAM_PARTICLE_COUNT, o, m, liveOptimizerConfig());
+}
+
+// Both camera blocks in one lookup: 11..16 then 21..23. Kept as two arrays
+// rather than renumbering into one contiguous range because CALIB_WARP_GRID_IDX
+// (web_ui.cpp) and CALIB_RAMP_BASE (scripts/calibrateColor.py) sit between them.
+static const char* CAM_NAMES[CALIB_CAM_COUNT] = {
+    "corners4", "square", "star", "segments", "circle", "spiral"
+};
+static const char* CAM2_NAMES[CALIB_CAM2_COUNT] = {
+    "wireframe", "text", "particles"
+};
+
 int8_t camPatternIndex(const char* name) {
     if (!name) return -1;
-    static const char* NAMES[CALIB_CAM_COUNT] = {
-        "corners4", "square", "star", "segments", "circle", "spiral"
-    };
     for (uint8_t i = 0; i < CALIB_CAM_COUNT; i++)
-        if (strcmp(name, NAMES[i]) == 0) return (int8_t)(CALIB_CAM_BASE + i);
+        if (strcmp(name, CAM_NAMES[i]) == 0) return (int8_t)(CALIB_CAM_BASE + i);
+    for (uint8_t i = 0; i < CALIB_CAM2_COUNT; i++)
+        if (strcmp(name, CAM2_NAMES[i]) == 0) return (int8_t)(CALIB_CAM2_BASE + i);
     return -1;
 }
 
 const char* camPatternName(uint8_t idx) {
-    static const char* NAMES[CALIB_CAM_COUNT] = {
-        "corners4", "square", "star", "segments", "circle", "spiral"
-    };
-    if (idx < CALIB_CAM_BASE || idx >= CALIB_CAM_BASE + CALIB_CAM_COUNT) return "";
-    return NAMES[idx - CALIB_CAM_BASE];
+    if (idx >= CALIB_CAM_BASE && idx < CALIB_CAM_BASE + CALIB_CAM_COUNT)
+        return CAM_NAMES[idx - CALIB_CAM_BASE];
+    if (idx >= CALIB_CAM2_BASE && idx < CALIB_CAM2_BASE + CALIB_CAM2_COUNT)
+        return CAM2_NAMES[idx - CALIB_CAM2_BASE];
+    return "";
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -1074,6 +1254,12 @@ uint8_t profileOf(uint8_t idx) {
             return OPT_PROFILE_WAVES;
         case 17: // Warp Grid Test   -- blanked border + interior lines
             return OPT_PROFILE_MULTIOBJECT;
+        case 21: // Cam Wireframe    -- cube, 4 open chains + blank jumps
+            return OPT_PROFILE_WIREFRAME;
+        case 22: // Cam Text         -- real glyph strokes
+            return OPT_PROFILE_TEXT;
+        case 23: // Cam Particles    -- 12 isolated dwell dots, graded jumps
+            return OPT_PROFILE_PARTICLES;
         case 18: // Ramp R           -- 32 static duty fields, geometry fixed
         case 19: // Ramp G
         case 20: // Ramp B
@@ -1194,6 +1380,25 @@ const CalibPatternInfo CALIB_INFO[CALIB_PATTERN_COUNT] = {
      "Bypasses gain/dimmer/gamma/threshold -- measured luminance should equal "
      "commanded duty. Run scripts/calibrateColor.py to capture and plot."},
 
+    {"Cam Wireframe",
+     "Cube in orthographic projection, 4 open 3-edge chains -- chained-edge probe",
+     "Selected via /api/calib-cam/start. Runs under OPT_PROFILE_WIREFRAME. "
+     "Struts must meet cleanly at the shared vertices and the three blank "
+     "jumps between chains must leave no visible trace."},
+
+    {"Cam Text",
+     "Fixed 3-glyph string via the real stroke font -- short-stroke probe",
+     "Selected via /api/calib-cam/start. Runs under OPT_PROFILE_TEXT. "
+     "Short crossbars must stay full length and the pen-up gaps inside a "
+     "glyph must stay dark."},
+
+    {"Cam Particles",
+     "12 isolated dwell dots, jump distances graded short/medium/long",
+     "Selected via /api/calib-cam/start. Runs under OPT_PROFILE_PARTICLES. "
+     "All 12 must read as round, separate dots -- elongation or a missing "
+     "dot on the LONG jumps means the blank window is too short for the "
+     "distance (the v6.65.1 Starfield streaking failure)."},
+
 };
 
 using PFn = size_t(*)(LaserPoint*, size_t, uint32_t, uint8_t, uint8_t);
@@ -1204,6 +1409,7 @@ static const PFn DISPATCH[CALIB_PATTERN_COUNT] = {
     cam_corners4, cam_square, cam_star, cam_segments, cam_circle, cam_spiral,
     warp_test_grid,
     calib_ramp_r, calib_ramp_g, calib_ramp_b,
+    cam_wireframe, cam_text, cam_particles,
 };
 
 

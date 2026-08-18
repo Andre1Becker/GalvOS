@@ -100,6 +100,7 @@ import collections
 import csv
 import functools
 import json
+import math
 import os
 import sys
 import textwrap
@@ -114,7 +115,7 @@ import requests
 # ── versioning ───────────────────────────────────────────────────────────────
 # Semantic version of this script (independent of GalvOS firmware version).
 # Bump on every behavioral change; see git log for change history.
-SCRIPT_VERSION = "2.18.0"
+SCRIPT_VERSION = "2.20.0"
 
 # GalvOS firmware version that introduced /api/calib-cam/* (see firmware git log:
 # "fw: v6.03.0 -- camera-in-the-loop calibration API (calib-cam)").
@@ -138,6 +139,13 @@ MIN_FW_VERSION_RESONANCE = (6, 61, 0)
 # raise this, never lower it (see validateConfig).
 MIN_RESULT_VIEW_HOLD_SECONDS = 5.0
 
+# Minimum connected-component area (DAC-canvas px) for a blob to count as a dot
+# rather than sensor noise that survived binaryThreshold - see the isolated-dot
+# metrics on Metrics.blobExpected. This rig's imaged beam is ~4 px across, so a real
+# dot is on the order of 12-30 px; 6 is safely below that and safely above
+# single-pixel noise. Overridable via camConfig.json's minBlobAreaPx.
+DEFAULT_MIN_BLOB_AREA_PX = 6
+
 # Firmware optimizer profile names, in index order - mirrors the OPT_PROFILE_*
 # constants in GalvOS's include/config.h. The firmware API (GET /api/config)
 # reports profiles by index only, not by name, so this list is how the script
@@ -148,14 +156,25 @@ FIRMWARE_PROFILE_NAMES = (
 )
 
 # Which camera pattern(s) tune each firmware optimizer profile - mirrors
-# calib_patterns.cpp's profileOf() for the "Cam ..." pattern set. Only these four
-# profiles are camera-tunable - corners4/Particles is the homography reference
-# with no scoreable ideal geometry, and Wireframe/Trails/Text have no cam pattern.
+# calib_patterns.cpp's profileOf() for the "Cam ..." pattern set. Seven of the
+# eight firmware profiles are camera-tunable. The two exceptions:
+#   corners4  - the homography reference itself; it holds a fixed dwell
+#               regardless of the live config (CALIB_CAM_DOT_DWELL_PTS), so it
+#               is not a measurement of anything tunable. cam_particles is the
+#               Particles profile's real probe.
+#   Trails    - no camera pattern exists and none is planned: its ground truth
+#               is a trajectory over time (a decaying tail), and a camera frame
+#               is an accumulation over time with the time axis integrated
+#               away. See docs/06-camera-autotuning.md, "Why Trails has no
+#               camera pattern".
 FW_PROFILE_PATTERNS = {
     "Vector":      ["square", "star"],
     "Smooth":      ["circle"],
     "Waves":       ["spiral"],
     "MultiObject": ["segments"],
+    "Wireframe":   ["wireframe"],
+    "Particles":   ["particles"],
+    "Text":        ["text"],
 }
 
 # Preset category (from GET /api/presets' "cat") -> whether its geometry is expected
@@ -539,14 +558,52 @@ DEFAULT_CONFIG = {
                                 # Press 'q' to close early. Hard floor MIN_RESULT_VIEW_
                                 # HOLD_SECONDS below - raise this in the config to hold
                                 # it open longer, it can't go lower.
+    "offPathGuardPx": 18,       # DAC-canvas pixels. Two uses, both keyed off "how far from
+                                # the ideal polyline can a pixel be and still plausibly be
+                                # the beam itself": (a) a lit pixel further than this from
+                                # the ideal path is counted as off-path noise/stray light
+                                # (Metrics.offPathLitPx), (b) the "should be dark" corridor
+                                # mask for blankCorridorLeakage is everything inside the
+                                # ideal shape's bounding box that is further than this from
+                                # any ideal segment. 18px @ dacPerPixel=75 is ~1350 DAC
+                                # units - comfortably wider than this rig's measured beam
+                                # half-width (~4px) plus warp residual, narrow enough that
+                                # the segments pattern's 133px lane spacing still leaves a
+                                # real corridor between lines.
+    "pathCoverageRadiusPx": 6,  # DAC-canvas pixels. Metrics.pathCoveragePct = the fraction
+                                # of the rasterised ideal path that has at least one lit
+                                # pixel within this radius. This is the "is the camera
+                                # actually seeing the shape" signal - a blind capture
+                                # (threshold too high / exposure too low / out of focus)
+                                # scores near zero here while still producing plausible-
+                                # looking numbers for every other metric.
+    "minPathCoveragePct": 10.0, # below this, the measurement is flagged invalid rather than
+                                # scored. Measured on this rig: a correctly-thresholded
+                                # capture covers 60-95%, the worst legitimate one seen was
+                                # 13.1%; every blind capture was under 6%.
+    "minBlobAreaPx": DEFAULT_MIN_BLOB_AREA_PX,  # DAC-canvas px. Connected components
+                                # smaller than this are noise, not dots - only used by the
+                                # isolated-dot metrics ('particles'). See its constant.
+    "maxInvalidTrialFraction": 0.25,  # 'optimize' aborts if more than this fraction of a
+                                # profile's trials come back invalid - at that point the
+                                # study is measuring the camera, not the galvo.
     "costWeights": {
         "pathDeviationRms": 1.0,
         "blankLeakage": 2.0,
+        "blankCorridorLeakage": 2.0,  # see Metrics.blankCorridorLeakage - the ideal-gap-
+                                # corridor version of blankLeakage, which only samples the
+                                # ideal jump path and therefore misses a beam that streaks
+                                # somewhere else entirely
         "cornerHotspot": 0.5,
         "brightnessNonUniformity": 0.7,
-        "saturationFrac": 3.0   # fraction (0..1) of the traced beam that's raw-sensor-
+        "saturationFrac": 3.0,  # fraction (0..1) of the traced beam that's raw-sensor-
                                 # saturated - usually a camera exposure/gain problem
                                 # (blooming), not a scan/dwell one; see Metrics.saturationFrac
+        # Isolated-dot terms - contribute only on 'particles' (every other pattern
+        # reports blobExpected 0 and the three terms evaluate to exactly 0).
+        "blobElongation": 1.0,  # applied to (meanRatio - 1), so a round dot costs 0
+        "blobCountError": 0.5,  # per merged/split/missing dot
+        "blobCentroidErrorUnits": 1.0   # divided by 100 like pathDeviationRms
     },
     "diagnoseThresholds": {
         # Above these: 'diagnose' flags the profile. Geometry ones (scale/offset) are
@@ -556,15 +613,44 @@ DEFAULT_CONFIG = {
         # and DO trigger an autotune offer.
         "geometryScalePct": 5.0,        # abs(scaleErrorX/YPct) above this -> geometry issue
         "geometryOffsetUnits": 600.0,   # abs(offsetX/YUnits), DAC units, above this -> geometry issue
-        "pathDeviationRms": 150.0,      # raw DAC units (~2px at the default dacRange=30000,
-                                         # via dacPerPixel=(2*dacRange)/CANVAS) - scales with
-                                         # dacRange, retune if your rig uses a different one
+        # pathDeviationRms is NOT a flat number: on any real rig the measured RMS distance
+        # from the ideal path is dominated by the BEAM's own width, not by path error. This
+        # rig measures a beam half-width of ~4 canvas px = ~300 DAC units, which alone puts
+        # a perfectly-tuned square at ~285 RMS - a flat 150 threshold was unreachable and
+        # reported a permanent false positive on every single profile. The bar is instead
+        # derived per-measurement from Metrics.beamWidthUnits (2 x median distance of lit
+        # pixels from the ideal path, in DAC units):
+        #     bar = max(pathDeviationRmsMinUnits, pathDeviationBeamWidthFactor * beamWidth)
+        "pathDeviationBeamWidthFactor": 1.5,  # measured on this rig at the working
+                                         # threshold: square 283/675, star 160/315,
+                                         # circle 291/720, spiral 316/810, segments 144/225
+                                         # (actual/bar) - tightest margin 0.64 of the bar
+        "pathDeviationRmsMinUnits": 150.0,   # absolute floor, so an implausibly narrow
+                                         # measured beam can't drive the bar to zero
         "blankLeakage": 15.0,
+        "blankCorridorLeakage": 0.30,   # mean brightness (0..255) of the "should be dark"
+                                         # corridor. Clean captures on this rig: square
+                                         # 0.032, star 0.035, circle 0.060, spiral 0.195,
+                                         # segments 0.026. Set generously above the worst
+                                         # clean case - this metric's real value is
+                                         # RELATIVE comparison across a parameter sweep,
+                                         # not an absolute pass/fail (it scales with beam
+                                         # brightness and with how much dark area the
+                                         # pattern happens to enclose).
         "cornerHotspot": 0.35,
         "brightnessNonUniformity": 0.5,
-        "saturationFrac": 0.10          # >10% of the traced beam clipped -> likely camera
+        "saturationFrac": 0.10,         # >10% of the traced beam clipped -> likely camera
                                          # blooming; 'diagnose' points at 'autotune-camera'
                                          # for this one specifically, not 'optimize'
+        # Isolated-dot thresholds - only evaluated when blobExpected > 0 ('particles').
+        # No clean-capture baseline exists for these yet (the pattern is new and has not
+        # been run against hardware), so they are set from geometry rather than from
+        # measurement: an in-focus dot images roughly round, and a dot that has been
+        # smeared along a jump is many times longer than it is wide.
+        "blobElongation": 2.0,          # mean major/minor axis ratio over all dots
+        "blobCountError": 1.0,          # more than one merged/missing dot
+        "blobCentroidErrorUnits": 900.0  # ~12 canvas px at dacPerPixel 75 - well past
+                                         # beam width, so a dot landing short shows up
     },
     "cameraAutotuneRanges": {
         # Search bounds for 'autotune-camera'. Only knobs that (a) affect capture
@@ -591,8 +677,28 @@ DEFAULT_CONFIG = {
         # scored path/leakage/uniformity metrics - those alone don't reliably punish
         # a washed-out (overexposed/high-gain) capture, since an all-white frame can
         # look perfectly "uniform".
+        #
+        # The signal-vs-noise terms below exist because without them the search actively
+        # REWARDS blindness: raising binaryThreshold keeps only the brightest core pixels,
+        # which SHRINKS pathDeviationRms and improves brightnessNonUniformity. That is how
+        # this rig's config ended up at binaryThreshold=133 - a value that left 5 lit pixels
+        # in the entire warped canvas while scoring better than the usable 50. The criterion
+        # is now "maximise the amount of the ideal path actually seen, subject to no lit
+        # pixels outside the beam trace".
         "saturation": 2.0,             # weight on fraction of pixels >=250 in the raw capture
-        "backgroundBrightness": 1.0    # weight on mean(background)/255 (laser-off frame)
+        "backgroundBrightness": 1.0,   # weight on mean(background)/255 (laser-off frame)
+        "pathCoverage": 3.0,           # weight on (1 - pathCoveragePct/100) - rewards seeing
+                                       # more of the ideal path
+        "offPathNoise": 4.0,           # weight on offPathLitPx/traceLitPx - punishes lit
+                                       # pixels further than offPathGuardPx from the ideal
+                                       # path (stray light, reflections, sensor noise). Rated
+                                       # above pathCoverage so the search cannot buy coverage
+                                       # by dropping the threshold into the noise floor.
+        "blindCapture": 5.0            # flat penalty per pattern whose measurement came back
+                                       # invalid (see Metrics.valid) - a hard wall in front
+                                       # of the whole blind region of the search space, so a
+                                       # trial that sees nothing can never win on the smooth
+                                       # terms alone
     },
     "requestTimeoutSeconds": 5,
     "requestRetries": 2,             # extra attempts on ESP32 timeout/connection error
@@ -683,6 +789,14 @@ def validateConfig(cfg: dict):
         problems.append("resonanceMinExtentPx must be a non-negative number")
     if not isinstance(cfg.get("resonanceChannel"), int) or not (0 <= cfg["resonanceChannel"] <= 3):
         problems.append("resonanceChannel must be an integer 0-3 (0=white 1=R 2=G 3=B)")
+    if not isinstance(cfg.get("offPathGuardPx"), (int, float)) or not (1 <= cfg["offPathGuardPx"] < CANVAS / 2):
+        problems.append(f"offPathGuardPx must be a number between 1 and {CANVAS // 2}")
+    if not isinstance(cfg.get("pathCoverageRadiusPx"), (int, float)) or cfg["pathCoverageRadiusPx"] < 1:
+        problems.append("pathCoverageRadiusPx must be a number >= 1")
+    if not isinstance(cfg.get("minPathCoveragePct"), (int, float)) or not (0 <= cfg["minPathCoveragePct"] <= 100):
+        problems.append("minPathCoveragePct must be a number between 0 and 100")
+    if not isinstance(cfg.get("maxInvalidTrialFraction"), (int, float)) or not (0 <= cfg["maxInvalidTrialFraction"] <= 1):
+        problems.append("maxInvalidTrialFraction must be a number between 0 and 1")
     costWeights = cfg.get("costWeights")
     if not isinstance(costWeights, dict) or not all(
             isinstance(v, (int, float)) for v in costWeights.values()):
@@ -2631,7 +2745,117 @@ def idealPolylines(pattern: str, r: int) -> tuple[list[np.ndarray], list[np.ndar
         t = np.linspace(0, 6 * np.pi, 512)
         rad = np.linspace(h * 0.15, h, 512)
         return [np.stack([rad * np.cos(t), rad * np.sin(t)], axis=1)], []
+    if pattern == "wireframe":
+        return _wireframeIdeal(h)
+    if pattern == "text":
+        return _textIdeal(h)
+    if pattern == "particles":
+        return _particlesIdeal(h)
     raise ValueError(f"unknown pattern {pattern}")
+
+
+# ── mirrors of calib_patterns.cpp's second camera block (21-23) ──────────────
+#
+# These three exist because the firmware geometry is no longer a one-liner:
+# a projected cube, a stroke-font string and a scattered dot set each need
+# real (small) code to reproduce. Every constant below is copied from
+# calib_patterns.cpp - if that file changes, these must change with it.
+
+# calib_patterns.cpp cam_wireframe(): first two rows of a yaw-35/pitch-25
+# rotation matrix, as literals. Deliberately not recomputed from np.sin/np.cos
+# here - the firmware cannot use trig and stay bit-comparable, so the literals
+# ARE the contract.
+_WF_PX_X, _WF_PX_Z = 0.81915, 0.57358
+_WF_PY_X, _WF_PY_Y, _WF_PY_Z = 0.24238, 0.90631, 0.34614
+_WF_CHAINS = ((1, 0, 2, 6), (2, 3, 1, 5), (0, 4, 5, 7), (4, 6, 7, 3))
+
+
+def _wireframeIdeal(h: int) -> tuple[list[np.ndarray], list[np.ndarray]]:
+    s = h * 0.63                     # CAM_WF_HALF, relative to CAM_H == h
+    verts = []
+    for i in range(8):
+        x = s if (i & 1) else -s     # bit0 = x, bit1 = y, bit2 = z
+        y = s if (i & 2) else -s
+        z = s if (i & 4) else -s
+        verts.append((_WF_PX_X * x + _WF_PX_Z * z,
+                      _WF_PY_X * x + _WF_PY_Y * y - _WF_PY_Z * z))
+    lit = [np.array([verts[v] for v in chain], float) for chain in _WF_CHAINS]
+    # No blank-gap geometry on purpose: gapMask/blankLeakage reads BACKWARDS on
+    # the defect it exists to catch (see Metrics.blankCorridorLeakage), so the
+    # chain-to-chain leakage on this pattern is scored by the corridor metric,
+    # which needs no explicit gap geometry.
+    return lit, []
+
+
+# calib_patterns.cpp cam_text(): CAM_TEXT_STRING / CAM_TEXT_SCALE, plus the
+# glyphs that string actually uses, transcribed from text_renderer.cpp's FONT_*
+# tables (font space: x in [-5,5], y in [-7,7], +y = up, which is also DAC +y
+# = up - glyphOutlinePaths() applies no flip). Only the glyphs in
+# CAM_TEXT_STRING are mirrored, on purpose: a full font copy here would be a
+# second source of truth nobody would keep in sync.
+_TEXT_STRING = "GAL"
+_TEXT_SCALE = 950.0
+_TEXT_GLYPHS = {
+    # char: (advance, [subpath as [(x, y), ...], ...])
+    "G": (10, [[(4, 5), (2, 7), (-2, 7), (-4, 5), (-4, -5),
+                (-2, -7), (2, -7), (4, -5), (4, 0), (1, 0)]]),
+    "A": (10, [[(-4, -7), (0, 7), (4, -7)], [(-3, -2), (3, -2)]]),
+    "L": (9,  [[(-4, 7), (-4, -7)], [(-4, -7), (4, -7)]]),
+}
+
+
+def _textIdeal(h: int) -> tuple[list[np.ndarray], list[np.ndarray]]:
+    del h                            # fixed DAC-space scale, not h-relative
+    scale = _TEXT_SCALE
+    total = sum(_TEXT_GLYPHS[c][0] for c in _TEXT_STRING)
+    cx = -total * scale / 2.0        # glyphOutlinePaths(): string centered on 0
+    lit: list[np.ndarray] = []
+    for c in _TEXT_STRING:
+        advance, subpaths = _TEXT_GLYPHS[c]
+        gx = cx + advance * 0.5 * scale          # glyph centered in its cell
+        for sub in subpaths:
+            lit.append(np.array([(gx + sx * scale, sy * scale) for sx, sy in sub],
+                                float))
+        cx += advance * scale
+    return lit, []                   # see _wireframeIdeal() on why no gaps
+
+
+# calib_patterns.cpp cam_particles(): 4x3 grid, visit order chosen to grade the
+# jump distances short/medium/long. Order matters here only for the blank-gap
+# geometry - the blob metrics themselves are order-independent.
+_PARTICLE_ORDER = ((0, 0), (1, 0), (1, 1), (0, 1), (0, 2), (2, 0),
+                   (3, 2), (2, 1), (3, 0), (1, 2), (3, 1), (2, 2))
+
+
+def particleDots(h: int) -> np.ndarray:
+    """The 12 ideal dot centres, DAC space, in firmware visit order."""
+    colStep = h * (2.0 / 3.0)
+    return np.array([(-h + col * colStep, -h + row * h)
+                     for col, row in _PARTICLE_ORDER], float)
+
+
+def _particlesIdeal(h: int) -> tuple[list[np.ndarray], list[np.ndarray]]:
+    dots = particleDots(h)
+    # A dot is a degenerate 2-point polyline; rasterizePolylines draws it as a
+    # single blob at IDEAL_RASTER_THICKNESS["particles"] px across.
+    lit = [np.array([p, p], float) for p in dots]
+    return lit, []                   # see _wireframeIdeal() on why no gaps
+
+
+# Ideal-geometry line thickness in DAC-canvas pixels, per pattern. Everything not
+# listed stays at 1 px, so every pre-existing pattern's idealMask/distToIdeal is
+# byte-identical to before this table existed. 'particles' is the exception it was
+# added for: its ideal geometry is 12 ZERO-LENGTH polylines, which at 1 px rasterise
+# to 12 single pixels - below computeMetrics' "> 10 lit pixels on the ideal path"
+# bar, so every particles measurement would be flagged invalid on principle before
+# any beam behaviour was even considered. 5 px is about this rig's own imaged beam
+# width (beamWidthUnits ~300 units ~4 px), i.e. the mask covers the dot the camera
+# actually sees rather than an idealised mathematical point.
+IDEAL_RASTER_THICKNESS = {"particles": 5}
+
+
+def idealThickness(pattern: str) -> int:
+    return IDEAL_RASTER_THICKNESS.get(pattern, 1)
 
 
 def rasterizePolylines(polylines: list[np.ndarray], canvasSize: int, r: int,
@@ -2764,6 +2988,37 @@ class Metrics:
     blankLeakage: float
     cornerHotspot: float
     brightnessNonUniformity: float
+    # ── validity ─────────────────────────────────────────────────────────────
+    # A measurement that saw (almost) nothing still produces perfectly ordinary-looking
+    # floats for every field above - computeMetrics' "nothing visible" branches used to
+    # hand back pathDeviationRms=2*dacRange, brightnessNonUniformity=1.0 and
+    # offsetX/YUnits=dacRange as if they were readings. An Optuna objective happily
+    # optimises against those. `valid` makes that impossible: an invalid Metrics carries
+    # cost=NaN, callers must refuse to score it, and `invalidReasons` says which
+    # criterion failed so the operator knows where to look (threshold/exposure/focus).
+    valid: bool = True
+    invalidReasons: list[str] = field(default_factory=list)
+    # Supporting evidence for `valid`, and useful on their own:
+    traceLitPx: int = 0          # lit pixels on the whole 800x800 DAC canvas
+    offPathLitPx: int = 0        # of those, how many are further than offPathGuardPx
+                                 # from any ideal segment (stray light / noise)
+    pathCoveragePct: float = 0.0  # % of the rasterised ideal path with a lit pixel
+                                 # within pathCoverageRadiusPx - the "is the camera
+                                 # actually seeing the shape" signal
+    beamWidthUnits: float = 0.0  # 2 x median distance of lit pixels from the ideal
+                                 # path, DAC units. This is the rig's own measurement
+                                 # floor for pathDeviationRms - see diagnoseThresholds'
+                                 # pathDeviationBeamWidthFactor.
+    # Mean brightness of every region that SHOULD be dark (inside the ideal shape's
+    # bounding box, further than offPathGuardPx from any ideal segment) - not just the
+    # ideal blank-jump corridor blankLeakage samples. blankLeakage is anti-correlated
+    # with the defect it exists to catch: a beam that streaks anywhere OTHER than along
+    # the ideal jump path reads LOWER there, not higher. Measured on this rig, cam_
+    # segments at blank_samples=1 (visibly streaking) scored blankLeakage 0.95 vs 2.95
+    # for the clean blank_samples=40 case - exactly backwards.
+    blankCorridorLeakage: float = 0.0
+    blankCorridorMaxVal: float = 0.0   # brightest single pixel in that corridor
+    blankCorridorLitPx: int = 0        # corridor pixels above binaryThreshold
     # Fraction of traced pixels at raw sensor saturation (dacImage >= 250) - a global-
     # shutter CMOS sensor bleeds charge into neighboring pixels once a spot is bright
     # enough (blooming), which can inflate pathDeviationRms (halo spreads past the
@@ -2772,6 +3027,22 @@ class Metrics:
     # Flagged here (and painted magenta in annotateCanvas) instead of silently baked
     # into those metrics, since there's no reliable way to subtract the halo back out.
     saturationFrac: float = 0.0
+    # ── isolated-dot metrics (pattern 'particles' only; 0 / blobExpected 0 elsewhere) ──
+    # The Particles profile's failure mode is not path deviation - there is no path -
+    # it is a blank window too short for the jump distance, which leaves the beam still
+    # in flight when the laser re-arms and smears an isolated dot into a comet. That is
+    # exactly the v6.65.1 Starfield regression, and none of the metrics above sees it:
+    # the streak lands ON the way to a real dot, so pathDeviationRms barely moves and
+    # path coverage stays high. These three do see it.
+    blobExpected: int = 0            # ideal dot count (0 = not a dot pattern -> ignore below)
+    blobCount: int = 0               # detected blobs above minBlobAreaPx
+    blobCountError: int = 0          # abs(blobCount - blobExpected): merged or split dots
+    blobElongation: float = 1.0      # mean major/minor axis ratio over detected blobs;
+                                     # 1.0 = perfectly round, higher = smeared
+    blobElongationMax: float = 1.0   # worst single blob - a short blank window streaks
+                                     # only the LONG jumps, so the mean understates it
+    blobCentroidErrorUnits: float = 0.0  # mean DAC-unit distance from each ideal dot to
+                                     # the nearest detected blob centroid
     # Overall shape size/position vs. ideal (DAC-space bounding box, 1st-99th percentile
     # to shrug off stray noise pixels) - NOT part of `cost` on purpose: these reflect
     # galvo gain/offset calibration, which no scan/dwell parameter can fix, so letting
@@ -2803,7 +3074,7 @@ def _idealGeometryFor(pattern: str, r: int, orientation: str = "identity"):
     if orientation != "identity":
         lit = [_applyD4(line, orientation) for line in lit]
         gaps = [_applyD4(line, orientation) for line in gaps]
-    idealMask = rasterizePolylines(lit, CANVAS, r)
+    idealMask = rasterizePolylines(lit, CANVAS, r, idealThickness(pattern))
     distToIdeal = cv2.distanceTransform(cv2.bitwise_not(idealMask), cv2.DIST_L2, 5)
     gapMask = rasterizePolylines(gaps, CANVAS, r, thickness=9) if gaps else None
     idealPts = np.vstack(lit)
@@ -2813,6 +3084,78 @@ def _idealGeometryFor(pattern: str, r: int, orientation: str = "identity"):
     idealCenterY = float((idealPts[:, 1].max() + idealPts[:, 1].min()) / 2.0)
     return (lit, gaps, idealMask, distToIdeal, gapMask,
             idealExtentX, idealExtentY, idealCenterX, idealCenterY)
+
+
+@functools.lru_cache(maxsize=None)
+def _darkCorridorMaskFor(pattern: str, r: int, orientation: str, guardPx: int) -> np.ndarray:
+    """The "should be dark" mask: everything inside the ideal shape's own bounding box
+    (inset by guardPx so the mask never hugs the shape's outer edge, where warp residual
+    and beam width legitimately spill) that is further than guardPx from ANY ideal
+    segment.
+
+    Derived automatically from the pattern's own ideal polylines, so it generalises past
+    the one pattern that has explicit blank-jump geometry:
+      segments -> the three lanes between the four vertical lines (this reproduces the
+                  hand-measured corridors the streak investigation used)
+      square/star/circle -> the shape's interior
+      spiral   -> the gaps between successive turns
+    A pattern whose ideal path fills its own bounding box would produce an empty mask;
+    callers treat an empty mask as "no corridor to measure" (leakage 0), not as clean.
+    """
+    lit, _ = idealPolylines(pattern, r)
+    if orientation != "identity":
+        lit = [_applyD4(line, orientation) for line in lit]
+    idealMask = rasterizePolylines(lit, CANVAS, r, idealThickness(pattern))
+    distToIdeal = cv2.distanceTransform(cv2.bitwise_not(idealMask), cv2.DIST_L2, 5)
+    scale = CANVAS / (2 * r)
+    px = (np.vstack(lit) + r) * scale
+    x0, y0 = np.floor(px.min(axis=0)).astype(int)
+    x1, y1 = np.ceil(px.max(axis=0)).astype(int)
+    box = np.zeros(distToIdeal.shape, bool)
+    ya, yb = max(int(y0) + guardPx, 0), min(int(y1) - guardPx, CANVAS)
+    xa, xb = max(int(x0) + guardPx, 0), min(int(x1) - guardPx, CANVAS)
+    if yb > ya and xb > xa:
+        box[ya:yb, xa:xb] = True
+    return box & (distToIdeal > guardPx)
+
+
+# Patterns whose ideal geometry has real corners with a real dwell, i.e. where the
+# corner/edge brightness ratio means something. Deliberately NOT circle/spiral
+# (no corners at all) or segments/particles (no shared vertices to dwell at), which
+# keep cornerHotspot at 0.0 exactly as before.
+CORNER_HOTSPOT_PATTERNS = ("square", "star", "wireframe", "text")
+
+# Patterns scored as isolated dots rather than as a path.
+BLOB_PATTERNS = ("particles",)
+
+def cornerAndEdgeRois(lit: list[np.ndarray]) -> tuple[np.ndarray, np.ndarray]:
+    """Corner ROI centres (vertices) and edge ROI centres (edge midpoints) for an
+    arbitrary set of ideal polylines.
+
+    Reproduces the original square/star behaviour exactly: both are a single CLOSED
+    polyline whose last point repeats the first, so the duplicate is dropped and the
+    rolled midpoints pick up the closing edge - identical arrays to the previous
+    inline `lit[0][:-1]` / `np.roll` code. Open polylines (wireframe chains, text
+    strokes) contribute every vertex including their two endpoints: on an open path
+    those endpoints are exactly where the optimizer emits a full stop-dwell
+    (cornerSeverity() returns 1.0 there, see point_optimizer.cpp), so they are corner
+    ROIs in the sense this metric means, not exceptions to it."""
+    corners, mids = [], []
+    for line in lit:
+        if len(line) < 2:
+            continue                       # degenerate (particles) - no corner to score
+        closed = bool(np.allclose(line[0], line[-1]))
+        verts = line[:-1] if closed else line
+        if len(verts) < 2:
+            continue
+        corners.append(np.asarray(verts, float))
+        if closed:
+            mids.append((verts + np.roll(verts, -1, axis=0)) / 2.0)
+        else:
+            mids.append((verts[:-1] + verts[1:]) / 2.0)
+    if not corners:
+        return np.empty((0, 2)), np.empty((0, 2))
+    return np.vstack(corners), np.vstack(mids)
 
 
 def computeMetrics(capture: np.ndarray, background: np.ndarray, homography: np.ndarray,
@@ -2826,15 +3169,43 @@ def computeMetrics(capture: np.ndarray, background: np.ndarray, homography: np.n
     (lit, gaps, idealMask, distToIdeal, gapMask,
      idealExtentX, idealExtentY, idealCenterX, idealCenterY) = _idealGeometryFor(pattern, r, orientation)
 
+    # 0. validity: is this a measurement at all, or a blind capture? Every "nothing
+    # visible" branch below records a reason instead of quietly returning a worst-case
+    # constant that reads like a real number downstream.
+    invalidReasons: list[str] = []
+    guardPx = int(cfg["offPathGuardPx"])
+    coverR = int(cfg["pathCoverageRadiusPx"])
+
     # 1. path deviation: distance of every lit pixel from ideal path (DAC units RMS)
     tracePixels = trace > 0
     dacPerPixel = (2 * r) / CANVAS
-    if tracePixels.any():
-        pathDeviationRms = float(np.sqrt(np.mean(distToIdeal[tracePixels] ** 2)) * dacPerPixel)
+    traceLitPx = int(tracePixels.sum())
+    if traceLitPx:
+        distLit = distToIdeal[tracePixels]
+        pathDeviationRms = float(np.sqrt(np.mean(distLit ** 2)) * dacPerPixel)
         saturationFrac = float(np.mean(dacImage[tracePixels] >= 250))
+        offPathLitPx = int((distLit > guardPx).sum())
+        beamWidthUnits = float(2.0 * np.median(distLit) * dacPerPixel)
     else:
         pathDeviationRms = float(2 * r)    # nothing visible -> worst case
         saturationFrac = 0.0
+        offPathLitPx = 0
+        beamWidthUnits = 0.0
+        invalidReasons.append("no lit pixels above binaryThreshold")
+
+    # 1b. path coverage: how much of the ideal path was actually seen. This is the
+    # metric that catches a blind capture the other ones can't - a too-high threshold
+    # leaves only the brightest core pixels, which makes pathDeviationRms and
+    # brightnessNonUniformity look BETTER while the shape has effectively vanished.
+    coverKernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2 * coverR + 1,) * 2)
+    grownTrace = cv2.dilate(trace, coverKernel)
+    idealPathPx = idealMask > 0
+    pathCoveragePct = (float(np.mean(grownTrace[idealPathPx] > 0)) * 100.0
+                       if idealPathPx.any() else 0.0)
+    if pathCoveragePct < cfg["minPathCoveragePct"]:
+        invalidReasons.append(
+            f"only {pathCoveragePct:.1f}% of the ideal path is visible "
+            f"(need >= {cfg['minPathCoveragePct']:.0f}%)")
 
     # 2. blank leakage: mean brightness inside gap corridors (should be dark)
     if gapMask is not None:
@@ -2842,21 +3213,73 @@ def computeMetrics(capture: np.ndarray, background: np.ndarray, homography: np.n
     else:
         blankLeakage = 0.0
 
+    # 2b. blank CORRIDOR leakage: same idea, but over every region that should be dark
+    # rather than only the ideal jump path. See Metrics.blankCorridorLeakage for why the
+    # ideal-path-only version reads backwards on the exact failure it exists to catch.
+    darkMask = _darkCorridorMaskFor(pattern, r, orientation, guardPx)
+    if darkMask.any():
+        darkVals = dacImage[darkMask]
+        blankCorridorLeakage = float(darkVals.mean())
+        blankCorridorMaxVal = float(darkVals.max())
+        blankCorridorLitPx = int((darkVals > cfg["binaryThreshold"]).sum())
+    else:
+        blankCorridorLeakage = blankCorridorMaxVal = 0.0
+        blankCorridorLitPx = 0
+
     # 3. corner hotspot: corner ROI brightness / edge ROI brightness (dwell tuning)
     cornerHotspot = 0.0
-    if pattern in ("square", "star"):
-        vertices = lit[0][:-1]
-        scale = CANVAS / (2 * r)
-        roiHalf = 12
-        cornerVals, edgeVals = [], []
-        edgeMids = (vertices + np.roll(vertices, -1, axis=0)) / 2
-        for group, sink in ((vertices, cornerVals), (edgeMids, edgeVals)):
-            for vx, vy in group:
-                cx, cy = int((vx + r) * scale), int((vy + r) * scale)
-                roi = dacImage[max(cy - roiHalf, 0):cy + roiHalf, max(cx - roiHalf, 0):cx + roiHalf]
-                sink.append(float(roi.mean()))
-        edgeMean = max(np.mean(edgeVals), 1.0)
-        cornerHotspot = float(abs(np.mean(cornerVals) / edgeMean - 1.0))
+    if pattern in CORNER_HOTSPOT_PATTERNS:
+        vertices, edgeMids = cornerAndEdgeRois(lit)
+        if len(vertices) and len(edgeMids):
+            scale = CANVAS / (2 * r)
+            roiHalf = 12
+            cornerVals, edgeVals = [], []
+            for group, sink in ((vertices, cornerVals), (edgeMids, edgeVals)):
+                for vx, vy in group:
+                    cx, cy = int((vx + r) * scale), int((vy + r) * scale)
+                    roi = dacImage[max(cy - roiHalf, 0):cy + roiHalf, max(cx - roiHalf, 0):cx + roiHalf]
+                    sink.append(float(roi.mean()))
+            edgeMean = max(np.mean(edgeVals), 1.0)
+            cornerHotspot = float(abs(np.mean(cornerVals) / edgeMean - 1.0))
+
+    # 3b. isolated-dot blobs (particles only) - see Metrics.blobExpected.
+    blobExpected = blobCount = blobCountError = 0
+    blobElongation = blobElongationMax = 1.0
+    blobCentroidErrorUnits = 0.0
+    if pattern in BLOB_PATTERNS:
+        idealDots = particleDots(r // 2)
+        if orientation != "identity":
+            idealDots = _applyD4(idealDots, orientation)
+        blobExpected = len(idealDots)
+        minArea = int(cfg.get("minBlobAreaPx", DEFAULT_MIN_BLOB_AREA_PX))
+        nLabels, labels, stats, centroids = cv2.connectedComponentsWithStats(trace, 8)
+        keep = [i for i in range(1, nLabels)
+                if stats[i, cv2.CC_STAT_AREA] >= minArea]
+        blobCount = len(keep)
+        blobCountError = abs(blobCount - blobExpected)
+        if keep:
+            elongations = []
+            for i in keep:
+                ys, xs = np.nonzero(labels == i)
+                if len(xs) < 3:
+                    elongations.append(1.0)
+                    continue
+                cov = np.cov(np.stack([xs.astype(float), ys.astype(float)]))
+                ev = np.linalg.eigvalsh(cov)          # ascending
+                major = float(np.sqrt(max(ev[1], 0.0)))
+                # 0.5 px floor: a genuinely 1-px-wide blob has ~0 minor variance and
+                # would otherwise divide by zero and report an infinite ratio.
+                minor = max(float(np.sqrt(max(ev[0], 0.0))), 0.5)
+                elongations.append(major / minor)
+            blobElongation = float(np.mean(elongations))
+            blobElongationMax = float(np.max(elongations))
+            found = np.array([centroids[i] for i in keep], float)
+            foundDac = found / (CANVAS / (2 * r)) - r
+            d = np.linalg.norm(idealDots[:, None, :] - foundDac[None, :, :], axis=2)
+            blobCentroidErrorUnits = float(np.mean(d.min(axis=1)))
+        else:
+            invalidReasons.append(
+                f"no dot blobs of at least {minArea}px detected (expected {blobExpected})")
 
     # 4. brightness uniformity along ideal path (adaptive density check)
     pathVals = dacImage[idealMask > 0].astype(float)
@@ -2865,6 +3288,9 @@ def computeMetrics(capture: np.ndarray, background: np.ndarray, homography: np.n
         brightnessNonUniformity = float(np.std(litVals) / max(np.mean(litVals), 1.0))
     else:
         brightnessNonUniformity = 1.0
+        invalidReasons.append(
+            f"only {len(litVals)} lit pixel(s) on the ideal path - brightness "
+            f"uniformity is a fallback, not a reading")
 
     # 5. overall geometry: lit shape's size/position vs. ideal, in DAC units. Compared
     # against the ideal's own polyline coordinates (not idealMask) for exact values,
@@ -2884,21 +3310,78 @@ def computeMetrics(capture: np.ndarray, background: np.ndarray, homography: np.n
     else:
         scaleErrorXPct = scaleErrorYPct = 0.0
         offsetXUnits = offsetYUnits = float(r)     # nothing visible -> worst case, flag it
+        invalidReasons.append(
+            f"only {len(traceCols)} lit pixel(s) on the canvas - scale/offset are "
+            f"fallbacks, not readings")
 
+    valid = not invalidReasons
     w = cfg["costWeights"]
-    cost = (w["pathDeviationRms"] * pathDeviationRms / 100.0
-            + w["blankLeakage"] * blankLeakage / 10.0
-            + w["cornerHotspot"] * cornerHotspot
-            + w["brightnessNonUniformity"] * brightnessNonUniformity
-            + w.get("saturationFrac", 0.0) * saturationFrac)
+    if valid:
+        cost = (w["pathDeviationRms"] * pathDeviationRms / 100.0
+                + w["blankLeakage"] * blankLeakage / 10.0
+                + w.get("blankCorridorLeakage", 0.0) * blankCorridorLeakage
+                + w["cornerHotspot"] * cornerHotspot
+                + w["brightnessNonUniformity"] * brightnessNonUniformity
+                + w.get("saturationFrac", 0.0) * saturationFrac
+                # Dot terms: all three are identically zero for every non-dot pattern
+                # (blobExpected == 0 there), so no existing pattern's cost changes.
+                # Elongation enters as (ratio - 1) so a perfectly round dot contributes
+                # nothing rather than a constant offset.
+                + w.get("blobElongation", 0.0) * max(0.0, blobElongation - 1.0)
+                + w.get("blobCountError", 0.0) * blobCountError
+                + w.get("blobCentroidErrorUnits", 0.0) * blobCentroidErrorUnits / 100.0)
+    else:
+        # NOT a large number: a large number is still a score, and a search would happily
+        # rank two blind trials against each other. NaN forces every consumer to deal with
+        # it explicitly (see scoreOrRaise / runStudyForProfile's objective).
+        cost = float("nan")
     metrics = Metrics(pathDeviationRms=pathDeviationRms, blankLeakage=blankLeakage,
                       cornerHotspot=cornerHotspot, brightnessNonUniformity=brightnessNonUniformity,
-                      saturationFrac=saturationFrac, scaleErrorXPct=scaleErrorXPct,
+                      valid=valid, invalidReasons=invalidReasons, traceLitPx=traceLitPx,
+                      offPathLitPx=offPathLitPx, pathCoveragePct=pathCoveragePct,
+                      beamWidthUnits=beamWidthUnits,
+                      blankCorridorLeakage=blankCorridorLeakage,
+                      blankCorridorMaxVal=blankCorridorMaxVal,
+                      blankCorridorLitPx=blankCorridorLitPx,
+                      saturationFrac=saturationFrac,
+                      blobExpected=blobExpected, blobCount=blobCount,
+                      blobCountError=blobCountError, blobElongation=blobElongation,
+                      blobElongationMax=blobElongationMax,
+                      blobCentroidErrorUnits=blobCentroidErrorUnits,
+                      scaleErrorXPct=scaleErrorXPct,
                       scaleErrorYPct=scaleErrorYPct, offsetXUnits=offsetXUnits,
                       offsetYUnits=offsetYUnits, cost=cost)
     debug = {"dacImage": dacImage, "trace": trace, "idealMask": idealMask, "gapMask": gapMask,
-             "orientation": orientation}
+             "darkMask": darkMask, "orientation": orientation}
     return metrics, debug
+
+
+def metricsToDict(m: Metrics) -> dict:
+    """vars(Metrics) straight into json.dumps blows up on cost=NaN (json emits a bare
+    `NaN`, which is not valid JSON and breaks any strict reader of the .jsonl trial log).
+    Also puts `valid`/`invalidReasons` first so an invalid record is obvious at a glance."""
+    d = vars(m).copy()
+    ordered = {"valid": d.pop("valid"), "invalidReasons": list(d.pop("invalidReasons"))}
+    for k, v in d.items():
+        ordered[k] = None if isinstance(v, float) and math.isnan(v) else v
+    return ordered
+
+
+def formatInvalid(m: Metrics, pattern: str = "") -> str:
+    """One-line, un-missable rendering of an invalid measurement, shared by measure/
+    diagnose/optimize so the operator always gets the same wording and the same
+    where-to-look hint."""
+    what = f" on '{pattern}'" if pattern else ""
+    return (f"INVALID MEASUREMENT{what}: " + "; ".join(m.invalidReasons) +
+            f"  [lit {m.traceLitPx}px, path coverage {m.pathCoveragePct:.1f}%]")
+
+
+INVALID_MEASUREMENT_HINT = (
+    "the camera is not seeing the beam properly. In likelihood order: binaryThreshold "
+    "too high (run 'autotune-camera', or lower it by hand and re-run 'measure'), "
+    "exposure/gain too low, beam out of focus or partly outside the calibrated area, "
+    "or a stale homography (re-run 'calibrate')."
+)
 
 
 def annotateCanvas(debug: dict, m: Metrics, pattern: str, label: str = "") -> np.ndarray:
@@ -2911,12 +3394,19 @@ def annotateCanvas(debug: dict, m: Metrics, pattern: str, label: str = "") -> np
     cyan/red/amber there, since a bloomed/clipped pixel can otherwise look exactly like
     a genuine off-path detection (see Metrics.saturationFrac's docstring). The faint
     gray background elsewhere is real camera signal that never crossed binaryThreshold -
-    it's not scored at all, on-path or not. Used for both saved screenshots and the
-    live view so 'what was analyzed' is never just numbers."""
+    it's not scored at all, on-path or not, and is drawn at HALF brightness so it can
+    never be mistaken for detected beam. An invalid measurement gets a red border and a
+    reason list rather than looking like any other frame. Used for both saved screenshots
+    and the live view so 'what was analyzed' is never just numbers."""
     dacImage, trace, idealMask, gapMask = (debug["dacImage"], debug["trace"],
                                            debug["idealMask"], debug["gapMask"])
     orientation = debug.get("orientation", "identity")
-    canvas = cv2.cvtColor(dacImage, cv2.COLOR_GRAY2BGR)
+    # Halved, so the un-thresholded camera signal reads as clearly dimmer than anything
+    # that actually crossed binaryThreshold and got scored. Before this, a capture where
+    # the threshold was so high that only a handful of pixels were scored still LOOKED
+    # like a perfectly traced shape here, because the drawing started from the raw
+    # pre-threshold image - the exact reason the blind-measurement failure went unnoticed.
+    canvas = cv2.cvtColor((dacImage // 2).astype(np.uint8), cv2.COLOR_GRAY2BGR)
     idealDilated = cv2.dilate(idealMask, np.ones((5, 5), np.uint8))
     tracePixels = trace > 0
     matched = tracePixels & (idealDilated > 0)
@@ -2931,18 +3421,35 @@ def annotateCanvas(debug: dict, m: Metrics, pattern: str, label: str = "") -> np
     canvas[saturated] = (255, 0, 255)
 
     title = f"{label + ': ' if label else ''}{pattern}"
+    costText = "n/a (invalid)" if math.isnan(m.cost) else f"{m.cost:.3f}"
     lines = [
         title,
         f"path dev {m.pathDeviationRms:.1f}  blank leak {m.blankLeakage:.1f}  "
+        f"corridor leak {m.blankCorridorLeakage:.2f}  "
         f"corner hot {m.cornerHotspot:.2f}  uniformity {m.brightnessNonUniformity:.2f}  "
         f"sat {m.saturationFrac * 100:.0f}%",
         f"scale X{m.scaleErrorXPct:+.1f}% Y{m.scaleErrorYPct:+.1f}%  "
-        f"offset X{m.offsetXUnits:+.0f} Y{m.offsetYUnits:+.0f}  cost {m.cost:.3f}",
+        f"offset X{m.offsetXUnits:+.0f} Y{m.offsetYUnits:+.0f}  cost {costText}",
+        # The blind-capture readout: everything above can look plausible with almost
+        # nothing actually detected, so the counts that decide validity are on screen.
+        f"lit {m.traceLitPx}px (off-path {m.offPathLitPx})  "
+        f"path coverage {m.pathCoveragePct:.1f}%  beam width {m.beamWidthUnits:.0f}u",
     ]
     for i, line in enumerate(lines):
         cv2.putText(canvas, line, (8, 22 + i * 20), cv2.FONT_HERSHEY_SIMPLEX, 0.5,
                    (255, 255, 255), 1, cv2.LINE_AA)
     warnY = 22 + len(lines) * 20 + 6
+    if not m.valid:
+        cv2.rectangle(canvas, (2, 2), (canvas.shape[1] - 3, canvas.shape[0] - 3),
+                     (0, 0, 255), 4)
+        cv2.putText(canvas, "!! INVALID MEASUREMENT - NOT SCORED !!", (8, warnY),
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2, cv2.LINE_AA)
+        warnY += 20
+        for reason in m.invalidReasons[:3]:
+            cv2.putText(canvas, f"  {reason}", (8, warnY), cv2.FONT_HERSHEY_SIMPLEX,
+                       0.45, (0, 0, 255), 1, cv2.LINE_AA)
+            warnY += 17
+        warnY += 4
     if np.any(saturated):
         cv2.putText(canvas, "magenta = sensor-saturated (likely blooming, not a real "
                    "position/dwell error)", (8, warnY), cv2.FONT_HERSHEY_SIMPLEX, 0.5,
@@ -3013,6 +3520,8 @@ def measureOnce(esp: EspClient, cam: Camera, cfg: dict, homography: np.ndarray,
         except cv2.error as e:
             prWarn(f"could not save capture to {saveTo}: {e}")
     metrics, debug = computeMetrics(capture, background, homography, pattern, cfg)
+    if not metrics.valid:
+        prWarn(formatInvalid(metrics, pattern))
     annotated = annotateCanvas(debug, metrics, pattern, label=statusPrefix)
     if cam.liveView:
         # Flashes the analyzed result (ideal vs. traced vs. deviation) into the same
@@ -3410,6 +3919,52 @@ def defaultSearchSpace() -> dict:
                 "max_corner_pts": {"type": "int", "min": 3, "max": 10},
             },
         },
+        # Wireframe/Text/Particles got their camera patterns in fw v6.75.0
+        # (calib_patterns.cpp idx 21/22/23). Ranges centered on
+        # OPT_PROFILE_DEFAULTS[3]/[7]/[5] respectively.
+        "Wireframe": {
+            "patterns": ["wireframe"],
+            "params": {
+                "corner_angle_deg": {"type": "float", "min": 10.0, "max": 45.0},
+                "min_corner_pts": {"type": "int", "min": 1, "max": 4},
+                "max_corner_pts": {"type": "int", "min": 4, "max": 14},
+                "pts_per_1000_units": {"type": "float", "min": 3.0, "max": 14.0},
+                "blank_samples": {"type": "int", "min": 10, "max": 44},
+                "min_blank_samples": {"type": "int", "min": 2, "max": 12},
+                "blank_pts_per_1000_units": {"type": "float", "min": 0.3, "max": 3.0},
+                "stage1_blank_target": {"type": "int", "min": 6, "max": 20},
+                "min_interior_pts_per_segment": {"type": "int", "min": 2, "max": 12},
+            },
+        },
+        "Text": {
+            "patterns": ["text"],
+            "params": {
+                "corner_angle_deg": {"type": "float", "min": 10.0, "max": 50.0},
+                "min_corner_pts": {"type": "int", "min": 1, "max": 4},
+                "max_corner_pts": {"type": "int", "min": 3, "max": 12},
+                "pts_per_1000_units": {"type": "float", "min": 3.0, "max": 14.0},
+                "blank_samples": {"type": "int", "min": 8, "max": 36},
+                "min_blank_samples": {"type": "int", "min": 2, "max": 12},
+                "blank_pts_per_1000_units": {"type": "float", "min": 0.4, "max": 3.0},
+                "stage1_blank_target": {"type": "int", "min": 4, "max": 16},
+                "min_interior_pts_per_segment": {"type": "int", "min": 1, "max": 8},
+            },
+        },
+        # Particles is the blanked-jump profile: nearly all of its cost is the
+        # jump window, so the dwell params get a narrow range and the blanking
+        # ones a wide one. min_blank_samples' range deliberately reaches up to
+        # 40 - the firmware default is 32 after the v6.65.2 settle-window fix
+        # (config.h), and anything much below ~16 reintroduces the streaks.
+        "Particles": {
+            "patterns": ["particles"],
+            "params": {
+                "max_corner_pts": {"type": "int", "min": 2, "max": 10},
+                "blank_samples": {"type": "int", "min": 16, "max": 64},
+                "min_blank_samples": {"type": "int", "min": 8, "max": 40},
+                "blank_pts_per_1000_units": {"type": "float", "min": 0.3, "max": 3.0},
+                "stage1_blank_target": {"type": "int", "min": 4, "max": 16},
+            },
+        },
     }
 
 
@@ -3421,7 +3976,7 @@ def loadSearchSpaceFile() -> dict:
         except OSError as e:
             raise OptimizerError(f"cannot create {SEARCH_SPACE_FILE}: {e}") from e
         prWarn(f"{SEARCH_SPACE_FILE.name} was missing - regenerated with default "
-              f"ranges for Vector/Smooth/Waves/MultiObject (centered on each "
+              f"ranges for {', '.join(profileNames(spaces))} (centered on each "
               f"profile's firmware default). Review before relying on it for real "
               f"tuning.")
         return spaces
@@ -3434,6 +3989,19 @@ def loadSearchSpaceFile() -> dict:
 
     if not isinstance(spaces, dict):
         raise OptimizerError(f"{SEARCH_SPACE_FILE.name} must contain a JSON object")
+
+    # An existing file is never rewritten (it is the user's own tuning ranges),
+    # so profiles that gained a camera pattern after it was created would just
+    # silently not show up as tunable. Say so instead, with the exact keys to
+    # copy from defaultSearchSpace().
+    stale = [n for n in defaultSearchSpace()
+             if not n.startswith("_") and n not in spaces]
+    if stale:
+        prWarn(f"{SEARCH_SPACE_FILE.name} has no entry for {', '.join(stale)} - "
+               f"those profiles are camera-tunable but will be skipped by "
+               f"'optimize'. Delete the file to regenerate it with defaults, or "
+               f"copy the missing block(s) from defaultSearchSpace() in this "
+               f"script.")
     return spaces
 
 
@@ -3691,9 +4259,28 @@ def runStudyForProfile(optuna, cfg: dict, esp: EspClient, cam: Camera,
     logFile = RESULTS_DIR / f"optimize_{profileName}_{time.strftime('%Y-%m-%d_%H-%M-%S')}.jsonl"
     trialDurations: list[float] = []
     runIndex = 0
+    invalidTrials = 0
+    invalidAbort: str | None = None
+    # Below this many attempts the invalid FRACTION is too noisy to act on (1 bad trial
+    # out of 2 is 50%, but says nothing) - the guard needs a minimum sample first.
+    minTrialsForInvalidAbort = 4
+
+    def measureValid(pattern, params, label):
+        """One measurement, retried once on an invalid result before giving up. A single
+        invalid reading can be a transient (a pattern switch not fully settled, someone
+        walking through the beam path); a repeat is the rig, not the moment."""
+        m, effective = measureOnce(
+            esp, cam, cfg, homography, background, pattern,
+            statusPrefix=label, params=params)
+        if not m.valid:
+            prWarn(f"retrying '{pattern}' once after an invalid measurement ...")
+            m, effective = measureOnce(
+                esp, cam, cfg, homography, background, pattern,
+                statusPrefix=f"{label} (retry)", params=params)
+        return m, effective
 
     def objective(trial):
-        nonlocal runIndex
+        nonlocal runIndex, invalidTrials, invalidAbort
         trialStart = time.monotonic()
         if cam.liveView:
             cam.liveView.setProgress(runIndex + 1, trials)
@@ -3701,17 +4288,20 @@ def runStudyForProfile(optuna, cfg: dict, esp: EspClient, cam: Camera,
         totalCost = 0.0
         perPattern = {}
         effectivePerPattern = {}
+        invalidPatterns = []
         for pattern in patterns:
             # params are re-applied for every pattern, not once per trial: the ESP32
             # only accepts /params while a calib-cam session is active, and each
             # /start resets any previous overrides back to the profile baseline.
-            m, effective = measureOnce(
-                esp, cam, cfg, homography, background, pattern,
-                statusPrefix=f"optimize {profileName} trial {runIndex + 1}/{trials}",
-                params=params)
-            totalCost += m.cost
-            trial.set_user_attr(f"metrics_{pattern}", vars(m))
-            perPattern[pattern] = vars(m)
+            m, effective = measureValid(
+                pattern, params,
+                f"optimize {profileName} trial {runIndex + 1}/{trials}")
+            if m.valid:
+                totalCost += m.cost
+            else:
+                invalidPatterns.append(pattern)
+            trial.set_user_attr(f"metrics_{pattern}", metricsToDict(m))
+            perPattern[pattern] = metricsToDict(m)
             effectivePerPattern[pattern] = effective
         trial.set_user_attr("effectiveParams", effectivePerPattern)
 
@@ -3720,19 +4310,42 @@ def runStudyForProfile(optuna, cfg: dict, esp: EspClient, cam: Camera,
         runIndex += 1
         avgDuration = sum(trialDurations) / len(trialDurations)
         eta = (trials - runIndex) * avgDuration
+        costText = "INVALID" if invalidPatterns else f"{totalCost:.4f}"
         pr(f"[{profileName} trial {runIndex}/{trials}] (#{trial.number}) "
-              f"cost={totalCost:.4f}  {duration:.1f}s, avg {avgDuration:.1f}s/trial, "
+              f"cost={costText}  {duration:.1f}s, avg {avgDuration:.1f}s/trial, "
               f"ETA {eta / 60:.1f} min")
 
         try:
             with logFile.open("a") as f:
                 f.write(json.dumps({
-                    "trial": trial.number, "cost": totalCost, "params": params,
+                    "trial": trial.number,
+                    "cost": None if invalidPatterns else totalCost,
+                    "valid": not invalidPatterns,
+                    "invalidPatterns": invalidPatterns,
+                    "params": params,
                     "effectiveParams": effectivePerPattern, "metrics": perPattern,
                     "durationSeconds": round(duration, 2)
                 }) + "\n")
         except OSError as e:
             prWarn(f"could not append to per-trial log {logFile.name}: {e}")
+
+        if invalidPatterns:
+            # Dropped, not scored. Assigning any number here - however large - would let
+            # the sampler rank blind trials against each other and "learn" that whatever
+            # made the camera blind is a good region of the search space.
+            invalidTrials += 1
+            prWarn(f"trial #{trial.number} dropped: no valid measurement for "
+                   f"{invalidPatterns} even after a retry "
+                   f"({invalidTrials}/{runIndex} trial(s) invalid so far)")
+            if (runIndex >= minTrialsForInvalidAbort
+                    and invalidTrials / runIndex > cfg["maxInvalidTrialFraction"]):
+                invalidAbort = (
+                    f"{invalidTrials} of {runIndex} trial(s) on profile '{profileName}' "
+                    f"produced no valid measurement (limit: "
+                    f"{cfg['maxInvalidTrialFraction'] * 100:.0f}%). This study is "
+                    f"measuring the camera, not the galvo - " + INVALID_MEASUREMENT_HINT)
+                raise OptimizerError(invalidAbort)
+            raise optuna.TrialPruned()
         return totalCost
 
     try:
@@ -3746,6 +4359,11 @@ def runStudyForProfile(optuna, cfg: dict, esp: EspClient, cam: Camera,
     if priorTrials:
         pr(f"resuming study '{studyName}' ({storageUrl}) - "
               f"{priorTrials} trial(s) already recorded, adding {trials} more")
+        prWarn("costs recorded before v2.19.0 are NOT comparable with new ones: the cost "
+               "function gained a blankCorridorLeakage term, and trials whose capture saw "
+               "nothing used to be scored as if they were real readings instead of being "
+               "dropped. If this study predates v2.19.0, start a fresh one (--fresh) "
+               "rather than mixing the two.")
     else:
         pr(f"new study '{studyName}' -> {storageUrl}")
     pr(f"per-trial log -> {logFile.name}")
@@ -3767,6 +4385,17 @@ def runStudyForProfile(optuna, cfg: dict, esp: EspClient, cam: Camera,
             esp.stop()
         except OptimizerError:
             pass    # best-effort cleanup - the original error/interrupt is what matters
+
+    if invalidAbort:
+        # Hard stop for the whole command, not a per-profile "stopped early": every
+        # remaining profile would be measured through the same blind camera. Trials
+        # recorded so far are still safely in the study storage.
+        raise OptimizerError(invalidAbort)
+    if invalidTrials:
+        prWarn(f"{invalidTrials} of {runIndex} trial(s) on '{profileName}' were dropped "
+               f"as invalid measurements - the result below rests on the "
+               f"{runIndex - invalidTrials} readable one(s). If that count looks low, "
+               + INVALID_MEASUREMENT_HINT)
 
     if stoppedEarly:
         pr(f"\noptimize stopped early: {stoppedEarly}")
@@ -3881,9 +4510,14 @@ def runOptimize(cfg: dict, esp: EspClient, cam: Camera, profile: str | None, tri
                         esp, cam, cfg, homography, background, pattern,
                         statusPrefix=f"{name} AFTER", params=bestParams,
                         saveTo=RESULTS_DIR / f"{name}_{pattern}_after_{result['timestamp']}.png")
-                    pr(f"  {pattern}: cost {beforeM.cost:.4f} -> {afterM.cost:.4f}  -> "
+                    fmt = (lambda c: "INVALID" if math.isnan(c) else f"{c:.4f}")
+                    pr(f"  {pattern}: cost {fmt(beforeM.cost)} -> {fmt(afterM.cost)}  -> "
                           f"{RESULTS_DIR.name}/{name}_{pattern}_{{before,after}}_"
                           f"{result['timestamp']}[_annotated].png")
+                    for side, mm in (("BEFORE", beforeM), ("AFTER", afterM)):
+                        if not mm.valid:
+                            prWarn(f"  {side} {formatInvalid(mm, pattern)} - this "
+                                   f"comparison is not meaningful")
 
             # The calib-cam session restored the pre-tuning snapshot on /stop, so
             # tuned values are NOT live on the controller yet - apply explicitly.
@@ -3944,8 +4578,15 @@ def classifyProfile(name: str, patterns: list[str], allMetrics: dict[str, Metric
     calibration (or a moved camera/surface), so autotune is only offered when
     geometry is clean but the settings-related metrics are still out of tolerance."""
     geometryIssues, settingsIssues = [], []
+    invalidIssues: list[str] = []
     for pattern in patterns:
         m = allMetrics[pattern]
+        if not m.valid:
+            # Not classified at all: every number below would be a fallback constant,
+            # and reporting "path deviation 60000 DAC units" as a settings issue would
+            # send the operator tuning the galvo over a camera problem.
+            invalidIssues.append(formatInvalid(m, pattern))
+            continue
         if abs(m.scaleErrorXPct) > thresholds["geometryScalePct"]:
             geometryIssues.append(f"{pattern}: X size off by {m.scaleErrorXPct:+.1f}% vs. ideal")
         if abs(m.scaleErrorYPct) > thresholds["geometryScalePct"]:
@@ -3954,12 +4595,27 @@ def classifyProfile(name: str, patterns: list[str], allMetrics: dict[str, Metric
             geometryIssues.append(f"{pattern}: X position off by {m.offsetXUnits:+.0f} DAC units")
         if abs(m.offsetYUnits) > thresholds["geometryOffsetUnits"]:
             geometryIssues.append(f"{pattern}: Y position off by {m.offsetYUnits:+.0f} DAC units")
-        if m.pathDeviationRms > thresholds["pathDeviationRms"]:
+        # The path-deviation bar is derived from THIS measurement's own beam width, not
+        # a flat number: on any real rig the RMS distance from the ideal path is
+        # dominated by how wide the beam images, which is a property of the optics and
+        # the camera, not of any scan parameter. See diagnoseThresholds' comment.
+        pathBar = max(thresholds.get("pathDeviationRmsMinUnits", 0.0),
+                      thresholds.get("pathDeviationBeamWidthFactor", 0.0) * m.beamWidthUnits)
+        if m.pathDeviationRms > pathBar:
             settingsIssues.append(f"{pattern}: path deviation {m.pathDeviationRms:.1f} DAC units "
-                                  f"(threshold {thresholds['pathDeviationRms']})")
+                                  f"(threshold {pathBar:.0f} = "
+                                  f"{thresholds.get('pathDeviationBeamWidthFactor', 0.0):.1f} x "
+                                  f"measured beam width {m.beamWidthUnits:.0f}u, floor "
+                                  f"{thresholds.get('pathDeviationRmsMinUnits', 0.0):.0f})")
         if m.blankLeakage > thresholds["blankLeakage"]:
             settingsIssues.append(f"{pattern}: blank leakage {m.blankLeakage:.1f} "
                                   f"(threshold {thresholds['blankLeakage']})")
+        if m.blankCorridorLeakage > thresholds.get("blankCorridorLeakage", float("inf")):
+            settingsIssues.append(
+                f"{pattern}: blank corridor leakage {m.blankCorridorLeakage:.2f} "
+                f"(threshold {thresholds['blankCorridorLeakage']}), "
+                f"{m.blankCorridorLitPx} lit px in regions that should be dark, "
+                f"brightest {m.blankCorridorMaxVal:.0f}")
         if m.cornerHotspot > thresholds["cornerHotspot"]:
             settingsIssues.append(f"{pattern}: corner hotspot ratio {m.cornerHotspot:.2f} "
                                   f"(threshold {thresholds['cornerHotspot']})")
@@ -3967,19 +4623,41 @@ def classifyProfile(name: str, patterns: list[str], allMetrics: dict[str, Metric
             settingsIssues.append(f"{pattern}: brightness non-uniformity "
                                   f"{m.brightnessNonUniformity:.2f} "
                                   f"(threshold {thresholds['brightnessNonUniformity']})")
+        # Isolated-dot checks: only meaningful where there ARE ideal dots.
+        if m.blobExpected > 0:
+            if m.blobElongation > thresholds.get("blobElongation", float("inf")):
+                settingsIssues.append(
+                    f"{pattern}: dots are smeared - mean elongation {m.blobElongation:.2f} "
+                    f"(threshold {thresholds['blobElongation']}), worst "
+                    f"{m.blobElongationMax:.2f}; the blank window is too short for the "
+                    f"jump distance")
+            if m.blobCountError > thresholds.get("blobCountError", float("inf")):
+                settingsIssues.append(
+                    f"{pattern}: saw {m.blobCount} dots, expected {m.blobExpected} - "
+                    f"dots merging into streaks or dropping out entirely")
+            if m.blobCentroidErrorUnits > thresholds.get("blobCentroidErrorUnits", float("inf")):
+                settingsIssues.append(
+                    f"{pattern}: dots land {m.blobCentroidErrorUnits:.0f} DAC units from "
+                    f"their target on average (threshold "
+                    f"{thresholds['blobCentroidErrorUnits']:.0f}) - the beam has not "
+                    f"arrived when the laser re-arms")
         if m.saturationFrac > thresholds["saturationFrac"]:
             settingsIssues.append(
                 f"{pattern}: {m.saturationFrac * 100:.0f}% of the traced beam is raw-sensor-"
                 f"saturated (threshold {thresholds['saturationFrac'] * 100:.0f}%) - likely "
                 f"camera blooming inflating path deviation/corner hotspot, not a real scan/"
                 f"dwell problem; try 'autotune-camera' before 'optimize' for this one")
-    if geometryIssues:
+    if invalidIssues:
+        # Outranks everything: with a blind capture there is no verdict to give, and
+        # saying "GEOMETRY ISSUE" or "OK" here would both be inventions.
+        verdict = "INVALID MEASUREMENT"
+    elif geometryIssues:
         verdict = "GEOMETRY ISSUE"
     elif settingsIssues:
         verdict = "OPTIMIZER SETTINGS ISSUE"
     else:
         verdict = "OK"
-    return verdict, geometryIssues, settingsIssues
+    return verdict, geometryIssues, settingsIssues + invalidIssues
 
 
 def printDiagnosis(name: str, verdict: str, geometryIssues: list[str], settingsIssues: list[str],
@@ -3989,8 +4667,12 @@ def printDiagnosis(name: str, verdict: str, geometryIssues: list[str], settingsI
     for g in geometryIssues:
         pr(f"  [geometry] {g}")
     for s in settingsIssues:
-        pr(f"  [settings] {s}")
-    if verdict == "GEOMETRY ISSUE":
+        # Invalid-measurement entries are carried in the same list (see classifyProfile's
+        # return) but are not settings problems - they're already self-labelling.
+        pr(f"  {s}" if s.startswith("INVALID MEASUREMENT") else f"  [settings] {s}")
+    if verdict == "INVALID MEASUREMENT":
+        prWarn(f"'{name}' was NOT diagnosed - " + INVALID_MEASUREMENT_HINT)
+    elif verdict == "GEOMETRY ISSUE":
         prTip("not fixable by autotune. Re-run 'calibrate' (camera/projection surface "
               "may have moved); if it persists, suspect galvo gain/offset/DAC-range "
               "calibration drift - current live values, for reference:")
@@ -4085,9 +4767,20 @@ def runDiagnose(cfg: dict, esp: EspClient, cam: Camera, profile: str | None,
     for name, verdict, geometryIssues, settingsIssues in results:
         printDiagnosis(name, verdict, geometryIssues, settingsIssues, calib)
 
+    invalidNames = [n for n, v, _, _ in results if v == "INVALID MEASUREMENT"]
+    if invalidNames:
+        pr()
+        prWarn(f"{len(invalidNames)} of {len(results)} profile(s) could not be diagnosed "
+               f"at all: {invalidNames}. Fix the capture before trusting ANY number from "
+               f"this run - " + INVALID_MEASUREMENT_HINT)
+
     if not flagged:
         pr()
-        prOk("no profile needs autotune.")
+        if invalidNames:
+            prWarn("no profile flagged for autotune - but see the invalid measurement(s) "
+                   "above; this is not a clean bill of health.")
+        else:
+            prOk("no profile needs autotune.")
         return
 
     flaggedNames = [p["name"] for p in flagged]
@@ -4318,7 +5011,8 @@ def runPreview(cfg: dict, cam: Camera, zoomIdx: int = 0):
 
 # ── camera autotune ──────────────────────────────────────────────────────────
 
-CAMERA_AUTOTUNE_PATTERNS = ("square", "star", "segments", "circle", "spiral")
+CAMERA_AUTOTUNE_PATTERNS = ("square", "star", "segments", "circle", "spiral",
+                            "wireframe", "text", "particles")
 
 # Default pattern set for 'autotune-camera': square gives corner-hotspot coverage,
 # circle gives pure path/uniformity with no straight edges or corners, segments
@@ -4343,9 +5037,17 @@ def runAutotuneCamera(cfg: dict, esp: EspClient, cam: Camera, patterns: list[str
     only, not pattern tuning - that's what 'optimize' is for.
 
     Scored with the same path-deviation/blank-leakage/corner-hotspot/brightness-
-    uniformity cost 'optimize' uses, plus a saturation and background-brightness
-    penalty (cameraAutotuneWeights) - those metrics alone don't reliably punish a
-    washed-out capture, since an all-white frame can look perfectly "uniform".
+    uniformity cost 'optimize' uses, plus four cameraAutotuneWeights penalties those
+    metrics can't express on their own:
+      saturation / backgroundBrightness - a washed-out (overexposed) capture would
+        otherwise look perfectly "uniform"
+      pathCoverage / offPathNoise / blindCapture - the signal-vs-noise criterion. The
+        core metrics get BETTER as the capture goes blind (a higher binaryThreshold
+        keeps only the brightest core pixels, shrinking pathDeviationRms and improving
+        brightnessNonUniformity), so without these the search is rewarded for blinding
+        the camera. That is exactly how this rig ended up at binaryThreshold=133, five
+        lit pixels on the whole canvas. The chosen settings are also re-measured at the
+        end and refused if they don't produce a valid measurement.
 
     Background is re-captured fresh every trial (laser off) at that trial's
     exposure/gain - a background from a different exposure would corrupt the
@@ -4415,6 +5117,9 @@ def runAutotuneCamera(cfg: dict, esp: EspClient, cam: Camera, patterns: list[str
         totalCost = 0.0
         saturationFrac = 0.0
         perPattern = {}
+        blindPatterns = []
+        coverageSum = 0.0
+        offPathSum = 0.0
         for patternIdx, pattern in enumerate(patterns):
             # Exactly one pattern per trial gets saved (raw + measureOnce's own
             # "_annotated" companion = 2 files/trial, not 2 per pattern) - enough to
@@ -4425,10 +5130,33 @@ def runAutotuneCamera(cfg: dict, esp: EspClient, cam: Camera, patterns: list[str
             m, _ = measureOnce(
                 esp, cam, trialCfg, homography, background, pattern, saveTo=saveTo,
                 statusPrefix=f"autotune-camera trial {runIndex + 1}/{trials}")
-            totalCost += m.cost
+
+            # ── signal-vs-noise criterion ────────────────────────────────────────
+            # Without this, the search is actively rewarded for blinding the camera:
+            # a higher binaryThreshold keeps only the brightest core pixels, which
+            # SHRINKS pathDeviationRms and improves brightnessNonUniformity. That is
+            # how this rig ended up configured at binaryThreshold=133 - five lit
+            # pixels on the whole canvas, scoring better than the usable 50.
+            # Coverage rewards seeing more of the ideal path; off-path noise stops
+            # coverage from being bought by dropping into the sensor noise floor.
+            coverageTerm = (weights.get("pathCoverage", 0.0)
+                            * (1.0 - m.pathCoveragePct / 100.0))
+            offPathTerm = (weights.get("offPathNoise", 0.0)
+                           * (m.offPathLitPx / max(m.traceLitPx, 1)))
+            coverageSum += coverageTerm
+            offPathSum += offPathTerm
+            totalCost += coverageTerm + offPathTerm
+            if m.valid:
+                totalCost += m.cost
+            else:
+                # m.cost is NaN and the path/uniformity metrics behind it are fallback
+                # constants - adding them would be scoring a non-measurement. A flat
+                # penalty instead, big enough to wall off the whole blind region.
+                blindPatterns.append(pattern)
+                totalCost += weights.get("blindCapture", 0.0)
             saturationFrac = max(saturationFrac, _saturationFraction(cam.lastAccumulated))
-            trial.set_user_attr(f"metrics_{pattern}", vars(m))
-            perPattern[pattern] = vars(m)
+            trial.set_user_attr(f"metrics_{pattern}", metricsToDict(m))
+            perPattern[pattern] = metricsToDict(m)
 
         totalCost += weights["saturation"] * saturationFrac
         totalCost += weights["backgroundBrightness"] * backgroundBrightness
@@ -4440,8 +5168,10 @@ def runAutotuneCamera(cfg: dict, esp: EspClient, cam: Camera, patterns: list[str
         eta = (trials - runIndex) * avgDuration
         pr(f"[camera-autotune trial {runIndex}/{trials}] (#{trial.number}) "
               f"exp={exposure} gain={gain} thr={binaryThreshold} frames={accumFrames} "
-              f"cost={totalCost:.4f} sat={saturationFrac:.3f} bg={backgroundBrightness:.3f}  "
-              f"{duration:.1f}s, avg {avgDuration:.1f}s/trial, ETA {eta / 60:.1f} min")
+              f"cost={totalCost:.4f} sat={saturationFrac:.3f} bg={backgroundBrightness:.3f} "
+              f"cover={coverageSum:.2f} offpath={offPathSum:.2f}"
+              + (f" BLIND{blindPatterns}" if blindPatterns else "") +
+              f"  {duration:.1f}s, avg {avgDuration:.1f}s/trial, ETA {eta / 60:.1f} min")
 
         try:
             with logFile.open("a") as f:
@@ -4449,6 +5179,9 @@ def runAutotuneCamera(cfg: dict, esp: EspClient, cam: Camera, patterns: list[str
                     "trial": trial.number, "cost": totalCost,
                     "params": {"exposure": exposure, "gain": gain,
                               "binaryThreshold": binaryThreshold, "accumFrames": accumFrames},
+                    "blindPatterns": blindPatterns,
+                    "coveragePenalty": round(coverageSum, 4),
+                    "offPathPenalty": round(offPathSum, 4),
                     "saturationFrac": saturationFrac, "backgroundBrightness": backgroundBrightness,
                     "metrics": perPattern, "durationSeconds": round(duration, 2)
                 }) + "\n")
@@ -4467,6 +5200,11 @@ def runAutotuneCamera(cfg: dict, esp: EspClient, cam: Camera, patterns: list[str
     if priorTrials:
         pr(f"resuming study '{studyName}' ({storageUrl}) - "
               f"{priorTrials} trial(s) already recorded, adding {trials} more")
+        prWarn("costs recorded before v2.19.0 are NOT comparable with new ones: the cost "
+               "function gained a blankCorridorLeakage term, and trials whose capture saw "
+               "nothing used to be scored as if they were real readings instead of being "
+               "dropped. If this study predates v2.19.0, start a fresh one (--fresh) "
+               "rather than mixing the two.")
     else:
         pr(f"new study '{studyName}' -> {storageUrl}")
     pr(f"tuning camera capture settings via pattern(s) {list(patterns)} - firmware "
@@ -4550,6 +5288,42 @@ def runAutotuneCamera(cfg: dict, esp: EspClient, cam: Camera, patterns: list[str
     except OSError as e:
         prWarn(f"could not save best-params file: {e}")
     prOk(f"saved -> {outFile.name}")
+
+    # Final gate: actually measure once at the chosen settings and check the result is a
+    # readable measurement, not a blind one. The search's own penalties should already
+    # make this impossible, but this is the value that gets written to camConfig.json and
+    # then silently used by every later measure/optimize/diagnose run - the last place it
+    # can be caught is here, cheaply, with the camera still open.
+    pr("\nverifying the chosen settings produce a readable measurement ...")
+    verifyOk = True
+    try:
+        cam.setExposureGain(best["exposure"], best["gain"])
+        verifyCfg = {**cfg, "binaryThreshold": best["binaryThreshold"],
+                     "accumFrames": best["accumFrames"]}
+        waitWhilePaused(cam)
+        esp.stop()
+        time.sleep(cfg["settleSeconds"])
+        verifyBackground = cam.grabBackground()
+        for pattern in patterns:
+            vm, _ = measureOnce(esp, cam, verifyCfg, homography, verifyBackground, pattern,
+                                statusPrefix="autotune-camera VERIFY")
+            if vm.valid:
+                prOk(f"  {pattern}: {vm.traceLitPx} lit px, path coverage "
+                     f"{vm.pathCoveragePct:.1f}%, off-path {vm.offPathLitPx} px")
+            else:
+                verifyOk = False
+                prWarn(f"  {formatInvalid(vm, pattern)}")
+    except OptimizerError as e:
+        verifyOk = False
+        prWarn(f"verification capture failed: {e}")
+    if not verifyOk:
+        prWarn("the chosen camera settings do NOT produce a usable measurement - refusing "
+               "to offer them for apply. " + INVALID_MEASUREMENT_HINT)
+        prTip(f"widen cameraAutotuneRanges in {CONFIG_FILE.name} (especially "
+              f"binaryThresholdMin/Max and exposureMin/Max), re-run with --fresh, and "
+              f"check the annotated screenshots in {RESULTS_DIR.name}/.")
+        cam.setExposureGain(baseline["exposure"], baseline["gain"])
+        return
 
     interactive = sys.stdin.isatty()
     doApply = autoApply
@@ -5074,10 +5848,12 @@ def main():
                      "(see --no-view/--zoom).")
     pMeasure.add_argument(
         "--pattern", default="square",
-        choices=["square", "star", "segments", "circle", "spiral"],
+        choices=list(CAMERA_AUTOTUNE_PATTERNS),
         help="calibration pattern to project and measure (default: square). "
-             "'segments' also reports blank-leakage; 'square'/'star' also report corner "
-             "hotspot; all patterns report path deviation and brightness uniformity.")
+             "'segments' also reports blank-leakage; 'square'/'star'/'wireframe'/'text' "
+             "also report corner hotspot; 'particles' reports blob count/elongation/"
+             "centroid error instead of corner hotspot; all patterns report path "
+             "deviation and brightness uniformity.")
 
     pOpt = sub.add_parser(
         "optimize",
@@ -5173,7 +5949,10 @@ def main():
                      "retuning), or an OPTIMIZER SETTINGS ISSUE (path deviation/blank "
                      "leakage/corner hotspot/brightness uniformity out of tolerance - see "
                      "diagnoseThresholds in camConfig.json - while geometry is clean, which "
-                     "means it IS fixable by retuning). Profiles flagged with a settings "
+                     "means it IS fixable by retuning), or an INVALID MEASUREMENT (the "
+                     "camera did not actually see the beam well enough to score anything - "
+                     "no verdict is given at all, rather than inventing one from fallback "
+                     "constants). Profiles flagged with a settings "
                      "issue can be handed straight to 'optimize' as an autotune step (see "
                      "--autotune), reusing the exact same search/apply/persist flow. "
                      "Requires an existing homography.npz - run 'calibrate' first.")
@@ -5225,7 +6004,8 @@ def main():
         "--patterns", default="square,circle,segments",
         help="comma-separated calib patterns to measure per trial (default: "
              "square,circle,segments - covers corner hotspot, pure path/uniformity, and "
-             "blank leakage between them). Choices: square, star, segments, circle, spiral.")
+             "blank leakage between them). Choices: "
+             + ", ".join(CAMERA_AUTOTUNE_PATTERNS) + ".")
     pCamTune.add_argument(
         "--trials", type=int, default=20,
         help="number of Optuna trials to run this invocation (default: 20)")
@@ -5525,7 +6305,14 @@ def dispatch(args):
                 raise OptimizerError(f"cannot create {RESULTS_DIR.name}/: {e}") from e
             m, _ = measureOnce(esp, cam, cfg, homography, background, args.pattern,
                               saveTo=RESULTS_DIR / f"measure_{args.pattern}.png")
-            print(json.dumps(vars(m), indent=2))
+            if not m.valid:
+                pr()
+                pr(f"{'!' * 70}")
+                prWarn(formatInvalid(m, args.pattern))
+                prWarn("Every number below is a fallback constant, not a reading - do not "
+                       "act on it. " + INVALID_MEASUREMENT_HINT)
+                pr(f"{'!' * 70}")
+            print(json.dumps(metricsToDict(m), indent=2))
         elif args.cmd == "optimize":
             runOptimize(cfg, esp, cam, args.profile, args.trials,
                        studyName=args.studyName, storageUrl=args.storageUrl,

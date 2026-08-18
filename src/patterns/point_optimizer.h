@@ -306,6 +306,12 @@ struct Stats {
                                    // (1.0 = Stage 2 did not trigger), floors
                                    // included -- i.e. what was really used
     bool     stage1Triggered;     // blank_samples was reduced to fit budget
+    uint8_t  stage1BlankSamples;  // blank_samples Stage 1 settled on (0 = Stage 1
+                                   // did not trigger). Compare against
+                                   // stage1_blank_target to see what was applied.
+    bool     stage1BlankClamped;  // stage1_blank_target itself did not fit the
+                                   // budget, so Stage 1 degraded to the largest
+                                   // value that did (see stage1BlankSamples)
     bool     stage15Triggered;    // corner point counts were scaled to fit
     bool     ringingActive;       // ZV shaper actually shaped at least one jump
 

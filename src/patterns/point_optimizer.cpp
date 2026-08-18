@@ -48,7 +48,8 @@ void Stats::reset() {
     emittedLit = 0; emittedBlank = 0; truncated = 0; plannedTotal = 0;
     jumpCount = 0; jumpDistanceTotal = 0.0f; calls = 0;
     stage2Scale = 1.0f;
-    stage1Triggered = false; stage15Triggered = false; ringingActive = false;
+    stage1Triggered = false; stage1BlankSamples = 0; stage1BlankClamped = false;
+    stage15Triggered = false; ringingActive = false;
 }
 
 void Stats::add(const Stats& call) {
@@ -63,6 +64,12 @@ void Stats::add(const Stats& call) {
     // average would hide the one call that was actually starved.
     if (call.calls > 0 && call.stage2Scale < stage2Scale) stage2Scale = call.stage2Scale;
     stage1Triggered  |= call.stage1Triggered;
+    // Same "worst call wins" rule as stage2Scale above: 0 means the call did
+    // not run Stage 1 at all, so it must not pull the frame's value down.
+    if (call.stage1BlankSamples > 0 &&
+        (stage1BlankSamples == 0 || call.stage1BlankSamples < stage1BlankSamples))
+        stage1BlankSamples = call.stage1BlankSamples;
+    stage1BlankClamped |= call.stage1BlankClamped;
     stage15Triggered |= call.stage15Triggered;
     ringingActive    |= call.ringingActive;
 }
@@ -2058,12 +2065,6 @@ size_t optimize(const PathSegment* segments, size_t segment_count,
         ((effective_cap - fixed_overhead_at_default_blank) < min_interior_reserve);
 
     if ((cap_exceeded || reserve_too_low) && cfg.blank_samples > cfg.min_blank_samples) {
-        // Go straight to min_blank_samples rather than solving for an
-        // intermediate value that exactly fits corner_total+blank_overhead
-        // into effective_cap: that calculation can still leave too little
-        // (or zero) budget for interior points. Dropping straight to the
-        // floor leaves maximum room for Stage 2 to allocate interior
-        // density.
         // Reduce toward stage1_blank_target first -- NOT straight to
         // min_blank_samples. Collapsing blank_samples all the way to the
         // floor leaves emitBlankJump() no range to scale into (every jump
@@ -2076,13 +2077,56 @@ size_t optimize(const PathSegment* segments, size_t segment_count,
         cfg.blank_samples = target;
         st.stage1Triggered = true;
         // Re-check: does the target still leave the fixed overhead over
-        // budget? If so, fall back further toward the hard floor. Same
-        // per-jump term as above -- maxBlankJumpPts() is the single source.
-        uint32_t retry_overhead =
-            corner_total + (uint32_t)maxBlankJumpPts(cfg) * (segment_count + 1);
-        if (retry_overhead > effective_cap) {
-            cfg.blank_samples = cfg.min_blank_samples;
+        // budget? If so, degrade to the LARGEST blank_samples that does fit,
+        // NOT straight to the hard floor. Taking the floor here handed a user
+        // who raised stage1_blank_target past the frame budget the exact
+        // opposite of what they asked for -- measured on cam_segments at
+        // max_pts_per_frame=150 (n=3, identical emitted counts): targets
+        // 8/14/20 gave ~8.8/14.8/20.8 blank points per jump as intended, but
+        // target 30 silently reverted to the same ~8.8 as target 8, with no
+        // signal anywhere. Same per-jump term throughout --
+        // maxBlankJumpPts() is the single source.
+        //
+        // maxBlankJumpPts() is non-decreasing in blank_samples (unshaped its
+        // result IS blank_samples; shaped it is move(count)+shift+1 with
+        // move() non-decreasing), so the values that fit form a prefix of
+        // [min_blank_samples, target] and a bisection finds the largest one
+        // in ~7 probes instead of a linear walk in this per-call path.
+        auto overheadAt = [&](int blank) -> uint32_t {
+            const uint8_t saved = cfg.blank_samples;
+            cfg.blank_samples   = (uint8_t)blank;
+            uint32_t o = corner_total +
+                         (uint32_t)maxBlankJumpPts(cfg) * (segment_count + 1);
+            cfg.blank_samples = saved;
+            return o;
+        };
+        // "Fits" here is this stage's own trigger, negated: overhead PLUS
+        // min_interior_reserve must be within the cap. The cap alone is not
+        // enough -- it can leave the interior nothing but the density floor
+        // (kMinPtsPer1000Units), which Stage 2 cannot scale below, so the plan
+        // overshoots and the frame truncates. The whole point of shrinking
+        // blank_samples here is to buy interior room; a fallback that spends
+        // the last point back on blank jumps defeats it. The old code used the
+        // looser cap-only test for the target and then jumped to the floor,
+        // which is also why the settled value used to be non-monotonic in the
+        // target across that boundary.
+        const uint32_t stage1_fit_budget =
+            (effective_cap > min_interior_reserve)
+                ? (uint32_t)(effective_cap - min_interior_reserve) : 0u;
+        if (overheadAt((int)target) > stage1_fit_budget) {
+            int lo   = (int)cfg.min_blank_samples;
+            int hi   = (int)target;
+            int best = lo;   // even the floor may not fit -- then it is the
+                             // floor, exactly as before this change
+            while (lo <= hi) {
+                int mid = lo + (hi - lo) / 2;
+                if (overheadAt(mid) <= stage1_fit_budget) { best = mid; lo = mid + 1; }
+                else                                     { hi  = mid - 1; }
+            }
+            cfg.blank_samples      = (uint8_t)best;
+            st.stage1BlankClamped  = true;
         }
+        st.stage1BlankSamples = cfg.blank_samples;
         blank_overhead = (uint32_t)maxBlankJumpPts(cfg) * (segment_count + 1);
         needed = planned_total + blank_overhead;
     }

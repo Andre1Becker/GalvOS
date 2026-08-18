@@ -518,6 +518,99 @@ void test_stage2PlansWithinBudget(void) {
 #endif
 }
 
+// ── 3c. stage1BlankTargetDegradesGracefully ─────────────────────────────
+//
+// CLASS-INVARIANT. Audit finding A.1
+// (docs/optimizer-range-audit-2026-08-17.md, Appendix A).
+//
+// Stage 1 pulls blank_samples down to stage1_blank_target when the fixed
+// overhead crowds out interior density. When the target ITSELF does not fit
+// the frame budget, the old code dropped straight to min_blank_samples --
+// i.e. raising stage1_blank_target past the budget produced the SMALLEST
+// possible blank runs, the exact opposite of the request, with nothing in the
+// telemetry to say so. Measured on the bench at max_pts_per_frame=150 (n=3,
+// identical emitted counts): targets 8/14/20 gave ~8.8/14.8/20.8 blank points
+// per jump; target 30 gave the same ~8.8 as target 8.
+//
+// The invariant that rules that out: what Stage 1 settles on must be
+// non-decreasing in stage1_blank_target. Asking for more may fail to give
+// more (the budget is finite) but must never give LESS. The clamp is also
+// required to announce itself, so the collapse is diagnosable from
+// /api/optimizer-stats instead of being invisible.
+void test_stage1BlankTargetDegradesGracefully(void) {
+#if GALVOS_OPT_HAS_STATS
+    size_t segCount = 0;
+    const PathSegment* segs = fx::wireframeChain(segCount);
+
+    // Caps tight enough that Stage 1 has to act, across both shaper states.
+    const uint16_t caps[] = { 500, 400, 300, 250, 200, 150 };
+    bool sawStage1 = false;
+    bool sawClamp  = false;
+
+    for (int zv = 0; zv <= 1; zv++) {
+        for (size_t c = 0; c < sizeof(caps) / sizeof(caps[0]); c++) {
+            uint8_t prevSettled = 0;
+            int     prevTarget  = 0;
+
+            for (int target = 4; target <= 60; target += 2) {
+                OptimizerConfig cfg      = fx::baseCfg();
+                cfg.max_pts_per_frame    = caps[c];
+                cfg.min_blank_samples    = 4;
+                cfg.blank_samples        = 64;
+                cfg.stage1_blank_target  = (uint8_t)target;
+                cfg.ringing_comp_enabled = (zv != 0);
+
+                optimizer::optimize(segs, segCount, gFrame, PATTERN_POINTS_MAX, cfg);
+                const optimizer::Stats& st = optimizer::gLastStats;
+                if (!st.stage1Triggered) continue;
+                sawStage1 = true;
+                if (st.stage1BlankClamped) sawClamp = true;
+
+                const uint8_t settled = st.stage1BlankSamples;
+
+                snprintf(gMsg, sizeof(gMsg),
+                         "cap %u zv=%d target %d: Stage 1 settled on %u, outside "
+                         "[min_blank_samples %u, target %d]",
+                         (unsigned)caps[c], zv, target, (unsigned)settled,
+                         (unsigned)cfg.min_blank_samples, target);
+                TEST_ASSERT_TRUE_MESSAGE(settled >= cfg.min_blank_samples &&
+                                         settled <= (uint8_t)target, gMsg);
+
+                // A clamp means the target did not fit -- then and only then
+                // may the settled value sit below it.
+                snprintf(gMsg, sizeof(gMsg),
+                         "cap %u zv=%d target %d: settled on %u without setting "
+                         "stage1_blank_clamped -- the shortfall is invisible",
+                         (unsigned)caps[c], zv, target, (unsigned)settled);
+                TEST_ASSERT_TRUE_MESSAGE(settled == (uint8_t)target ||
+                                         st.stage1BlankClamped, gMsg);
+
+                // The finding itself: monotonicity in the requested target.
+                if (prevSettled > 0) {
+                    snprintf(gMsg, sizeof(gMsg),
+                             "cap %u zv=%d: stage1_blank_target %d settled on %u, "
+                             "but the LOWER target %d settled on %u -- asking for "
+                             "more blank points gave fewer (audit A.1)",
+                             (unsigned)caps[c], zv, target, (unsigned)settled,
+                             prevTarget, (unsigned)prevSettled);
+                    TEST_ASSERT_TRUE_MESSAGE(settled >= prevSettled, gMsg);
+                }
+                prevSettled = settled;
+                prevTarget  = target;
+            }
+        }
+    }
+
+    TEST_ASSERT_TRUE_MESSAGE(sawStage1,
+        "no sweep point triggered Stage 1 -- the test proved nothing, retune caps");
+    TEST_ASSERT_TRUE_MESSAGE(sawClamp,
+        "no sweep point exceeded the budget with its target -- the does-not-fit "
+        "case this test exists for was never reached, retune caps/targets");
+#else
+    TEST_IGNORE_MESSAGE("needs P1 telemetry (gLastStats) -- see contract_features.h");
+#endif
+}
+
 // ── 4. velocityAccelLimitsHold ──────────────────────────────────────────
 //
 // CLASS-INVARIANT. [P11]
@@ -1222,6 +1315,7 @@ int main(int, char**) {
     RUN_TEST(test_ringingCompNotSilentlyInactive);
     RUN_TEST(test_noSilentPointLoss);
     RUN_TEST(test_stage2PlansWithinBudget);
+    RUN_TEST(test_stage1BlankTargetDegradesGracefully);
     RUN_TEST(test_velocityAccelLimitsHold);
     RUN_TEST(test_dacRangeValid);
     RUN_TEST(test_warpGridCornersInRange);

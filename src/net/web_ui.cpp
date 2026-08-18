@@ -297,6 +297,12 @@ static void fillOptimizerStats(JsonObject dst, const optimizer::Stats& s) {
     dst["calls"]               = s.calls;
     dst["stage2_scale"]        = s.stage2Scale;
     dst["stage1_triggered"]    = s.stage1Triggered;
+    // What Stage 1 actually settled blank_samples on, and whether
+    // stage1_blank_target had to be given up on because the frame budget
+    // could not fit it (in which case the value above is the largest that
+    // could -- it is no longer silently the min_blank_samples floor).
+    dst["stage1_blank_samples"] = s.stage1BlankSamples;
+    dst["stage1_blank_clamped"] = s.stage1BlankClamped;
     dst["stage15_triggered"]   = s.stage15Triggered;
     dst["ringing_active"]      = s.ringingActive;
 }
@@ -772,6 +778,13 @@ static void buildConfigJson(JsonDocument& doc) {
     doc["output_scale"]    = gConfig.outputScale;
     doc["gamma_enable"]    = gConfig.gamma_enable;
     doc["opt_active_profile"] = (uint8_t)gActiveOptimizerProfile;
+    // Read-only mirror of /api/projection's kpps / rated_kpps. Every opt_eff_*
+    // value below is the result of applyPpsScaling() against exactly these two
+    // numbers, so a client reasoning about PPS-scaled parameters no longer has
+    // to fetch a second endpoint to find the ratio they were scaled by.
+    // Diagnostic exposure only -- the control lives on POST /api/projection.
+    doc["galvo_kpps"]       = gProjection.galvo_kpps;
+    doc["galvo_rated_kpps"] = gProjection.galvo_rated_kpps;
     {
         // Member name list per profile -- drives the Optimizer tab's
         // right-hand column. Derived from presetClassOf(), so it stays
