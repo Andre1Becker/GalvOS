@@ -238,3 +238,63 @@ Two apparent findings were discarded after repeat testing rather than reported:
 Safety chain was green for the entire session (`estop_ok`, `scanfail_ok`, `laser_armed` all
 true, `last_failsafe` empty, uptime continuous at 5307 s with no reboot). The laser was armed by
 the operator before the session and never armed by this process.
+
+## Appendix D — 2026-08-18 follow-up: live validation + re-tune
+
+Firmware v6.75.0 (`6d07c1f`) landed same-day, ahead of and independently of this follow-up
+session, and fixed every item in Appendix A plus the root cause of §1's `binaryThreshold`
+misconfiguration (`autotune-camera`'s own objective had no signal-vs-noise term). This session
+validated those fixes live and re-ran the search on the camera-tunable profiles.
+
+**Live validation, all confirmed on the armed device:**
+
+- A.1: `/api/optimizer-stats` now reports `stage1_blank_samples` / `stage1_blank_clamped`.
+- A.4: `diagnose`'s path-deviation bar is now derived per-measurement (e.g. observed
+  `threshold 989 = 1.5 x measured beam width 659u`), not the fixed unreachable 150.
+- A.5: `/api/config` reports `galvo_kpps: 42` / `galvo_rated_kpps: 44`.
+- The three new camera patterns (`cam_wireframe`, `cam_text`, `cam_particles`) all capture,
+  score `valid: true`, and the isolated-dot blob metrics (blobCount/elongation/centroidError)
+  correctly detected real smearing on Particles' untuned live params.
+
+**Two new findings, logged only — not investigated this session:**
+
+- **Orientation mismatch on 5 of 7 camera patterns** (star, spiral, wireframe, particles,
+  text): `diagnose` only fits the measured trace to its ideal reference after applying
+  rot180/mirror_y/mirror_x/rot90/mirror_y respectively. The tool auto-compensates for
+  *scoring*; whether the corresponding real presets are actually projected
+  rotated/mirrored live was not checked.
+- **Residual geometry offset after a fresh `calibrate`**: star, `segments` (MultiObject), and
+  `particles` still showed real position/size offsets post-recalibration while every other
+  pattern came back clean — `diagnose` classifies these "not fixable by autotune". Cause not
+  established; a plausible lead is the corners4 reference dots sampling a smaller radius than
+  these patterns' actual extent, but this is a guess, not a finding.
+
+Because of the second point, `optimize` was **not** re-run on Vector/MultiObject/Particles as
+originally planned — `diagnose --profile all` flagged only **Smooth, Waves, Wireframe, Text**
+as geometry-clean, so only those four were tuned (`--fresh --apply`, 20 trials each, study
+prefix `finalwave2`).
+
+**Re-tune result — before/after cost from the tool's own post-apply re-measurement, not the
+in-search "best" value:**
+
+| Profile | cost before → after | kept? |
+| --- | --- | --- |
+| Smooth | 9.838 → 9.881 (worse) | reverted |
+| Waves | 11.589 → 11.301 (better) | **applied** |
+| Wireframe | 11.325 → 11.387 (worse) | reverted |
+| Text | 10.645 → 11.252 (worse) | reverted |
+
+Smooth's own trial log is the clearest evidence of a live noise problem: trial 0 measured
+cost 7.597 and was never beaten across the other 19 trials, but re-measuring those exact
+"best" params moments later in the before/after step gave 9.881 — a ~30% discrepancy on
+identical parameters. Each trial here is a single un-repeated capture (unlike this audit's own
+`sweep.py`, which repeat-averages); a future re-tune should use that instead of Optuna's raw
+per-trial objective. Smooth, Wireframe, and Text were rolled back to their pre-tune values via
+`/api/optimizer-live` + `/api/optimizer-save` (params reconstructed from the run's own
+before/after log, then confirmed byte-for-byte against a fresh `/api/config` read); Waves' gain
+was real (reproduced in the before/after capture, not just the search) and was left applied.
+
+Safety chain stayed green throughout (`estop_ok`/`scanfail_ok`/`laser_armed` true, uptime
+continuous 15427 s → 17708 s, no reboot). The laser was already armed by the operator before
+this session (confirmed with the operator before taking camera-pattern control) and was not
+armed by this process.
