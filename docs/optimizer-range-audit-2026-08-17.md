@@ -473,3 +473,97 @@ rather than inventing a weak proxy: a real answer needs a new calib pattern comb
 run and a curved run in one frame, sized to trigger `curvature_resample_enabled`'s adaptive
 logic on the curved section only — a scoped follow-up task of its own, not a sub-task of this
 audit.
+
+## Appendix G — 2026-08-18 second live follow-up: a second blocking measurement bug, and orientation confirmed real once it's fixed
+
+Prompted by Andre repeatedly reporting presets rendering wrong across many past sessions
+(several already root-caused and hardware-fixed: `text_renderer.cpp` glyph orientation in
+v6.01.0/v6.05.3, Paint-by-Finger's X-mirror saga through v1.17.2) — worth checking whether
+Appendix F's four still-open orientation mismatches (`star`/`spiral`/`wireframe`/`text`) are
+that same class of real, still-unfixed defect, or something else. Laser already armed by the
+operator (`laser_armed:true` via `/api/status`), not armed by this process.
+
+### A second blocking measurement-chain bug, same family as §1 but not the same one
+
+Two candidate explanations were checked and ruled out first: the camera itself is not mounted
+rotated/mirrored (confirmed via the script's own live camera-preview option — the physical
+scene reads correctly), and `runCalibrate()`'s `orderCorners()` did not mislabel the four
+corner dots this session (`calibrate_2026-08-18_18-04-23_labeled.png` — TL/TR/BR/BL land on a
+normal, correctly-ordered rectangle, matching the physical layout).
+
+What actually explained it: Andre spotted extra strokes on both the raw and annotated
+`diagnose` captures that aren't part of the live pattern at all — e.g.
+`diagnose_Wireframe_wireframe_2026-08-18_18-15-56_annotated.png` showed a smooth **red curved
+arc** with no matching cube edge, sitting exactly where a leftover trace from `spiral` (the
+pattern measured immediately before `wireframe` in the same `diagnose --profile
+Vector,Waves,Wireframe,Text` run) would land. `text`'s capture from the same run showed a
+spurious diagonal tail off the `L` glyph, similarly explaining its reported "Y size off by
++34.2%, Y position off by +2250 units" geometry-issue finding — a defect that, as it turns out,
+does not exist.
+
+Root cause: `Camera` (`optimizeGalvo.py`) never set `cv2.CAP_PROP_BUFFERSIZE`, and
+`grabAccumulated()` called `grabGray()` immediately with no flush. OpenCV's DSHOW backend
+queues frames internally regardless of whether anything calls `.read()`; the several call
+sites that `time.sleep(cfg["patternSwitchSettleSeconds"])` right before starting an
+accumulation (`measureOnce()`'s own comment already predicted this exact failure mode, just
+never guarded against it) could have that first `.read()` return a frame the driver queued
+during the sleep — i.e. from before or mid pattern-switch — baking the previous pattern's tail
+into the current `max()`-accumulated capture as an extra, unrelated shape. This is a *different*
+bug from §1 (that one was a bad threshold silently starving every measurement to near-zero lit
+pixels; this one contaminates otherwise-valid measurements with stray real light from the wrong
+pattern) but the same *family*: a capture-pipeline defect invisible in the numbers unless you
+go looking at the actual pixels, that had been quietly corrupting results for as long as the
+tool has existed.
+
+**Fixed in `optimizeGalvo.py` v2.22.1 → v2.23.0:** `cv2.CAP_PROP_BUFFERSIZE=1` set at camera
+open (best-effort — not every backend honors it, see the code comment), plus
+`grabAccumulated()` now unconditionally discards two frames before starting its real
+accumulation, so staleness is guarded regardless of whether the backend respects the buffer
+hint. `orientation.json` was deleted (stale pre-fix cache) so the re-run below is a genuine
+fresh `detectOrientation()` fit against clean captures, not a replayed cached decision.
+
+### Before/after: the fix demonstrably worked
+
+| pattern | before fix (contaminated) | after fix (clean) |
+| --- | --- | --- |
+| `text` | GEOMETRY ISSUE: Y size +34.2%, Y position +2250 units, path dev 1205 | no geometry issue at all — only a pre-existing OPTIMIZER SETTINGS issue (corridor leakage) |
+| `wireframe` (visual) | stray unmatched red arc, no corresponding cube edge | clean — the traced cube's only deviation from the green reference is a real, small scale/position offset (`off-path 0`) |
+| star/spiral/wireframe/text orientation fit quality | e.g. star: 11.3 vs. 36.7 unrotated | e.g. star: **2.1 vs. 35.4 unrotated** — sharper separation, not weaker |
+
+The contamination was inflating noise, not manufacturing the orientation signal: after removing
+it, all four mismatches reproduce **more** cleanly than before, not less.
+
+### Orientation mismatch: confirmed real, with clean visual proof this time
+
+Re-ran `diagnose --profile Vector,Waves,Wireframe,Text` against the fixed pipeline with a
+cleared orientation cache. All four transforms reproduced exactly as in Appendix F
+(`star: rot180, spiral: mirror_y, wireframe: mirror_x, text: mirror_y`), now at `off-path 0` /
+100% or near-100% path-coverage clean fits — see
+`results/diagnose_Vector_star_2026-08-18_18-27-40_annotated.png` (a pentagram traced
+point-down, cyan trace sitting exactly on a 180°-rotated reference, zero off-path pixels) and
+`results/diagnose_Waves_spiral_2026-08-18_18-27-40_annotated.png` (traced spiral winds the
+opposite handedness from the reference spiral, also zero off-path pixels). This is about as
+clean as a camera measurement gets on this rig — **the four-pattern orientation mismatch is a
+real coordinate-convention defect in firmware geometry generation, not a measurement artifact,
+not a camera-mount issue, and not corner mislabeling.**
+
+Separately, with the contamination gone, small independent **geometry** (not orientation)
+issues remain on three of the four — worth tracking as their own item, not folded into the
+orientation question:
+
+- `star`: X size off by −5.4%
+- `wireframe`: Y size off by −15.8%, Y position off by +2062 DAC units
+- `spiral`/`text`: clean, only pre-existing OPTIMIZER SETTINGS issues (corridor leakage) remain
+
+### Still open
+
+Per `detectOrientation()`'s own doc comment, this still only proves the *camera-loop test
+pattern's* geometry is rotated/mirrored relative to this tool's reference — not that the real
+presets sharing `star`/`spiral`/`wireframe`/`text`'s point-generation path are actually
+projected wrong on a live show. `text`'s case is the one genuine open contradiction: its glyph
+orientation was hardware-validated fixed back in v6.01.0/v6.05.3, yet `cam_text` (which reuses
+`textrender::glyphOutlinePaths()`, the same function that fix touched) still measures
+`mirror_y` today. Next cheapest step is still what Appendix F called for: eyes-on comparison of
+the live `Text` preset (and `star`/`spiral`/`Wireframe`-class presets) against their expected
+orientation — this session upgraded the *measurement's* credibility, it did not do that
+eyes-on check itself.

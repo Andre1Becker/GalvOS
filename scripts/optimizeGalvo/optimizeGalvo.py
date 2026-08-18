@@ -116,7 +116,7 @@ import requests
 # ── versioning ───────────────────────────────────────────────────────────────
 # Semantic version of this script (independent of GalvOS firmware version).
 # Bump on every behavioral change; see git log for change history.
-SCRIPT_VERSION = "2.22.1"
+SCRIPT_VERSION = "2.23.0"
 
 # GalvOS firmware version that introduced /api/calib-cam/* (see firmware git log:
 # "fw: v6.03.0 -- camera-in-the-loop calibration API (calib-cam)").
@@ -1389,6 +1389,14 @@ class Camera:
                 f"another application ({hint}). Fix cameraIndex in {CONFIG_FILE.name} "
                 f"or run 'optimizeGalvo.py wizard'."
             )
+        # Best-effort: ask the backend to keep only the newest frame queued. DSHOW
+        # often ignores this (no set()-return-value guarantee like the ISP controls
+        # below), so it's not relied on alone - grabAccumulated() below still flushes
+        # explicitly regardless of whether this took effect. Without it (or the flush),
+        # a .read() issued right after a sleep() can return a frame the driver queued
+        # DURING that sleep - i.e. from before/mid a pattern switch - baking the
+        # previous pattern's tail into the next capture (see grabAccumulated()).
+        self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
         self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, cfg["frameWidth"])
         self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, cfg["frameHeight"])
         # Pixel format matters as much as resolution for achievable fps - see the
@@ -1508,7 +1516,17 @@ class Camera:
         return frame
 
     def grabAccumulated(self, nFrames: int) -> np.ndarray:
-        """Max-accumulate frames so the full scan path appears even at short exposure."""
+        """Max-accumulate frames so the full scan path appears even at short exposure.
+        Discards a couple of frames first - CAP_PROP_BUFFERSIZE (set at open) isn't
+        honored by every backend, and any frame still sitting in the driver's queue
+        from before this call (e.g. queued during a caller's settle sleep() right
+        after a pattern switch) would otherwise be read first and baked into the
+        max()-accumulation as contamination from whatever was playing previously.
+        Confirmed live 2026-08-18: a wireframe capture showed a smooth curved arc
+        with no matching cube edge - a leftover spiral trace from the pattern
+        measured immediately before it in the same diagnose run."""
+        for _ in range(2):
+            self.grabGray()
         acc = self.grabGray()
         for _ in range(nFrames - 1):
             np.maximum(acc, self.grabGray(), out=acc)
