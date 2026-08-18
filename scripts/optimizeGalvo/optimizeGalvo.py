@@ -116,7 +116,7 @@ import requests
 # ── versioning ───────────────────────────────────────────────────────────────
 # Semantic version of this script (independent of GalvOS firmware version).
 # Bump on every behavioral change; see git log for change history.
-SCRIPT_VERSION = "2.22.0"
+SCRIPT_VERSION = "2.22.1"
 
 # GalvOS firmware version that introduced /api/calib-cam/* (see firmware git log:
 # "fw: v6.03.0 -- camera-in-the-loop calibration API (calib-cam)").
@@ -2903,6 +2903,13 @@ D4_TRANSFORMS: dict[str, tuple[int, int, int, int]] = {
     "anti_transpose": (0, -1, -1, 0),
 }
 
+# detectOrientation() only trusts a non-identity D4 fit if its score beats identity's
+# by at least this fraction (0.8 = at least 20% lower avg deviation) - see the comment
+# at its call site. Live-observed real mismatches (star/spiral/wireframe/text) all beat
+# identity by 45-90%; circle's degenerate rot180 tie was ~0%. 80% leaves wide margin
+# between the two without being tuned to one session's exact noise floor.
+ORIENTATION_MARGIN_FRAC = 0.8
+
 
 def _applyD4(points: np.ndarray, name: str) -> np.ndarray:
     a, b, c, d = D4_TRANSFORMS[name]
@@ -2970,6 +2977,18 @@ def detectOrientation(pattern: str, r: int, trace: np.ndarray) -> str:
         _, _, idealMask, distToIdeal, *_ = _idealGeometryFor(pattern, r, name)
         scores[name] = float(np.mean(distToIdeal[tracePixels]))
     best = min(scores, key=scores.get)
+
+    # A pattern that's symmetric (or near-symmetric) under some D4 transform - a
+    # circle under rot180 is the textbook case, invariant in the ideal geometry and
+    # only ever separated in a real capture by measurement noise - ties `best` and
+    # `identity` to within noise. Plain argmin (above) has no concept of "close
+    # enough to call it identity"; live capture confirmed this in practice: 'circle'
+    # flagged 'rot180' one session (5.9 vs 5.9 DAC-units, i.e. a coin flip) and came
+    # back clean the next. Require a real margin - not just numerically lowest -
+    # before trusting a non-identity fit enough to lock it into the cache and
+    # compensate every future measurement of this pattern with it.
+    if best != "identity" and scores[best] > scores["identity"] * ORIENTATION_MARGIN_FRAC:
+        best = "identity"
 
     cache[pattern] = {"name": best, "score": scores[best],
                       "identityScore": scores["identity"],

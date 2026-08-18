@@ -388,3 +388,88 @@ homography from a smaller, slightly less pixel-precise square. Worth reading `/a
 live `dac_limit_min`/`max` next session as a near-zero-cost first check, but this is not a
 confirmed mechanism — the "smaller radius" idea from Appendix D remains a guess, now a
 narrower one.
+
+## Appendix F — 2026-08-18 live follow-up: repeats validation, orientation margin fix, re-tune
+
+Laser was already armed by the operator before this session; not armed by this process.
+`/api/backup` taken before any write (`backup_2026-08-18_pre-session.json`, kept locally, not
+committed — device config, not source). Safety chain green throughout (`estop_ok`/`scanfail_ok`/
+`laser_armed` true, uptime continuous 19266s → 20593s, no reboot).
+
+### E.3 closed — live `dac_limit` confirmed tight, but doesn't explain the geometry offset
+
+Live `/api/config`: `dac_limit_min=7000` / `dac_limit_max=63000` — asymmetric and tighter than
+the ±31129 stock default, so E.3's premise (a live window narrower than the design radius) is
+real on this device, not just a hypothetical. But E.3's own reasoning already covered this case:
+`optimizeGalvo.py` reads back the actual `corner_r` the ESP32 reports (`startResp["corner_r"]`)
+rather than assuming the fixed `dacRange`, so a narrower `corners4` doesn't misplace other
+patterns' geometry — it only makes the reference square itself slightly less pixel-precise.
+Confirmed, not just argued: **not a contributor to the geometry-offset finding.**
+
+### E.1 closed — `measurementRepeats=3` validated live, fixes the noise gap
+
+Set `measurementRepeats: 3` in `camConfig.json` (local, gitignored — anyone reproducing this
+needs to re-apply it) and re-ran `optimize --fresh` on the three profiles Appendix D flagged as
+noise-corrupted:
+
+| Profile | in-search best | before → after (independent re-measurement) | gap | verdict |
+| --- | --- | --- | --- | --- |
+| Smooth | 3.6810 | 4.2325 → 3.6633 | 0.5% | real improvement, **applied** |
+| Wireframe | 3.3455 | 3.8537 → 3.4427 | 2.9% | real improvement, **applied** |
+| Text | 3.1051 | 2.7706 → 3.1343 | 0.9% | genuinely worse, reverted (not applied) |
+
+Every gap is under 3%, against the ~30% Smooth saw at `repeats=1` in Appendix D. The fix works:
+Optuna's per-trial objective now agrees with an independent re-measurement of the same params.
+Text is the interesting negative result — it reproduces Appendix D's verdict (worse, not
+noise) even with tripled averaging, so Text's search genuinely can't beat its current baseline
+with the present `searchSpace.json` ranges; that's a real finding about the search space, not
+a measurement artifact.
+
+Smooth and Wireframe applied via `/api/optimizer-live` + `/api/optimizer-save`, verified
+byte-for-byte against a fresh `/api/config` read after saving. Text left untouched. Vector,
+MultiObject and Particles remain skipped this session too — `diagnose --profile all` still
+flags all three as real geometry issues ("not fixable by autotune"), unchanged from Appendix D.
+
+### E.2 narrowed further — orientation mismatch is real and reproducible, one false-positive fixed
+
+Two `diagnose --profile all` runs back-to-back, no recalibration between them (this session's
+own fresh `calibrate`, not Appendix D's): both runs picked the **identical** transform set
+(`star: rot180, circle: rot180, spiral: mirror_y, wireframe: mirror_x, text: mirror_y`) —
+E.2's hypothesis #2 (single-shot `detectOrientation()` noise) is **ruled out**, at least within
+one calibration session.
+
+`circle`'s entry was the tell: `detectOrientation()`'s own log showed `rot180` beating `identity`
+by 5.9 vs 5.9 DAC-units — a dead tie. A circle centered at the origin is geometrically invariant
+under 180° rotation; `detectOrientation()` did plain `min(scores, key=scores.get)` with no
+margin, so a coin-flip-level noise difference was enough to lock in and cache a spurious
+compensation. That also explains why Appendix D's session flagged a *different* 5-of-7 set
+(no `circle`, but `particles`) than this session's raw first pass (`circle` flagged, `particles`
+not) — not evidence against one stable root cause, just two coin flips landing differently.
+
+Fixed in `optimizeGalvo.py` (`detectOrientation()`, v2.22.0 → v2.22.1): a non-identity transform
+is now only trusted if it beats identity's score by ≥20% (`ORIENTATION_MARGIN_FRAC = 0.8`); real
+mismatches observed live all clear 45–90%, circle's tie was ~0%. Re-ran `diagnose --profile all`
+with the orientation cache cleared: `circle` no longer flags, `star`/`spiral`/`wireframe`/`text`
+still do — now an exact match to Appendix D's non-`particles` findings, and reproduced across two
+independent calibration sessions on two different days. **These four are a real, reproducible
+coordinate-convention mismatch between this tool's reference geometry and the firmware's actual
+output — not measurement noise, and not a degenerate-symmetry false positive.**
+
+What this still does not establish, per `detectOrientation()`'s own doc comment: whether the
+real presets sharing these patterns' point-generation paths are actually projected rotated or
+mirrored live. That needs a human eyeballing a live preset against its expected orientation, not
+a camera-loop measurement — out of scope for this session, next cheapest step for whoever picks
+this up.
+
+### Task 5 — `curvature_gain`: honest verdict, not a fix
+
+No new camera pattern was added this session (would need a firmware change + flash, out of scope
+here). Confirms Task 4's finding stands: no existing camera-loop pattern exercises mixed
+straight/curved geometry (`corners4`/`square`/`segments` are straight-only, `star`/`spiral`/
+`wireframe`/`particles`/`text` are curved-only or fixed-vertex, and idx 8 "Opt Density Ramp" —
+the one plausible-sounding candidate — is five straight lines, not mixed). **Verdict:
+`curvature_gain` is not measurable on this rig as currently equipped.** Closing this honestly
+rather than inventing a weak proxy: a real answer needs a new calib pattern combining a straight
+run and a curved run in one frame, sized to trigger `curvature_resample_enabled`'s adaptive
+logic on the curved section only — a scoped follow-up task of its own, not a sub-task of this
+audit.
