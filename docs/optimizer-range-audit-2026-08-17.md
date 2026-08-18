@@ -298,3 +298,93 @@ Safety chain stayed green throughout (`estop_ok`/`scanfail_ok`/`laser_armed` tru
 continuous 15427 s → 17708 s, no reboot). The laser was already armed by the operator before
 this session (confirmed with the operator before taking camera-pattern control) and was not
 armed by this process.
+
+## Appendix E — 2026-08-18 code-only follow-up (no live device this session)
+
+Picked up Appendix D's three open items. **No camera or ESP32 was reachable/armed this
+session** — everything below is either a code change (E.1) or a code-reading investigation
+(E.2/E.3), not a new measurement. Nothing here should be read as validated on hardware.
+
+### E.1 `measurementRepeats` — Optuna's single-shot objective, fixed
+
+Added `cfg["measurementRepeats"]` (default `1`, `camConfig.json`) plus `averageMetrics()` /
+`measureRepeated()` in `optimizeGalvo.py`. `cost` is a weighted linear sum with no interaction
+terms (`computeMetrics`), so averaging the field is equivalent to recomputing it from averaged
+metrics — simpler, so that's what it does. Wired into **both** places that previously scored a
+single capture: the per-trial objective in `runStudyForProfile()`, and — as important, and
+previously untouched — the before/after re-measurement step in `runOptimize()` that actually
+*caught* Appendix D's Smooth discrepancy (7.6 vs 9.9 for identical params); that step was
+itself single-shot, so it was only ever luck that it disagreed loudly enough to notice.
+
+Default (`repeats=1`) is a byte-identical no-op: `averageMetrics()` short-circuits to returning
+the original `Metrics` object unchanged for a single rep (verified — `averageMetrics([a]) is a`).
+Verified only via a standalone import + unit check of `averageMetrics()`'s arithmetic (mean of
+two synthetic `Metrics`, `cost` and `traceLitPx` checked); **not exercised against a real
+capture or a real Optuna study** — no device this session. Opt in by setting
+`"measurementRepeats": 3` (or similar) in `camConfig.json`; multiplies every trial's
+settle+capture time by that factor, so start small. Next live session: re-run the Smooth study
+(`--fresh`) with `repeats=3–5` and check whether the in-search "best" now agrees with the
+before/after re-measurement.
+
+### E.2 Orientation mismatch — ruled out as a code/reference divergence, narrowed to a question
+
+Compared `calib_patterns.cpp`'s `cam_star`/`cam_spiral`/`cam_wireframe`/`cam_text`/
+`cam_particles` line-by-line against `optimizeGalvo.py`'s `idealPolylines()` /
+`_wireframeIdeal()` / `_textIdeal()` / `_particlesIdeal()`: star's angle formula, spiral's
+theta/radius linspace, wireframe's yaw-35°/pitch-25° rotation coefficients and 4-chain vertex
+table, particles' 12-dot visit order and grid pitch, and the `G`/`A`/`L` glyph point arrays
+(`text_renderer.cpp`'s `FONT_G`/`FONT_A`/`FONT_L`) against the host's transcribed
+`_TEXT_GLYPHS` — every one is bit-identical. **The orientation-mismatch and geometry-offset
+findings are not a code/reference divergence between firmware and host** — checked, not
+guessed.
+
+That points at the measurement pipeline instead. One real, load-bearing blind spot is already
+flagged in the tool's own comment (`optimizeGalvo.py:1650-1657`): `orderCorners()` labels the 4
+detected corner dots purely by pixel-space sum/diff (smallest x+y = top-left, etc.), which
+assumes the camera is roughly axis-aligned with DAC space. `corners4`'s own dot layout — a
+plain square — is symmetric under all 8 D4 transforms, so a *consistent* mislabeling (camera
+physically rotated/mirrored relative to that assumption) is invisible to `calibrate()` itself
+and bakes a wrong-orientation homography that only surfaces later, on patterns asymmetric
+enough to reveal it. That lines up with square/circle never showing the defect. `segments`
+partially lines up too — its 4 parallel vertical lines are invariant under `mirror_x`/
+`mirror_y`/`rot180` (only `rot90`-class errors would show), which is a narrower blind spot than
+the corners' full 8-way symmetry but a real one.
+
+**It does not fully explain Appendix D's specific numbers, though.** A single mislabeled-corner
+cause is one fixed homography error for the whole session — every asymmetric pattern should
+then need the *same* D4 correction. Appendix D reports five *different* transforms (rot180 /
+mirror_y / mirror_x / rot90 / mirror_y) across star / spiral / wireframe / particles / text,
+measured in what reads as one session. That is inconsistent with one global camera-mount cause,
+so this is being handed back as a narrowed question, not a fix. Next live session, cheapest
+first:
+
+1. Re-run `calibrate`, and actually check the saved `*_labeled.png` against the physical
+   TL/TR/BR/BL layout by eye — the tool already asks for this; Appendix D's session may not
+   have done it.
+2. Run `diagnose --profile all` twice in a row with **no** recalibration in between. If the same
+   pattern gets a *different* best-fit transform between the two runs, `detectOrientation()`'s
+   single-shot fit is itself noise-sensitive — the same root cause as E.1, just not plumbed
+   there yet (it scores whatever single trace it's handed, not a `measureRepeated()` capture).
+   If that turns out to be it, point `measurementRepeats` at the capture `detectOrientation()`
+   scores against next, rather than treating the five transforms as five real defects.
+3. If the five transforms reproduce identically run over run, they're not explained by one
+   camera-mount error and warrant checking whether the optimizer stage (Stage 1/1.5 density
+   crush, corner-dwell, resampling) does something orientation-dependent on these specific
+   shapes under the live config — not ruled out here, no live `/api/optimizer-stats` to check.
+
+### E.3 Geometry offset "smaller radius" guess — checked against source, doesn't hold under defaults
+
+`corners4Radius()` (`calib_patterns.cpp`) derives the corner-dot radius from the *live*
+`dac_limit_min`/`max` window, clamped to `CAM_R` = 30000; every other camera pattern (star,
+segments, particles, ...) draws at the *fixed* `CAM_H` = 15000 regardless of `dac_limit`. Under
+`config.h`'s stock defaults (`dac_limit` ≈ ±31129), `corners4Radius()` clamps to exactly 30000 —
+the same value `optimizeGalvo.py`'s own `cfg["dacRange"]` assumes when scoring every pattern.
+No mismatch under defaults, so this guess needs the audited device's *live* `dac_limit_min/max`
+(persisted in NVS, can drift from source defaults) to actually be tighter than the design
+radius for the mechanism to apply at all. And even then: since `findHomography` solves for
+absolute DAC coordinates from whatever `corner_r` the ESP32 actually reports, a narrower
+`corners4` shouldn't by itself *misplace* other patterns' geometry — it would just fit the
+homography from a smaller, slightly less pixel-precise square. Worth reading `/api/config`'s
+live `dac_limit_min`/`max` next session as a near-zero-cost first check, but this is not a
+confirmed mechanism — the "smaller radius" idea from Appendix D remains a guess, now a
+narrower one.

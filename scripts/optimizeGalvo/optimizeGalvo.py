@@ -106,7 +106,7 @@ import os
 import sys
 import textwrap
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
 from pathlib import Path
 
 import cv2
@@ -588,6 +588,17 @@ DEFAULT_CONFIG = {
     "maxInvalidTrialFraction": 0.25,  # 'optimize' aborts if more than this fraction of a
                                 # profile's trials come back invalid - at that point the
                                 # study is measuring the camera, not the galvo.
+    "measurementRepeats": 1,   # 'optimize' repeats every measurement (search objective AND
+                                # the before/after re-measurement) this many times and scores
+                                # the mean instead of a single capture - see averageMetrics().
+                                # Default 1 = today's single-shot behaviour, unchanged. Raise
+                                # this if a study's own before/after step disagrees with its
+                                # in-search "best" cost: optimizer-range-audit-2026-08-17.md's
+                                # Appendix D 'Smooth' case measured cost 7.6 for a trial's
+                                # params, then 9.9 for the SAME params moments later - Optuna's
+                                # TPE sampler had been chasing single-shot capture noise, not a
+                                # real optimum. Each repeat costs a full settle+capture, so this
+                                # multiplies every trial's duration by the same factor.
     "costWeights": {
         "pathDeviationRms": 1.0,
         "blankLeakage": 2.0,
@@ -798,6 +809,8 @@ def validateConfig(cfg: dict):
         problems.append("minPathCoveragePct must be a number between 0 and 100")
     if not isinstance(cfg.get("maxInvalidTrialFraction"), (int, float)) or not (0 <= cfg["maxInvalidTrialFraction"] <= 1):
         problems.append("maxInvalidTrialFraction must be a number between 0 and 1")
+    if not isinstance(cfg.get("measurementRepeats"), int) or cfg["measurementRepeats"] < 1:
+        problems.append("measurementRepeats must be an integer >= 1")
     costWeights = cfg.get("costWeights")
     if not isinstance(costWeights, dict) or not all(
             isinstance(v, (int, float)) for v in costWeights.values()):
@@ -3539,6 +3552,59 @@ def measureOnce(esp: EspClient, cam: Camera, cfg: dict, homography: np.ndarray,
     return metrics, effective
 
 
+def averageMetrics(reps: list[Metrics]) -> Metrics:
+    """Combines several VALID Metrics from repeated measurements of the same params
+    into one, by averaging every numeric field. cost is a weighted linear sum with no
+    interaction terms (see computeMetrics) - mean(cost_i) == cost(mean(metrics_i)) - so
+    averaging the field directly is equivalent to, and simpler than, recomputing cost
+    from averaged metrics. Exists because a single capture's noise floor is real: see
+    optimizer-range-audit-2026-08-17.md Appendix D's 'Smooth' case, where identical
+    params measured cost 7.6 then 9.9 moments apart - Optuna's single-shot objective
+    was chasing that noise, not a real optimum."""
+    if len(reps) == 1:
+        return reps[0]
+    result = copy.copy(reps[0])
+    result.invalidReasons = []
+    for f in fields(Metrics):
+        if f.name in ("valid", "invalidReasons"):
+            continue
+        values = [getattr(r, f.name) for r in reps]
+        mean = sum(values) / len(values)
+        setattr(result, f.name, round(mean) if isinstance(getattr(reps[0], f.name), int) else mean)
+    result.valid = True
+    return result
+
+
+def measureRepeated(esp: EspClient, cam: Camera, cfg: dict, homography: np.ndarray,
+                    background: np.ndarray, pattern: str, statusPrefix: str,
+                    params: dict | None = None,
+                    saveTo: Path | None = None) -> tuple[Metrics, dict | None]:
+    """measureOnce, repeated cfg['measurementRepeats'] times (default 1 - a no-op
+    wrapper unless the operator opts in) and averaged via averageMetrics(). Each
+    repeat keeps the existing single-retry-on-invalid behaviour; a repeat that's
+    still invalid after its own retry is dropped from the average rather than
+    poisoning it. If every repeat is invalid, the last one is returned as-is so the
+    caller's normal 'no valid measurement' handling still applies. Only the first
+    repeat is saved to `saveTo` - later repeats would just overwrite it."""
+    repeats = max(1, int(cfg.get("measurementRepeats", 1)))
+    reps: list[Metrics] = []
+    effective = None
+    for i in range(repeats):
+        label = statusPrefix if repeats == 1 else f"{statusPrefix} (repeat {i + 1}/{repeats})"
+        m, effective = measureOnce(esp, cam, cfg, homography, background, pattern,
+                                   saveTo=saveTo if i == 0 else None,
+                                   statusPrefix=label, params=params)
+        if not m.valid:
+            prWarn(f"retrying '{pattern}' once after an invalid measurement ...")
+            m, effective = measureOnce(esp, cam, cfg, homography, background, pattern,
+                                       statusPrefix=f"{label} (retry)", params=params)
+        reps.append(m)
+    validReps = [r for r in reps if r.valid]
+    if not validReps:
+        return reps[-1], effective
+    return averageMetrics(validReps), effective
+
+
 # ── live (no-reference) geometry analysis ────────────────────────────────────
 #
 # measure/diagnose/optimize all score against a known ideal (idealPolylines()), so
@@ -4318,18 +4384,13 @@ def runStudyForProfile(optuna, cfg: dict, esp: EspClient, cam: Camera,
     minTrialsForInvalidAbort = 4
 
     def measureValid(pattern, params, label):
-        """One measurement, retried once on an invalid result before giving up. A single
-        invalid reading can be a transient (a pattern switch not fully settled, someone
-        walking through the beam path); a repeat is the rig, not the moment."""
-        m, effective = measureOnce(
-            esp, cam, cfg, homography, background, pattern,
-            statusPrefix=label, params=params)
-        if not m.valid:
-            prWarn(f"retrying '{pattern}' once after an invalid measurement ...")
-            m, effective = measureOnce(
-                esp, cam, cfg, homography, background, pattern,
-                statusPrefix=f"{label} (retry)", params=params)
-        return m, effective
+        """One measurement (optionally repeat-averaged, see cfg['measurementRepeats'] /
+        averageMetrics()), each individual capture retried once on an invalid result
+        before giving up. A single invalid reading can be a transient (a pattern switch
+        not fully settled, someone walking through the beam path); a repeat is the rig,
+        not the moment."""
+        return measureRepeated(esp, cam, cfg, homography, background, pattern, label,
+                               params=params)
 
     def objective(trial):
         nonlocal runIndex, invalidTrials, invalidAbort
@@ -4554,13 +4615,17 @@ def runOptimize(cfg: dict, esp: EspClient, cam: Camera, profile: str | None, tri
             if changed:
                 pr(f"\ncapturing before/after comparison for '{name}' ...")
                 for pattern in space["patterns"]:
-                    beforeM, _ = measureOnce(
+                    # Repeat-averaged (cfg['measurementRepeats']), same as the search
+                    # objective above - this is the step that has to be trusted to
+                    # decide keep-vs-revert, so it should not rest on a single noisy
+                    # capture either (see averageMetrics()'s docstring).
+                    beforeM, _ = measureRepeated(
                         esp, cam, cfg, homography, background, pattern,
-                        statusPrefix=f"{name} BEFORE",
+                        f"{name} BEFORE",
                         saveTo=RESULTS_DIR / f"{name}_{pattern}_before_{result['timestamp']}.png")
-                    afterM, _ = measureOnce(
+                    afterM, _ = measureRepeated(
                         esp, cam, cfg, homography, background, pattern,
-                        statusPrefix=f"{name} AFTER", params=bestParams,
+                        f"{name} AFTER", params=bestParams,
                         saveTo=RESULTS_DIR / f"{name}_{pattern}_after_{result['timestamp']}.png")
                     fmt = (lambda c: "INVALID" if math.isnan(c) else f"{c:.4f}")
                     pr(f"  {pattern}: cost {fmt(beforeM.cost)} -> {fmt(afterM.cost)}  -> "
