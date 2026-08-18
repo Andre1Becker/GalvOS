@@ -97,6 +97,7 @@ If wheels for your Python version are not yet published, use a Python
 
 import argparse
 import collections
+import copy
 import csv
 import functools
 import json
@@ -115,7 +116,7 @@ import requests
 # ── versioning ───────────────────────────────────────────────────────────────
 # Semantic version of this script (independent of GalvOS firmware version).
 # Bump on every behavioral change; see git log for change history.
-SCRIPT_VERSION = "2.20.0"
+SCRIPT_VERSION = "2.21.0"
 
 # GalvOS firmware version that introduced /api/calib-cam/* (see firmware git log:
 # "fw: v6.03.0 -- camera-in-the-loop calibration API (calib-cam)").
@@ -3968,6 +3969,50 @@ def defaultSearchSpace() -> dict:
     }
 
 
+def mergeSearchSpace(existing: dict, defaults: dict) -> tuple[dict, list[str]]:
+    """Fills gaps in an existing searchSpace.json against defaultSearchSpace() -
+    additive only. Never touches a key that is already present, at either the
+    profile or the per-parameter level, so a user's own tuned ranges survive
+    byte-for-byte. Adds (a) whole profile blocks the file predates (e.g. Wireframe/
+    Text/Particles landing in fw v6.75.0) and (b) individual parameters added to an
+    existing profile's block later, so a stale file doesn't silently under-search a
+    profile it already "has". Returns (merged, changes); changes is a human-readable
+    list, empty if the file already had everything."""
+    merged = copy.deepcopy(existing)
+    changes = []
+    for profileName, profileDefault in defaults.items():
+        if profileName.startswith("_"):
+            continue
+        if profileName not in merged:
+            merged[profileName] = copy.deepcopy(profileDefault)
+            changes.append(f"added profile '{profileName}' (new camera pattern)")
+            continue
+        existingProfile = merged[profileName]
+        if not isinstance(existingProfile, dict):
+            continue  # malformed entry - not this function's job to repair
+        existingParams = existingProfile.setdefault("params", {})
+        for paramName, paramSpec in profileDefault.get("params", {}).items():
+            if paramName not in existingParams:
+                existingParams[paramName] = copy.deepcopy(paramSpec)
+                changes.append(f"added '{profileName}.{paramName}'")
+    return merged, changes
+
+
+def logSearchSpaceMerge(changes: list[str]) -> None:
+    """Appends a timestamped record of an auto-merge to results/ - the persistent
+    'run log' for changes that happen silently otherwise. Best-effort: a logging
+    failure must never abort the actual optimize/diagnose run that triggered it."""
+    try:
+        RESULTS_DIR.mkdir(exist_ok=True)
+        with (RESULTS_DIR / "searchspace_merges.jsonl").open("a") as f:
+            f.write(json.dumps({
+                "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+                "changes": changes,
+            }) + "\n")
+    except OSError as e:
+        prWarn(f"could not append to searchspace_merges.jsonl: {e}", file=sys.stderr)
+
+
 def loadSearchSpaceFile() -> dict:
     if not SEARCH_SPACE_FILE.exists():
         spaces = defaultSearchSpace()
@@ -3990,18 +4035,25 @@ def loadSearchSpaceFile() -> dict:
     if not isinstance(spaces, dict):
         raise OptimizerError(f"{SEARCH_SPACE_FILE.name} must contain a JSON object")
 
-    # An existing file is never rewritten (it is the user's own tuning ranges),
-    # so profiles that gained a camera pattern after it was created would just
-    # silently not show up as tunable. Say so instead, with the exact keys to
-    # copy from defaultSearchSpace().
-    stale = [n for n in defaultSearchSpace()
-             if not n.startswith("_") and n not in spaces]
-    if stale:
-        prWarn(f"{SEARCH_SPACE_FILE.name} has no entry for {', '.join(stale)} - "
-               f"those profiles are camera-tunable but will be skipped by "
-               f"'optimize'. Delete the file to regenerate it with defaults, or "
-               f"copy the missing block(s) from defaultSearchSpace() in this "
-               f"script.")
+    # An existing file is the user's own tuning ranges and is never clobbered, but
+    # gaps against defaultSearchSpace() - a whole profile the file predates, or a
+    # parameter added to a profile it already has - are filled in and written back,
+    # so a stale file doesn't silently skip a profile or under-search a parameter.
+    # Reported on stderr and appended to results/searchspace_merges.jsonl rather
+    # than done quietly.
+    merged, changes = mergeSearchSpace(spaces, defaultSearchSpace())
+    if changes:
+        try:
+            SEARCH_SPACE_FILE.write_text(json.dumps(merged, indent=2))
+        except OSError as e:
+            raise OptimizerError(f"cannot update {SEARCH_SPACE_FILE}: {e}") from e
+        prWarn(f"{SEARCH_SPACE_FILE.name} was missing {len(changes)} "
+               f"entrie(s) added by a newer version of this script - merged in "
+               f"without touching your existing tuning:", file=sys.stderr)
+        for c in changes:
+            prWarn(f"  - {c}", file=sys.stderr)
+        logSearchSpaceMerge(changes)
+        spaces = merged
     return spaces
 
 
