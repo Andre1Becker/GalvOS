@@ -7,5 +7,12 @@
         "latex",
         "plaintext",
         "ini"
-    ]
+    ],
+  "claude-code.claudeProcessWrapper": "headroom wrap vscode-claude",
+  "claude-code.environmentVariables": [
+    {
+      "key": "ANTHROPIC_BASE_URL",
+      "value": "http://localhost:8787"
+    }
+  ]
 }

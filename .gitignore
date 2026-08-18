@@ -24,3 +24,7 @@ presets-tab-restructure_v5.14.0.patch
 *.ses
 *.kicad_prl
 *_drc_violations.json
+debug.log
+.tokensave/config.json
+.tokensave/tokensave.db
+.vscode/settings.json
