@@ -51,6 +51,12 @@ Target: GalvOS ESP32-S3 controller via REST (/api/calib-cam/*, /api/status).
                   camera frame without running off it - shrinks a clipped
                   side, expands an underscanning axis, freezes once
                   converged. No homography needed.
+ 13. regress    - point-optimizer regression suite: measures every calib
+                  pattern in a tier (simple/medium/heavy) against
+                  diagnoseThresholds and reports pass/fail, same
+                  classification 'diagnose' uses. No search, no override -
+                  a CI/pre-flight gate for a firmware change touching
+                  point_optimizer.cpp, not a tuning step.
 
 ---
 
@@ -61,7 +67,7 @@ Target: GalvOS ESP32-S3 controller via REST (/api/calib-cam/*, /api/status).
   python optimizeGalvo.py preview
   python optimizeGalvo.py calibrate
   python optimizeGalvo.py measure --pattern square
-  python optimizeGalvo.py optimize --profile default --trials 60
+  python optimizeGalvo.py optimize --profile Vector --trials 60
   python optimizeGalvo.py optimize --preset "Milky Way" --trials 60
   python optimizeGalvo.py diagnose --autotune
   python optimizeGalvo.py autotune-camera --trials 30
@@ -72,6 +78,8 @@ Target: GalvOS ESP32-S3 controller via REST (/api/calib-cam/*, /api/status).
   python optimizeGalvo.py measure-resonance --axis x
   python optimizeGalvo.py tune-dac-range
   python optimizeGalvo.py tune-dac-range --max-iterations 10 --dry-run
+  python optimizeGalvo.py regress
+  python optimizeGalvo.py regress --tier simple --tier medium
   python optimizeGalvo.py --config myRig.json check
 
 ---
@@ -116,7 +124,7 @@ import requests
 # ── versioning ───────────────────────────────────────────────────────────────
 # Semantic version of this script (independent of GalvOS firmware version).
 # Bump on every behavioral change; see git log for change history.
-SCRIPT_VERSION = "2.23.0"
+SCRIPT_VERSION = "2.24.0"
 
 # GalvOS firmware version that introduced /api/calib-cam/* (see firmware git log:
 # "fw: v6.03.0 -- camera-in-the-loop calibration API (calib-cam)").
@@ -178,12 +186,46 @@ FW_PROFILE_PATTERNS = {
     "Text":        ["text"],
 }
 
+# Single source of truth for the CLI help text below (--profile/--preset/optimize's
+# description) - derived from FW_PROFILE_PATTERNS/FIRMWARE_PROFILE_NAMES instead of a
+# second hardcoded profile list, so it can't drift out of sync with the dict above the
+# way the old hardcoded "Vector/Smooth/Waves/MultiObject" text did once Wireframe/
+# Particles/Text got their camera patterns in fw v6.75.0.
+CAMERA_TUNABLE_PROFILE_NAMES = tuple(
+    n for n in FIRMWARE_PROFILE_NAMES if n in FW_PROFILE_PATTERNS)
+NON_CAMERA_TUNABLE_PROFILE_NAMES = tuple(
+    n for n in FIRMWARE_PROFILE_NAMES if n not in FW_PROFILE_PATTERNS)
+
+# 'regress' tiers, by structural complexity of the pattern itself (path length,
+# corner/vertex count, closed-vs-open, continuous-vs-isolated-dot). This is the
+# closest available equivalent to a "simple/medium/heavy real preset" regression
+# suite: Path Deviation/Blank Leakage/Corner Hotspot/Brightness Uniformity scoring
+# (computeMetrics(), used via classifyProfile()) needs a committed ideal geometry to
+# compare the capture against (_idealGeometryFor), and only these 8 calib patterns -
+# every value in FW_PROFILE_PATTERNS - have one today. Real preset names some other
+# GalvOS docs reference by way of example (Grid 3x3, Hibiscus, Nested Squares,
+# Countdown, Cross, ...) are NOT covered here - that would need a per-preset ideal-
+# geometry entry added to _idealGeometryFor first, which does not exist yet. 'heavy'
+# below (wireframe/text/particles) does line up with "complex 3D/text/particle
+# scenes" directly, since those ARE the calib patterns for the Wireframe/Text/
+# Particles profiles.
+REGRESSION_SUITE = {
+    "simple": ["square", "star", "circle"],
+    "medium": ["spiral", "segments"],
+    "heavy":  ["wireframe", "text", "particles"],
+}
+
 # Camera settings that may be overridden per firmware profile (see camConfig.json's
 # "profileCamera"). Deliberately only the four capture knobs 'autotune-camera'
 # searches - geometry (frameWidth/Height), the ESP32 URL, scoring weights and the
 # like are rig-wide and must not diverge per profile or measurements stop being
 # comparable between them.
 PROFILE_CAMERA_KEYS = frozenset(("exposure", "gain", "binaryThreshold", "accumFrames"))
+
+# Nested config blocks whose keys are DATA (profile names) rather than a fixed
+# schema. loadConfig()'s unknown-key warning must skip these or it fires on every
+# correctly-configured entry; validateConfig() checks them properly instead.
+OPEN_KEYED_BLOCKS = frozenset(("profileCamera",))
 
 # Firmware params to hold while tuning a profile's camera settings, chosen to be the
 # DIMMEST configuration its search space can propose.
@@ -264,6 +306,14 @@ class OptimizerError(Exception):
     printed as a plain message - no Python traceback - unless --debug is set."""
 
 
+# Distinct from the generic OptimizerError exit(1): this specific exit code means
+# the run finished (or errored) WITHOUT the script being able to confirm the beam
+# was actually stopped afterwards - the one failure mode that must never be masked
+# by whatever exit code the rest of the run would otherwise have produced. See
+# confirmLaserStopped()/dispatch().
+EXIT_LASER_NOT_CONFIRMED_STOPPED = 3
+
+
 # ── output helpers ───────────────────────────────────────────────────────────
 
 TERM_WIDTH = 80  # hard-wrap terminal output to this width for readability
@@ -295,6 +345,9 @@ def pr(*values, sep: str = " ", **kwargs):
 #   [+] prOk    action completed successfully (file written, connection confirmed)
 #   [*] prTip   actionable recommendation - what to run/check next
 #   [i] prInfo  notable status worth calling out, not just routine progress text
+#   [X] prCritical  a laser-safety condition could not be confirmed (e.g. the final
+#               stop was never verified) - always paired with a non-zero exit code,
+#               never just a louder warning
 def prWarn(*values, **kwargs):
     pr("[!]", *values, **kwargs)
 
@@ -309,6 +362,10 @@ def prTip(*values, **kwargs):
 
 def prInfo(*values, **kwargs):
     pr("[i]", *values, **kwargs)
+
+
+def prCritical(*values, **kwargs):
+    pr("[X]", *values, **kwargs)
 
 
 # ── bold text / tables ───────────────────────────────────────────────────────
@@ -789,110 +846,121 @@ DEFAULT_CONFIG = {
 }
 
 
+def _isNum(v) -> bool:
+    """True for a real int/float, excluding bool - a bool is technically an int
+    subclass in Python (isinstance(True, int) is True), so every plain numeric
+    isinstance() check below would otherwise silently accept true/false as 1/0."""
+    return isinstance(v, (int, float)) and not isinstance(v, bool)
+
+
+def _isInt(v) -> bool:
+    """Same bool-exclusion as _isNum(), for fields that must be a whole number."""
+    return isinstance(v, int) and not isinstance(v, bool)
+
+
 def validateConfig(cfg: dict):
     """Catches config problems here, once, with one clear message - instead of a
     division-by-zero / negative-index / cv2 error surfacing deep in a capture loop."""
     problems = []
-    if not isinstance(cfg.get("dacRange"), (int, float)) or cfg["dacRange"] <= 0:
+    if not _isNum(cfg.get("dacRange")) or cfg["dacRange"] <= 0:
         problems.append("dacRange must be a positive number")
-    if not isinstance(cfg.get("camPatternChannel"), int) or not (0 <= cfg["camPatternChannel"] <= 3):
+    if not _isInt(cfg.get("camPatternChannel")) or not (0 <= cfg["camPatternChannel"] <= 3):
         problems.append("camPatternChannel must be an integer 0-3 (0=white 1=R 2=G 3=B)")
-    if not isinstance(cfg.get("requestTimeoutSeconds"), (int, float)) or cfg["requestTimeoutSeconds"] <= 0:
+    if not _isNum(cfg.get("requestTimeoutSeconds")) or cfg["requestTimeoutSeconds"] <= 0:
         problems.append("requestTimeoutSeconds must be a positive number")
-    if not isinstance(cfg.get("requestRetries"), int) or cfg["requestRetries"] < 0:
+    if not _isInt(cfg.get("requestRetries")) or cfg["requestRetries"] < 0:
         problems.append("requestRetries must be a non-negative integer")
-    if not isinstance(cfg.get("requestRetryDelaySeconds"), (int, float)) or cfg["requestRetryDelaySeconds"] < 0:
+    if not _isNum(cfg.get("requestRetryDelaySeconds")) or cfg["requestRetryDelaySeconds"] < 0:
         problems.append("requestRetryDelaySeconds must be a non-negative number")
-    if not isinstance(cfg.get("frameWidth"), int) or cfg["frameWidth"] <= 0:
+    if not _isInt(cfg.get("frameWidth")) or cfg["frameWidth"] <= 0:
         problems.append("frameWidth must be a positive integer")
-    if not isinstance(cfg.get("frameHeight"), int) or cfg["frameHeight"] <= 0:
+    if not _isInt(cfg.get("frameHeight")) or cfg["frameHeight"] <= 0:
         problems.append("frameHeight must be a positive integer")
     if cfg.get("cameraFps") is not None and (
-            not isinstance(cfg["cameraFps"], (int, float)) or cfg["cameraFps"] <= 0):
+            not _isNum(cfg["cameraFps"]) or cfg["cameraFps"] <= 0):
         problems.append("cameraFps must be null or a positive number")
     if cfg.get("cameraFourcc") is not None and (
             not isinstance(cfg["cameraFourcc"], str) or len(cfg["cameraFourcc"]) != 4):
         problems.append("cameraFourcc must be null or a 4-character FOURCC string (e.g. 'MJPG')")
     if cfg.get("cameraBackend") not in ("dshow", "msmf", "any"):
         problems.append("cameraBackend must be 'dshow', 'msmf', or 'any'")
-    if not isinstance(cfg.get("displaySmoothFrames"), int) or cfg["displaySmoothFrames"] < 1:
+    if not _isInt(cfg.get("displaySmoothFrames")) or cfg["displaySmoothFrames"] < 1:
         problems.append("displaySmoothFrames must be an integer >= 1")
-    if (not isinstance(cfg.get("resultViewHoldSeconds"), (int, float))
+    if (not _isNum(cfg.get("resultViewHoldSeconds"))
             or cfg["resultViewHoldSeconds"] < MIN_RESULT_VIEW_HOLD_SECONDS):
         problems.append(f"resultViewHoldSeconds must be a number >= "
                         f"{MIN_RESULT_VIEW_HOLD_SECONDS}")
-    if not isinstance(cfg.get("cameraIndex"), int) or cfg["cameraIndex"] < 0:
+    if not _isInt(cfg.get("cameraIndex")) or cfg["cameraIndex"] < 0:
         problems.append("cameraIndex must be a non-negative integer")
-    if not isinstance(cfg.get("accumFrames"), int) or cfg["accumFrames"] < 1:
+    if not _isInt(cfg.get("accumFrames")) or cfg["accumFrames"] < 1:
         problems.append("accumFrames must be an integer >= 1")
     for key in ("brightness", "contrast", "gamma", "sharpness", "backlightCompensation"):
-        if not isinstance(cfg.get(key), (int, float)):
+        if not _isNum(cfg.get(key)):
             problems.append(f"{key} must be a number (hardware range varies by camera - "
                             f"an out-of-range value is simply clamped/ignored by the driver)")
-    if not isinstance(cfg.get("binaryThreshold"), (int, float)) or not (0 <= cfg["binaryThreshold"] <= 255):
+    if not _isNum(cfg.get("binaryThreshold")) or not (0 <= cfg["binaryThreshold"] <= 255):
         problems.append("binaryThreshold must be a number between 0 and 255")
-    if not isinstance(cfg.get("warpCalibFrames"), int) or cfg["warpCalibFrames"] < 1:
+    if not _isInt(cfg.get("warpCalibFrames")) or cfg["warpCalibFrames"] < 1:
         problems.append("warpCalibFrames must be an integer >= 1")
-    if (not isinstance(cfg.get("warpCalibMinBlobAreaPx"), (int, float))
-            or not isinstance(cfg.get("warpCalibMaxBlobAreaPx"), (int, float))
+    if (not _isNum(cfg.get("warpCalibMinBlobAreaPx"))
+            or not _isNum(cfg.get("warpCalibMaxBlobAreaPx"))
             or cfg["warpCalibMinBlobAreaPx"] < 0
             or cfg["warpCalibMinBlobAreaPx"] >= cfg["warpCalibMaxBlobAreaPx"]):
         problems.append("warpCalibMinBlobAreaPx must be a non-negative number less than "
                         "warpCalibMaxBlobAreaPx")
-    if not isinstance(cfg.get("warpCalibMinPeakVal"), (int, float)) or not (0 <= cfg["warpCalibMinPeakVal"] <= 255):
+    if not _isNum(cfg.get("warpCalibMinPeakVal")) or not (0 <= cfg["warpCalibMinPeakVal"] <= 255):
         problems.append("warpCalibMinPeakVal must be a number between 0 and 255")
-    if not isinstance(cfg.get("warpCalibToleranceCameraPx"), (int, float)) or cfg["warpCalibToleranceCameraPx"] <= 0:
+    if not _isNum(cfg.get("warpCalibToleranceCameraPx")) or cfg["warpCalibToleranceCameraPx"] <= 0:
         problems.append("warpCalibToleranceCameraPx must be a positive number")
-    if not isinstance(cfg.get("dacRangeTuneStepUnits"), (int, float)) or cfg["dacRangeTuneStepUnits"] <= 0:
+    if not _isNum(cfg.get("dacRangeTuneStepUnits")) or cfg["dacRangeTuneStepUnits"] <= 0:
         problems.append("dacRangeTuneStepUnits must be a positive number")
-    if not isinstance(cfg.get("liveAnalysisMinComponentPx"), (int, float)) or cfg["liveAnalysisMinComponentPx"] < 0:
+    if not _isNum(cfg.get("liveAnalysisMinComponentPx")) or cfg["liveAnalysisMinComponentPx"] < 0:
         problems.append("liveAnalysisMinComponentPx must be a non-negative number")
     if cfg.get("resonanceAxis") not in ("x", "y"):
         problems.append("resonanceAxis must be 'x' or 'y'")
-    if not isinstance(cfg.get("resonanceAmpFraction"), (int, float)) or not (0 < cfg["resonanceAmpFraction"] <= 1):
+    if not _isNum(cfg.get("resonanceAmpFraction")) or not (0 < cfg["resonanceAmpFraction"] <= 1):
         problems.append("resonanceAmpFraction must be a number between 0 (exclusive) and 1")
-    if (not isinstance(cfg.get("resonanceMinFreqHz"), (int, float))
-            or not isinstance(cfg.get("resonanceMaxFreqHz"), (int, float))
+    if (not _isNum(cfg.get("resonanceMinFreqHz"))
+            or not _isNum(cfg.get("resonanceMaxFreqHz"))
             or cfg["resonanceMinFreqHz"] <= 0
             or cfg["resonanceMinFreqHz"] >= cfg["resonanceMaxFreqHz"]):
         problems.append("resonanceMinFreqHz must be a positive number less than resonanceMaxFreqHz")
-    if not isinstance(cfg.get("resonanceCoarsePoints"), int) or cfg["resonanceCoarsePoints"] < 3:
+    if not _isInt(cfg.get("resonanceCoarsePoints")) or cfg["resonanceCoarsePoints"] < 3:
         problems.append("resonanceCoarsePoints must be an integer >= 3")
-    if not isinstance(cfg.get("resonanceFinePoints"), int) or cfg["resonanceFinePoints"] < 3:
+    if not _isInt(cfg.get("resonanceFinePoints")) or cfg["resonanceFinePoints"] < 3:
         problems.append("resonanceFinePoints must be an integer >= 3")
-    if not isinstance(cfg.get("resonanceFineSpanFraction"), (int, float)) or not (0 < cfg["resonanceFineSpanFraction"] < 1):
+    if not _isNum(cfg.get("resonanceFineSpanFraction")) or not (0 < cfg["resonanceFineSpanFraction"] < 1):
         problems.append("resonanceFineSpanFraction must be a number between 0 and 1 (exclusive)")
-    if not isinstance(cfg.get("resonanceFineSpanRetries"), int) or cfg["resonanceFineSpanRetries"] < 0:
+    if not _isInt(cfg.get("resonanceFineSpanRetries")) or cfg["resonanceFineSpanRetries"] < 0:
         problems.append("resonanceFineSpanRetries must be a non-negative integer")
-    if not isinstance(cfg.get("resonanceMinCycles"), int) or cfg["resonanceMinCycles"] < 1:
+    if not _isInt(cfg.get("resonanceMinCycles")) or cfg["resonanceMinCycles"] < 1:
         problems.append("resonanceMinCycles must be an integer >= 1")
-    if not isinstance(cfg.get("resonanceSettleSeconds"), (int, float)) or cfg["resonanceSettleSeconds"] < 0:
+    if not _isNum(cfg.get("resonanceSettleSeconds")) or cfg["resonanceSettleSeconds"] < 0:
         problems.append("resonanceSettleSeconds must be a non-negative number")
-    if not isinstance(cfg.get("resonanceMinExtentPx"), (int, float)) or cfg["resonanceMinExtentPx"] < 0:
+    if not _isNum(cfg.get("resonanceMinExtentPx")) or cfg["resonanceMinExtentPx"] < 0:
         problems.append("resonanceMinExtentPx must be a non-negative number")
-    if not isinstance(cfg.get("resonanceChannel"), int) or not (0 <= cfg["resonanceChannel"] <= 3):
+    if not _isInt(cfg.get("resonanceChannel")) or not (0 <= cfg["resonanceChannel"] <= 3):
         problems.append("resonanceChannel must be an integer 0-3 (0=white 1=R 2=G 3=B)")
-    if not isinstance(cfg.get("offPathGuardPx"), (int, float)) or not (1 <= cfg["offPathGuardPx"] < CANVAS / 2):
+    if not _isNum(cfg.get("offPathGuardPx")) or not (1 <= cfg["offPathGuardPx"] < CANVAS / 2):
         problems.append(f"offPathGuardPx must be a number between 1 and {CANVAS // 2}")
-    if not isinstance(cfg.get("pathCoverageRadiusPx"), (int, float)) or cfg["pathCoverageRadiusPx"] < 1:
+    if not _isNum(cfg.get("pathCoverageRadiusPx")) or cfg["pathCoverageRadiusPx"] < 1:
         problems.append("pathCoverageRadiusPx must be a number >= 1")
-    if not isinstance(cfg.get("minPathCoveragePct"), (int, float)) or not (0 <= cfg["minPathCoveragePct"] <= 100):
+    if not _isNum(cfg.get("minPathCoveragePct")) or not (0 <= cfg["minPathCoveragePct"] <= 100):
         problems.append("minPathCoveragePct must be a number between 0 and 100")
-    if not isinstance(cfg.get("maxInvalidTrialFraction"), (int, float)) or not (0 <= cfg["maxInvalidTrialFraction"] <= 1):
+    if not _isNum(cfg.get("maxInvalidTrialFraction")) or not (0 <= cfg["maxInvalidTrialFraction"] <= 1):
         problems.append("maxInvalidTrialFraction must be a number between 0 and 1")
-    if not isinstance(cfg.get("measurementRepeats"), int) or cfg["measurementRepeats"] < 1:
+    if not _isInt(cfg.get("measurementRepeats")) or cfg["measurementRepeats"] < 1:
         problems.append("measurementRepeats must be an integer >= 1")
     costWeights = cfg.get("costWeights")
     if not isinstance(costWeights, dict) or not all(
-            isinstance(v, (int, float)) for v in costWeights.values()):
-        problems.append("costWeights must be an object of numeric weights")
+            _isNum(v) and v >= 0 for v in costWeights.values()):
+        problems.append("costWeights must be an object of non-negative numeric weights")
     diagnoseThresholds = cfg.get("diagnoseThresholds")
     if not isinstance(diagnoseThresholds, dict) or not all(
-            isinstance(v, (int, float)) and v >= 0 for v in diagnoseThresholds.values()):
+            _isNum(v) and v >= 0 for v in diagnoseThresholds.values()):
         problems.append("diagnoseThresholds must be an object of non-negative numeric thresholds")
     ranges = cfg.get("cameraAutotuneRanges")
-    if not isinstance(ranges, dict) or not all(
-            isinstance(v, (int, float)) for v in ranges.values()):
+    if not isinstance(ranges, dict) or not all(_isNum(v) for v in ranges.values()):
         problems.append("cameraAutotuneRanges must be an object of numeric bounds")
     else:
         for lo, hi in (("exposureMin", "exposureMax"), ("gainMin", "gainMax"),
@@ -903,8 +971,8 @@ def validateConfig(cfg: dict):
                                 f"{hi} ({ranges[hi]})")
     autotuneWeights = cfg.get("cameraAutotuneWeights")
     if not isinstance(autotuneWeights, dict) or not all(
-            isinstance(v, (int, float)) for v in autotuneWeights.values()):
-        problems.append("cameraAutotuneWeights must be an object of numeric weights")
+            _isNum(v) and v >= 0 for v in autotuneWeights.values()):
+        problems.append("cameraAutotuneWeights must be an object of non-negative numeric weights")
     profCam = cfg.get("profileCamera")
     if not isinstance(profCam, dict):
         problems.append("profileCamera must be an object keyed by profile name")
@@ -923,7 +991,7 @@ def validateConfig(cfg: dict):
                     problems.append(
                         f"profileCamera['{profName}']: '{key}' is not overridable "
                         f"(allowed: {sorted(PROFILE_CAMERA_KEYS)})")
-                elif not isinstance(val, (int, float)) or isinstance(val, bool):
+                elif not _isNum(val):
                     problems.append(
                         f"profileCamera['{profName}']['{key}'] must be a number")
     if problems:
@@ -962,10 +1030,15 @@ def loadConfig() -> dict:
         cfg = {**DEFAULT_CONFIG, **onDisk}
         for key in nestedDictKeys:
             if key in onDisk:
-                unknownSub = sorted(set(onDisk[key]) - set(DEFAULT_CONFIG[key]))
-                if unknownSub:
-                    prWarn(f"{CONFIG_FILE.name} '{key}' has unrecognized key(s): "
-                          f"{unknownSub}")
+                # OPEN_KEYED_BLOCKS are keyed by data (profile names), not by a fixed
+                # schema, so every entry would look "unrecognized" against an empty
+                # default and the warning would fire on correct config. validateConfig()
+                # checks their contents properly instead.
+                if key not in OPEN_KEYED_BLOCKS:
+                    unknownSub = sorted(set(onDisk[key]) - set(DEFAULT_CONFIG[key]))
+                    if unknownSub:
+                        prWarn(f"{CONFIG_FILE.name} '{key}' has unrecognized key(s): "
+                              f"{unknownSub}")
                 cfg[key] = {**DEFAULT_CONFIG[key], **onDisk[key]}
 
         # Migrate: an older camConfig.json predating a newly-added setting (like
@@ -1545,6 +1618,11 @@ class Camera:
         self._displayBuffer = collections.deque(maxlen=max(1, cfg.get("displaySmoothFrames", 3)))
         self.lastAccumulated: np.ndarray | None = None
         reportedFps = self.cap.get(cv2.CAP_PROP_FPS)
+        # What the driver actually negotiated, NOT the cfg["cameraFps"] request above -
+        # per the comment on that request, the driver very often settles on a different
+        # rate. measure-resonance uses this (see _measureOneFrequency) instead of the
+        # requested value to size its per-frequency capture window correctly.
+        self.reportedFps = reportedFps if reportedFps and reportedFps > 0 else None
         readExposure = self.cap.get(cv2.CAP_PROP_EXPOSURE)
         exposureStuck = appliedAutoExpVal is not None
         unsupportedOther = [name for name, ok in self.otherControlsSupported.items() if not ok]
@@ -2575,7 +2653,11 @@ def _measureOneFrequency(cfg: dict, esp: EspClient, cam: "Camera", background: n
               f"dac_limit_min/max")
     time.sleep(cfg["resonanceSettleSeconds"])
 
-    fps = cfg.get("cameraFps") or 60.0
+    # Prefer the camera's own actually-negotiated fps (cam.reportedFps) over the
+    # cfg["cameraFps"] REQUEST - the driver often settles on a different rate (see
+    # Camera.__init__'s comment on cameraFps), and sizing this window from the wrong
+    # fps under-captures the requested resonanceMinCycles periods at low frequencies.
+    fps = cam.reportedFps or cfg.get("cameraFps") or 60.0
     periodS = 1.0 / freqHz
     framesForCycles = int(-(-(cfg["resonanceMinCycles"] * periodS * fps) // 1))  # ceil
     nFrames = max(cfg["accumFrames"], framesForCycles, 3)
@@ -2796,17 +2878,36 @@ def runMeasureResonance(cfg: dict, esp: EspClient, cam: "Camera", axisName: str 
         if f3dbLo is not None and f3dbHi is not None:
             bandwidth = f3dbHi - f3dbLo
             q = fPeak / bandwidth if bandwidth > 0 else None
-            if q is not None and q > 0:
-                zeta = 1.0 / (2.0 * q)
+            # A driven 2nd-order system only HAS a resonant peak in its magnitude
+            # response (as opposed to a monotonically-decreasing curve) when
+            # zeta < 1/sqrt(2) (~0.707, equivalently Q > 1/sqrt(2)) - above that
+            # bound, whatever local maximum the sweep found is not a real resonance
+            # mode, and the fn = fPeak/sqrt(1-2*zeta^2) correction below blows up
+            # (denominator -> 0 at exactly this bound). Reporting Q/zeta/ringFreqHz
+            # here anyway - as an earlier version of this code did, falling back to
+            # fn=fPeak when the sqrt went imaginary - would silently hand the ZV
+            # shaper a damping ratio and frequency that don't describe anything
+            # physical, straight from measurement noise or too-coarse a sweep grid.
+            zetaLimit = 1.0 / np.sqrt(2.0)
+            zeta = 1.0 / (2.0 * q) if q is not None and q > 0 else None
+            if zeta is not None and 0.0 < zeta < zetaLimit:
                 # f_peak = fn*sqrt(1-2*zeta^2) for a driven 2nd-order system - correct
                 # back to the UNDAMPED natural frequency the firmware's ZV shaper
                 # actually wants (ring_freq_hz = wn/2pi, point_optimizer.cpp
                 # computeZvShaper()), not the driven-response peak itself. Small at
                 # light damping (~2% at zeta=0.15) but not zero.
-                underRoot = 1.0 - 2.0 * zeta * zeta
-                fn = fPeak / np.sqrt(underRoot) if underRoot > 0 else fPeak
+                fn = fPeak / np.sqrt(1.0 - 2.0 * zeta * zeta)
                 result.update({"f3dbLoHz": f3dbLo, "f3dbHiHz": f3dbHi, "bandwidthHz": bandwidth,
                               "Q": q, "ringDampingRatio": zeta, "ringFreqHz": float(fn)})
+            elif zeta is not None:
+                prWarn(f"measured Q={q:.2f} implies ring_damping_ratio={zeta:.3f}, at or "
+                      f"above the physically valid range (0, {zetaLimit:.3f}) for a real "
+                      f"underdamped resonance peak - the -3dB bandwidth is most likely "
+                      f"measurement noise or too-coarse a sweep grid, not the galvo's "
+                      f"actual response. Q/ring_damping_ratio/ring_freq_hz NOT reported "
+                      f"this run (fPeakHz is still a valid raw reading) - try more "
+                      f"resonanceFinePoints, a lower resonanceMinExtentPx, or a higher "
+                      f"resonanceAmpFraction for a cleaner curve.")
         else:
             prWarn(f"could not resolve a full -3dB bandwidth on both sides of the peak after "
                   f"{attempt + 1} fine-pass attempt(s) (final span +-{span * 100:.0f}%) - "
@@ -4252,6 +4353,16 @@ def loadSearchSpaceFile() -> dict:
     return spaces
 
 
+def normalizeProfileName(name: str, candidates) -> str | None:
+    """Case-insensitive match of `name` against `candidates` (an iterable of the
+    canonical-cased profile names, e.g. FW_PROFILE_PATTERNS or a selectFirmwareProfiles
+    byName dict) - returns the canonical name, or None if nothing matches. Centralizes
+    profile-name matching so --profile everywhere (optimize/diagnose/autotune-camera)
+    treats case the same way, instead of some call sites being exact-match-only."""
+    lname = name.strip().lower()
+    return next((c for c in candidates if c.lower() == lname), None)
+
+
 def profileNames(spaces: dict) -> list[str]:
     """Profile keys, excluding documentation entries like '_comment'."""
     return [k for k in spaces if not k.startswith("_")]
@@ -4320,13 +4431,19 @@ def selectFirmwareProfiles(spaces: dict, requested: str | None,
         if requested.strip().lower() == "all":
             return tunable
         names = [n.strip() for n in requested.split(",") if n.strip()]
-        missing = [n for n in names if n not in byName]
+        resolved, missing = [], []
+        for n in names:
+            canonical = normalizeProfileName(n, byName)
+            if canonical is None:
+                missing.append(n)
+            else:
+                resolved.append(byName[canonical])
         if missing:
             raise OptimizerError(
                 f"profile(s) {missing} not tunable - available: {sorted(byName)} "
                 f"(must have camera patterns and an entry in {SEARCH_SPACE_FILE.name})"
             )
-        return [byName[n] for n in names]
+        return resolved
 
     if len(tunable) == 1:
         pr(f"only one tunable profile - using '{tunable[0]['name']}'")
@@ -5112,6 +5229,87 @@ def runDiagnose(cfg: dict, esp: EspClient, cam: Camera, profile: str | None,
               f"'optimizeGalvo.py optimize --profile {','.join(flaggedNames)}'")
 
 
+def runRegress(cfg: dict, esp: EspClient, cam: Camera, tiers: list[str]) -> bool:
+    """Regression suite for the point optimizer: measures every calib pattern in the
+    requested tier(s) (see REGRESSION_SUITE) with whatever parameters are currently
+    live - same read-only philosophy as 'diagnose', no override, no search - and
+    checks each one against diagnoseThresholds via the exact classifyProfile() logic
+    'diagnose' uses, so a verdict here means the same thing there. Prints a pass/fail
+    line per pattern plus per-trial duration, saves a JSON report to
+    results/regress_<timestamp>.json, and returns whether every pattern passed -
+    dispatch() exits non-zero on any failure, so this doubles as a CI/pre-flight gate
+    after a firmware change that touches point_optimizer.cpp."""
+    homography, background = loadHomography()
+    thresholds = cfg["diagnoseThresholds"]
+    try:
+        RESULTS_DIR.mkdir(exist_ok=True)
+    except OSError as e:
+        raise OptimizerError(f"cannot create {RESULTS_DIR.name}/: {e}") from e
+
+    config = esp.getConfig()
+    calibKeys = ("galvo_x_gain", "galvo_y_gain", "galvo_x_offset", "galvo_y_offset",
+                "dac_limit_min", "dac_limit_max")
+    calib = ({"gain_x": config["galvo_x_gain"], "gain_y": config["galvo_y_gain"],
+             "offset_x": config["galvo_x_offset"], "offset_y": config["galvo_y_offset"],
+             "dac_limit_min": config["dac_limit_min"], "dac_limit_max": config["dac_limit_max"]}
+            if all(k in config for k in calibKeys) else None)
+
+    patternTier: dict[str, str] = {}
+    for tier in tiers:
+        for pattern in REGRESSION_SUITE[tier]:
+            patternTier.setdefault(pattern, tier)   # first tier a pattern appears in wins
+    patterns = list(patternTier)
+
+    pr(f"regression suite: {len(patterns)} pattern(s) across tier(s) {tiers}")
+    ts = time.strftime("%Y%m%d_%H%M%S")
+    rows = []
+    try:
+        for i, pattern in enumerate(patterns, 1):
+            pr(f"\n[{i}/{len(patterns)}] {pattern} ({patternTier[pattern]}) ...")
+            owner = profileOwningPattern(pattern)
+            applied = profileCameraOverride(cfg, owner) if owner else {}
+            measureCfg, patBackground = (applyProfileCamera(cfg, esp, cam, owner, background)
+                                         if owner else (cfg, background))
+            t0 = time.monotonic()
+            try:
+                m, _ = measureOnce(esp, cam, measureCfg, homography, patBackground, pattern,
+                                  statusPrefix="regress",
+                                  saveTo=RESULTS_DIR / f"regress_{pattern}_{ts}.png")
+            finally:
+                restoreGlobalCamera(cfg, cam, applied)
+            durationS = time.monotonic() - t0
+            verdict, geometryIssues, settingsIssues = classifyProfile(
+                pattern, [pattern], {pattern: m}, thresholds)
+            printDiagnosis(pattern, verdict, geometryIssues, settingsIssues, calib)
+            pr(f"  duration {durationS:.1f}s")
+            rows.append({"pattern": pattern, "tier": patternTier[pattern], "verdict": verdict,
+                        "passed": verdict == "OK", "durationS": round(durationS, 2),
+                        "metrics": metricsToDict(m)})
+    finally:
+        try:
+            esp.stop()
+        except OptimizerError:
+            pass    # best-effort - a genuine failure here would already have raised above
+
+    reportPath = RESULTS_DIR / f"regress_{ts}.json"
+    try:
+        reportPath.write_text(json.dumps(rows, indent=2))
+    except OSError as e:
+        prWarn(f"could not save regression report: {e}")
+
+    nPassed = sum(1 for r in rows if r["passed"])
+    pr()
+    pr(bold("=== regression summary ==="))
+    if nPassed == len(rows):
+        prOk(f"{nPassed}/{len(rows)} pattern(s) OK")
+    else:
+        failedNames = [r["pattern"] for r in rows if not r["passed"]]
+        prWarn(f"{nPassed}/{len(rows)} pattern(s) OK - {len(rows) - nPassed} failed: "
+              f"{failedNames}")
+    pr(f"report saved: {reportPath.name}")
+    return nPassed == len(rows)
+
+
 # Commands that call esp.startPattern() at some point and therefore need the laser
 # actually armed and no interlock tripped to produce a meaningful capture - checked
 # up front by requireLaserReady() so a not-ready controller fails fast with a clear
@@ -5121,16 +5319,21 @@ def runDiagnose(cfg: dict, esp: EspClient, cam: Camera, profile: str | None,
 # own non-blocking version of this same check inline (see runAnalyzeLive).
 LASER_REQUIRED_CMDS = ("calibrate", "measure", "optimize", "diagnose", "autotune-camera",
                       "autotune-colors", "calibrate-warp", "measure-resonance",
-                      "tune-dac-range")
+                      "tune-dac-range", "regress")
 
 
-def requireLaserReady(esp: EspClient):
+def requireLaserReady(esp: EspClient, allowUnarmed: bool = False):
     """Raises OptimizerError if the controller isn't actually ready to project
-    (E-Stop/scan-fail tripped, or laser not armed) - interactive sessions are asked
-    whether to proceed anyway (e.g. bench-testing the capture/scoring pipeline with
-    no live beam); non-interactive sessions abort outright, since silently continuing
-    would just burn a settle+capture cycle on a blank frame and report misleading
-    (or outright wrong) metrics."""
+    (E-Stop/scan-fail tripped, or laser not armed) - by default this ALWAYS aborts,
+    interactive session or not, since silently continuing would just burn a
+    settle+capture cycle on a blank frame and report misleading (or outright wrong)
+    metrics. Pass allowUnarmed=True (--allow-unarmed on the CLI) to proceed anyway
+    for a deliberate bench test of the capture/scoring pipeline with no live beam -
+    this is an explicit, conscious opt-in, never an interactive prompt someone can
+    fat-finger through. Note this is a UX/correctness guard, not the actual safety
+    enforcement: the firmware itself refuses to output while any interlock is
+    unsatisfied regardless of what this script sends, so bypassing this check alone
+    cannot make the beam fire."""
     try:
         status = esp.getStatus()
     except OptimizerError as e:
@@ -5151,11 +5354,50 @@ def requireLaserReady(esp: EspClient):
     prWarn("controller reports it is not ready to project: " + "; ".join(problems) + ".")
     prTip("arm the laser and/or clear the interlock (controller panel or WebUI), then "
           "re-run - 'optimizeGalvo.py check' shows the full interlock state.")
-    if sys.stdin.isatty() and askYesNo(
-            "continue anyway (capture will most likely be blank/meaningless)? [y/N]: ",
-            default=False):
+    if allowUnarmed:
+        prWarn("--allow-unarmed set: proceeding anyway - capture will most likely be "
+              "blank/meaningless, only use this for a deliberate bench test.")
         return
-    raise OptimizerError("aborting: controller not ready to project (see warning above)")
+    raise OptimizerError(
+        "aborting: controller not ready to project (see warning above). Pass "
+        "--allow-unarmed to proceed anyway for a deliberate bench test."
+    )
+
+
+# Emergency-stop retry/verification tuning - kept small and fixed rather than added
+# to camConfig.json, since this only ever runs during cleanup (dispatch()'s finally
+# block), never as a tunable part of a measurement.
+STOP_CONFIRM_ATTEMPTS = 3
+STOP_CONFIRM_RETRY_DELAY_SECONDS = 1.0
+
+
+def confirmLaserStopped(esp: EspClient, attempts: int = STOP_CONFIRM_ATTEMPTS,
+                        delaySeconds: float = STOP_CONFIRM_RETRY_DELAY_SECONDS) -> bool:
+    """Emergency stop: POSTs /api/calib-cam/stop up to `attempts` times and, after
+    each attempt, reads GET /api/state back to confirm calib_active actually went
+    false - a 200 OK from /stop alone only means the ESP32 accepted the request, not
+    that the pattern actually stopped. Never raises: every failure (network error or
+    calib_active staying true) is caught/retried internally, and the caller decides
+    what a `False` return means for its exit code - see dispatch()."""
+    lastError = None
+    for attempt in range(1, attempts + 1):
+        try:
+            esp.stop()
+            state = esp.getState()
+            if not state.get("calib_active"):
+                return True
+            lastError = "controller still reports calib_active=true after stop"
+        except OptimizerError as e:
+            lastError = str(e)
+        if attempt < attempts:
+            prWarn(f"stop-confirmation attempt {attempt}/{attempts} failed: {lastError} - "
+                  f"retrying in {delaySeconds:.0f}s ...")
+            time.sleep(delaySeconds)
+    prCritical(f"could not confirm the pattern actually stopped after {attempts} "
+              f"attempt(s): {lastError}")
+    prCritical("MANUALLY VERIFY the beam is off (controller panel/WebUI) before "
+              "leaving the rig unattended.")
+    return False
 
 
 # ── connection check ────────────────────────────────────────────────────────
@@ -6126,6 +6368,9 @@ def main():
                             gain/offset framing (clip/underscan vs. the camera
                             frame border) - independent of 'calibrate'/
                             homography.npz, no pixel<->DAC mapping needed
+              regress       point-optimizer regression suite: pass/fail per calib
+                            pattern against diagnoseThresholds, no search/override -
+                            a CI/pre-flight gate, run after a firmware change
 
             {"-" * 78}
             files:
@@ -6165,6 +6410,16 @@ def main():
              "(1x/2x/3x, default: 1x). Change it live with keys '1'/'2'/'3' while the "
              "window has focus - crops to the center and rescales, so the window size "
              "stays constant while showing more detail.")
+    parser.add_argument(
+        "--allow-unarmed", action="store_true", dest="allowUnarmed",
+        help="proceed with 'calibrate'/'measure'/'optimize'/'diagnose'/'autotune-camera'/"
+             "'autotune-colors'/'calibrate-warp'/'measure-resonance'/'tune-dac-range' even "
+             "though the controller reports E-Stop tripped, scan-fail tripped, or the "
+             "laser not armed (default: abort immediately, no prompt). Only for a "
+             "deliberate bench test of the capture/scoring pipeline with no live beam - "
+             "the capture will most likely be blank/meaningless. This does not bypass any "
+             "actual safety interlock: the firmware refuses to output regardless of what "
+             "this script sends while an interlock is unsatisfied.")
     sub = parser.add_subparsers(dest="cmd", required=True)
 
     sub.add_parser(
@@ -6242,8 +6497,9 @@ def main():
     pOpt = sub.add_parser(
         "optimize",
         help="Optuna search for the best scan/dwell parameters",
-        description="Tunes one or more firmware optimizer profiles (Vector/Smooth/Waves/"
-                     "MultiObject) with an Optuna TPE search, each via its own camera "
+        description=f"Tunes one or more firmware optimizer profiles "
+                     f"({'/'.join(CAMERA_TUNABLE_PROFILE_NAMES)}) with an Optuna TPE "
+                     "search, each via its own camera "
                      "pattern(s). Flow: queries the ESP32 (GET /api/config) for its profiles, "
                      "current parameter values, and member presets; shows an interactive "
                      "multi-select menu (or takes --profile) listing the presets each choice "
@@ -6276,8 +6532,9 @@ def main():
     optProfileGroup.add_argument(
         "--profile", default=None,
         help="firmware profile(s) to tune, comma-separated, or 'all' (e.g. 'Vector' or "
-             "'Vector,Smooth'). Camera-tunable profiles: Vector, Smooth, Waves, "
-             "MultiObject - each is tuned via its own camera pattern(s), with the "
+             "'Vector,Smooth'), matched case-insensitively. Camera-tunable profiles: "
+             f"{', '.join(CAMERA_TUNABLE_PROFILE_NAMES)} - each is tuned via its own "
+             "camera pattern(s), with the "
              "parameter ranges from its entry in searchSpace.json. Omit (and omit "
              "--preset) to pick interactively from a menu that also lists each "
              "profile's member presets (non-interactive sessions must pass one of "
@@ -6288,8 +6545,9 @@ def main():
              "'Milky Way'), looked up via the ESP32's live profile->preset membership "
              "(GET /api/config) - a shortcut for --profile when you know which preset "
              "looks wrong but not which optimizer profile governs it. Errors out if "
-             "the preset belongs to a profile with no camera pattern (Wireframe/"
-             "Trails/Text) - those aren't camera-tunable at all.")
+             "the preset belongs to a profile with no camera pattern "
+             f"({'/'.join(NON_CAMERA_TUNABLE_PROFILE_NAMES)}) - those aren't "
+             "camera-tunable at all.")
     pOpt.add_argument(
         "--trials", type=int, default=20,
         help="number of Optuna trials to run this invocation (default: 20). More trials "
@@ -6362,6 +6620,28 @@ def main():
         "--apply", action="store_true", dest="autoApply",
         help="if autotuning, apply + persist the result without asking - same meaning "
              "as 'optimize --apply'")
+
+    pRegress = sub.add_parser(
+        "regress",
+        help="point-optimizer regression suite - pass/fail over a tiered pattern set",
+        description="Measures every calib pattern in the selected tier(s) with whatever "
+                     "parameters are currently live (no override, same read-only philosophy "
+                     "as 'diagnose') and checks each against diagnoseThresholds via the exact "
+                     "same classifyProfile() logic 'diagnose' uses - a pattern passes iff its "
+                     "verdict is OK. Tiers, by structural complexity of the pattern (not real "
+                     "preset names - see REGRESSION_SUITE's comment for why): simple (square, "
+                     "star, circle), medium (spiral, segments), heavy (wireframe, text, "
+                     "particles - the actual Wireframe/Text/Particles profile patterns, i.e. "
+                     "complex 3D/text/particle scenes). Prints a pass/fail verdict and "
+                     "duration per pattern, saves results/regress_<timestamp>.json with every "
+                     "metric plus a results/regress_<pattern>_<timestamp>.png per pattern, and "
+                     "exits non-zero if anything failed - usable as a CI/pre-flight gate after "
+                     "a firmware change touching point_optimizer.cpp. Requires an existing "
+                     "homography.npz - run 'calibrate' first.")
+    pRegress.add_argument(
+        "--tier", action="append", dest="tiers", choices=list(REGRESSION_SUITE),
+        help="tier(s) to run (repeatable, e.g. '--tier simple --tier medium'). Omit to run "
+             "all tiers.")
 
     pCamTune = sub.add_parser(
         "autotune-camera",
@@ -6674,7 +6954,7 @@ def dispatch(args):
     showView = cfg.get("showCameraView", True) and not args.noView
     viewCmds = ("calibrate", "measure", "optimize", "diagnose", "autotune-camera",
                "autotune-colors", "analyze-live", "calibrate-warp", "measure-resonance",
-               "tune-dac-range")
+               "tune-dac-range", "regress")
     liveView = LiveView("GalvOS camera view", cfg["frameWidth"], cfg["frameHeight"],
                         zoomIdx=args.zoom - 1) \
         if showView and args.cmd in viewCmds else None
@@ -6683,11 +6963,19 @@ def dispatch(args):
                                  else "disabled (--no-view or showCameraView=false)"))
 
     esp = EspClient.fromConfig(cfg)
-    if args.cmd in LASER_REQUIRED_CMDS:
-        requireLaserReady(esp)
 
-    cam = Camera(cfg, liveView=liveView)
+    # requireLaserReady() and Camera() are both called INSIDE the try (not before
+    # it) so that either one raising - a not-ready controller (the now-default,
+    # common case: see requireLaserReady), or the configured cameraIndex not
+    # found/already in use - still runs the finally below and closes the liveView
+    # window that's already open by this point, instead of leaking it.
+    cam = None
+    stopConfirmed = True
+    regressPassed = True
     try:
+        if args.cmd in LASER_REQUIRED_CMDS:
+            requireLaserReady(esp, args.allowUnarmed)
+        cam = Camera(cfg, liveView=liveView)
         if args.cmd == "preview":
             runPreview(cfg, cam, zoomIdx=args.zoom - 1)
         elif args.cmd == "calibrate":
@@ -6726,11 +7014,16 @@ def dispatch(args):
         elif args.cmd == "diagnose":
             runDiagnose(cfg, esp, cam, args.profile, args.autotune, args.trials,
                        args.studyName, args.storageUrl, args.autoApply)
+        elif args.cmd == "regress":
+            regressPassed = runRegress(cfg, esp, cam, args.tiers or list(REGRESSION_SUITE))
         elif args.cmd == "autotune-camera":
-            if args.profile and args.profile not in FW_PROFILE_PATTERNS:
-                raise OptimizerError(
-                    f"unknown --profile '{args.profile}' - expected one of "
-                    f"{sorted(FW_PROFILE_PATTERNS)}")
+            if args.profile:
+                canonical = normalizeProfileName(args.profile, FW_PROFILE_PATTERNS)
+                if canonical is None:
+                    raise OptimizerError(
+                        f"unknown --profile '{args.profile}' - expected one of "
+                        f"{sorted(FW_PROFILE_PATTERNS)}")
+                args.profile = canonical
             if args.patterns:
                 patterns = [p.strip() for p in args.patterns.split(",") if p.strip()]
             elif args.profile:
@@ -6765,13 +7058,25 @@ def dispatch(args):
         # ran, defeating the entire point of both (aim the camera / analyze the
         # current output without disturbing it).
         if args.cmd not in ("preview", "analyze-live"):
-            try:
-                esp.stop()
-            except OptimizerError:
-                pass
+            # Emergency stop: retries internally and verifies via /api/state that the
+            # pattern actually stopped, rather than trusting a 200 OK alone - and
+            # unlike the old bare `except OptimizerError: pass`, a failure here is
+            # never swallowed (see the sys.exit below).
+            stopConfirmed = confirmLaserStopped(esp)
         if liveView:
             liveView.close()
-        cam.release()
+        if cam is not None:
+            cam.release()
+    # Outside the try/finally on purpose: if the command body itself raised, that
+    # exception is already propagating (and prCritical above was already printed
+    # during unwind) - main()'s handlers give it a non-zero exit code regardless.
+    # This only fires for the "command otherwise succeeded, but the final stop
+    # could not be confirmed" case, which would otherwise exit 0. Checked first -
+    # an unconfirmed stop outranks a mere regression-suite failure.
+    if not stopConfirmed:
+        sys.exit(EXIT_LASER_NOT_CONFIRMED_STOPPED)
+    if not regressPassed:
+        sys.exit(1)
 
 
 if __name__ == "__main__":
