@@ -510,8 +510,17 @@ void setup() {
 
     // network
     WiFi.onEvent(onWiFiEvent);
-    WiFi.mode(WIFI_STA);
+    // Order matters: setHostname() only writes Arduino's static hostname
+    // buffer, and mode() is what copies that buffer into the STA netif
+    // (WiFiGenericClass::mode -> set_esp_interface_hostname). mode() also
+    // returns early when the requested mode is already active, so nothing
+    // reapplies it later. Called after mode(), setHostname() is a no-op and
+    // DHCP keeps advertising the IDF default "esp32s3-XXXXXX" instead of the
+    // configured name -- which is what the device shows up as in the router's
+    // client list. mDNS was unaffected (ArduinoOTA advertises that itself),
+    // so the name looked correct from one side and wrong from the other.
     WiFi.setHostname(gConfig.hostname);
+    WiFi.mode(WIFI_STA);
     // Disable WiFi modem-sleep power-save: ESP32's default power-save duty
     // cycle can miss the AP's EAPOL M1/M3 frames during the 4-way handshake
     // window (a well-known ESP32 gotcha), which reads as reason=15
