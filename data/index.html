@@ -1385,9 +1385,9 @@ canvas { max-width: 100%; display: block; }
           <button class="btn sm" onclick="setGalvoRatedKppsPreset(45)">45</button>
           <button class="btn sm" onclick="setGalvoRatedKppsPreset(60)">60</button>
         </div>
-        <div class="field"><label>Output Sample Rate <span id="proj-kpps-pct"></span></label><input type="range" id="proj-kpps" min="12" max="60" value="30" oninput="calcProjection()"></div>
+        <div class="field"><label>Output Sample Rate</label><input type="range" id="proj-kpps" min="12" max="60" value="30" oninput="calcProjection()"></div>
         <p id="proj-period-us">--</p>
-        <p id="proj-angle-warn" class="hidden" style="color:var(--warn)">&#9888; Output rate exceeds the max safe rate for the current exit angle</p>
+        <p id="proj-angle-info" class="param-hint"></p>
         <p id="proj-ne555-warn" class="hidden" style="color:var(--warn)">&#9888; Below 5 kpps the NE555 scan-fail timing circuit may not trigger reliably</p>
         <div class="row">
           <button class="btn" onclick="startAutotune()">Autotune Output Rate</button>
@@ -1432,7 +1432,7 @@ canvas { max-width: 100%; display: block; }
         <div class="field"><label>Laser Class</label><span id="proj-laser-class">--</span></div>
         <div class="field"><label>Minimum Audience Distance</label><span id="proj-min-audience-dist">--</span></div>
         <p id="proj-ne555-warn-2" class="hidden" style="color:var(--warn)">&#9888; NE555 scan-fail circuit needs &ge;5 kpps</p>
-        <p id="proj-angle-warn-2" class="hidden" style="color:var(--warn)">&#9888; Output rate vs exit angle out of safe range</p>
+        <p id="proj-angle-info-2" class="param-hint"></p>
       </div>
     </section>
     <section class="tab" id="tab-thermal">
@@ -1677,7 +1677,7 @@ canvas { max-width: 100%; display: block; }
 /* =========================================================================
    GLOBAL STATE
    ========================================================================= */
-var UI_VERSION = '1.23.1';   // WebUI version -- independent from firmware version
+var UI_VERSION = '1.24.0';   // WebUI version -- independent from firmware version
 var NAV_TABS = [
   {id: 'dashboard', label: 'Dashboard', icon: '🏠', bottom: true},
   {id: 'presets', label: 'Presets', icon: '🎮', bottom: true},
@@ -5894,17 +5894,24 @@ function calcProjection() {
   var ne555Ok = outputKpps >= 5;
   var ne555El = document.getElementById('proj-ne555-warn'); if (ne555El) ne555El.classList.toggle('hidden', ne555Ok);
   var ne555El2 = document.getElementById('proj-ne555-warn-2'); if (ne555El2) ne555El2.classList.toggle('hidden', ne555Ok);
+  // Mechanical tracking rate, derated from the datasheet figure for the
+  // current exit angle. This is INFORMATIONAL, not a limit on the sample
+  // clock: it says how many distinct geometric features the mirror can
+  // follow per second at this angle, while outputKpps is how fast the DAC is
+  // clocked. Comparing the two and warning on it was the same category error
+  // the sample-rate autotune used to make -- at a datasheet-honest
+  // rated_kpps of 15 and a 20 degree exit angle it reads 6 kpps, so any
+  // normal oversampling output rate would have pinned the warning on
+  // permanently and told the user nothing.
   var ratedAngle = domVal('proj-ilda-angle', 10);
-  var maxSafeKpps = (exitAngle <= ratedAngle) ? 60 : s_galvoRatedKpps * (ratedAngle / exitAngle);
-  var angleOk = outputKpps <= maxSafeKpps;
-  var angleWarn = document.getElementById('proj-angle-warn'); if (angleWarn) angleWarn.classList.toggle('hidden', angleOk);
-  var angleWarn2 = document.getElementById('proj-angle-warn-2'); if (angleWarn2) angleWarn2.classList.toggle('hidden', angleOk);
-  var pctEl = document.getElementById('proj-kpps-pct');
-  if (pctEl) {
-    var pct = (outputKpps / s_galvoRatedKpps) * 100;
-    pctEl.textContent = pct.toFixed(0) + '% of rated';
-    pctEl.style.color = pct < 75 ? 'var(--ok)' : pct < 90 ? 'var(--warn)' : 'var(--bad)';
-  }
+  var trackKpps = (exitAngle <= ratedAngle) ? s_galvoRatedKpps
+                : s_galvoRatedKpps * (ratedAngle / exitAngle);
+  var trackEl = document.getElementById('proj-angle-info');
+  if (trackEl) trackEl.textContent = 'Galvo tracks ~' + trackKpps.toFixed(1) + ' kpps of distinct points at '
+                                   + exitAngle.toFixed(0) + '° exit angle (datasheet ' + s_galvoRatedKpps
+                                   + ' kpps at ' + ratedAngle.toFixed(0) + '°). The sample clock above may exceed this — that is oversampling.';
+  var trackEl2 = document.getElementById('proj-angle-info-2');
+  if (trackEl2) trackEl2.textContent = trackEl ? trackEl.textContent : '';
   var periodEl = document.getElementById('proj-period-us'); if (periodEl) periodEl.textContent = (1000 / outputKpps).toFixed(2) + ' µs/point';
   if (typeof updateEffectivePpsDisplay === 'function') updateEffectivePpsDisplay(null, null);
 }

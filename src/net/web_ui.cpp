@@ -387,6 +387,21 @@ static bool isAuthorised(AsyncWebServerRequest* req) {
     return false;
 }
 
+// ── /api/restore body accumulator ────────────────────────────────────────────
+// See the route registration for why the body has to be reassembled before it
+// can be parsed. Single in-flight restore only -- concurrent ones would
+// interleave into the same buffer, and a restore reboots the device anyway.
+static constexpr size_t RESTORE_MAX_BYTES = 64 * 1024;
+static uint8_t* s_restore_buf = nullptr;
+static size_t   s_restore_len = 0;
+static size_t   s_restore_cap = 0;
+
+static void restoreBufFree() {
+    if (s_restore_buf) { free(s_restore_buf); s_restore_buf = nullptr; }
+    s_restore_len = 0;
+    s_restore_cap = 0;
+}
+
 static void denyUnauth(AsyncWebServerRequest* req) {
     req->send(401, "application/json",
         "{\"error\":\"Unauthorized\",\"hint\":\"Send X-Auth: <token> header\"}");
@@ -3582,13 +3597,53 @@ void init() {
     // updated by BackupManager; this handler only has to persist them (reusing
     // the same NVS writers as the live WebUI endpoints) and restart, same as
     // OTA never leaves the device running on half-applied config.
+    //
+    // The body is ACCUMULATED across chunks before parsing. ESPAsyncWebServer
+    // delivers a POST body in ~1.4 KB TCP segments; this handler used to
+    // ignore the index/total parameters and hand each segment to
+    // deserializeJson() as if it were a whole document. A real backup is
+    // ~6 KB, so every restore -- including the WebUI's own Restore button --
+    // failed with "bad json" on the first partial chunk. The feature had
+    // never worked; a user taking backups had a safety net that would not
+    // have caught them.
     s_server.on("/api/restore", HTTP_POST,
         [](AsyncWebServerRequest* req) {},
         nullptr,
-        [](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t, size_t) {
-            if (rejectIfArmed(req, "restoring")) return;
+        [](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t index, size_t total) {
+            if (index == 0) {
+                if (rejectIfArmed(req, "restoring")) { restoreBufFree(); return; }
+                restoreBufFree();
+                if (total == 0 || total > RESTORE_MAX_BYTES) {
+                    req->send(413, "application/json",
+                              "{\"error\":\"backup too large\"}");
+                    return;
+                }
+                // PSRAM: a backup is well over the 16 KB internal-heap rule of
+                // thumb's spirit here -- internal DRAM is the scarce resource
+                // on this board (see the index.html cache-control note).
+                s_restore_buf = (uint8_t*)ps_malloc(total);
+                if (!s_restore_buf) {
+                    req->send(500, "application/json",
+                              "{\"error\":\"out of memory\"}");
+                    return;
+                }
+                s_restore_cap = total;
+                s_restore_len = 0;
+            }
+            if (!s_restore_buf) return;   // allocation failed, or armed -- already answered
+            if (s_restore_len + len > s_restore_cap) {   // body longer than advertised
+                restoreBufFree();
+                req->send(400, "application/json", "{\"error\":\"body overflow\"}");
+                return;
+            }
+            memcpy(s_restore_buf + s_restore_len, data, len);
+            s_restore_len += len;
+            if (s_restore_len < s_restore_cap) return;   // more chunks to come
+
             JsonDocument doc(&jsonAllocator());
-            if (deserializeJson(doc, data, len) != DeserializationError::Ok) {
+            DeserializationError derr = deserializeJson(doc, s_restore_buf, s_restore_len);
+            restoreBufFree();
+            if (derr != DeserializationError::Ok) {
                 req->send(400, "application/json", "{\"error\":\"bad json\"}");
                 return;
             }

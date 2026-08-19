@@ -27,6 +27,13 @@
 // density below. Both exist because text renders MANY optimize() calls into
 // one frame -- one per glyph, times the font's pass count -- which is a
 // different budget problem from a preset drawing one shape.
+// Output rate the per-glyph density constant K (below) was empirically
+// calibrated at. Text density scales against THIS, not against
+// galvo_rated_kpps -- see the refRatio comment at the K use site. Changing it
+// rescales every glyph's interior point count, so it is a calibration
+// constant, not a tuning knob.
+static constexpr float TEXT_DENSITY_REF_KPPS = 45.0f;
+
 static inline optimizer::OptimizerConfig textOptimizerConfig(float sc = 0.f) {
     optimizer::OptimizerConfig cfg = optimizer::configFromLive(
         gOptimizerConfig, gProjection.galvo_rated_kpps, gProjection.galvo_kpps);
@@ -68,21 +75,32 @@ static inline optimizer::OptimizerConfig textOptimizerConfig(float sc = 0.f) {
         if (ppu < 0.1f) ppu = 0.1f;
         if (ppu > 30.f) ppu = 30.f;
         // configFromLive() has already PPS-scaled the live density; this
-        // override REPLACES that number, so it has to carry the same factor
-        // or text alone would ignore the output-rate headroom (density is
-        // per output tick -- see applyPpsScaling()).
-        const float r = optimizer::ppsRatio(gProjection.galvo_rated_kpps,
-                                            gProjection.galvo_kpps);
-        cfg.pts_per_1000_units = ppu * (1.0f / r);   // same form applyPpsScaling uses
+        // override REPLACES that number, so it has to carry the same
+        // output-rate factor or text alone would ignore the headroom
+        // (density is per output tick -- see applyPpsScaling()).
+        //
+        // Deliberately scaled against TEXT_DENSITY_REF_KPPS, NOT against
+        // ppsRatio(galvo_rated_kpps, ...). K above is an absolute empirical
+        // calibration ("~100 interior points on an average glyph"), not a
+        // user-tuned slider -- so it must not move when the user relabels
+        // the PPS anchor. It previously used 1/r, which silently tied K to
+        // galvo_rated_kpps: changing that field from 45 to its datasheet 15
+        // tripled text density and walked straight back into the "only ~8
+        // chars render, then fragments" bug documented above. Scaling on the
+        // output rate alone keeps the physics (more ticks/s -> more points
+        // affordable per unit length) while making K anchor-independent.
+        const float refRatio = (float)gProjection.galvo_kpps / (float)TEXT_DENSITY_REF_KPPS;
+        cfg.pts_per_1000_units = ppu * refRatio;
         // Same policy expressed in the resample stage's parameterisation:
         // edgeInteriorCount() reads spacing INSTEAD of density when the
         // profile has resample enabled, so without this line the whole
         // per-glyph budget argument above would silently not apply to a Text
         // profile with resampling on -- constant spacing means point count
         // grows with text size, which is exactly the "only ~8 chars render"
-        // bug. spacing = 1000/ppu is the same density, and the *r mirrors
-        // applyPpsScaling()'s inverse handling of the two forms.
-        cfg.resample_spacing_units = (1000.f / ppu) * r;
+        // bug. spacing = 1000/ppu is the same density, and the reciprocal
+        // refRatio mirrors applyPpsScaling()'s inverse handling of the two
+        // forms.
+        cfg.resample_spacing_units = (1000.f / ppu) / refRatio;
     }
     return cfg;
 }

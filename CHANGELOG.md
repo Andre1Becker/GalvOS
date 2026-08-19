@@ -10,6 +10,23 @@ The WebUI carries its own independent `UI_VERSION`; it is not tracked separately
 
 ## 6.7x — Output rate autotune (2026-08-19)
 
+- **6.79** — `galvo_rated_kpps` migrated 45 → the datasheet 15. Not cosmetic: community
+  presets ship raw optimizer values with no anchor of their own and the firmware default
+  anchor is 15, so every import was read with `r` 3× too large — density 3× low, accel
+  ceiling 9× too permissive. The rescale factor has the output rate cancel out, making it
+  an exact change of units (`raw_new = raw_old × k^e`, k=3) rather than a re-tune: zero
+  values saturate their bounds and effective values are preserved to 1.25e-06 across all
+  8 profiles. Snapshots and derivation in `docs/migrations/`. Two fixes shipped alongside,
+  each broken alone: `text_renderer.cpp`'s per-glyph density constant was tied to the
+  anchor via `1/ppsRatio()` (would have tripled text density into the "only ~8 chars
+  render" bug — now anchored to a local `TEXT_DENSITY_REF_KPPS`, verified 763→714→585 lit
+  points as output drops 45→30→20 kpps), and the exit-angle warning compared the sample
+  clock against the mechanical ILDA derating and would have been pinned on permanently.
+  Separately: **`/api/restore` never worked** — the handler ignored `index`/`total` and
+  parsed each ~1.4 KB TCP chunk as a whole document, so every ~6 KB backup failed with
+  "bad json", WebUI Restore button included. Now reassembles the body first. Found by
+  trying to use it for this migration.
+
 - **6.78** — Two defects behind "autotune finds no limit". (1) `galvoTask`'s tick pacer
   accumulated an unbounded deficit: when `period_us` is shorter than the loop body
   (~21.3 µs here, a ~46.9 kpps ceiling) the busy-wait never binds and `next_tick` falls
