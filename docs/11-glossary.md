@@ -87,6 +87,8 @@ The Jolooyo galvo set used in GalvOS. Rated at 15 kpps at the ILDA standard ±8�
 **kpps (kilo-points-per-second)**
 The scan rate — how many distinct mirror positions (DAC samples) the galvo can accurately follow per second, in thousands. The JY-15K-BL is rated at 15 kpps at ±8°. In GalvOS, `galvo_kpps` sets the actual ISR output rate; `galvo_rated_kpps` stores the datasheet reference value used for PPS scaling.
 
+The two are independent and it is normal for `galvo_kpps` to exceed `galvo_rated_kpps`. The rated figure is a *mechanical* large-signal spec (step response on the ILDA test pattern at `ilda_test_angle`); `galvo_kpps` is the DAC sample clock. Running the sample clock higher is oversampling — the mirror low-passes what it cannot follow, and the extra samples buy finer dwell granularity and smoother interpolation. Do not treat the rated value as a ceiling for the output rate; its job is to set the PPS-scaling reference point so the optimizer's tuned parameters mean the same thing at any output rate.
+
 **PID (Proportional-Integral-Derivative) controller**
 The servo control algorithm inside the galvo driver board that continuously adjusts the coil current to minimize the error between the commanded mirror position and the actual mirror position. The OEM galvo driver uses a 4× LM324 op-amp PID implementation. The trim potentiometers on the driver board adjust P, I, D gains and damping.
 

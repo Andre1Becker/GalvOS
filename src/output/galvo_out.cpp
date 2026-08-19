@@ -52,6 +52,7 @@ static volatile size_t  s_ring_head = 0;
 static volatile size_t  s_ring_tail = 0;
 static volatile size_t  s_point_idx = 0;
 static volatile uint32_t s_overflow_count = 0;   // cumulative, see pushFrame() / overflowCount()
+static volatile uint32_t s_pushed_points  = 0;   // cumulative points accepted into the ring (producer side)
 
 // Laser-off latency compensation: on the first blank tick after a lit tick,
 // the DAC is held at the last lit position for LASER_OFF_HOLD_TICKS output
@@ -1050,6 +1051,11 @@ bool pushFrame(const LaserPoint* pts, size_t count) {
     // before s_ring_head advances and galvoTask sees the new slot.
     __atomic_thread_fence(__ATOMIC_RELEASE);
     s_ring_head = next_head;
+    // Producer-side point counter -- deliberately incremented only for frames
+    // that actually entered the ring, i.e. after the hw-debug/resonance
+    // early-return above. The autotune's load probe (measurePushRate())
+    // needs "is the ring genuinely being fed", not "did someone call us".
+    s_pushed_points += (uint32_t)count;
     return true;
 }
 
@@ -1104,10 +1110,11 @@ uint32_t ringDepth() {
 /* ============================================================
  * Sample-Rate Autotune
  *
- * Ring buffer overflow (pushFrame() above) happens when the configured
- * galvo_kpps exceeds what galvoTask can actually sustain: pattern_engine
- * paces its pushFrame() calls assuming the ring drains at exactly kpps
- * (see the "drain_ms = n / gProjection.galvo_kpps" pacing in
+ * WHAT THIS MEASURES: the MCU's sustainable sample-output rate -- nothing
+ * about the galvo. Ring buffer overflow (pushFrame() above) happens when
+ * the configured galvo_kpps exceeds what galvoTask can actually sustain:
+ * pattern_engine paces its pushFrame() calls assuming the ring drains at
+ * exactly kpps (see the "drain_ms = n / gProjection.galvo_kpps" pacing in
  * pattern_engine.cpp), but galvoTask's busy-wait loop only *targets* that
  * rate -- above a hardware/CPU-dependent ceiling its per-tick SPI + RGB +
  * safety work no longer fits in period_us, the real drain rate falls
@@ -1118,26 +1125,76 @@ uint32_t ringDepth() {
  * runs a binary search against whatever is currently playing, each trial
  * measuring real overflow events (not theoretical throughput) over a
  * settle+observe window.
+ *
+ * It deliberately does NOT bound itself by gProjection.galvo_rated_kpps.
+ * That field is the galvo's mechanical datasheet spec (ILDA points/s at
+ * ilda_test_angle) and the reference point for the optimizer's PPS
+ * scaling -- an unrelated quantity to "how many samples can this ESP32
+ * clock out". Seeding the search ceiling from it produced exactly one
+ * failure mode in both directions: with an honest rated value the search
+ * could never propose anything above it, and with an inflated one it
+ * simply returned rated - AUTOTUNE_MARGIN_KPPS without ever observing a
+ * single overflow. Oversampling above the galvo's rated point rate is
+ * normal and desirable (the mirror low-passes what it cannot follow), so
+ * the rated value is not a ceiling for the sample clock in the first
+ * place.
+ *
+ * PRECONDITION: the ring has to be genuinely fed while this runs. With
+ * master_dimmer == 0 the pattern engine pushes one blank point every
+ * 40 ms (25 pts/s) into a ring that drains at tens of thousands of pts/s,
+ * and hw-debug/resonance mode makes pushFrame() a no-op accepting
+ * everything -- in all three cases overflow is structurally impossible
+ * and every trial passes at any rate, so the sweep would saturate at its
+ * ceiling and report a fabricated number. measurePushRate() checks for
+ * that up front and refuses instead (AutotuneStatus::no_load).
  * ============================================================ */
 static constexpr uint16_t AUTOTUNE_KPPS_MIN    = 12;
 static constexpr uint16_t AUTOTUNE_KPPS_MAX    = 60;
 static constexpr uint32_t AUTOTUNE_SETTLE_MS   = 300;   // let old ring frames drain at the new rate
 static constexpr uint32_t AUTOTUNE_MEASURE_MS  = 1500;  // overflow observation window per trial
 static constexpr uint16_t AUTOTUNE_MARGIN_KPPS = 2;     // safety margin subtracted from the found ceiling
-static constexpr uint8_t  AUTOTUNE_MAX_STEPS   = 8;     // ceil(log2(60-12)) + headroom
+static constexpr uint8_t  AUTOTUNE_MAX_STEPS   = 12;    // hard trial bound; real count is derived per sweep
 static constexpr uint8_t  AUTOTUNE_FILL_LIMIT  = 85;    // % -- a climbing fill predicts an overflow just past the window
+static constexpr uint32_t AUTOTUNE_PROBE_MS    = 400;   // producer-load probe window
+// Load floor, points/s pushed into the ring. The idle path delivers 25 pts/s
+// and hw-debug/resonance 0; the slowest rate this sweep ever tests delivers
+// >= AUTOTUNE_KPPS_MIN * 1000 = 12000. 3000 sits two orders above the idle
+// case and 4x below the slowest real one -- no ambiguity in either direction.
+static constexpr uint32_t AUTOTUNE_MIN_LOAD_PPS = 3000;
 
 static AutotuneStatus  s_autotune;
 static uint16_t        s_autotune_saved_kpps = 0;
 static volatile bool   s_autotune_abort_req  = false;
 
-// Applies a candidate kpps and reports whether it ran overflow-free for
-// AUTOTUNE_MEASURE_MS. Bumps gPatternCacheGen like the normal /api/projection
-// handler does, so cached presets recompute their PPS-scaled point density
-// for the candidate rate instead of testing against stale geometry.
-static bool autotuneTrial(uint16_t kpps) {
+// Points/s the producer is actually pushing into the ring, averaged over
+// window_ms. See the PRECONDITION note above for why this matters.
+static uint32_t measurePushRate(uint32_t window_ms) {
+    uint32_t before = s_pushed_points;
+    uint32_t t0     = millis();
+    vTaskDelay(pdMS_TO_TICKS(window_ms));
+    uint32_t dt = millis() - t0;
+    if (dt == 0) return 0;
+    return (uint32_t)(((uint64_t)(s_pushed_points - before) * 1000ULL) / dt);
+}
+
+// Applies an output rate together with the two pieces of derived state that
+// must move with it: gPatternCacheGen (so cached presets recompute their
+// PPS-scaled point density for the new rate instead of running stale
+// geometry, same as the normal /api/projection handler) and the inverse
+// filter, whose coefficients are derived from the sample rate. Every path
+// below that changes galvo_kpps goes through here -- the per-trial filter
+// refresh used to be missing, so an entire sweep was measured through a
+// filter still configured for the pre-sweep rate.
+static void autotuneApplyRate(uint16_t kpps) {
     gProjection.galvo_kpps = kpps;
     gPatternCacheGen++;
+    invfilter::refresh((uint32_t)kpps * 1000);
+}
+
+// Applies a candidate kpps and reports whether it ran overflow-free for
+// AUTOTUNE_MEASURE_MS.
+static bool autotuneTrial(uint16_t kpps) {
+    autotuneApplyRate(kpps);
     vTaskDelay(pdMS_TO_TICKS(AUTOTUNE_SETTLE_MS));
 
     uint32_t before   = s_overflow_count;
@@ -1153,11 +1210,34 @@ static bool autotuneTrial(uint16_t kpps) {
 }
 
 static void autotuneTask(void*) {
-    uint16_t hi = gProjection.galvo_rated_kpps;
-    if (hi < AUTOTUNE_KPPS_MIN || hi > AUTOTUNE_KPPS_MAX) hi = AUTOTUNE_KPPS_MAX;
-    uint16_t lo   = AUTOTUNE_KPPS_MIN;
-    uint16_t best = lo;
+    // Ceiling is the sweep's own range, NOT galvo_rated_kpps -- see the
+    // header comment above for why those are different quantities.
+    const uint16_t hi = AUTOTUNE_KPPS_MAX;
+    const uint16_t lo = AUTOTUNE_KPPS_MIN;
+    uint16_t best     = lo;
     bool     floor_ok = false;
+
+    // Trials this sweep will really run: 1 floor probe + the binary search's
+    // ceil(log2(span)) halvings. AUTOTUNE_MAX_STEPS stays a hard bound so a
+    // future range change cannot silently truncate the search and report the
+    // truncation point as a discovered ceiling.
+    uint8_t total = 1;
+    for (uint16_t span = hi - lo; span > 0; span >>= 1) total++;
+    s_autotune.step_total = total;
+
+    uint32_t load_pps = measurePushRate(AUTOTUNE_PROBE_MS);
+    if (load_pps < AUTOTUNE_MIN_LOAD_PPS && !s_autotune_abort_req) {
+        s_autotune.no_load = true;
+        s_autotune.done    = false;
+        s_autotune.running = false;
+        ESP_LOGW(TAG, "Autotune refused: producer idle (%u pts/s < %u)",
+                 load_pps, AUTOTUNE_MIN_LOAD_PPS);
+        LOG_W(logbuf::CAT_GALVO,
+              "Galvo autotune refused: no output load (%u pts/s) -- start a pattern "
+              "and raise the master dimmer first", load_pps);
+        vTaskDelete(nullptr);
+        return;
+    }
 
     s_autotune.step           = 1;
     s_autotune.candidate_kpps = lo;
@@ -1179,9 +1259,7 @@ static void autotuneTask(void*) {
     }
 
     if (s_autotune_abort_req) {
-        gProjection.galvo_kpps = s_autotune_saved_kpps;
-        gPatternCacheGen++;
-        invfilter::refresh((uint32_t)gProjection.galvo_kpps * 1000);
+        autotuneApplyRate(s_autotune_saved_kpps);
         s_autotune.done = false;
         ESP_LOGI(TAG, "Autotune aborted, restored %u kpps", s_autotune_saved_kpps);
     } else {
@@ -1189,15 +1267,20 @@ static void autotuneTask(void*) {
         // the floor already, there's nothing lower to fall back to.
         uint16_t result = (floor_ok && best > AUTOTUNE_KPPS_MIN + AUTOTUNE_MARGIN_KPPS)
                          ? best - AUTOTUNE_MARGIN_KPPS : best;
-        gProjection.galvo_kpps    = result;
-        gPatternCacheGen++;
-        invfilter::refresh((uint32_t)gProjection.galvo_kpps * 1000);
+        autotuneApplyRate(result);
         s_autotune.result_kpps    = result;
         s_autotune.floor_unstable = !floor_ok;
+        // The top of the range ran clean, so the real ceiling is at or above
+        // it and this sweep never found it. Reporting best - margin here
+        // would be indistinguishable from a measured result, which is
+        // exactly how a rated_kpps-bounded search used to fabricate numbers.
+        s_autotune.ceiling_not_reached = floor_ok && (best == hi);
         s_autotune.done           = true;
-        ESP_LOGI(TAG, "Autotune done: %u kpps (raw ceiling %u, floor_ok=%d)", result, best, (int)floor_ok);
-        LOG_I(logbuf::CAT_GALVO, "Galvo autotune: %u kpps (raw ceiling %u, margin -%u)",
-              result, best, AUTOTUNE_MARGIN_KPPS);
+        ESP_LOGI(TAG, "Autotune done: %u kpps (raw ceiling %u, floor_ok=%d, saturated=%d)",
+                 result, best, (int)floor_ok, (int)s_autotune.ceiling_not_reached);
+        LOG_I(logbuf::CAT_GALVO, "Galvo autotune: %u kpps (raw ceiling %u, margin -%u%s)",
+              result, best, AUTOTUNE_MARGIN_KPPS,
+              s_autotune.ceiling_not_reached ? ", range exhausted -- not a measured ceiling" : "");
     }
     s_autotune.running = false;
     vTaskDelete(nullptr);
@@ -1209,7 +1292,7 @@ void autotuneStart() {
     s_autotune_abort_req  = false;
     s_autotune             = AutotuneStatus{};
     s_autotune.running     = true;
-    s_autotune.step_total  = AUTOTUNE_MAX_STEPS;
+    s_autotune.step_total  = AUTOTUNE_MAX_STEPS;   // provisional; autotuneTask refines it
     xTaskCreatePinnedToCore(autotuneTask, "autotune", 4096, nullptr, 2, nullptr, 0);
 }
 

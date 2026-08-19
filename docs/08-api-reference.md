@@ -1063,19 +1063,30 @@ Response: `{"gain_r": N, "gain_g": N, "gain_b": N}`
 
 ### `GET /api/galvo/autotune`
 
-Returns the current state of the kpps autotune sweep.
+Returns the current state of the output sample-rate autotune sweep.
 
 ```json
 {
   "running": false,
   "done": true,
   "floor_unstable": false,
+  "no_load": false,
+  "ceiling_not_reached": false,
   "candidate_kpps": 30,
   "result_kpps": 28,
-  "step": 8,
-  "step_total": 8
+  "step": 7,
+  "step_total": 7
 }
 ```
+
+| Field | Meaning |
+| --- | --- |
+| `running` | Sweep in progress. `step: 0` is the producer-load probe that runs before the first trial. |
+| `done` | A result was produced. False alongside `no_load` or after an abort. |
+| `floor_unstable` | Even the lowest tested rate (12 kpps) overflowed — the pattern is too heavy at any rate. |
+| `no_load` | **Refused before testing.** The ring was not being fed (master dimmer at 0, no pattern, or hardware-debug/resonance mode active), so no rate could overflow and any result would be fabricated. Start a pattern and raise the dimmer, then retry. |
+| `ceiling_not_reached` | The sweep ran clean across its entire range (12–60 kpps). The true limit is at or above 60 and was never observed — `result_kpps` is the range top minus the safety margin, **not** a measured ceiling. |
+| `result_kpps` | Valid once `done` is true. |
 
 ---
 
@@ -1091,7 +1102,13 @@ Start or abort the autotune sweep.
 {"action": "abort"}
 ```
 
-The autotune binary-searches for the highest kpps that produces zero ring buffer overflows over a 1500 ms measurement window. Run with an active pattern for a meaningful result.
+The autotune binary-searches the 12–60 kpps range for the highest output sample rate that produces zero ring buffer overflows over a 1500 ms measurement window per trial.
+
+**This measures the controller's sample-output throughput, not the galvo.** It is unrelated to `galvo_rated_kpps` (the mirror's mechanical ILDA spec and the optimizer's PPS-scaling reference) and is deliberately not bounded by it — running the DAC sample clock above the galvo's rated point rate is normal oversampling, since the mirror low-passes what it cannot follow.
+
+A live output load is required: with the master dimmer at 0, or in hardware-debug/resonance mode, the ring is never meaningfully fed, no rate can overflow, and every trial would pass. The firmware probes for this first and refuses with `no_load` rather than reporting a fabricated ceiling.
+
+On success `gProjection.galvo_kpps` is left at the result; persist it with the normal [`POST /api/projection`](#post-apiprojection) save. An abort restores the pre-sweep rate.
 
 ---
 

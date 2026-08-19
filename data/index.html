@@ -1372,7 +1372,12 @@ canvas { max-width: 100%; display: block; }
     <section class="tab" id="tab-projection">
       <h2>Projection</h2>
       <div class="card">
-        <h2>Galvo Sample Rate</h2>
+        <h2>Sample Rate</h2>
+        <p class="param-hint">Two independent numbers. <b>Rated Speed</b> is the galvo's mechanical
+        datasheet spec (ILDA points/s at the test angle) and is the reference point the
+        optimizer's PPS scaling is calibrated against. <b>Output Sample Rate</b> is the DAC
+        sample clock. Running the sample clock above the rated speed is normal oversampling &mdash;
+        the mirror low-passes what it cannot follow.</p>
         <div class="field"><label>Galvo Rated Speed (kpps)</label><input type="number" id="proj-rated-kpps" value="15" min="1" max="100" onchange="onGalvoRatedKppsChange(this.value)"></div>
         <div class="row">
           <button class="btn sm" onclick="setGalvoRatedKppsPreset(15)">15</button>
@@ -1385,10 +1390,13 @@ canvas { max-width: 100%; display: block; }
         <p id="proj-angle-warn" class="hidden" style="color:var(--warn)">&#9888; Output rate exceeds the max safe rate for the current exit angle</p>
         <p id="proj-ne555-warn" class="hidden" style="color:var(--warn)">&#9888; Below 5 kpps the NE555 scan-fail timing circuit may not trigger reliably</p>
         <div class="row">
-          <button class="btn" onclick="startAutotune()">Autotune</button>
+          <button class="btn" onclick="startAutotune()">Autotune Output Rate</button>
           <button class="btn" onclick="abortAutotune()">Abort</button>
           <span id="proj-autotune-status"></span>
         </div>
+        <p class="param-hint">Measures the highest sample rate <i>this controller</i> can clock out
+        without ring-buffer overflow &mdash; it does not test the galvo. Needs a live load:
+        start a pattern and raise the master dimmer first, or it will refuse.</p>
         <div class="row" style="margin-top:8px">
           <button class="btn primary" onclick="saveProjection()">&#128190; Apply &amp; Save</button>
           <button class="btn" onclick="loadProjection()">&#8635; Reload</button>
@@ -1669,7 +1677,7 @@ canvas { max-width: 100%; display: block; }
 /* =========================================================================
    GLOBAL STATE
    ========================================================================= */
-var UI_VERSION = '1.22.1';   // WebUI version -- independent from firmware version
+var UI_VERSION = '1.23.0';   // WebUI version -- independent from firmware version
 var NAV_TABS = [
   {id: 'dashboard', label: 'Dashboard', icon: '🏠', bottom: true},
   {id: 'presets', label: 'Presets', icon: '🎮', bottom: true},
@@ -5798,8 +5806,13 @@ async function loadProjection() {
 function onGalvoRatedKppsChange(v) {
   s_galvoRatedKpps = parseInt(v);
   var slider = document.getElementById('proj-kpps');
-  slider.max = s_galvoRatedKpps;
-  if (parseFloat(slider.value) > s_galvoRatedKpps) slider.value = s_galvoRatedKpps;
+  // Rated speed is NOT a ceiling for the output sample clock -- oversampling
+  // above it is normal and is what the optimizer's PPS scaling exists to
+  // account for. This used to set slider.max = rated and clamp the value down
+  // to it, which disagreed with loadProjection()'s own max(rated, 60) rule and
+  // made an honest rated value (15 for the JY-15K-BL) silently cap output at
+  // 15 kpps. Same rule as loadProjection() now.
+  slider.max = s_galvoRatedKpps > 60 ? s_galvoRatedKpps : 60;
   apiCall('POST', '/api/config', {galvo_rated_kpps: s_galvoRatedKpps});
   calcProjection();
 }
@@ -5824,10 +5837,28 @@ async function pollAutotune() {
   var r = await apiCall('GET', '/api/galvo/autotune');
   if (!r) return;
   var el = document.getElementById('proj-autotune-status');
-  if (r.running) { el.textContent = 'Testing ' + r.candidate_kpps + ' kpps… (step ' + r.step + '/' + r.step_total + ')'; return; }
+  // step 0 = the producer-load probe that runs before the first trial, so
+  // there is no candidate rate to name yet.
+  if (r.running) {
+    el.textContent = r.step === 0 ? 'Checking output load…'
+                   : 'Testing ' + r.candidate_kpps + ' kpps… (step ' + r.step + '/' + r.step_total + ')';
+    return;
+  }
   clearInterval(s_autotuneTimer);
+  // no_load is a refusal, not a result: with the dimmer at 0 (or hw-debug /
+  // resonance mode active) the ring is never fed, so no rate can overflow and
+  // every trial passes -- the sweep would have saturated at its ceiling and
+  // reported that as a measurement. Firmware declines instead; say so.
+  if (r.no_load) {
+    el.textContent = 'No output load — start a pattern and raise the master dimmer, then retry';
+    return;
+  }
   if (r.done) {
     if (r.floor_unstable) el.textContent = 'Even ' + r.result_kpps + ' kpps (minimum) overflows — reduce pattern complexity';
+    // Range exhausted without ever overflowing: the real ceiling is at or
+    // above the top of the sweep and was never observed. Do not dress that up
+    // as "recommended".
+    else if (r.ceiling_not_reached) el.textContent = 'No limit found across the whole tested range — ' + r.result_kpps + ' kpps is the range top, not a measured ceiling';
     else el.textContent = 'Recommended: ' + r.result_kpps + ' kpps — click Apply & Save';
     loadProjection();
   }

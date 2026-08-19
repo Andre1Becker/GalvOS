@@ -8,6 +8,27 @@ The WebUI carries its own independent `UI_VERSION`; it is not tracked separately
 
 ---
 
+## 6.7x — Output rate autotune (2026-08-19)
+
+- **6.77** — The Projection tab's sample-rate autotune stopped inventing its own answer.
+  It seeded its binary-search ceiling from `galvo_rated_kpps` — the galvo's *mechanical*
+  ILDA spec, unrelated to the MCU sample throughput it actually measures — so with a
+  rated value raised above the datasheet figure it returned `rated - margin` without
+  ever observing a single overflow, and with an honest one it could never propose
+  anything above it. It now searches the full 12–60 kpps range independently and reports
+  `ceiling_not_reached` when the range runs clean end to end, instead of dressing the
+  range top up as a measurement. It also refuses to run at all (`no_load`) when the ring
+  is not being fed — with the master dimmer at 0 the producer delivers 25 pts/s into a
+  ring draining at tens of thousands, so overflow is structurally impossible and every
+  trial passes at any rate. The inverse filter is now refreshed per trial rather than
+  only at the end, so a sweep is no longer measured through a filter still configured
+  for the pre-sweep rate. WebUI: the Output Sample Rate slider is no longer capped at
+  the rated speed (oversampling above the rated point rate is normal — the mirror
+  low-passes what it cannot follow), and the Projection tab spells out that the two
+  numbers are independent.
+
+---
+
 ## 6.6x — Correction stages, cleanup (2026-08-12 → 2026-08-14)
 
 - **6.67** — Triage pass over `bugs01.md`'s backlog. Safety/UX: idle output (no Preset/Text/

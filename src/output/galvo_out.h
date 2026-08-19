@@ -45,19 +45,34 @@ uint32_t ringDepth();         // occupied ring frames (head-tail)
 uint32_t overflowCount();     // cumulative ring buffer overflow events
 uint32_t spi2TimeoutCount();  // cumulative SPI2 busy-wait timeouts (writeDAC8562XY)
 
-// ── Sample-Rate Autotune ──────────────────────────────────────────────────
-// Empirically finds the highest galvo_kpps that runs without ring buffer
-// overflow, testing against whatever pattern is currently live (real
-// content/load -- a synthetic worst-case pattern would over- or understate
-// the rate achievable for the user's actual show). Runs as a background
-// task; poll autotuneStatus() for progress. On success, leaves
-// gProjection.galvo_kpps at the result (still requires the normal
+// ── Output Sample-Rate Autotune ───────────────────────────────────────────
+// Empirically finds the highest galvo_kpps this MCU can clock out without
+// ring buffer overflow, testing against whatever pattern is currently live
+// (real content/load -- a synthetic worst-case pattern would over- or
+// understate the rate achievable for the user's actual show).
+//
+// This measures the ESP32's sample-output throughput, NOT the galvo. It is
+// unrelated to gProjection.galvo_rated_kpps (the mirror's mechanical ILDA
+// spec and the optimizer's PPS-scaling reference) and is deliberately not
+// bounded by it -- oversampling above the rated point rate is normal. See
+// the block comment in galvo_out.cpp for the full rationale.
+//
+// Runs as a background task; poll autotuneStatus() for progress. On success,
+// leaves gProjection.galvo_kpps at the result (still requires the normal
 // /api/projection save to persist it to NVS). On abort, restores the
-// pre-autotune value.
+// pre-autotune value; a no_load refusal happens before any rate is touched.
 struct AutotuneStatus {
     bool     running        = false;
     bool     done           = false;
     bool     floor_unstable = false;  // true if even AUTOTUNE_KPPS_MIN overflowed
+    // Refused before testing anything: the ring was not being fed (master
+    // dimmer at 0, no pattern, or hw-debug/resonance mode), so no rate could
+    // ever overflow and any "result" would be fabricated.
+    bool     no_load        = false;
+    // The sweep ran clean all the way to AUTOTUNE_KPPS_MAX: the true ceiling
+    // is at or above the tested range and was never observed. result_kpps is
+    // then the top of the range minus margin, not a measured limit.
+    bool     ceiling_not_reached = false;
     uint16_t candidate_kpps = 0;   // kpps currently/last under test
     uint16_t result_kpps    = 0;   // valid once done=true
     uint8_t  step           = 0;

@@ -281,6 +281,18 @@ If the ESP32 crashes with a Guru Meditation error, the serial monitor prints a b
 **Cause:** `galvo_rated_kpps` not set correctly for your galvo.  
 **Fix:** Projection tab → set Galvo Rated Speed to your galvo's datasheet kpps. The optimizer uses the ratio `rated_kpps / galvo_kpps` to scale density. If rated_kpps is wrong, all scaled values will be wrong.
 
+**Warning:** changing this value rescales every rate-dependent optimizer parameter at once — density by `1/r`, the velocity ceiling by `r`, the acceleration ceiling by `r²`. Moving it from 45 to 15 at a 43 kpps output rate triples density and cuts the acceleration ceiling ninefold in a single step, which will invalidate hand-tuned profiles. If your profiles were tuned with the wrong rated value in place, correct the rated value and re-tune, rather than correcting it and expecting the existing tuning to hold.
+
+### Output rate is far above the galvo's rated kpps
+
+**Symptom:** the galvo is rated 15 kpps but `galvo_kpps` reads 30–45.
+
+**This is not necessarily wrong.** The rated figure is a mechanical large-signal spec (ILDA test pattern at `ilda_test_angle`); `galvo_kpps` is the DAC sample clock. Running the sample clock above the rated point rate is oversampling — the mirror low-passes what it cannot follow, and the extra samples improve dwell granularity and interpolation smoothness. See the `kpps` entry in the [glossary](11-glossary.md).
+
+**What to check instead:** whether `galvo_rated_kpps` still holds the datasheet value. If it was raised to unlock the Output Sample Rate slider (firmware before v6.77.0 capped the slider at the rated value), the PPS-scaling ratio `r = rated / output` collapses toward 1 and the optimizer silently runs with its raw untuned parameters. Check `GET /api/projection` — if `rated_kpps` sits just above `kpps`, that is the tell.
+
+**Note on the autotune button:** it measures the *controller's* sample-output throughput, not the galvo, and before v6.77.0 it seeded its search ceiling from `galvo_rated_kpps`. With an inflated rated value it would return `rated - 2` without ever observing an overflow. It now searches the full 12–60 kpps range independently and reports `ceiling_not_reached` when it finds no limit.
+
 ---
 
 ## WebUI Issues

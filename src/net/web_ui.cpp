@@ -4286,13 +4286,16 @@ void init() {
     // ── /api/galvo/autotune GET ── poll sample-rate autotune progress/result ──
     s_server.on("/api/galvo/autotune", HTTP_GET, [](AsyncWebServerRequest* req) {
         galvo::AutotuneStatus st = galvo::autotuneStatus();
-        char buf[192];
+        char buf[256];
         snprintf(buf, sizeof(buf),
-            "{\"running\":%s,\"done\":%s,\"floor_unstable\":%s,\"candidate_kpps\":%u,"
+            "{\"running\":%s,\"done\":%s,\"floor_unstable\":%s,\"no_load\":%s,"
+            "\"ceiling_not_reached\":%s,\"candidate_kpps\":%u,"
             "\"result_kpps\":%u,\"step\":%u,\"step_total\":%u}",
             st.running ? "true" : "false",
             st.done    ? "true" : "false",
             st.floor_unstable ? "true" : "false",
+            st.no_load ? "true" : "false",
+            st.ceiling_not_reached ? "true" : "false",
             (unsigned)st.candidate_kpps,
             (unsigned)st.result_kpps,
             (unsigned)st.step,
