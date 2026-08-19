@@ -372,6 +372,11 @@ label.row { min-height: 44px; cursor: pointer; }
 .grid { display: grid; gap: 16px; }
 .grid-2 { grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
 .grid-3 { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+/* Dashboard chart grid: fixed 3 columns (not auto-fit) so 6 chart cards land
+   as an actual 3x2 grid regardless of monitor width, collapsing to 2 then 1
+   column as the viewport narrows. */
+.grid-charts { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (max-width: 1400px) { .grid-charts { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .grid-70-30 { grid-template-columns: 7fr 3fr; align-items: start; }
 .grid-70-30 > div { display: flex; flex-direction: column; gap: 16px; }
 /* Main column + sidebar layouts (Presets, Paint, ILDA, Optimizer). The split
@@ -502,11 +507,12 @@ input[type=color] { padding: 2px; width: 44px; min-width: 44px; cursor: pointer;
 canvas { max-width: 100%; display: block; }
 .chart-wrap { position: relative; }
 .chart-readout { font-family: var(--font-mono); font-size: 1.4rem; margin-top: 6px; }
+.chart-stats { font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-dim); margin-top: 4px; }
 
 .masked { cursor: pointer; font-family: var(--font-mono); }
 
 @media (max-width: 767px) {
-  .grid-2, .grid-3, .grid-70-30, .grid-side, .dash-top-row { grid-template-columns: 1fr; }
+  .grid-2, .grid-3, .grid-70-30, .grid-side, .dash-top-row, .grid-charts { grid-template-columns: 1fr; }
   .field-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 </style>
@@ -585,6 +591,7 @@ canvas { max-width: 100%; display: block; }
             <div class="field"><label>Host</label><span id="dash-hostname">--</span></div>
             <div class="field"><label>IP</label><span id="dash-ip">--</span></div>
             <div class="field"><label>RSSI</label><span id="dash-rssi">--</span></div>
+            <div class="field"><label>CPU Temp</label><span id="dash-cpu-temp">--</span></div>
             <div class="field"><label>Uptime</label><span id="dash-uptime">--</span></div>
             <div class="field"><label>Free Heap / PSRAM</label><span id="dash-heap">--</span> / <span id="dash-psram">--</span></div>
             <div class="field"><label>DAC / Galvo</label><span id="dash-dac-status">--</span></div>
@@ -609,11 +616,12 @@ canvas { max-width: 100%; display: block; }
         </div>
       </div>
 
-      <div class="grid grid-2">
+      <div class="grid grid-charts">
         <div class="card">
           <h2>CPU Load</h2>
           <div class="chart-wrap"><canvas id="cpu-canvas" height="140"></canvas></div>
           <div id="cpu-readout" class="chart-readout"></div>
+          <div id="cpu-stats" class="chart-stats"></div>
         </div>
         <div class="card">
           <h2>Temperature History</h2>
@@ -623,10 +631,21 @@ canvas { max-width: 100%; display: block; }
         <div class="card">
           <h2>Galvo Output Rate</h2>
           <div class="chart-wrap"><canvas id="kpps-chart" height="140"></canvas></div>
+          <div id="kpps-stats" class="chart-stats"></div>
         </div>
         <div class="card">
           <h2>Frame Composition</h2>
           <div class="chart-wrap"><canvas id="frame-chart" height="140"></canvas></div>
+        </div>
+        <div class="card">
+          <h2>Buffer Fill</h2>
+          <div class="chart-wrap"><canvas id="buffer-chart" height="140"></canvas></div>
+          <div id="buffer-stats" class="chart-stats"></div>
+        </div>
+        <div class="card">
+          <h2>WiFi Signal (RSSI)</h2>
+          <div class="chart-wrap"><canvas id="rssi-chart" height="140"></canvas></div>
+          <div id="rssi-stats" class="chart-stats"></div>
         </div>
       </div>
 
@@ -1677,7 +1696,7 @@ canvas { max-width: 100%; display: block; }
 /* =========================================================================
    GLOBAL STATE
    ========================================================================= */
-var UI_VERSION = '1.24.1';   // WebUI version -- independent from firmware version
+var UI_VERSION = '1.25.0';   // WebUI version -- independent from firmware version
 var NAV_TABS = [
   {id: 'dashboard', label: 'Dashboard', icon: '🏠', bottom: true},
   {id: 'presets', label: 'Presets', icon: '🎮', bottom: true},
@@ -2876,6 +2895,14 @@ registerStateHandler(function(s) {
     var cpuEl = document.getElementById('tb-cpu'); if (cpuEl) cpuEl.textContent = s.cpu0 + '%';
     pushCpu(s.cpu0, s.cpu1);
   }
+  if (s.buffer_fill !== undefined) {
+    BUFFER_HISTORY.push({ts: Date.now(), fill: s.buffer_fill});
+    trimHistory(BUFFER_HISTORY); drawBufferChart();
+  }
+  if (s.rssi !== undefined) {
+    RSSI_HISTORY.push({ts: Date.now(), rssi: s.rssi});
+    trimHistory(RSSI_HISTORY); drawRssiChart();
+  }
   if (s.temps && s.temps[0] !== null && s.temps[0] !== undefined) {
     var tEl = document.getElementById('tb-temp'); if (tEl) tEl.textContent = convTemp(s.temps[0], s_tempUnit).toFixed(1) + tempUnitSuffix(s_tempUnit);
   }
@@ -2902,6 +2929,7 @@ registerStateHandler(function(s) {
   setText('dash-hostname', s.hostname);
   setText('dash-ip', s.ip);
   setText('dash-rssi', s.rssi + ' dBm');
+  setText('dash-cpu-temp', (s.cpu_temp === null || s.cpu_temp === undefined) ? '--' : (convTemp(s.cpu_temp, s_tempUnit).toFixed(1) + tempUnitSuffix(s_tempUnit)));
   setText('dash-uptime', fmtUptime(s.uptime_s));
   setText('dash-heap', fmtBytes(s.free_heap));
   setText('dash-psram', fmtBytes(s.free_psram));
@@ -2937,6 +2965,7 @@ var CPU_HISTORY = 120, CPU_WARN = 70, CPU_CRIT = 90;
 var sCpuData = {c0: new Array(CPU_HISTORY).fill(null), c1: new Array(CPU_HISTORY).fill(null)};
 var sCpuHoverIdx = -1;
 var SENSOR_COLORS = ['#ff3366', '#00ff88', '#00d4ff', '#ffcc00', '#ff00ff'];
+var CPU_TEMP_COLOR = '#8866ff';
 var TEMP_HISTORY = [];
 // Display unit (0=C, 1=F, 2=K) -- synced from firmware via s.temp_unit on
 // every poll. All history/thresholds/offsets stay Celsius internally; this
@@ -2950,7 +2979,24 @@ function convTemp(c, unit) {
 function tempUnitSuffix(unit) { return unit === 1 ? '°F' : unit === 2 ? 'K' : '°C'; }
 var KPPS_HISTORY = [];
 var FRAME_HISTORY = [];
-var sTempHoverFrac = -1, sKppsHoverFrac = -1, sFrameHoverFrac = -1;
+var BUFFER_HISTORY = [];
+var RSSI_HISTORY = [];
+var BUFFER_WARN = 80, BUFFER_CRIT = 95;   // % fill -- ring buffer overflow risk
+var RSSI_MIN = -100, RSSI_MAX = -20;      // chart Y-axis span, dBm
+var RSSI_GOOD = -60, RSSI_BAD = -75;      // >= good: strong, <= bad: weak, between: medium
+var sTempHoverFrac = -1, sKppsHoverFrac = -1, sFrameHoverFrac = -1, sBufferHoverFrac = -1, sRssiHoverFrac = -1;
+
+// min/avg/max readout shared by the single-metric charts (CPU Load, Buffer
+// Fill, WiFi RSSI, Galvo Output Rate) -- multi-series charts (Temperature,
+// Frame Composition) already show their current values via badges/fillText
+// and gain little from a combined min/avg/max across unrelated series.
+function statsLine(values, fmt) {
+  var vals = values.filter(function(v) { return v !== null && v !== undefined && !isNaN(v); });
+  if (!vals.length) return '';
+  var min = Math.min.apply(null, vals), max = Math.max.apply(null, vals);
+  var avg = vals.reduce(function(a, b) { return a + b; }, 0) / vals.length;
+  return 'min ' + fmt(min) + '  ·  avg ' + fmt(avg) + '  ·  max ' + fmt(max);
+}
 
 function fitCanvas(canvas, cssHeight) {
   var dpr = window.devicePixelRatio || 1;
@@ -3051,6 +3097,8 @@ function renderCpuGraph() {
     var v = sCpuData.c0[sCpuHoverIdx];
     if (v !== null && readout) readout.innerHTML += ' — ' + ((CPU_HISTORY - 1 - sCpuHoverIdx) * 0.5).toFixed(1) + 's ago  C0: ' + v.toFixed(0) + '%';
   }
+  var stats = document.getElementById('cpu-stats');
+  if (stats) stats.textContent = statsLine(sCpuData.c0, function(v) { return v.toFixed(0) + '%'; });
 }
 function drawTempChart() {
   var canvas = document.getElementById('temp-chart');
@@ -3071,6 +3119,12 @@ function drawTempChart() {
     });
     chartLine(ctx, pts, SENSOR_COLORS[s], 1.6, true, false, h);
   }
+  var cpuPts = TEMP_HISTORY.map(function(e) {
+    var v = e.cpuTemp;
+    if (v === null || v === undefined) return null;
+    return {x: ((e.ts - t0) / span) * w, y: h - (v / 90) * h};
+  });
+  chartLine(ctx, cpuPts, CPU_TEMP_COLOR, 1.6, true, false, h);
   if (sTempHoverFrac >= 0) {
     var hx = sTempHoverFrac * w;
     ctx.save(); ctx.setLineDash([3, 3]); ctx.strokeStyle = 'rgba(255,255,255,0.4)';
@@ -3090,6 +3144,8 @@ function drawKppsChart() {
   chartLine(ctx, pts, cssVar('--tertiary') || '#00d4ff', 1.6, true, true, h);
   var last = KPPS_HISTORY[KPPS_HISTORY.length - 1];
   if (last) { ctx.fillStyle = cssVar('--tertiary') || '#00d4ff'; ctx.font = '12px ' + (cssVar('--font-mono') || 'monospace'); ctx.textAlign = 'right'; ctx.fillText(last.kpps.toFixed(1) + ' kpps', w - 4, 14); ctx.textAlign = 'left'; }
+  var stats = document.getElementById('kpps-stats');
+  if (stats) stats.textContent = statsLine(KPPS_HISTORY.map(function(e) { return e.kpps; }), function(v) { return v.toFixed(1) + 'k'; });
 }
 function drawFrameChart() {
   var canvas = document.getElementById('frame-chart');
@@ -3119,6 +3175,58 @@ function drawFrameChart() {
     ctx.fillStyle = cssVar('--warn') || '#ffcc00'; ctx.fillText('blank=' + last.blank, w * 0.65, 12);
   }
 }
+function drawBufferChart() {
+  var canvas = document.getElementById('buffer-chart');
+  if (!canvas || !canvas.offsetParent) return;
+  var fc = fitCanvas(canvas); var ctx = fc.ctx, w = fc.w, h = fc.h;
+  ctx.clearRect(0, 0, w, h); chartBg(ctx, w, h);
+  chartGridY(ctx, w, h, 4, function(f) { return Math.round(f * 100) + '%'; });
+  chartDashedLine(ctx, w, h, BUFFER_WARN / 100, cssVar('--warn') || '#ffcc00');
+  chartDashedLine(ctx, w, h, BUFFER_CRIT / 100, cssVar('--bad') || '#ff3366');
+  if (!BUFFER_HISTORY.length) return;
+  var t0 = BUFFER_HISTORY[0].ts, t1 = BUFFER_HISTORY[BUFFER_HISTORY.length - 1].ts || t0 + 1;
+  var span = Math.max(1, t1 - t0);
+  var pts = BUFFER_HISTORY.map(function(e) { return {x: ((e.ts - t0) / span) * w, y: h - (e.fill / 100) * h}; });
+  var last = BUFFER_HISTORY[BUFFER_HISTORY.length - 1].fill;
+  var color = last >= BUFFER_CRIT ? (cssVar('--bad') || '#ff3366') : last >= BUFFER_WARN ? (cssVar('--warn') || '#ffcc00') : (cssVar('--accent') || '#00ff88');
+  chartLine(ctx, pts, color, 1.6, true, true, h);
+  ctx.fillStyle = color; ctx.font = '12px ' + (cssVar('--font-mono') || 'monospace'); ctx.textAlign = 'right'; ctx.fillText(last.toFixed(0) + '%', w - 4, 14); ctx.textAlign = 'left';
+  if (sBufferHoverFrac >= 0) {
+    var hx = sBufferHoverFrac * w;
+    ctx.save(); ctx.setLineDash([3, 3]); ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+    ctx.beginPath(); ctx.moveTo(hx, 0); ctx.lineTo(hx, h); ctx.stroke(); ctx.restore();
+  }
+  var stats = document.getElementById('buffer-stats');
+  if (stats) stats.textContent = statsLine(BUFFER_HISTORY.map(function(e) { return e.fill; }), function(v) { return v.toFixed(0) + '%'; });
+}
+function rssiFrac(dbm) { return Math.max(0, Math.min(1, (dbm - RSSI_MIN) / (RSSI_MAX - RSSI_MIN))); }
+function drawRssiChart() {
+  var canvas = document.getElementById('rssi-chart');
+  if (!canvas || !canvas.offsetParent) return;
+  var fc = fitCanvas(canvas); var ctx = fc.ctx, w = fc.w, h = fc.h;
+  ctx.clearRect(0, 0, w, h); chartBg(ctx, w, h);
+  // Good/medium/bad zone bands, bottom (weak) to top (strong).
+  var yGood = h - rssiFrac(RSSI_GOOD) * h, yBad = h - rssiFrac(RSSI_BAD) * h;
+  ctx.fillStyle = colorWithAlpha(cssVar('--ok') || '#00ff88', 0.08); ctx.fillRect(0, 0, w, yGood);
+  ctx.fillStyle = colorWithAlpha(cssVar('--warn') || '#ffcc00', 0.08); ctx.fillRect(0, yGood, w, yBad - yGood);
+  ctx.fillStyle = colorWithAlpha(cssVar('--bad') || '#ff3366', 0.08); ctx.fillRect(0, yBad, w, h - yBad);
+  chartGridY(ctx, w, h, 4, function(f) { return Math.round(RSSI_MIN + f * (RSSI_MAX - RSSI_MIN)) + ' dBm'; });
+  if (!RSSI_HISTORY.length) return;
+  var t0 = RSSI_HISTORY[0].ts, t1 = RSSI_HISTORY[RSSI_HISTORY.length - 1].ts || t0 + 1;
+  var span = Math.max(1, t1 - t0);
+  var pts = RSSI_HISTORY.map(function(e) { return {x: ((e.ts - t0) / span) * w, y: h - rssiFrac(e.rssi) * h}; });
+  var last = RSSI_HISTORY[RSSI_HISTORY.length - 1].rssi;
+  var color = last >= RSSI_GOOD ? (cssVar('--ok') || '#00ff88') : last <= RSSI_BAD ? (cssVar('--bad') || '#ff3366') : (cssVar('--warn') || '#ffcc00');
+  chartLine(ctx, pts, color, 1.6, true, true, h);
+  ctx.fillStyle = color; ctx.font = '12px ' + (cssVar('--font-mono') || 'monospace'); ctx.textAlign = 'right'; ctx.fillText(last + ' dBm', w - 4, 14); ctx.textAlign = 'left';
+  if (sRssiHoverFrac >= 0) {
+    var hx = sRssiHoverFrac * w;
+    ctx.save(); ctx.setLineDash([3, 3]); ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+    ctx.beginPath(); ctx.moveTo(hx, 0); ctx.lineTo(hx, h); ctx.stroke(); ctx.restore();
+  }
+  var stats = document.getElementById('rssi-stats');
+  if (stats) stats.textContent = statsLine(RSSI_HISTORY.map(function(e) { return e.rssi; }), function(v) { return v.toFixed(0) + ' dBm'; });
+}
 function initHistoryChartHover(canvasId, setter, redraw) {
   var canvas = document.getElementById(canvasId);
   if (!canvas) return;
@@ -3147,6 +3255,8 @@ function initCpuGraph() {
 function initTempGraph() { initHistoryChartHover('temp-chart', function(f) { sTempHoverFrac = f; }, drawTempChart); requestAnimationFrame(drawTempChart); }
 function initKppsGraph() { initHistoryChartHover('kpps-chart', function(f) { sKppsHoverFrac = f; }, drawKppsChart); requestAnimationFrame(drawKppsChart); }
 function initFrameGraph() { initHistoryChartHover('frame-chart', function(f) { sFrameHoverFrac = f; }, drawFrameChart); requestAnimationFrame(drawFrameChart); }
+function initBufferGraph() { initHistoryChartHover('buffer-chart', function(f) { sBufferHoverFrac = f; }, drawBufferChart); requestAnimationFrame(drawBufferChart); }
+function initRssiGraph() { initHistoryChartHover('rssi-chart', function(f) { sRssiHoverFrac = f; }, drawRssiChart); requestAnimationFrame(drawRssiChart); }
 
 /* =========================================================================
    THERMAL state handler (feeds both the Dashboard temp badges/chart and the
@@ -3156,18 +3266,23 @@ registerTempHandler(function(s) {
   if (!s.temps) return;
   if (s.temp_unit !== undefined) s_tempUnit = s.temp_unit;
   window.s_lastTempState = s;
-  TEMP_HISTORY.push({ts: Date.now(), temps: s.temps.slice()});
+  TEMP_HISTORY.push({ts: Date.now(), temps: s.temps.slice(), cpuTemp: (s.cpu_temp === null || s.cpu_temp === undefined) ? null : s.cpu_temp});
   trimHistory(TEMP_HISTORY);
   drawTempChart();
   var badges = document.getElementById('dash-temp-badges');
   if (badges) {
-    badges.innerHTML = s.temps.map(function(t, i) {
+    var html = s.temps.map(function(t, i) {
       var ok = s.ok && s.ok[i];
       if (!ok) return '';  // not connected -- don't clutter the dashboard with dead sensors
       var name = (s.names && s.names[i]) || ('Sensor ' + (i + 1));
       return '<div class="row"><span style="width:10px;height:10px;border-radius:50%;background:' + SENSOR_COLORS[i] + ';display:inline-block"></span>' +
         '<span>' + name + '</span><span style="margin-left:auto;color:var(--text)">' + convTemp(t, s_tempUnit).toFixed(1) + tempUnitSuffix(s_tempUnit) + '</span></div>';
     }).join('');
+    if (s.cpu_temp !== null && s.cpu_temp !== undefined) {
+      html += '<div class="row"><span style="width:10px;height:10px;border-radius:50%;background:' + CPU_TEMP_COLOR + ';display:inline-block"></span>' +
+        '<span>CPU</span><span style="margin-left:auto;color:var(--text)">' + convTemp(s.cpu_temp, s_tempUnit).toFixed(1) + tempUnitSuffix(s_tempUnit) + '</span></div>';
+    }
+    badges.innerHTML = html;
   }
   if (typeof handleThermalTabState === 'function') handleThermalTabState(s);
 });
@@ -6412,7 +6527,7 @@ buildSensorNameEditor();
 buildTempOffsetEditor();
 
 buildNav();
-initCpuGraph(); initTempGraph(); initKppsGraph(); initFrameGraph();
+initCpuGraph(); initTempGraph(); initKppsGraph(); initFrameGraph(); initBufferGraph(); initRssiGraph();
 pollState();
 setInterval(pollState, 1500);
 bootSequence();

@@ -14,4 +14,7 @@ void update();
 uint8_t load0();   // Core 0 — network / DMX / UI
 uint8_t load1();   // Core 1 — galvo output (usually near 100% by design)
 
+// SoC internal temperature sensor (°C). NAN until the first ~2s reading.
+float cpuTemp();
+
 } // namespace cpu_mon

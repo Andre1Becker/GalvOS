@@ -12,6 +12,7 @@
 #include <esp_freertos_hooks.h>
 #include <esp_log.h>
 #include <Arduino.h>
+#include <math.h>
 
 static const char* TAG = "cpu_mon";
 
@@ -23,6 +24,8 @@ static uint32_t          s_base[2]   = {0, 0};
 static uint32_t          s_snap_ms   = 0;
 static bool              s_inited    = false;
 static bool              s_calibrated = false;
+static float             s_cpu_temp   = NAN;
+static uint32_t          s_temp_ms    = 0;
 
 static bool hook0() { s_idle[0]++; return false; }
 static bool hook1() { s_idle[1]++; return false; }
@@ -44,6 +47,15 @@ void update() {
     if (!s_inited) init();
 
     uint32_t now = millis();
+
+    // SoC internal temp sensor — cheap but not free (start/stop toggles the
+    // analog block), so it runs on its own slower cadence independent of the
+    // CPU-load window below.
+    if (now - s_temp_ms >= 2000) {
+        s_temp_ms  = now;
+        s_cpu_temp = temperatureRead();
+    }
+
     uint32_t dt  = now - s_snap_ms;
     if (dt < 500) return;    // minimum window
 
@@ -82,5 +94,6 @@ void update() {
 
 uint8_t load0() { return s_load[0]; }
 uint8_t load1() { return s_load[1]; }
+float   cpuTemp() { return s_cpu_temp; }
 
 } // namespace cpu_mon

@@ -1,4 +1,5 @@
 #include "web_ui.h"
+#include <math.h>
 #include "config.h"
 #include "upload_guard.h"
 #include "../warpGrid.h"
@@ -704,6 +705,8 @@ static void buildStateJson(JsonDocument& doc) {
     doc["heap"]            = ESP.getFreeHeap();
     doc["cpu0"]            = cpu_mon::load0();
     doc["cpu1"]            = cpu_mon::load1();
+    { float ct = cpu_mon::cpuTemp();
+      if (isnan(ct)) doc["cpu_temp"] = nullptr; else doc["cpu_temp"] = ct; }
     doc["psram"]           = ESP.getFreePsram();
     // Dashboard extras
     doc["ntp_synced"]      = ntp_client::isSynced();
