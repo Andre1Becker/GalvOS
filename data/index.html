@@ -1677,7 +1677,7 @@ canvas { max-width: 100%; display: block; }
 /* =========================================================================
    GLOBAL STATE
    ========================================================================= */
-var UI_VERSION = '1.23.0';   // WebUI version -- independent from firmware version
+var UI_VERSION = '1.23.1';   // WebUI version -- independent from firmware version
 var NAV_TABS = [
   {id: 'dashboard', label: 'Dashboard', icon: '🏠', bottom: true},
   {id: 'presets', label: 'Presets', icon: '🎮', bottom: true},
@@ -5859,7 +5859,7 @@ async function pollAutotune() {
     // above the top of the sweep and was never observed. Do not dress that up
     // as "recommended".
     else if (r.ceiling_not_reached) el.textContent = 'No limit found across the whole tested range — ' + r.result_kpps + ' kpps is the range top, not a measured ceiling';
-    else el.textContent = 'Recommended: ' + r.result_kpps + ' kpps — click Apply & Save';
+    else el.textContent = 'Recommended: ' + r.result_kpps + ' kpps' + (r.achieved_pps ? ' (measured ' + Math.round(r.achieved_pps / 100) / 10 + ' kpps at the ceiling)' : '') + ' — click Apply & Save';
     loadProjection();
   }
 }

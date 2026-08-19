@@ -550,6 +550,36 @@ static inline void updateSnapshot() {
 // Forward declaration: defined after galvoTask, called from within it.
 static bool sendRawCommandImpl(uint8_t cmd3, uint8_t addr3, uint16_t data);
 
+// One output tick's pacing: advance next_tick by one period and busy-wait for
+// it. Every exit path of galvoTask's loop ends here.
+//
+// The re-base is the load-bearing part. A commanded rate whose period_us is
+// shorter than the time the loop body actually takes (measured on this board:
+// ~21.3 us, i.e. a ~46.9 kpps free-run ceiling) makes next_tick fall behind
+// wall-clock by the difference on EVERY iteration, without bound -- the
+// busy-wait is simply never binding. Lowering the rate afterwards then does
+// nothing for minutes, because the wait stays non-binding until next_tick has
+// clawed back the whole accumulated deficit at (new_period - body_time) per
+// iteration. Reproduced on hardware: ~60 s commanded at 60 kpps left the galvo
+// pinned at ~46.9 kpps for ~3 minutes after being set back to 43, while the
+// optimizer's PPS scaling, paceProducer() and the inverse-filter coefficients
+// all went on assuming 43.
+//
+// Clamping the deficit to one period keeps the normal jitter compensation (a
+// single slow iteration is still made up on the next one) while making the
+// accumulated error impossible.
+static inline void IRAM_ATTR paceTick(uint64_t& next_tick, uint32_t period_us) {
+    next_tick += period_us;
+    const int64_t now = esp_timer_get_time();
+    if ((int64_t)next_tick < now - (int64_t)period_us) {
+        next_tick = (uint64_t)now;   // hopelessly behind: re-base, never accumulate
+        return;
+    }
+    while (esp_timer_get_time() < (int64_t)next_tick) {
+        // Busy-wait core 1 -- IDLE1 removed from WDT
+    }
+}
+
 static void IRAM_ATTR galvoTask(void*) {
     // Dynamic rate from ProjectionConfig (12..60 kpps). period_us is now
     // computed in updateSnapshot() once per frame (not per tick) to keep
@@ -585,8 +615,7 @@ static void IRAM_ATTR galvoTask(void*) {
                 if (nx != s_ring_head) { s_ring_tail=nx; s_point_idx=0; }
             } else { s_point_idx++; }
             s_points_total++;
-            next_tick += period_us;
-            while(esp_timer_get_time()<(int64_t)next_tick){}
+            paceTick(next_tick, period_us);
             continue;
         }
         s_points_total++;
@@ -668,8 +697,7 @@ static void IRAM_ATTR galvoTask(void*) {
                 uint8_t b = (ch == 0 || ch == 3) ? 1 : 0;
                 rgbWrite(r, g, b, s_snap.thresh_r, s_snap.thresh_g, s_snap.thresh_b, /*skip_gamma=*/true);
             }
-            next_tick += period_us;
-            while (esp_timer_get_time() < (int64_t)next_tick) {}
+            paceTick(next_tick, period_us);
             continue;
         } else if (s_hw_debug_active) {
             // Hardware debug: fixed position/color, takes absolute priority
@@ -691,8 +719,7 @@ static void IRAM_ATTR galvoTask(void*) {
                 writeDAC8562XY((uint16_t)(dx + 32768), (uint16_t)(dy + 32768));
                 rgbWrite(dr, dg, db, s_snap.thresh_r, s_snap.thresh_g, s_snap.thresh_b);
             }
-            next_tick += period_us;
-            while (esp_timer_get_time() < (int64_t)next_tick) {}
+            paceTick(next_tick, period_us);
             continue;
         } else if (s_res_test_active) {
             // Resonance test (Prompt 13): same priority tier and safety
@@ -721,8 +748,7 @@ static void IRAM_ATTR galvoTask(void*) {
                 rgbWrite(dr, dg, db, s_snap.thresh_r, s_snap.thresh_g, s_snap.thresh_b);
                 s_res_tick++;
             }
-            next_tick += period_us;
-            while (esp_timer_get_time() < (int64_t)next_tick) {}
+            paceTick(next_tick, period_us);
             continue;
         } else {
             size_t tail = s_ring_tail;
@@ -862,10 +888,7 @@ static void IRAM_ATTR galvoTask(void*) {
             }
         }
 
-        next_tick += period_us;
-        while (esp_timer_get_time() < (int64_t)next_tick) {
-            // Busy-wait core 1 -- IDLE1 removed from WDT
-        }
+        paceTick(next_tick, period_us);
     }
     writeDAC8562(0, 0x8000);
     writeDAC8562(1, 0x8000);
@@ -1156,6 +1179,12 @@ static constexpr uint16_t AUTOTUNE_MARGIN_KPPS = 2;     // safety margin subtrac
 static constexpr uint8_t  AUTOTUNE_MAX_STEPS   = 12;    // hard trial bound; real count is derived per sweep
 static constexpr uint8_t  AUTOTUNE_FILL_LIMIT  = 85;    // % -- a climbing fill predicts an overflow just past the window
 static constexpr uint32_t AUTOTUNE_PROBE_MS    = 400;   // producer-load probe window
+// A trial must deliver at least this percentage of the commanded rate. Not
+// 100: the measurement window is millis()-quantised and the loop drops the odd
+// tick to the safety/heartbeat branches, so an honestly-met rate lands a hair
+// under. Anything genuinely over-commanded misses by whole percent (this board
+// reaches ~78% of a commanded 60 kpps), well clear of the tolerance.
+static constexpr uint32_t AUTOTUNE_RATE_TOL_PCT = 98;
 // Load floor, points/s pushed into the ring. The idle path delivers 25 pts/s
 // and hw-debug/resonance 0; the slowest rate this sweep ever tests delivers
 // >= AUTOTUNE_KPPS_MIN * 1000 = 12000. 3000 sits two orders above the idle
@@ -1191,22 +1220,52 @@ static void autotuneApplyRate(uint16_t kpps) {
     invfilter::refresh((uint32_t)kpps * 1000);
 }
 
-// Applies a candidate kpps and reports whether it ran overflow-free for
-// AUTOTUNE_MEASURE_MS.
+// Applies a candidate kpps and reports whether the output stage actually
+// delivered it for AUTOTUNE_MEASURE_MS.
+//
+// The primary criterion is achieved-vs-commanded tick rate, NOT ring overflow.
+// Overflow alone is far too insensitive: paceProducer() (pattern_engine.cpp)
+// throttles the producer to drain_ms * 1.25, i.e. ~80% of the COMMANDED drain
+// rate, so when the consumer falls short of the commanded rate the producer
+// falls short by the same factor and the ring stays balanced. Measured on
+// hardware: at 60 kpps commanded this board delivers ~46.9 kpps -- 25% short --
+// with buffer_fill sitting at the same 14% it shows at 43 kpps. Zero overflows,
+// trial passes, sweep saturates at its range ceiling, and the reported rate is
+// one the hardware cannot produce. s_points_total counts real output ticks
+// (one per galvoTask iteration), so sampling it measures the thing directly
+// instead of inferring it from ring dynamics two layers away.
+//
+// The overflow/fill checks are kept as a secondary criterion -- they catch a
+// genuinely different failure (producer/consumer imbalance at a rate the
+// consumer *is* meeting).
 static bool autotuneTrial(uint16_t kpps) {
     autotuneApplyRate(kpps);
     vTaskDelay(pdMS_TO_TICKS(AUTOTUNE_SETTLE_MS));
 
-    uint32_t before   = s_overflow_count;
-    uint32_t deadline = millis() + AUTOTUNE_MEASURE_MS;
-    uint32_t max_fill = 0;
+    uint32_t ovf_before = s_overflow_count;
+    uint32_t pts_before = s_points_total;
+    uint32_t t_before   = millis();
+    uint32_t deadline   = t_before + AUTOTUNE_MEASURE_MS;
+    uint32_t max_fill   = 0;
     while (millis() < deadline) {
         if (s_autotune_abort_req) return false;
         uint32_t fill = bufferFillLevel();
         if (fill > max_fill) max_fill = fill;
         vTaskDelay(pdMS_TO_TICKS(50));
     }
-    return (s_overflow_count - before) == 0 && max_fill < AUTOTUNE_FILL_LIMIT;
+    uint32_t elapsed = millis() - t_before;
+    if (elapsed == 0) return false;
+    uint32_t achieved = (uint32_t)(((uint64_t)(s_points_total - pts_before) * 1000ULL) / elapsed);
+    s_autotune.achieved_pps = achieved;
+
+    // Commanded rate, not the tick model: period_us is an integer division
+    // (1000000 / (kpps*1000)), so the model rate always rounds slightly ABOVE
+    // the commanded one. Comparing against the commanded figure is what the
+    // rest of the firmware assumes it is getting.
+    const uint32_t commanded = (uint32_t)kpps * 1000UL;
+    const bool rate_ok = achieved >= (uint32_t)(((uint64_t)commanded * AUTOTUNE_RATE_TOL_PCT) / 100ULL);
+
+    return rate_ok && (s_overflow_count - ovf_before) == 0 && max_fill < AUTOTUNE_FILL_LIMIT;
 }
 
 static void autotuneTask(void*) {
@@ -1214,8 +1273,9 @@ static void autotuneTask(void*) {
     // header comment above for why those are different quantities.
     const uint16_t hi = AUTOTUNE_KPPS_MAX;
     const uint16_t lo = AUTOTUNE_KPPS_MIN;
-    uint16_t best     = lo;
-    bool     floor_ok = false;
+    uint16_t best          = lo;
+    uint32_t best_achieved = 0;   // achieved rate at `best`, not at the last trial
+    bool     floor_ok      = false;
 
     // Trials this sweep will really run: 1 floor probe + the binary search's
     // ceil(log2(span)) halvings. AUTOTUNE_MAX_STEPS stays a hard bound so a
@@ -1244,14 +1304,19 @@ static void autotuneTask(void*) {
     if (!s_autotune_abort_req) {
         floor_ok = autotuneTrial(lo);
         if (floor_ok) {
-            best = lo;
+            best          = lo;
+            best_achieved = s_autotune.achieved_pps;
             uint16_t l = lo, h = hi;
             while (l <= h && s_autotune.step < AUTOTUNE_MAX_STEPS) {
                 if (s_autotune_abort_req) break;
                 uint16_t mid = l + (h - l) / 2;
                 s_autotune.candidate_kpps = mid;
                 s_autotune.step++;
-                if (autotuneTrial(mid)) { best = mid; l = mid + 1; }
+                if (autotuneTrial(mid)) {
+                    best          = mid;
+                    best_achieved = s_autotune.achieved_pps;
+                    l             = mid + 1;
+                }
                 else if (mid == AUTOTUNE_KPPS_MIN) break;
                 else h = mid - 1;
             }
@@ -1269,6 +1334,9 @@ static void autotuneTask(void*) {
                          ? best - AUTOTUNE_MARGIN_KPPS : best;
         autotuneApplyRate(result);
         s_autotune.result_kpps    = result;
+        // Report the rate measured at `best`, not whatever the last (likely
+        // failing) trial happened to leave behind.
+        s_autotune.achieved_pps   = best_achieved;
         s_autotune.floor_unstable = !floor_ok;
         // The top of the range ran clean, so the real ceiling is at or above
         // it and this sweep never found it. Reporting best - margin here

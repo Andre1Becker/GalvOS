@@ -75,6 +75,11 @@ struct AutotuneStatus {
     bool     ceiling_not_reached = false;
     uint16_t candidate_kpps = 0;   // kpps currently/last under test
     uint16_t result_kpps    = 0;   // valid once done=true
+    // Output ticks/s actually delivered during the last trial. This is the
+    // sweep's primary pass/fail signal (see autotuneTrial): a rate the loop
+    // cannot reach shows up here directly, whereas ring overflow barely
+    // registers it.
+    uint32_t achieved_pps   = 0;
     uint8_t  step           = 0;
     uint8_t  step_total     = 0;
 };

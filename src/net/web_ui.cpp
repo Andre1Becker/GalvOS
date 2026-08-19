@@ -4290,7 +4290,7 @@ void init() {
         snprintf(buf, sizeof(buf),
             "{\"running\":%s,\"done\":%s,\"floor_unstable\":%s,\"no_load\":%s,"
             "\"ceiling_not_reached\":%s,\"candidate_kpps\":%u,"
-            "\"result_kpps\":%u,\"step\":%u,\"step_total\":%u}",
+            "\"result_kpps\":%u,\"achieved_pps\":%u,\"step\":%u,\"step_total\":%u}",
             st.running ? "true" : "false",
             st.done    ? "true" : "false",
             st.floor_unstable ? "true" : "false",
@@ -4298,6 +4298,7 @@ void init() {
             st.ceiling_not_reached ? "true" : "false",
             (unsigned)st.candidate_kpps,
             (unsigned)st.result_kpps,
+            (unsigned)st.achieved_pps,
             (unsigned)st.step,
             (unsigned)st.step_total);
         req->send(200, "application/json", buf);
