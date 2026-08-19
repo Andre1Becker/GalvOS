@@ -1139,8 +1139,17 @@ void init() {
             if (doc["dmx_address"].is<int>())      gConfig.dmx_address     = doc["dmx_address"];
             if (doc["artnet_universe"].is<int>())  gConfig.artnet_universe = doc["artnet_universe"];
             if (doc["hostname"].is<const char*>()) strlcpy(gConfig.hostname, doc["hostname"], sizeof(gConfig.hostname));
+            bool wifiSsidChanging = doc["wifi_ssid"].is<const char*>() &&
+                                     strcmp(doc["wifi_ssid"], gConfig.wifi_ssid) != 0;
             if (doc["wifi_ssid"].is<const char*>()) strlcpy(gConfig.wifi_ssid, doc["wifi_ssid"], sizeof(gConfig.wifi_ssid));
-            if (doc["wifi_pass"].is<const char*>()) strlcpy(gConfig.wifi_pass, doc["wifi_pass"], sizeof(gConfig.wifi_pass));
+            if (doc["wifi_pass"].is<const char*>()) {
+                const char* p = doc["wifi_pass"];
+                // A blank password field only means "clear it" when paired with a new
+                // SSID (e.g. an open network) -- the WebUI never echoes the saved
+                // password back to the browser (see loadConfig()), so a blank field
+                // alongside an unchanged SSID means "didn't touch this", not "wipe it".
+                if (strlen(p) > 0 || wifiSsidChanging) strlcpy(gConfig.wifi_pass, p, sizeof(gConfig.wifi_pass));
+            }
             if (doc["wifi_static"].is<bool>())     gConfig.wifi_static = doc["wifi_static"];
             if (doc["wifi_ip"].is<const char*>())  strlcpy(gConfig.wifi_ip,   doc["wifi_ip"],   sizeof(gConfig.wifi_ip));
             if (doc["wifi_gw"].is<const char*>())  strlcpy(gConfig.wifi_gw,   doc["wifi_gw"],   sizeof(gConfig.wifi_gw));
@@ -3383,12 +3392,31 @@ void init() {
             const char* ssid = doc["ssid"] | "";
             const char* pass = doc["pass"] | "";
             if (strlen(ssid) == 0) { req->send(400, "text/plain", "ssid required"); return; }
+            bool ssidChanging = strcmp(ssid, gConfig.wifi_ssid) != 0;
             strlcpy(gConfig.wifi_ssid, ssid, sizeof(gConfig.wifi_ssid));
-            strlcpy(gConfig.wifi_pass, pass, sizeof(gConfig.wifi_pass));
+            // Same "blank password = keep the saved one" rule as /api/config above --
+            // the WebUI's password field is never pre-filled from the server, so a
+            // blank field while reconnecting to the already-configured SSID (e.g. via
+            // the scan-result dropdown) must not silently wipe the stored password.
+            if (strlen(pass) > 0 || ssidChanging) strlcpy(gConfig.wifi_pass, pass, sizeof(gConfig.wifi_pass));
+            pass = gConfig.wifi_pass;  // resolved password (new or kept) for WiFi.begin() below
             persistConfig();
             WiFi.disconnect();
             delay(100);
-            WiFi.begin(ssid, pass);
+            WiFi.setSleep(false);  // see main.cpp setup() -- avoids missed EAPOL frames
+            // SAE PWE "both" (hunt-and-peck + H2E) -- see wifiBeginWpa3Compat()
+            // in main.cpp for why: Arduino's WiFi.begin() alone leaves this at
+            // hunt-and-peck-only, which some WPA2/WPA3-transition APs (e.g.
+            // Ubiquiti UniFi default mode) never complete a handshake against.
+            WiFi.begin(ssid, pass, 0, nullptr, /*connect=*/false);
+            {
+                wifi_config_t conf;
+                if (esp_wifi_get_config(WIFI_IF_STA, &conf) == ESP_OK) {
+                    conf.sta.sae_pwe_h2e = WPA3_SAE_PWE_BOTH;
+                    esp_wifi_set_config(WIFI_IF_STA, &conf);
+                }
+            }
+            esp_wifi_connect();
             req->send(200, "text/plain", "connecting");
         });
 

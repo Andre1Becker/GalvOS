@@ -11,6 +11,7 @@
 #include <LittleFS.h>
 #include <esp_log.h>
 #include <esp_task_wdt.h>   // WDT-control
+#include <esp_wifi.h>       // esp_wifi_get/set_config -- SAE PWE (WPA3) compat, see wifiBeginWpa3Compat()
 #include <new>                        // placement new (gPaint -> PSRAM)
 #include <soc/soc_memory_layout.h>    // esp_ptr_external_ram
 #include "util/mem_registry.h"
@@ -250,6 +251,49 @@ static bool startTask(TaskFunction_t fn, const char* name,
     return true;
 }
 
+// Short human-readable label for wifi_auth_mode_t -- used only in log lines
+// below, to make an AP-side auth-mode flip (e.g. WPA2<->WPA3-transition)
+// visible without having to decode the numeric enum by hand.
+static const char* authModeStr(wifi_auth_mode_t m) {
+    switch (m) {
+        case WIFI_AUTH_OPEN:            return "OPEN";
+        case WIFI_AUTH_WEP:             return "WEP";
+        case WIFI_AUTH_WPA_PSK:         return "WPA_PSK";
+        case WIFI_AUTH_WPA2_PSK:        return "WPA2_PSK";
+        case WIFI_AUTH_WPA_WPA2_PSK:    return "WPA_WPA2_PSK";
+        case WIFI_AUTH_WPA2_ENTERPRISE: return "WPA2_ENTERPRISE";
+        case WIFI_AUTH_WPA3_PSK:        return "WPA3_PSK";
+        case WIFI_AUTH_WPA2_WPA3_PSK:   return "WPA2_WPA3_PSK";
+        case WIFI_AUTH_WAPI_PSK:        return "WAPI_PSK";
+        default:                        return "UNKNOWN";
+    }
+}
+
+// Start a STA connection with SAE PWE derivation explicitly set to "both"
+// (hunt-and-peck + hash-to-element). Arduino's WiFi.begin() always leaves
+// wifi_sta_config_t::sae_pwe_h2e at 0 (WPA3_SAE_PWE_UNSPECIFIED), which the
+// IDF WiFi driver then treats as hunt-and-peck-only -- some WPA2/WPA3-
+// transition APs (observed: Ubiquiti UniFi, default WPA2/WPA3 mode) only
+// negotiate H2E and simply never complete the SAE exchange against a
+// hunt-and-peck-only client. That surfaces as a generic reason=15
+// (4WAY_HANDSHAKE_TIMEOUT) with no WPA3-specific signal in the disconnect
+// reason -- confirmed on this hardware by the fact a pure-WPA2 AP (iPhone
+// hotspot with "Maximize Compatibility" on) connects instantly while the
+// same AP's default WPA2/WPA3-transition mode times out every attempt.
+// Reuses WiFi.begin(..., connect=false) for the ssid/pass/threshold
+// bookkeeping (keeps Arduino's own validation + WiFiSTAClass state in sync),
+// then patches just this one field before kicking off the connection
+// ourselves -- avoids reimplementing the rest of WiFiSTAClass::begin().
+static void wifiBeginWpa3Compat(const char* ssid, const char* pass) {
+    WiFi.begin(ssid, pass, 0, nullptr, /*connect=*/false);
+    wifi_config_t conf;
+    if (esp_wifi_get_config(WIFI_IF_STA, &conf) == ESP_OK) {
+        conf.sta.sae_pwe_h2e = WPA3_SAE_PWE_BOTH;
+        esp_wifi_set_config(WIFI_IF_STA, &conf);
+    }
+    esp_wifi_connect();
+}
+
 // ── WiFi event diagnostics ─────────────────────────────────────────────
 // Logs disconnect/reconnect events with reason code + RSSI so they can be
 // correlated (by timestamp) with etherdream.cpp's endPacket() failures.
@@ -257,6 +301,13 @@ static bool startTask(TaskFunction_t fn, const char* name,
 // here, that confirms a WiFi-layer wedge (matching an EHOSTUNREACH errno)
 // rather than a heap issue -- see safety::failsafeReboot() for the heap
 // snapshot taken at the same moment.
+//
+// STA_CONNECTED / AUTHMODE_CHANGE also log channel/BSSID/authmode -- added
+// while chasing a reason=15 (4WAY_HANDSHAKE_TIMEOUT) loop on new external-
+// antenna modules: auth+assoc (logged here) already succeed before the
+// handshake fails, so channel/authmode at the moment of association narrows
+// down whether the AP renegotiated something (e.g. a WPA2/WPA3-transition
+// authmode flip) between attempts.
 static void onWiFiEvent(WiFiEvent_t event, WiFiEventInfo_t info) {
     switch (event) {
         case ARDUINO_EVENT_WIFI_STA_DISCONNECTED:
@@ -265,9 +316,23 @@ static void onWiFiEvent(WiFiEvent_t event, WiFiEventInfo_t info) {
             LOG_W(logbuf::CAT_WIFI, "STA disconnected reason=%u rssi=%d",
                   info.wifi_sta_disconnected.reason, info.wifi_sta_disconnected.rssi);
             break;
-        case ARDUINO_EVENT_WIFI_STA_CONNECTED:
-            ESP_LOGI("wifi_evt", "STA connected (assoc)");
-            LOG_I(logbuf::CAT_WIFI, "STA connected (assoc)");
+        case ARDUINO_EVENT_WIFI_STA_CONNECTED: {
+            const uint8_t* b = info.wifi_sta_connected.bssid;
+            ESP_LOGI("wifi_evt", "STA connected (assoc): ch=%u bssid=%02X:%02X:%02X:%02X:%02X:%02X auth=%s",
+                     info.wifi_sta_connected.channel, b[0], b[1], b[2], b[3], b[4], b[5],
+                     authModeStr(info.wifi_sta_connected.authmode));
+            LOG_I(logbuf::CAT_WIFI, "STA connected (assoc): ch=%u bssid=%02X:%02X:%02X:%02X:%02X:%02X auth=%s",
+                  info.wifi_sta_connected.channel, b[0], b[1], b[2], b[3], b[4], b[5],
+                  authModeStr(info.wifi_sta_connected.authmode));
+            break;
+        }
+        case ARDUINO_EVENT_WIFI_STA_AUTHMODE_CHANGE:
+            ESP_LOGI("wifi_evt", "STA auth mode change: %s -> %s",
+                     authModeStr(info.wifi_sta_authmode_change.old_mode),
+                     authModeStr(info.wifi_sta_authmode_change.new_mode));
+            LOG_I(logbuf::CAT_WIFI, "STA auth mode change: %s -> %s",
+                  authModeStr(info.wifi_sta_authmode_change.old_mode),
+                  authModeStr(info.wifi_sta_authmode_change.new_mode));
             break;
         case ARDUINO_EVENT_WIFI_STA_GOT_IP:
             ESP_LOGI("wifi_evt", "STA got IP: %s rssi=%d",
@@ -402,6 +467,12 @@ void setup() {
     WiFi.onEvent(onWiFiEvent);
     WiFi.mode(WIFI_STA);
     WiFi.setHostname(gConfig.hostname);
+    // Disable WiFi modem-sleep power-save: ESP32's default power-save duty
+    // cycle can miss the AP's EAPOL M1/M3 frames during the 4-way handshake
+    // window (a well-known ESP32 gotcha), which reads as reason=15
+    // (4WAY_HANDSHAKE_TIMEOUT) even though auth/assoc -- and therefore basic
+    // TX/RX -- already succeeded. Must be set before WiFi.begin().
+    WiFi.setSleep(false);
     if (strlen(gConfig.wifi_ssid) > 0) {
         // configure Static IP if enabled
         if (gConfig.wifi_static && strlen(gConfig.wifi_ip) > 0) {
@@ -416,7 +487,7 @@ void setup() {
         }
             WiFi.setAutoReconnect(true);
         WiFi.persistent(true);
-        WiFi.begin(gConfig.wifi_ssid, gConfig.wifi_pass);
+        wifiBeginWpa3Compat(gConfig.wifi_ssid, gConfig.wifi_pass);
         uint32_t t0 = millis();
         ESP_LOGI(TAG, "WiFi connecting to '%s' ...", gConfig.wifi_ssid);
         while (WiFi.status() != WL_CONNECTED && millis() - t0 < 20000)

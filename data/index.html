@@ -1537,7 +1537,12 @@ canvas { max-width: 100%; display: block; }
         </div>
         <div class="grid grid-3">
           <div class="field"><label>SSID</label><input type="text" id="cfg-wifi-ssid"></div>
-          <div class="field"><label>Password</label><input type="password" id="cfg-wifi-pass"></div>
+          <div class="field"><label>Password</label>
+            <div class="row" style="gap:4px">
+              <input type="password" id="cfg-wifi-pass" style="flex:1" placeholder="Leave blank to keep saved password">
+              <button type="button" class="btn sm" id="cfg-wifi-pass-toggle" onclick="toggleWifiPassVisibility()" title="Show/hide password">Show</button>
+            </div>
+          </div>
           <div class="field"><label>Hostname</label><input type="text" id="cfg-hostname" value="galvos"></div>
         </div>
         <div class="row">
@@ -1664,7 +1669,7 @@ canvas { max-width: 100%; display: block; }
 /* =========================================================================
    GLOBAL STATE
    ========================================================================= */
-var UI_VERSION = '1.21.3';   // WebUI version -- independent from firmware version
+var UI_VERSION = '1.22.0';   // WebUI version -- independent from firmware version
 var NAV_TABS = [
   {id: 'dashboard', label: 'Dashboard', icon: '🏠', bottom: true},
   {id: 'presets', label: 'Presets', icon: '🎮', bottom: true},
@@ -6117,6 +6122,10 @@ async function loadConfig() {
   setc('cfg-sacn-enabled', c.sacn_enabled); setc('cfg-sacn-debug', c.debug_log_sacn);
   setc('cfg-helios-enabled', c.helios_net_enabled); setc('cfg-helios-debug', c.debug_log_helios_net);
   setv('cfg-hostname', c.hostname);
+  setv('cfg-wifi-ssid', c.wifi_ssid);
+  // wifi_pass is intentionally never sent back by /api/config (security) --
+  // the field stays blank; a blank Save/Connect now keeps the saved password
+  // instead of wiping it (see web_ui.cpp's wifiSsidChanging handling).
   setv('cfg-ntp-server', c.ntp_server); setv('cfg-ntp-tz', c.ntp_tz);
   document.getElementById('cfg-ntp-status').textContent = c.ntp_synced ? 'Synced' : 'Not synced';
   setc('cfg-wifi-static', c.wifi_static);
@@ -6146,6 +6155,13 @@ async function saveInterfacesConfig() {
     helios_net_enabled: domVal('cfg-helios-enabled', true), debug_log_helios_net: domVal('cfg-helios-debug', false)
   });
   toast('Interfaces config saved');
+}
+function toggleWifiPassVisibility() {
+  var el = document.getElementById('cfg-wifi-pass');
+  var btn = document.getElementById('cfg-wifi-pass-toggle');
+  var hidden = el.type === 'password';
+  el.type = hidden ? 'text' : 'password';
+  btn.textContent = hidden ? 'Hide' : 'Show';
 }
 var s_scanTimer = null;
 async function startWifiScan() {
