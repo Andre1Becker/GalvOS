@@ -1677,7 +1677,7 @@ canvas { max-width: 100%; display: block; }
 /* =========================================================================
    GLOBAL STATE
    ========================================================================= */
-var UI_VERSION = '1.24.0';   // WebUI version -- independent from firmware version
+var UI_VERSION = '1.24.1';   // WebUI version -- independent from firmware version
 var NAV_TABS = [
   {id: 'dashboard', label: 'Dashboard', icon: '🏠', bottom: true},
   {id: 'presets', label: 'Presets', icon: '🎮', bottom: true},
@@ -1972,6 +1972,30 @@ function enhanceSliders(root) {
     n.style.width = '72px';
     s.parentNode.insertBefore(n, s.nextSibling);
     s.addEventListener('input', function() { n.value = s.value; });
+    // The 'input' listener above only fires for USER interaction. Every tab
+    // loader populates its controls programmatically (`el.value = x`), which
+    // fires no event -- so the number box kept whatever the HTML default was,
+    // forever, while the slider itself moved to the real value. Visible as
+    // e.g. the Projection tab reading 30 kpps out of the box while the device
+    // ran 44. Mirroring the instance's value setter catches those writes
+    // without asking every call site to remember to dispatch an event.
+    var vd = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
+    Object.defineProperty(s, 'value', {
+      configurable: true,
+      get: function() { return vd.get.call(this); },
+      // Read back through the getter rather than echoing v: a range input
+      // clamps to its own min/max, so this keeps the box showing what the
+      // slider actually holds instead of what was requested.
+      set: function(v) { vd.set.call(this, v); n.value = vd.get.call(this); }
+    });
+    // min/max/step are attributes, so they are invisible to the setter above.
+    // loadProjection() really does retarget #proj-kpps's max at runtime; left
+    // unsynced the box would clamp typed input to the stale range.
+    if (typeof MutationObserver === 'function') {
+      new MutationObserver(function() {
+        n.min = s.min; n.max = s.max; n.step = s.step || 1;
+      }).observe(s, { attributes: true, attributeFilter: ['min', 'max', 'step'] });
+    }
     n.addEventListener('change', function() {
       var v = Math.min(parseFloat(s.max), Math.max(parseFloat(s.min), parseFloat(n.value) || 0));
       n.value = v;
