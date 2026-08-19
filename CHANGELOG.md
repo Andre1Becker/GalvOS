@@ -10,6 +10,20 @@ The WebUI carries its own independent `UI_VERSION`; it is not tracked separately
 
 ## 6.7x — Output rate autotune (2026-08-19)
 
+- **6.78** — Two defects behind "autotune finds no limit". (1) `galvoTask`'s tick pacer
+  accumulated an unbounded deficit: when `period_us` is shorter than the loop body
+  (~21.3 µs here, a ~46.9 kpps ceiling) the busy-wait never binds and `next_tick` falls
+  behind wall-clock every iteration, so lowering the rate afterwards did nothing for
+  60–90 s while the optimizer, producer pacing and inverse filter all assumed the new
+  rate. Five copies replaced by one `paceTick()` clamping the deficit to a single
+  period. (2) The autotune's overflow criterion could not see this at all —
+  `paceProducer()` throttles the producer to ~80% of the *commanded* rate, so a short
+  consumer and a short producer stay balanced (`buffer_fill` 14% at 60 kpps, same as at
+  43). It now measures achieved output ticks against commanded and requires ≥98%.
+  Hardware-verified: the sweep returns 45 kpps with `achieved_pps` 46954, matching an
+  independent manual measurement. The device's existing 43 kpps setting delivers 100.0%
+  of commanded and was correct all along.
+
 - **6.77** — The Projection tab's sample-rate autotune stopped inventing its own answer.
   It seeded its binary-search ceiling from `galvo_rated_kpps` — the galvo's *mechanical*
   ILDA spec, unrelated to the MCU sample throughput it actually measures — so with a

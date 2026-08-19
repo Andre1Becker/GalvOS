@@ -1086,6 +1086,7 @@ Returns the current state of the output sample-rate autotune sweep.
 | `floor_unstable` | Even the lowest tested rate (12 kpps) overflowed — the pattern is too heavy at any rate. |
 | `no_load` | **Refused before testing.** The ring was not being fed (master dimmer at 0, no pattern, or hardware-debug/resonance mode active), so no rate could overflow and any result would be fabricated. Start a pattern and raise the dimmer, then retry. |
 | `ceiling_not_reached` | The sweep ran clean across its entire range (12–60 kpps). The true limit is at or above 60 and was never observed — `result_kpps` is the range top minus the safety margin, **not** a measured ceiling. |
+| `achieved_pps` | Output ticks/s actually delivered at `best` — the sweep's primary pass/fail signal. A trial passes only if this reaches 98% of the commanded rate. |
 | `result_kpps` | Valid once `done` is true. |
 
 ---
