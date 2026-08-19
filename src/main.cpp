@@ -251,6 +251,28 @@ static bool startTask(TaskFunction_t fn, const char* name,
     return true;
 }
 
+// Decoded label for the last reset cause. Logged once at boot: a
+// ESP_RST_BROWNOUT here is hard proof that the module's 3V3 rail actually
+// collapsed below the brownout detector's threshold (~2.5V on the ESP32-S3).
+// Note the converse does NOT hold -- the RF front-end (VDD3P3_RF) can lose
+// lock on a dip far shallower than the detector's trip point, so a clean
+// ESP_RST_POWERON does not clear a marginal supply of suspicion.
+static const char* resetReasonStr(esp_reset_reason_t r) {
+    switch (r) {
+        case ESP_RST_POWERON:   return "POWERON";
+        case ESP_RST_EXT:       return "EXT_PIN";
+        case ESP_RST_SW:        return "SW_RESTART";
+        case ESP_RST_PANIC:     return "PANIC";
+        case ESP_RST_INT_WDT:   return "INT_WDT";
+        case ESP_RST_TASK_WDT:  return "TASK_WDT";
+        case ESP_RST_WDT:       return "OTHER_WDT";
+        case ESP_RST_DEEPSLEEP: return "DEEPSLEEP";
+        case ESP_RST_BROWNOUT:  return "BROWNOUT";
+        case ESP_RST_SDIO:      return "SDIO";
+        default:                return "UNKNOWN";
+    }
+}
+
 // Short human-readable label for wifi_auth_mode_t -- used only in log lines
 // below, to make an AP-side auth-mode flip (e.g. WPA2<->WPA3-transition)
 // visible without having to decode the numeric enum by hand.
@@ -284,14 +306,74 @@ static const char* authModeStr(wifi_auth_mode_t m) {
 // bookkeeping (keeps Arduino's own validation + WiFiSTAClass state in sync),
 // then patches just this one field before kicking off the connection
 // ourselves -- avoids reimplementing the rest of WiFiSTAClass::begin().
-static void wifiBeginWpa3Compat(const char* ssid, const char* pass) {
-    WiFi.begin(ssid, pass, 0, nullptr, /*connect=*/false);
+static void wifiBeginWpa3Compat(const char* ssid, const char* pass,
+                                 int32_t channel = 0, const uint8_t* bssid = nullptr) {
+    WiFi.begin(ssid, pass, channel, bssid, /*connect=*/false);
     wifi_config_t conf;
     if (esp_wifi_get_config(WIFI_IF_STA, &conf) == ESP_OK) {
         conf.sta.sae_pwe_h2e = WPA3_SAE_PWE_BOTH;
         esp_wifi_set_config(WIFI_IF_STA, &conf);
     }
     esp_wifi_connect();
+}
+
+// ── TX-power ladder connect ────────────────────────────────────────────
+// The radio's peak supply current scales with TX power, and the 4-way
+// handshake is the most TX-dense moment of the whole boot: auth/assoc are a
+// couple of frames, the EAPOL exchange is four back-to-back frames that get
+// retried hard if any of them is lost. A module whose 3V3 rail sags under
+// sustained TX bursts therefore fails *exactly* at reason=15
+// (4WAY_HANDSHAKE_TIMEOUT) while scan/auth/assoc -- which are RX-dominated
+// or single-shot -- keep looking healthy, and a close-by AP (few retries,
+// short handshake) still connects fine.
+//
+// So: try the normal full-power connect first, and only if that times out,
+// step the TX power down and try again. Each rung roughly halves the peak
+// draw of the one above it. A healthy module never leaves the first rung and
+// pays nothing for this. A module that connects only on a lower rung has
+// told us something no amount of AP-side configuration checking can: the
+// fault is in its own power delivery, not in the network.
+struct WifiTxRung { wifi_power_t power; const char* label; uint32_t timeout_ms; };
+static const WifiTxRung kWifiTxLadder[] = {
+    { WIFI_POWER_19_5dBm, "19.5dBm", 8000 },
+    { WIFI_POWER_15dBm,   "15dBm",   4000 },
+    { WIFI_POWER_11dBm,   "11dBm",   4000 },
+    { WIFI_POWER_8_5dBm,  "8.5dBm",  4000 },
+};
+// Total budget is 20s -- unchanged from the previous single-attempt loop.
+
+static bool wifiConnectWithTxLadder(const char* ssid, const char* pass) {
+    const size_t kRungs = sizeof(kWifiTxLadder) / sizeof(kWifiTxLadder[0]);
+    for (size_t i = 0; i < kRungs; ++i) {
+        const WifiTxRung& rung = kWifiTxLadder[i];
+        if (i > 0) {
+            ESP_LOGW(TAG, "WiFi connect failed at %s -- retrying at %s",
+                     kWifiTxLadder[i - 1].label, rung.label);
+            LOG_W(logbuf::CAT_WIFI, "WiFi retry at reduced TX power %s", rung.label);
+            WiFi.disconnect(/*wifioff=*/false, /*eraseap=*/false);
+            vTaskDelay(pdMS_TO_TICKS(300));
+        }
+        if (!WiFi.setTxPower(rung.power))
+            ESP_LOGW(TAG, "setTxPower(%s) rejected by the driver", rung.label);
+        wifiBeginWpa3Compat(ssid, pass);
+        uint32_t t0 = millis();
+        while (WiFi.status() != WL_CONNECTED && millis() - t0 < rung.timeout_ms)
+            vTaskDelay(pdMS_TO_TICKS(100));
+        if (WiFi.status() == WL_CONNECTED) {
+            if (i > 0) {
+                ESP_LOGE(TAG, "WiFi came up ONLY at reduced TX power %s -- "
+                              "module supply is marginal under TX load, not a network fault",
+                         rung.label);
+                LOG_W(logbuf::CAT_WIFI, "WiFi OK at reduced TX power %s (supply suspect)",
+                      rung.label);
+            }
+            return true;
+        }
+    }
+    // Nothing worked -- restore full power so the SoftAP fallback below is not
+    // needlessly crippled by the last rung we happened to stop on.
+    WiFi.setTxPower(kWifiTxLadder[0].power);
+    return false;
 }
 
 // ── WiFi event diagnostics ─────────────────────────────────────────────
@@ -310,12 +392,16 @@ static void wifiBeginWpa3Compat(const char* ssid, const char* pass) {
 // authmode flip) between attempts.
 static void onWiFiEvent(WiFiEvent_t event, WiFiEventInfo_t info) {
     switch (event) {
-        case ARDUINO_EVENT_WIFI_STA_DISCONNECTED:
-            ESP_LOGW("wifi_evt", "STA disconnected: reason=%u rssi=%d",
-                     info.wifi_sta_disconnected.reason, info.wifi_sta_disconnected.rssi);
-            LOG_W(logbuf::CAT_WIFI, "STA disconnected reason=%u rssi=%d",
-                  info.wifi_sta_disconnected.reason, info.wifi_sta_disconnected.rssi);
+        case ARDUINO_EVENT_WIFI_STA_DISCONNECTED: {
+            const uint8_t* db = info.wifi_sta_disconnected.bssid;
+            ESP_LOGW("wifi_evt", "STA disconnected: reason=%u rssi=%d bssid=%02X:%02X:%02X:%02X:%02X:%02X",
+                     info.wifi_sta_disconnected.reason, info.wifi_sta_disconnected.rssi,
+                     db[0], db[1], db[2], db[3], db[4], db[5]);
+            LOG_W(logbuf::CAT_WIFI, "STA disconnected reason=%u rssi=%d bssid=%02X:%02X:%02X:%02X:%02X:%02X",
+                  info.wifi_sta_disconnected.reason, info.wifi_sta_disconnected.rssi,
+                  db[0], db[1], db[2], db[3], db[4], db[5]);
             break;
+        }
         case ARDUINO_EVENT_WIFI_STA_CONNECTED: {
             const uint8_t* b = info.wifi_sta_connected.bssid;
             ESP_LOGI("wifi_evt", "STA connected (assoc): ch=%u bssid=%02X:%02X:%02X:%02X:%02X:%02X auth=%s",
@@ -414,6 +500,12 @@ void setup() {
     ESP_LOGI(TAG, "=== GalvOS Laser FW %s ===", LASER_FW_VERSION);
     ESP_LOGI(TAG, "Chip: %s, Cores: %d, PSRAM: %u",
              ESP.getChipModel(), ESP.getChipCores(), ESP.getPsramSize());
+    {
+        esp_reset_reason_t rr = esp_reset_reason();
+        ESP_LOGI(TAG, "Reset reason: %s (%d)", resetReasonStr(rr), (int)rr);
+        if (rr == ESP_RST_BROWNOUT)
+            ESP_LOGE(TAG, "Previous boot ended in a BROWNOUT -- check the module's 3V3 supply/decoupling");
+    }
 
     loadConfig();
     // debug mode from NVS load
@@ -487,11 +579,8 @@ void setup() {
         }
             WiFi.setAutoReconnect(true);
         WiFi.persistent(true);
-        wifiBeginWpa3Compat(gConfig.wifi_ssid, gConfig.wifi_pass);
-        uint32_t t0 = millis();
         ESP_LOGI(TAG, "WiFi connecting to '%s' ...", gConfig.wifi_ssid);
-        while (WiFi.status() != WL_CONNECTED && millis() - t0 < 20000)
-            vTaskDelay(pdMS_TO_TICKS(200));
+        wifiConnectWithTxLadder(gConfig.wifi_ssid, gConfig.wifi_pass);
     }
     if (WiFi.status() == WL_CONNECTED) {
         ESP_LOGI(TAG, "WiFi connected: %s (RSSI %d dBm)",
