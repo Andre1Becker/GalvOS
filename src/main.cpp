@@ -317,65 +317,6 @@ static void wifiBeginWpa3Compat(const char* ssid, const char* pass,
     esp_wifi_connect();
 }
 
-// ── TX-power ladder connect ────────────────────────────────────────────
-// The radio's peak supply current scales with TX power, and the 4-way
-// handshake is the most TX-dense moment of the whole boot: auth/assoc are a
-// couple of frames, the EAPOL exchange is four back-to-back frames that get
-// retried hard if any of them is lost. A module whose 3V3 rail sags under
-// sustained TX bursts therefore fails *exactly* at reason=15
-// (4WAY_HANDSHAKE_TIMEOUT) while scan/auth/assoc -- which are RX-dominated
-// or single-shot -- keep looking healthy, and a close-by AP (few retries,
-// short handshake) still connects fine.
-//
-// So: try the normal full-power connect first, and only if that times out,
-// step the TX power down and try again. Each rung roughly halves the peak
-// draw of the one above it. A healthy module never leaves the first rung and
-// pays nothing for this. A module that connects only on a lower rung has
-// told us something no amount of AP-side configuration checking can: the
-// fault is in its own power delivery, not in the network.
-struct WifiTxRung { wifi_power_t power; const char* label; uint32_t timeout_ms; };
-static const WifiTxRung kWifiTxLadder[] = {
-    { WIFI_POWER_19_5dBm, "19.5dBm", 8000 },
-    { WIFI_POWER_15dBm,   "15dBm",   4000 },
-    { WIFI_POWER_11dBm,   "11dBm",   4000 },
-    { WIFI_POWER_8_5dBm,  "8.5dBm",  4000 },
-};
-// Total budget is 20s -- unchanged from the previous single-attempt loop.
-
-static bool wifiConnectWithTxLadder(const char* ssid, const char* pass) {
-    const size_t kRungs = sizeof(kWifiTxLadder) / sizeof(kWifiTxLadder[0]);
-    for (size_t i = 0; i < kRungs; ++i) {
-        const WifiTxRung& rung = kWifiTxLadder[i];
-        if (i > 0) {
-            ESP_LOGW(TAG, "WiFi connect failed at %s -- retrying at %s",
-                     kWifiTxLadder[i - 1].label, rung.label);
-            LOG_W(logbuf::CAT_WIFI, "WiFi retry at reduced TX power %s", rung.label);
-            WiFi.disconnect(/*wifioff=*/false, /*eraseap=*/false);
-            vTaskDelay(pdMS_TO_TICKS(300));
-        }
-        if (!WiFi.setTxPower(rung.power))
-            ESP_LOGW(TAG, "setTxPower(%s) rejected by the driver", rung.label);
-        wifiBeginWpa3Compat(ssid, pass);
-        uint32_t t0 = millis();
-        while (WiFi.status() != WL_CONNECTED && millis() - t0 < rung.timeout_ms)
-            vTaskDelay(pdMS_TO_TICKS(100));
-        if (WiFi.status() == WL_CONNECTED) {
-            if (i > 0) {
-                ESP_LOGE(TAG, "WiFi came up ONLY at reduced TX power %s -- "
-                              "module supply is marginal under TX load, not a network fault",
-                         rung.label);
-                LOG_W(logbuf::CAT_WIFI, "WiFi OK at reduced TX power %s (supply suspect)",
-                      rung.label);
-            }
-            return true;
-        }
-    }
-    // Nothing worked -- restore full power so the SoftAP fallback below is not
-    // needlessly crippled by the last rung we happened to stop on.
-    WiFi.setTxPower(kWifiTxLadder[0].power);
-    return false;
-}
-
 // ── WiFi event diagnostics ─────────────────────────────────────────────
 // Logs disconnect/reconnect events with reason code + RSSI so they can be
 // correlated (by timestamp) with etherdream.cpp's endPacket() failures.
@@ -513,6 +454,18 @@ void setup() {
       gDebugNoHW = p.getBool("dbg_nohw", false); p.end();
       if(gDebugNoHW) ESP_LOGW("main","DEBUG NO-HW MODE active"); }
     logbuf::init();
+    // Report the *length* of the stored WiFi credential, never its content.
+    // A credential that reaches NVS in mangled form -- surrounding quotes, a
+    // trailing space, a paste that picked up a newline, or simply a typo --
+    // derives a wrong PMK, and the ESP32 surfaces that as reason=15
+    // 4WAY_HANDSHAKE_TIMEOUT. That is indistinguishable from a radio-layer
+    // fault at the log level, and sends you hunting the AP, the antenna, or
+    // the power rail instead. Comparing this one number against the length of
+    // the passphrase the AP actually expects separates the two in one glance,
+    // and leaks nothing.
+    ESP_LOGW(TAG, "CREDCHK ssid='%s' ssidLen=%u passLen=%u",
+             gConfig.wifi_ssid, (unsigned)strlen(gConfig.wifi_ssid),
+             (unsigned)strlen(gConfig.wifi_pass));
     memreg::track("Paint Canvas", sizeof(PaintConfig),
                   esp_ptr_external_ram(&gPaint));
     LOG_I(logbuf::CAT_SYSTEM, "FW %s | Chip %s | PSRAM %uKB | Heap %uKB",
@@ -579,8 +532,11 @@ void setup() {
         }
             WiFi.setAutoReconnect(true);
         WiFi.persistent(true);
+        wifiBeginWpa3Compat(gConfig.wifi_ssid, gConfig.wifi_pass);
+        uint32_t t0 = millis();
         ESP_LOGI(TAG, "WiFi connecting to '%s' ...", gConfig.wifi_ssid);
-        wifiConnectWithTxLadder(gConfig.wifi_ssid, gConfig.wifi_pass);
+        while (WiFi.status() != WL_CONNECTED && millis() - t0 < 20000)
+            vTaskDelay(pdMS_TO_TICKS(200));
     }
     if (WiFi.status() == WL_CONNECTED) {
         ESP_LOGI(TAG, "WiFi connected: %s (RSSI %d dBm)",

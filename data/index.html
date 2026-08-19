@@ -1669,7 +1669,7 @@ canvas { max-width: 100%; display: block; }
 /* =========================================================================
    GLOBAL STATE
    ========================================================================= */
-var UI_VERSION = '1.22.0';   // WebUI version -- independent from firmware version
+var UI_VERSION = '1.22.1';   // WebUI version -- independent from firmware version
 var NAV_TABS = [
   {id: 'dashboard', label: 'Dashboard', icon: '🏠', bottom: true},
   {id: 'presets', label: 'Presets', icon: '🎮', bottom: true},
@@ -2097,8 +2097,16 @@ function domVal(id, def) {
   var el = document.getElementById(id);
   if (!el) return def;
   if (el.type === 'checkbox') return el.checked;
-  var v = parseFloat(el.value);
-  return isNaN(v) ? el.value : v;
+  // Coerce to a number only when the WHOLE value is numeric. parseFloat()
+  // alone parses a leading number and silently drops the rest, so any text
+  // field starting with a digit came back as a bare number: a password like
+  // "1Sonnenblume3$" arrived as 1, an NTP server "1.pool.ntp.org" as 1. The
+  // firmware type-checks those fields as strings and skips a value that is
+  // not one, so such a field could never be saved and never said why.
+  // isNaN() on the raw string rejects partial parses; the blank check keeps
+  // an empty field an empty string rather than NaN.
+  if (el.value.trim() === '' || isNaN(el.value)) return el.value;
+  return parseFloat(el.value);
 }
 function fmtBytes(n) {
   if (n === undefined || n === null) return '--';

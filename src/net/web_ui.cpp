@@ -1142,6 +1142,12 @@ void init() {
             bool wifiSsidChanging = doc["wifi_ssid"].is<const char*>() &&
                                      strcmp(doc["wifi_ssid"], gConfig.wifi_ssid) != 0;
             if (doc["wifi_ssid"].is<const char*>()) strlcpy(gConfig.wifi_ssid, doc["wifi_ssid"], sizeof(gConfig.wifi_ssid));
+            // A wifi_pass that is present but not a JSON string used to fall
+            // through this type check without a word, so the request looked
+            // like a clean save while the credential silently stayed stale.
+            // Say so instead -- the client is sending something wrong.
+            if (!doc["wifi_pass"].isNull() && !doc["wifi_pass"].is<const char*>())
+                LOG_W(logbuf::CAT_WIFI, "wifi_pass ignored: not a JSON string");
             if (doc["wifi_pass"].is<const char*>()) {
                 const char* p = doc["wifi_pass"];
                 // A blank password field only means "clear it" when paired with a new
