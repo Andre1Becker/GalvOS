@@ -11,6 +11,7 @@
 - [Files](#files)
 - [The Camera Patterns](#the-camera-patterns)
   - [Why Trails has no camera pattern](#why-trails-has-no-camera-pattern)
+- [The Shutter Must Span a Whole Frame](#the-shutter-must-span-a-whole-frame)
 - [Workflow](#workflow)
   - [0. wizard](#0-wizard)
   - [1. check](#1-check)
@@ -120,6 +121,63 @@ Tuning Trails correctly would need a fundamentally different rig — a high-fram
 
 `/api/calib-cam/start` accepts a `channel` field (default: **blue**, channel 3) instead of always drawing white. A mono camera can see the R/G/B beams smear apart or land at slightly different positions if the laser diodes aren't perfectly co-bore sighted — measuring on one channel avoids that artifact entirely. `optimizeGalvo.py` drives this from `camPatternChannel` in `camConfig.json`.
 
+---
+
+## The Shutter Must Span a Whole Frame
+
+A vector-scanned pattern only exists as a shape when integrated over a whole frame — at any instant the beam is at exactly one point. A shutter shorter than one frame period therefore does not capture a dim version of the shape. It captures a **random slice of the scan path**, and stacking more of those slices does not fix what each one is missing.
+
+This is a physical constraint, not a tuning preference, so `exposure` is **derived, not searched**. Before any command that scores a capture (`measure`, `optimize`, `diagnose`, `regress`, `autotune-camera`), the tool measures how long one full traversal of the pattern actually takes and raises the shutter to cover it:
+
+```text
+frame period = /api/optimizer-stats  planned_total   (points in the frame)
+             / /api/state            points_per_sec  (real measured output rate)
+```
+
+Both terms are measured rather than modelled, so the result already carries any shortfall between commanded and achieved output rate. Measured on this rig, every calib pattern lands between 15 and 29 ms per pass, which needs `exposure` −4 (62.5 ms) — against the −11 (0.488 ms) an earlier `autotune-camera` run had settled on.
+
+`points_per_sec` is read **twice**, spaced far enough apart to cover a full averaging window, and only the second read is trusted. `galvo_out.cpp`'s `pointsPerSec()` recomputes at most once a second, over the interval since whoever polled it last — so a first read after a long silence describes a window the tool never observed, and past roughly 95 s of silence at 45 kpps its `delta × 1000` overflows `uint32` and returns a wrapped value. Seen live: a first read after several minutes idle reported ~4.8 kpps instead of 45 kpps, inflating `square` from 26.8 ms to 251.6 ms and driving the derived shutter to −1 (500 ms) — long enough to nearly saturate the background by itself.
+
+### Why this had to be taken away from the search
+
+At −11 each capture saw **1.7 % of the scan path**. Even max()-accumulated over `accumFrames: 24` that topped out near 33 %, which is exactly the "the square photographs as a dashed square" artifact. The search could not have found its way out on its own: `autotune-camera`'s cost rewards low saturation and a dark background, and a too-short shutter delivers both beautifully while quietly capturing almost nothing. No additional cost term fixes that — the constraint is physical, so it belongs outside the search.
+
+Worse than the missing coverage: at 1.7 % duty a pixel's value is the beam's *instantaneous* intensity in whichever slice caught it, **not its dwell time**. Every intensity-derived metric depends on dwell — `cornerHotspot` (a corner is hot because the beam lingers there), `brightnessNonUniformity`, and both `blankLeakage` terms (a fast jump trail should read as a *dim* streak, but at 1.7 % duty it reads full-brightness-or-absent). Those metrics were measuring noise.
+
+### Stacking frames is not the alternative
+
+A common instinct is to raise `accumFrames` instead, and to worry that stacking averages real artifacts away. Both are backwards:
+
+- `grabAccumulated()` uses `np.maximum`, not a mean. It keeps the peak value ever seen per pixel, so nothing is averaged away — a blank-jump trail present in any one frame survives at full brightness.
+- A short shutter is what *loses* artifacts. A blank jump is a within-frame event lasting tens of microseconds; at 1.7 % duty you have a ~1.7 % chance per shot of catching it. A full-frame shutter integrates every jump in that frame, every time.
+
+`accumFrames` therefore stops being a coverage mechanism. Its default dropped **24 → 8**: with each frame already complete, stacking only evens out the 1-vs-2-pass banding you get because the shutter isn't phase-locked to the laser (a 62.5 ms shutter spans ~2.2 passes of a 28 ms pattern, so some pixels are drawn twice and some once). A longer shutter *and* fewer frames is still net faster than before — 8 frames at 16 fps is 0.5 s, against 24 at 24 fps.
+
+### The light budget
+
+Going −11 → −4 integrates **128× more light** per capture. Cut it optically, never by shortening the shutter again:
+
+| Method | Notes |
+| --- | --- |
+| ND filter, ~2.1 OD (7 stops) | Best — keeps the sensor response linear and doesn't touch the thing under test |
+| Stop the lens down | f/2 → f/22 is ~120×, if the lens has an iris |
+| `master_dimmer` | Last resort: 8-bit and gamma-curved, and diode lasers go nonlinear at very low current, which distorts the photometry you just recovered |
+
+`saturationFrac` (weight 3.0 in `costWeights`) polices whatever residual clipping remains.
+
+### Configuration and escape hatches
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `exposureFromFrameRate` | `true` | Derive the shutter from the measured frame period. Set `false` only to reproduce a pre-2.25.0 measurement. |
+| `exposureFrameMargin` | `1.25` | Require the shutter to span this many passes, not just one — the point count drifts as `optimize` searches, and derivation runs once per run. |
+| `exposure` | `-11` | Now only a **floor**. The effective value is `max(configured, derived)`, so a deliberately longer shutter is still honored. |
+| `minPathCoveragePct` | `60.0` | Was `10.0`, set below the undersampled captures it should have been rejecting — which is why nothing ever flagged this. With a full-frame shutter a correct capture sits at 95–100 %. |
+
+Two independent checks enforce it. `resolveExposure()` derives the shutter once per run against a reference pattern set; `measureOnce()` then re-checks the *actual* period of every single capture, so a pattern whose point count pushes it past that derivation cannot slip through silently. A per-profile `profileCamera` override may only ever **lengthen** the shutter — an override tuned under the old regime cannot hand one profile back the sub-frame shutter every other profile was just protected from.
+
+If the frame period can't be measured at all, the tool warns and leaves your configured value alone rather than guessing one.
+
 ## Workflow
 
 Run `optimizeGalvo.py <command> --help` for any command's full description; the summaries below are the short version. Two flags apply across most commands: `--no-view` (disable the live camera preview window, e.g. for headless runs) and `--zoom {1,2,3}` (digital zoom on that window, live-adjustable with the `1`/`2`/`3` keys).
@@ -187,7 +245,7 @@ Measures each selected profile's current live output (no overrides — a read, n
 python optimizeGalvo.py autotune-camera --trials 30 --apply
 ```
 
-Tunes the camera's own **capture** settings — exposure, gain, `binaryThreshold`, `accumFrames` — instead of firmware parameters, which are left exactly as currently live. Useful when `measure`/`diagnose` results look inconsistent for reasons that turn out to be the camera, not the beam: washed-out captures, blooming, background noise. Saturated pixels are flagged as their own metric (`saturationFrac`) — a global-shutter sensor blooms into neighboring pixels at saturation, which can otherwise inflate path-deviation/corner-hotspot readings with a camera artifact rather than a real scan problem; `diagnose` will suggest running this command instead of `optimize` when it detects that. On apply, updates `camConfig.json` and refreshes `homography.npz`'s stored background to match the new exposure/gain (background is exposure-dependent, so a stale one would corrupt every later diff-subtraction).
+Tunes the camera's own **capture** settings — gain, `binaryThreshold`, `accumFrames` — instead of firmware parameters, which are left exactly as currently live. `exposure` is deliberately **not** in the search: it is fixed by the laser's frame period, for the reasons in [The Shutter Must Span a Whole Frame](#the-shutter-must-span-a-whole-frame). Useful when `measure`/`diagnose` results look inconsistent for reasons that turn out to be the camera, not the beam: washed-out captures, blooming, background noise. Saturated pixels are flagged as their own metric (`saturationFrac`) — a global-shutter sensor blooms into neighboring pixels at saturation, which can otherwise inflate path-deviation/corner-hotspot readings with a camera artifact rather than a real scan problem; `diagnose` will suggest running this command instead of `optimize` when it detects that. On apply, updates `camConfig.json` and refreshes `homography.npz`'s stored background to match the new exposure/gain (background is exposure-dependent, so a stale one would corrupt every later diff-subtraction).
 
 ### 8. autotune-colors
 
@@ -271,7 +329,7 @@ Every measurement reduces to a single weighted cost (`costWeights` in `camConfig
 | `blankLeakage` | Laser visible during a blank jump — insufficient hold-off or blanking overshoot. |
 | `cornerHotspot` | Excess brightness pooling at a corner — too much dwell relative to the rest of the shape. |
 | `brightnessNonUniformity` | Uneven brightness along a continuous curve — interior density or velocity-easing issues. |
-| `blankCorridorLeakage` | Laser visible in the region that should be dark — derived from the pattern's own ideal geometry rather than from hand-listed jump corridors, so it works on every pattern, not just `segments`. |
+| `blankCorridorLitPct` | Percent of the region that should be dark where the beam is actually visible — derived from the pattern's own ideal geometry rather than from hand-listed jump corridors, so it works on every pattern, not just `segments`. Counts pixels crossing `binaryThreshold`; a clean capture reads exactly `0.000`. Replaced a mean-brightness version (`blankCorridorLeakage`, still reported as a diagnostic) in v2.25.0 — see [The Shutter Must Span a Whole Frame](#the-shutter-must-span-a-whole-frame). |
 | `saturationFrac` | Fraction of the traced beam at raw sensor saturation — flags a camera-artifact-inflated reading rather than a real defect. |
 
 Three further metrics apply only to `particles` (they are exactly `0` for every path pattern, so the cost formula is unchanged for the other eight):

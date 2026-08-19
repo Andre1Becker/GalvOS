@@ -21,9 +21,13 @@ Target: GalvOS ESP32-S3 controller via REST (/api/calib-cam/*, /api/status).
                   problem / optimizer-settings problem, optionally autotune
                   (= run 'optimize') on whatever's flagged fixable
   7. autotune-camera - Optuna loop over the camera's own capture settings
-                  (exposure, gain, binaryThreshold, accumFrames) instead of
-                  firmware parameters; run this once after 'preview' if the
-                  hand-picked exposure/threshold aren't visibly reliable
+                  (gain, binaryThreshold, accumFrames) instead of firmware
+                  parameters; run this once after 'preview' if the
+                  hand-picked threshold isn't visibly reliable. Exposure is
+                  NOT searched: it is derived from the laser's measured frame
+                  rate, because a shutter shorter than one frame photographs
+                  a slice of the scan path rather than the path. See
+                  exposureFromFrameRate in DEFAULT_CONFIG.
   8. autotune-colors - camera-measured RGB visibility-threshold ("Basiswert")
                   + gain/brightness matching, automating the WebUI's two
                   manual per-channel calibration tools. No homography needed.
@@ -124,7 +128,7 @@ import requests
 # ── versioning ───────────────────────────────────────────────────────────────
 # Semantic version of this script (independent of GalvOS firmware version).
 # Bump on every behavioral change; see git log for change history.
-SCRIPT_VERSION = "2.24.0"
+SCRIPT_VERSION = "2.25.0"
 
 # GalvOS firmware version that introduced /api/calib-cam/* (see firmware git log:
 # "fw: v6.03.0 -- camera-in-the-loop calibration API (calib-cam)").
@@ -510,7 +514,36 @@ DEFAULT_CONFIG = {
                                 # display-only - fixes preview flicker at high fps/
                                 # short exposure without touching measurement accuracy
                                 # (grabAccumulated's own accumFrames is separate). 1 = off
-    "exposure": -11,            # DirectShow log2 scale, ~1/2048 s
+    "exposure": -11,            # DirectShow log2 scale, ~1/2048 s. Only a FLOOR when
+                                # exposureFromFrameRate is on (below) - the effective
+                                # value is max(this, derived), since a longer shutter
+                                # than one frame is always safe and a shorter one is not.
+    "exposureFromFrameRate": True,  # derive the shutter from the laser's real drawn-frame
+                                # rate instead of tuning it, and never let it fall below
+                                # one full frame. THE reason this exists: the shutter has
+                                # to span a whole frame or the capture is a random SLICE
+                                # of the scan path, not the path. Measured on this rig at
+                                # the old hand-tuned -11: 0.488 ms shutter against a 36 ms
+                                # frame (1296 pts @ 44 kpps through pattern_engine.cpp's
+                                # paceProducer, = n/kpps * 1.25) is 1.4% of a frame per
+                                # exposure; even max()-accumulated over accumFrames=24
+                                # that tops out at ~33% of the path ever being seen, which
+                                # is exactly the "square photographs as a dashed square"
+                                # artifact. Worse than the missing coverage: at 1.4% duty
+                                # a pixel's value is the beam's INSTANTANEOUS intensity in
+                                # whichever slice caught it, not its dwell - so every
+                                # intensity-derived metric (cornerHotspot,
+                                # brightnessNonUniformity, both blankLeakage terms) was
+                                # measuring noise. Derived per run by
+                                # measureFramePeriodMs() and re-checked on every single
+                                # capture (see measureOnce). Set False only to reproduce
+                                # a pre-2.25.0 measurement.
+    "exposureFrameMargin": 1.25,  # require the shutter to span this many frame periods,
+                                # not just 1.0 - the point count (and so the frame period)
+                                # drifts as 'optimize' searches, and the derivation is done
+                                # once per run against the pattern set's worst case. Cheap
+                                # insurance: the DirectShow scale is log2, so the next step
+                                # up is 2x anyway.
     "gain": 0,                  # some UVC drivers (confirmed on a real OV9281,
                                 # VID_1BCF&PID_28C4) don't expose IAMVideoProcAmp Gain at
                                 # all - Camera probes this itself at startup (see
@@ -537,7 +570,19 @@ DEFAULT_CONFIG = {
                                 # auto-brightens the whole frame to compensate, inflating
                                 # background brightness/noise right when the diff-then-
                                 # threshold pipeline needs the background as dark as possible
-    "accumFrames": 24,          # frames max()-accumulated per measurement (~1 s @ 24 fps effective)
+    "accumFrames": 8,           # frames max()-accumulated per measurement. Was 24, back
+                                # when the shutter was 1.4% of a frame and stacking was
+                                # the ONLY thing producing coverage at all (badly - see
+                                # exposureFromFrameRate). With a full-frame shutter each
+                                # single frame already covers the whole path, so this is
+                                # no longer a coverage mechanism: it only evens out the
+                                # 1-vs-2-pass banding you get because the shutter isn't
+                                # phase-locked to the laser (a 62.5 ms shutter spans 1.7
+                                # frames of a 36 ms pattern, so some pixels get drawn
+                                # twice and some once). max() over ~8 independent phases
+                                # converges that to the 2-pass value everywhere. Fewer
+                                # frames AND a longer shutter is still net faster than
+                                # before: 8 @ 16 fps = 0.5 s vs 24 @ 24 fps = 1.0 s.
     "settleSeconds": 0.6,       # wait after param change before capture
     "patternSwitchSettleSeconds": 1.0,  # extra grace period around a calib-cam PATTERN
                                 # switch specifically (measureOnce: right after
@@ -683,10 +728,20 @@ DEFAULT_CONFIG = {
                                 # (threshold too high / exposure too low / out of focus)
                                 # scores near zero here while still producing plausible-
                                 # looking numbers for every other metric.
-    "minPathCoveragePct": 10.0, # below this, the measurement is flagged invalid rather than
-                                # scored. Measured on this rig: a correctly-thresholded
-                                # capture covers 60-95%, the worst legitimate one seen was
-                                # 13.1%; every blind capture was under 6%.
+    "minPathCoveragePct": 60.0, # below this, the measurement is flagged invalid rather than
+                                # scored. Was 10.0, chosen when "the worst legitimate one
+                                # seen was 13.1%" - but that worst case was not legitimate,
+                                # it was the sub-frame-shutter undersampling described under
+                                # exposureFromFrameRate, and a gate set below it is exactly
+                                # why nothing ever flagged it. With a full-frame shutter the
+                                # whole path is lit in every single frame, so a correct
+                                # capture sits at 95-100% and anything materially under that
+                                # means something IS wrong. Note this metric is forgiving by
+                                # construction (a lit pixel within pathCoverageRadiusPx of
+                                # the ideal path counts), so it reads well above the true
+                                # lit fraction - the old 60-95% readings came from captures
+                                # whose actual lit fraction was ~33%. Lower this only
+                                # together with exposureFromFrameRate=False.
     "minBlobAreaPx": DEFAULT_MIN_BLOB_AREA_PX,  # DAC-canvas px. Connected components
                                 # smaller than this are noise, not dots - only used by the
                                 # isolated-dot metrics ('particles'). See its constant.
@@ -717,10 +772,18 @@ DEFAULT_CONFIG = {
     "costWeights": {
         "pathDeviationRms": 1.0,
         "blankLeakage": 2.0,
-        "blankCorridorLeakage": 2.0,  # see Metrics.blankCorridorLeakage - the ideal-gap-
-                                # corridor version of blankLeakage, which only samples the
-                                # ideal jump path and therefore misses a beam that streaks
-                                # somewhere else entirely
+        "blankCorridorLitPct": 2.0,  # % of the should-be-dark corridor with beam in it -
+                                # the ideal-gap-corridor version of blankLeakage, which
+                                # only samples the ideal jump path and therefore misses a
+                                # beam that streaks somewhere else entirely. Replaced the
+                                # mean-brightness "blankCorridorLeakage" weight in v2.25.0:
+                                # once the shutter spans a whole frame, that mean is
+                                # dominated by the surface's scatter halo, which no
+                                # firmware parameter controls. Measured on this rig it was
+                                # contributing 15.4 of a total cost of 20.6 - 75% of the
+                                # objective - and the only way the search could lower it
+                                # was to paint less light (lower interior density, shorter
+                                # dwell, fewer accumFrames). An actively harmful incentive.
         "cornerHotspot": 0.5,
         "brightnessNonUniformity": 0.7,
         "saturationFrac": 3.0,  # fraction (0..1) of the traced beam that's raw-sensor-
@@ -755,15 +818,20 @@ DEFAULT_CONFIG = {
         "pathDeviationRmsMinUnits": 150.0,   # absolute floor, so an implausibly narrow
                                          # measured beam can't drive the bar to zero
         "blankLeakage": 15.0,
-        "blankCorridorLeakage": 0.30,   # mean brightness (0..255) of the "should be dark"
-                                         # corridor. Clean captures on this rig: square
-                                         # 0.032, star 0.035, circle 0.060, spiral 0.195,
-                                         # segments 0.026. Set generously above the worst
-                                         # clean case - this metric's real value is
-                                         # RELATIVE comparison across a parameter sweep,
-                                         # not an absolute pass/fail (it scales with beam
-                                         # brightness and with how much dark area the
-                                         # pattern happens to enclose).
+        "blankCorridorLitPct": 0.20,     # % of the "should be dark" corridor whose pixels
+                                         # actually cross binaryThreshold. A clean capture
+                                         # is 0.000 (measured: square at exposure -4 has
+                                         # ZERO corridor pixels over threshold, whole-
+                                         # corridor peak 36 vs threshold 68), so unlike the
+                                         # mean-brightness version this IS a meaningful
+                                         # absolute pass/fail rather than only a relative
+                                         # one. The old 0.30 bar was calibrated against
+                                         # sub-frame-shutter captures (square 0.032, star
+                                         # 0.035, circle 0.060, spiral 0.195, segments
+                                         # 0.026) where the scatter halo was being
+                                         # rectified to zero by cv2.subtract - it was never
+                                         # 0.03, it was invisible. Left generous at 0.20 to
+                                         # tolerate a few isolated hot pixels.
         "cornerHotspot": 0.35,
         "brightnessNonUniformity": 0.5,
         "saturationFrac": 0.10,         # >10% of the traced beam clipped -> likely camera
@@ -894,6 +962,12 @@ def validateConfig(cfg: dict):
         problems.append("cameraIndex must be a non-negative integer")
     if not _isInt(cfg.get("accumFrames")) or cfg["accumFrames"] < 1:
         problems.append("accumFrames must be an integer >= 1")
+    if not isinstance(cfg.get("exposureFromFrameRate"), bool):
+        problems.append("exposureFromFrameRate must be true or false")
+    if not _isNum(cfg.get("exposureFrameMargin")) or cfg["exposureFrameMargin"] < 1.0:
+        problems.append("exposureFrameMargin must be a number >= 1.0 (a shutter shorter "
+                        "than one laser frame captures a slice of the scan path, not the "
+                        "path)")
     for key in ("brightness", "contrast", "gamma", "sharpness", "backlightCompensation"):
         if not _isNum(cfg.get(key)):
             problems.append(f"{key} must be a number (hardware range varies by camera - "
@@ -1237,6 +1311,13 @@ class EspClient:
         playlist_active, calib_active, frame_lit/frame_blank, fps, ...). Used by
         'analyze-live' to describe what's actually on screen without touching it."""
         return self._get("/api/state")
+
+    def getOptimizerStats(self) -> dict:
+        """GET /api/optimizer-stats - {"last": {...}, "frame": {...}} point-budget
+        counters from the firmware's optimizer. 'planned_total' is the point count of
+        the frame currently being scanned out, which is what sets how long one full
+        traversal of the pattern takes - see framePeriodMs()."""
+        return self._get("/api/optimizer-stats")
 
     def getPresets(self) -> list[dict]:
         """GET /api/presets - [{idx, name, cat}, ...] for every built-in preset.
@@ -1709,9 +1790,21 @@ class Camera:
             self.liveView.lastFullFrame = acc
         return acc
 
-    def grabBackground(self) -> np.ndarray:
-        """Capture with laser blanked - call while pattern stopped."""
-        return self.grabAccumulated(4)
+    def grabBackground(self, nFrames: int = 4) -> np.ndarray:
+        """Capture with laser blanked - call while pattern stopped.
+
+        Pass the SAME nFrames the matching capture uses. Both this and the capture
+        are max()-projections, so their noise floors are different order statistics:
+        max-of-8 sits higher than max-of-4 purely by sampling. computeMetrics then
+        does cv2.subtract(capture, background), which saturates at 0 and therefore
+        rectifies that difference into a positive bias instead of averaging it out.
+        Harmless while the background was near-black (at exposure -11 it measured
+        mean 15.3 / p99 17, and blankCorridorLeakage read ~0.03), but at a full-frame
+        shutter the background carries real ambient (mean 33.8 / p99 96) with shot
+        noise to match, and the mismatch showed up as blankCorridorLeakage 7.9
+        against a 0.30 threshold - reported as stray light in a corridor that was
+        actually dark."""
+        return self.grabAccumulated(nFrames)
 
     def grabMedian(self, nFrames: int) -> np.ndarray:
         """Median-stack nFrames. Unlike grabAccumulated()'s max()-projection - built
@@ -1728,6 +1821,257 @@ class Camera:
 
     def release(self):
         self.cap.release()
+
+
+# ── shutter vs. laser frame rate ─────────────────────────────────────────────
+#
+# A vector-scanned pattern only exists as a complete shape when integrated over a
+# whole frame - at any instant the beam is at exactly one point. So a shutter that
+# spans less than one frame period does not photograph a dim version of the shape,
+# it photographs a random SLICE of the scan path. Everything below exists to make
+# that impossible to configure by accident.
+
+# DirectShow exposes exposure as log2(seconds), so the achievable shutter values
+# are a coarse power-of-two ladder - hence the ceil() in exposureForSeconds().
+EXPOSURE_LOG2_MIN = -13
+EXPOSURE_LOG2_MAX = 0
+
+# Sanity bounds on a measured frame period (ms). Outside these, the reading is not a
+# slow or fast pattern, it's a pattern that isn't really running - and deriving a
+# shutter from it would be worse than deriving none at all. The upper bound is set
+# just above the longest a full-budget frame can take: PATTERN_POINTS_MAX (2048 in
+# the firmware's config.h) at the slowest sane output rate of 12 kpps is 171 ms.
+MIN_PLAUSIBLE_FRAME_PERIOD_MS = 1.0
+MAX_PLAUSIBLE_FRAME_PERIOD_MS = 200.0
+
+# How long to let galvo_out.cpp's pointsPerSec() averaging window run before trusting
+# it. That counter recomputes at most once a second, so anything shorter can return a
+# value cached from a window this tool never observed. See measureFramePeriodMs().
+PPS_WINDOW_SECONDS = 1.4
+
+# Patterns measureFramePeriodMs() runs against when the caller has no more specific
+# set in scope. The period scales with point count, so this wants something dense
+# rather than something simple.
+DEFAULT_FRAME_RATE_PATTERNS = ("square", "circle")
+
+# Warn-once bookkeeping for the per-capture check in measureOnce(), keyed by
+# (pattern, exposure): during 'optimize' that check runs 100+ times per profile and
+# the operator only needs telling once per distinct situation.
+_shutterWarned: set[tuple[str, int]] = set()
+
+
+def exposureSeconds(exposure: int) -> float:
+    """DirectShow exposure units are log2(seconds): -11 -> 2^-11 s = 0.488 ms."""
+    return 2.0 ** exposure
+
+
+def exposureForSeconds(seconds: float) -> int:
+    """Shortest exposure on the log2 ladder that still integrates for at least
+    `seconds`. Deliberately NOT clamped to what a camera can do - the caller has to
+    be able to tell "your camera cannot reach this" apart from "here is the value"."""
+    return int(math.ceil(math.log2(max(seconds, 1e-9))))
+
+
+def framePeriodMs(stats: dict, state: dict) -> float | None:
+    """Time for one full traversal of the pattern currently being scanned out, in ms,
+    or None if the numbers don't describe a running pattern.
+
+        planned_total (points in the frame) / points_per_sec (real output rate)
+
+    Both are measured, not modelled: `points_per_sec` is galvo_out.cpp's own tick
+    counter, so this already carries any shortfall between commanded and achieved
+    output rate (see the ~46.9 kpps ceiling note in CLAUDE.md).
+
+    This is deliberately NOT galvo::fps(), even though that field looks like the
+    obvious source. Two reasons. It reports 0 whenever the laser is disarmed
+    (blanked output is excluded by design), which would leave --allow-unarmed bench
+    runs unable to derive anything. And it counts genuine ring-tail advances, i.e.
+    the rate at which pattern_engine PUSHES new frames - which is SLOWER than the
+    rate at which the galvo traverses the path, because paceProducer() paces the
+    producer to drain_ms * 1.25 and the consumer replays the current frame rather
+    than blanking whenever it runs dry. The beam therefore laps the path
+    continuously at the traversal period, and that shorter period is the one a
+    shutter has to span to see a complete shape."""
+    frame = stats.get("frame") or {}
+    last = stats.get("last") or {}
+    planned = frame.get("planned_total") or last.get("planned_total") or 0
+    pps = state.get("points_per_sec") or 0
+    if planned <= 0 or pps <= 0:
+        return None
+    period = float(planned) * 1000.0 / float(pps)
+    if not (MIN_PLAUSIBLE_FRAME_PERIOD_MS <= period <= MAX_PLAUSIBLE_FRAME_PERIOD_MS):
+        return None
+    return period
+
+
+def measureFramePeriodMs(esp: EspClient, cfg: dict, pattern: str) -> float | None:
+    """Starts one calib-cam pattern, reads its traversal period, stops it again.
+    Costs about one settle period plus PPS_WINDOW_SECONDS, so this is a
+    once-per-run measurement - but measureOnce() re-checks the same quantity on
+    every real capture (see checkShutterSpansFrame), which is what actually
+    guarantees no pattern slips through with a shutter too short for it.
+
+    Always reads /api/state TWICE, spaced far enough apart to cover a whole
+    averaging window, and uses the second. galvo_out.cpp's pointsPerSec() is not
+    instantaneous: it recomputes at most once a second, over the interval since
+    whoever read it LAST - so a first read after a long silence describes an
+    arbitrarily long window that this tool never observed. Worse, that window's
+    `(delta_points * 1000)` overflows uint32 past ~95 s of silence at 45 kpps and
+    the field comes back as a wrapped garbage value. Measured live: a first read
+    after several minutes idle reported ~4.8 kpps instead of 45 kpps, which
+    inflated 'square' from 26.8 ms to 251.6 ms and drove the derived shutter to
+    -1 (500 ms) - enough to nearly saturate the background on its own. The first
+    read here exists purely to close that window; only the second is trusted."""
+    esp.startPattern(pattern, channel=cfg["camPatternChannel"])
+    try:
+        time.sleep(cfg["patternSwitchSettleSeconds"])
+        esp.getState()                       # discard: closes the stale window
+        time.sleep(PPS_WINDOW_SECONDS)
+        period = framePeriodMs(esp.getOptimizerStats(), esp.getState())
+    finally:
+        esp.stop()
+        time.sleep(cfg["patternSwitchSettleSeconds"])
+    return period
+
+
+def requiredExposureFor(framePeriodMs: float, margin: float) -> int:
+    """Shortest exposure whose shutter spans `margin` full laser frames."""
+    return exposureForSeconds(framePeriodMs * margin / 1000.0)
+
+
+def checkShutterSpansFrame(cfg: dict, pattern: str, periodMs: float | None) -> None:
+    """Per-capture sanity check: warns (once per pattern/exposure pair) if the shutter
+    did not span a whole traversal of the pattern that was actually running.
+    Complements the once-per-run derivation in resolveExposure() - that one measures a
+    reference pattern set, this one measures every real capture, so a pattern whose
+    point count pushes its period past the derived exposure cannot slip through."""
+    if not periodMs:
+        return
+    shutterMs = exposureSeconds(int(cfg["exposure"])) * 1000.0
+    if shutterMs >= periodMs:
+        return
+    key = (pattern, int(cfg["exposure"]))
+    if key in _shutterWarned:
+        return
+    _shutterWarned.add(key)
+    perShot = shutterMs / periodMs
+    ceilingPct = min(100.0, perShot * cfg["accumFrames"] * 100.0)
+    prWarn(f"{pattern}: shutter {shutterMs:.2f} ms is shorter than one pass of the "
+          f"pattern ({periodMs:.1f} ms) - each capture sees {perShot * 100:.1f}% of the "
+          f"scan path, and max()-stacking {cfg['accumFrames']} of them tops out around "
+          f"{ceilingPct:.0f}%. This measurement is a slice of the path, not the path: "
+          f"coverage is undercounted and every intensity-derived metric (cornerHotspot, "
+          f"brightnessNonUniformity, blankLeakage) is reading instantaneous beam "
+          f"intensity instead of dwell. Needs exposure >= "
+          f"{requiredExposureFor(periodMs, cfg['exposureFrameMargin'])}.")
+
+
+def refreshStoredBackground(cfg: dict, esp: EspClient, cam: "Camera",
+                            homography: np.ndarray | None = None) -> None:
+    """Re-captures homography.npz's stored background at the CURRENT exposure/gain.
+
+    That background is diff-subtracted by computeMetrics, which assumes it was taken
+    at the settings the capture was. It is written by 'calibrate', so any later change
+    to exposure/gain leaves it stale - and a background that is too dark does not just
+    add an offset, it leaves real ambient light behind and inflates offPathLitPx and
+    blankCorridorLeakage with scenery. Measured on this rig: -11 background mean 15.3 /
+    p99 17, -4 background mean 35.8 / p99 90 - subtracting the former from the latter
+    leaves up to ~75 counts of ambient masquerading as stray beam.
+
+    Keeps the existing matrix (a pure geometric mapping, unaffected by exposure) unless
+    the caller passes a newer one. Never raises: a failed refresh is a warning plus a
+    re-run instruction, not a reason to lose the calibration."""
+    try:
+        if homography is None:
+            homography, _ = loadHomography()
+        esp.stop()
+        time.sleep(cfg["settleSeconds"])
+        cam.statusText = "re-grabbing background for the new exposure"
+        np.savez(HOMOGRAPHY_FILE, homography=homography,
+                 background=cam.grabBackground(cfg["accumFrames"]))
+        prOk(f"refreshed background in {HOMOGRAPHY_FILE.name} for the new exposure/gain")
+    except (OptimizerError, OSError) as e:
+        prWarn(f"could not refresh {HOMOGRAPHY_FILE.name} background: {e} - "
+              f"run 'calibrate' again before the next measurement")
+
+
+def resolveExposure(cfg: dict, esp: EspClient, cam: "Camera",
+                    patterns: list[str] | None = None) -> dict:
+    """Derives the shutter from the measured laser frame rate and returns a cfg copy
+    with 'exposure' raised to it (never lowered - a configured value LONGER than one
+    frame is a deliberate operator choice and stays). Applies it to the open camera
+    as a side effect. Returns cfg unchanged if exposureFromFrameRate is off, or if
+    the frame rate could not be measured - a missing measurement must not silently
+    re-enable the very failure mode this guards against, so that case warns loudly
+    and leaves the operator's own value in place rather than guessing one."""
+    if not cfg.get("exposureFromFrameRate", True):
+        return cfg
+    patterns = list(patterns or DEFAULT_FRAME_RATE_PATTERNS)
+    margin = float(cfg["exposureFrameMargin"])
+
+    periods: dict[str, float] = {}
+    for pattern in patterns:
+        try:
+            period = measureFramePeriodMs(esp, cfg, pattern)
+        except OptimizerError as e:
+            prWarn(f"could not measure the frame period on '{pattern}': {e}")
+            continue
+        if period:
+            periods[pattern] = period
+
+    if not periods:
+        prWarn("could not measure the laser frame period on any of "
+              f"{patterns} - leaving exposure at the configured {cfg['exposure']} "
+              f"({exposureSeconds(int(cfg['exposure'])) * 1000:.2f} ms). If that is "
+              f"shorter than one pass of the pattern, every capture is a slice of the "
+              f"scan path; measureOnce's per-capture check will say so if it happens.")
+        return cfg
+
+    # Slowest pattern wins: the shutter has to cover the LONGEST period in the set, and
+    # over-covering a faster pattern costs nothing but light.
+    slowest = max(periods, key=lambda p: periods[p])
+    period = periods[slowest]
+    required = requiredExposureFor(period, margin)
+
+    if required > EXPOSURE_LOG2_MAX:
+        raise OptimizerError(
+            f"the laser frame period ({period:.1f} ms on '{slowest}') needs an exposure "
+            f"of {required} on the DirectShow log2 scale, past this tool's ceiling of "
+            f"{EXPOSURE_LOG2_MAX} ({exposureSeconds(EXPOSURE_LOG2_MAX):.2f} s). Something "
+            f"is wrong with the pattern engine's pacing - check /api/optimizer-stats' "
+            f"planned_total against /api/state's points_per_sec.")
+
+    resolved = max(required, int(cfg["exposure"]))
+    prTable([
+        ("slowest pattern", f"'{slowest}' at {period:.1f} ms/pass "
+                            f"({1000.0 / period:.0f} passes/s)"),
+        ("measured", ", ".join(f"{p} {periods[p]:.1f} ms" for p in patterns if p in periods)),
+        ("required exposure", f"{required} ({exposureSeconds(required) * 1000:.1f} ms, "
+                              f">= {margin:.2f} passes)"),
+        ("configured exposure", f"{cfg['exposure']} "
+                                f"({exposureSeconds(int(cfg['exposure'])) * 1000:.2f} ms)"),
+        ("using", f"{resolved} ({exposureSeconds(resolved) * 1000:.1f} ms)"),
+    ], headers=("shutter", "value"))
+
+    if resolved == int(cfg["exposure"]):
+        return cfg
+
+    stops = resolved - int(cfg["exposure"])
+    prWarn(f"raising exposure {cfg['exposure']} -> {resolved}: that is {2 ** stops}x more "
+          f"light than the configured value integrated per capture. If the beam clips, cut "
+          f"it OPTICALLY (an ND filter of ~{stops * 0.3:.1f} OD, or stop the lens down) "
+          f"rather than by shortening the shutter again - shortening it is what produced "
+          f"the sliced captures in the first place. saturationFrac (costWeights) will "
+          f"report the clipping either way.")
+    cam.setExposureGain(resolved, cfg["gain"])
+    time.sleep(cfg["settleSeconds"])
+    # The stored background was captured by 'calibrate' at the OLD shutter and is
+    # stale the moment the shutter changes - see refreshStoredBackground(). Skipped
+    # when there is no homography yet (nothing to keep, and the caller is about to
+    # run 'calibrate' anyway).
+    if HOMOGRAPHY_FILE.exists():
+        refreshStoredBackground({**cfg, "exposure": resolved}, esp, cam)
+    return {**cfg, "exposure": resolved}
 
 
 # ── homography ───────────────────────────────────────────────────────────────
@@ -1827,7 +2171,7 @@ def runCalibrate(cfg: dict, esp: EspClient, cam: Camera):
     esp.stop()
     time.sleep(0.3)
     cam.statusText = "calibrate: background (laser off)"
-    background = cam.grabBackground()
+    background = cam.grabBackground(cfg["accumFrames"])
 
     waitWhilePaused(cam)  # safe boundary: laser is off, nothing running yet
     startResp = esp.startPattern("corners4", channel=cfg["camPatternChannel"])
@@ -2812,6 +3156,12 @@ def runMeasureResonance(cfg: dict, esp: EspClient, cam: "Camera", axisName: str 
 
     pr(f"resonance sweep: axis={axisLabel} amp={ampDac} DAC units "
       f"({cfg['resonanceAmpFraction'] * 100:.0f}% of safe range)")
+    # Left at grabBackground()'s default frame count on purpose: this sweep's own
+    # captures use a PER-FREQUENCY count (max(accumFrames, framesForCycles, 3)), so
+    # no single background can match all of them the way grabBackground's docstring
+    # asks for. The resulting max()-order-statistic mismatch biases detectStreakExtent
+    # slightly, which matters far less here than it does for computeMetrics - this
+    # path thresholds for a streak's EXTENT, not for absolute corridor brightness.
     background = cam.grabBackground()
 
     try:
@@ -3260,9 +3610,26 @@ class Metrics:
     # the ideal jump path reads LOWER there, not higher. Measured on this rig, cam_
     # segments at blank_samples=1 (visibly streaking) scored blankLeakage 0.95 vs 2.95
     # for the clean blank_samples=40 case - exactly backwards.
+    # DIAGNOSTIC ONLY since v2.25.0 - blankCorridorLitPct carries the cost term now.
+    # Mean raw brightness of the corridor cannot separate stray beam from the surface's
+    # own scatter halo, and at a correct (full-frame) shutter the halo dominates it.
+    # Measured on this rig at exposure -4, square, with a clean capture: mean falls off
+    # monotonically with distance from the ideal path - 16.9 at 18-30px, 10.2 at 30-60,
+    # 5.8 at 60-100, 3.9 at 100-160, 3.2 far-field - i.e. a glow around the trace plus a
+    # background-subtraction floor, with a whole-corridor peak of 36 against a
+    # binaryThreshold of 68. Nothing there is beam. It read ~0.03 under the old
+    # sub-frame shutter only because the halo sat below the noise floor and
+    # cv2.subtract's clamp-at-zero rectified it away entirely.
     blankCorridorLeakage: float = 0.0
     blankCorridorMaxVal: float = 0.0   # brightest single pixel in that corridor
     blankCorridorLitPx: int = 0        # corridor pixels above binaryThreshold
+    # The scored version: blankCorridorLitPx as a percentage of the corridor's own area.
+    # Normalized because the corridor mask's size varies by pattern (and with dacRange),
+    # so a raw count would weight a big-corridor pattern harder for the same defect.
+    # Immune to the scatter halo by construction - it counts only pixels that cross
+    # binaryThreshold, which is what "beam is here" actually means everywhere else in
+    # this tool.
+    blankCorridorLitPct: float = 0.0
     # Fraction of traced pixels at raw sensor saturation (dacImage >= 250) - a global-
     # shutter CMOS sensor bleeds charge into neighboring pixels once a spot is bright
     # enough (blooming), which can inflate pathDeviationRms (halo spreads past the
@@ -3466,9 +3833,11 @@ def computeMetrics(capture: np.ndarray, background: np.ndarray, homography: np.n
         blankCorridorLeakage = float(darkVals.mean())
         blankCorridorMaxVal = float(darkVals.max())
         blankCorridorLitPx = int((darkVals > cfg["binaryThreshold"]).sum())
+        blankCorridorLitPct = 100.0 * blankCorridorLitPx / float(darkVals.size)
     else:
         blankCorridorLeakage = blankCorridorMaxVal = 0.0
         blankCorridorLitPx = 0
+        blankCorridorLitPct = 0.0
 
     # 3. corner hotspot: corner ROI brightness / edge ROI brightness (dwell tuning)
     cornerHotspot = 0.0
@@ -3563,7 +3932,11 @@ def computeMetrics(capture: np.ndarray, background: np.ndarray, homography: np.n
     if valid:
         cost = (w["pathDeviationRms"] * pathDeviationRms / 100.0
                 + w["blankLeakage"] * blankLeakage / 10.0
-                + w.get("blankCorridorLeakage", 0.0) * blankCorridorLeakage
+                # Percent of the should-be-dark corridor that actually has beam in it.
+                # Replaced the mean-brightness version in v2.25.0 - see
+                # Metrics.blankCorridorLeakage for why a mean cannot be used at a
+                # correct shutter. Scaled so 1% of the corridor lit costs the weight.
+                + w.get("blankCorridorLitPct", 0.0) * blankCorridorLitPct
                 + w["cornerHotspot"] * cornerHotspot
                 + w["brightnessNonUniformity"] * brightnessNonUniformity
                 + w.get("saturationFrac", 0.0) * saturationFrac
@@ -3585,6 +3958,7 @@ def computeMetrics(capture: np.ndarray, background: np.ndarray, homography: np.n
                       offPathLitPx=offPathLitPx, pathCoveragePct=pathCoveragePct,
                       beamWidthUnits=beamWidthUnits,
                       blankCorridorLeakage=blankCorridorLeakage,
+                      blankCorridorLitPct=blankCorridorLitPct,
                       blankCorridorMaxVal=blankCorridorMaxVal,
                       blankCorridorLitPx=blankCorridorLitPx,
                       saturationFrac=saturationFrac,
@@ -3669,7 +4043,7 @@ def annotateCanvas(debug: dict, m: Metrics, pattern: str, label: str = "") -> np
     lines = [
         title,
         f"path dev {m.pathDeviationRms:.1f}  blank leak {m.blankLeakage:.1f}  "
-        f"corridor leak {m.blankCorridorLeakage:.2f}  "
+        f"corridor {m.blankCorridorLitPct:.3f}% lit (mean {m.blankCorridorLeakage:.1f})  "
         f"corner hot {m.cornerHotspot:.2f}  uniformity {m.brightnessNonUniformity:.2f}  "
         f"sat {m.saturationFrac * 100:.0f}%",
         f"scale X{m.scaleErrorXPct:+.1f}% Y{m.scaleErrorYPct:+.1f}%  "
@@ -3750,6 +4124,14 @@ def measureOnce(esp: EspClient, cam: Camera, cfg: dict, homography: np.ndarray,
             prWarn(f"{pattern}: DAC clip {dacClipPct:.1f}% "
                    f"(X={clipState.get('dacClipX', 0)} Y={clipState.get('dacClipY', 0)} pts) - "
                    f"this trial's score is unreliable, corners are being clamped, not scaled")
+        # Shutter-vs-frame-period check for the pattern that was live during the
+        # capture just taken - polled here, while it is still running, for the same
+        # reason the clip diagnostic is. resolveExposure() derives the shutter once
+        # per run from a reference pattern set; this catches anything whose real point
+        # count pushes its period past that derivation. One extra GET against a
+        # capture that costs hundreds of ms.
+        checkShutterSpansFrame(cfg, pattern,
+                               framePeriodMs(esp.getOptimizerStats(), clipState))
     except OptimizerError as e:
         prWarn(f"{pattern}: could not poll DAC clip status: {e}")
     esp.stop()
@@ -4724,11 +5106,13 @@ def runStudyForProfile(optuna, cfg: dict, esp: EspClient, cam: Camera,
     if priorTrials:
         pr(f"resuming study '{studyName}' ({storageUrl}) - "
               f"{priorTrials} trial(s) already recorded, adding {trials} more")
-        prWarn("costs recorded before v2.19.0 are NOT comparable with new ones: the cost "
-               "function gained a blankCorridorLeakage term, and trials whose capture saw "
-               "nothing used to be scored as if they were real readings instead of being "
-               "dropped. If this study predates v2.19.0, start a fresh one (--fresh) "
-               "rather than mixing the two.")
+        prWarn("costs recorded before v2.25.0 are NOT comparable with new ones. v2.19.0 "
+               "added a blank-corridor term and stopped scoring blind captures as real "
+               "readings; v2.25.0 then replaced that term's mean-brightness form with "
+               "blankCorridorLitPct, AND derives the shutter from the laser frame rate - "
+               "so every pre-v2.25.0 trial was scored on a capture that only saw a "
+               "fraction of the scan path. Start a fresh study (--fresh) rather than "
+               "mixing the two.")
     else:
         pr(f"new study '{studyName}' -> {storageUrl}")
     pr(f"per-trial log -> {logFile.name}")
@@ -4782,7 +5166,19 @@ def profileCameraOverride(cfg: dict, profileName: str) -> dict:
     """The per-profile camera override for `profileName`, or {} if none is set.
     Only keys that actually differ from the global value are returned, so a
     no-op override does not trigger a pointless re-exposure + background grab."""
-    override = (cfg.get("profileCamera") or {}).get(profileName) or {}
+    override = dict((cfg.get("profileCamera") or {}).get(profileName) or {})
+    # A per-profile exposure may only LENGTHEN the shutter, never shorten it below the
+    # frame-rate-derived floor already in cfg. These overrides were tuned back when
+    # exposure was a free parameter (Particles carries -6 from exactly that era), and
+    # applying one as-is would hand that one profile back the sub-frame shutter every
+    # other profile was just protected from. See exposureFromFrameRate.
+    if cfg.get("exposureFromFrameRate", True) and "exposure" in override:
+        raised = max(int(override["exposure"]), int(cfg["exposure"]))
+        if raised != int(override["exposure"]):
+            prInfo(f"'{profileName}' camera override wants exposure "
+                   f"{override['exposure']}, shorter than the frame-rate-derived "
+                   f"{cfg['exposure']} - using {raised}")
+        override["exposure"] = raised
     return {k: v for k, v in override.items()
             if k in PROFILE_CAMERA_KEYS and v != cfg.get(k)}
 
@@ -4813,7 +5209,7 @@ def applyProfileCamera(cfg: dict, esp: EspClient, cam: Camera, profileName: str,
         esp.stop()
         time.sleep(effective["settleSeconds"])
         cam.statusText = f"{profileName}: re-grabbing background for override"
-        background = cam.grabBackground()
+        background = cam.grabBackground(effective["accumFrames"])
     return effective, background
 
 
@@ -5042,12 +5438,13 @@ def classifyProfile(name: str, patterns: list[str], allMetrics: dict[str, Metric
         if m.blankLeakage > thresholds["blankLeakage"]:
             settingsIssues.append(f"{pattern}: blank leakage {m.blankLeakage:.1f} "
                                   f"(threshold {thresholds['blankLeakage']})")
-        if m.blankCorridorLeakage > thresholds.get("blankCorridorLeakage", float("inf")):
+        if m.blankCorridorLitPct > thresholds.get("blankCorridorLitPct", float("inf")):
             settingsIssues.append(
-                f"{pattern}: blank corridor leakage {m.blankCorridorLeakage:.2f} "
-                f"(threshold {thresholds['blankCorridorLeakage']}), "
-                f"{m.blankCorridorLitPx} lit px in regions that should be dark, "
-                f"brightest {m.blankCorridorMaxVal:.0f}")
+                f"{pattern}: blank corridor {m.blankCorridorLitPct:.3f}% lit "
+                f"(threshold {thresholds['blankCorridorLitPct']}%), "
+                f"{m.blankCorridorLitPx} px over binaryThreshold in regions that should "
+                f"be dark, brightest {m.blankCorridorMaxVal:.0f}, corridor mean "
+                f"{m.blankCorridorLeakage:.2f}")
         if m.cornerHotspot > thresholds["cornerHotspot"]:
             settingsIssues.append(f"{pattern}: corner hotspot ratio {m.cornerHotspot:.2f} "
                                   f"(threshold {thresholds['cornerHotspot']})")
@@ -5320,6 +5717,14 @@ def runRegress(cfg: dict, esp: EspClient, cam: Camera, tiers: list[str]) -> bool
 LASER_REQUIRED_CMDS = ("calibrate", "measure", "optimize", "diagnose", "autotune-camera",
                       "autotune-colors", "calibrate-warp", "measure-resonance",
                       "tune-dac-range", "regress")
+
+# Commands that score a vector-scanned capture with computeMetrics, and therefore
+# need a shutter spanning a whole laser frame (resolveExposure). Deliberately NOT
+# every laser command: 'calibrate'/'calibrate-warp' measure static dwell dots that
+# are lit continuously - a long shutter there only collects more noise and bloom -
+# 'measure-resonance' derives its own frame count from the drive frequency, and
+# 'autotune-colors' measures raw beam brightness rather than path geometry.
+EXPOSURE_DERIVED_CMDS = ("measure", "optimize", "diagnose", "regress", "autotune-camera")
 
 
 def requireLaserReady(esp: EspClient, allowUnarmed: bool = False):
@@ -5635,6 +6040,11 @@ def runAutotuneCamera(cfg: dict, esp: EspClient, cam: Camera, patterns: list[str
     weights = cfg["cameraAutotuneWeights"]
     baseline = {"exposure": cfg["exposure"], "gain": cfg["gain"],
                "binaryThreshold": cfg["binaryThreshold"], "accumFrames": cfg["accumFrames"]}
+    derivedExposure = bool(cfg.get("exposureFromFrameRate", True))
+    if derivedExposure:
+        prInfo(f"exposure is held at the frame-rate-derived {baseline['exposure']} "
+               f"({exposureSeconds(int(baseline['exposure'])) * 1000:.1f} ms) and left out "
+               f"of the search - searching gain/binaryThreshold/accumFrames only")
 
     storageUrl = storageUrl or f"sqlite:///{(RESULTS_DIR / 'optuna_study.db').as_posix()}"
     # Per-profile runs get their own study: their cost is measured against a different
@@ -5664,7 +6074,15 @@ def runAutotuneCamera(cfg: dict, esp: EspClient, cam: Camera, patterns: list[str
         if cam.liveView:
             cam.liveView.setProgress(runIndex + 1, trials)
 
-        exposure = trial.suggest_int("exposure", ranges["exposureMin"], ranges["exposureMax"])
+        # Exposure is DERIVED, not searched, when exposureFromFrameRate is on: it is
+        # fixed by the laser's frame period (resolveExposure, called before this study
+        # starts), not a free parameter. Leaving it in the search is how this rig ended
+        # up at -11 - the cost function rewards low saturation and a dark background,
+        # both of which a too-short shutter delivers beautifully while quietly capturing
+        # 1.4% of the scan path. There is no term any search could add to fix that;
+        # the constraint is physical, so it belongs outside the search.
+        exposure = (baseline["exposure"] if derivedExposure else
+                    trial.suggest_int("exposure", ranges["exposureMin"], ranges["exposureMax"]))
         # Only searched if this camera actually has a working Gain control (see
         # Camera.gainSupported) - suggesting a dimension that never affects the capture
         # would just dilute Optuna's sampling of the params that do something.
@@ -5681,7 +6099,7 @@ def runAutotuneCamera(cfg: dict, esp: EspClient, cam: Camera, patterns: list[str
         esp.stop()
         time.sleep(cfg["settleSeconds"])
         cam.statusText = f"autotune-camera trial {runIndex + 1}/{trials}: background"
-        background = cam.grabBackground()
+        background = cam.grabBackground(accumFrames)
         backgroundBrightness = float(np.mean(background)) / 255.0
 
         totalCost = 0.0
@@ -5774,11 +6192,13 @@ def runAutotuneCamera(cfg: dict, esp: EspClient, cam: Camera, patterns: list[str
     if priorTrials:
         pr(f"resuming study '{studyName}' ({storageUrl}) - "
               f"{priorTrials} trial(s) already recorded, adding {trials} more")
-        prWarn("costs recorded before v2.19.0 are NOT comparable with new ones: the cost "
-               "function gained a blankCorridorLeakage term, and trials whose capture saw "
-               "nothing used to be scored as if they were real readings instead of being "
-               "dropped. If this study predates v2.19.0, start a fresh one (--fresh) "
-               "rather than mixing the two.")
+        prWarn("costs recorded before v2.25.0 are NOT comparable with new ones. v2.19.0 "
+               "added a blank-corridor term and stopped scoring blind captures as real "
+               "readings; v2.25.0 then replaced that term's mean-brightness form with "
+               "blankCorridorLitPct, AND derives the shutter from the laser frame rate - "
+               "so every pre-v2.25.0 trial was scored on a capture that only saw a "
+               "fraction of the scan path. Start a fresh study (--fresh) rather than "
+               "mixing the two.")
     else:
         pr(f"new study '{studyName}' -> {storageUrl}")
     pr(f"tuning camera capture settings via pattern(s) {list(patterns)} - firmware "
@@ -5850,10 +6270,14 @@ def runAutotuneCamera(cfg: dict, esp: EspClient, cam: Camera, patterns: list[str
     # sitting in optuna_study.db as the recorded best, and got replayed straight back
     # out. Clamp to the CURRENT bounds and say so, rather than silently re-applying a
     # value this run's own search space says isn't even reachable.
-    clampBounds = {"exposure": (ranges["exposureMin"], ranges["exposureMax"]),
-                  "gain": (ranges["gainMin"], ranges["gainMax"]),
+    clampBounds = {"gain": (ranges["gainMin"], ranges["gainMax"]),
                   "binaryThreshold": (ranges["binaryThresholdMin"], ranges["binaryThresholdMax"]),
                   "accumFrames": (ranges["accumFramesMin"], ranges["accumFramesMax"])}
+    # exposureMin/Max only bound a SEARCHED exposure. When it's derived from the frame
+    # period instead, clamping it back into that range would silently undo the
+    # derivation - the physical requirement outranks the search space, not the reverse.
+    if not derivedExposure:
+        clampBounds["exposure"] = (ranges["exposureMin"], ranges["exposureMax"])
     for field, (lo, hi) in clampBounds.items():
         clamped = max(lo, min(hi, best[field]))
         if clamped != best[field]:
@@ -5901,7 +6325,7 @@ def runAutotuneCamera(cfg: dict, esp: EspClient, cam: Camera, patterns: list[str
         waitWhilePaused(cam)
         esp.stop()
         time.sleep(cfg["settleSeconds"])
-        verifyBackground = cam.grabBackground()
+        verifyBackground = cam.grabBackground(verifyCfg["accumFrames"])
         for pattern in patterns:
             vm, _ = measureOnce(esp, cam, verifyCfg, homography, verifyBackground, pattern,
                                 statusPrefix="autotune-camera VERIFY",
@@ -5969,20 +6393,7 @@ def runAutotuneCamera(cfg: dict, esp: EspClient, cam: Camera, patterns: list[str
         except OSError as e:
             prWarn(f"could not save {CONFIG_FILE.name}: {e}")
 
-        # homography.npz's background was captured at the OLD exposure/gain - stale
-        # from here on, since diff-subtraction (computeMetrics/calibrate) assumes it
-        # matches the currently configured settings. Refresh it in place so
-        # 'measure'/'optimize'/'diagnose' don't silently score against a mismatched
-        # background after this.
-        try:
-            esp.stop()
-            time.sleep(cfg["settleSeconds"])
-            newBackground = cam.grabBackground()
-            np.savez(HOMOGRAPHY_FILE, homography=homography, background=newBackground)
-            prOk(f"refreshed background in {HOMOGRAPHY_FILE.name} for the new exposure/gain")
-        except (OptimizerError, OSError) as e:
-            prWarn(f"could not refresh {HOMOGRAPHY_FILE.name} background: {e} - "
-                 f"run 'calibrate' again before the next measurement")
+        refreshStoredBackground(cfg, esp, cam, homography)
     else:
         cam.setExposureGain(baseline["exposure"], baseline["gain"])
         prInfo(f"not applied - camera restored to its previous exposure/gain; best values "
@@ -6976,6 +7387,18 @@ def dispatch(args):
         if args.cmd in LASER_REQUIRED_CMDS:
             requireLaserReady(esp, args.allowUnarmed)
         cam = Camera(cfg, liveView=liveView)
+        # Derive the shutter from the laser's real frame rate before anything measures
+        # anything (see resolveExposure). Only the commands that actually score a
+        # capture need it - 'calibrate'/'calibrate-warp' photograph STATIC dwell dots
+        # that are lit continuously, so a sub-frame shutter is correct there, and
+        # 'analyze-live' deliberately never starts a pattern of its own.
+        if args.cmd in EXPOSURE_DERIVED_CMDS:
+            # 'measure' knows its one pattern; the others resolve their sets further
+            # down (or vary them per trial), so they derive against the reference set
+            # and rely on measureOnce's free per-capture re-check to catch any pattern
+            # whose point count makes its frame period longer than the reference's.
+            framePatterns = [args.pattern] if args.cmd == "measure" else None
+            cfg = resolveExposure(cfg, esp, cam, framePatterns)
         if args.cmd == "preview":
             runPreview(cfg, cam, zoomIdx=args.zoom - 1)
         elif args.cmd == "calibrate":
