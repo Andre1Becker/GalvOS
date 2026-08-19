@@ -178,6 +178,35 @@ FW_PROFILE_PATTERNS = {
     "Text":        ["text"],
 }
 
+# Camera settings that may be overridden per firmware profile (see camConfig.json's
+# "profileCamera"). Deliberately only the four capture knobs 'autotune-camera'
+# searches - geometry (frameWidth/Height), the ESP32 URL, scoring weights and the
+# like are rig-wide and must not diverge per profile or measurements stop being
+# comparable between them.
+PROFILE_CAMERA_KEYS = frozenset(("exposure", "gain", "binaryThreshold", "accumFrames"))
+
+# Firmware params to hold while tuning a profile's camera settings, chosen to be the
+# DIMMEST configuration its search space can propose.
+#
+# Camera settings tuned at one point in firmware-parameter space do not generalise
+# across it. 'optimize' varies exactly the parameters that control how much light
+# lands on a given spot, so a binaryThreshold that works at the profile's current
+# values can be far too high for a candidate the search proposes two trials later.
+# Measured: Particles tuned at the live max_corner_pts=10 produced binaryThreshold
+# 156 and a clean 12/12-dot capture, then 'optimize' proposed max_corner_pts=3 - a
+# ~68us dwell per dot instead of ~227us, roughly 3x dimmer - and every trial came
+# back with zero lit pixels. Tuning at the dim end instead costs nothing at the
+# bright end (brighter dots just yield bigger blobs), so this is a one-way safety
+# margin, not a compromise.
+#
+# Only parameters whose brightness direction is unambiguous belong here. For dot
+# patterns that is dwell-per-dot; everything else is left at the profile's baseline.
+CAMERA_TUNE_WORST_CASE = {
+    "Particles": {"max_corner_pts": 2},   # searchSpace range is 2..10
+    "Wireframe": {"max_corner_pts": 2},   # same reasoning, vertex dwell
+    "Text":      {"max_corner_pts": 2},
+}
+
 # Preset category (from GET /api/presets' "cat") -> whether its geometry is expected
 # to be a closed loop. Used only to word 'analyze-live's report, never as a hard
 # pass/fail - every bucket has exceptions ("Three Circles" is Geometry but
@@ -468,6 +497,25 @@ DEFAULT_CONFIG = {
                                 # measure) - sweepGain/autotune-colors keep one pattern
                                 # running throughout and aren't affected.
     "binaryThreshold": 40,      # 0..255, beam trace threshold after background subtraction
+    "profileCamera": {},        # per-profile camera overrides, e.g.
+                                # {"Particles": {"exposure": -9, "accumFrames": 32}}.
+                                # The capture settings above are global, but the optimal
+                                # ones are NOT pattern-independent: they depend on the
+                                # pattern's lit duty cycle and per-feature dwell time.
+                                # Measured on this rig at 44 kpps: 'square' is 97.4% lit
+                                # and 'circle' 99.3%, while 'particles' is 38.1% lit -
+                                # 12 isolated dots of ~20 lit samples (0.455 ms) each,
+                                # separated by blank jumps. Tuning the shutter against
+                                # the always-on patterns produced exposure -11 (0.488 ms,
+                                # i.e. 1.07 dot-dwells), so a capture could catch at most
+                                # one dot and only if it opened during a lit stretch -
+                                # 'optimize' then dropped 3/20 Particles trials as
+                                # blind, and the surviving search pushed max_corner_pts
+                                # to its ceiling because longer dwell = brighter dot =
+                                # measurable, not because it looks better. Anything set
+                                # here overrides the global value for that profile only,
+                                # applied (with a fresh background grab) while it is
+                                # being measured. Written by 'autotune-camera --profile'.
     "liveAnalysisMinComponentPx": 60,  # analyze-live only: connected-component pixel
                                 # area (on the 800x800 DAC canvas, after 1px dilation)
                                 # below which a blob is treated as sensor noise/dust
@@ -585,9 +633,19 @@ DEFAULT_CONFIG = {
     "minBlobAreaPx": DEFAULT_MIN_BLOB_AREA_PX,  # DAC-canvas px. Connected components
                                 # smaller than this are noise, not dots - only used by the
                                 # isolated-dot metrics ('particles'). See its constant.
-    "maxInvalidTrialFraction": 0.25,  # 'optimize' aborts if more than this fraction of a
+    "maxInvalidTrialFraction": 0.10,  # 'optimize' aborts if more than this fraction of a
                                 # profile's trials come back invalid - at that point the
-                                # study is measuring the camera, not the galvo.
+                                # study is measuring the camera, not the galvo. Was 0.25,
+                                # which turned out to be far too lenient to be useful: a
+                                # Particles run dropped 3/20 (15%) and sailed straight
+                                # through, and the surviving trials were still biased -
+                                # with the shutter barely spanning one dot's dwell, the
+                                # cheapest way for the search to lower cost was to make
+                                # dots brighter, so max_corner_pts and stage1_blank_target
+                                # both pinned to their range ceilings. Invalid trials are
+                                # not just lost samples; they skew the ones that survive
+                                # toward "easy to photograph". Fix the capture first
+                                # (see profileCamera above), then re-run.
     "measurementRepeats": 1,   # 'optimize' repeats every measurement (search objective AND
                                 # the before/after re-measurement) this many times and scores
                                 # the mean instead of a single capture - see averageMetrics().
@@ -706,11 +764,24 @@ DEFAULT_CONFIG = {
                                        # path (stray light, reflections, sensor noise). Rated
                                        # above pathCoverage so the search cannot buy coverage
                                        # by dropping the threshold into the noise floor.
-        "blindCapture": 5.0            # flat penalty per pattern whose measurement came back
+        "blindCapture": 200.0          # flat penalty per pattern whose measurement came back
                                        # invalid (see Metrics.valid) - a hard wall in front
                                        # of the whole blind region of the search space, so a
                                        # trial that sees nothing can never win on the smooth
-                                       # terms alone
+                                       # terms alone.
+                                       #
+                                       # Was 5.0, which inverted the search on any pattern
+                                       # harder than the ones it was calibrated against. The
+                                       # penalty REPLACES m.cost for an invalid capture, so
+                                       # it only walls off the blind region while it exceeds
+                                       # the achievable valid cost. 'square'/'circle' measure
+                                       # ~2-5, so 5.0 held. 'particles' measures 10-90, so
+                                       # blindness became the cheapest option available: in a
+                                       # 20-trial run every one of the 5 blind trials (6.95-
+                                       # 8.06) beat every one of the 15 valid ones (10.38-
+                                       # 89.68), and the "best" settings it applied saw 2 of
+                                       # 12 dots. Sized to dominate any plausible valid cost;
+                                       # bestNonBlindTrial() is the belt-and-braces half.
     },
     "requestTimeoutSeconds": 5,
     "requestRetries": 2,             # extra attempts on ESP32 timeout/connection error
@@ -834,6 +905,27 @@ def validateConfig(cfg: dict):
     if not isinstance(autotuneWeights, dict) or not all(
             isinstance(v, (int, float)) for v in autotuneWeights.values()):
         problems.append("cameraAutotuneWeights must be an object of numeric weights")
+    profCam = cfg.get("profileCamera")
+    if not isinstance(profCam, dict):
+        problems.append("profileCamera must be an object keyed by profile name")
+    else:
+        for profName, override in profCam.items():
+            if profName not in FW_PROFILE_PATTERNS:
+                problems.append(
+                    f"profileCamera: '{profName}' is not a known profile "
+                    f"(expected one of {sorted(FW_PROFILE_PATTERNS)})")
+                continue
+            if not isinstance(override, dict):
+                problems.append(f"profileCamera['{profName}'] must be an object")
+                continue
+            for key, val in override.items():
+                if key not in PROFILE_CAMERA_KEYS:
+                    problems.append(
+                        f"profileCamera['{profName}']: '{key}' is not overridable "
+                        f"(allowed: {sorted(PROFILE_CAMERA_KEYS)})")
+                elif not isinstance(val, (int, float)) or isinstance(val, bool):
+                    problems.append(
+                        f"profileCamera['{profName}']['{key}'] must be a number")
     if problems:
         raise OptimizerError(
             f"invalid {CONFIG_FILE.name}: " + "; ".join(problems) +
@@ -4493,7 +4585,13 @@ def runStudyForProfile(optuna, cfg: dict, esp: EspClient, cam: Camera,
                     f"{invalidTrials} of {runIndex} trial(s) on profile '{profileName}' "
                     f"produced no valid measurement (limit: "
                     f"{cfg['maxInvalidTrialFraction'] * 100:.0f}%). This study is "
-                    f"measuring the camera, not the galvo - " + INVALID_MEASUREMENT_HINT)
+                    f"measuring the camera, not the galvo.\n"
+                    f"  Most likely this profile's pattern differs too much in lit duty "
+                    f"cycle from whatever the global capture settings were tuned on. Tune "
+                    f"the shutter for it specifically, then re-run:\n"
+                    f"    optimizeGalvo.py autotune-camera --profile {profileName} "
+                    f"--fresh --apply\n"
+                    f"  Otherwise: " + INVALID_MEASUREMENT_HINT)
                 raise OptimizerError(invalidAbort)
             raise optuna.TrialPruned()
         return totalCost
@@ -4554,6 +4652,61 @@ def runStudyForProfile(optuna, cfg: dict, esp: EspClient, cam: Camera,
     return study, stoppedEarly
 
 
+def profileOwningPattern(pattern: str) -> str | None:
+    """Which firmware profile is measured via `pattern`, or None. Reverse of
+    FW_PROFILE_PATTERNS; 'square' and 'star' both map to Vector."""
+    for profName, pats in FW_PROFILE_PATTERNS.items():
+        if pattern in pats:
+            return profName
+    return None
+
+
+def profileCameraOverride(cfg: dict, profileName: str) -> dict:
+    """The per-profile camera override for `profileName`, or {} if none is set.
+    Only keys that actually differ from the global value are returned, so a
+    no-op override does not trigger a pointless re-exposure + background grab."""
+    override = (cfg.get("profileCamera") or {}).get(profileName) or {}
+    return {k: v for k, v in override.items()
+            if k in PROFILE_CAMERA_KEYS and v != cfg.get(k)}
+
+
+def applyProfileCamera(cfg: dict, esp: EspClient, cam: Camera, profileName: str,
+                       background: np.ndarray) -> tuple[dict, np.ndarray]:
+    """Applies `profileName`'s camera override for the duration of its measurements.
+
+    Returns (effectiveCfg, background) - the caller passes both on to whatever does
+    the measuring, and calls restoreGlobalCamera() when the profile is done.
+
+    The background MUST be re-grabbed whenever exposure/gain changes: computeMetrics
+    diff-subtracts it, and homography.npz's stored background was captured at the
+    global exposure. Scoring a capture taken at a different shutter against that
+    background silently biases every metric derived from it. Same reason
+    'autotune-camera' refreshes it after applying."""
+    override = profileCameraOverride(cfg, profileName)
+    if not override:
+        return cfg, background
+
+    effective = {**cfg, **override}
+    pretty = ", ".join(f"{k}={v}" for k, v in sorted(override.items()))
+    prInfo(f"camera override for '{profileName}': {pretty} "
+           f"(from {CONFIG_FILE.name}'s profileCamera)")
+
+    if "exposure" in override or "gain" in override:
+        cam.setExposureGain(effective["exposure"], effective["gain"])
+        esp.stop()
+        time.sleep(effective["settleSeconds"])
+        cam.statusText = f"{profileName}: re-grabbing background for override"
+        background = cam.grabBackground()
+    return effective, background
+
+
+def restoreGlobalCamera(cfg: dict, cam: Camera, applied: dict) -> None:
+    """Undoes applyProfileCamera()'s hardware change. `applied` is the override that
+    was in effect; a no-op when it was empty or touched no hardware setting."""
+    if applied and ("exposure" in applied or "gain" in applied):
+        cam.setExposureGain(cfg["exposure"], cfg["gain"])
+
+
 def runOptimize(cfg: dict, esp: EspClient, cam: Camera, profile: str | None, trials: int,
                 studyName: str | None = None, storageUrl: str | None = None,
                 fresh: bool = False, autoApply: bool = False, presetName: str | None = None):
@@ -4610,9 +4763,17 @@ def runOptimize(cfg: dict, esp: EspClient, cam: Camera, profile: str | None, tri
 
         pr()
         pr(bold(f"=== tuning profile '{name}' via pattern(s) {space['patterns']} ==="))
-        study, stoppedEarly = runStudyForProfile(
-            optuna, cfg, esp, cam, name, space, trials,
-            thisStudyName, storageUrl, homography, background)
+        # Per-profile capture settings, if configured. Restored in the finally so an
+        # aborted study can't leave the camera on the previous profile's shutter and
+        # silently mis-measure whatever runs next.
+        applied = profileCameraOverride(cfg, name)
+        profCfg, profBackground = applyProfileCamera(cfg, esp, cam, name, background)
+        try:
+            study, stoppedEarly = runStudyForProfile(
+                optuna, profCfg, esp, cam, name, space, trials,
+                thisStudyName, storageUrl, homography, profBackground)
+        finally:
+            restoreGlobalCamera(cfg, cam, applied)
 
         completed = [t for t in study.trials if t.state.name == "COMPLETE"]
         if completed:
@@ -5181,7 +5342,7 @@ def _saturationFraction(image: np.ndarray, satLevel: int = 250) -> float:
 
 def runAutotuneCamera(cfg: dict, esp: EspClient, cam: Camera, patterns: list[str],
                       trials: int, studyName: str | None, storageUrl: str | None,
-                      fresh: bool, autoApply: bool):
+                      fresh: bool, autoApply: bool, profileName: str | None = None):
     """Optuna search over the camera-capture knobs that can be changed trial-to-trial
     without reopening the device: exposure, gain, binaryThreshold, and accumFrames
     (bounds in cameraAutotuneRanges, camConfig.json). frameWidth/frameHeight/cameraFps/
@@ -5234,7 +5395,20 @@ def runAutotuneCamera(cfg: dict, esp: EspClient, cam: Camera, patterns: list[str
                "binaryThreshold": cfg["binaryThreshold"], "accumFrames": cfg["accumFrames"]}
 
     storageUrl = storageUrl or f"sqlite:///{(RESULTS_DIR / 'optuna_study.db').as_posix()}"
-    studyName = studyName or "camera_autotune"
+    # Per-profile runs get their own study: their cost is measured against a different
+    # pattern set, so mixing those trials into the global study's history would have TPE
+    # sampling from two incomparable objectives.
+    studyName = studyName or (f"camera_autotune_{profileName}" if profileName
+                              else "camera_autotune")
+
+    # Hold the dimmest firmware configuration this profile's search can propose while
+    # tuning the capture, so the resulting settings survive the whole 'optimize' run
+    # rather than only its starting point. See CAMERA_TUNE_WORST_CASE.
+    worstCaseParams = CAMERA_TUNE_WORST_CASE.get(profileName) if profileName else None
+    if worstCaseParams:
+        pretty = ", ".join(f"{k}={v}" for k, v in sorted(worstCaseParams.items()))
+        prInfo(f"tuning against '{profileName}' at its dimmest searchable config "
+               f"({pretty}) so the settings hold across the whole optimize run")
     if fresh:
         studyName = f"{studyName}_{time.strftime('%Y%m%d_%H%M%S')}"
 
@@ -5283,7 +5457,8 @@ def runAutotuneCamera(cfg: dict, esp: EspClient, cam: Camera, patterns: list[str
                      if patternIdx == 0 else None)
             m, _ = measureOnce(
                 esp, cam, trialCfg, homography, background, pattern, saveTo=saveTo,
-                statusPrefix=f"autotune-camera trial {runIndex + 1}/{trials}")
+                statusPrefix=f"autotune-camera trial {runIndex + 1}/{trials}",
+                params=worstCaseParams)
 
             # ── signal-vs-noise criterion ────────────────────────────────────────
             # Without this, the search is actively rewarded for blinding the camera:
@@ -5314,6 +5489,9 @@ def runAutotuneCamera(cfg: dict, esp: EspClient, cam: Camera, patterns: list[str
 
         totalCost += weights["saturation"] * saturationFrac
         totalCost += weights["backgroundBrightness"] * backgroundBrightness
+        # Recorded so bestNonBlindTrial() can refuse to hand back settings that saw
+        # nothing, independently of how the blindCapture weight happens to be sized.
+        trial.set_user_attr("blindPatterns", blindPatterns)
 
         duration = time.monotonic() - trialStart
         trialDurations.append(duration)
@@ -5394,10 +5572,32 @@ def runAutotuneCamera(cfg: dict, esp: EspClient, cam: Camera, patterns: list[str
         cam.setExposureGain(baseline["exposure"], baseline["gain"])
         return
 
-    # study.best_params only contains "gain" if it was actually suggest_int'd in some
+    # Never return settings from a trial that could not see the beam. The blindCapture
+    # weight is supposed to make that impossible, but it is a flat constant compared
+    # against a pattern-dependent valid cost, so it can only ever be right for the
+    # patterns it was sized against - and when it is wrong the search converges on
+    # blindness with total confidence (see the weight's own comment). This check does
+    # not care how the weight is tuned: a trial whose capture was invalid is not a
+    # measurement and cannot be the answer, full stop.
+    seeing = [t for t in completed if not (t.user_attrs.get("blindPatterns") or [])]
+    blindCount = len(completed) - len(seeing)
+    if not seeing:
+        prWarn(f"all {len(completed)} completed trial(s) were blind on at least one "
+               f"pattern - refusing to apply any of them.")
+        prTip("widen cameraAutotuneRanges (especially exposureMin/Max and "
+              "binaryThresholdMin/Max), or the pattern may be too sparse for the "
+              "current camera/optics - check the annotated screenshots in "
+              f"{RESULTS_DIR.name}/.")
+        cam.setExposureGain(baseline["exposure"], baseline["gain"])
+        return
+    if blindCount:
+        prInfo(f"ignoring {blindCount} blind trial(s) when picking the best - "
+               f"choosing among the {len(seeing)} that actually saw the beam")
+    bestTrial = min(seeing, key=lambda t: t.value)
+    # bestTrial.params only contains "gain" if it was actually suggest_int'd in some
     # trial (i.e. cam.gainSupported was true) - fall back to the fixed baseline otherwise
     # so this camera's gain-free run doesn't KeyError, and so 'apply' below has a value.
-    best = {**baseline, **study.best_params}
+    best = {**baseline, **bestTrial.params}
 
     # A resumed study can still hand back a "best" trial that was sampled under a
     # WIDER/different cameraAutotuneRanges from a previous run - Optuna's best_params
@@ -5428,10 +5628,12 @@ def runAutotuneCamera(cfg: dict, esp: EspClient, cam: Camera, patterns: list[str
             continue
         marker = "" if before == after else "  (changed)"
         pr(f"  {field:<16} {before:>8} -> {after}{marker}")
-    pr(f"best cost {study.best_value:.4f} (over {len(completed)} completed trial(s))")
+    pr(f"best cost {bestTrial.value:.4f} (over {len(seeing)} trial(s) that saw the beam"
+       + (f", {blindCount} blind ignored" if blindCount else "") + ")")
 
     result = {
-        "bestCost": study.best_value, "bestParams": best, "baseline": baseline,
+        "bestCost": bestTrial.value, "bestParams": best, "baseline": baseline,
+        "blindTrialsIgnored": blindCount,
         "studyName": studyName, "storage": storageUrl, "trials": trials,
         "totalTrialsInStudy": len(study.trials), "stoppedEarly": stoppedEarly,
         "timestamp": time.strftime("%Y-%m-%d_%H-%M-%S")
@@ -5460,7 +5662,8 @@ def runAutotuneCamera(cfg: dict, esp: EspClient, cam: Camera, patterns: list[str
         verifyBackground = cam.grabBackground()
         for pattern in patterns:
             vm, _ = measureOnce(esp, cam, verifyCfg, homography, verifyBackground, pattern,
-                                statusPrefix="autotune-camera VERIFY")
+                                statusPrefix="autotune-camera VERIFY",
+                                params=worstCaseParams)
             if vm.valid:
                 prOk(f"  {pattern}: {vm.traceLitPx} lit px, path coverage "
                      f"{vm.pathCoveragePct:.1f}%, off-path {vm.offPathLitPx} px")
@@ -5485,7 +5688,34 @@ def runAutotuneCamera(cfg: dict, esp: EspClient, cam: Camera, patterns: list[str
         doApply = askYesNo(f"\napply these camera settings to {CONFIG_FILE.name} and "
                            f"refresh the calibration background now? [y/N]: ", default=False)
 
-    if doApply:
+    if doApply and profileName:
+        # Scoped to one profile: write under profileCamera and leave the global capture
+        # settings (and homography.npz's background, which belongs to them) untouched.
+        # Only the keys that actually differ are stored, so the override stays readable
+        # and silently follows the global value for everything it does not pin.
+        override = {k: best[k] for k in sorted(PROFILE_CAMERA_KEYS)
+                    if best.get(k) is not None and best[k] != cfg.get(k)}
+        cfg.setdefault("profileCamera", {})
+        if override:
+            cfg["profileCamera"][profileName] = override
+        else:
+            cfg["profileCamera"].pop(profileName, None)
+        try:
+            CONFIG_FILE.write_text(json.dumps(cfg, indent=2))
+            if override:
+                pretty = ", ".join(f"{k}={v}" for k, v in override.items())
+                prOk(f"saved profileCamera['{profileName}'] = {{{pretty}}} -> {CONFIG_FILE.name}")
+                prInfo(f"'optimize --profile {profileName}' will now apply these while "
+                       f"measuring it; every other profile keeps the global settings.")
+            else:
+                prOk(f"best settings match the global ones - no override needed for "
+                     f"'{profileName}' (any previous one was removed)")
+        except OSError as e:
+            prWarn(f"could not save {CONFIG_FILE.name}: {e}")
+        # Global exposure/gain restored: this run only characterised one profile, so
+        # leaving the hardware on its shutter would mis-measure everything else.
+        cam.setExposureGain(cfg["exposure"], cfg["gain"])
+    elif doApply:
         cam.setExposureGain(best["exposure"], best["gain"])
         cfg["exposure"] = best["exposure"]
         cfg["gain"] = best["gain"]
@@ -6155,11 +6385,22 @@ def main():
                      "refreshes homography.npz's background to match the new settings. Shows "
                      "a live camera view window across all trials (see --no-view/--zoom).")
     pCamTune.add_argument(
-        "--patterns", default="square,circle,segments",
+        "--patterns", default=None,
         help="comma-separated calib patterns to measure per trial (default: "
              "square,circle,segments - covers corner hotspot, pure path/uniformity, and "
-             "blank leakage between them). Choices: "
-             + ", ".join(CAMERA_AUTOTUNE_PATTERNS) + ".")
+             "blank leakage between them; with --profile, that profile's own pattern(s) "
+             "instead). Choices: " + ", ".join(CAMERA_AUTOTUNE_PATTERNS) + ".")
+    pCamTune.add_argument(
+        "--profile", default=None,
+        help="tune capture settings FOR one firmware profile and save them under that "
+             "profile in camConfig.json's 'profileCamera' instead of globally. Defaults "
+             "--patterns to that profile's own pattern(s). Use this for any profile whose "
+             "pattern differs strongly in lit duty cycle from the always-on default set: "
+             "'square'/'circle' are ~97-99%% lit, but 'particles' is ~38%% lit and made of "
+             "isolated ~0.45ms dwells, so a shutter tuned on the former can be shorter "
+             "than a single dot and capture almost nothing. 'optimize' then applies the "
+             "override (with a fresh background) while measuring that profile. Choices: "
+             + ", ".join(sorted(FW_PROFILE_PATTERNS)) + ".")
     pCamTune.add_argument(
         "--trials", type=int, default=20,
         help="number of Optuna trials to run this invocation (default: 20)")
@@ -6457,8 +6698,18 @@ def dispatch(args):
                 RESULTS_DIR.mkdir(exist_ok=True)
             except OSError as e:
                 raise OptimizerError(f"cannot create {RESULTS_DIR.name}/: {e}") from e
-            m, _ = measureOnce(esp, cam, cfg, homography, background, args.pattern,
-                              saveTo=RESULTS_DIR / f"measure_{args.pattern}.png")
+            # Measure the pattern the way 'optimize' would: if the profile that owns
+            # this pattern has a camera override, apply it here too. Without this,
+            # 'measure' would silently disagree with 'optimize' about the same pattern.
+            owner = profileOwningPattern(args.pattern)
+            applied = profileCameraOverride(cfg, owner) if owner else {}
+            measureCfg, background = (applyProfileCamera(cfg, esp, cam, owner, background)
+                                      if owner else (cfg, background))
+            try:
+                m, _ = measureOnce(esp, cam, measureCfg, homography, background, args.pattern,
+                                  saveTo=RESULTS_DIR / f"measure_{args.pattern}.png")
+            finally:
+                restoreGlobalCamera(cfg, cam, applied)
             if not m.valid:
                 pr()
                 pr(f"{'!' * 70}")
@@ -6476,9 +6727,21 @@ def dispatch(args):
             runDiagnose(cfg, esp, cam, args.profile, args.autotune, args.trials,
                        args.studyName, args.storageUrl, args.autoApply)
         elif args.cmd == "autotune-camera":
-            patterns = [p.strip() for p in args.patterns.split(",") if p.strip()]
+            if args.profile and args.profile not in FW_PROFILE_PATTERNS:
+                raise OptimizerError(
+                    f"unknown --profile '{args.profile}' - expected one of "
+                    f"{sorted(FW_PROFILE_PATTERNS)}")
+            if args.patterns:
+                patterns = [p.strip() for p in args.patterns.split(",") if p.strip()]
+            elif args.profile:
+                # The whole point of --profile: tune the shutter against the pattern it
+                # will actually have to measure, not the global always-on default set.
+                patterns = list(FW_PROFILE_PATTERNS[args.profile])
+            else:
+                patterns = ["square", "circle", "segments"]
             runAutotuneCamera(cfg, esp, cam, patterns, args.trials,
-                             args.studyName, args.storageUrl, args.fresh, args.autoApply)
+                             args.studyName, args.storageUrl, args.fresh, args.autoApply,
+                             profileName=args.profile)
         elif args.cmd == "autotune-colors":
             channels = _parseColorChannels(args.channels)
             runAutotuneColors(cfg, esp, cam, channels,
