@@ -10,6 +10,21 @@ The WebUI carries its own independent `UI_VERSION`; it is not tracked separately
 
 ## 6.7x — Output rate autotune (2026-08-19)
 
+- **6.79.1** — `points_per_sec` returned a wrapped garbage value after long polling gaps.
+  `pointsPerSec()` did `(delta_points * 1000) / elapsed` in 32-bit, and its averaging
+  window is not 1 s — nothing recomputes the counter on a timer, so the window is however
+  long it has been since something last *read* it. With no poller (WebUI closed) that
+  window grows without bound, and at ~45 kpps a gap over ~95 s overflows the multiply.
+  Measured on this board: first reads after 100 s and 140 s of silence returned 2457 and
+  14694 pps against a true 45355 — matching the wrapped arithmetic to within 0.1%, while
+  30 s and 60 s gaps read clean. Not cosmetic: `optimizeGalvo` derives the camera shutter
+  from this field, and a 4.8 kpps reading made it compute a 251.6 ms frame period for a
+  pattern that takes 26.8 ms. Both this and `fps()` (same shape, overflow past ~40 h
+  rather than 95 s — latent, but no reason for the two to differ) now use the
+  `(uint64_t) … * 1000ULL` idiom `autotuneTrial()` already uses in the same file. This
+  also restores the "`points_per_sec` vs `projection.kpps` is the one-line health check"
+  note, which was unreliable whenever the WebUI had not been open.
+
 - **6.79** — `galvo_rated_kpps` migrated 45 → the datasheet 15. Not cosmetic: community
   presets ship raw optimizer values with no anchor of their own and the firmware default
   anchor is 15, so every import was read with `r` 3× too large — density 3× low, accel

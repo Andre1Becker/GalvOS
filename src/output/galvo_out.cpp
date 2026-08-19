@@ -1085,7 +1085,18 @@ bool pushFrame(const LaserPoint* pts, size_t count) {
 uint32_t pointsPerSec() {
     uint32_t now = millis();
     if (now - s_last_pps_t >= 1000) {
-        s_pps_cached  = (s_points_total - s_points_last) * 1000 / (now - s_last_pps_t);
+        // 64-bit multiply: the averaging window is NOT 1 s, it is however long it has
+        // been since something last READ this counter -- nothing recomputes it on a
+        // timer. With no poller (WebUI closed, no /api/state traffic) that window grows
+        // without bound, and at ~45 kpps a gap over ~95 s makes delta * 1000 exceed
+        // 2^32 in 32-bit arithmetic, so the field wraps to a garbage value. Measured on
+        // this board: a first read after several minutes idle returned 2457 and 14694
+        // pps against a true 45355, matching the wrapped arithmetic to within 0.1%.
+        // That is not cosmetic -- optimizeGalvo derives the camera shutter from this
+        // field, and a 4.8 kpps reading made it compute a 251.6 ms frame period for a
+        // pattern that actually takes 26.8 ms.
+        s_pps_cached  = (uint32_t)(((uint64_t)(s_points_total - s_points_last) * 1000ULL)
+                                   / (uint64_t)(now - s_last_pps_t));
         s_points_last = s_points_total;
         s_last_pps_t  = now;
         gState.points_per_sec = s_pps_cached;
@@ -1098,7 +1109,12 @@ uint32_t pointsPerSec() {
 uint32_t fps() {
     uint32_t now = millis();
     if (now - s_last_fps_t >= 1000) {
-        s_fps_cached  = (s_frames_total - s_frames_last) * 1000 / (now - s_last_fps_t);
+        // Same unbounded window as pointsPerSec() above, so the same 64-bit multiply.
+        // Frames accumulate ~1500x slower than points, which puts the overflow past 40
+        // hours of silence rather than 95 seconds -- latent rather than reachable, but
+        // there is no reason for the two counters to differ in correctness.
+        s_fps_cached  = (uint32_t)(((uint64_t)(s_frames_total - s_frames_last) * 1000ULL)
+                                   / (uint64_t)(now - s_last_fps_t));
         s_frames_last = s_frames_total;
         s_last_fps_t  = now;
         gState.fps = s_fps_cached;
