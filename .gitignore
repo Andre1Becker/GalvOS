@@ -28,3 +28,4 @@ debug.log
 .tokensave/config.json
 .tokensave/tokensave.db
 .vscode/settings.json
+audit.log
