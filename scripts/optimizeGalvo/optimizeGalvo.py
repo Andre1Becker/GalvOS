@@ -128,7 +128,7 @@ import requests
 # ── versioning ───────────────────────────────────────────────────────────────
 # Semantic version of this script (independent of GalvOS firmware version).
 # Bump on every behavioral change; see git log for change history.
-SCRIPT_VERSION = "2.25.0"
+SCRIPT_VERSION = "2.26.0"
 
 # GalvOS firmware version that introduced /api/calib-cam/* (see firmware git log:
 # "fw: v6.03.0 -- camera-in-the-loop calibration API (calib-cam)").
@@ -3603,6 +3603,11 @@ class Metrics:
                                  # path, DAC units. This is the rig's own measurement
                                  # floor for pathDeviationRms - see diagnoseThresholds'
                                  # pathDeviationBeamWidthFactor.
+    pathDeviationExcessUnits: float = 0.0  # max(0, pathDeviationRms - the same
+                                 # per-measurement floor diagnose's classifyProfile()
+                                 # already derives from beamWidthUnits). This, not the
+                                 # raw pathDeviationRms, is what `cost` is weighted
+                                 # against - see the v2.26.0 note on `cost` below for why.
     # Mean brightness of every region that SHOULD be dark (inside the ideal shape's
     # bounding box, further than offPathGuardPx from any ideal segment) - not just the
     # ideal blank-jump corridor blankLeakage samples. blankLeakage is anti-correlated
@@ -3804,6 +3809,24 @@ def computeMetrics(capture: np.ndarray, background: np.ndarray, homography: np.n
         beamWidthUnits = 0.0
         invalidReasons.append("no lit pixels above binaryThreshold")
 
+    # 1c. path deviation EXCESS: pathDeviationRms above the same beam-width floor
+    # classifyProfile() already derives for the diagnose verdict (diagnoseThresholds'
+    # pathDeviationBeamWidthFactor/pathDeviationRmsMinUnits) - see that function's
+    # `pathBar` for the identical formula. Added v2.26.0: `cost` used raw
+    # pathDeviationRms, so on a rig where beam width alone is ~285-450 DAC units, the
+    # bulk of every trial's pathDeviationRms term was this un-tunable optical floor,
+    # not real path-following error - after the v2.25.0 blankCorridorLitPct fix
+    # correctly cut that term's own inflated share, pathDeviationRms became the new
+    # majority of `cost` (94% on one logged capture) for the exact same reason: a
+    # metric with a large fixed floor no firmware parameter can lower, dominating a
+    # weighted sum where every other term has one. This is 0 for an on-path beam and
+    # only positive for genuine excess deviation, so a search minimising `cost` is no
+    # longer rewarded for chasing noise below the rig's own optical resolution.
+    dt = cfg.get("diagnoseThresholds", {})
+    pathDeviationFloor = max(dt.get("pathDeviationRmsMinUnits", 0.0),
+                              dt.get("pathDeviationBeamWidthFactor", 0.0) * beamWidthUnits)
+    pathDeviationExcessUnits = max(0.0, pathDeviationRms - pathDeviationFloor)
+
     # 1b. path coverage: how much of the ideal path was actually seen. This is the
     # metric that catches a blind capture the other ones can't - a too-high threshold
     # leaves only the brightest core pixels, which makes pathDeviationRms and
@@ -3930,7 +3953,7 @@ def computeMetrics(capture: np.ndarray, background: np.ndarray, homography: np.n
     valid = not invalidReasons
     w = cfg["costWeights"]
     if valid:
-        cost = (w["pathDeviationRms"] * pathDeviationRms / 100.0
+        cost = (w["pathDeviationRms"] * pathDeviationExcessUnits / 100.0
                 + w["blankLeakage"] * blankLeakage / 10.0
                 # Percent of the should-be-dark corridor that actually has beam in it.
                 # Replaced the mean-brightness version in v2.25.0 - see
@@ -3957,6 +3980,7 @@ def computeMetrics(capture: np.ndarray, background: np.ndarray, homography: np.n
                       valid=valid, invalidReasons=invalidReasons, traceLitPx=traceLitPx,
                       offPathLitPx=offPathLitPx, pathCoveragePct=pathCoveragePct,
                       beamWidthUnits=beamWidthUnits,
+                      pathDeviationExcessUnits=pathDeviationExcessUnits,
                       blankCorridorLeakage=blankCorridorLeakage,
                       blankCorridorLitPct=blankCorridorLitPct,
                       blankCorridorMaxVal=blankCorridorMaxVal,
@@ -4042,7 +4066,8 @@ def annotateCanvas(debug: dict, m: Metrics, pattern: str, label: str = "") -> np
     costText = "n/a (invalid)" if math.isnan(m.cost) else f"{m.cost:.3f}"
     lines = [
         title,
-        f"path dev {m.pathDeviationRms:.1f}  blank leak {m.blankLeakage:.1f}  "
+        f"path dev {m.pathDeviationRms:.1f} (excess {m.pathDeviationExcessUnits:.1f})  "
+        f"blank leak {m.blankLeakage:.1f}  "
         f"corridor {m.blankCorridorLitPct:.3f}% lit (mean {m.blankCorridorLeakage:.1f})  "
         f"corner hot {m.cornerHotspot:.2f}  uniformity {m.brightnessNonUniformity:.2f}  "
         f"sat {m.saturationFrac * 100:.0f}%",
