@@ -152,6 +152,16 @@ Feeling yolo? Take this route then:
 3. **[Build & Flash](docs/03-build-and-config.md)** — PlatformIO build, firmware + WebUI upload.
 4. **[Connect to WebUI](docs/04-ui-guide.md)** — Wi-Fi, browser, done.
 
+No board on the bench yet? Try the WebUI first at **[www.galvos.de](https://www.galvos.de)** — see [Live Simulator](#live-simulator-no-hardware-required) below.
+
+---
+
+## Live Simulator (No Hardware Required)
+
+**[www.galvos.de](https://www.galvos.de)** runs the exact WebUI as a self-contained browser simulation — a fake firmware backend behind the same frontend, no ESP32, no flashing, no install. Click around every tab, fire presets, tune the optimizer, and watch a simulated galvo trace respond, all before you own a single component. Handy for evaluating the UI, planning a build, or just seeing what the fuss is about.
+
+It is **not** identical to a real device — no camera-in-the-loop tuning, no actual laser/galvo output, and it can lag a patch or two behind the firmware/UI shipped here (maintained by hand, see [Known Issues](docs/10-known-issues-and-todos.md#ui-issues)). For the real thing, [build one](docs/03-build-and-config.md).
+
 ---
 
 ## Documentation
@@ -228,7 +238,8 @@ GalvOS/
 │   ├── test_protocols.py   # Manual Ether Dream/Helios stream test client
 │   └── optimizeGalvo/      # Camera-in-the-loop auto-tuning tool (see docs/06)
 ├── docs/                   # Full documentation (you are here)
-├── assets/                 # Screenshots, diagrams
+│   ├── index.html          # Standalone WebUI simulator (served at galvos.de, no backend)
+│   └── assets/             # Screenshots, diagrams, photos
 ├── platformio.ini          # Build configuration
 └── partitions.csv          # Flash partition table
 ```

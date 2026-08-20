@@ -106,7 +106,7 @@ Full system state. Polled by the WebUI every second.
 | `source` | int | Active control source: 0=none, 1=DMX, 2=ArtNet, 3=EtherDream, 4=Helios (network), 5=Internal, 6=WebUI, 7=sACN, 8=OSC |
 | `master_dimmer` | int | Effective master brightness (0–255) |
 | `dmx_frame_count` | int | Running count of received DMX frames |
-| `points_per_sec` | int | Current galvo output rate (pps) |
+| `points_per_sec` | int | Galvo output rate (pps), averaged over the interval since this field was last read (not a fixed 1 s window) — a client that polls rarely sees a longer-window average, not a stale instant value |
 | `fps` | int | Drawn frames per second |
 | `buffer_fill` | int | Ring buffer fill level (%) |
 | `last_dmx_age_ms` | int | ms since last DMX frame (−1 if never received) |
@@ -118,6 +118,7 @@ Full system state. Polled by the WebUI every second.
 | `psram` | int | Free PSRAM (bytes) |
 | `cpu0` | int | Core 0 CPU load (%) |
 | `cpu1` | int | Core 1 CPU load (%) |
+| `cpu_temp` | float | ESP32-S3 internal die temperature (°C) |
 | `ip` | string | Current IP address |
 | `rssi` | int | Wi-Fi signal strength (dBm) |
 | `uptime_s` | int | Uptime in seconds |
@@ -916,7 +917,7 @@ Metadata only — no download. Useful for a quick "what would I be downloading" 
 
 ### `POST /api/restore`
 
-Body: a full backup document (as produced by `GET /api/backup`). Validates every field; applies and persists to NVS only if nothing is rejected, then reboots.
+Body: a full backup document (as produced by `GET /api/backup`). The request body is accumulated across TCP chunks (a real backup document is several KB, well past a single chunk) and parsed once complete, up to a 64 KB cap. Validates every field; applies and persists to NVS only if nothing is rejected, then reboots.
 
 **Response (success):**
 

@@ -8,6 +8,21 @@ The WebUI carries its own independent `UI_VERSION`; it is not tracked separately
 
 ---
 
+## 6.8x — Dashboard telemetry (2026-08-19)
+
+- **6.80** — The Dashboard admits the ESP32 has a temperature too: a new `cpu_temp`
+  field (`/api/state`) reads the SoC's internal die sensor, plotted alongside the
+  DS18B20 probes on the Temperature History chart and shown as its own System card
+  field. Buffer Fill and Wi-Fi RSSI each get their own scrolling history chart —
+  previously only their instantaneous values were visible in the Telemetry card — with
+  RSSI showing green/yellow/red good/medium/bad zone bands instead of raw dBm numbers.
+  The six Dashboard charts are now laid out as an actual 3×2 grid, and the four
+  single-metric ones (CPU Load, Galvo Output Rate, Buffer Fill, RSSI) grew a min/avg/max
+  readout under them — skipped on the multi-series Temperature/Frame charts, where a
+  blended min/avg/max across unrelated series wouldn't mean anything.
+
+---
+
 ## 6.7x — Output rate autotune (2026-08-19)
 
 - **6.79.1** — `points_per_sec` returned a wrapped garbage value after long polling gaps.

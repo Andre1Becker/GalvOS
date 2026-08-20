@@ -128,6 +128,8 @@ Live readouts updated every second:
 - **Last DMX activity** — time since the last DMX frame arrived. Goes red if DMX signal is lost.
 - **WebUI Override checkbox** — makes the WebUI take priority over DMX/Art-Net.
 
+The six charts below sit together in one grid (three columns on a wide screen, collapsing to two then one as the viewport narrows). The four single-metric ones (CPU Load, Galvo Output Rate, Buffer Fill, WiFi Signal) each get a min/avg/max readout under the chart, over whatever span is currently on screen; the two multi-series ones (Temperature, Frame Composition) skip it, since a blended min/avg/max across unrelated series wouldn't mean anything.
+
 ### CPU Load Graph
 
 A scrolling 60-second graph of both core loads:
@@ -141,15 +143,16 @@ A scrolling 60-second graph of both core loads:
 
 ![Temperature History chart](assets/screenshots/card_temp.png)
 
-A colour-coded scrolling chart of all DS18B20 sensor readings:
+A colour-coded scrolling chart of all DS18B20 sensor readings, plus the ESP32-S3's own internal die temperature (violet):
 
 - 🔴 Laser diode module
 - 🟠 Driver board
 - 🟡 Galvo board
 - 🟢 PSU
 - 🔵 Ambient / chassis
+- 🟣 ESP32 CPU (internal die sensor, no external probe)
 
-Current temperatures are shown as a row of badges below the chart. Sensors that report as not connected are skipped entirely rather than drawn as a dead flatline. Per-sensor names, calibration offsets, and the display unit (°C/°F/K) are set on the [Thermal tab](#tab-thermal).
+Current temperatures are shown as a row of badges below the chart. Sensors that report as not connected are skipped entirely rather than drawn as a dead flatline; the CPU reading always shows since it needs no external probe. Per-sensor names, calibration offsets, and the display unit (°C/°F/K) are set on the [Thermal tab](#tab-thermal).
 
 ### Galvo Output Rate
 
@@ -163,6 +166,14 @@ A scrolling 5-minute history of the actual DAC output rate in kpps (points-per-s
 
 Shows how each rendered frame's points split between **Lit** (green) and **Blank** (orange) against the **Total** point count (grey) over the same 5-minute window. A high blank-to-lit ratio usually means the optimizer is spending a lot of the frame budget on travel/jump moves between shapes rather than visible content — useful when tuning optimizer profiles (Tab: Optimizer) or diagnosing why a complex pattern looks dim or flickery.
 
+### Buffer Fill Chart
+
+A scrolling history of the DAC output ring buffer's fill level (%), the same value shown live in the Telemetry card's buffer-fill readout — plotted over time so a sustained climb toward the warning (80%, yellow dashed) or critical (95%, red dashed) line is visible before it turns into an actual overflow, rather than only after flicker has already started.
+
+### WiFi Signal (RSSI) Chart
+
+A scrolling history of Wi-Fi signal strength in dBm, with green/yellow/red background bands instead of needing to memorize what a given dBm number means — strong (≥ −60 dBm), medium, and weak (≤ −75 dBm). Useful for correlating a controller that drops out of reach with a genuinely weak link versus some other cause (see the gateway-watchdog notes in [Troubleshooting](07-troubleshooting.md)).
+
 ### Zone Clipping Card
 
 A one-checkbox quick toggle for projection zone clipping — the full zone editor (polygon, outline projection) stays on the [Calibration tab](#tab-calibration). Handy for flipping the safety fence on/off without leaving the Dashboard.
@@ -171,7 +182,7 @@ A one-checkbox quick toggle for projection zone clipping — the full zone edito
 
 ![System card](assets/screenshots/card_system.png)
 
-System information in a compact multi-column field grid: firmware version, **UI version** (independent of firmware), hostname, IP address, Wi-Fi signal strength (RSSI), uptime, free heap (internal DRAM), free PSRAM, NTP time, and DAC/galvo status. It also carries the **SD card status plus Mount/Eject controls** — the full SD toolset lives on the [ILDA / SD tab](#tab-ilda--sd). The API auth token is on the **Access Credentials** card of the Configuration tab.
+System information in a compact multi-column field grid: firmware version, **UI version** (independent of firmware), hostname, IP address, Wi-Fi signal strength (RSSI), **CPU Temp** (ESP32-S3 internal die sensor), uptime, free heap (internal DRAM), free PSRAM, NTP time, and DAC/galvo status. It also carries the **SD card status plus Mount/Eject controls** — the full SD toolset lives on the [ILDA / SD tab](#tab-ilda--sd). The API auth token is on the **Access Credentials** card of the Configuration tab.
 
 > **Note:** there is no per-interface activity LED card. Interface enable/disable and debug logging live on the Configuration tab ([Control Interfaces](#control-interfaces)); per-interface activity is reported by the API (`/api/state` → `etherdream_connected`, `osc_active`, …).
 
@@ -643,10 +654,9 @@ Hardware configuration for the galvo scanner and laser module.
 
 ### Galvo Sample Rate Card
 
-- **Galvo rated speed** — set this to your galvo's datasheet kpps rating (Jolooyo JY-15K-BL = 15 kpps). This is the reference for PPS scaling in the optimizer.
-- **Output Sample Rate slider** — `galvo_kpps`: the actual ISR tick rate (12–60 kpps). **This is the most important hardware parameter.** Start at your galvo's rated speed and only increase if the hardware handles it without distortion.
-- Warning box — appears if the selected rate exceeds what is safe for the configured scan angle.
-- **Autotune** — binary search for the highest kpps that avoids ring buffer overflow. Start a real pattern before running this for a meaningful result.
+- **Galvo rated speed** — set this to your galvo's datasheet kpps rating (Jolooyo JY-15K-BL = 15 kpps). This is the PPS-scaling reference the optimizer's parameters are tuned against ([Chapter 5 — PPS Scaling](05-optimizer.md#pps-scaling)) — a **mechanical** point-rate figure, distinct from the DAC sample clock below.
+- **Output Sample Rate slider** — `galvo_kpps`: the actual ISR tick rate (12–60 kpps, defaults its range to at least 60 regardless of rated speed, since running well above the mechanical rating is normal oversampling, not a fault). **This is the most important hardware parameter.** Start at your galvo's rated speed and only increase if the hardware handles it without distortion — use [`GET /api/state`'s `points_per_sec` against `/api/projection`'s `kpps`](08-api-reference.md#get-apistate) to confirm the board is actually delivering the commanded rate, since it silently stops keeping up well before ring-buffer overflow would tell you.
+- **Autotune** — binary search for the highest kpps this specific board can sustain without falling short of the commanded rate. Start a real pattern (`master_dimmer` > 0) before running this — an idle/blanked output can't overflow at any rate and would make every trial pass regardless of the true ceiling.
 - **Period readout** — shows the calculated µs per DAC sample at the current rate.
 - **💾 Apply & Save** — writes kpps and rated_kpps to NVS.
 
@@ -655,7 +665,7 @@ Hardware configuration for the galvo scanner and laser module.
 Physical angles of the galvo and housing setup — used for the projection geometry calculator and safety assessment:
 
 - **Mechanical Half-Angle** — galvo mirror maximum deflection (±°).
-- **Housing Exit Half-Angle** — actual beam exit limit (typically smaller than galvo limit).
+- **Housing Exit Half-Angle** — actual beam exit limit (typically smaller than galvo limit). The Sample Rate card shows an informational line below it stating how many distinct points the mirror can mechanically track at this exit angle, derated from the datasheet figure — the DAC sample clock exceeding that number is normal oversampling, not a problem to fix.
 - **ILDA Rating Half-Angle** — standard ±8°; only change if your galvo's datasheet specifies a different rating angle.
 
 ### Laser Module Power Card

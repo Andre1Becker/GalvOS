@@ -22,6 +22,7 @@
   - [6. diagnose](#6-diagnose)
   - [7. autotune-camera](#7-autotune-camera)
   - [8. autotune-colors](#8-autotune-colors)
+  - [9. regress](#9-regress)
   - [Standalone: analyze-live](#standalone-analyze-live)
   - [Standalone: calibrate-warp](#standalone-calibrate-warp)
   - [Standalone: measure-resonance](#standalone-measure-resonance)
@@ -78,7 +79,7 @@ pip install -r requirements.txt
 
 | File | Purpose |
 | --- | --- |
-| `camConfig.json` | Runtime config — ESP32 base URL, camera index/resolution/exposure, DAC calibration range, cost weights, diagnose thresholds, HTTP timeout/retry settings. Created by `wizard` on first run. |
+| `camConfig.json` | Runtime config — ESP32 base URL, camera index/resolution/exposure, DAC calibration range, cost weights, diagnose thresholds, HTTP timeout/retry settings, per-profile camera overrides (`profileCamera`, see [autotune-camera](#7-autotune-camera)). Created by `wizard` on first run. |
 | `homography.npz` | Pixel→DAC homography matrix plus the stored background frame, written by `calibrate`. Required by `measure`, `optimize`, and `diagnose`. |
 | `searchSpace.json` | Parameter ranges per camera-tunable optimizer profile (`Vector`, `Smooth`, `Waves`, `MultiObject`, `Wireframe`, `Text`, `Particles`). Regenerated with sensible defaults by `optimize`/`diagnose --autotune` if missing (same first-run behavior as `camConfig.json`) — edit the result if you widen a parameter's firmware-side limits. An **existing** file is never rewritten, so one created before v6.75.0 has no `Wireframe`/`Text`/`Particles` block and those profiles are silently skipped by `optimize`; the tool warns when it detects this — delete the file to regenerate it, or copy the missing blocks in by hand. |
 | `results/` | `optuna_study.db` (resumable search state), per-trial `.jsonl` logs, best-parameter JSON snapshots, and saved camera frames from `measure`/`calibrate`., interactive runs offer to clean up stale files here (everything except the `.db`) at startup. |
@@ -247,6 +248,10 @@ python optimizeGalvo.py autotune-camera --trials 30 --apply
 
 Tunes the camera's own **capture** settings — gain, `binaryThreshold`, `accumFrames` — instead of firmware parameters, which are left exactly as currently live. `exposure` is deliberately **not** in the search: it is fixed by the laser's frame period, for the reasons in [The Shutter Must Span a Whole Frame](#the-shutter-must-span-a-whole-frame). Useful when `measure`/`diagnose` results look inconsistent for reasons that turn out to be the camera, not the beam: washed-out captures, blooming, background noise. Saturated pixels are flagged as their own metric (`saturationFrac`) — a global-shutter sensor blooms into neighboring pixels at saturation, which can otherwise inflate path-deviation/corner-hotspot readings with a camera artifact rather than a real scan problem; `diagnose` will suggest running this command instead of `optimize` when it detects that. On apply, updates `camConfig.json` and refreshes `homography.npz`'s stored background to match the new exposure/gain (background is exposure-dependent, so a stale one would corrupt every later diff-subtraction).
 
+By default it measures against `square`/`circle`/`segments` — a reasonable general-purpose set, but a poor fit for any profile whose pattern sits at a very different lit duty cycle than those three (e.g. `particles`, made of isolated sub-millisecond dwells at ~38% lit against `square`/`circle`'s ~97-99%): a shutter/threshold tuned on the bright default set can end up shorter than a single dot and capture almost nothing of the sparse one. `--profile <name>` scopes the whole run to that firmware profile — defaults `--patterns` to the profile's own pattern(s), tunes against the *dimmest searchable configuration* of that profile rather than whatever happens to be live (so the tuned settings don't go blind the moment `optimize` searches toward a smaller/dimmer point), and on apply saves the result under `camConfig.json`'s `profileCamera[<name>]` instead of overwriting the global capture settings. `optimize`/`measure`/`diagnose` then apply a profile's `profileCamera` override automatically (with a fresh background grab) whenever that profile is what's being measured, leaving every other profile on the global settings. `--patterns` overrides the pattern set directly, with or without `--profile`.
+
+A capture that sees nothing at all (`cost` scored at the fixed `blindCapture` weight) can no longer win a trial outright — only among trials that actually saw the beam is the best one chosen, so a too-short shutter/too-high threshold can no longer look like the answer just because it produced a clean, empty frame.
+
 ### 8. autotune-colors
 
 ```bash
@@ -264,6 +269,16 @@ Two things make this command different from `optimize`:
 
 - **No session rollback in firmware.** `gain_*`/`thresh_*` are live calibration values, not optimizer-profile overrides — every value tested during the search is a real, permanent-until-changed mutation. The script therefore always restores the *original* values afterwards (including on Ctrl+C, `q`, or error) unless you confirm applying the found ones (`--apply` → `/api/calib-live` + `/api/calib-save`).
 - **No homography needed.** Brightness matching is photometric, not geometric, so `calibrate` is not a prerequisite. Instead it starts with an interactive exposure check against a live feed (`+`/`-` to adjust, `c` to continue) — a too-dark exposure can make a near-threshold beam invisible and silently bias every reading, and there is no scored ground truth here for a search to catch that automatically.
+
+### 9. regress
+
+```bash
+python optimizeGalvo.py regress --tier simple --tier medium
+```
+
+A pass/fail regression suite for the point optimizer, meant to run after a firmware change touching `point_optimizer.cpp` — CI/pre-flight gate, not day-to-day tuning. Measures every calib pattern in the selected tier(s) with whatever parameters are currently live (read-only, same philosophy as `diagnose` — no override) and classifies each with the exact `classifyProfile()` logic `diagnose` uses; a pattern passes iff its verdict is OK. Tiers are grouped by structural complexity rather than by real preset name: `simple` (`square`, `star`, `circle`), `medium` (`spiral`, `segments`), `heavy` (`wireframe`, `text`, `particles`). Repeat `--tier` for more than one; omit it to run all three.
+
+Prints a pass/fail verdict and duration per pattern, saves `results/regress_<timestamp>.json` with every metric plus a `results/regress_<pattern>_<timestamp>.png` per pattern, and exits non-zero if anything failed. Requires an existing `homography.npz` — run `calibrate` first.
 
 ### Standalone: analyze-live
 
@@ -325,7 +340,7 @@ Every measurement reduces to a single weighted cost (`costWeights` in `camConfig
 
 | Metric | What it catches |
 | --- | --- |
-| `pathDeviationRms` | How far the traced beam deviates from the ideal geometry — corner dwell and interior density problems. |
+| `pathDeviationRms` | How far the traced beam deviates from the ideal geometry — corner dwell and interior density problems. The cost term is the *excess* over the rig's own optical beam width (same per-measurement floor `diagnose`'s verdict uses: `max(pathDeviationRmsMinUnits, pathDeviationBeamWidthFactor × beamWidthUnits)`), so a beam sitting exactly on the ideal path costs nothing regardless of how wide the rig's own beam happens to be — only `measure`'s raw printed value is unfloored. |
 | `blankLeakage` | Laser visible during a blank jump — insufficient hold-off or blanking overshoot. |
 | `cornerHotspot` | Excess brightness pooling at a corner — too much dwell relative to the rest of the shape. |
 | `brightnessNonUniformity` | Uneven brightness along a continuous curve — interior density or velocity-easing issues. |
@@ -354,4 +369,6 @@ Practical upshot: `optimize --apply` (or `diagnose --autotune --apply`) is what 
 
 This tool projects real geometry through the real laser via the normal `calib_active` render path — every hardware safety interlock in [Chapter 1](01-introduction.md#safety-interlock-chain) still applies unchanged (E-Stop, scan-fail, watchdog, ARM). Running an unattended multi-hour `optimize` session does not relax any of the precautions in [Chapter 1's Safety section](01-introduction.md#safety--read-this-first) — beam containment and eye protection rules apply exactly as they do to any other armed session.
 
-Every command that projects a pattern first checks that the laser is **armed and the safety chain is green**, and refuses to start otherwise. Arming stays a deliberate manual action in the WebUI; the script never arms the laser itself.
+Every command that projects a pattern first checks that the laser is **armed and the safety chain is green** (E-Stop, scan-fail, `laser_armed`), and **always aborts** otherwise — this is unconditional, not an interactive prompt, since silently continuing would just burn a settle+capture cycle on a blank frame and report misleading metrics. The only way past it is `--allow-unarmed`, a deliberate, explicit opt-in for bench-testing the capture/scoring pipeline with no live beam; it does not and cannot make the beam fire, since the firmware's own interlocks are the actual enforcement and don't care what the script sends. Arming itself stays a deliberate manual action in the WebUI; the script never arms the laser.
+
+On the way out, the script doesn't just trust a `200 OK` from stopping the pattern — it re-reads `/api/state`'s `calib_active` to confirm the stop actually took effect, retrying a few times before giving up. An unconfirmed stop is reported as a critical failure independent of whatever the triggering command itself returned.

@@ -267,6 +267,8 @@ Not every contribution needs a compiler. Community presets are JSON bundles host
 
 See [`community-presets/shooting-stars-v1.json`](../community-presets/shooting-stars-v1.json) for a complete example.
 
+`optimizer_profile` values are **raw**, not effective — the bundle carries no `galvo_rated_kpps` of its own, so the receiving device applies its own [PPS Scaling](05-optimizer.md#pps-scaling) anchor on top of whatever you tuned against. Tune on a device set to the firmware's datasheet default (`galvo_rated_kpps` = 15) so a preset built on one controller lands with the same effective density/velocity/acceleration on another.
+
 ### Workflow
 
 1. **Open the builder** — [`community-presets/builder.html`](../community-presets/builder.html) runs entirely offline in your browser. No backend, no install, no excuses.

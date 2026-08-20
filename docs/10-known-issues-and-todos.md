@@ -87,10 +87,6 @@ None known at least...
 **Status:** Open  
 **Detail:** The Dashboard Telemetry card maps `state.source` through the array `['DMX','ArtNet','EtherDream','Helios','OSC','sACN','Internal']`, but the firmware's `ControlSource` enum is `0=none, 1=DMX, 2=ArtNet, 3=EtherDream, 4=Helios, 5=Internal, 6=WebUI, 7=sACN, 8=OSC` — so e.g. an active DMX source (1) displays as "ArtNet" and WebUI (6) displays as "Internal". One-line fix in `data/index.html` (`dash-source` handler).
 
-### Add a Restore button - not just text
-
-**Status:** Planned
-
 ### Inverse filter has no UI
 
 **Status:** Open
@@ -100,6 +96,11 @@ None known at least...
 
 **Status:** Open
 **Detail:** `docs/index.html` (served at [www.galvos.de](https://www.galvos.de)) is a standalone browser simulation of the WebUI, maintained by hand. It is not built from `data/index.html`, so it lags behind whenever the real UI changes.
+
+### WebUI screenshots in Chapter 4 are stale
+
+**Status:** Open
+**Detail:** Every screenshot in `docs/assets/screenshots/` was captured against UI v1.5.3 (2026-07-30); the WebUI is currently at v1.25.0. The overall Dashboard layout (Safety & Arm / System / Telemetry top row) still matches, but a fair amount has moved since — mobile-nav fixes, the Optimizer/Projection tab reworks, and the v6.80.0 Dashboard chart grid are all unshown. Concretely: `tab_dashboard.png`, `card_system.png`, and `card_cpu.png` no longer match the current layout, and there is no screenshot yet for the new Buffer Fill / WiFi RSSI charts. Screenshots are captured live from a running device via `scripts/capture_screenshots.py` (see the screenshot note near the top of [Chapter 4](04-ui-guide.md)) — needs a real board on hand to redo, which wasn't available when this was logged.
 
 ---
 
