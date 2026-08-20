@@ -1,5 +1,7 @@
 # Chapter 11 — Glossary & Terminology
 
+*Previous: [Chapter 10 — Known Issues & Todos](10-known-issues-and-todos.md)*
+
 > A laser show controller touches a surprisingly wide range of disciplines — electronics, embedded systems, optics, networking, signal processing, and photobiology. This glossary collects the abbreviations and technical terms used throughout the GalvOS documentation and explains each one in plain language.
 
 Terms are grouped by topic. If you are looking for a specific abbreviation, use your browser's Find function (Ctrl+F / Cmd+F).
@@ -426,3 +428,7 @@ The maximum laser power or energy density that the eye or skin can be exposed to
 
 **Scan-fail safety**
 A hardware interlock that detects whether the galvo mirrors are actually scanning. In GalvOS, the NE555 (U11) is triggered by AC-coupled activity on the DAC VOUTA output. If the galvos stop moving (firmware hang, DAC failure), the NE555 times out and the safety system disarms the laser. This prevents the stationary beam from burning a spot.
+
+---
+
+*Next: [Back to README](../README.md) · [CHANGELOG](../CHANGELOG.md)*

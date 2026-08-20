@@ -1,5 +1,7 @@
 # Chapter 8 — API Reference
 
+*Previous: [Chapter 7 — Troubleshooting](07-troubleshooting.md)*
+
 The GalvOS REST API is served by the ESP32 WebUI server (ESPAsyncWebServer) at `http://<device-ip>/api/`. The WebUI itself uses this API exclusively — everything the browser can do, an external system can do too.
 
 ## Table of Contents
@@ -1892,3 +1894,7 @@ Both routes share one body handler and behave identically otherwise:
 - **Nothing reboots automatically on success** — call [`POST /api/reboot`](#post-apireboot) when every part of a multi-step update has finished.
 
 > `ArduinoOTA` (IDE/CLI push on port 3232, same password) runs in parallel and is unaffected by these routes.
+
+---
+
+*Next: [Chapter 9 — Contributing](09-contributing.md)*

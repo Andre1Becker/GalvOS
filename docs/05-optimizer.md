@@ -1,5 +1,7 @@
 # Chapter 5 — The Optimizer
 
+*Previous: [Chapter 4 — UI Guide](04-ui-guide.md)*
+
 > If Chapter 3 was about telling the firmware what hardware you have, and Chapter 4 was about clicking buttons, this chapter is about understanding what happens between those two things. The optimizer is the core of GalvOS — the piece of software that turns a list of geometric vertices into a sequence of DAC samples that the galvo mirrors can actually follow without vibrating, blurring, or drawing lines in the dark.
 
 ## Table of Contents
@@ -522,3 +524,7 @@ Full table of all optimizer parameters, their defaults, valid ranges, and effect
 | `jitter_amount_units` | 80.0 | 0–2000 | <img src="assets/animations/jitter.svg" width="64" height="64" alt=""> Maximum perpendicular jitter offset in DAC units. Deterministic per point (hash-based, not random per frame) — lines wobble, they don't shimmer. Corners, budgets, and dwell counts are computed *before* jitter, so it never destabilizes the pipeline. |
 | `reorder_segments` | false | bool | Nearest-neighbour jump-order optimization (see [Stage 2.5](#stage-25--segment-reorder-optional)). Shortens total blank-jump distance for multi-segment calls (wireframes, text, paint) by reordering visitation order instead of drawing segments in input order. Disabled = byte-identical output. |
 | `reorder_2opt` | false | bool | 2-opt refinement of the nearest-neighbour tour — bounded block reversals that remove the crossings a greedy order leaves behind. Requires `reorder_segments`; skipped above a per-frame segment-count cap. |
+
+---
+
+*Next: [Chapter 6 — Camera-in-the-Loop Auto-Tuning](06-camera-autotuning.md)*

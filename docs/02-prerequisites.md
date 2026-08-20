@@ -1,5 +1,7 @@
 # Chapter 2 — Prerequisites
 
+*Previous: [Chapter 1 — Introduction](01-introduction.md)*
+
 ## Table of Contents
 
 - [Who Is This For?](#who-is-this-for)
@@ -199,3 +201,7 @@ Work through this list before you power up anything with the laser connected.
 - [ ] Safety system tested: E-Stop button drops laser rail, watchdog timeout cuts relay
 
 Only once all boxes are checked should you run the laser at full power in an uncontrolled environment.
+
+---
+
+*Next: [Chapter 3 — Build & Configuration](03-build-and-config.md)*

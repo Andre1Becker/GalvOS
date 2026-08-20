@@ -1,5 +1,7 @@
 # Chapter 3 — Build & Configuration
 
+*Previous: [Chapter 2 — Prerequisites](02-prerequisites.md)*
+
 ## Table of Contents
 
 - [Repository Setup](#repository-setup)
@@ -489,3 +491,7 @@ esptool.py --port /dev/ttyUSB0 erase_region 0xF20000 0x40000
 Confirm the offset for your build first (`pio run --target buildfs` prints the table, or read `partitions.csv`) — erasing the wrong region wipes the filesystem or an app slot. When in doubt, `esptool.py erase_flash` and reflash everything.
 
 > **Note:** Wi-Fi credentials are stored in NVS. After a reset the device no longer knows any network, so it falls back to its own AP (SSID `Laser-XXXX`) — see [Chapter 4 → Accessing the WebUI](04-ui-guide.md#accessing-the-webui) for the credentials.
+
+---
+
+*Next: [Chapter 4 — UI Guide](04-ui-guide.md)*

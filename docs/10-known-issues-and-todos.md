@@ -1,5 +1,7 @@
 # Chapter 10 — Known Issues & Todos
 
+*Previous: [Chapter 9 — Contributing](09-contributing.md)*
+
 > This is an honest list. Every project has rough edges — GalvOS more than most, because it is a one-person hardware/firmware/UI project that started as a dimmer fix and grew considerably beyond that. Nothing here is hidden. If you run into one of these, you are not doing it wrong.
 
 ## Table of Contents
@@ -150,3 +152,7 @@ The Dashboard label array skipped SRC_NONE and SRC_WEBUI, so DMX
 displayed as ArtNet and WebUI as Internal.
 Resolves: "Telemetry \"Source\" label mismatch" (docs/10-known-issues-and-todos.md)
 ```
+
+---
+
+*Next: [Chapter 11 — Glossary & Terminology](11-glossary.md)*

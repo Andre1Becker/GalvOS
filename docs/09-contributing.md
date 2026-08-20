@@ -1,5 +1,7 @@
 # Chapter 9 — Contributing
 
+*Previous: [Chapter 8 — API Reference](08-api-reference.md)*
+
 GalvOS is a one-person project that grew considerably beyond its original scope. Community contributions are genuinely welcome — there are known bugs to fix, patterns to add, animations to repair, and features that need a second pair of hands. This chapter explains how the codebase is structured, what the code standards are, and the exact workflow for submitting changes.
 
 ## Table of Contents
@@ -569,3 +571,7 @@ Roughly in priority order:
 - Host-compile test harness (`cfg_stub.h`) — improve coverage
 - Automated JS syntax check in CI
 - OTA update reliability improvements
+
+---
+
+*Next: [Chapter 10 — Known Issues & Todos](10-known-issues-and-todos.md)*

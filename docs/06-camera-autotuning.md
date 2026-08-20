@@ -1,5 +1,7 @@
 # Chapter 6 — Camera-in-the-Loop Auto-Tuning
 
+*Previous: [Chapter 5 — The Optimizer](05-optimizer.md)*
+
 > Chapter 5 explained what the optimizer does. This chapter explains how to stop guessing at its parameters by hand and let a camera and a search algorithm do it instead. Turning `max_corner_pts` up by one, projecting, squinting at the beam, turning it back down — that loop gets old fast. This one replaces the squinting with a webcam and a cost function.
 
 ## Table of Contents
@@ -372,3 +374,7 @@ This tool projects real geometry through the real laser via the normal `calib_ac
 Every command that projects a pattern first checks that the laser is **armed and the safety chain is green** (E-Stop, scan-fail, `laser_armed`), and **always aborts** otherwise — this is unconditional, not an interactive prompt, since silently continuing would just burn a settle+capture cycle on a blank frame and report misleading metrics. The only way past it is `--allow-unarmed`, a deliberate, explicit opt-in for bench-testing the capture/scoring pipeline with no live beam; it does not and cannot make the beam fire, since the firmware's own interlocks are the actual enforcement and don't care what the script sends. Arming itself stays a deliberate manual action in the WebUI; the script never arms the laser.
 
 On the way out, the script doesn't just trust a `200 OK` from stopping the pattern — it re-reads `/api/state`'s `calib_active` to confirm the stop actually took effect, retrying a few times before giving up. An unconfirmed stop is reported as a critical failure independent of whatever the triggering command itself returned.
+
+---
+
+*Next: [Chapter 7 — Troubleshooting](07-troubleshooting.md)*

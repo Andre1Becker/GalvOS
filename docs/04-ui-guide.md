@@ -1,5 +1,7 @@
 # Chapter 4 — UI Guide
 
+*Previous: [Chapter 3 — Build & Configuration](03-build-and-config.md)*
+
 The GalvOS WebUI is a single-page application served directly from the ESP32's LittleFS flash. No internet connection required, no app to install — open a browser and go.
 
 ## Table of Contents
@@ -796,3 +798,7 @@ Because "I remember my DAC limits" is not a disaster recovery plan.
 - **Hardware Test (direct galvo/laser)** — positions the beam directly: X/Y sliders, R/G/B channel toggles, corner/center jump buttons, **Reset**, **All Off**, and **Exit Debug**. While active it blocks normal pattern output.
 - **Status** — the current preset and a tail of the log, so you can see what the device thinks it is doing without switching tabs.
 - **OTA Update** — firmware update via HTTP at `http://laser/update` (admin / your password). The page itself covers firmware and WebUI updates, a config backup shortcut, and a reboot button — see [Chapter 3 — Wireless / OTA Update](03-build-and-config.md#wireless--ota-update).
+
+---
+
+*Next: [Chapter 5 — The Optimizer](05-optimizer.md)*

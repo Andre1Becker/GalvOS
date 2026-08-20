@@ -1,5 +1,7 @@
 # Chapter 1 — Introduction
 
+*Previous: [README](../README.md)*
+
 ## Table of Contents
 
 - [The Origin Story](#the-origin-story)
@@ -239,3 +241,7 @@ The `safety::lastFailsafeReason()` function stores the reason for the last shutd
 ---
 
 **Heads-up**: *This complete project is - i hate that wording - "vibe coded"*. It is amazing how much you can do with the help of an LLM without knowing anything about a specific topic. I've learned so much about all sub topics that this projects touches.
+
+---
+
+*Next: [Chapter 2 — Prerequisites](02-prerequisites.md)*

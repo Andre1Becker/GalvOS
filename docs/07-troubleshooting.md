@@ -1,5 +1,7 @@
 # Chapter 7 — Troubleshooting
 
+*Previous: [Chapter 6 — Camera-in-the-Loop Auto-Tuning](06-camera-autotuning.md)*
+
 > Things go wrong. This chapter documents what they look like, why they happen, and what to do about them. The tables are kept terse on purpose — if you are here, you probably want the answer, not a lecture.
 
 ## Table of Contents
@@ -442,3 +444,7 @@ A quick-reference index of open issues documented in [Chapter 10](10-known-issue
 | --- | --- | --- |
 | Calibration channel selector not working | Minor | Calibrate with RGB combined |
 | ILDA Standard Test Pattern bad output | Minor | Use Crosshair/Grid patterns instead |
+
+---
+
+*Next: [Chapter 8 — API Reference](08-api-reference.md)*
