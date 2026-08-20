@@ -27,10 +27,10 @@
 // preset generators are re-synced with src/patterns/preset_patterns.cpp.
 // SIM_UI_VERSION mirrors data/index.html's own UI_VERSION constant, which the
 // WebUI bundle below is copied from verbatim.
-const SIM_VERSION    = '1.1.1';
-const FW_VERSION     = '6.73.1';
-const FW_COMMIT      = 'f708417';
-const SIM_UI_VERSION = '1.21.1';
+const SIM_VERSION    = '1.2.0';
+const FW_VERSION     = '6.80.0';
+const FW_COMMIT      = '5d79b9a';
+const SIM_UI_VERSION = '1.25.0';
 
 // Reference animation frame period (pattern_engine.cpp's kAnimPhaseFrameMs).
 // The firmware advances the integer preset phase by wall-clock time / 40ms,
@@ -1672,6 +1672,496 @@ function identityGain(size) {
 SIM_STORE.warp.points = identityWarp(2);
 SIM_STORE.brightness.gain = identityGain(2);
 
+/* ══════════════════════════════════════════════════════════════════════
+   Paint by Finger / Text Mode / Laser Welding — beam-preview renderers
+   ══════════════════════════════════════════════════════════════════════
+   Ports src/patterns/paint_patterns.cpp, text_renderer.cpp and the
+   weld_path.h/weld_patterns.cpp Welding effect so the #sim-scan preview
+   actually shows what these three modes project, matching
+   pattern_engine.cpp's source priority (Text > Paint > Preset) -- until
+   now the preview only ever rendered GEN[simUI.preset], so switching to
+   Paint/Text (with or without Welding) left the canvas showing whatever
+   preset was selected before. */
+
+/* ── Paint canvas -> Frame ───────────────────────────────────────────
+   paint::generate() (paint_patterns.cpp): each stroke is already a plain
+   list of galvo-unit vertices with one uniform color, exactly what
+   Frame.seg() wants. */
+function buildPaintFrame(strokes) {
+  const f = new Frame();
+  (strokes || []).forEach(function(s) {
+    if (!s || !s.x || !s.y) return;
+    const n = Math.min(s.x.length, s.y.length);
+    if (n < 2) return;
+    const verts = [];
+    for (let i = 0; i < n; i++) verts.push(V(s.x[i], s.y[i], s.r, s.g, s.b));
+    f.seg(verts, !!s.closed);
+  });
+  return f;
+}
+
+/* ── Vector font -- transcribed from text_renderer.cpp's FONT_* tables ──
+   Same (x,y) stroke data, PU=pen-up, EN=terminator, coordinate space
+   x∈[-5,5] y∈[-7,7] (+y=up). Kept as flat arrays + a shared parser
+   (mirrors renderGlyph()'s own loop) instead of hand-splitting each
+   glyph, so the two stay comparable stroke-for-stroke against the C++
+   source during a future re-sync. */
+const GLYPH_PU = 126, GLYPH_EN = 127;
+const FONT_RAW = {
+  ' ': [GLYPH_EN, GLYPH_EN],
+  'A': [-4,-7, 0,7, 4,-7, GLYPH_PU,0, -3,-2, 3,-2, GLYPH_EN,GLYPH_EN],
+  'B': [-4,-7,-4,7, GLYPH_PU,0,-4,7,1,7,3,5,3,2,1,0,-4,0, GLYPH_PU,0,-4,0,1,0,3,-2,3,-5,1,-7,-4,-7, GLYPH_EN,GLYPH_EN],
+  'C': [4,-5,2,-7,-2,-7,-4,-5,-4,5,-2,7,2,7,4,5, GLYPH_EN,GLYPH_EN],
+  'D': [-4,-7,-4,7, GLYPH_PU,0,-4,7,1,7,4,4,4,-4,1,-7,-4,-7, GLYPH_EN,GLYPH_EN],
+  'E': [-4,7,4,7, GLYPH_PU,0,-4,7,-4,-7, GLYPH_PU,0,-4,-7,4,-7, GLYPH_PU,0,-4,0,2,0, GLYPH_EN,GLYPH_EN],
+  'F': [-4,7,4,7, GLYPH_PU,0,-4,7,-4,-7, GLYPH_PU,0,-4,0,2,0, GLYPH_EN,GLYPH_EN],
+  'G': [4,5,2,7,-2,7,-4,5,-4,-5,-2,-7,2,-7,4,-5,4,0,1,0, GLYPH_EN,GLYPH_EN],
+  'H': [-4,-7,-4,7, GLYPH_PU,0,4,-7,4,7, GLYPH_PU,0,-4,0,4,0, GLYPH_EN,GLYPH_EN],
+  'I': [-2,-7,2,-7, GLYPH_PU,0,0,-7,0,7, GLYPH_PU,0,-2,7,2,7, GLYPH_EN,GLYPH_EN],
+  'J': [4,7,4,-5,2,-7,-1,-7,-3,-5,-3,-3, GLYPH_EN,GLYPH_EN],
+  'K': [-4,-7,-4,7, GLYPH_PU,0,4,-7,-4,0, GLYPH_PU,0,-4,0,4,7, GLYPH_EN,GLYPH_EN],
+  'L': [-4,7,-4,-7, GLYPH_PU,0,-4,-7,4,-7, GLYPH_EN,GLYPH_EN],
+  'M': [-4,-7,-4,7,0,1,4,7,4,-7, GLYPH_EN,GLYPH_EN],
+  'N': [-4,-7,-4,7,4,-7,4,7, GLYPH_EN,GLYPH_EN],
+  'O': [-2,-7,-4,-5,-4,5,-2,7,2,7,4,5,4,-5,2,-7,-2,-7, GLYPH_EN,GLYPH_EN],
+  'P': [-4,-7,-4,7, GLYPH_PU,0,-4,7,2,7,4,5,4,2,2,0,-4,0, GLYPH_EN,GLYPH_EN],
+  'Q': [-2,-7,-4,-5,-4,5,-2,7,2,7,4,5,4,-5,2,-7,-2,-7, GLYPH_PU,0,1,-4,4,-7, GLYPH_EN,GLYPH_EN],
+  'R': [-4,-7,-4,7, GLYPH_PU,0,-4,7,2,7,4,5,4,2,2,0,-4,0, GLYPH_PU,0,-1,0,4,-7, GLYPH_EN,GLYPH_EN],
+  'S': [4,6,2,7,-2,7,-4,5,-4,2,-2,0,2,0,4,-2,4,-5,2,-7,-2,-7,-4,-6, GLYPH_EN,GLYPH_EN],
+  'T': [-4,7,4,7, GLYPH_PU,0,0,7,0,-7, GLYPH_EN,GLYPH_EN],
+  'U': [-4,7,-4,-5,-2,-7,2,-7,4,-5,4,7, GLYPH_EN,GLYPH_EN],
+  'V': [-4,7,0,-7,4,7, GLYPH_EN,GLYPH_EN],
+  'W': [-4,7,-2,-7,0,1,2,-7,4,7, GLYPH_EN,GLYPH_EN],
+  'X': [-4,-7,4,7, GLYPH_PU,0,4,-7,-4,7, GLYPH_EN,GLYPH_EN],
+  'Y': [-4,7,0,0, GLYPH_PU,0,4,7,0,0,0,-7, GLYPH_EN,GLYPH_EN],
+  'Z': [-4,7,4,7,4,5,-4,-5,-4,-7,4,-7, GLYPH_EN,GLYPH_EN],
+  '0': [-2,-7,-4,-5,-4,5,-2,7,2,7,4,5,4,-5,2,-7,-2,-7, GLYPH_PU,0,-3,-5,3,5, GLYPH_EN,GLYPH_EN],
+  '1': [-2,5,0,7,0,-7, GLYPH_PU,0,-3,-7,3,-7, GLYPH_EN,GLYPH_EN],
+  '2': [-4,5,-2,7,2,7,4,5,4,2,-4,-4,-4,-7,4,-7, GLYPH_EN,GLYPH_EN],
+  '3': [-4,6,-2,7,2,7,4,5,4,2,2,0, GLYPH_PU,0,2,0,4,-2,4,-5,2,-7,-2,-7,-4,-6, GLYPH_EN,GLYPH_EN],
+  '4': [4,-2,-4,-2,-1,7, GLYPH_PU,0,4,7,4,-7, GLYPH_EN,GLYPH_EN],
+  '5': [4,7,-4,7,-4,0,2,0,4,-2,4,-5,2,-7,-2,-7,-4,-5, GLYPH_EN,GLYPH_EN],
+  '6': [3,7,0,7,-4,4,-4,-5,-2,-7,2,-7,4,-5,4,-2,2,0,-4,0, GLYPH_EN,GLYPH_EN],
+  '7': [-4,7,4,7,4,5,-1,-7, GLYPH_EN,GLYPH_EN],
+  '8': [0,0,-4,2,-4,5,-2,7,2,7,4,5,4,2,0,0,-4,-2,-4,-5,-2,-7,2,-7,4,-5,4,-2,0,0, GLYPH_EN,GLYPH_EN],
+  '9': [4,2,4,5,2,7,-2,7,-4,5,-4,2,-2,0,4,0,4,-6,2,-7,-1,-7, GLYPH_EN,GLYPH_EN],
+  '.': [0,-7,0,-6, GLYPH_EN,GLYPH_EN],
+  ',': [0,-7,0,-6, GLYPH_PU,0,0,-7,-1,-9, GLYPH_EN,GLYPH_EN],
+  '!': [0,7,0,-2, GLYPH_PU,0,0,-5,0,-7, GLYPH_EN,GLYPH_EN],
+  '?': [-3,5,-2,7,2,7,4,5,4,3,0,0,0,-3, GLYPH_PU,0,0,-6,0,-7, GLYPH_EN,GLYPH_EN],
+  '-': [-3,0,3,0, GLYPH_EN,GLYPH_EN],
+  '+': [0,4,0,-4, GLYPH_PU,0,-4,0,4,0, GLYPH_EN,GLYPH_EN],
+  ':': [0,3,0,2, GLYPH_PU,0,0,-2,0,-3, GLYPH_EN,GLYPH_EN],
+  '#': [-2,5,-2,-5, GLYPH_PU,0,2,5,2,-5, GLYPH_PU,0,-4,2,4,2, GLYPH_PU,0,-4,-2,4,-2, GLYPH_EN,GLYPH_EN],
+  '@': [2,0,-1,0,-3,2,-3,5,-1,7,2,7,4,5,4,-5,2,-7,-2,-7,-4,-5,-4,5,-2,7, GLYPH_EN,GLYPH_EN],
+  '*': [0,5,0,-5, GLYPH_PU,0,-4,3,4,-3, GLYPH_PU,0,-4,-3,4,3, GLYPH_EN,GLYPH_EN]
+};
+const FONT_ADVANCE = {
+  ' ':10, 'A':10,'B':10,'C':10,'D':10,'E':10,'F':10,'G':10,'H':10,'I':6,'J':8,'K':10,'L':9,
+  'M':12,'N':10,'O':10,'P':10,'Q':11,'R':10,'S':10,'T':10,'U':10,'V':10,'W':12,'X':10,'Y':10,'Z':10,
+  '0':10,'1':7,'2':10,'3':10,'4':10,'5':10,'6':10,'7':10,'8':10,'9':10,
+  '.':6, ',':6, '!':6, '?':10, '-':8, '+':8, ':':6, '#':10, '@':12, '*':8
+};
+// parseGlyphSubpaths() -- mirrors renderGlyph()'s stroke-array walk: PU
+// flushes the current pen-down run and starts a new one, EN ends the glyph.
+function parseGlyphSubpaths(flat) {
+  const subs = []; let cur = [];
+  for (let i = 0; i < flat.length; i += 2) {
+    const sx = flat[i];
+    if (sx === GLYPH_EN) { if (cur.length) subs.push(cur); break; }
+    const sy = flat[i + 1];
+    if (sx === GLYPH_PU) { if (cur.length) subs.push(cur); cur = []; continue; }
+    cur.push([sx, sy]);
+  }
+  return subs;
+}
+const FONT_GLYPHS = {};
+Object.keys(FONT_RAW).forEach(function(ch) {
+  FONT_GLYPHS[ch] = { subpaths: parseGlyphSubpaths(FONT_RAW[ch]), advance: FONT_ADVANCE[ch] };
+});
+
+// sizeToScale() (text_renderer.cpp) -- glyph-unit -> world-unit scale.
+function sizeToScaleJs(sizeVal) {
+  const BASE_SCALE = 32767 * 0.85 / 14;
+  return BASE_SCALE * (0.1 + sizeVal / 255 * 0.9);
+}
+// textWidth() -- bug-compatible with the firmware: an unsupported char is
+// skipped (cursor still advances at render time, but the WIDTH sum does
+// not include it) -- a pre-existing quirk, not something to fix here.
+function textWidthJs(text) {
+  let w = 0;
+  for (let i = 0; i < text.length; i++) {
+    const g = FONT_GLYPHS[text[i].toUpperCase()];
+    if (g) w += g.advance;
+  }
+  return w;
+}
+function renderGlyphInto(f, glyph, ox, oy, sc, r, g, b, dxOff, dyOff) {
+  dxOff = dxOff || 0; dyOff = dyOff || 0;
+  glyph.subpaths.forEach(function(sub) {
+    if (sub.length < 2) return;
+    f.seg(sub.map(function(p) { return V(ox + p[0] * sc + dxOff, oy + p[1] * sc + dyOff, r, g, b); }), false);
+  });
+}
+// rainbow hue ramp -- same 6-sector formula as renderTextString()'s inline switch.
+function rainbowColor(hue) {
+  hue = hue - Math.floor(hue);
+  const h6 = hue * 6, hi = Math.floor(h6) % 6, fr = h6 - Math.floor(h6);
+  switch (hi) {
+    case 0: return [255, b255(255 * fr), 0];
+    case 1: return [b255(255 * (1 - fr)), 255, 0];
+    case 2: return [0, 255, b255(255 * fr)];
+    case 3: return [0, b255(255 * (1 - fr)), 255];
+    case 4: return [b255(255 * fr), 0, 255];
+    default: return [255, 0, b255(255 * (1 - fr))];
+  }
+}
+// centroidTransform() -- applies fn(dx,dy)->[dx,dy] to every vertex added to
+// `f` since `fromSeg`, around their shared centroid. Backs TANIM_ROTATE and
+// the Flip X/Y post-pass, both of which firmware applies to the whole
+// rendered string at once (renderTextString()'s tail).
+function centroidTransform(f, fromSeg, fn) {
+  let sx = 0, sy = 0, n = 0;
+  for (let i = fromSeg; i < f.segs.length; i++) for (const v of f.segs[i].v) { sx += v.x; sy += v.y; n++; }
+  if (!n) return;
+  const cx = sx / n, cy = sy / n;
+  for (let i = fromSeg; i < f.segs.length; i++)
+    for (const v of f.segs[i].v) { const p = fn(v.x - cx, v.y - cy); v.x = cx + p[0]; v.y = cy + p[1]; }
+}
+// renderTextStringFrame() -- port of renderTextString(): lays out one line
+// of `text` into Frame segments (one per glyph sub-path) starting at
+// (tx,ty), font size `sc`, then applies whole-string rotation/flip.
+function renderTextStringFrame(f, text, cfg, tx, ty, sc, rot, waveOn, waveT) {
+  rot = rot || 0; waveOn = !!waveOn; waveT = waveT || 0;
+  const fromSeg = f.segs.length;
+  let cx = tx;
+  for (let ci = 0; ci < text.length; ci++) {
+    const glyph = FONT_GLYPHS[text[ci].toUpperCase()];
+    if (!glyph) { cx += 10 * sc; continue; }
+    let charTy = ty;
+    if (waveOn) charTy += Math.sin(waveT + ci * 0.6) * sc * 3;
+    let r = cfg.col_r, g = cfg.col_g, b = cfg.col_b;
+    if (cfg.rainbow) { const c = rainbowColor(waveT * 0.5 + ci * 0.3); r = c[0]; g = c[1]; b = c[2]; }
+    const gx = cx + glyph.advance * 0.5 * sc;
+    if (cfg.font === 1) {                                        // FONT_BOLD
+      const off = sc * 0.25;
+      renderGlyphInto(f, glyph, gx, charTy, sc, r, g, b, -off * 0.5, 0);
+      renderGlyphInto(f, glyph, gx, charTy, sc, r, g, b,  off * 0.5, 0);
+    } else if (cfg.font === 2) {                                  // FONT_OUTLINE
+      const off = sc * 0.055, dr = b255(r / 3), dg = b255(g / 3), db = b255(b / 3);
+      renderGlyphInto(f, glyph, gx, charTy, sc, dr, dg, db,  off,  0);
+      renderGlyphInto(f, glyph, gx, charTy, sc, dr, dg, db, -off,  0);
+      renderGlyphInto(f, glyph, gx, charTy, sc, dr, dg, db,  0,   off);
+      renderGlyphInto(f, glyph, gx, charTy, sc, dr, dg, db,  0,  -off);
+      renderGlyphInto(f, glyph, gx, charTy, sc, r, g, b, 0, 0);
+    } else {                                                      // FONT_SIMPLE
+      renderGlyphInto(f, glyph, gx, charTy, sc, r, g, b, 0, 0);
+    }
+    cx += glyph.advance * sc;
+  }
+  if (Math.abs(rot) > 0.001) {
+    const cr = Math.cos(rot), sr = Math.sin(rot);
+    centroidTransform(f, fromSeg, function(dx, dy) { return [dx * cr - dy * sr, dx * sr + dy * cr]; });
+  }
+  if (cfg.flip_x || cfg.flip_y) {
+    centroidTransform(f, fromSeg, function(dx, dy) { return [cfg.flip_x ? -dx : dx, cfg.flip_y ? -dy : dy]; });
+  }
+}
+// TANIM_ORBIT -- wraps a flat rendered string onto a spinning sphere and
+// perspective-projects it. Firmware blanks (but still draws through) the
+// back hemisphere on the dense post-optimizer point buffer; the sim only
+// has the sparse pre-optimizer vertex list, so the back hemisphere is
+// dropped by splitting each glyph sub-path into its front-facing runs
+// instead -- visually equivalent (nothing lit on the far side either way).
+function buildOrbitFrame(f, text, cfg, displaySc, t) {
+  const orbitSc = displaySc * 0.55;
+  const otw = textWidthJs(text) * orbitSc;
+  const tmp = new Frame();
+  renderTextStringFrame(tmp, text, cfg, -otw / 2, 0, orbitSc);
+  if (!tmp.segs.length) return;
+  const R = 20000, focal = 42000, camZ = R + focal;
+  const spin = mod(t * 1.2 * (cfg.orbit_reverse ? -1 : 1), TAU);
+  const ARC = 1.4, fullW = Math.max(1, otw), kLon = ARC / fullW;
+  const LAT_BAND = 0.20, glyphHalf = Math.max(1, 7 * orbitSc), kLat = LAT_BAND / glyphHalf;
+  tmp.segs.forEach(function(seg) {
+    let run = [];
+    seg.v.forEach(function(v) {
+      const phi = v.x * kLon + spin, lat = v.y * kLat, clat = Math.cos(lat);
+      const X = R * Math.sin(phi) * clat, Y = R * Math.sin(lat), Z = R * Math.cos(phi) * clat;
+      const proj = focal / Math.max(camZ - Z, 1000);
+      if (Z >= 0) run.push(V(clamp(X * proj, -32767, 32767), clamp(Y * proj, -32767, 32767), v.r, v.g, v.b));
+      else { if (run.length > 1) f.seg(run, false); run = []; }
+    });
+    if (run.length > 1) f.seg(run, false);
+  });
+}
+// TANIM_STARWARS -- perspective crawl (own layout loop in generateImpl(),
+// not renderTextString() -- always FONT_SIMPLE/no rainbow, matching fw).
+function buildStarWarsFrame(f, text, cfg, displaySc, t) {
+  const SE = 32767, SPAN = 2 * SE;
+  const yBase = -SE + mod(t * 8000, SPAN);
+  const persp = clamp((SE - yBase) / SPAN, 0.05, 1.0);
+  const scaleP = displaySc * (0.2 + persp * 0.8);
+  const twP = textWidthJs(text) * scaleP;
+  const squeeze = 0.55 + 0.45 * persp;
+  let cx = -twP / 2;
+  for (let ci = 0; ci < text.length; ci++) {
+    const glyph = FONT_GLYPHS[text[ci].toUpperCase()];
+    if (!glyph) { cx += 10 * scaleP; continue; }
+    const gx = cx + glyph.advance * 0.5 * scaleP;
+    const fromSeg = f.segs.length;
+    renderGlyphInto(f, glyph, gx, yBase, scaleP, cfg.col_r, cfg.col_g, cfg.col_b, 0, 0);
+    for (let i = fromSeg; i < f.segs.length; i++)
+      for (const v of f.segs[i].v) v.y = yBase + (v.y - yBase) * squeeze;
+    cx += glyph.advance * scaleP;
+  }
+}
+// buildTextFrame() -- port of text_renderer.cpp's generateImpl(): picks the
+// display scale/animation and lays the string out into a Frame. `phase` is
+// the same wall-clock-paced integer simTick() already advances for presets
+// (kAnimPhaseFrameMs), matching how pattern_engine.cpp feeds its own phase
+// counter into textrender::generate() unmodified.
+function buildTextFrame(cfg, phase) {
+  const f = new Frame();
+  const text = (cfg.text || '').slice(0, 127);
+  if (!text) return f;
+  const sc = sizeToScaleJs(clamp(cfg.size, 0, 255));
+  const spd = clamp(cfg.speed, 0, 255) / 255;
+  const t = phase * spd * 0.08;
+  const fullLen = text.length;
+  let tw = textWidthJs(text) * sc;
+  const maxHalf = 30000, GLYPH_HALF_H = 7;
+  let anim = cfg.anim;
+  if (anim === 0 && fullLen > 16) anim = 1;             // TEXT_MAX_STATIC_CHARS auto-scroll
+  const scrolls = (anim === 1 || anim === 2);
+  const scH = (GLYPH_HALF_H * sc > maxHalf) ? maxHalf / GLYPH_HALF_H : sc;
+  const scW = (tw * 0.5 > maxHalf) ? sc * maxHalf / (tw * 0.5) : sc;
+  const displaySc = scrolls ? scH : Math.min(scH, scW);
+  if (displaySc !== sc) tw = textWidthJs(text) * displaySc;
+  const startX = -tw / 2, baseY = 0;
+
+  switch (anim) {
+    case 0: renderTextStringFrame(f, text, cfg, startX, baseY, displaySc); break;
+    case 1: { const SE = 32767, period = tw + 2 * SE, ox = SE - mod(t * 8000, period);
+              renderTextStringFrame(f, text, cfg, ox, baseY, displaySc); break; }
+    case 2: { const SE = 32767, period = tw + 2 * SE, ox = -tw - SE + mod(t * 8000, period);
+              renderTextStringFrame(f, text, cfg, ox, baseY, displaySc); break; }
+    case 3: { const SE = 32767, range = Math.max(1000, SE - tw * 0.5), bx = Math.sin(t * 2) * range;
+              renderTextStringFrame(f, text, cfg, startX + bx, baseY, displaySc); break; }
+    case 4: {                                                     // Typewriter
+      const fpc = Math.max(4, Math.round(255 * 12 / Math.max(1, cfg.speed)));
+      const cyc = fullLen + 3;
+      let visible = Math.floor(phase / fpc) % cyc;
+      if (visible > fullLen) visible = fullLen;
+      if (visible === 0) break;
+      const temp = text.slice(0, visible);
+      const vw = textWidthJs(temp) * displaySc;
+      renderTextStringFrame(f, temp, cfg, -vw / 2, baseY, displaySc);
+      break;
+    }
+    case 5: renderTextStringFrame(f, text, cfg, startX, baseY, displaySc, 0, true, t); break;
+    case 6: { const pulseSc = displaySc * (0.7 + 0.3 * Math.abs(Math.sin(t * 3))), pw = textWidthJs(text) * pulseSc;
+              renderTextStringFrame(f, text, cfg, -pw / 2, baseY, pulseSc); break; }
+    case 7: { const rot = mod(t * 1.5, TAU);
+              renderTextStringFrame(f, text, cfg, startX, baseY, displaySc, rot); break; }
+    case 8: { const zoom = 0.3 + 0.7 * (0.5 + 0.5 * Math.sin(t * 2)), zoomSc = displaySc * zoom,
+                    zw = textWidthJs(text) * zoomSc;
+              renderTextStringFrame(f, text, cfg, -zw / 2, baseY, zoomSc); break; }
+    case 10: buildOrbitFrame(f, text, cfg, displaySc, t); break;
+    case 11: buildStarWarsFrame(f, text, cfg, displaySc, t); break;
+    default: renderTextStringFrame(f, text, cfg, startX, baseY, displaySc);
+  }
+  return f;
+}
+// glyphOutlinePathsJs() -- port of glyphOutlinePaths(): raw (un-optimized)
+// per-glyph sub-paths, world-scaled. Backs /api/text/vertices (Paint tab's
+// "Insert as strokes") and the Text-Weld path source below.
+function glyphOutlinePathsJs(text, scale) {
+  if (!text || scale <= 0) return [];
+  text = text.slice(0, 127);
+  let tw = textWidthJs(text) * scale;
+  const maxHalf = 30000;
+  if (tw * 0.5 > maxHalf) { scale *= maxHalf / (tw * 0.5); tw = textWidthJs(text) * scale; }
+  let cx = -tw / 2;
+  const paths = [];
+  for (let ci = 0; ci < text.length; ci++) {
+    const glyph = FONT_GLYPHS[text[ci].toUpperCase()];
+    if (!glyph) { cx += 10 * scale; continue; }
+    const gx = cx + glyph.advance * 0.5 * scale;
+    glyph.subpaths.forEach(function(sub) {
+      if (sub.length < 2) return;
+      paths.push({ x: sub.map(function(p) { return gx + p[0] * scale; }),
+                   y: sub.map(function(p) { return p[1] * scale; }) });
+    });
+    cx += glyph.advance * scale;
+  }
+  return paths;
+}
+
+/* ── Laser Welding -- port of weld_path.h/weld_patterns.cpp ─────────
+   A torch head travels an arc-length-parameterized path built from
+   whichever source (Paint canvas / Text glyph outlines) is active,
+   trailing a fading afterglow and throwing ballistic sparks. */
+function buildArcLengthPathJs(strokes) {
+  const nodes = [], liftS = []; let s = 0;
+  strokes.forEach(function(st) {
+    const n = Math.min(st.x.length, st.y.length);
+    if (n < 2) return;
+    for (let i = 0; i < n; i++) {
+      if (i > 0) s += Math.hypot(st.x[i] - st.x[i - 1], st.y[i] - st.y[i - 1]);
+      nodes.push({ x: st.x[i], y: st.y[i], s: s });
+      if (i === 0) liftS.push(s);
+    }
+    if (st.closed) {
+      s += Math.hypot(st.x[0] - st.x[n - 1], st.y[0] - st.y[n - 1]);
+      nodes.push({ x: st.x[0], y: st.y[0], s: s });
+    }
+  });
+  if (nodes.length < 2) return null;
+  return { nodes: nodes, liftS: liftS, pathLen: nodes[nodes.length - 1].s };
+}
+function sampleAtJs(nodes, pathLen, s) {
+  if (nodes.length < 2 || s < 0 || s > pathLen) return null;
+  let lo = 0, hi = nodes.length - 1, idx = 0;
+  while (lo <= hi) { const mid = (lo + hi) >> 1; if (nodes[mid].s <= s) { idx = mid; lo = mid + 1; } else hi = mid - 1; }
+  if (idx >= nodes.length - 1) { const last = nodes[nodes.length - 1]; return { x: last.x, y: last.y }; }
+  const a = nodes[idx], b = nodes[idx + 1], ds = b.s - a.s, t = ds > 1e-6 ? (s - a.s) / ds : 0;
+  return { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t };
+}
+function crossesLiftJs(liftS, sa, sb) {
+  const lo = Math.min(sa, sb), hi = Math.max(sa, sb);
+  for (let i = 0; i < liftS.length; i++) if (liftS[i] > lo && liftS[i] < hi) return true;
+  return false;
+}
+function weldPathFromPaint(strokes) {
+  const src = (strokes || []).filter(function(s) { return s && s.x && s.y && Math.min(s.x.length, s.y.length) >= 2; })
+    .map(function(s) { return { x: s.x, y: s.y, closed: !!s.closed }; });
+  return src.length ? buildArcLengthPathJs(src) : null;
+}
+function weldPathFromText(cfg) {
+  const scale = sizeToScaleJs(clamp(cfg.size, 0, 255));
+  const paths = glyphOutlinePathsJs(cfg.text || '', scale);
+  if (!paths.length) return null;
+  return buildArcLengthPathJs(paths.map(function(p) { return { x: p.x, y: p.y, closed: false }; }));
+}
+
+// Persistent effect state (weld_patterns.cpp's file-scope statics) -- one
+// travelling head regardless of which source is active, same as firmware
+// (only one of Paint/Text is ever the active source at a time).
+const weldState = {
+  headPos: 0, pingDir: 1, seekEnd: false, hasTime: false,
+  sparks: [], rng: 0x1234567
+};
+for (let i = 0; i < 10; i++) weldState.sparks.push({ x: 0, y: 0, vx: 0, vy: 0, life: 0, lifeMax: 1 });
+function weldXorshift32() {
+  let x = weldState.rng >>> 0;
+  x ^= (x << 13); x >>>= 0; x ^= (x >>> 17); x ^= (x << 5); x >>>= 0;
+  weldState.rng = x;
+  return x;
+}
+const weldRandf = () => (weldXorshift32() >>> 8) * (1.0 / 16777216.0);
+function weldReset() {
+  weldState.headPos = 0; weldState.pingDir = 1; weldState.seekEnd = false; weldState.hasTime = false;
+  weldState.sparks.forEach(function(sp) { sp.life = 0; });
+}
+function weldSpawnSpark(sp, hx, hy, tx, ty) {
+  let bx = -tx, by = -ty;
+  if (bx === 0 && by === 0) { bx = 0; by = 1; }
+  const ang = (weldRandf() * 2 - 1) * 2.2, ca = Math.cos(ang), sa = Math.sin(ang);
+  const dx = bx * ca - by * sa, dy = bx * sa + by * ca;
+  const speed = 8000 + weldRandf() * 16000;
+  sp.x = hx; sp.y = hy; sp.vx = dx * speed; sp.vy = dy * speed;
+  sp.lifeMax = Math.max(0.001, (SIM_STORE.weld.spark_life * 0.001) * (0.6 + weldRandf() * 0.7));
+  sp.life = sp.lifeMax;
+}
+const WELD_HEAD = { r: 255, g: 255, b: 255 }, WELD_GLOW = { r: 255, g: 0, b: 0 }, WELD_SPARK_COL = { r: 255, g: 255, b: 0 };
+const WELD_TRAIL_VERTS = 24, WELD_HEAD_DWELL = 3;
+// renderTorch() -- shared torch/afterglow/spark renderer, ported verbatim
+// (same constants) from weld_patterns.cpp regardless of path source.
+function renderWeldTorch(path, dtMs) {
+  const f = new Frame();
+  if (!path || path.nodes.length < 2 || path.pathLen <= 1) return f;
+  const nodes = path.nodes, liftS = path.liftS, pathLen = path.pathLen;
+  if (weldState.seekEnd) { weldState.headPos = pathLen; weldState.seekEnd = false; }
+
+  const dt = weldState.hasTime ? clamp(dtMs / 1000, 0, 0.1) : 0;
+  weldState.hasTime = true;
+
+  const wcfg = SIM_STORE.weld;
+  let dirSign = wcfg.direction === 0 ? 1 : wcfg.direction === 1 ? -1 : (weldState.pingDir >= 0 ? 1 : -1);
+  const speed = wcfg.speed, glow = Math.max(1, wcfg.glow);
+  weldState.headPos += speed * dirSign * dt;
+
+  if (wcfg.direction === 2) {
+    if (weldState.headPos > pathLen) { weldState.headPos = pathLen; weldState.pingDir = -1; dirSign = -1; }
+    else if (weldState.headPos < 0) { weldState.headPos = 0; weldState.pingDir = 1; dirSign = 1; }
+  } else if (dirSign > 0 && weldState.headPos > pathLen + glow) {
+    weldState.headPos -= pathLen + glow;
+  } else if (dirSign < 0 && weldState.headPos < -glow) {
+    weldState.headPos += pathLen + glow;
+  }
+
+  const onPath = weldState.headPos >= 0 && weldState.headPos <= pathLen;
+  const sh = sampleAtJs(nodes, pathLen, weldState.headPos);
+  const sb = sampleAtJs(nodes, pathLen, weldState.headPos - dirSign * 200);
+  let tx = 0, ty = 0;
+  if (sh && sb) {
+    const dx = sh.x - sb.x, dy = sh.y - sb.y, m = Math.hypot(dx, dy);
+    if (m > 1e-3) { tx = dx / m; ty = dy / m; }
+  }
+
+  const decay = Math.max(0, 1 - 1.8 * dt);
+  const sparkCount = clamp(wcfg.sparks, 0, 10);
+  for (let i = 0; i < 10; i++) {
+    const sp = weldState.sparks[i];
+    if (i >= sparkCount) { sp.life = 0; continue; }
+    if (sp.life > 0) {
+      sp.vx *= decay; sp.vy = sp.vy * decay - 55000 * dt;
+      sp.x += sp.vx * dt; sp.y += sp.vy * dt; sp.life -= dt;
+      if (Math.abs(sp.x) > 32000 || Math.abs(sp.y) > 32000) sp.life = 0;
+    }
+    if (sp.life <= 0 && onPath && sh) weldSpawnSpark(sp, sh.x, sh.y, tx, ty);
+  }
+
+  // Trail: sample head-first, emit tail-first (draw order ends on the head).
+  const sampS = new Array(WELD_TRAIL_VERTS), samp = new Array(WELD_TRAIL_VERTS);
+  for (let k = 0; k < WELD_TRAIL_VERTS; k++) {
+    const u = k / (WELD_TRAIL_VERTS - 1), spos = weldState.headPos - dirSign * u * glow;
+    sampS[k] = spos; samp[k] = sampleAtJs(nodes, pathLen, spos);
+  }
+  let run = [], prevValidK = -1, headWritten = false;
+  for (let k = WELD_TRAIL_VERTS - 1; k >= 0; k--) {
+    const valid = !!samp[k];
+    const cross = valid && prevValidK >= 0 && crossesLiftJs(liftS, sampS[prevValidK], sampS[k]);
+    if (!valid || cross) { if (run.length >= 2) f.seg(run, false); run = []; }
+    if (!valid) { prevValidK = -1; continue; }
+    const u = k / (WELD_TRAIL_VERTS - 1), inv = 1 - u;
+    run.push(V(samp[k].x, samp[k].y,
+                b255((WELD_HEAD.r * inv + WELD_GLOW.r * u) * inv),
+                b255((WELD_HEAD.g * inv + WELD_GLOW.g * u) * inv),
+                b255((WELD_HEAD.b * inv + WELD_GLOW.b * u) * inv)));
+    prevValidK = k;
+    if (k === 0) headWritten = true;
+  }
+  if (headWritten && run.length >= 1) {
+    const last = run[run.length - 1];
+    for (let d = 0; d < WELD_HEAD_DWELL; d++) run.push(V(last.x, last.y, last.r, last.g, last.b));
+  }
+  if (run.length >= 2) f.seg(run, false);
+
+  // Spark streaks: 2-vertex lines, age-faded toward the glow color.
+  for (let i = 0; i < sparkCount; i++) {
+    const sp = weldState.sparks[i];
+    if (sp.life <= 0) continue;
+    const frac = clamp(sp.life / sp.lifeMax, 0, 1), ageT = 1 - frac;
+    const r = b255((WELD_SPARK_COL.r * (1 - ageT) + WELD_GLOW.r * ageT) * frac);
+    const g = b255((WELD_SPARK_COL.g * (1 - ageT) + WELD_GLOW.g * ageT) * frac);
+    const b = b255((WELD_SPARK_COL.b * (1 - ageT) + WELD_GLOW.b * ageT) * frac);
+    f.seg([V(sp.x - sp.vx * 0.035, sp.y - sp.vy * 0.035, r, g, b), V(sp.x, sp.y, r, g, b)], false);
+  }
+  return f;
+}
+
 /* ── /api/config mock -------------------------------------------- */
 
 // The 8 optimizer profiles as the firmware serializes them: the tuned
@@ -1934,7 +2424,16 @@ window.fetch = async function(url, opts) {
     resp = {enabled: live.segColors, r: live.segR, g: live.segG, b: live.segB};
 
   } else if (path === '/api/weld' || path === '/api/weld/set') {
-    if (method === 'POST') Object.assign(SIM_STORE.weld, body);
+    if (method === 'POST') {
+      // Mirror web_ui.cpp's /api/weld handler: enabled false->true starts a
+      // fresh run, and a direction POST landing on Reverse seeks the head to
+      // the far end (both fire on assignment order, not a value comparison,
+      // so read the "was it already true" flag before Object.assign()).
+      const wasEnabled = SIM_STORE.weld.enabled;
+      Object.assign(SIM_STORE.weld, body);
+      if (body.enabled && !wasEnabled) weldReset();
+      if (body.direction === 1) weldState.seekEnd = true;
+    }
     resp = Object.assign({}, SIM_STORE.weld);
 
   } else if (path === '/api/warp/get') {
@@ -1973,18 +2472,31 @@ window.fetch = async function(url, opts) {
     SIM_STORE.zone.enabled = !!body.enabled;
 
   } else if (path === '/api/text') {
-    if (method === 'POST') Object.assign(SIM_STORE.text, body);
+    if (method === 'POST') {
+      // setText(true) (web_ui.cpp) clears gPaint.active on activation --
+      // Text outranks Paint in pattern_engine.cpp's source priority -- and
+      // resets the Welding head/sparks on a false->true activation edge.
+      const wasActive = SIM_STORE.text.active;
+      Object.assign(SIM_STORE.text, body);
+      if (body.active && !wasActive) { SIM_STORE.paint.active = false; weldReset(); }
+    }
     resp = Object.assign({}, SIM_STORE.text);
   } else if (path === '/api/text/vertices') {
-    resp = {strokes: [], truncated: false};
+    const q = new URL(urlStr, 'http://sim').searchParams;
+    const paths = glyphOutlinePathsJs(q.get('text') || '', sizeToScaleJs(clamp(parseInt(q.get('size'), 10) || 128, 0, 255)));
+    resp = {paths: paths, truncated: false};
   } else if (path === '/api/text/off') {
     SIM_STORE.text.active = false;
 
   } else if (path === '/api/paint') {
     resp = Object.assign({}, SIM_STORE.paint);
   } else if (path === '/api/paint/set') {
+    // setPaintActive(true) (pattern_engine.cpp) clears gTextConfig.active and
+    // resets Welding on a false->true activation edge -- same pair as /api/text above.
+    const wasActive = SIM_STORE.paint.active;
     if (body.strokes) SIM_STORE.paint.strokes = body.strokes;
     if (body.active !== undefined) SIM_STORE.paint.active = !!body.active;
+    if (SIM_STORE.paint.active && !wasActive) { SIM_STORE.text.active = false; weldReset(); }
   } else if (path === '/api/paint/clear') {
     SIM_STORE.paint.strokes = [];
   } else if (path === '/api/paint/off') {
@@ -2284,28 +2796,53 @@ function simTick() {
     // (SIM_STORE.activeProfile tracks all three, like gActiveOptimizerProfile).
     optCfg = OPT_PROFILES[SIM_STORE.activeProfile] || profileForPreset(simUI.preset);
 
-    var f = new Frame();
-    var gen = GEN[simUI.preset] || GEN[0];
-    var sizeVal = clamp(Math.round(simUI.size * autoscaleFactor(dtFrames)), 0, 255);
-    try { gen(f, simPhase, Math.round(simUI.speed), sizeVal); } catch (e) {}
+    // Source priority mirrors pattern_engine.cpp's task() loop: Text Mode
+    // outranks Paint Mode outranks the Preset engine. Welding is not a
+    // fourth source -- it's an alternate renderer swapped in under whichever
+    // of Text/Paint is currently active (weld_patterns.h).
+    var f, source;
+    var textOn = SIM_STORE.text.active && SIM_STORE.text.text;
+    var paintOn = !textOn && SIM_STORE.paint.active && SIM_STORE.paint.strokes.length;
+    if (textOn) {
+      source = 'text';
+      f = SIM_STORE.weld.enabled ? renderWeldTorch(weldPathFromText(SIM_STORE.text), dtMs)
+                                  : buildTextFrame(SIM_STORE.text, simPhase);
+    } else if (paintOn) {
+      source = 'paint';
+      f = SIM_STORE.weld.enabled ? renderWeldTorch(weldPathFromPaint(SIM_STORE.paint.strokes), dtMs)
+                                  : buildPaintFrame(SIM_STORE.paint.strokes);
+    } else {
+      source = 'preset';
+      f = new Frame();
+      var gen = GEN[simUI.preset] || GEN[0];
+      var sizeVal = clamp(Math.round(simUI.size * autoscaleFactor(dtFrames)), 0, 255);
+      try { gen(f, simPhase, Math.round(simUI.speed), sizeVal); } catch (e) {}
+    }
     var pts = optimize(f, optCfg);
     simDensityScale = simLastDensityScale;
 
     if (simUI.rotZ) simUI.rotAngleZ += simUI.rotSpeed * dtFrames;
     if (simUI.rotY) simUI.rotAngleY += simUI.rotSpeed * dtFrames;
     if (simUI.rotX) simUI.rotAngleX += simUI.rotSpeed * dtFrames;
-    applyRotations(pts, simUI);
+    // Text Mode never runs through gLivePreset's 3-axis rotation or the
+    // kaleido/mirror/points-only post-passes in pattern_engine.cpp -- both
+    // stages are Preset-only there. Paint Mode shares the rotation engine
+    // (same gLivePreset.rot_* state) but not the kaleido/mirror/points-only
+    // stages, which only run in the Preset branch further down the loop.
+    if (source !== 'text') applyRotations(pts, simUI);
 
-    if (simUI.kaleido) {
-      pts = simUI.kaleidoMode === 0
-        ? radialCopy(pts, simUI.kalSeg, simUI.kalMH, simUI.kalMV, optCfg)
-        : mirrorKaleido(pts, simUI.kalSeg, optCfg);
+    if (source === 'preset') {
+      if (simUI.kaleido) {
+        pts = simUI.kaleidoMode === 0
+          ? radialCopy(pts, simUI.kalSeg, simUI.kalMH, simUI.kalMV, optCfg)
+          : mirrorKaleido(pts, simUI.kalSeg, optCfg);
+      }
+      if (simUI.mirrorMode === 1) pts = mirrorCopy(pts, false, true, optCfg);
+      else if (simUI.mirrorMode === 2) pts = mirrorCopy(pts, true, false, optCfg);
+      else if (simUI.mirrorMode === 3) pts = radial4(pts, optCfg);
+
+      if (simUI.pointsOnly) pts = pointsOnlyMode(pts, simUI, optCfg, dtMs);
     }
-    if (simUI.mirrorMode === 1) pts = mirrorCopy(pts, false, true, optCfg);
-    else if (simUI.mirrorMode === 2) pts = mirrorCopy(pts, true, false, optCfg);
-    else if (simUI.mirrorMode === 3) pts = radial4(pts, optCfg);
-
-    if (simUI.pointsOnly) pts = pointsOnlyMode(pts, simUI, optCfg, dtMs);
 
     applyColor(pts, simUI);
     render(pts, simUI);

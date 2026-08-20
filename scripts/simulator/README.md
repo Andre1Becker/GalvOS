@@ -52,6 +52,12 @@ Ported faithfully (kept in sync with the firmware sources):
   effective PPS-scaled values), `/api/optimizer-stats` measured off the frame
   actually rendered, plus the warp/brightness/weld/seg-color/text/paint/zone/
   timer/modulator endpoints
+- Text Mode (all 3 fonts, all 11 animations, rainbow/flip) and Paint by
+  Finger both actually drive the beam preview, matching pattern_engine.cpp's
+  source priority (Text > Paint > Preset) -- not just mocked as API state
+- Laser Welding (weld_path.h/weld_patterns.cpp): the torch/afterglow/spark
+  effect over either source's path, including direction (Fwd/Rev/Ping-Pong)
+  and the Reverse seek-to-end behavior
 
 Deliberately not simulated: SD card, ILDA/SVG playback, DMX/Art-Net input, OTA,
 arming (refused, there is no hardware), the ZV ringing shaper's sample-level
