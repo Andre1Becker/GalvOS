@@ -31,6 +31,7 @@
 #include "util/cpu_monitor.h"
 #include "util/stack_mon.h"
 #include "util/mem_registry.h"
+#include "util/task_mon.h"
 #include "net/ntp_client.h"
 #include "net/wifi_watchdog.h"
 #include "net/backup_manager.h"
@@ -3548,6 +3549,14 @@ void init() {
             e["bytes"] = o.bytes;
             e["psram"] = o.psram;
         }
+        sendJsonPsram(req, doc);
+    });
+
+    // ---- GET /api/tasks (Log tab task viewer) ----
+    // Read-only FreeRTOS task snapshot (no CPU% -- see task_mon.h for why).
+    s_server.on("/api/tasks", HTTP_GET, [](AsyncWebServerRequest* req) {
+        JsonDocument doc(&jsonAllocator());
+        taskMon::buildJson(doc);
         sendJsonPsram(req, doc);
     });
 

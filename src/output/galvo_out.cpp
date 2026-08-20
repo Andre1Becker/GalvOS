@@ -581,6 +581,17 @@ static inline void IRAM_ATTR paceTick(uint64_t& next_tick, uint32_t period_us) {
 }
 
 static void IRAM_ATTR galvoTask(void*) {
+    // Self-register with stackMon instead of start() doing it right after
+    // xTaskCreatePinnedToCore(): this task is pinned to Core 1 at
+    // configMAX_PRIORITIES-1 as a busy-wait loop that never yields, so the
+    // instant it's scheduled it preempts start()'s caller on that same core
+    // -- start()'s own stackMon::watch() call, one line later, was racing
+    // against that and losing (v6.81.1's Task Viewer investigation caught
+    // this: "galvo" never once appeared in the registry across repeated
+    // boots). Registering here instead is race-proof by construction: this
+    // line only runs because the task itself is already executing.
+    stackMon::watch(xTaskGetCurrentTaskHandle(), "galvo", 4096);
+
     // Dynamic rate from ProjectionConfig (12..60 kpps). period_us is now
     // computed in updateSnapshot() once per frame (not per tick) to keep
     // the 50kHz loop free of a division + 2 branches on every point.
@@ -1036,7 +1047,8 @@ void start() {
     // rgbUpdateTask removed -- LEDC-PWM is ISR-safe, no task needed
     xTaskCreatePinnedToCore(galvoTask, "galvo", 4096, nullptr,
                             configMAX_PRIORITIES - 1, &s_task_handle, 1);
-    stackMon::watch(s_task_handle, "galvo", 4096);
+    // stackMon registration happens inside galvoTask() itself now -- see its
+    // comment for why a call here would race the task's own preemption.
     ESP_LOGI(TAG, "Galvo streaming started @ %u kpps (period=%u µs)",
              (unsigned)gProjection.galvo_kpps,
              (unsigned)(1000000UL/((uint32_t)gProjection.galvo_kpps*1000UL)));

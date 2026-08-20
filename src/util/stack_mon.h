@@ -1,4 +1,5 @@
 #pragma once
+#include <stddef.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 
@@ -16,5 +17,11 @@ void watch(TaskHandle_t h, const char* name, size_t stackBytes);
 
 // Call periodically (~1s) from any task.
 void update();
+
+// Read-only accessors over the registry -- used by the WebUI Task Viewer
+// (util/task_mon.cpp) to enumerate app-created tasks. i is 0..count()-1.
+size_t       count();
+TaskHandle_t handleAt(size_t i);
+const char*  nameAt(size_t i);
 
 } // namespace stackMon

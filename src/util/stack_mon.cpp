@@ -6,7 +6,11 @@
 namespace stackMon {
 
 static const char* TAG = "stack_mon";
-static constexpr size_t      MAX_TASKS  = 16;
+// v6.81.0: 16 -> 24. The registry is now also the WebUI Task Viewer's data
+// source (task_mon.cpp) -- was tight at 16 once artnet/edream/helios/ntp and
+// sd_init started registering too (see main.cpp), all previously invisible
+// raw xTaskCreatePinnedToCore() calls.
+static constexpr size_t      MAX_TASKS  = 24;
 static constexpr UBaseType_t WARN_WORDS = 256;  // 256 * 4B = 1024B free
 
 struct Entry {
@@ -39,5 +43,11 @@ void update() {
         }
     }
 }
+
+size_t count() { return sCount; }
+
+TaskHandle_t handleAt(size_t i) { return i < sCount ? sTasks[i].handle : nullptr; }
+
+const char* nameAt(size_t i) { return i < sCount ? sTasks[i].name : ""; }
 
 } // namespace stackMon

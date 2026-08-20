@@ -1524,6 +1524,11 @@ canvas { max-width: 100%; display: block; }
         <h3>Owners</h3>
         <div id="mem-owners-list"></div>
       </div>
+      <div class="card">
+        <h2>Task Viewer</h2>
+        <p style="font-size:0.75rem;color:var(--text-dim)">Read-only FreeRTOS task snapshot: this firmware's own tasks (exact) plus a few well-known framework tasks (loopTask, IDLE0/1, async_tcp -- best-effort). No per-task CPU%: this build's SDK has FreeRTOS's trace/runtime-stats facility compiled out, so use the Core 0/1 load in the System card alongside this table's state/priority to reason about contention.</p>
+        <div id="task-list" style="overflow-x:auto"></div>
+      </div>
     </section>
     <section class="tab" id="tab-config">
       <h2>Configuration</h2>
@@ -1696,7 +1701,7 @@ canvas { max-width: 100%; display: block; }
 /* =========================================================================
    GLOBAL STATE
    ========================================================================= */
-var UI_VERSION = '1.25.0';   // WebUI version -- independent from firmware version
+var UI_VERSION = '1.26.0';   // WebUI version -- independent from firmware version
 var NAV_TABS = [
   {id: 'dashboard', label: 'Dashboard', icon: '🏠', bottom: true},
   {id: 'presets', label: 'Presets', icon: '🎮', bottom: true},
@@ -3300,6 +3305,7 @@ async function bootSequence() {
   setInterval(refreshWifiStatus, 10000);
   if (typeof loadLog === 'function') { await loadLog(true); startLogRefresh(); }
   if (typeof loadMemInfo === 'function') { await loadMemInfo(); startMemRefresh(); }
+  if (typeof loadTaskInfo === 'function') { await loadTaskInfo(); startTaskRefresh(); }
   await loadPresets();
   await segColLoad();
   await loadZoneQuick();
@@ -6284,10 +6290,48 @@ function startMemRefresh() {
   }, 3000);
 }
 
+var s_taskTimer = null;
+var TASK_STATE_COLORS = {running: 'var(--ok)', ready: 'var(--text)', blocked: 'var(--text-dim)', suspended: 'var(--warn)', deleted: 'var(--bad)', invalid: 'var(--bad)'};
+async function loadTaskInfo() {
+  var resp = await fetch('/api/tasks').catch(function() { return null; });
+  if (!resp || !resp.ok) return;
+  var d = await resp.json();
+  renderTaskList(d.tasks || []);
+}
+function renderTaskList(tasks) {
+  var el = document.getElementById('task-list'); if (!el) return;
+  var sorted = tasks.slice().sort(function(a, b) {
+    if (a.core !== b.core) return a.core - b.core;
+    return b.priority - a.priority;
+  });
+  var rows = sorted.map(function(t) {
+    var stack = fmtBytes(t.stack_free_bytes);
+    var stackWarn = t.stack_free_bytes < 1024 ? ' style="color:var(--warn)"' : '';
+    return '<tr>' +
+      '<td>' + t.name + '</td>' +
+      '<td>' + (t.core < 0 ? 'any' : t.core) + '</td>' +
+      '<td>' + t.priority + '</td>' +
+      '<td style="color:' + (TASK_STATE_COLORS[t.state] || 'var(--text)') + '">' + t.state + '</td>' +
+      '<td' + stackWarn + '>' + stack + ' free</td>' +
+      '</tr>';
+  }).join('');
+  el.innerHTML = '<table style="width:100%;font-size:0.8rem;border-collapse:collapse">' +
+    '<thead><tr style="color:var(--text-dim);text-align:left"><th>Task</th><th>Core</th><th>Prio</th><th>State</th><th>Stack</th></tr></thead>' +
+    '<tbody>' + rows + '</tbody></table>';
+}
+function startTaskRefresh() {
+  if (s_taskTimer) clearInterval(s_taskTimer);
+  s_taskTimer = setInterval(function() {
+    var sec = document.getElementById('tab-log');
+    if (sec && sec.classList.contains('active')) loadTaskInfo();
+  }, 3000);
+}
+
 // Sequential/staggered -- see the 'presets' loader comment above.
 registerTabLoader('log', async function() {
   await loadLog(true);
   await loadMemInfo();
+  await loadTaskInfo();
 });
 
 /* =========================================================================

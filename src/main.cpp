@@ -398,10 +398,16 @@ static void wifiWatchdogTask(void*) {
                     helios_net::init();
                     osc_in::init();
                     sacn_in::init();
-                    xTaskCreatePinnedToCore(artnet_in::task,  "artnet", 4096, nullptr, 3, nullptr, 0);
-                    xTaskCreatePinnedToCore(etherdream::task, "edream", 8192, nullptr, 3, nullptr, 0);
-                    xTaskCreatePinnedToCore(helios_net::task, "helios", 8192, nullptr, 3, nullptr, 0);
-                    xTaskCreatePinnedToCore(ntp_client::task, "ntp",    4096, nullptr, 2, nullptr, 0);
+                    // startTask() (not a raw xTaskCreatePinnedToCore) so these
+                    // register with stackMon like every other task -- the
+                    // late-connect path here previously left them invisible
+                    // to both the stack-margin watchdog and the WebUI's Task
+                    // Viewer (Log tab), unlike the identical boot-time-connect
+                    // path below at setup()'s own startTask() calls.
+                    startTask(artnet_in::task,  "artnet", 4096, 3, 0);
+                    startTask(etherdream::task, "edream", 8192, 3, 0);
+                    startTask(helios_net::task, "helios", 8192, 3, 0);
+                    startTask(ntp_client::task, "ntp",    4096, 2, 0);
                 }
                 // Switch off AP if STA is now up (clean up AP mode)
                 if (WiFi.getMode() == WIFI_AP_STA) {
@@ -657,7 +663,6 @@ void setup() {
     // -> patterns::task on core 1 would starve (task starvation)
     // → Core 0 shares CPU fairly (FreeRTOS round-robin at equal priority)
     startTask(patterns::task, "pattern", 12288, 2, 0); // p=2: pattern calculation -- v5.20.0: bumped 8192->12288 after stack-canary crash, exact allocation unconfirmed, see stack_mon
-    galvo::start();   // starts galvoTask on core 1 at highest priority
 
     // SD card init runs in a standing watcher task on Core 0, not a one-shot:
     // a one-shot mount attempt only ever caught a card that was already in
@@ -670,7 +675,10 @@ void setup() {
     // clears it again. SD is on its own independent SPI3 bus/GPIOs (see
     // pinmap.h), so this delay is boot-sequencing hygiene only, not a
     // bus-conflict workaround.
-    xTaskCreatePinnedToCore([](void*) {
+    // startTask() (not a raw xTaskCreatePinnedToCore) so this registers with
+    // stackMon like every other task -- was previously invisible to both the
+    // stack-margin watchdog and the WebUI's Task Viewer (Log tab).
+    startTask([](void*) {
         vTaskDelay(pdMS_TO_TICKS(5000));  // wait for galvoTask steady-state
         for (;;) {
             if (!sd_card::isReady() && !sd_card::isUserEjected()) {
@@ -682,9 +690,32 @@ void setup() {
             }
             vTaskDelay(pdMS_TO_TICKS(5000));  // retry interval / idle poll once mounted
         }
-    }, "sd_init", 4096, nullptr, 1, nullptr, 0);  // Core 0, low priority
+    }, "sd_init", 4096, 1, 0);  // Core 0, low priority
 
     ESP_LOGI(TAG, "Ready. Heap=%u PSRAM=%u", ESP.getFreeHeap(), ESP.getFreePsram());
+
+    // galvo::start() MUST be the last statement in setup(). Arduino's own
+    // loopTask (running this very function) is pinned to Core 1
+    // (ARDUINO_RUNNING_CORE, confirmed live via the Task Viewer this v6.81.0
+    // added) -- same core galvoTask is pinned to, at configMAX_PRIORITIES-1,
+    // as a busy-wait loop that never yields. The instant it's scheduled it
+    // permanently preempts/starves whatever called galvo::start() on that
+    // same core -- i.e. every setup() statement placed after it was silently
+    // unreachable. Caught here because it made stack_mon's registry stop
+    // dead at exactly the pre-galvo task count on every boot (both "galvo"
+    // itself -- its own stackMon::watch() call, one line after the
+    // xTaskCreatePinnedToCore that triggers the starvation, sometimes lost
+    // the race too -- and everything scheduled after it, incl. sd_init's
+    // task, never actually being CREATED, not merely unregistered) and the
+    // "Ready." line above never appearing in the boot log. This predates
+    // v6.81.0 -- the SD auto-mount watcher (see its own comment above) has
+    // most likely never actually run since it was introduced; manual
+    // mounting via the WebUI's "Mount" button uses a different, directly
+    // HTTP-triggered path and was unaffected, which is why this went
+    // unnoticed. No laser-safety impact (armed state is independent and
+    // still gated correctly), but move anything new into setup() ABOVE this
+    // line, not below it.
+    galvo::start();   // starts galvoTask on core 1 at highest priority
 }
 
 void loop() {
