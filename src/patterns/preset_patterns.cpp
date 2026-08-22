@@ -3060,7 +3060,7 @@ static const PFn DISPATCH[PRESET_COUNT] = {
 // state. Kept as an explicit allow-list (not a heuristic) so a future edit
 // that makes one of them phase-dependent doesn't silently serve stale frames;
 // if that happens, remove it here.
-static inline bool isStaticPreset(uint8_t idx) {
+bool isStaticPreset(uint8_t idx) {
     switch (idx) {
         case 10:  // Cross +
         case 11:  // X Shape

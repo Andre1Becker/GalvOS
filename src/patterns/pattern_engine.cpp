@@ -44,6 +44,66 @@ static const char* TAG = "pattern";
 static LaserPoint* s_frame = nullptr;   // PATTERN_POINTS_MAX points, PSRAM (init())
 static LaserPoint* s_pm_lit = nullptr;  // PSRAM buffer, allocated in init()
 static LaserPoint* s_pm_kaleido = nullptr;  // PSRAM buffer, allocated in init()
+
+// ── Phase 4: whole-pipeline output cache for static presets ──────────────
+// preset_patterns.cpp's dispatchCached() only caches DISPATCH[idx]()'s raw
+// geometry, for an explicit allow-list of phase-independent presets
+// (presets::isStaticPreset()) -- everything downstream in THIS file (color
+// animation, duplicator, mirror, kaleidoscope, points-only mode, the DMX-view
+// affine transform, calibration/inverse-filter) still reruns its full O(n)
+// point loop every single frame on Core 0, even when none of those stages
+// change anything frame to frame. That is the still-open half of the
+// "generate -> cache -> transform" architecture note (see galvo-core0-pacing-
+// regression memory): this second cache captures the FINAL buffer (post
+// applyCalibration) for exactly that allow-list, and reuses it byte-for-byte
+// whenever PipelineSig -- every input those downstream stages read -- is
+// unchanged from the frame that produced it. Restricted to presets already
+// proven phase-independent (no heuristic of our own), and further gated to
+// only the "plain" case: no color animation, no duplicator/mirror/
+// kaleidoscope/points-only, no inverse-filter (its biquad state is fed by the
+// continuous point stream -- see inverseFilter.cpp -- so it stays outside
+// this cache rather than reasoning about transient convergence here). Active
+// rotation (Live-Controls or a modulator binding) does not need its own gate:
+// PipelineSig's angle/scale/shift fields change every frame while active, so
+// the signature comparison below invalidates on its own and only locks back
+// in once the angle stops moving.
+struct PipelineSig {
+    uint8_t  presetIdx = 0xFF, speed = 0, sz = 0;
+    uint32_t rawGen    = 0xFFFFFFFF;
+    float    scaleFrac = -1.0f;
+    float    zRad      = 0.0f;   // Z-rotation + modulator rotation, combined
+    float    rotYAngle = 0.0f, rotXAngle = 0.0f;
+    float    modScaleX = 1.0f, modScaleY = 1.0f, modShiftX = 0.0f, modShiftY = 0.0f;
+    bool     colOverride = false;
+    uint8_t  colR = 0, colG = 0, colB = 0;
+    uint8_t  dmxRotation = 0, dmxHmove = 0, dmxVmove = 0, dmxWaveX = 0;
+    bool     swapXy = false, invertX = false, invertY = false;
+    int16_t  galvoXGain = 0, galvoYGain = 0, galvoXOffset = 0, galvoYOffset = 0;
+    float    outputScale = 0.0f;
+    uint16_t dacLimitMin = 0, dacLimitMax = 0;
+
+    bool same(const PipelineSig& o) const {
+        return presetIdx == o.presetIdx && speed == o.speed && sz == o.sz &&
+               rawGen == o.rawGen && scaleFrac == o.scaleFrac && zRad == o.zRad &&
+               rotYAngle == o.rotYAngle && rotXAngle == o.rotXAngle &&
+               modScaleX == o.modScaleX && modScaleY == o.modScaleY &&
+               modShiftX == o.modShiftX && modShiftY == o.modShiftY &&
+               colOverride == o.colOverride && colR == o.colR && colG == o.colG && colB == o.colB &&
+               dmxRotation == o.dmxRotation && dmxHmove == o.dmxHmove &&
+               dmxVmove == o.dmxVmove && dmxWaveX == o.dmxWaveX &&
+               swapXy == o.swapXy && invertX == o.invertX && invertY == o.invertY &&
+               galvoXGain == o.galvoXGain && galvoYGain == o.galvoYGain &&
+               galvoXOffset == o.galvoXOffset && galvoYOffset == o.galvoYOffset &&
+               outputScale == o.outputScale &&
+               dacLimitMin == o.dacLimitMin && dacLimitMax == o.dacLimitMax;
+    }
+};
+static LaserPoint* s_pm_pipeline    = nullptr;  // PSRAM buffer, allocated in init()
+static size_t      s_pipelineN      = 0;
+static size_t      s_pipelineLit    = 0;
+static bool        s_pipelineValid  = false;
+static PipelineSig s_pipelineSig;
+
 static volatile int      s_test_pattern  = -1;
 static volatile uint32_t s_test_started  = 0;
 static volatile presets::Preset s_preset_idx = presets::Preset::None;
@@ -465,6 +525,9 @@ void init() {
     s_pm_kaleido = (LaserPoint*)ps_malloc(PATTERN_POINTS_MAX * sizeof(LaserPoint));
     if (!s_pm_kaleido) ESP_LOGE(TAG, "PSRAM alloc failed for kaleidoscope buffer");
     else memreg::track("Pattern Kaleido Buffer", PATTERN_POINTS_MAX * sizeof(LaserPoint), true);
+    s_pm_pipeline = (LaserPoint*)ps_malloc(PATTERN_POINTS_MAX * sizeof(LaserPoint));
+    if (!s_pm_pipeline) ESP_LOGE(TAG, "PSRAM alloc failed for pipeline-cache buffer");
+    else memreg::track("Pattern Pipeline Cache Buffer", PATTERN_POINTS_MAX * sizeof(LaserPoint), true);
 }
 void setManualMode(bool, uint8_t) {}
 
@@ -2027,66 +2090,144 @@ void task(void*) {
             // ── Firmware color animation engine ──────────────────────────
             // Runs per-frame on Core 0; no HTTP overhead.
             // Also DMX-controllable via CH 23-25.
-            
-            // Apply color animation / override
-            applyColorAnim(n);
-            applyColorModulation(n);   // Modulator engine: COLOR_HUE/SATURATION/BRIGHTNESS
 
-            // Z-rotation is now applied via optimizer::gLiveTransform (Phase 3),
-            // published above before generate(). Only the non-affine Y/X
-            // perspective tilt remains as a post-optimizer point pass, using
-            // the rotYAngle/rotXAngle already snapshotted above.
+            // Whole-pipeline output cache (Phase 4, see PipelineSig above): for
+            // the explicit phase-independent preset allow-list, with color
+            // animation/duplicator/mirror/kaleidoscope/points-only all off and
+            // the inverse filter inactive, everything from here down through
+            // applyCalibration() is a pure function of PipelineSig's fields --
+            // reuse the previous frame's fully-processed buffer verbatim
+            // instead of rerunning ~4 O(n) point passes for output that
+            // provably hasn't changed. Falls through to the normal path,
+            // byte-identical to before this cache existed, whenever any of
+            // those gates isn't met.
+            int   dupExtraCopies; float dupOffX, dupOffY, dupAngleRad, dupStepScale;
+            duplicator::apply(dupExtraCopies, dupOffX, dupOffY, dupAngleRad, dupStepScale);
+            bool cacheEligible = presets::isStaticPreset(static_cast<uint8_t>(s_preset_idx)) &&
+                                 gLivePreset.col_anim_type == COL_ANIM_OFF &&
+                                 !gLivePreset.kaleido_enabled &&
+                                 (MirrorMode)gLivePreset.mirror_mode == MIRROR_OFF &&
+                                 !gLivePreset.points_mode_enabled &&
+                                 dupExtraCopies <= 0 &&
+                                 !invfilter::isActive();
+            PipelineSig sig;
+            if (cacheEligible) {
+                sig.presetIdx    = static_cast<uint8_t>(s_preset_idx);
+                sig.speed        = speed;
+                sig.sz           = sz;
+                sig.rawGen       = gPatternCacheGen;
+                sig.scaleFrac    = scaleFrac;
+                sig.zRad         = totalAngle;
+                sig.rotYAngle    = rotYAngle;
+                sig.rotXAngle    = rotXAngle;
+                sig.modScaleX    = modScaleX;
+                sig.modScaleY    = modScaleY;
+                sig.modShiftX    = modShiftX;
+                sig.modShiftY    = modShiftY;
+                sig.colOverride  = gLivePreset.col_override;
+                sig.colR         = gLivePreset.col_r;
+                sig.colG         = gLivePreset.col_g;
+                sig.colB         = gLivePreset.col_b;
+                sig.dmxRotation  = v.rotation;
+                sig.dmxHmove     = v.hmove;
+                sig.dmxVmove     = v.vmove;
+                sig.dmxWaveX     = v.wave_x;
+                sig.swapXy       = gConfig.swap_xy;
+                sig.invertX      = gConfig.invert_x;
+                sig.invertY      = gConfig.invert_y;
+                sig.galvoXGain   = gConfig.galvo_x_gain;
+                sig.galvoYGain   = gConfig.galvo_y_gain;
+                sig.galvoXOffset = gConfig.galvo_x_offset;
+                sig.galvoYOffset = gConfig.galvo_y_offset;
+                sig.outputScale  = gConfig.outputScale;
+                sig.dacLimitMin  = gConfig.dac_limit_min;
+                sig.dacLimitMax  = gConfig.dac_limit_max;
+            }
+            bool pipelineHit = cacheEligible && s_pipelineValid && n == s_pipelineN &&
+                               sig.same(s_pipelineSig);
 
-            // Y-rotation (tilt left/right -- perspective X compression)
-            if (rotYActive) {
-                float cy = cosf(rotYAngle);
-                float sy2 = sinf(rotYAngle);
-                for (size_t i=0;i<n;i++){
-                    float z3 = s_frame[i].x * sy2;
-                    float nx = s_frame[i].x * cy;
-                    float d  = 1.f + z3 * 0.35f / 32767.f;
-                    if(d<0.1f)d=0.1f;
-                    s_frame[i].x = (int16_t)(nx/d);
-                    s_frame[i].y = (int16_t)(s_frame[i].y/d);
+            size_t litCount;
+            if (pipelineHit) {
+                memcpy(s_frame, s_pm_pipeline, n * sizeof(LaserPoint));
+                litCount = s_pipelineLit;
+            } else {
+                // Apply color animation / override
+                applyColorAnim(n);
+                applyColorModulation(n);   // Modulator engine: COLOR_HUE/SATURATION/BRIGHTNESS
+
+                // Z-rotation is now applied via optimizer::gLiveTransform (Phase 3),
+                // published above before generate(). Only the non-affine Y/X
+                // perspective tilt remains as a post-optimizer point pass, using
+                // the rotYAngle/rotXAngle already snapshotted above.
+
+                // Y-rotation (tilt left/right -- perspective X compression)
+                if (rotYActive) {
+                    float cy = cosf(rotYAngle);
+                    float sy2 = sinf(rotYAngle);
+                    for (size_t i=0;i<n;i++){
+                        float z3 = s_frame[i].x * sy2;
+                        float nx = s_frame[i].x * cy;
+                        float d  = 1.f + z3 * 0.35f / 32767.f;
+                        if(d<0.1f)d=0.1f;
+                        s_frame[i].x = (int16_t)(nx/d);
+                        s_frame[i].y = (int16_t)(s_frame[i].y/d);
+                    }
+                }
+                // X-rotation (tilt up/down -- perspective Y compression)
+                if (rotXActive) {
+                    float cx2 = cosf(rotXAngle);
+                    float sx3 = sinf(rotXAngle);
+                    for (size_t i=0;i<n;i++){
+                        float z3 = s_frame[i].y * sx3;
+                        float ny = s_frame[i].y * cx2;
+                        float d  = 1.f + z3 * 0.35f / 32767.f;
+                        if(d<0.1f)d=0.1f;
+                        s_frame[i].y = (int16_t)(ny/d);
+                        s_frame[i].x = (int16_t)(s_frame[i].x/d);
+                    }
+                }
+
+                // Duplicator (Phase 3) -- generic N-copy chain, runs before the
+                // symmetry-specific Mirror/Kaleidoscope effects so those apply to
+                // the whole duplicated field.
+                applyDuplicator(n);
+                if (n == 0) { static LaserPoint blank_pt={0,0,0,0,0,1}; galvo::pushFrame(&blank_pt,1); vTaskDelay(pdMS_TO_TICKS(40)); continue; }  // guard: duplicator emptied frame
+
+                // Mirror (separate from Kaleidoscope, see applyMirror())
+                applyMirror(n);
+                if (n == 0) { static LaserPoint blank_pt={0,0,0,0,0,1}; galvo::pushFrame(&blank_pt,1); vTaskDelay(pdMS_TO_TICKS(40)); continue; }  // guard: preset generated 0 points
+
+                applyKaleidoscope(n);
+                applyPointsOnlyMode(n);
+                if (n == 0) { static LaserPoint blank_pt={0,0,0,0,0,1}; galvo::pushFrame(&blank_pt,1); vTaskDelay(pdMS_TO_TICKS(40)); continue; }  // guard: points mode emptied frame
+
+                // Real lit/blank composition, independent of seqBlanking (that
+                // forced-blank pass runs unconditionally below and is reported
+                // separately) -- see PipelineSig: this count is cached too, so
+                // a hit doesn't need to rewalk the buffer just for telemetry.
+                litCount = 0;
+                for (size_t i = 0; i < n; i++) if (!s_frame[i].blank) litCount++;
+
+                applyTransform(s_frame, n, v, phase);
+                applyCalibration(s_frame, n);
+
+                if (cacheEligible) {
+                    memcpy(s_pm_pipeline, s_frame, n * sizeof(LaserPoint));
+                    s_pipelineN     = n;
+                    s_pipelineLit   = litCount;
+                    s_pipelineSig   = sig;
+                    s_pipelineValid = true;
+                } else {
+                    // Don't let a stale entry leak into a later eligible frame
+                    // that happens to reconstruct a matching signature.
+                    s_pipelineValid = false;
                 }
             }
-            // X-rotation (tilt up/down -- perspective Y compression)
-            if (rotXActive) {
-                float cx2 = cosf(rotXAngle);
-                float sx3 = sinf(rotXAngle);
-                for (size_t i=0;i<n;i++){
-                    float z3 = s_frame[i].y * sx3;
-                    float ny = s_frame[i].y * cx2;
-                    float d  = 1.f + z3 * 0.35f / 32767.f;
-                    if(d<0.1f)d=0.1f;
-                    s_frame[i].y = (int16_t)(ny/d);
-                    s_frame[i].x = (int16_t)(s_frame[i].x/d);
-                }
-            }
-
-            // Duplicator (Phase 3) -- generic N-copy chain, runs before the
-            // symmetry-specific Mirror/Kaleidoscope effects so those apply to
-            // the whole duplicated field.
-            applyDuplicator(n);
-            if (n == 0) { static LaserPoint blank_pt={0,0,0,0,0,1}; galvo::pushFrame(&blank_pt,1); vTaskDelay(pdMS_TO_TICKS(40)); continue; }  // guard: duplicator emptied frame
-
-            // Mirror (separate from Kaleidoscope, see applyMirror())
-            applyMirror(n);
-            if (n == 0) { static LaserPoint blank_pt={0,0,0,0,0,1}; galvo::pushFrame(&blank_pt,1); vTaskDelay(pdMS_TO_TICKS(40)); continue; }  // guard: preset generated 0 points
-
-            applyKaleidoscope(n);
-            applyPointsOnlyMode(n);
-            if (n == 0) { static LaserPoint blank_pt={0,0,0,0,0,1}; galvo::pushFrame(&blank_pt,1); vTaskDelay(pdMS_TO_TICKS(40)); continue; }  // guard: points mode emptied frame
-            {
-                // Update per-frame point composition stats (visible in dashboard chart + status bar)
-                size_t litCount = 0;
-                if (!seqBlanking) for (size_t i = 0; i < n; i++) if (!s_frame[i].blank) litCount++;
-                gState.frame_n.store((uint32_t)n);
-                gState.frame_lit.store((uint32_t)litCount);
-                gState.frame_blank.store((uint32_t)(n - litCount));
-            }
-            applyTransform(s_frame, n, v, phase);
-            applyCalibration(s_frame, n);
+            // Update per-frame point composition stats (visible in dashboard chart + status bar)
+            size_t reportLit = seqBlanking ? 0 : litCount;
+            gState.frame_n.store((uint32_t)n);
+            gState.frame_lit.store((uint32_t)reportLit);
+            gState.frame_blank.store((uint32_t)(n - reportLit));
             // Sequencer transition pen-up: force every point blank so the
             // beam goes dark without snapping to center, while position/color/
             // modulator state above kept advancing normally (see seqBlanking).

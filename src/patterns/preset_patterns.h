@@ -111,6 +111,14 @@ const char* profileMemberName(uint8_t profile, uint8_t n);
 size_t generate(uint8_t idx, LaserPoint* out, size_t max_pts,
                 uint32_t phase, uint8_t speed, uint8_t size_val);
 
+// True for the small explicit allow-list of presets whose DISPATCH function
+// ignores `phase` and reads no wall-clock/random state -- see the
+// "STATIC-PRESET CACHE" note in preset_patterns.cpp for the rationale and the
+// list itself. Exported so pattern_engine.cpp's whole-pipeline output cache
+// (Core-0 render pipeline, transform-caching) can restrict itself to exactly
+// the same phase-independent set instead of re-deriving/guessing its own.
+bool isStaticPreset(uint8_t idx);
+
 } // namespace presets
 
 // Countdown Timer API — see countdown_timer.h
