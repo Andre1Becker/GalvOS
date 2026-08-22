@@ -1,10 +1,10 @@
-# Optimizer Parameter Range Audit — 2026-08-17 (updated through 2026-08-20)
+# Optimizer Parameter Range Audit — 2026-08-17 (updated through 2026-08-22)
 
 Camera-validated practical min/max ranges for `OptimizerLiveConfig`, measured live on the
 bench rig described in [Chapter 6](06-camera-autotuning.md). Originally a single-day audit;
-four live follow-up sessions (2026-08-18 ×3, 2026-08-20) chased open threads it left behind.
-This revision removes narrative that later sessions fully resolved and keeps only what's
-still actionable.
+five live follow-up sessions (2026-08-18 ×3, 2026-08-20, 2026-08-22) chased open threads it
+left behind. This revision removes narrative that later sessions fully resolved and keeps
+only what's still actionable.
 
 **Nothing outside the two changes noted below was applied or persisted.** All range-finding
 overrides went through `/api/calib-cam/params` (RAM-only, restored on session stop). The two
@@ -28,17 +28,32 @@ raised 3→16 and saved (§Changelog). No other NVS write, and no change to `inc
 - `MultiObject`/`segments`'s scale error — root-caused to an under-tuned `max_corner_pts`,
   fixed and persisted.
 - `Waves`, `Smooth`, `Wireframe` optimizer re-tunes (applied, real measured improvement).
+- `spiral`'s scale-error retest — done through `diagnose` (not `measure`), clean reading
+  obtained: X −5.6%, Y −3.4%. The old `measure`-derived −9.6%→−4.5% number is superseded.
+- Two of fw v6.75.0's three incidental findings, individually re-verified live: fallback
+  constants are flagged (`valid`/NaN), not silently returned, and `max_safe_kpps` is confirmed
+  a pure ILDA-derate formula (`rated_kpps × ilda_test_angle/exit_angle`, capped ≤60), unenforced
+  anywhere in the tree — live reading `6.0` today (`15 × 8/20`), not the doc's stale `17.6`
+  (that number was `44 × 8/20`, from before the rated_kpps 45→15 migration).
+- `blankLeakage`'s anti-correlation, streak-swept against an independent corridor metric
+  (`streak.py`) — does **not** reproduce today; see [Open items](#open-items) for why that's
+  not quite the same as "fixed."
+- PPS-scaled bounds re-tested at half/double the reference kpps — do **not** uniformly hold;
+  see [Open items](#open-items).
 
 **Still open** — see [Open items](#open-items):
 
 - Orientation mismatch confirmed real on 4 camera-loop patterns (`star`/`spiral`/`wireframe`/
   `text`) — never eyes-on-checked against the actual live presets.
-- `star`'s scale undershoot: cause unknown (corner-dwell time ruled out).
-- `spiral`: corner-dwell test result is untrustworthy, needs a clean `diagnose` retest.
-- Three incidental findings (blankLeakage blind spot, fallback-constant flagging, an
-  unexplained `max_safe_kpps` reading) that fw v6.75.0 *claimed* to fix but were never
-  individually re-verified live.
-- kpps re-testing of every PPS-scaled bound below — never performed.
+- `star`'s scale undershoot: corner-dwell *time* ruled out, but a concrete new lead exists —
+  the undershoot concentrates entirely at the one vertex whose approach mechanism differs
+  from the other four (see below), not spread evenly the way a dwell-count or arrival-speed
+  effect would be.
+- `blankLeakage` still carries a nonzero cost weight (2.0) despite fw v6.75.0's commit claiming
+  "nothing load-bearing rests on it any more" — a real code/comment mismatch, currently
+  harmless only because today's measured direction happens to agree with reality.
+- PPS-scaled bounds break past the reference rate they were tuned at, with no downstream
+  re-clamp — see [Open items](#open-items) for the numbers.
 - `Trails` profile — unmeasured, no viable approach yet.
 - `curvature_gain` — unmeasurable with the existing camera patterns.
 - `Vector`/`Particles` geometry offsets — still flagged "not fixable by autotune", cause
@@ -155,41 +170,137 @@ Next-session-ready, cheapest first:
    `text` is the interesting case: its glyph orientation was hardware-validated fixed already
    (v6.01.0/v6.05.3), yet `cam_text` (same `textrender::glyphOutlinePaths()`) still measures
    `mirror_y` — a live contradiction worth resolving first.
-2. **`star`'s scale undershoot (X −5.9%, Y −5.7%).** Corner-dwell time is ruled out as the
-   cause (2.3× `max_corner_pts` → no change) — it lands at a wrong *steady-state* position, not
-   an under-settled one. Untested candidates: velocity-dependent approach into the vertex; a
-   pixel-level look at the annotated capture right at the tip.
-3. **`spiral`'s scale error, clean retest.** The `max_corner_pts` test on `spiral` used the CLI
-   `measure` command, which — unlike `diagnose`'s `classifyProfile()` — does not apply
-   `orientation.json`'s `mirror_y` compensation; the resulting capture was visibly broken
-   (`pathCoveragePct` 19.7%, `cost: null`) and its scale-error reading (−9.6%→−4.5%) is not
-   trusted. Re-test through `diagnose`.
-4. **Three unverified incidental findings.** fw v6.75.0's release notes claimed to fix every
-   item from the original audit's incidental-findings list, but only three were individually
-   live-validated (see changelog). Still unconfirmed:
-   - `blankLeakage` sampled only the rasterised ideal gap corridor and could read *lower* for a
-     visibly worse blank-jump streak than for a clean one (anti-correlated over part of its
-     range). `streak.py`'s direct corridor measurement was monotonic over the same sweep and
-     could replace or supplement it.
-   - Fallback constants (`brightnessNonUniformity=1.0`, `offsetX/YUnits=dacRange`) were
-     indistinguishable from real readings in the `Metrics` record — no `valid`/NaN flag. The
-     new camera patterns' `valid: true` field hints this may already be addressed, but that
-     wasn't confirmed against the actual fallback path.
-   - `/api/projection` reported `max_safe_kpps: 17.6` against an actual 42 kpps. Almost
-     certainly an exposure-calculation output rather than an operational limit, but never
-     confirmed — worth a look given the Class 4 classification.
-5. **kpps re-testing.** Every PPS-scaled bound in the results table (`pts_per_1000_units`,
-   `blank_pts_per_1000_units`, `resample_spacing_units`, `min`/`max_spacing_units`,
-   `max_step_units`, `max_accel_units`) is only confirmed at the device's 42 kpps. No half-rate
-   or double-rate runs were ever done, so read them as "valid at 42 kpps only" until re-checked
-   through `applyPpsScaling`.
-6. **`Trails`.** Its ground truth is a trajectory over time, not a static rasterisable ideal —
+2. **`star`'s scale undershoot (reproduced 2026-08-22: X −5.5%, Y −4.6%, essentially the same
+   as the original −5.9%/−5.7% reading — real, stable, not noise).** Corner-dwell time is
+   ruled out as the cause (2.3× `max_corner_pts` → no change). A pixel-level look at the
+   annotated capture (fresh calibration, `diagnose --profile Vector`) settles which vertex:
+   of the star's 5 tips, 4 land within ~1px of the ideal apex; only ONE is visibly rounded off
+   into a soft "U" well short of the ideal sharp point. That one tip is `cam_star`'s
+   `k==0`/`isFirst` vertex — confirmed by mapping the tool's auto-detected `rot180` orientation
+   back onto the vertex angles.
+
+   Since `cam_star`'s 5 edges are all equal length and all 5 vertex angles are identical (a
+   regular pentagram), a pure corner-angle or arrival-speed effect predicts identical rounding
+   at all 5 tips. It doesn't — only vertex 0 differs, and vertex 0 is architecturally different
+   from vertices 1-4 in three ways, all confirmed in `point_optimizer.cpp`/`.h`:
+   - It's the only vertex approached via a **blank jump** (Pillar 2, ZV-shaped reposition)
+     rather than a live lit edge — `emitAllSegments()` unconditionally blank-jumps to a
+     segment's `vertices[0]`, every lap, even though in a continuously-looped closed shape the
+     beam is already physically sitting there from the previous lap's closing dwell.
+   - Its frame-start corner dwell has its **first point forced blank** ("lift" — a dark
+     landing-confirmation sample before the beam turns on, `point_optimizer.h:30-33`) —
+     replacing what would otherwise be a lit dwell point, unlike vertices 1-4.
+   - It's the only vertex counted **twice** in the point stream — frame-start dwell + a second
+     "trailing" dwell after the wrap-around edge closes the loop back to it
+     (`point_optimizer.cpp:915-931`, added to fix a *different*, already-resolved gap).
+   Net effect: vertex 0 gets more raw dwell points than the others, but a chunk of that time is
+   spent on a blank-jump landing + a blanked confirmation sample rather than a live corner
+   approach — which is exactly why doubling/scaling `max_corner_pts` (a lit-dwell-count knob)
+   never moved this number. Not proven as the root cause yet — next step is checking
+   `emitBlankJump()`'s landing precision on the near-zero-distance case (steady-state closed
+   loop, beam already at the target) rather than more corner-dwell tuning.
+
+   Negative control run the same session: `square` (same Vector profile, same calibration, same
+   diagnose run) scored X+0.0%/Y−1.0% — clean. That rules out `diagnose`'s own generic "suspect
+   galvo gain/offset/DAC-range calibration drift" suggestion for both `star` and `spiral`: a
+   real calibration/gain problem would show up on `square` too, and it doesn't. The defect is
+   specific to how these two shapes are optimized/emitted.
+
+   **First hypothesis (vertex-0 jump-in is stale on every loop) — checked and RETRACTED same
+   session.** The idea: `emitBlankJump()` computes vertex 0's incoming jump once per
+   `generate()` call, so a static preset's cached buffer would replay a one-time, now-stale jump
+   on every hardware loop. Two things killed it before it reached hardware: (1) `cam_star()`
+   never calls `frameContext()` and `configFromLive()` explicitly never sets `hasPrevPos` — so
+   `emitBlankJump()` always takes its `hasPrevPos == false` branch for vertex 0, which is
+   `emitBlankRun()`: `blank_samples` points sitting stationary AT vertex 0, no interpolation
+   from anywhere, nothing "stale" to replay. (2) Pulling the RAW (pre-warp, pre-threshold) camera
+   photo behind the annotated overlay and zooming into all 3 of the star's upward tips at pixel
+   level: EVERY bright corner dwell blooms into a similarly soft blob in the raw image, not just
+   vertex 0 — top-right and top-left look as rounded as the bottom tip. The per-vertex asymmetry
+   visible in the DAC-space annotated overlay is more likely an artifact of the homography warp
+   (an isotropic camera-pixel blob maps to a direction-dependent blob in DAC space, and that
+   distortion varies by image position) than a vertex-0-specific firmware defect. Retracted.
+
+   **Second hypothesis, tested live same session — corners this sharp get real extra dwell, but
+   turning on the existing accel/velocity clamp made it worse, not better.** Read back live
+   `/api/config`: Vector's `corner_angle_deg` is 57.57°. `cornerSeverity()`'s exterior-turn
+   angle is 90° for `square` (`(90−57.57)/(180−57.57) ≈ 0.265` → ~4 dwell points) vs. 144° for
+   `star`'s 36°-tip spikes (`≈ 0.706` → ~6 points) — real, but a moderate ~1.5×, not the
+   "near-zero vs. near-max" first guessed. More relevantly: `vel_clamp_enabled` and
+   `accel_clamp_enabled` are BOTH off on the live Vector profile, and `cornerSeverity()`'s own
+   header comment says severity deliberately does not model arrival speed — that job belongs to
+   `clampScannerLimits()`, which is currently disabled. Live A/B, RAM-only via
+   `/api/optimizer-live` (auto-verified reverted, no NVS write): flipping both clamps on with
+   the profile's own already-configured (previously-inert) `max_step_units=200`/
+   `max_accel_units=800` made `star` measurably WORSE, not better — `measure --pattern star`
+   went from a clean 89.8% path coverage / 330u beam width / X −5.4% baseline to an INVALID
+   52.0% path coverage / 479u beam width / X −22.5% with the clamps on. Reverted and confirmed
+   back to baseline immediately. Read as budget crush, not a refutation of the arrival-speed
+   idea: those two ceilings were left in the config while gated off and were never tuned
+   together with `pts_per_1000_units`/`max_pts_per_frame` for what they'd insert once active —
+   enabling the gate alone, at unrelated pre-existing numbers, isn't a fair test of "does
+   decelerating into the corner help."
+   **Next step, if this is worth pursuing further: an actual `optimize --profile Vector` Optuna
+   search with `vel_clamp_enabled`/`accel_clamp_enabled` unlocked in `searchSpace.json`**,
+   so density/budget/clamp get tuned together instead of guessing one clamp value by hand — a
+   deliberate follow-up session, not a quick live guess.
+3. **Three incidental findings, individually re-verified 2026-08-22 — two closed, one
+   reopened in a different shape than expected.**
+   - **`blankLeakage`'s anti-correlation: does not reproduce today.** Live sweep on `segments`
+     (blank_samples 1→100, `streak.py`) shows `blankLeakage` falling monotonically 28.3→19.6 —
+     *correlated* with the beam getting cleaner, cross-checked against an independently-coded
+     corridor mean (`streak.py`'s `directCorridorMean()`, same ideal-gap coordinates, its own
+     `cv2.line` mask — doesn't call `_darkCorridorMaskFor`) that tracked it to 3 decimal places.
+     The original 0.947→2.56 rising reading almost certainly predates the later exposure/shutter
+     fix (the "every camera measurement ever taken was a random 1.7% slice" entry, itself dated
+     after v6.75.0) — under a broken sub-frame shutter the same sweep would have been measuring
+     something else entirely. **Not closed clean, though:** `blankLeakage` is still summed into
+     `cost` at weight 2.0 (`optimizeGalvo.py`'s `costWeights`, computeMetrics's `cost` formula),
+     contradicting the v6.75.0 commit's "nothing load-bearing rests on it any more" — currently
+     harmless only because the measured direction happens to agree with reality today. Zeroing
+     that weight (or dropping the term) would make the claim true instead of coincidentally true.
+   - **Fallback-constant flagging — CONFIRMED.** `computeMetrics()` builds an `invalidReasons[]`
+     list on every blind-capture branch, sets `valid = not invalidReasons`, and forces
+     `cost = NaN` when invalid. Matches the claim exactly; no live capture needed to confirm it,
+     the mechanism is unambiguous in source.
+   - **`max_safe_kpps` — CONFIRMED, live.** `rated_kpps × (ilda_test_angle/exit_angle)`,
+     capped ≤60 (`web_ui.cpp`'s `/api/projection` handler), referenced nowhere else in the tree
+     — a pure ILDA scan-angle derate, exactly as the v6.75.0 commit's own A.6 note concluded.
+     Live right now: `15 × (8/20) = 6.0`, matching the reported field exactly. This audit's own
+     `17.6` figure above is stale (`44 × 8/20`, before the rated_kpps 45→15 migration) — update
+     to `6.0` wherever it's quoted.
+4. **kpps re-testing — done 2026-08-22, bounds do NOT uniformly hold.** Hand-computed
+   `applyPpsScaling` against all 8 live profiles (rated=15, reference output=44 kpps) and the
+   firmware's own `constrain()` bounds for `pts_per_1000_units`, `blank_pts_per_1000_units`,
+   `resample_spacing_units`, `min`/`max_spacing_units`, `max_step_units`, `max_accel_units`.
+   - **Already out of bounds at the reference rate, no rate change needed:** Smooth (profile 1)'s
+     effective `pts_per_1000_units` = 56.6, past its own 50-unit ceiling (raw 19.29, tuned above
+     the 11 default).
+   - **Double-rate (88 kpps):** density exceeds the ceiling on 5/8 profiles (Vector/Smooth/Waves/
+     Trails/Text, up to 113 — 2.26× over), and `max_step_units` drops *below* its 50-unit floor
+     for every profile still on the shared default raw=200 (34.1) — inert today only because
+     `vel_clamp_enabled` is false on all of them; the corner-clamp A/B test in item 2 above used
+     this exact raw=200 value and made `star` measurably worse once enabled, so this floor
+     violation is not a hypothetical concern.
+   - **Half-rate (22 kpps):** everything lands back inside bounds — density falls as the PPS
+     ratio rises.
+   - `resample_spacing_units`/`min`/`max_spacing_units`/`max_accel_units` stayed in bounds across
+     the tested range for this device's current tuning (their raw defaults sit far enough from
+     their bounds), not because anything re-clamps them.
+   - **Root cause, confirmed in `point_optimizer.cpp`:** nothing re-clamps the *effective*
+     (post-scaling) value — `constrain()` in `web_ui.cpp` only bounds what gets written into the
+     raw NVS-backed field; `applyPpsScaling()`/`configFromLive()` apply the multiplier
+     unconditionally (`point_optimizer.h:461-474`) and the optimizer consumes the result as-is
+     (`point_optimizer.cpp:734`, `:1756-1757`). The density overshoot is likely rescued in
+     practice by the separate Stage 1/1.5 frame-budget crush; the *bound itself* is simply not
+     honored past the reference rate it was tuned at. Not fixed here — flagged with numbers.
+5. **`Trails`.** Its ground truth is a trajectory over time, not a static rasterisable ideal —
    no approach attempted, no weak proxy invented. Still needs one.
-7. **`curvature_gain`.** Not measurable on this rig as currently equipped — every camera
+6. **`curvature_gain`.** Not measurable on this rig as currently equipped — every camera
    pattern is straight-only or curved-only/fixed-vertex. Needs a new calib pattern combining a
    straight run and a curved run in one frame, sized to trigger
    `curvature_resample_enabled`'s adaptive logic on the curved section only.
-8. **`Vector`/`Particles` geometry offsets.** `diagnose --profile all` still flags both as
+7. **`Vector`/`Particles` geometry offsets.** `diagnose --profile all` still flags both as
    "not fixable by autotune", unlike `MultiObject`/`segments` whose cause was found (changelog).
    No lead beyond the ruled-out ones below.
 
@@ -199,6 +310,47 @@ Next-session-ready, cheapest first:
 
 Resolved items, most recent first. All dates are live-device sessions unless noted.
 
+- **2026-08-22 (continued further) — fw v6.75.0's three incidental findings individually
+  re-verified; kpps re-testing done; both closed with real findings, not rubber stamps.**
+  `blankLeakage`'s reported anti-correlation does not reproduce under today's corrected
+  exposure/shutter (streak-swept `segments` blank_samples 1→100 via new `streak.py`, monotonic
+  28.3→19.6, cross-checked against an independently-coded corridor mean matching to 3 decimals)
+  — but the metric still carries a live, nonzero `cost` weight the commit claimed it didn't.
+  Fallback-constant flagging and `max_safe_kpps` (advisory ILDA derate, `6.0` live today, not
+  the stale `17.6`) both confirmed exactly as claimed. Separately, hand-computing
+  `applyPpsScaling` for all 8 live profiles at half/double the reference kpps found the
+  PPS-scaled bounds do NOT uniformly hold past the rate they were tuned at — Smooth is already
+  over its density ceiling at the reference rate, and 5/8 profiles exceed it at double-rate,
+  with `max_step_units` also dropping below its own floor for every profile on the shared
+  default. Root cause: `applyPpsScaling()` has no post-scale re-clamp. See Open Items #3/#4 for
+  the full numbers.
+- **2026-08-22 (continued) — the vertex-0/blank-jump theory below was retracted same session;
+  a live accel/vel-clamp A/B test made `star` worse, not better.** See Open Item #2's second
+  and third paragraphs for the full trail — raw-photo pixel inspection and a `configFromLive()`
+  code read killed the "stale jump-in" idea before it reached hardware; a live RAM-only
+  `/api/optimizer-live` test enabling `vel_clamp_enabled`/`accel_clamp_enabled` at the profile's
+  existing (previously-inert) `max_step_units`/`max_accel_units` collapsed path coverage from
+  89.8% to an invalid 52.0% (budget crush, not a clean result either way) — reverted and
+  confirmed back to baseline. Net: `star`'s cause is still open, narrowed to "not the vertex-0
+  jump-in, not a naive clamp flip" rather than to a fix.
+- **2026-08-22 — `spiral`'s scale-error retest, done clean; `star`'s undershoot narrowed to
+  one specific vertex.** Started with a stale `homography.npz` (2 days old): the first
+  `diagnose --profile Vector,Waves` on both `star` and `spiral` came back INVALID MEASUREMENT
+  (path coverage 18-25%, offset X+10162 units on `star` — the camera/projection surface had
+  moved enough since the 2026-08-20 session to break the pixel↔DAC mapping entirely). Re-ran
+  `calibrate` first, per the tool's own guidance. After that: `spiral` (Waves profile) scores
+  X −5.6%, Y −3.4%, `cost` 0.137, path coverage 78.1% — a clean, trusted reading through
+  `diagnose`'s `classifyProfile()`, replacing the `measure`-derived −9.6%→−4.5% number that
+  Open Item #3 (previous revision) flagged as unusable. `star` (Vector profile) reproduced its
+  scale undershoot (X −5.5%, Y −4.6%, essentially unchanged from the original session) with a
+  now-valid 90.0% path coverage, plus a newly-flagged `corner hot 0.50` (over the 0.35
+  threshold) it hadn't tripped before. Pixel-level inspection of the annotated capture (all 5
+  tips, zoomed) found the undershoot is not evenly spread across the star's 5 points — 4 tips
+  are sharp, 1 is visibly rounded — and traced that one tip to `cam_star`'s `k==0` vertex via
+  the tool's own `rot180` orientation mapping. See Open Item #2 for the full mechanism
+  (blank-jump approach + a blanked landing-confirmation sample + double-counted dwell, all
+  unique to that one vertex in `point_optimizer.cpp`/`.h`) — not yet fixed, just narrowed from
+  "cause unknown" to a specific, checkable code path.
 - **2026-08-20 — `MultiObject`/`segments` scale error root-caused and fixed.**
   `/api/optimizer-stats` ruled out frame-budget truncation, Stage 1/1.5 crush, and
   velocity/accel clamping (all inactive). Corner dwell was the answer: `MultiObject`'s live
