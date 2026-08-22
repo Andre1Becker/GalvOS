@@ -118,8 +118,8 @@ Full system state. Polled by the WebUI every second.
 | `no_hw_mode` | bool | No-HW debug mode active |
 | `heap` | int | Free internal heap (bytes) |
 | `psram` | int | Free PSRAM (bytes) |
-| `cpu0` | int | Core 0 CPU load (%) |
-| `cpu1` | int | Core 1 CPU load (%) |
+| `cpu0` | int | Core 0 CPU load (%) — measured idle time, see [`GET /api/tasks`](#get-apitasks) |
+| `cpu1` | int | Core 1 CPU load (%) — ~100% by design, `galvoTask` busy-waits between DAC ticks |
 | `cpu_temp` | float | ESP32-S3 internal die temperature (°C) |
 | `ip` | string | Current IP address |
 | `rssi` | int | Wi-Fi signal strength (dBm) |
@@ -1788,6 +1788,69 @@ Memory breakdown for the Log tab's Memory Viewer.
 
 - `heap.critical` — the `heap_critical_bytes` failsafe threshold that `min_ever` is judged against.
 - `owners` — registered static/long-lived allocations (`mem_registry.h`), so an oversized buffer or a slow leak can be attributed to a subsystem.
+
+---
+
+### `GET /api/tasks`
+
+Read-only FreeRTOS snapshot for the Log tab's Task Viewer, plus the CPU-load and
+render-cost diagnostics that go with it. Answers "what is actually running on Core 0"
+without a serial monitor.
+
+```json
+{"tasks": [{"name": "pattern", "core": 0, "priority": 2, "state": "blocked", "stack_free_bytes": 564}],
+ "cpu":   {"load0": 1, "load1": 100, "idle_pct0": 98.7, "idle_pct1": 0.0},
+ "render":{"frames": 163, "cache_hits": 163,
+           "generate_us": 112, "pipeline_us": 0, "push_us": 388, "total_us": 501}}
+```
+
+**`tasks`** — one object per task. `core` is `0`/`1`, or `-1` if unpinned. The list is
+two-tier and deliberately incomplete: every task this firmware creates is exact (it
+comes from `stack_mon.cpp`'s registry, populated at each `startTask()` call site),
+while a few well-known framework tasks (`loopTask`, `IDLE0`, `IDLE1`, `async_tcp`) are
+resolved by handle/name and silently omitted if not found. Wi-Fi and lwIP's own
+internal tasks are not enumerable this way and do not appear.
+
+There is no per-task CPU% here. This framework ships Arduino as a *prebuilt* library
+whose `libfreertos.a` has `configUSE_TRACE_FACILITY` compiled out, so
+`uxTaskGetSystemState()` / `vTaskGetRunTimeStats()` are absent from the archive
+entirely — that is a build-system change, not a viewer feature. Use the `cpu` and
+`render` blocks below instead.
+
+**`cpu`** — `load0`/`load1` are the same values as `/api/state`'s `cpu0`/`cpu1`;
+`idle_pct0`/`idle_pct1` are the raw measurement they are derived from
+(`load = 100 - idle`), published so a suspicious load figure can be checked against
+its own measurement. Load is measured as real idle **time**: the FreeRTOS idle hook
+accumulates the CPU cycle-counter delta between consecutive calls, and deltas larger
+than ~20 µs are dropped as preemption boundaries. Interrupts serviced during an idle
+stretch count as idle, and a preemption shorter than that threshold does too — the
+residual error is a fraction of a percent, biased towards under-reporting.
+
+> **Before firmware 6.83.0 these numbers were wrong.** The load figure counted idle-hook
+> *invocations* against a baseline captured over the whole boot window but scaled as if
+> it were 500 ms, so the reading was set by how long boot took rather than by load.
+> A genuinely idle Core 0 reported ~73%, and the whole true 0–100% range was compressed
+> into roughly 73–100%. Any Core-0 percentage recorded from an older build should be
+> re-measured, not converted.
+
+**`render`** — where the Preset render path's Core-0 time actually goes, split by stage.
+Drained on read, so every value is a mean over the interval since this endpoint was last
+polled; `frames` is 0 (and the `*_us` fields absent) when no preset is rendering.
+
+| Field | Meaning |
+| --- | --- |
+| `frames` | Preset frames folded into this sample |
+| `cache_hits` | Of those, served whole from the pipeline output cache |
+| `generate_us` | `presets::generate()`, including `optimizer::optimize()` |
+| `pipeline_us` | Colour animation, duplicator, mirror, kaleidoscope, transform, calibration |
+| `push_us` | `galvo::pushFrame()` — the memcpy into the PSRAM output ring |
+| `total_us` | Whole frame, excluding `paceProducer()`'s pacing delay |
+
+Core-0 cost is `total_us × fps`. Reference figures measured at 44 kpps on ~1300-point
+frames at ~25 fps: a cached static preset runs 501 µs/frame (~1.4% of Core 0), Star 5
+5146 µs (~15%), Circle 7936 µs (~24%). For any preset that misses the cache roughly
+three quarters of the frame is inside `generate_us`, i.e. in the optimizer —
+`pipeline_us` (~1.9 ms) and `push_us` (~0.3 ms) barely move between presets.
 
 ---
 

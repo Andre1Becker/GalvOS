@@ -8,8 +8,47 @@ The WebUI carries its own independent `UI_VERSION`; it is not tracked separately
 
 ---
 
-## 6.8x — Dashboard telemetry (2026-08-19)
+## 6.8x — Introspection: task viewer, honest CPU load, render timing (2026-08-19 → 2026-08-22)
 
+- **6.83** — Every Core-0 load figure this project had ever acted on was wrong. The CPU
+  monitor counted FreeRTOS idle-hook *invocations* against a baseline captured once at
+  startup — but stored that window's raw count as if it had been 500 ms, and it never
+  was: the monitor starts at the top of `setup()` while the first measurement comes from
+  the WebUI task, created only after the blocking Wi-Fi connect. Every reading afterwards
+  was a function of how long boot happened to take. A second, independent flaw: idle-loop
+  iteration cost is not constant, because it is served from the flash cache both cores
+  share — measured 437 vs 869 invocations/ms in the *same* idle state. Replaced with the
+  CPU cycle-counter delta between consecutive hook calls, i.e. elapsed idle time in
+  absolute units, with no reference to calibrate. Verified on hardware against the same
+  idle state: **73% → 1%**. The v6.71.1 Core-0 pacing fix still stands — the device
+  really did go unreachable — but the percentages that framed it as "Core 0 is saturated
+  at idle" were an artifact, and every Core-0 number recorded before this release should
+  be re-measured rather than converted. `/api/tasks` now publishes `cpu.idle_pct0/1` so a
+  load figure can be checked against its own measurement, plus a `render` block giving
+  the Preset pipeline's per-frame cost split into generate / pipeline / push microseconds
+  — turning "the pattern engine costs N% of Core 0" into an attributable number. With
+  that instrument in hand: the whole-pipeline output cache's signature test moved ahead
+  of `generate()`, since it never needed the geometry to decide. A cache hit had still
+  been paying for two redundant 10 KB PSRAM copies; it now pushes straight out of the
+  cache, 1172 µs → 501 µs per frame with byte-identical output. And Art-Net, Ether Dream
+  and Helios turned out to poll their sockets at 200/500/500 Hz while switched *off* —
+  their enable flags gated the data path but not the tasks, and the Helios flag was never
+  read at all.
+- **6.82** — Static presets stopped re-rendering what hadn't changed. The v6.81 geometry
+  cache only skipped pattern generation; every downstream stage — colour animation,
+  duplicator, mirror, kaleidoscope, points-only mode, the DMX-view transform, calibration
+  — still walked the whole point buffer each frame on Core 0. A second cache now captures
+  the finished frame and replays it verbatim while every input those stages read is
+  unchanged. Deliberately narrow: it engages only for the six presets already proven
+  phase-independent, with colour animation and all the symmetry effects off and the
+  inverse filter inactive, and falls through byte-identically otherwise.
+- **6.81** — A read-only Task Viewer moved into the Log tab, answering "what is actually
+  running on Core 0" without a serial monitor: core, priority, state and free stack for
+  every task, refreshed while the tab is open. It immediately earned its keep by catching
+  a bug it was built to look for — the galvo output task is pinned to Core 1 at top
+  priority and never yields, which is the same core Arduino runs `setup()` on, so every
+  statement placed after it started had been silently unreachable since it was
+  introduced. The SD auto-mount watcher was one of them and had likely never run.
 - **6.80** — The Dashboard admits the ESP32 has a temperature too: a new `cpu_temp`
   field (`/api/state`) reads the SoC's internal die sensor, plotted alongside the
   DS18B20 probes on the Temperature History chart and shown as its own System card

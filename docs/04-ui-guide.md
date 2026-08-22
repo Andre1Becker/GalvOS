@@ -138,8 +138,14 @@ A scrolling 60-second graph of both core loads:
 
 ![CPU Load graph](assets/screenshots/card_cpu.png)
 
-- **Core 0 (cyan)** — handles Wi-Fi, WebUI HTTP, Art-Net, DMX, safety. Typically 10–40% under normal use.
-- Warning lines at 70% (yellow dashed) and 90% (red dashed) mark potential overload on Core 0.
+- **Core 0 (cyan)** — handles Wi-Fi, WebUI HTTP, Art-Net, DMX, safety, and the pattern render pipeline. Measured on a reference board at 44 kpps: ~1% with nothing rendering, ~1–2% on a preset served from the pipeline output cache, and ~15–25% on one that regenerates every frame. Sustained readings well above that are worth investigating; the render path's own share can be attributed stage by stage via [`GET /api/tasks`](08-api-reference.md#get-apitasks) → `render`.
+- **Core 1 (magenta)** — sits at ~100% permanently and that is correct, not a fault. `galvoTask` busy-waits between DAC ticks to hold the sample clock steady, so the core is never idle by design.
+- Warning lines at 70% (yellow dashed) and 90% (red dashed) mark potential overload on Core 0. They do not apply to Core 1.
+
+> **Firmware older than 6.83.0 reported this wrong.** The load figure was derived from a
+> baseline captured over the whole boot window, so an idle Core 0 read ~73% and the true
+> 0–100% range was squeezed into roughly 73–100%. If you are comparing against numbers
+> noted down from an older build, re-measure them rather than trying to convert.
 
 ### Temperature History Chart
 
@@ -724,6 +730,24 @@ A second card below the log console, showing who holds the RAM — static/long-l
 - **PSRAM** — composition bar plus total, free now, largest free block, and lowest free ever since boot.
 - **Tracked Owners** — per-subsystem breakdown of registered static/long-lived allocations (see `mem_registry.h`), so a slow leak or an oversized buffer can be attributed to a specific module.
 - **🔄 Refresh** — manual refresh outside the 3 s auto-cycle.
+
+### Task Viewer
+
+A third card below the Memory Viewer, listing the FreeRTOS tasks — which core each one
+is pinned to, its priority, whether it is running, ready or blocked, and how much of its
+stack has never been used. Sourced from [`/api/tasks`](08-api-reference.md#get-apitasks)
+and refreshed every 3 s while the Log tab is open. It answers "what is actually running
+on Core 0" without opening a serial monitor.
+
+- **Free stack** is the high-water mark: the smallest headroom that task has ever had
+  since boot, not its current depth. A task sitting in the low hundreds of bytes is
+  close to a stack-canary crash and should get more.
+- **State** is a single instant, not an average. Seeing a task "ready" rather than
+  "blocked" usually just means it woke up while the snapshot was being taken.
+- The list is deliberately incomplete: every task GalvOS itself creates is exact, a few
+  framework tasks (`loopTask`, `IDLE0`, `IDLE1`, `async_tcp`) are best-effort, and
+  Wi-Fi/lwIP's internal tasks cannot be enumerated at all on this build. There is no
+  per-task CPU% for the same reason — see the API reference for why.
 
 ---
 

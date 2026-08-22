@@ -12,6 +12,7 @@
 - [Text Mode Issues](#text-mode-issues)
 - [Calibration Issues](#calibration-issues)
 - [UI Issues](#ui-issues)
+- [Build & Tooling Issues](#build--tooling-issues)
 - [Planned Features](#planned-features)
 - [Contributing a Fix](#contributing-a-fix)
 
@@ -40,6 +41,31 @@ None currently open.
 ---
 
 ## Pattern Issues
+
+### Raising the dimmer with no preset renders the legacy DMX pattern
+
+**Status:** Open  
+**Detail:** `pattern_engine.cpp`'s `legacyDmxActive` counts `gState.ui_override` as
+"a controller is driving the DMX channels", so turning the master dimmer up from the
+WebUI with **no preset selected** runs the legacy DMX emulation — `genPattern()` plus
+the full transform/calibration/push path — every frame. Measured at 16–24% of Core 0
+for a mode the user has switched off. But `ui_override` means "WebUI takes priority
+over DMX", not "render the legacy DMX emulation"; `gOverride.active` and the real
+DMX/Art-Net/sACN receivers already cover the cases where legacy rendering is wanted.
+Dropping `ui_override` from that condition looks correct but is a user-visible
+behaviour change, so it is filed rather than taken.
+
+### Optimizer dominates the per-frame cost of any uncached preset
+
+**Status:** Open — the next place Core-0 work belongs  
+**Detail:** With per-stage render timing now available
+([`/api/tasks`](08-api-reference.md#get-apitasks) → `render`), roughly three quarters
+of every frame that misses the pipeline output cache sits inside `generate_us`, i.e.
+in `optimizer::optimize()` — 5942 µs of a 7936 µs frame for Circle, measured at
+44 kpps. The stages around it barely move between presets (`pipeline_us` ~1.9 ms,
+`push_us` ~0.3 ms). The whole-frame cache only covers the six presets on
+`presets::isStaticPreset()`'s explicit allow-list, so everything else pays this every
+frame.
 
 ### Curves backend is now dead code (WebUI card removed)
 
@@ -79,10 +105,23 @@ None known at least...
 
 ## UI Issues
 
-### Disabled interfaces still hold their socket
+### Disabled interfaces still hold their listening socket
 
-**Status:** By design, documented here so it isn't reported as a bug
-**Detail:** OSC, sACN, Helios network DAC, Art-Net and Ether Dream each have an enable/disable checkbox in Config tab → "Control Interfaces", plus a per-protocol Debug Log toggle (DMX included). A disabled interface ignores received data instead of acting on it, but its listening socket stays open until the next reboot. Only DMX has no enable toggle — it is a hardware UART receiver with no radio/CPU cost worth toggling.
+**Status:** Partly fixed in 6.83.0; the remaining half is by design
+**Detail:** OSC, sACN, Helios network DAC, Art-Net and Ether Dream each have an
+enable/disable checkbox in Config tab → "Control Interfaces", plus a per-protocol Debug
+Log toggle (DMX included). A disabled interface ignores received data instead of acting
+on it, and its listening socket stays open until the next reboot. Only DMX has no enable
+toggle — it is a hardware UART receiver with no radio/CPU cost worth toggling.
+
+Until 6.83.0 those checkboxes gated only the *data path*: the receiver tasks were
+created unconditionally and kept polling regardless — Helios and Ether Dream at 500 Hz
+each, Art-Net at 200 Hz — while Ether Dream also went on broadcasting a discovery beacon
+every second, advertising itself on the network and accepting TCP clients whose frames
+were then silently dropped. `helios_net_enabled` was not read anywhere at all. Each task
+now re-checks its flag on a 250 ms tick and skips the socket work entirely, hanging up
+any attached client; the flag still takes effect without a reboot. What remains is only
+the open listen socket itself, which costs nothing to hold.
 
 ### Telemetry "Source" label mismatch
 
@@ -103,6 +142,19 @@ None known at least...
 
 **Status:** Open
 **Detail:** Every screenshot in `docs/assets/screenshots/` was captured against UI v1.5.3 (2026-07-30); the WebUI is currently at v1.25.0. The overall Dashboard layout (Safety & Arm / System / Telemetry top row) still matches, but a fair amount has moved since — mobile-nav fixes, the Optimizer/Projection tab reworks, and the v6.80.0 Dashboard chart grid are all unshown. Concretely: `tab_dashboard.png`, `card_system.png`, and `card_cpu.png` no longer match the current layout, and there is no screenshot yet for the new Buffer Fill / WiFi RSSI charts. Screenshots are captured live from a running device via `scripts/capture_screenshots.py` (see the screenshot note near the top of [Chapter 4](04-ui-guide.md)) — needs a real board on hand to redo, which wasn't available when this was logged.
+
+---
+
+## Build & Tooling Issues
+
+### Host regression suite cannot be run
+
+**Status:** Open  
+**Detail:** `platformio.ini` defines only the `esp32-s3-devkitc-1` environment, so
+`pio test -e native` — the host-side optimizer contract tests under
+`test/test_optimizer/` — has no environment to run in. The tests are still in the tree.
+Restore a `native` env before the next optimizer change, which is exactly the kind of
+work they exist to guard.
 
 ---
 

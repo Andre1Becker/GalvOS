@@ -322,9 +322,11 @@ If the ESP32 crashes with a Guru Meditation error, the serial monitor prints a b
 
 ### Controls in the WebUI lag or don't respond
 
-**Cause A:** Core 0 CPU load too high — WebSocket messages are being dropped.  
-**Diagnosis:** Dashboard → CPU Load graph shows Core 0 near or above 90%.  
-**Fix:** Reduce pattern complexity or close extra browser tabs connected to the device.
+**Cause A:** Core 0 CPU load too high — requests are queueing behind the render pipeline.  
+**Diagnosis:** Dashboard → CPU Load graph shows Core 0 sustained near or above 90%. Confirm it is real before acting on it: `GET /api/tasks` reports `cpu.idle_pct0` (the raw measurement the percentage is derived from) and a `render` block giving the per-frame cost of the pattern pipeline split by stage. Core-0 cost of rendering is `render.total_us × fps`; if that does not account for most of the load, the pattern engine is not what is loading the core.  
+**Fix:** Reduce pattern complexity or close extra browser tabs connected to the device. Presets on the static allow-list are served from a whole-frame output cache and cost roughly an order of magnitude less than one that regenerates every frame (`render.cache_hits` vs `render.frames` shows whether the cache is engaging).
+
+> **On firmware older than 6.83.0 this graph could not be trusted.** Its baseline was captured over the whole boot window and then scaled as if it were 500 ms, so the reading reflected how long boot took rather than actual load: an idle Core 0 reported ~73%, and the true 0–100% range was compressed into roughly 73–100%. If you are chasing "Core 0 is at 90%" on an older build, update first — there may be nothing to chase.
 
 **Cause B:** Wi-Fi interference or weak signal causing packet loss.  
 **Diagnosis:** Dashboard → System → WiFi Signal weaker than −70 dBm.  
