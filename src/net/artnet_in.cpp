@@ -54,6 +54,13 @@ void init() {
 
 void task(void*) {
     for (;;) {
+        // gConfig.artnet_enabled used to gate only the RX callback, not this
+        // loop -- so a device with Art-Net switched off in the Config tab
+        // still ran a 200 Hz UDP recv poll on Core 0 forever, doing lwIP
+        // socket work whose every result was then thrown away. Gate the poll
+        // itself. Re-checked on a slow tick rather than at task creation, so
+        // the Config toggle still takes effect without a reboot.
+        if (!gConfig.artnet_enabled) { vTaskDelay(pdMS_TO_TICKS(250)); continue; }
         s_artnet.read();
         vTaskDelay(pdMS_TO_TICKS(5));
     }

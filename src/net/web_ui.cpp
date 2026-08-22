@@ -3557,6 +3557,29 @@ void init() {
     s_server.on("/api/tasks", HTTP_GET, [](AsyncWebServerRequest* req) {
         JsonDocument doc(&jsonAllocator());
         taskMon::buildJson(doc);
+        // Load-figure diagnostics alongside the task list: the raw idle-hook
+        // rate per core and the reference rate cpu0/cpu1 are computed
+        // against (see cpu_monitor.cpp). A load percentage is only as good
+        // as its reference -- publishing both makes a miscalibrated scale
+        // visible instead of something to be inferred from the percentage.
+        JsonObject cpu = doc["cpu"].to<JsonObject>();
+        cpu["load0"]      = cpu_mon::load0();
+        cpu["load1"]      = cpu_mon::load1();
+        cpu["idle_pct0"] = cpu_mon::idlePercent(0);
+        cpu["idle_pct1"] = cpu_mon::idlePercent(1);
+        // Where the Preset render path's Core-0 time actually goes, split by
+        // stage (see patterns::RenderTiming). Drained on read, so the values
+        // are means over the interval since this endpoint was last polled.
+        patterns::RenderTiming rt = patterns::takeRenderTiming();
+        JsonObject rj = doc["render"].to<JsonObject>();
+        rj["frames"]     = rt.frames;
+        rj["cache_hits"] = rt.cacheHits;
+        if (rt.frames) {
+            rj["generate_us"] = rt.generateUs / rt.frames;
+            rj["pipeline_us"] = rt.pipelineUs / rt.frames;
+            rj["push_us"]     = rt.pushUs     / rt.frames;
+            rj["total_us"]    = rt.totalUs    / rt.frames;
+        }
         sendJsonPsram(req, doc);
     });
 

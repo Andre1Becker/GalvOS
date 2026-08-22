@@ -151,6 +151,16 @@ void init() {
 
 void task(void*) {
     for (;;) {
+        // gConfig.helios_net_enabled was never read anywhere -- the emulation
+        // accepted clients and polled its TCP socket at 500 Hz on Core 0
+        // regardless of the Config tab switch. Same gate as artnet_in::task:
+        // drop the poll rate to a slow re-check and hang up on any client
+        // still attached, so "disabled" actually means disabled.
+        if (!gConfig.helios_net_enabled) {
+            if (s_client) { s_client.stop(); s_playing = false; }
+            vTaskDelay(pdMS_TO_TICKS(250));
+            continue;
+        }
         if (!s_client.connected()) {
             s_client = s_tcp.available();
             if (s_client) {

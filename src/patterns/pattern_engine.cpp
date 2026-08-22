@@ -104,6 +104,15 @@ static size_t      s_pipelineLit    = 0;
 static bool        s_pipelineValid  = false;
 static PipelineSig s_pipelineSig;
 
+// Render-stage timing accumulator (see RenderTiming in pattern_engine.h).
+static RenderTiming s_rt = {};
+
+RenderTiming takeRenderTiming() {
+    RenderTiming out = s_rt;
+    s_rt = RenderTiming{};
+    return out;
+}
+
 static volatile int      s_test_pattern  = -1;
 static volatile uint32_t s_test_started  = 0;
 static volatile presets::Preset s_preset_idx = presets::Preset::None;
@@ -1983,6 +1992,7 @@ void task(void*) {
             // The frame is still forced blank right before push (see below),
             // so the beam output itself is unaffected -- pen stays up.
             bool seqBlanking = sequencer::isBlanking();
+            const int64_t rtFrameStart = esp_timer_get_time();
             uint8_t speed = gLivePreset.speed;
             // Modulator engine: OPT_SPEED binding nudges the animation speed
             // before it is baked into this frame's generate() call. apply()
@@ -2048,59 +2058,6 @@ void task(void*) {
             const bool modTransformActive = modScaleX != 1.0f || modScaleY != 1.0f ||
                                              modShiftX != 0.0f || modShiftY != 0.0f || modRotRad != 0.0f;
 
-            { LOCK_STATE();
-              if (isParticle) {
-                  optimizer::gLiveTransform = optimizer::makeTransform(0.f, 0.f, 0.f);  // identity; applied post-generate below
-              } else {
-                  float ca = cosf(totalAngle), sa = sinf(totalAngle);
-                  optimizer::gLiveTransform = optimizer::AffineTransform(
-                      modScaleX * ca, -modScaleY * sa, modShiftX,
-                      modScaleX * sa,  modScaleY * ca, modShiftY);
-              }
-            }
-
-            size_t n = presets::generate(static_cast<uint8_t>(s_preset_idx), s_frame,
-                                         PATTERN_POINTS_MAX, phase, speed, sz);
-
-            // For Particle presets: apply Z-rotation + modulator scale/shift
-            // as a post-generate point pass (optimizer never ran, so
-            // gLiveTransform was not applied above).
-            if (isParticle && (fabsf(totalAngle) > 0.001f || modTransformActive)) {
-                float cz = cosf(totalAngle), sz2 = sinf(totalAngle);
-                for (size_t i = 0; i < n; i++) {
-                    float rx = (s_frame[i].x * cz - s_frame[i].y * sz2) * modScaleX + modShiftX;
-                    float ry = (s_frame[i].x * sz2 + s_frame[i].y * cz) * modScaleY + modShiftY;
-                    s_frame[i].x = (int16_t)constrain(rx, -32767.0f, 32767.0f);
-                    s_frame[i].y = (int16_t)constrain(ry, -32767.0f, 32767.0f);
-                }
-            }
-
-            // Continuous collapse toward a single point through Auto-Scaling's
-            // low end (both directions). ssc() floors at 0.25, so sz alone
-            // jumps from a rendered shape straight to size_val==0 -- this
-            // scales the whole frame by the true, unquantized progress instead.
-            if (scaleFrac < 1.0f) {
-                for (size_t i = 0; i < n; i++) {
-                    s_frame[i].x = (int16_t)(s_frame[i].x * scaleFrac);
-                    s_frame[i].y = (int16_t)(s_frame[i].y * scaleFrac);
-                }
-            }
-
-            // Color override from Live-Controls
-            // ── Firmware color animation engine ──────────────────────────
-            // Runs per-frame on Core 0; no HTTP overhead.
-            // Also DMX-controllable via CH 23-25.
-
-            // Whole-pipeline output cache (Phase 4, see PipelineSig above): for
-            // the explicit phase-independent preset allow-list, with color
-            // animation/duplicator/mirror/kaleidoscope/points-only all off and
-            // the inverse filter inactive, everything from here down through
-            // applyCalibration() is a pure function of PipelineSig's fields --
-            // reuse the previous frame's fully-processed buffer verbatim
-            // instead of rerunning ~4 O(n) point passes for output that
-            // provably hasn't changed. Falls through to the normal path,
-            // byte-identical to before this cache existed, whenever any of
-            // those gates isn't met.
             int   dupExtraCopies; float dupOffX, dupOffY, dupAngleRad, dupStepScale;
             duplicator::apply(dupExtraCopies, dupOffX, dupOffY, dupAngleRad, dupStepScale);
             bool cacheEligible = presets::isStaticPreset(static_cast<uint8_t>(s_preset_idx)) &&
@@ -2143,74 +2100,138 @@ void task(void*) {
                 sig.dacLimitMin  = gConfig.dac_limit_min;
                 sig.dacLimitMax  = gConfig.dac_limit_max;
             }
-            bool pipelineHit = cacheEligible && s_pipelineValid && n == s_pipelineN &&
+            // Tested BEFORE generate() (v6.83.0): the signature is a pure
+            // function of state already known at this point, so a hit does not
+            // need the geometry at all. Measured on this board, a fully static
+            // preset (Grid 3x3, 1340 pts) previously cost 1172 us/frame of
+            // Core 0 with the cache HITTING -- 431 us of it inside
+            // presets::generate(), which on a hit is nothing but a memcpy out
+            // of preset_patterns.cpp's own raw-geometry cache, and another
+            // 446 us memcpy'ing that cache entry into s_frame just to hand it
+            // straight to pushFrame(). Both buffers live in PSRAM (~24 MB/s
+            // for a 10 KB frame), so those two copies were the entire
+            // remaining cost of a cached frame. Skipping generate() and
+            // pushing out of s_pm_pipeline directly leaves only the one copy
+            // that has to happen: pushFrame()'s memcpy into the output ring.
+            bool pipelineHit = cacheEligible && s_pipelineValid && s_pipelineN > 0 &&
                                sig.same(s_pipelineSig);
 
+            size_t n;
             size_t litCount;
+            // What actually gets pushed: the cache entry itself on a hit, the
+            // staging buffer on a miss. Never write through this pointer
+            // without checking it is s_frame -- see the seqBlanking pass below.
+            const LaserPoint* outBuf;
+            int64_t rtAfterGenerate;
             if (pipelineHit) {
-                memcpy(s_frame, s_pm_pipeline, n * sizeof(LaserPoint));
+                n        = s_pipelineN;
                 litCount = s_pipelineLit;
+                outBuf   = s_pm_pipeline;
+                // generate() never ran, so dispatchCached()'s own telemetry
+                // replay never ran either -- do it here for the same reason.
+                presets::replayCachedStats();
+                rtAfterGenerate = esp_timer_get_time();
             } else {
-                // Apply color animation / override
-                applyColorAnim(n);
-                applyColorModulation(n);   // Modulator engine: COLOR_HUE/SATURATION/BRIGHTNESS
-
-                // Z-rotation is now applied via optimizer::gLiveTransform (Phase 3),
-                // published above before generate(). Only the non-affine Y/X
-                // perspective tilt remains as a post-optimizer point pass, using
-                // the rotYAngle/rotXAngle already snapshotted above.
-
-                // Y-rotation (tilt left/right -- perspective X compression)
-                if (rotYActive) {
-                    float cy = cosf(rotYAngle);
-                    float sy2 = sinf(rotYAngle);
-                    for (size_t i=0;i<n;i++){
-                        float z3 = s_frame[i].x * sy2;
-                        float nx = s_frame[i].x * cy;
-                        float d  = 1.f + z3 * 0.35f / 32767.f;
-                        if(d<0.1f)d=0.1f;
-                        s_frame[i].x = (int16_t)(nx/d);
-                        s_frame[i].y = (int16_t)(s_frame[i].y/d);
-                    }
+                { LOCK_STATE();
+                  if (isParticle) {
+                      optimizer::gLiveTransform = optimizer::makeTransform(0.f, 0.f, 0.f);  // identity; applied post-generate below
+                  } else {
+                      float ca = cosf(totalAngle), sa = sinf(totalAngle);
+                      optimizer::gLiveTransform = optimizer::AffineTransform(
+                          modScaleX * ca, -modScaleY * sa, modShiftX,
+                          modScaleX * sa,  modScaleY * ca, modShiftY);
+                  }
                 }
-                // X-rotation (tilt up/down -- perspective Y compression)
-                if (rotXActive) {
-                    float cx2 = cosf(rotXAngle);
-                    float sx3 = sinf(rotXAngle);
-                    for (size_t i=0;i<n;i++){
-                        float z3 = s_frame[i].y * sx3;
-                        float ny = s_frame[i].y * cx2;
-                        float d  = 1.f + z3 * 0.35f / 32767.f;
-                        if(d<0.1f)d=0.1f;
-                        s_frame[i].y = (int16_t)(ny/d);
-                        s_frame[i].x = (int16_t)(s_frame[i].x/d);
+
+                n = presets::generate(static_cast<uint8_t>(s_preset_idx), s_frame,
+                                      PATTERN_POINTS_MAX, phase, speed, sz);
+                rtAfterGenerate = esp_timer_get_time();
+
+                // For Particle presets: apply Z-rotation + modulator scale/shift
+                // as a post-generate point pass (optimizer never ran, so
+                // gLiveTransform was not applied above).
+                if (isParticle && (fabsf(totalAngle) > 0.001f || modTransformActive)) {
+                    float cz = cosf(totalAngle), sz2 = sinf(totalAngle);
+                    for (size_t i = 0; i < n; i++) {
+                        float rx = (s_frame[i].x * cz - s_frame[i].y * sz2) * modScaleX + modShiftX;
+                        float ry = (s_frame[i].x * sz2 + s_frame[i].y * cz) * modScaleY + modShiftY;
+                        s_frame[i].x = (int16_t)constrain(rx, -32767.0f, 32767.0f);
+                        s_frame[i].y = (int16_t)constrain(ry, -32767.0f, 32767.0f);
                     }
                 }
 
-                // Duplicator (Phase 3) -- generic N-copy chain, runs before the
-                // symmetry-specific Mirror/Kaleidoscope effects so those apply to
-                // the whole duplicated field.
-                applyDuplicator(n);
-                if (n == 0) { static LaserPoint blank_pt={0,0,0,0,0,1}; galvo::pushFrame(&blank_pt,1); vTaskDelay(pdMS_TO_TICKS(40)); continue; }  // guard: duplicator emptied frame
+                // Continuous collapse toward a single point through Auto-Scaling's
+                // low end (both directions). ssc() floors at 0.25, so sz alone
+                // jumps from a rendered shape straight to size_val==0 -- this
+                // scales the whole frame by the true, unquantized progress instead.
+                if (scaleFrac < 1.0f) {
+                    for (size_t i = 0; i < n; i++) {
+                        s_frame[i].x = (int16_t)(s_frame[i].x * scaleFrac);
+                        s_frame[i].y = (int16_t)(s_frame[i].y * scaleFrac);
+                    }
+                }
 
-                // Mirror (separate from Kaleidoscope, see applyMirror())
-                applyMirror(n);
-                if (n == 0) { static LaserPoint blank_pt={0,0,0,0,0,1}; galvo::pushFrame(&blank_pt,1); vTaskDelay(pdMS_TO_TICKS(40)); continue; }  // guard: preset generated 0 points
+                    // Apply color animation / override
+                    applyColorAnim(n);
+                    applyColorModulation(n);   // Modulator engine: COLOR_HUE/SATURATION/BRIGHTNESS
 
-                applyKaleidoscope(n);
-                applyPointsOnlyMode(n);
-                if (n == 0) { static LaserPoint blank_pt={0,0,0,0,0,1}; galvo::pushFrame(&blank_pt,1); vTaskDelay(pdMS_TO_TICKS(40)); continue; }  // guard: points mode emptied frame
+                    // Z-rotation is now applied via optimizer::gLiveTransform (Phase 3),
+                    // published above before generate(). Only the non-affine Y/X
+                    // perspective tilt remains as a post-optimizer point pass, using
+                    // the rotYAngle/rotXAngle already snapshotted above.
 
-                // Real lit/blank composition, independent of seqBlanking (that
-                // forced-blank pass runs unconditionally below and is reported
-                // separately) -- see PipelineSig: this count is cached too, so
-                // a hit doesn't need to rewalk the buffer just for telemetry.
-                litCount = 0;
-                for (size_t i = 0; i < n; i++) if (!s_frame[i].blank) litCount++;
+                    // Y-rotation (tilt left/right -- perspective X compression)
+                    if (rotYActive) {
+                        float cy = cosf(rotYAngle);
+                        float sy2 = sinf(rotYAngle);
+                        for (size_t i=0;i<n;i++){
+                            float z3 = s_frame[i].x * sy2;
+                            float nx = s_frame[i].x * cy;
+                            float d  = 1.f + z3 * 0.35f / 32767.f;
+                            if(d<0.1f)d=0.1f;
+                            s_frame[i].x = (int16_t)(nx/d);
+                            s_frame[i].y = (int16_t)(s_frame[i].y/d);
+                        }
+                    }
+                    // X-rotation (tilt up/down -- perspective Y compression)
+                    if (rotXActive) {
+                        float cx2 = cosf(rotXAngle);
+                        float sx3 = sinf(rotXAngle);
+                        for (size_t i=0;i<n;i++){
+                            float z3 = s_frame[i].y * sx3;
+                            float ny = s_frame[i].y * cx2;
+                            float d  = 1.f + z3 * 0.35f / 32767.f;
+                            if(d<0.1f)d=0.1f;
+                            s_frame[i].y = (int16_t)(ny/d);
+                            s_frame[i].x = (int16_t)(s_frame[i].x/d);
+                        }
+                    }
 
-                applyTransform(s_frame, n, v, phase);
-                applyCalibration(s_frame, n);
+                    // Duplicator (Phase 3) -- generic N-copy chain, runs before the
+                    // symmetry-specific Mirror/Kaleidoscope effects so those apply to
+                    // the whole duplicated field.
+                    applyDuplicator(n);
+                    if (n == 0) { static LaserPoint blank_pt={0,0,0,0,0,1}; galvo::pushFrame(&blank_pt,1); vTaskDelay(pdMS_TO_TICKS(40)); continue; }  // guard: duplicator emptied frame
 
+                    // Mirror (separate from Kaleidoscope, see applyMirror())
+                    applyMirror(n);
+                    if (n == 0) { static LaserPoint blank_pt={0,0,0,0,0,1}; galvo::pushFrame(&blank_pt,1); vTaskDelay(pdMS_TO_TICKS(40)); continue; }  // guard: preset generated 0 points
+
+                    applyKaleidoscope(n);
+                    applyPointsOnlyMode(n);
+                    if (n == 0) { static LaserPoint blank_pt={0,0,0,0,0,1}; galvo::pushFrame(&blank_pt,1); vTaskDelay(pdMS_TO_TICKS(40)); continue; }  // guard: points mode emptied frame
+
+                    // Real lit/blank composition, independent of seqBlanking (that
+                    // forced-blank pass runs unconditionally below and is reported
+                    // separately) -- see PipelineSig: this count is cached too, so
+                    // a hit doesn't need to rewalk the buffer just for telemetry.
+                    litCount = 0;
+                    for (size_t i = 0; i < n; i++) if (!s_frame[i].blank) litCount++;
+
+                    applyTransform(s_frame, n, v, phase);
+                    applyCalibration(s_frame, n);
+
+                outBuf = s_frame;
                 if (cacheEligible) {
                     memcpy(s_pm_pipeline, s_frame, n * sizeof(LaserPoint));
                     s_pipelineN     = n;
@@ -2223,6 +2244,7 @@ void task(void*) {
                     s_pipelineValid = false;
                 }
             }
+            const int64_t rtAfterPipeline = esp_timer_get_time();
             // Update per-frame point composition stats (visible in dashboard chart + status bar)
             size_t reportLit = seqBlanking ? 0 : litCount;
             gState.frame_n.store((uint32_t)n);
@@ -2231,9 +2253,23 @@ void task(void*) {
             // Sequencer transition pen-up: force every point blank so the
             // beam goes dark without snapping to center, while position/color/
             // modulator state above kept advancing normally (see seqBlanking).
-            if (seqBlanking) for (size_t i = 0; i < n; i++) s_frame[i].blank = 1;
+            if (seqBlanking) {
+                // outBuf may be the pipeline cache entry, which must stay
+                // exactly as the frame that produced it -- blanking through it
+                // would poison every later hit with a permanently dark frame.
+                // Fall back to the staging buffer for this frame only.
+                if (outBuf != s_frame) { memcpy(s_frame, outBuf, n * sizeof(LaserPoint)); outBuf = s_frame; }
+                for (size_t i = 0; i < n; i++) s_frame[i].blank = 1;
+            }
             if (gState.master_dimmer.load() > 0) {
-                { uint32_t _t0=millis(); while (!galvo::pushFrame(s_frame, n)) { if (millis()-_t0 > 500) { safety::emergencyStop(); LOG_E(logbuf::CAT_SAFETY,"Pattern engine: pushFrame timeout, emergency stop"); break; } vTaskDelay(pdMS_TO_TICKS(2)); } }
+                { uint32_t _t0=millis(); while (!galvo::pushFrame(outBuf, n)) { if (millis()-_t0 > 500) { safety::emergencyStop(); LOG_E(logbuf::CAT_SAFETY,"Pattern engine: pushFrame timeout, emergency stop"); break; } vTaskDelay(pdMS_TO_TICKS(2)); } }
+                const int64_t rtEnd = esp_timer_get_time();
+                s_rt.frames++;
+                if (pipelineHit) s_rt.cacheHits++;
+                s_rt.generateUs += (uint32_t)(rtAfterGenerate  - rtFrameStart);
+                s_rt.pipelineUs += (uint32_t)(rtAfterPipeline  - rtAfterGenerate);
+                s_rt.pushUs     += (uint32_t)(rtEnd            - rtAfterPipeline);
+                s_rt.totalUs    += (uint32_t)(rtEnd            - rtFrameStart);
                 paceProducer(n);
             } else {
                 static LaserPoint blank_pt = {0,0,0,0,0,1};

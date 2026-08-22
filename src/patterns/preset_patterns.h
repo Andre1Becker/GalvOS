@@ -119,6 +119,10 @@ size_t generate(uint8_t idx, LaserPoint* out, size_t max_pts,
 // the same phase-independent set instead of re-deriving/guessing its own.
 bool isStaticPreset(uint8_t idx);
 
+// Replay the cached optimizer telemetry for a frame that skipped generate()
+// entirely (pattern_engine's whole-pipeline cache hit). See the definition.
+void replayCachedStats();
+
 } // namespace presets
 
 // Countdown Timer API — see countdown_timer.h

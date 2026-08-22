@@ -449,6 +449,23 @@ void init() {
 
 void task(void*) {
     for (;;) {
+        // gConfig.etherdream_enabled gated only the frame push (handleClient's
+        // point path), so a disabled emulation still broadcast a discovery
+        // beacon every second, accepted TCP clients and polled the socket at
+        // 500 Hz on Core 0 -- advertising itself on the network and then
+        // silently dropping whatever was sent to it. Gate the whole loop.
+        // Beacon-failure state is cleared on the way out so the tier-2
+        // BEACON_FAIL_REBOOT_MS guard can never carry a stale streak across a
+        // disabled period (it only evaluates inside a failed send, but there
+        // is no reason to leave the counter armed while nothing is sending).
+        if (!gConfig.etherdream_enabled) {
+            if (s_client) { s_client.stop(); s_running = false; s_prepared = false; }
+            s_was_connected = false;
+            s_beacon_fail_count = 0;
+            s_beacon_fail_since_ms = 0;
+            vTaskDelay(pdMS_TO_TICKS(250));
+            continue;
+        }
         // Beacon every 1000ms (back off to 5s if WiFi is not connected)
         uint32_t beacon_interval = (WiFi.status() != WL_CONNECTED) ? 5000
                                   : (s_beacon_fail_count > 0)       ? 3000 : 1000;

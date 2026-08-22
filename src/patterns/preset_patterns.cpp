@@ -3147,6 +3147,17 @@ static size_t dispatchCached(uint8_t idx, LaserPoint* out, size_t max_pts,
     return n;
 }
 
+// Replays the cached optimizer telemetry without producing geometry, for
+// pattern_engine's whole-pipeline cache hit -- that path skips generate()
+// altogether, so it can't go through dispatchCached()'s own replay above, but
+// the Live Telemetry panel must still show what the cached frame costs rather
+// than reading blank. Safe to call only when the raw cache holds the same
+// preset/speed/size/generation, which PipelineSig already pins.
+void replayCachedStats() {
+    optimizer::gFrameStats.add(s_cacheFrameStats);
+    optimizer::gLastStats = s_cacheLastStats;
+}
+
 Preset presetFromIndex(int raw) {
     return (raw >= 0 && raw < PRESET_COUNT) ? static_cast<Preset>(raw) : Preset::None;
 }
