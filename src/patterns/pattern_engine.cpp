@@ -60,7 +60,7 @@ static LaserPoint* s_pm_kaleido = nullptr;  // PSRAM buffer, allocated in init()
 // unchanged from the frame that produced it. Restricted to presets already
 // proven phase-independent (no heuristic of our own), and further gated to
 // only the "plain" case: no color animation, no duplicator/mirror/
-// kaleidoscope/points-only, no inverse-filter (its biquad state is fed by the
+// kaleidoscope/points-only/flow-mode, no inverse-filter (its biquad state is fed by the
 // continuous point stream -- see inverseFilter.cpp -- so it stays outside
 // this cache rather than reasoning about transient convergence here). Active
 // rotation (Live-Controls or a modulator binding) does not need its own gate:
@@ -1376,6 +1376,92 @@ static void applyMirror(size_t& n) {
     n = o;
 }
 
+// ── Flow Mode (global toggle) ─────────────────────────────────────────────
+// Lights only a sliding window of the path -- one or several -- instead of
+// the whole geometry at once, giving a "flowing line" that travels along
+// whatever the preset already drew. Runs on the already-transformed frame
+// (post color-anim, post duplicator/mirror/kaleidoscope) like Points-Only
+// Mode below, and for the same reason: it only needs the final point array
+// and its existing blank flags, not preset-specific geometry.
+//
+// Unlike Points-Only Mode this never re-samples or reorders points -- it
+// only ever turns MORE points blank (never un-blanks an already-blank one),
+// so the beam keeps tracing the exact path/point-spacing/blank-jump
+// structure the preset and optimizer already built; no new galvo jump is
+// introduced anywhere; n never changes.
+//
+// The trail position is tracked in "lit-path units": lit points are numbered
+// 0..nl-1 in buffer order (already-blank points, e.g. an optimizer blank-jump
+// between two Wireframe segments, don't count and are left untouched). A
+// window covers [start, start+winLen) in that space, wrapping modulo nl --
+// which naturally treats the lit path as a loop even for an open path (the
+// trail re-enters at the start once it walks off the end, same as the beam
+// itself does when the preset loops the frame).
+static void applyFlowMode(size_t n) {
+    if (!gLivePreset.flow_mode_enabled || n == 0) return;
+
+    size_t nl = 0;
+    for (size_t i = 0; i < n; i++) if (!s_frame[i].blank) nl++;
+    if (nl == 0) return;
+
+    uint8_t segs = gLivePreset.flow_segments;
+    if (segs < 1) segs = 1;
+    if (segs > FLOW_MODE_MAX_SEGMENTS) segs = FLOW_MODE_MAX_SEGMENTS;
+
+    float lenFrac = (float)gLivePreset.flow_length_pct / 100.0f;
+    if (lenFrac < 0.01f) lenFrac = 0.01f;
+    if (lenFrac > 1.0f) lenFrac = 1.0f;
+    float winLen = lenFrac * (float)nl;
+    if (winLen < 1.0f) winLen = 1.0f;
+
+    // Speed maps to laps-per-second over the full lit path rather than a raw
+    // points/frame rate, so trail speed reads the same regardless of how many
+    // points the preset/size happen to produce -- 0..255 spans 0.05 (barely
+    // creeping, useful on a big/dense geometry) to 3.0 laps/s. Advanced by
+    // s_frameDt (see above) against the same 40 ms/25 ref-fps reference every
+    // other animation in this file is authored against, so trail speed tracks
+    // real time rather than loop iteration count.
+    static float s_flowPhase = 0.0f;
+    int8_t dir = (gLivePreset.flow_dir >= 0) ? 1 : -1;
+    float lapsPerSec = 0.05f + ((float)gLivePreset.flow_speed / 255.0f) * 2.95f;
+    s_flowPhase += (float)dir * (lapsPerSec * kAnimPhaseFrameMs / 1000.0f) * (float)nl * s_frameDt;
+    float phase = fmodf(s_flowPhase, (float)nl);
+    if (phase < 0.0f) phase += (float)nl;
+    s_flowPhase = phase;  // re-bound every frame -- keeps the float accumulator from
+                           // drifting to precision-losing magnitudes over a long-running show
+
+    bool doFade = gLivePreset.flow_fade;
+    size_t li = 0;
+    for (size_t i = 0; i < n; i++) {
+        if (s_frame[i].blank) continue;
+        float best = -1.0f;  // max fraction-through-window across overlapping segments
+        for (uint8_t s = 0; s < segs; s++) {
+            float start = fmodf(phase + (float)nl * (float)s / (float)segs, (float)nl);
+            float d = (float)li - start;
+            if (d < 0.0f) d += (float)nl;
+            if (d < winLen) {
+                // frac 0 = just entered the window on the trailing edge,
+                // 1 = about to leave on the leading edge -- which edge is the
+                // "head" depends on scan direction (forward grows start, so
+                // the leading edge is newest; reverse shrinks start, so the
+                // trailing edge is newest).
+                float frac = d / winLen;
+                float head = (dir > 0) ? frac : (1.0f - frac);
+                if (head > best) best = head;
+            }
+        }
+        if (best < 0.0f) {
+            s_frame[i].blank = 1;
+        } else if (doFade) {
+            float b = 0.15f + 0.85f * best;  // floor so the tail stays visible, not just the head
+            s_frame[i].r = (uint8_t)((float)s_frame[i].r * b);
+            s_frame[i].g = (uint8_t)((float)s_frame[i].g * b);
+            s_frame[i].b = (uint8_t)((float)s_frame[i].b * b);
+        }
+        li++;
+    }
+}
+
 // ── Points-Only render mode (global toggle, Proposal B) ──────────────────
 // Subsamples the already-transformed preset frame (post color-anim, post
 // rotation, post mirror) down to a handful of dwelling dots with a fade
@@ -2065,6 +2151,7 @@ void task(void*) {
                                  !gLivePreset.kaleido_enabled &&
                                  (MirrorMode)gLivePreset.mirror_mode == MIRROR_OFF &&
                                  !gLivePreset.points_mode_enabled &&
+                                 !gLivePreset.flow_mode_enabled &&
                                  dupExtraCopies <= 0 &&
                                  !invfilter::isActive();
             PipelineSig sig;
@@ -2218,7 +2305,8 @@ void task(void*) {
                     if (n == 0) { static LaserPoint blank_pt={0,0,0,0,0,1}; galvo::pushFrame(&blank_pt,1); vTaskDelay(pdMS_TO_TICKS(40)); continue; }  // guard: preset generated 0 points
 
                     applyKaleidoscope(n);
-                    applyPointsOnlyMode(n);
+                    applyFlowMode(n);         // sliding trail(s) -- only ever blanks more points, n unchanged
+                    applyPointsOnlyMode(n);   // if both enabled, dwell-samples from whatever the trail left lit
                     if (n == 0) { static LaserPoint blank_pt={0,0,0,0,0,1}; galvo::pushFrame(&blank_pt,1); vTaskDelay(pdMS_TO_TICKS(40)); continue; }  // guard: points mode emptied frame
 
                     // Real lit/blank composition, independent of seqBlanking (that

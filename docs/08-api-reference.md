@@ -354,6 +354,12 @@ Update live preset controls without changing the active preset. All fields are o
 | `points_fade_in_ms/out_ms` | int | 0–10000 | Fade duration (ms) |
 | `points_fade_dir` | int | 0–5 | Fade direction |
 | `points_static_on` | bool | — | Static mode (no fade) |
+| `flow_mode_enabled` | bool | — | Flow Mode (moving trail along the path) |
+| `flow_segments` | int | 1–8 | Simultaneous trails, evenly spaced along the path |
+| `flow_length_pct` | int | 1–100 | Trail length, % of the lit path |
+| `flow_speed` | int | 0–255 | Trail speed (mapped to 0.05–3.0 laps/s over the path) |
+| `flow_dir` | int | −1, +1 | Direction of travel along the path |
+| `flow_fade` | bool | — | Taper brightness tail→head along the trail |
 | `bp_trail_len` | int | 0–12 | Bouncing Points trail length |
 | `bp_endless` | bool | — | Bouncing Points loop forever |
 | `bp_duration_sec` | int | 1–90 | Duration when not endless |

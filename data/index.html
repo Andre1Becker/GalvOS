@@ -762,6 +762,24 @@ canvas { max-width: 100%; display: block; }
               </div>
             </details>
 
+            <details class="collapsible">
+              <summary>Flow Mode</summary>
+              <div class="details-body">
+                <label class="row"><input type="checkbox" id="lv-flow-on" onchange="sendLiveControls()"> Enabled</label>
+                <p class="param-hint">Draws a moving trail along the path instead of the whole shape at once.</p>
+                <div class="grid grid-2">
+                  <div class="field"><label>Segments</label><input type="range" id="lv-flow-segments" min="1" max="8" value="1" oninput="liveSlider('lv-flow-segments')"></div>
+                  <div class="field"><label>Length %</label><input type="range" id="lv-flow-length" min="1" max="100" value="20" oninput="liveSlider('lv-flow-length')"></div>
+                  <div class="field"><label>Speed</label><input type="range" id="lv-flow-speed" min="0" max="255" value="40" oninput="liveSlider('lv-flow-speed')"></div>
+                  <label class="row"><input type="checkbox" id="lv-flow-fade" checked onchange="sendLiveControls()"> Fade Trail</label>
+                </div>
+                <div class="row">
+                  <button class="btn sm flow-dir-btn primary" onclick="setFlowDir(1)">Forward</button>
+                  <button class="btn sm flow-dir-btn" onclick="setFlowDir(-1)">Reverse</button>
+                </div>
+              </div>
+            </details>
+
             <div id="preset-extra-13" class="preset-extra-row hidden field">
               <label class="row"><input type="checkbox" id="lv-hline-bounce" onchange="sendLiveControls()"> Bounce (up &harr; down)</label>
             </div>
@@ -1701,7 +1719,7 @@ canvas { max-width: 100%; display: block; }
 /* =========================================================================
    GLOBAL STATE
    ========================================================================= */
-var UI_VERSION = '1.26.0';   // WebUI version -- independent from firmware version
+var UI_VERSION = '1.27.0';   // WebUI version -- independent from firmware version
 var NAV_TABS = [
   {id: 'dashboard', label: 'Dashboard', icon: '🏠', bottom: true},
   {id: 'presets', label: 'Presets', icon: '🎮', bottom: true},
@@ -2528,6 +2546,7 @@ function buildCatFilters() {
    ========================================================================= */
 var liveDebounce = null;
 var liveMirrorMode = 0;
+var liveFlowDir = 1;
 window._animActiveType = ''; window._animActiveSeq = -1; window._animActiveSpeed = 1;
 // Segment count/direction are shared the same way as rotation (see below) --
 // both the Presets tab's Color Animations card and the Paint tab's Segment
@@ -2628,6 +2647,9 @@ async function sendLiveControls() {
     points_fade_in_ms: domVal('lv-fade-in-ms', 0), points_fade_out_ms: domVal('lv-fade-out-ms', 0),
     points_fade_dir: domVal('lv-fade-dir', 0), points_static_on: domVal('lv-static-mode', false),
     points_bpm_sync: domVal('lv-points-bpm-sync', false),
+    flow_mode_enabled: domVal('lv-flow-on', false), flow_segments: domVal('lv-flow-segments', 1),
+    flow_length_pct: domVal('lv-flow-length', 20), flow_speed: domVal('lv-flow-speed', 40),
+    flow_dir: liveFlowDir, flow_fade: domVal('lv-flow-fade', true),
     random_pts_hold_ms: domVal('lv-hold-ms', 500),
     bp_trail_len: domVal('lv-trail', 6), bp_endless: domVal('lv-endless', false), bp_duration_sec: domVal('lv-duration-sec', 8),
     spiral_arms: domVal('lv-arms', 3), tunnel_rings: domVal('lv-rings', 8), tunnel_sides: domVal('lv-sides', 6),
@@ -3423,6 +3445,11 @@ function setQuickColor(hex) { applyHexColor(hex); }
 function setMirrorMode(m) {
   liveMirrorMode = m;
   document.querySelectorAll('.mirror-btn').forEach(function(b, i) { b.classList.toggle('primary', i === m); });
+  sendLiveControls();
+}
+function setFlowDir(d) {
+  liveFlowDir = d;
+  document.querySelectorAll('.flow-dir-btn').forEach(function(b, i) { b.classList.toggle('primary', (i === 0 ? 1 : -1) === d); });
   sendLiveControls();
 }
 function toggleAutoRotAll(on) {

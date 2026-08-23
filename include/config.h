@@ -19,6 +19,10 @@ constexpr uint8_t  POINTS_MODE_MAX_DOTS  = 50;  // UI slider ceiling
 constexpr uint8_t  POINTS_MODE_MIN_DWELL = 3;   // ticks; below this a dot is invisible
 constexpr uint8_t  POINTS_MODE_MAX_DWELL = 30;  // ticks; cap so few dots don't hog the whole frame
 
+// Flow Mode (pattern_engine.cpp::applyFlowMode) -- draws a moving trail along
+// the already-generated path instead of the whole geometry at once.
+constexpr uint8_t  FLOW_MODE_MAX_SEGMENTS = 8;  // simultaneous trails, evenly spaced along the path
+
 // Random Points preset (preset_patterns.cpp::p106)
 constexpr uint8_t  RANDOM_PTS_MAX_COUNT = 14;   // UI slider ceiling ("Amount")
 
@@ -809,6 +813,15 @@ struct LivePresetControls {
     volatile uint8_t  points_fade_dir      = FADE_DIR_IN_OUT;
     volatile bool     points_static_on     = false; // true = full brightness, no fade cycle
     volatile bool     points_bpm_sync      = false; // true = fade cycle locked to BPM clock beat (blink on beat)
+    // Flow Mode (global toggle, all presets) -- lights only a sliding window
+    // (or several) of the path instead of the whole geometry; the rest stays
+    // blanked. Same buffer/order the preset already produced, no re-sampling.
+    volatile bool     flow_mode_enabled    = false;
+    volatile uint8_t  flow_segments        = 1;     // 1..FLOW_MODE_MAX_SEGMENTS simultaneous trails
+    volatile uint8_t  flow_length_pct      = 20;    // 1..100, trail length as % of the lit path
+    volatile uint8_t  flow_speed           = 40;    // 0..255, path fraction advanced per second
+    volatile int8_t   flow_dir             = 1;     // +1 forward, -1 reverse
+    volatile bool     flow_fade            = true;  // taper brightness tail->head along the trail
     // Random Points preset (preset_patterns.cpp::p106) -- Amount/Speed
     // reuse size_val/speed above, Duration needed its own field.
     volatile uint16_t random_pts_hold_ms   = 500;   // 50..5000, hold time per dot, ms

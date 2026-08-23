@@ -2016,6 +2016,12 @@ void init() {
             if (doc["points_fade_dir"].is<int>())     gLivePreset.points_fade_dir    = (uint8_t)constrain((int)doc["points_fade_dir"], 0, 5);
             if (doc["points_static_on"].is<bool>())   gLivePreset.points_static_on   = doc["points_static_on"];
             if (doc["points_bpm_sync"].is<bool>())    gLivePreset.points_bpm_sync    = doc["points_bpm_sync"];
+            if (doc["flow_mode_enabled"].is<bool>()) gLivePreset.flow_mode_enabled = doc["flow_mode_enabled"];
+            if (doc["flow_segments"].is<int>())   gLivePreset.flow_segments   = (uint8_t)constrain((int)doc["flow_segments"], 1, FLOW_MODE_MAX_SEGMENTS);
+            if (doc["flow_length_pct"].is<int>()) gLivePreset.flow_length_pct = (uint8_t)constrain((int)doc["flow_length_pct"], 1, 100);
+            if (doc["flow_speed"].is<int>())      gLivePreset.flow_speed      = (uint8_t)constrain((int)doc["flow_speed"], 0, 255);
+            if (doc["flow_dir"].is<int>())        gLivePreset.flow_dir        = ((int)doc["flow_dir"] < 0) ? -1 : 1;
+            if (doc["flow_fade"].is<bool>())      gLivePreset.flow_fade       = doc["flow_fade"];
             if (doc["random_pts_hold_ms"].is<int>())  gLivePreset.random_pts_hold_ms = (uint16_t)constrain((int)doc["random_pts_hold_ms"], 50, 5000);
             if (doc["bp_trail_len"].is<int>())    gLivePreset.bp_trail_len    = (uint8_t)constrain((int)doc["bp_trail_len"], 0, 12);
             if (doc["bp_endless"].is<bool>())     gLivePreset.bp_endless      = doc["bp_endless"];

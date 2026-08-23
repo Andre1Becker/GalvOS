@@ -242,6 +242,17 @@ Converts any preset into a dot-cloud: instead of drawing connected lines, the op
 - **Static Mode** — disables fading entirely; all dots at full brightness.
 - The **Dotter** module can scatter these dots via a modulator binding on the `DOT_SPREAD` target — see [Parameter Modulators & Bindings](#parameter-modulators--bindings-sidebar).
 
+**Flow Mode:**
+Instead of drawing the whole geometry at once, lights only a moving window (or several) of the path — a flowing line/trail traveling along whatever the preset drew. Unlike Points-Only Mode it never re-samples or reorders points; it only ever blanks more of them, so the beam keeps tracing the preset's exact point spacing and blank-jump structure — no new galvo jump is ever introduced.
+
+- **Enabled** — on/off.
+- **Segments** — number of simultaneous trails, evenly spaced along the path (1–8).
+- **Length %** — trail length as a percentage of the lit path (1–100%).
+- **Speed** — 0–255, mapped internally to 0.05–3.0 laps/second over the full lit path, so trail speed reads the same regardless of how many points the preset/size happen to produce.
+- **Forward / Reverse** — direction of travel along the path.
+- **Fade Trail** — tapers brightness from the trail's tail to its head (floored so the tail stays visible, not just the leading dot).
+- Runs immediately before Points-Only Mode in the render pipeline — enabling both makes the dwell dots sample from whatever the trail currently lights, rather than the full geometry.
+
 **↺ Reset all** — resets all Global Controls sliders to their defaults without changing the active preset.
 
 ### Color Animations
