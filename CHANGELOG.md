@@ -10,6 +10,30 @@ The WebUI carries its own independent `UI_VERSION`; it is not tracked separately
 
 ## 6.8x — Introspection: task viewer, honest CPU load, render timing (2026-08-19 → 2026-08-24)
 
+- **6.85.0** — `paceProducer()`'s post-render pacing delay is now render-cost-
+  compensated instead of a blind `drain_ms * 1.25` added on top of whatever
+  `generate()`/the transform pipeline/`pushFrame()` already took, every frame,
+  in every render mode (Preset, Text, Paint, Curve, Calibration, legacy DMX).
+  Root cause of a live-reported "micro stutter, not as fluid anymore" that
+  predates Flow Mode: the ring drains in real time regardless, and
+  `galvo_out.cpp`'s galvoTask replays the current frame from its start on
+  underrun instead of blanking (deliberate anti-flicker design) — so any
+  per-frame variance in render cost (cache hit vs. miss, preset-to-preset
+  cost, a Core-0 preemption by a higher-priority WiFi/DMX/safety task) showed
+  up as the beam visibly holding position for an extra beat, then jumping to
+  catch up. Made proportionally more visible once v6.82.0/v6.83.0's pipeline
+  cache drove cache-hit render cost toward zero without touching the
+  multiplier — the "wasted" margin became a larger share of an already-smaller
+  frame. Fix: a single `esp_timer_get_time()` timestamp at the top of
+  `task()`'s loop is now threaded through every `paceProducer(n, ...)` call
+  site; the delay is `max(0, drain_ms*1.25 - actualRenderUs)` instead of
+  always the full `drain_ms*1.25` — a cheap frame still gets the full Core-0
+  safety margin, an expensive one gets little or none, so the total producer
+  period tracks the intended target instead of target-plus-render-cost.
+  Hardware-verified: flashed via `/api/ota/upload`+`/api/reboot` (laser disarmed
+  throughout, booted clean, `dac_ok`/`subsystems_ok` true), then armed on an
+  animated preset — Andre confirms the motion is "deutlich besser" (noticeably
+  smoother), the hold-then-jump is gone.
 - **UI v1.28.0** (2026-08-24, no firmware bump) — Presets tab reorganized: Autoscale,
   Auto-Rotation and Kaleidoscope & Mirror are now collapsible `<details>` sections
   (matching Points-Only Mode and Flow Mode's existing pattern) instead of always-open

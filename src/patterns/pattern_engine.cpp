@@ -142,7 +142,8 @@ static inline void advancePhaseDt(uint32_t& phase, float& accum) {
     if (accum >= 1.0f) { uint32_t st = (uint32_t)accum; phase += st; accum -= (float)st; }
 }
 
-// ── Producer pacing: reverted to pre-v6.68.0 fixed delay (v6.71.1) ───────
+// ── Producer pacing: reverted to pre-v6.68.0 fixed delay (v6.71.1), now ──
+// ── render-cost-compensated (v6.85.0) ─────────────────────────────────────
 // v6.68.0 replaced this with paceRingToTarget(), which chased the consumer's
 // drain rate directly instead of a fixed delay -- fixed the intended
 // micro-stutter, but let the producer (Core 0: transform/mirror/kaleidoscope/
@@ -152,18 +153,41 @@ static inline void advancePhaseDt(uint32_t& phase, float& accum) {
 // ~90-97%; an actual preset (Circle) on top made the WebUI/API unreachable
 // outright, and under real browser load (WebUI's own polling stacked on
 // top) the device stayed fully unreachable for 8+ minutes with no self-
-// recovery -- a v6.71.0 60fps producer cap wasn't enough margin either. This
-// reverts to the original fixed "drain_ms * 1.25" delay -- deliberately
-// slower than the real drain rate, which is what left the ring near-empty
-// and caused the original stutter report, but is the last known-safe/stable
-// behaviour. The stutter can come back once there's a real fix for the
-// per-frame pipeline cost itself (see CLAUDE.md: static patterns should be
-// generate -> cache -> transform; the geometry is cached, the transform
-// pipeline around it isn't) -- not by racing the producer against Core 0.
-static inline void paceProducer(uint32_t n) {
+// recovery -- a v6.71.0 60fps producer cap wasn't enough margin either. v6.71.1
+// reverted to the original fixed "drain_ms * 1.25" delay -- deliberately
+// slower than the real drain rate (the remaining ~25% is the safety margin
+// that keeps Core 0 available for WiFi/AsyncTCP) -- as the last known-safe/
+// stable behaviour, with a note that "the stutter can come back once there's
+// a real fix for the per-frame pipeline cost itself".
+//
+// It came back: that fixed delay was added ON TOP of however long
+// generate()+the transform pipeline+pushFrame() already took, every frame,
+// unconditionally. The ring drains in real time at galvo_kpps regardless, so
+// the *actual* idle gap before the next push was `renderTime + drain_ms/4`,
+// not just `drain_ms/4` -- and since galvoTask replays the current frame from
+// its start on ring underrun instead of blanking (see galvo_out.cpp, "eliminates
+// flicker"), any per-frame variance in renderTime (cache hit vs. miss,
+// preset-to-preset cost, an occasional Core-0 preemption by a higher-priority
+// WiFi/DMX/safety task) shows up as the beam visibly holding position for an
+// extra beat, then jumping to catch up -- a micro-stutter baked into every
+// animated preset by design, made proportionally more visible once the
+// v6.82.0/v6.83.0 pipeline cache made cache-hit renderTime nearly zero without
+// touching this multiplier.
+//
+// Fix: measure how long the caller's render actually took (esp_timer_get_time()
+// timestamp from the top of task()'s loop, passed in as rtLoopStart) and only
+// delay for the remainder of the drain_ms*1.25 target -- never negative. A
+// cheap (cached) frame still gets the full margin, unchanged from before; an
+// expensive frame that already ate into or exceeded the target gets little or
+// no additional delay, so the total producer period tracks the intended
+// target instead of target-plus-whatever-rendering-cost, closing the gap that
+// caused the visible hold-then-jump.
+static inline void paceProducer(uint32_t n, int64_t rtLoopStart) {
     uint32_t drain_ms = n / (uint32_t)gProjection.galvo_kpps;
     if (drain_ms < 10) drain_ms = 10;
-    vTaskDelay(pdMS_TO_TICKS(drain_ms + drain_ms / 4));
+    uint32_t targetMs  = drain_ms + drain_ms / 4;
+    uint32_t elapsedMs = (uint32_t)((esp_timer_get_time() - rtLoopStart) / 1000);
+    vTaskDelay(pdMS_TO_TICKS(elapsedMs < targetMs ? (targetMs - elapsedMs) : 0));
 }
 
 void setPreset(presets::Preset idx) {
@@ -1634,6 +1658,12 @@ void task(void*) {
     }
 
     for (;;) {
+        // Loop-top timestamp, fed to every paceProducer() call below so the
+        // fixed pacing delay can be shortened by however long this
+        // iteration's actual render (generate/pipeline/pushFrame) took --
+        // see paceProducer()'s comment.
+        const int64_t rtLoopStart = esp_timer_get_time();
+
         // Wall-clock frame delta driving all per-frame animation advances
         // (phase, rotation, colour-anim, autoscale) -- decouples animation
         // speed from the now-variable/higher producer frame rate. See s_frameDt.
@@ -1801,7 +1831,7 @@ void task(void*) {
                 applyCalibration(s_frame, n);
                 if (gState.master_dimmer.load() > 0 || gState.ui_master_dimmer.load() > 0) {
                     { uint32_t _t0=millis(); while (!galvo::pushFrame(s_frame, n)) { if (millis()-_t0 > 500) { safety::emergencyStop(); LOG_E(logbuf::CAT_SAFETY,"Pattern engine: pushFrame timeout, emergency stop"); break; } vTaskDelay(pdMS_TO_TICKS(2)); } }
-                    paceProducer(n);
+                    paceProducer(n, rtLoopStart);
                 } else {
                     static LaserPoint blank = {0,0,0,0,0,1};
                     galvo::pushFrame(&blank, 1);
@@ -1849,7 +1879,7 @@ void task(void*) {
             applyCalibration(s_frame, n);
             if (gState.master_dimmer.load() > 0) {
                 { uint32_t _t0=millis(); while (!galvo::pushFrame(s_frame, n)) { if (millis()-_t0 > 500) { safety::emergencyStop(); LOG_E(logbuf::CAT_SAFETY,"Pattern engine: pushFrame timeout, emergency stop"); break; } vTaskDelay(pdMS_TO_TICKS(2)); } }
-                paceProducer(n);
+                paceProducer(n, rtLoopStart);
             } else {
                 static LaserPoint blank_pt = {0,0,0,0,0,1};
                 galvo::pushFrame(&blank_pt, 1);
@@ -1937,7 +1967,7 @@ void task(void*) {
             applyCalibration(s_frame, n);
             if (dim > 0) {
                 { uint32_t _t0=millis(); while (!galvo::pushFrame(s_frame, n)) { if (millis()-_t0 > 500) { safety::emergencyStop(); LOG_E(logbuf::CAT_SAFETY,"Pattern engine: pushFrame timeout, emergency stop"); break; } vTaskDelay(pdMS_TO_TICKS(2)); } }
-                paceProducer(n);
+                paceProducer(n, rtLoopStart);
             } else {
                 static LaserPoint blank_pt = {0,0,0,0,0,1};
                 galvo::pushFrame(&blank_pt, 1);
@@ -2055,7 +2085,7 @@ void task(void*) {
                 applyCalibration(s_frame, n);
                 if (dim > 0) {
                     { uint32_t _t0=millis(); while (!galvo::pushFrame(s_frame, n)) { if (millis()-_t0 > 500) { safety::emergencyStop(); LOG_E(logbuf::CAT_SAFETY,"Pattern engine: pushFrame timeout, emergency stop"); break; } vTaskDelay(pdMS_TO_TICKS(2)); } }
-                    paceProducer(n);
+                    paceProducer(n, rtLoopStart);
                 } else {
                     static LaserPoint blank_pt = {0,0,0,0,0,1};
                     galvo::pushFrame(&blank_pt, 1);
@@ -2358,7 +2388,7 @@ void task(void*) {
                 s_rt.pipelineUs += (uint32_t)(rtAfterPipeline  - rtAfterGenerate);
                 s_rt.pushUs     += (uint32_t)(rtEnd            - rtAfterPipeline);
                 s_rt.totalUs    += (uint32_t)(rtEnd            - rtFrameStart);
-                paceProducer(n);
+                paceProducer(n, rtLoopStart);
             } else {
                 static LaserPoint blank_pt = {0,0,0,0,0,1};
                 galvo::pushFrame(&blank_pt, 1);
@@ -2418,7 +2448,7 @@ void task(void*) {
             if (n == 0) { static LaserPoint blank_pt={0,0,0,0,0,1}; galvo::pushFrame(&blank_pt,1); vTaskDelay(pdMS_TO_TICKS(40)); continue; }
             { uint32_t _t0=millis(); while (!galvo::pushFrame(s_frame, n)) { if (millis()-_t0 > 500) { safety::emergencyStop(); LOG_E(logbuf::CAT_SAFETY,"Pattern engine: pushFrame timeout, emergency stop"); break; } vTaskDelay(pdMS_TO_TICKS(2)); } }
             advancePhaseDt(phase, phaseAccum);
-            paceProducer(n);
+            paceProducer(n, rtLoopStart);
         }
     }
 }
