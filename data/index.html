@@ -660,12 +660,27 @@ canvas { max-width: 100%; display: block; }
       <h2>Presets</h2>
       <div class="grid grid-side" style="--side-split:2.2fr 1fr">
         <div>
+          <div class="grid grid-2">
           <div class="card">
             <h2>Global Controls</h2>
-            <div class="grid grid-2">
-              <div>
-                <div class="field"><label id="lv-speed-label">Speed</label><div class="slider-row"><input type="range" id="lv-speed" min="0" max="255" value="0" oninput="liveSlider('lv-speed')"><output id="lv-speed-val">0</output></div></div>
-                <div class="field"><label id="lv-size-label">Size</label><div class="slider-row"><input type="range" id="lv-size" min="0" max="255" value="128" oninput="liveSlider('lv-size')"><output id="lv-size-val">128</output></div></div>
+            <div class="field"><label id="lv-speed-label">Speed</label><div class="slider-row"><input type="range" id="lv-speed" min="0" max="255" value="0" oninput="liveSlider('lv-speed')"><output id="lv-speed-val">0</output></div></div>
+            <div class="field"><label id="lv-size-label">Size</label><div class="slider-row"><input type="range" id="lv-size" min="0" max="255" value="128" oninput="liveSlider('lv-size')"><output id="lv-size-val">128</output></div></div>
+            <div class="field"><label>Rotation</label><input type="range" id="lv-rotation" min="0" max="359" value="0" oninput="liveSlider('lv-rotation')"></div>
+            <div class="row" style="flex-wrap:wrap;gap:4px">
+              <button class="btn sm" onclick="setRotationQuick(0)">0&deg;</button>
+              <button class="btn sm" onclick="setRotationQuick(45)">45&deg;</button>
+              <button class="btn sm" onclick="setRotationQuick(90)">90&deg;</button>
+              <button class="btn sm" onclick="setRotationQuick(135)">135&deg;</button>
+              <button class="btn sm" onclick="setRotationQuick(180)">180&deg;</button>
+              <button class="btn sm" onclick="setRotationQuick(225)">225&deg;</button>
+              <button class="btn sm" onclick="setRotationQuick(270)">270&deg;</button>
+              <button class="btn sm" onclick="setRotationQuick(315)">315&deg;</button>
+            </div>
+            <p id="preset-hint-text" style="font-size:0.8rem"></p>
+
+            <details class="collapsible">
+              <summary>Autoscale</summary>
+              <div class="details-body">
                 <div class="field"><label>Autoscale Speed</label><input type="range" id="lv-autoscale-speed" min="0" max="100" value="0" oninput="liveSlider('lv-autoscale-speed')"></div>
                 <div class="field"><label>Autoscale Mode</label>
                   <!-- Values match firmware's AUTOSCALE_SMALL_BIG_SMALL/SMALL_BIG/BIG_SMALL
@@ -676,27 +691,23 @@ canvas { max-width: 100%; display: block; }
                        the user's perspective (bugs01.md P2 #4). -->
                   <select id="lv-autoscale-mode" onchange="sendLiveControls()"><option value="0">Pulse (Small → Big → Small)</option><option value="1">Grow (Small → Big)</option><option value="2">Shrink (Big → Small)</option></select>
                 </div>
-                <div class="field"><label>Rotation</label><input type="range" id="lv-rotation" min="0" max="359" value="0" oninput="liveSlider('lv-rotation')"></div>
-                <div class="row" style="flex-wrap:wrap;gap:4px">
-                  <button class="btn sm" onclick="setRotationQuick(0)">0&deg;</button>
-                  <button class="btn sm" onclick="setRotationQuick(45)">45&deg;</button>
-                  <button class="btn sm" onclick="setRotationQuick(90)">90&deg;</button>
-                  <button class="btn sm" onclick="setRotationQuick(135)">135&deg;</button>
-                  <button class="btn sm" onclick="setRotationQuick(180)">180&deg;</button>
-                  <button class="btn sm" onclick="setRotationQuick(225)">225&deg;</button>
-                  <button class="btn sm" onclick="setRotationQuick(270)">270&deg;</button>
-                  <button class="btn sm" onclick="setRotationQuick(315)">315&deg;</button>
-                </div>
-                <p id="preset-hint-text" style="font-size:0.8rem"></p>
               </div>
-              <div>
-                <h3>Auto-Rotation</h3>
+            </details>
+
+            <details class="collapsible">
+              <summary>Auto-Rotation</summary>
+              <div class="details-body">
                 <label class="row"><input type="checkbox" onchange="toggleAutoRotAll(this.checked)"> Master enable</label>
                 <div class="row rot-axis"><label><input type="checkbox" class="rot-x-cb" onchange="setRotAxis('x',this.checked)"> X</label>
                   <label><input type="checkbox" class="rot-y-cb" onchange="setRotAxis('y',this.checked)"> Y</label>
                   <label><input type="checkbox" class="rot-z-cb" onchange="setRotAxis('z',this.checked)"> Z</label></div>
                 <div class="field rot-axis"><label>Rotation Speed</label><input type="range" class="rot-speed-slider" min="-0.3" max="0.3" step="0.01" value="0" oninput="setRotSpeed(this.value)"></div>
-                <h3>Kaleidoscope &amp; Mirror</h3>
+              </div>
+            </details>
+
+            <details class="collapsible">
+              <summary>Kaleidoscope &amp; Mirror</summary>
+              <div class="details-body">
                 <label class="row"><input type="checkbox" id="lv-kaleido-on" onchange="sendLiveControls()"> Enabled</label>
                 <div class="field"><label>Mode</label>
                   <select id="lv-kaleido-mode" onchange="onKaleidoModeChange()"><option value="1" selected>Kaleidoscope</option><option value="0">Radial Repeat</option></select>
@@ -712,32 +723,7 @@ canvas { max-width: 100%; display: block; }
                   <button class="btn sm mirror-btn" onclick="setMirrorMode(3)">Radial4</button>
                 </div>
               </div>
-            </div>
-
-            <h3>Color</h3>
-            <div class="row" style="align-items:flex-start">
-              <canvas id="lv-color-wheel" width="180" height="180" style="cursor:crosshair;width:100%;max-width:180px;height:auto;aspect-ratio:1"
-                onmousedown="colorWheelClick(event)" onmousemove="colorWheelDrag(event)"
-                ontouchstart="colorWheelClick(event)" ontouchmove="colorWheelDrag(event)"></canvas>
-              <div>
-                <div class="field"><label>Brightness</label><input type="range" min="0" max="100" value="100" oninput="colorWheelBrightness(this.value)"></div>
-                <div class="field"><label>Hex</label><input type="text" id="lv-hex" value="#ffffff" onchange="hexInputChanged(this.value)" style="max-width:100px"></div>
-                <span id="lv-color-swatch" style="display:inline-block;width:30px;height:30px;background:#fff;border:1px solid var(--border)"></span>
-                <div class="row" style="margin-top:6px">
-                  <button class="btn sm" style="background:#ff0000" onclick="setQuickColor('#ff0000')">&nbsp;</button>
-                  <button class="btn sm" style="background:#00ff00" onclick="setQuickColor('#00ff00')">&nbsp;</button>
-                  <button class="btn sm" style="background:#0000ff" onclick="setQuickColor('#0000ff')">&nbsp;</button>
-                  <button class="btn sm" style="background:#ff00ff" onclick="setQuickColor('#ff00ff')">&nbsp;</button>
-                  <button class="btn sm" style="background:#ffff00" onclick="setQuickColor('#ffff00')">&nbsp;</button>
-                  <button class="btn sm" style="background:#00ffff" onclick="setQuickColor('#00ffff')">&nbsp;</button>
-                  <button class="btn sm" style="background:#ffffff" onclick="setQuickColor('#ffffff')">&nbsp;</button>
-                </div>
-                <input type="range" id="lv-r" min="0" max="255" value="255" class="hidden" oninput="liveSlider('lv-r')">
-                <input type="range" id="lv-g" min="0" max="255" value="255" class="hidden" oninput="liveSlider('lv-g')">
-                <input type="range" id="lv-b" min="0" max="255" value="255" class="hidden" oninput="liveSlider('lv-b')">
-                <label class="row"><input type="checkbox" id="lv-color-override" onchange="sendLiveControls()"> Color Override</label>
-              </div>
-            </div>
+            </details>
 
             <details class="collapsible">
               <summary>Points-Only Mode</summary>
@@ -828,89 +814,139 @@ canvas { max-width: 100%; display: block; }
           </div>
 
           <div class="card">
-            <h2>Color Animations</h2>
-            <div class="row">
-              <button class="btn col-anim-type-btn" data-type="" onclick="setAnimType('')">None</button>
-              <button class="btn col-anim-type-btn" data-type="gradient" onclick="setAnimType('gradient')">Gradient</button>
-              <button class="btn col-anim-type-btn" data-type="chase" onclick="setAnimType('chase')">Chase</button>
-              <button class="btn col-anim-type-btn" data-type="strobe" onclick="setAnimType('strobe')">Strobe</button>
-              <button class="btn col-anim-type-btn" data-type="pulse" onclick="setAnimType('pulse')">Pulse</button>
-              <button class="btn col-anim-type-btn" data-type="twinkle" onclick="setAnimType('twinkle')">Twinkle</button>
-              <button class="btn col-anim-type-btn" data-type="colorflip" onclick="setAnimType('colorflip')">ColorFlip</button>
-              <button class="btn col-anim-type-btn" data-type="segment" onclick="setAnimType('segment')">Segment</button>
+            <h2>Color</h2>
+            <div class="row" style="align-items:flex-start">
+              <canvas id="lv-color-wheel" width="180" height="180" style="cursor:crosshair;width:100%;max-width:180px;height:auto;aspect-ratio:1"
+                onmousedown="colorWheelClick(event)" onmousemove="colorWheelDrag(event)"
+                ontouchstart="colorWheelClick(event)" ontouchmove="colorWheelDrag(event)"></canvas>
+              <div>
+                <div class="field"><label>Brightness</label><input type="range" min="0" max="100" value="100" oninput="colorWheelBrightness(this.value)"></div>
+                <div class="field"><label>Hex</label><input type="text" id="lv-hex" value="#ffffff" onchange="hexInputChanged(this.value)" style="max-width:100px"></div>
+                <span id="lv-color-swatch" style="display:inline-block;width:30px;height:30px;background:#fff;border:1px solid var(--border)"></span>
+                <div class="row" style="margin-top:6px">
+                  <button class="btn sm" style="background:#ff0000" onclick="setQuickColor('#ff0000')">&nbsp;</button>
+                  <button class="btn sm" style="background:#00ff00" onclick="setQuickColor('#00ff00')">&nbsp;</button>
+                  <button class="btn sm" style="background:#0000ff" onclick="setQuickColor('#0000ff')">&nbsp;</button>
+                  <button class="btn sm" style="background:#ff00ff" onclick="setQuickColor('#ff00ff')">&nbsp;</button>
+                  <button class="btn sm" style="background:#ffff00" onclick="setQuickColor('#ffff00')">&nbsp;</button>
+                  <button class="btn sm" style="background:#00ffff" onclick="setQuickColor('#00ffff')">&nbsp;</button>
+                  <button class="btn sm" style="background:#ffffff" onclick="setQuickColor('#ffffff')">&nbsp;</button>
+                </div>
+                <input type="range" id="lv-r" min="0" max="255" value="255" class="hidden" oninput="liveSlider('lv-r')">
+                <input type="range" id="lv-g" min="0" max="255" value="255" class="hidden" oninput="liveSlider('lv-g')">
+                <input type="range" id="lv-b" min="0" max="255" value="255" class="hidden" oninput="liveSlider('lv-b')">
+                <label class="row"><input type="checkbox" id="lv-color-override" onchange="sendLiveControls()"> Color Override</label>
+              </div>
             </div>
-            <div id="color-anim-body" style="margin-top:10px"><p>Pick an animation type above.</p></div>
-            <label class="row"><input type="checkbox" id="lv-anim-bpm-sync" onchange="sendLiveControls()"> Sync to BPM (speed slider ignored)</label>
-            <div class="row" style="margin-top:8px">
-              <button class="btn" onclick="stopAnimation()">Stop Animation</button>
-              <button class="btn danger" onclick="resetColors()">Reset Colors</button>
+
+            <details class="collapsible">
+              <summary>Color Animations</summary>
+              <div class="details-body">
+                <div class="row">
+                  <button class="btn col-anim-type-btn" data-type="" onclick="setAnimType('')">None</button>
+                  <button class="btn col-anim-type-btn" data-type="gradient" onclick="setAnimType('gradient')">Gradient</button>
+                  <button class="btn col-anim-type-btn" data-type="chase" onclick="setAnimType('chase')">Chase</button>
+                  <button class="btn col-anim-type-btn" data-type="strobe" onclick="setAnimType('strobe')">Strobe</button>
+                  <button class="btn col-anim-type-btn" data-type="pulse" onclick="setAnimType('pulse')">Pulse</button>
+                  <button class="btn col-anim-type-btn" data-type="twinkle" onclick="setAnimType('twinkle')">Twinkle</button>
+                  <button class="btn col-anim-type-btn" data-type="colorflip" onclick="setAnimType('colorflip')">ColorFlip</button>
+                  <button class="btn col-anim-type-btn" data-type="segment" onclick="setAnimType('segment')">Segment</button>
+                </div>
+                <div id="color-anim-body" style="margin-top:10px"><p>Pick an animation type above.</p></div>
+                <label class="row"><input type="checkbox" id="lv-anim-bpm-sync" onchange="sendLiveControls()"> Sync to BPM (speed slider ignored)</label>
+                <div class="row" style="margin-top:8px">
+                  <button class="btn" onclick="stopAnimation()">Stop Animation</button>
+                  <button class="btn danger" onclick="resetColors()">Reset Colors</button>
+                </div>
+              </div>
+            </details>
+          </div>
+          </div>
+
+          <div class="grid grid-2">
+            <div class="card">
+              <details class="collapsible">
+                <summary>BPM Clock</summary>
+                <div class="details-body">
+                  <div class="row"><span id="dash-bpm-source" class="pill">Manual</span></div>
+                  <div class="field">
+                    <label>Manual BPM</label>
+                    <input type="number" id="dash-bpm-manual" min="20" max="300" step="0.1" onchange="setBpmManual(this.value)">
+                  </div>
+                  <button class="btn" onclick="document.getElementById('btn-tap').click()">TAP</button>
+                </div>
+              </details>
+            </div>
+
+            <div class="card">
+              <details class="collapsible">
+                <summary>Countdown Timer</summary>
+                <div class="details-body">
+                  <div class="row">
+                    <div class="field"><label>H</label><input type="number" id="timer-h" value="0" min="0" oninput="updateTimerPreview()"></div>
+                    <div class="field"><label>M</label><input type="number" id="timer-m" value="1" min="0" max="59" oninput="updateTimerPreview()"></div>
+                    <div class="field"><label>S</label><input type="number" id="timer-s" value="0" min="0" max="59" oninput="updateTimerPreview()"></div>
+                    <div class="field"><label>Remaining</label><span id="timer-display" style="font-family:var(--font-mono);font-size:1.3rem">00:01:00</span></div>
+                  </div>
+                  <div class="row">
+                    <button class="btn sm" onclick="timerSet()">Set</button>
+                    <button class="btn sm primary" onclick="timerStart()">Start</button>
+                    <button class="btn sm" onclick="timerPause()">Pause</button>
+                    <button class="btn sm" onclick="timerStop()">Stop</button>
+                    <button class="btn sm" onclick="timerReset()">Reset</button>
+                  </div>
+                  <div class="row" style="margin-top:8px">
+                    <label><input type="radio" name="timer-expire" value="nothing" checked> Nothing</label>
+                    <label><input type="radio" name="timer-expire" value="text"> Text</label>
+                    <input type="text" id="timer-expire-text" placeholder="DONE" style="max-width:100px">
+                    <label><input type="radio" name="timer-expire" value="ilda"> ILDA file</label>
+                    <select id="timer-ilda-file"></select>
+                  </div>
+                </div>
+              </details>
             </div>
           </div>
 
           <div class="grid grid-2">
             <div class="card">
-              <h2>BPM Clock</h2>
-              <div class="row"><span id="dash-bpm-source" class="pill">Manual</span></div>
-              <div class="field">
-                <label>Manual BPM</label>
-                <input type="number" id="dash-bpm-manual" min="20" max="300" step="0.1" onchange="setBpmManual(this.value)">
-              </div>
-              <button class="btn" onclick="document.getElementById('btn-tap').click()">TAP</button>
-            </div>
-
-            <div class="card">
-              <h2>Countdown Timer</h2>
-              <div class="row">
-                <div class="field"><label>H</label><input type="number" id="timer-h" value="0" min="0" oninput="updateTimerPreview()"></div>
-                <div class="field"><label>M</label><input type="number" id="timer-m" value="1" min="0" max="59" oninput="updateTimerPreview()"></div>
-                <div class="field"><label>S</label><input type="number" id="timer-s" value="0" min="0" max="59" oninput="updateTimerPreview()"></div>
-                <div class="field"><label>Remaining</label><span id="timer-display" style="font-family:var(--font-mono);font-size:1.3rem">00:01:00</span></div>
-              </div>
-              <div class="row">
-                <button class="btn sm" onclick="timerSet()">Set</button>
-                <button class="btn sm primary" onclick="timerStart()">Start</button>
-                <button class="btn sm" onclick="timerPause()">Pause</button>
-                <button class="btn sm" onclick="timerStop()">Stop</button>
-                <button class="btn sm" onclick="timerReset()">Reset</button>
-              </div>
-              <div class="row" style="margin-top:8px">
-                <label><input type="radio" name="timer-expire" value="nothing" checked> Nothing</label>
-                <label><input type="radio" name="timer-expire" value="text"> Text</label>
-                <input type="text" id="timer-expire-text" placeholder="DONE" style="max-width:100px">
-                <label><input type="radio" name="timer-expire" value="ilda"> ILDA file</label>
-                <select id="timer-ilda-file"></select>
-              </div>
-            </div>
-          </div>
-
-          <div class="grid grid-2">
-            <div class="card">
-              <h2>Parameter Modulators</h2>
-              <div id="mod-slots"></div>
-              <div class="row" style="margin-top:8px">
-                <button class="btn sm" onclick="modAdd()">&#65291; Add Modulator</button>
-                <button class="btn sm danger" onclick="modResetAll()">Reset All</button>
-              </div>
+              <details class="collapsible">
+                <summary>Parameter Modulators</summary>
+                <div class="details-body">
+                  <div id="mod-slots"></div>
+                  <div class="row" style="margin-top:8px">
+                    <button class="btn sm" onclick="modAdd()">&#65291; Add Modulator</button>
+                    <button class="btn sm danger" onclick="modResetAll()">Reset All</button>
+                  </div>
+                </div>
+              </details>
             </div>
             <div class="card">
-              <h2>Bindings</h2>
-              <div id="mod-bindings"></div>
-              <button class="btn sm" onclick="modBindingAdd()">&#65291; Add Binding</button>
+              <details class="collapsible">
+                <summary>Bindings</summary>
+                <div class="details-body">
+                  <div id="mod-bindings"></div>
+                  <button class="btn sm" onclick="modBindingAdd()">&#65291; Add Binding</button>
+                </div>
+              </details>
             </div>
           </div>
 
           <div class="card">
-            <h2>Sequencer</h2>
-            <div class="row"><span id="seq-status">Stopped</span><span id="seq-beat-dot" class="beam-dot on" role="status" aria-label="Sequencer beat" style="margin-left:auto"></span></div>
-            <div class="row" style="margin-top:8px">
-              <button class="btn sm" onclick="seqTransport('prev')">&#9198;</button>
-              <button class="btn sm primary" onclick="seqTransport('start')">&#9654;</button>
-              <button class="btn sm" onclick="seqTransport('stop')">&#9632;</button>
-              <button class="btn sm" onclick="seqTransport('next')">&#9197;</button>
-            </div>
-            <label class="row" style="margin-top:8px"><input type="checkbox" id="seq-loop" checked onchange="seqSetLoop(this.checked)"> Loop playlist</label>
-            <div id="seq-steps-list"></div>
-            <button class="btn sm" onclick="seqAddStep()">&#65291; Add step</button>
+            <details class="collapsible">
+              <summary>Sequencer</summary>
+              <div class="details-body">
+                <div class="row"><span id="seq-status">Stopped</span><span id="seq-beat-dot" class="beam-dot on" role="status" aria-label="Sequencer beat" style="margin-left:auto"></span></div>
+                <div class="row" style="margin-top:8px">
+                  <button class="btn sm" onclick="seqTransport('prev')">&#9198;</button>
+                  <button class="btn sm primary" onclick="seqTransport('start')">&#9654;</button>
+                  <button class="btn sm" onclick="seqTransport('stop')">&#9632;</button>
+                  <button class="btn sm" onclick="seqTransport('next')">&#9197;</button>
+                </div>
+                <label class="row" style="margin-top:8px"><input type="checkbox" id="seq-loop" checked onchange="seqSetLoop(this.checked)"> Loop playlist</label>
+                <div id="seq-steps-list"></div>
+                <button class="btn sm" onclick="seqAddStep()">&#65291; Add step</button>
+              </div>
+            </details>
           </div>
         </div>
 
@@ -1719,7 +1755,7 @@ canvas { max-width: 100%; display: block; }
 /* =========================================================================
    GLOBAL STATE
    ========================================================================= */
-var UI_VERSION = '1.27.0';   // WebUI version -- independent from firmware version
+var UI_VERSION = '1.28.0';   // WebUI version -- independent from firmware version
 var NAV_TABS = [
   {id: 'dashboard', label: 'Dashboard', icon: '🏠', bottom: true},
   {id: 'presets', label: 'Presets', icon: '🎮', bottom: true},

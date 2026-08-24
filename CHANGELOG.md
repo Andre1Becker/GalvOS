@@ -8,8 +8,42 @@ The WebUI carries its own independent `UI_VERSION`; it is not tracked separately
 
 ---
 
-## 6.8x — Introspection: task viewer, honest CPU load, render timing (2026-08-19 → 2026-08-22)
+## 6.8x — Introspection: task viewer, honest CPU load, render timing (2026-08-19 → 2026-08-24)
 
+- **UI v1.28.0** (2026-08-24, no firmware bump) — Presets tab reorganized: Autoscale,
+  Auto-Rotation and Kaleidoscope & Mirror are now collapsible `<details>` sections
+  (matching Points-Only Mode and Flow Mode's existing pattern) instead of always-open
+  inline blocks. Color moved out of the Global Controls card into its own card alongside
+  it, with Color Animations nested underneath as a collapsible section. BPM Clock,
+  Countdown Timer, Parameter Modulators, Bindings and Sequencer are collapsible too now.
+  Pure `data/index.html` reshuffle — no id, endpoint, or behavior changes.
+- **6.84** — Flow Mode: a new global render option (Presets tab sidebar, next to Points-Only
+  Mode) that lights only a sliding window of the already-generated path — one or several,
+  evenly spaced — instead of the whole geometry at once, giving a travelling "comet" trail.
+  Segments (1–8), Length % (1–100 of the lit path), Speed (0–255 → 0.05–3.0 laps/s,
+  point-count independent), Direction and a tail→head Fade are all live-parametrizable via
+  `/api/preset-live`. Never re-samples or reorders points — only ever blanks more of them —
+  so it rides the preset's/optimizer's exact existing point spacing and blank-jump plan
+  verbatim: `n` never changes and no new galvo jump is introduced anywhere. Gated into the
+  v6.82/v6.83 whole-pipeline output cache's eligibility check, since the trail phase advances
+  every frame. UI v1.27.0. Build-verified only — no hardware pass this session.
+- **Audit** (2026-08-22, no version bump) — Live re-verification of v6.75.0's three
+  incidental findings, closing out `State_fix.md`'s backlog (now removed; full numbers moved
+  into `docs/optimizer-range-audit-2026-08-17.md`). Two held up: fallback constants
+  (`brightnessNonUniformity`, `offsetX/YUnits`) are flagged `valid`/NaN rather than silently
+  returned, and `max_safe_kpps` is confirmed a pure, unenforced ILDA-derate formula — live
+  reading `6.0` today, not the doc's stale `17.6` (pre-dates the `rated_kpps` 45→15
+  migration). One didn't: `blankLeakage`'s anti-correlation doesn't reproduce — a new
+  streak-sweep tool (`scripts/optimizeGalvo/streak.py`) agrees with the tool's own corridor
+  mean to 3 decimals, both monotonic the right way now, likely because the original reading
+  predates the later exposure/shutter fix. Loose end left behind: `blankLeakage` still
+  carries a live `weight=2.0` in cost, contradicting v6.75.0's own "nothing load-bearing"
+  commit claim — currently harmless only because today's measured direction happens to agree
+  with reality. Also hand-verified `applyPpsScaling` at half/double the reference kpps
+  against all 8 live profiles: the PPS-scaled bounds do **not** uniformly hold — Smooth is
+  already over its density ceiling at the reference rate, and at double-rate 5 of 8 profiles
+  blow past it with `max_step_units` dropping below its own floor; nothing re-clamps the
+  effective value after scaling.
 - **6.83** — Every Core-0 load figure this project had ever acted on was wrong. The CPU
   monitor counted FreeRTOS idle-hook *invocations* against a baseline captured once at
   startup — but stored that window's raw count as if it had been 500 ms, and it never
