@@ -1,10 +1,10 @@
-# Optimizer Parameter Range Audit — 2026-08-17 (updated through 2026-08-22)
+# Optimizer Parameter Range Audit — 2026-08-17 (updated through 2026-08-24)
 
 Camera-validated practical min/max ranges for `OptimizerLiveConfig`, measured live on the
 bench rig described in [Chapter 6](06-camera-autotuning.md). Originally a single-day audit;
-five live follow-up sessions (2026-08-18 ×3, 2026-08-20, 2026-08-22) chased open threads it
-left behind. This revision removes narrative that later sessions fully resolved and keeps
-only what's still actionable.
+six live follow-up sessions (2026-08-18 ×3, 2026-08-20, 2026-08-22, 2026-08-24) chased open
+threads it left behind. This revision removes narrative that later sessions fully resolved and
+keeps only what's still actionable.
 
 **Nothing outside the two changes noted below was applied or persisted.** All range-finding
 overrides went through `/api/calib-cam/params` (RAM-only, restored on session stop). The two
@@ -45,10 +45,20 @@ raised 3→16 and saved (§Changelog). No other NVS write, and no change to `inc
 
 - Orientation mismatch confirmed real on 4 camera-loop patterns (`star`/`spiral`/`wireframe`/
   `text`) — never eyes-on-checked against the actual live presets.
-- `star`'s scale undershoot: corner-dwell *time* ruled out, but a concrete new lead exists —
-  the undershoot concentrates entirely at the one vertex whose approach mechanism differs
-  from the other four (see below), not spread evenly the way a dwell-count or arrival-speed
-  effect would be.
+- `star`'s scale undershoot: four independent `OptimizerLiveConfig` knobs now tried
+  (corner-dwell count, corner-severity threshold, blank-jump teleport dwell, a joint Optuna
+  search with clamps unlocked) and none reach clean — `optimize`'s cost function is also
+  provably blind to scale error, so it was never capable of finding a fix either way, confirming
+  this is outside the `OptimizerLiveConfig` search space entirely. **Root cause now found,
+  2026-08-24, via direct hardware capture (LA1010 SPI + Hantek analog Y)**: vertex 0's
+  *commanded* DAC code doesn't undershoot at all (equal to or above vertices 1-4), but the
+  *analog* galvo Y output does — it settles at only ~57% of the achieved-volts-per-code that
+  vertices 1-4 get, and never cleanly (continuous jitter, no settling trend). Isolated to the
+  one vertex approached via a blank jump instead of a live lit edge — see [Open items](#open-items)
+  item 2 for the full readout. Not yet reconciled with the camera-side observation that X/Y
+  undershoot nearly equally (a single Y-dominant vertex defect arguably shouldn't read that way
+  through a homography-based scale-error fit) — flagged, not resolved, and the hardware finding
+  is from one session, not yet reproduced.
 - `blankLeakage` still carries a nonzero cost weight (2.0) despite fw v6.75.0's commit claiming
   "nothing load-bearing rests on it any more" — a real code/comment mismatch, currently
   harmless only because today's measured direction happens to agree with reality.
@@ -56,8 +66,9 @@ raised 3→16 and saved (§Changelog). No other NVS write, and no change to `inc
   re-clamp — see [Open items](#open-items) for the numbers.
 - `Trails` profile — unmeasured, no viable approach yet.
 - `curvature_gain` — unmeasurable with the existing camera patterns.
-- `Vector`/`Particles` geometry offsets — still flagged "not fixable by autotune", cause
-  unknown.
+- `Vector`/`Particles` geometry offsets — still flagged "not fixable by autotune". For `Vector`
+  this is now understood *why* autotune can't fix it (cost function blind to scale error, see
+  above) even though the underlying cause remains unknown.
 
 ---
 
@@ -170,80 +181,164 @@ Next-session-ready, cheapest first:
    `text` is the interesting case: its glyph orientation was hardware-validated fixed already
    (v6.01.0/v6.05.3), yet `cam_text` (same `textrender::glyphOutlinePaths()`) still measures
    `mirror_y` — a live contradiction worth resolving first.
-2. **`star`'s scale undershoot (reproduced 2026-08-22: X −5.5%, Y −4.6%, essentially the same
-   as the original −5.9%/−5.7% reading — real, stable, not noise).** Corner-dwell time is
-   ruled out as the cause (2.3× `max_corner_pts` → no change). A pixel-level look at the
-   annotated capture (fresh calibration, `diagnose --profile Vector`) settles which vertex:
-   of the star's 5 tips, 4 land within ~1px of the ideal apex; only ONE is visibly rounded off
-   into a soft "U" well short of the ideal sharp point. That one tip is `cam_star`'s
-   `k==0`/`isFirst` vertex — confirmed by mapping the tool's auto-detected `rot180` orientation
-   back onto the vertex angles.
+2. **`star`'s scale undershoot (reproduced again 2026-08-24: X −5.6% to −6.3%, Y −5.0% to −5.5%
+   across a full controlled sweep — essentially the same as every prior reading back to the
+   original −5.9%/−5.7%. Real, stable, not noise — confirmed unreachable by `optimize` as
+   currently built, AND every timing/dwell-budget theory tried so far is now ruled out; see
+   below).** Concentrates entirely at `cam_star`'s `k==0`/`isFirst`
+   vertex, not spread evenly across all 5 tips the way a generic dwell-count or arrival-speed
+   effect would be — confirmed by pixel-level inspection of the annotated capture, mapped back
+   through the tool's `rot180` orientation detection. `square` (same profile, same calibration)
+   stays clean throughout, which rules out `diagnose`'s generic "suspect galvo calibration
+   drift" explanation — a real calibration problem would show up there too.
 
-   Since `cam_star`'s 5 edges are all equal length and all 5 vertex angles are identical (a
-   regular pentagram), a pure corner-angle or arrival-speed effect predicts identical rounding
-   at all 5 tips. It doesn't — only vertex 0 differs, and vertex 0 is architecturally different
-   from vertices 1-4 in three ways, all confirmed in `point_optimizer.cpp`/`.h`:
-   - It's the only vertex approached via a **blank jump** (Pillar 2, ZV-shaped reposition)
-     rather than a live lit edge — `emitAllSegments()` unconditionally blank-jumps to a
-     segment's `vertices[0]`, every lap, even though in a continuously-looped closed shape the
-     beam is already physically sitting there from the previous lap's closing dwell.
-   - Its frame-start corner dwell has its **first point forced blank** ("lift" — a dark
-     landing-confirmation sample before the beam turns on, `point_optimizer.h:30-33`) —
-     replacing what would otherwise be a lit dwell point, unlike vertices 1-4.
-   - It's the only vertex counted **twice** in the point stream — frame-start dwell + a second
-     "trailing" dwell after the wrap-around edge closes the loop back to it
-     (`point_optimizer.cpp:915-931`, added to fix a *different*, already-resolved gap).
-   Net effect: vertex 0 gets more raw dwell points than the others, but a chunk of that time is
-   spent on a blank-jump landing + a blanked confirmation sample rather than a live corner
-   approach — which is exactly why doubling/scaling `max_corner_pts` (a lit-dwell-count knob)
-   never moved this number. Not proven as the root cause yet — next step is checking
-   `emitBlankJump()`'s landing precision on the near-zero-distance case (steady-state closed
-   loop, beam already at the target) rather than more corner-dwell tuning.
+   That one vertex is architecturally different from vertices 1-4 in three confirmed ways
+   (`point_optimizer.cpp`/`.h`): it's the only one approached via a **blank jump** rather than
+   a live lit edge; its frame-start corner dwell has its **first point forced blank** ("lift",
+   `point_optimizer.h:30-33`) instead of a lit dwell point; and it's the only vertex counted
+   **twice** in the point stream (frame-start dwell + a second "trailing" dwell closing the
+   loop, `point_optimizer.cpp:915-931`). Net effect: vertex 0 gets more raw dwell points than
+   the others, but a chunk of that time is spent on a blank-jump landing + a blanked
+   confirmation sample rather than a live corner approach.
 
-   Negative control run the same session: `square` (same Vector profile, same calibration, same
-   diagnose run) scored X+0.0%/Y−1.0% — clean. That rules out `diagnose`'s own generic "suspect
-   galvo gain/offset/DAC-range calibration drift" suggestion for both `star` and `spiral`: a
-   real calibration/gain problem would show up on `square` too, and it doesn't. The defect is
-   specific to how these two shapes are optimized/emitted.
+   **Ruled out (full trail condensed from 2026-08-22/24 sessions):**
+   - *Corner-dwell time* — 2.3× `max_corner_pts` produced no change.
+   - *Stale vertex-0 jump-in replaying a cached buffer* — retracted same session:
+     `configFromLive()` never sets `hasPrevPos`, so `emitBlankJump()` always takes the
+     no-interpolation branch for vertex 0 (nothing stale to replay); raw pre-warp photo
+     inspection also showed every corner dwell blooming similarly, not just vertex 0 — more
+     likely a homography-warp artifact than a firmware defect.
+   - *Naive clamp flip* — turning on `vel_clamp_enabled`/`accel_clamp_enabled` at the profile's
+     pre-existing, previously-inert `max_step_units=200`/`max_accel_units=800` made it
+     measurably WORSE (89.8%→52.0% INVALID path coverage) — budget crush, not a fair test of
+     whether decelerating into the corner helps.
+   - **A proper joint `optimize --profile Vector` Optuna search, clamps unlocked in
+     `searchSpace.json`, camera exposure re-tuned first (`autotune-camera --profile Vector
+     --fresh --apply`) — see 2026-08-24 changelog.** 20/20 trials valid this time (the prior
+     session's camera-timing confound is gone). Best trial (cost 61.17) left both clamps
+     `false`, same as baseline, and dropped `square`'s cost 22.09→3.63 — but pushing those exact
+     params live (`/api/optimizer-live`, RAM-only) and reading `diagnose --profile Vector`
+     twice independently gave X −5.6% then −5.1%, statistically the same as the −5.5% baseline.
+     **Root cause: `computeMetrics()`'s `cost` formula (`optimizeGalvo.py`) never includes
+     `scaleErrorXPct`/`scaleErrorYPct` — they're computed and used by `diagnose`'s
+     `classifyProfile()`, but Optuna's objective in `optimize`/`autotune-camera` is built
+     entirely from `pathDeviationRms`/`blankLeakage`/`cornerHotspot`/`brightnessNonUniformity`/
+     saturation/blob terms.** `optimize` was never capable of finding a fix for this defect,
+     regardless of trial count or which parameters are unlocked — it cannot see the thing it
+     would need to reduce. This applies to every profile's search, not just `Vector`'s.
+     Reverted live config to baseline immediately after the second read (confirmed via
+     `/api/config`); nothing applied or persisted.
 
-   **First hypothesis (vertex-0 jump-in is stale on every loop) — checked and RETRACTED same
-   session.** The idea: `emitBlankJump()` computes vertex 0's incoming jump once per
-   `generate()` call, so a static preset's cached buffer would replay a one-time, now-stale jump
-   on every hardware loop. Two things killed it before it reached hardware: (1) `cam_star()`
-   never calls `frameContext()` and `configFromLive()` explicitly never sets `hasPrevPos` — so
-   `emitBlankJump()` always takes its `hasPrevPos == false` branch for vertex 0, which is
-   `emitBlankRun()`: `blank_samples` points sitting stationary AT vertex 0, no interpolation
-   from anywhere, nothing "stale" to replay. (2) Pulling the RAW (pre-warp, pre-threshold) camera
-   photo behind the annotated overlay and zooming into all 3 of the star's upward tips at pixel
-   level: EVERY bright corner dwell blooms into a similarly soft blob in the raw image, not just
-   vertex 0 — top-right and top-left look as rounded as the bottom tip. The per-vertex asymmetry
-   visible in the DAC-space annotated overlay is more likely an artifact of the homography warp
-   (an isotropic camera-pixel blob maps to a direction-dependent blob in DAC space, and that
-   distortion varies by image position) than a vertex-0-specific firmware defect. Retracted.
+   **The vertex-0 "teleport dwell" theory itself — RULED OUT, 2026-08-24, via a controlled
+   single-variable test.** `optimize` couldn't test it (blind cost function, above), so a
+   standalone script held every other Vector param at baseline and swept only `blank_samples`
+   across `searchSpace.json`'s full range (8→64, `measureRepeated`'s 3-rep averaging, reading
+   `scaleErrorXPct`/`YPct` directly off the `Metrics` object rather than through `diagnose`'s
+   5%-threshold filter). Result: **flat**. X ranged −5.63% to −6.27%, Y −5.01% to −5.47%, across
+   the entire 8× range — no trend, the whole spread sits inside the doc's own established noise
+   floor. If vertex 0's parked "teleport" ticks (the mechanism `blank_samples` directly controls)
+   were stealing precision from the corner approach, this count should have moved the number.
+   It didn't. (One methodological trap surfaced and was fixed while building this test: applying
+   `Vector`'s tuned `profileCamera` override — `binaryThreshold=60`, tuned by `autotune-camera`
+   against the *same* blind cost function — inflated the traced blob enough to read a spurious
+   +48% X "scale error" on EVERY value, independent of `blank_samples`. `diagnose` never applies
+   that override for exactly this kind of reason; matching its recipe exactly fixed it. A second,
+   smaller instance of the same root cause: a capture setting tuned against a cost function blind
+   to scale error can itself corrupt a scale-error reading.)
 
-   **Second hypothesis, tested live same session — corners this sharp get real extra dwell, but
-   turning on the existing accel/velocity clamp made it worse, not better.** Read back live
-   `/api/config`: Vector's `corner_angle_deg` is 57.57°. `cornerSeverity()`'s exterior-turn
-   angle is 90° for `square` (`(90−57.57)/(180−57.57) ≈ 0.265` → ~4 dwell points) vs. 144° for
-   `star`'s 36°-tip spikes (`≈ 0.706` → ~6 points) — real, but a moderate ~1.5×, not the
-   "near-zero vs. near-max" first guessed. More relevantly: `vel_clamp_enabled` and
-   `accel_clamp_enabled` are BOTH off on the live Vector profile, and `cornerSeverity()`'s own
-   header comment says severity deliberately does not model arrival speed — that job belongs to
-   `clampScannerLimits()`, which is currently disabled. Live A/B, RAM-only via
-   `/api/optimizer-live` (auto-verified reverted, no NVS write): flipping both clamps on with
-   the profile's own already-configured (previously-inert) `max_step_units=200`/
-   `max_accel_units=800` made `star` measurably WORSE, not better — `measure --pattern star`
-   went from a clean 89.8% path coverage / 330u beam width / X −5.4% baseline to an INVALID
-   52.0% path coverage / 479u beam width / X −22.5% with the clamps on. Reverted and confirmed
-   back to baseline immediately. Read as budget crush, not a refutation of the arrival-speed
-   idea: those two ceilings were left in the config while gated off and were never tuned
-   together with `pts_per_1000_units`/`max_pts_per_frame` for what they'd insert once active —
-   enabling the gate alone, at unrelated pre-existing numbers, isn't a fair test of "does
-   decelerating into the corner help."
-   **Next step, if this is worth pursuing further: an actual `optimize --profile Vector` Optuna
-   search with `vel_clamp_enabled`/`accel_clamp_enabled` unlocked in `searchSpace.json`**,
-   so density/budget/clamp get tuned together instead of guessing one clamp value by hand — a
-   deliberate follow-up session, not a quick live guess.
+   **Reference-geometry thread — checked, cleared.** `idealPolylines('star', r)`
+   (`optimizeGalvo.py`) and `cam_star()` (`calib_patterns.cpp`) use the identical formula —
+   `angle = k*(4π/5) − π/2`, radius `r/2` both sides, `r=30000` on both (the file's own comment
+   says the host geometry was deliberately written to mirror the firmware's). No definition
+   mismatch to find here; this thread is closed.
+
+   **The single-vertex premise itself doesn't fit the sweep data.** Vertex `k==0` sits at angle
+   −90°, i.e. `x=0` exactly — if only that one vertex were rounded, X scale error should read
+   near zero (its own X-extremes come from the *other* four vertices, untouched) while Y carries
+   the whole defect. It doesn't: every clean reading this session has X and Y within ~1pp of each
+   other (−5.6%/−5.0% to −6.3%/−5.5%). That's the signature of a roughly uniform, all-axis
+   shrink, not a single point pulled toward center — which also fits the ALREADY-retracted
+   "stale jump-in" hypothesis's own discarded evidence (raw-photo inspection: every corner
+   blooms similarly, not just vertex 0). The 2026-08-22 pixel read that singled out one tip as
+   uniquely rounded may itself have been the homography-warp artifact that retraction already
+   flagged as the more likely explanation, applied a little too narrowly at the time.
+
+   **Follow-up test motivated by "uniform shrink across all 5 sharp tips": sweep
+   `corner_angle_deg` instead of dwell count — result contradicts the hypothesis, cleanly.**
+   If corner-severity-driven dwell compensation were CAUSING the shrink, raising
+   `corner_angle_deg` past the pentagram's 144° turn angle (`severity` → 0, no compensation at
+   all) should make `star` read as clean as `square` (whose 90° turn already sits at low
+   severity, 0.265, at baseline). Instead: `star` gets monotonically WORSE as `corner_angle_deg`
+   rises — X/Y −6.2%/−4.9% at `cad=0` (max severity), −5.9%/−5.8% at baseline (57.57°), climbing
+   to **−8.5%/−7.5% at `cad=150-170`** (severity ≈ 0, i.e. no dwell compensation). `square`
+   stays flat (+0.5%/−0.5%) across the same full range, immune regardless of its own severity.
+   Reads backwards from "compensation causes the shrink": more corner dwell mildly *helps*,
+   removing it makes the tip miss by nearly 2× more. Baseline (57.57°) is already close to
+   this knob's own optimum — consistent with why raising `max_corner_pts` (Open Item #2, first
+   paragraph) found no further room either.
+
+   **Where this leaves it, honestly.** Four independent tunable knobs now tried against this
+   defect — corner-dwell count (`max_corner_pts`), corner-severity threshold
+   (`corner_angle_deg`), blank-jump teleport dwell (`blank_samples`), and a full joint Optuna
+   search with clamps unlocked — and not one gets `star` within noise of clean. The best any of
+   them manage is the existing baseline, already near its own local optimum on the two knobs
+   that show any gradient at all. This is no longer "haven't found the right parameter yet" — it
+   increasingly looks like the `OptimizerLiveConfig` search space, as it exists today, cannot
+   reach a fix for this. Two threads left, both outside that space:
+   - `spiral` (`Waves` profile) shows a similar-magnitude undershoot via an unrelated
+     point-generation path. Worth a quick check of whether the two share anything (both are the
+     only two calib patterns with an "isFirst" open/self-intersecting geometry going through a
+     single `optimize()` call) — but given corner-dwell knobs don't explain `star` either, don't
+     expect this to resolve either just because it's cheap to check.
+   - A genuine physical read: does a 15kpps galvo (36° pentagram tip, a very sharp direction
+     reversal at speed) actually reach the ideal apex, or is ~5-6% short of a sharp spike simply
+     what this rig's real mechanical dynamics produce, already close to as-compensated-as this
+     parameter space allows? If so, "star's undershoot" reclassifies from an open defect to a
+     documented, near-optimally-compensated physical limitation — not nothing, but a different
+     kind of finding than a bug to keep hunting for.
+   Not a `costWeights` change or an `emitBlankJump()` firmware patch at this point — neither is
+   what this session's evidence points to.
+
+   **2026-08-24, hardware capture session (Kingst LA1010 + Hantek 6022BE, see
+   [`sigrok-capture-tool.md`](sigrok-capture-tool.md)) — resolves both remaining threads above,
+   and reverses the "not an `emitBlankJump()` firmware patch" conclusion.** First hardware-level
+   look at this defect rather than another camera measurement or Optuna sweep. Star pattern
+   armed live via `/api/calib-cam/start`, DAC8562 SPI bus and galvo analog Y output captured
+   separately (same repeating static pattern, so cross-loop self-consistency stands in for a
+   shared trigger).
+
+   *SPI capture (commanded DAC codes) — vertex 0 does NOT undershoot at the command level.*
+   Decoded 12.7k clean frames (0 malformed). Peak commanded code at vertex 0's dwell plateau:
+   13650.0 (the pattern's exact maximum), vs. 13649.1–13649.8 for vertices 1-4 — identical
+   within DAC-LSB quantization. Plateau *mean* is actually ~0.9% higher at vertex 0 (13568.2 vs.
+   13450.1), and its dwell run is 2.4× longer (83 samples vs. 34) — consistent with the
+   architectural double-count already identified above, just showing that extra time reads as
+   *more* commanded amplitude, not less. This rules out `point_optimizer`/geometry generation as
+   the cause outright — closes the "spiral shares something with star" thread too, since
+   whatever this is, it isn't in the point-generation path either pattern shares.
+
+   *Analog capture (actual galvo Y voltage) — vertex 0 never gets there.* Commanded Y codes:
+   vertex 0 = −13650 (unique, unambiguous), vertices 1/4 = +11043 (tied). Achieved, read
+   directly off the scope over 17 consecutive loops: vertex 0 settles at only **−1.75 V**, and
+   never cleanly — only 222 of ~3.1M samples fall within 0.05 V of that minimum, and a 1.1 ms
+   zoom on the dwell window shows continuous ±0.2 V jitter with no settling trend toward a
+   target. Vertices 1/4 settle at +2.49 V, rock solid — 69,926 samples within 0.05 V of the max.
+   Expressed as achieved-volts-per-commanded-code (cancels out the uncalibrated absolute
+   conversion constant, so this comparison holds regardless of it): vertex 0 achieves only
+   **~57% of the V/code ratio vertices 1/4 get.** A command-independent, purely physical
+   shortfall, isolated to the one vertex approached via a blank jump instead of a live lit edge.
+
+   **This answers Open Item #2's second thread directly: it is not a generic "sharp 36° tip at
+   15kpps" mechanical limit** — vertices 1-4 are equally sharp reversals, lit-edge-approached,
+   and settle perfectly. The defect tracks the *approach mechanism* (blank jump vs. lit edge),
+   not turn geometry or speed. That reopens `emitBlankJump()`'s landing/settling behavior on the
+   near-zero-distance, steady-state-loop case as the concrete next step — the same one flagged
+   as unconfirmed and left untouched two sessions ago, now backed by a direct hardware read
+   instead of a hypothesis. Likely needs either more dwell time budgeted specifically for this
+   transition, or its own ZV-shaper/timing treatment rather than the generic blank-jump path.
+   Caveat: single capture session, not yet cross-validated by a repeat run the way other
+   findings in this doc are — next session should reproduce before this becomes a firmware
+   change.
 3. **Three incidental findings, individually re-verified 2026-08-22 — two closed, one
    reopened in a different shape than expected.**
    - **`blankLeakage`'s anti-correlation: does not reproduce today.** Live sweep on `segments`
@@ -302,7 +397,9 @@ Next-session-ready, cheapest first:
    `curvature_resample_enabled`'s adaptive logic on the curved section only.
 7. **`Vector`/`Particles` geometry offsets.** `diagnose --profile all` still flags both as
    "not fixable by autotune", unlike `MultiObject`/`segments` whose cause was found (changelog).
-   No lead beyond the ruled-out ones below.
+   For `Vector` the *reason* "not fixable by autotune" is now understood — see Open Item #2 —
+   `optimize`'s cost function doesn't score scale error at all. `Particles` unverified but
+   likely the same mechanism, since it shares the identical cost formula.
 
 ---
 
@@ -310,6 +407,106 @@ Next-session-ready, cheapest first:
 
 Resolved items, most recent first. All dates are live-device sessions unless noted.
 
+- **2026-08-24 (hardware capture session) — `star`'s vertex-0 undershoot root-caused to an
+  analog settling failure, via direct DAC8562 SPI + galvo analog Y capture (Kingst LA1010 +
+  Hantek 6022BE, see [`sigrok-capture-tool.md`](sigrok-capture-tool.md)).** First hardware-level
+  look at this defect rather than another camera/Optuna session. SPI decode of the commanded DAC
+  codes: vertex 0 gets the full commanded amplitude (13650.0, the pattern's exact max) — equal
+  to or above vertices 1-4 (13649.1-13649.8) — ruling out `point_optimizer`/geometry generation.
+  Analog Y capture over 17 loops: vertex 0 settles at only −1.75 V against a commanded −13650
+  code, and never cleanly (only 222/~3.1M samples within 0.05 V of that minimum, continuous
+  ±0.2 V jitter, no settling trend); vertices 1/4 settle at +2.49 V rock-solid (69,926 samples
+  within 0.05 V of the max) against a smaller commanded +11043 code. Achieved-volts-per-
+  commanded-code (a ratio, so the uncalibrated absolute V/code constant cancels out): vertex 0
+  reaches only ~57% of what vertices 1/4 reach. Isolated to the one vertex approached via a
+  blank jump instead of a live lit edge — reopens `emitBlankJump()`'s landing/settling behavior
+  on the near-zero-distance, steady-state-loop case, previously flagged as unconfirmed
+  (2026-08-22) and left untouched. Single session, not yet reproduced by a repeat capture; also
+  not yet reconciled with the camera-side X/Y-symmetric undershoot reading two entries below.
+- **2026-08-24 (continued yet further) — `corner_angle_deg` sweep contradicts the corner-
+  severity hypothesis, and the single-vertex premise itself no longer fits the data.** Prompted
+  by the `blank_samples` sweep's own result: X and Y undershoot `star` by nearly equal amounts
+  (~-6%/-5%), not the Y-dominant signature expected if only vertex `k==0` (which sits at
+  `x=0` exactly) were defective — closer to a uniform, all-5-tip shrink. Checked
+  `idealPolylines('star')` against `cam_star()` for a reference-geometry mismatch first (cheap,
+  code-only): identical formulas, both sides, ruled out. Then tested the "uniform corner-
+  severity effect" theory directly: swept `corner_angle_deg` on `star` (0→170°, spanning
+  `cornerSeverity()`'s full range past the pentagram's 144° turn) and `square` (0→85°) with
+  everything else at baseline. Result contradicts the hypothesis: raising `corner_angle_deg`
+  (LESS dwell compensation) makes `star` monotonically WORSE, from −6.2%/−4.9% at `cad=0` to
+  −8.5%/−7.5% at `cad=150-170`, while `square` stays flat across its own full range regardless
+  of severity. More corner dwell mildly helps `star`; baseline (57.57°) is already near this
+  knob's own optimum, consistent with `max_corner_pts` finding no further room either. Net: four
+  independent `OptimizerLiveConfig` knobs (corner-dwell count, corner-severity threshold,
+  blank-jump teleport dwell, joint Optuna search) have now been tried against this defect and
+  none reach clean. See Open Item #2 for the reframing this prompts — the search space itself
+  may not contain a fix, and the remaining leads (`spiral`'s shared architecture, a genuine
+  physical/mechanical read on the galvo's real performance at a 36°-tip spike) sit outside it.
+- **2026-08-24 (continued further still) — controlled `blank_samples` sweep rules out the
+  vertex-0 "teleport dwell" theory outright.** Since `optimize` can't test scale-error theories
+  (prior entry), wrote a standalone script (scratchpad, not committed — same convention as
+  `sweep.py`/`streak.py` elsewhere in this doc) reusing `optimizeGalvo.py`'s own `EspClient`/
+  `Camera`/`measureRepeated`/`computeMetrics` to hold every other `Vector` param at baseline and
+  sweep only `blank_samples` (8→64, `searchSpace.json`'s full range), reading
+  `scaleErrorXPct`/`YPct` directly off each averaged `Metrics` object. Result: flat — X −5.63%
+  to −6.27%, Y −5.01% to −5.47% across the whole range, no trend, inside the noise floor. The
+  parked-tick count at vertex 0's blank-jump landing has zero measurable effect on the
+  undershoot. One bug found and fixed while building this: applying `Vector`'s tuned
+  `profileCamera` override (`binaryThreshold=60`) inflated the traced blob into a spurious +48%
+  X reading on every value — `diagnose` never applies that override, and matching its exact
+  recipe (global `binaryThreshold=112`, no profile-camera override) fixed it immediately. Net:
+  corner-dwell count, clamp-enabled arrival speed, and now teleport-dwell count are all ruled
+  out — three independent timing/dwell-budget theories, three controlled tests, zero effect.
+  See Open Item #2 for the two untested threads this leaves (a shared cause with `spiral`, or a
+  measurement-side `idealPolylines('star')` definition mismatch) — neither a `costWeights`
+  change nor an `emitBlankJump()` patch is indicated by the evidence at this point.
+- **2026-08-24 (continued) — camera exposure re-tuned, `Vector` Optuna search re-run clean, but
+  root-caused to a blind spot in `optimize`'s own cost function rather than a firmware fix.**
+  Followed the prior entry's own suggested fix: `autotune-camera --profile Vector --fresh
+  --apply` first. Exposure itself didn't move (`-4`, 62.5ms — it already matched the un-clamped
+  baseline's ~28ms/pass draw time from the table below; the *search space's* wider draw times
+  were the actual problem, not the baseline capture). `binaryThreshold` 112→60 and `accumFrames`
+  6→7 did change and were applied+saved to `camConfig.json`'s `profileCamera['Vector']`;
+  verified square 99.8%/star 96.2% path coverage post-tune. Re-ran `optimize --profile Vector
+  --trials 20 --fresh` with the same clamp-unlocked `searchSpace.json` from the aborted run:
+  **all 20 trials valid, zero invalid-measurement recurrence** — the capture-rig limitation is
+  fixed. Best trial (cost 61.17) kept both `vel_clamp_enabled`/`accel_clamp_enabled` at baseline
+  `false` (Optuna's own choice, not a search-space restriction) and cut `square`'s cost
+  22.09→3.63; `star`'s cost only 0.218→0.189. Pushed the best params live via
+  `/api/optimizer-live` (RAM-only, independent of the calib-cam session) and ran `diagnose
+  --profile Vector` twice: X scale error read −5.6% then −5.1%, statistically identical to the
+  −5.5% baseline — **no real improvement on the actual defect**, despite the cost function
+  reporting a big win. Traced why: `computeMetrics()`'s `cost` formula sums
+  `pathDeviationRms`/`blankLeakage`/`blankCorridorLitPct`/`cornerHotspot`/
+  `brightnessNonUniformity`/saturation/blob terms only — `scaleErrorXPct`/`scaleErrorYPct` are
+  computed in the same function but routed only to `diagnose`'s `classifyProfile()`, never into
+  `cost`. Every profile's `optimize` search shares this formula, so this isn't a `Vector`-only
+  gap. Reverted live config to baseline immediately (confirmed via `/api/config` read-back: all
+  changed fields — `corner_angle_deg`, `max_corner_pts`, `blank_samples`,
+  `pts_per_1000_units`, etc. — match the pre-search snapshot exactly); nothing applied, nothing
+  persisted to NVS. See Open Item #2 for the condensed dead-end trail this supersedes, and
+  Open Item #7. Not pursuing the `Waves`/`spiral` clamp-unlock fallback this session — it would
+  hit the identical blind cost function and burn another full search for the same non-result.
+- **2026-08-24 — Optuna search on `Vector` with vel/accel clamp unlocked: aborted, camera-timing
+  confound found, no result either way.** Added `vel_clamp_enabled`/`max_step_units`/
+  `accel_clamp_enabled`/`max_accel_units` to `searchSpace.json`'s `Vector` entry (categorical
+  gate + float ceiling, `max_step_units` 200-3000 / `max_accel_units` 200-6000) so density,
+  corner dwell, and the clamp would get tuned together instead of one guessed value. `optimize
+  --profile Vector --trials 20` ran 16 trials before aborting on Optuna's own ≥10%-invalid
+  safety guard (2/16 trials produced no valid measurement). Root cause, printed by the tool
+  itself: some trials' `blank_samples`/density combination pushed `square`'s per-pass draw time
+  to 121.6ms against a fixed 62.5ms camera shutter (an exposure tuned for the un-clamped
+  baseline, never re-tuned for what this wider search space could produce) — those captures
+  only ever see a ~52-55% slice of the path. An `optimizeGalvo.py` capture-rig limitation, not a
+  firmware result. Best-so-far before the abort (trial 13, cost 0.317, both clamps `true`,
+  `corner_angle_deg` 10.1) doesn't beat the unclamped baseline decisively enough on 16 trials to
+  conclude anything either way. Nothing applied or persisted (non-interactive session, and the
+  run errored out before reaching the apply step regardless); live config confirmed back to the
+  original snapshot via a fresh `/api/config` read-back (`calib_active: false`,
+  `opt_profiles[0]` unchanged) — the calib-cam session's own crash-cleanup handled the revert,
+  no manual fix needed. **If this is picked back up: run `autotune-camera --profile Vector
+  --fresh --apply` first** (the tool's own suggested fix) so the shutter matches the wider
+  search space's actual duty cycle, before re-running the `Vector` search.
 - **2026-08-22 (continued further) — fw v6.75.0's three incidental findings individually
   re-verified; kpps re-testing done; both closed with real findings, not rubber stamps.**
   `blankLeakage`'s reported anti-correlation does not reproduce under today's corrected

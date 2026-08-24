@@ -64,6 +64,12 @@ libsigrok build differs:
                      boards). Channels: CH1/CH2. vdiv is a PER-CHANNEL-GROUP
                      config (`--channel-group CH1 --config vdiv="1 V"`), not
                      a global key -- AnalogCapture applies it that way.
+                     Also confirmed live: this driver does NOT reliably
+                     honor `--time` -- requested durations came back at
+                     ~42-44% of what was asked (3000ms -> ~1.31s actual,
+                     5000ms -> ~2.10s actual). AnalogCapture.capture() warns
+                     when this happens; over-request duration if you need a
+                     guaranteed minimum window.
 
 Exit codes: 0 ok, 1 sigrok-cli/parse error, 2 bad arguments, 3 sigrok-cli
 not found, 4 device not found, 5 capture timed out, 130 interrupted.
@@ -616,7 +622,22 @@ class AnalogCapture:
                 "-O", "csv", "-o", str(csv_path),
             ]
             _run_sigrok(args, timeout=duration_s + 30, sigrok_cli=self.sigrok_cli, driver=self.driver)
-            return self._parse_csv(csv_path, wanted)
+            result = self._parse_csv(csv_path, wanted)
+            actual_s = (len(result["t"]) - 1) / self.samplerate_hz if len(result["t"]) > 1 else 0.0
+            # Confirmed live on real hardware (hantek-6xxx, libsigrok
+            # 0.6.0-git-883c2ac): --time is NOT honored reliably by this
+            # driver -- a 3000ms request returned ~1.31s of samples, a
+            # 5000ms request returned ~2.10s (both ~42-44% of asked-for
+            # duration). Root cause not pinned down (driver marks
+            # multi-channel analog capture "untested"); rather than
+            # silently handing back a short capture, warn loudly so a
+            # caller relying on `duration_s` worth of data notices.
+            if actual_s < 0.9 * duration_s:
+                prWarn(f"requested {duration_s:.3f}s but only captured {actual_s:.3f}s "
+                       f"({len(result['t'])} samples) -- hantek-6xxx driver does not "
+                       "reliably honor --time; re-run with a longer --duration if you "
+                       "need the full window")
+            return result
 
     def _parse_csv(self, csv_path, wanted):
         # sigrok-cli's csv output module labels analog columns by UNIT

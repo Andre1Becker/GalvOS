@@ -22,7 +22,35 @@
 
 These affect core functionality and should be resolved before relying on those features in production.
 
-None currently open.
+### `safety_override` bypasses E-Stop and watchdog, not just scanfail
+
+**Status:** Open — confirmed live, 2026-08-24
+**Detail:** `.claude/CLAUDE.md`'s safety rules state `safety_override` "should NOT bypass
+E-Stop, watchdog, or arming — only scanfail". The actual gate in `safety.cpp`'s `allOk()`
+does not match that:
+
+```cpp
+bool allOk() {
+    if (gConfig.safety_override) {
+        return s_user_arm_request;  // bypass HW/watchdog/subsystem checks
+    }
+    return gState.estop_ok.load() &&
+           gState.scanfail_ok.load() &&
+           watchdogOk() &&
+           subsystemsOk() &&
+           s_user_arm_request;
+}
+```
+
+With `safety_override` on, `estop_ok`, `scanfail_ok`, `watchdogOk()`, and `subsystemsOk()` are
+all skipped — the comment even says so. Confirmed live: with the HW watchdog heartbeat
+(GPIO14) not satisfied (`watchdog_ok:false`), arming failed normally, but flipping
+`safety_override` armed the laser anyway (`laser_armed:true`) while `watchdog_ok` stayed
+`false`. Whether E-Stop is also bypassable this way was not independently tested live (no
+reason to trigger E-Stop just to check), but the code path is unconditional — it reads
+`estop_ok` the same way as the other three, so there is no reason to expect it survives when
+the others don't. Reconcile the code with the documented intent (scanfail-only bypass), or
+update the documented intent if the wider bypass is actually deliberate.
 
 ---
 
