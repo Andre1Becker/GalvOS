@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=JetBrains+Mono:wght@400;500;700;800&display=swap" rel="stylesheet">
+<title>GalvOS &mdash; Monitoring</title>
+<link rel="icon" type="image/svg+xml" href="galvos-logo.svg">
+<link rel="icon" type="image/png" href="favicon.png" sizes="32x32">
+<style>
+:root {
+  --bg: #0a0a0f; --bg-rgb: 10,10,15;
+  --card: #12121a; --card2: #16161f;
+  --muted: #1c1c2e; --border: #2a2a3a; --border-rgb: 42,42,58;
+  --text: #e0e0e0; --text-dim: #8888a0;
+  --accent: #00ff88; --accent-rgb: 0,255,136;
+  --secondary: #ff00ff; --tertiary: #00d4ff;
+  --ok: #00ff88; --warn: #ffcc00; --bad: #ff3366; --bad-rgb: 255,51,102;
+  --surface: rgba(0,0,0,0.5);
+  --radius: 6px; --radius-lg: 8px;
+  --font-head: 'Orbitron', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --font-body: 'JetBrains Mono', monospace;
+  --glow-accent: 0 0 5px var(--accent), 0 0 20px rgba(var(--accent-rgb),0.4);
+  --glow-bad: 0 0 5px var(--bad), 0 0 20px rgba(var(--bad-rgb),0.4);
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--text); font-family: var(--font-body); min-height: 100dvh; }
+a { color: var(--accent); }
+h1, h2 { font-family: var(--font-head); margin: 0 0 8px; color: var(--text); }
+p { margin: 0 0 8px; color: var(--text-dim); }
+.hidden { display: none !important; }
+
+#topbar {
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  padding: 10px 16px; background: var(--card); border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; z-index: 10;
+}
+.brand { font-size: 1.2rem; margin: 0; white-space: nowrap; }
+.tb-right { margin-left: auto; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+.pill {
+  display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px;
+  border: 1px solid var(--border); font-family: var(--font-mono); font-size: 0.8rem; background: var(--surface);
+}
+.pill.ok { color: var(--ok); border-color: var(--ok); }
+.pill.bad { color: var(--bad); border-color: var(--bad); }
+.pill.armed { color: var(--bg); background: var(--accent); border-color: var(--accent); box-shadow: var(--glow-accent); }
+
+.beam-dot { width: 12px; height: 12px; border-radius: 50%; background: var(--muted); border: 1px solid var(--border); display: inline-block; }
+.beam-dot.on { background: var(--accent); box-shadow: var(--glow-accent); animation: beamPulse 1s ease-in-out infinite; }
+@keyframes beamPulse { 50% { opacity: 0.5; } }
+
+#content { padding: 16px; max-width: 1600px; margin: 0 auto; }
+.grid { display: grid; gap: 16px; }
+.grid-top { grid-template-columns: repeat(3, minmax(280px, 1fr)); margin-bottom: 16px; }
+.grid-charts { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-bottom: 16px; }
+.card {
+  background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg);
+  padding: 16px;
+}
+.row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
+.field label { font-size: 0.75rem; color: var(--text-dim); }
+.field-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 16px; }
+.chart-wrap { position: relative; }
+.chart-readout { font-family: var(--font-mono); font-size: 1.4rem; margin-top: 6px; }
+.chart-stats { font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-dim); margin-top: 4px; }
+.icon-btn {
+  background: transparent; border: 1px solid var(--border); color: var(--text);
+  width: 40px; height: 40px; cursor: pointer; font-size: 1.1rem;
+  border-radius: var(--radius); display: flex; align-items: center; justify-content: center;
+}
+.icon-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+@media (max-width: 1100px) {
+  .grid-top, .grid-charts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 700px) {
+  .grid-top, .grid-charts, .field-grid { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<header id="topbar">
+  <h1 class="brand">GalvOS &mdash; Monitoring</h1>
+  <span id="conn-pill" class="pill bad">&#9679; OFFLINE</span>
+  <span id="armed-pill" class="pill bad">DISARMED</span>
+  <span id="active-mode-pill" class="pill hidden"></span>
+  <div class="tb-right">
+    <span id="beam-dot" class="beam-dot" role="status" title="Beam / active output" aria-label="Beam output: idle"></span>
+    <button class="icon-btn" title="Reload" onclick="location.reload()">&#8635;</button>
+  </div>
+</header>
+
+<main id="content">
+  <div class="grid grid-top">
+    <div class="card">
+      <h2>Safety</h2>
+      <div class="row" style="gap:16px">
+        <div class="row"><span id="led-estop" class="beam-dot" role="status"></span><span>E-Stop</span></div>
+        <div class="row"><span id="led-scanfail" class="beam-dot" role="status"></span><span>Scan-Fail</span></div>
+      </div>
+      <p id="mon-fault-reason" class="hidden" style="color:var(--bad);margin-top:8px"></p>
+      <p id="mon-safety-override" class="hidden" style="color:var(--bad);margin-top:8px">&#9888; Safety Override Active</p>
+    </div>
+
+    <div class="card">
+      <h2>System</h2>
+      <div class="field-grid">
+        <div class="field"><label>Firmware</label><span id="mon-fw-ver">--</span></div>
+        <div class="field"><label>Host</label><span id="mon-hostname">--</span></div>
+        <div class="field"><label>IP</label><span id="mon-ip">--</span></div>
+        <div class="field"><label>RSSI</label><span id="mon-rssi">--</span></div>
+        <div class="field"><label>CPU Temp</label><span id="mon-cpu-temp">--</span></div>
+        <div class="field"><label>Uptime</label><span id="mon-uptime">--</span></div>
+        <div class="field"><label>Free Heap</label><span id="mon-heap">--</span></div>
+        <div class="field"><label>Free PSRAM</label><span id="mon-psram">--</span></div>
+        <div class="field"><label>DAC / Galvo</label><span id="mon-dac-status">--</span></div>
+        <div class="field"><label>SD Card</label><span id="mon-sd-status">--</span></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Telemetry</h2>
+      <div class="field-grid">
+        <div class="field"><label>Source</label><span id="mon-source">--</span></div>
+        <div class="field"><label>Master Dimmer</label><span id="mon-master-dimmer">--</span></div>
+        <div class="field"><label>DMX Frames</label><span id="mon-dmx-frames">--</span></div>
+        <div class="field"><label>Last DMX Activity</label><span id="mon-dmx-age">--</span></div>
+        <div class="field"><label>Points/sec</label><span id="mon-pps">--</span></div>
+        <div class="field"><label>Buffer Fill</label><span id="mon-buffer-fill">--</span></div>
+        <div class="field"><label>FPS</label><span id="mon-fps">--</span></div>
+        <div class="field"><label>Frame (n / lit / blank)</label><span id="mon-frame">--</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid grid-charts">
+    <div class="card">
+      <h2>CPU Load</h2>
+      <div class="chart-wrap"><canvas id="cpu-canvas" height="140"></canvas></div>
+      <div id="cpu-readout" class="chart-readout"></div>
+      <div id="cpu-stats" class="chart-stats"></div>
+    </div>
+    <div class="card">
+      <h2>Temperature History</h2>
+      <div class="chart-wrap"><canvas id="temp-chart" height="140"></canvas></div>
+      <div id="mon-temp-badges" style="margin-top:8px"></div>
+    </div>
+    <div class="card">
+      <h2>Galvo Output Rate</h2>
+      <div class="chart-wrap"><canvas id="kpps-chart" height="140"></canvas></div>
+      <div id="kpps-stats" class="chart-stats"></div>
+    </div>
+    <div class="card">
+      <h2>Frame Composition</h2>
+      <div class="chart-wrap"><canvas id="frame-chart" height="140"></canvas></div>
+    </div>
+    <div class="card">
+      <h2>Buffer Fill</h2>
+      <div class="chart-wrap"><canvas id="buffer-chart" height="140"></canvas></div>
+      <div id="buffer-stats" class="chart-stats"></div>
+    </div>
+    <div class="card">
+      <h2>WiFi Signal (RSSI)</h2>
+      <div class="chart-wrap"><canvas id="rssi-chart" height="140"></canvas></div>
+      <div id="rssi-stats" class="chart-stats"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Optimizer &mdash; Live Telemetry</h2>
+    <div class="field-grid">
+      <div class="field"><label>Lit / Blank Points</label><span id="opt-st-points">--</span></div>
+      <div class="field"><label>Truncated</label><span id="opt-st-trunc">--</span></div>
+      <div class="field"><label>Blank Jumps</label><span id="opt-st-jumps">--</span></div>
+      <div class="field"><label>Jump Distance</label><span id="opt-st-jumpdist">--</span></div>
+      <div class="field"><label>Budget Used</label><span id="opt-st-budget">--</span></div>
+      <div class="field"><label>optimize() Calls</label><span id="opt-st-calls">--</span></div>
+    </div>
+    <div class="row" style="margin-top:4px">
+      <span class="pill" id="opt-st-s1">Stage 1</span>
+      <span class="pill" id="opt-st-s15">Stage 1.5</span>
+      <span class="pill" id="opt-st-s2">Interior &times;1.00</span>
+      <span class="pill" id="opt-st-zv">ZV Shaper</span>
+    </div>
+    <p style="font-size:0.8rem">Measured on the last rendered frame &mdash; all optimize() calls of that frame combined.</p>
+  </div>
+</main>
+
+<script>
+/* =========================================================================
+   Standalone monitoring window. Read-only mirror of the Dashboard's charts
+   plus the Optimizer tab's Live Telemetry -- no controls, so it is safe to
+   leave open in a second window/monitor indefinitely.
+
+   Polling is intentionally its own conservative loop, not a copy of the
+   main WebUI's queue: this page competes for the SAME lwIP socket pool
+   (CONFIG_LWIP_MAX_SOCKETS=16, shared with EtherDream/Art-Net/sACN/OSC/DMX/
+   NTP -- see index.html's queuedFetch() comment) whenever it runs alongside
+   the main dashboard, so it caps its own concurrency and polls no faster
+   than the tab it mirrors.
+   ========================================================================= */
+var MAX_CONCURRENT_FETCHES = 1;
+var _fetchActive = 0, _fetchQueue = [];
+function _fetchDrain() {
+  if (_fetchActive >= MAX_CONCURRENT_FETCHES || _fetchQueue.length === 0) return;
+  var next = _fetchQueue.shift();
+  _fetchActive++;
+  next();
+}
+function queuedFetch(startFn) {
+  return new Promise(function(resolve, reject) {
+    function run() {
+      startFn().then(function(r) { _fetchActive--; _fetchDrain(); resolve(r); },
+                      function(e) { _fetchActive--; _fetchDrain(); reject(e); });
+    }
+    _fetchQueue.push(run);
+    _fetchDrain();
+  });
+}
+async function apiGet(url) {
+  try {
+    var resp = await queuedFetch(function() {
+      var ctrl = new AbortController();
+      var timer = setTimeout(function() { ctrl.abort(); }, 8000);
+      return fetch(url, {signal: ctrl.signal}).then(
+        function(r) { clearTimeout(timer); return r; },
+        function(e) { clearTimeout(timer); throw e; }
+      );
+    });
+    if (!resp.ok) return null;
+    return await resp.json();
+  } catch (e) { return null; }
+}
+
+function cssVar(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+function fmtBytes(n) {
+  if (n === undefined || n === null) return '--';
+  if (n < 1024) return n + ' B';
+  if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' KB';
+  return (n / (1024 * 1024)).toFixed(2) + ' MB';
+}
+function fmtUptime(s) {
+  var d = Math.floor(s / 86400); s -= d * 86400;
+  var h = Math.floor(s / 3600); s -= h * 3600;
+  var m = Math.floor(s / 60); s -= m * 60;
+  return (d > 0 ? d + 'd ' : '') + String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0') + ':' + String(Math.floor(s)).padStart(2, '0');
+}
+function convTemp(c, unit) {
+  if (unit === 1) return c * 9 / 5 + 32;
+  if (unit === 2) return c + 273.15;
+  return c;
+}
+function tempUnitSuffix(unit) { return unit === 1 ? '°F' : unit === 2 ? 'K' : '°C'; }
+var s_tempUnit = 0;
+
+function setConnPill(ok) {
+  var el = document.getElementById('conn-pill');
+  el.className = ok ? 'pill ok' : 'pill bad';
+  el.textContent = ok ? '● ONLINE' : '● OFFLINE';
+}
+function setLed(name, ok) {
+  var el = document.getElementById('led-' + name);
+  if (!el) return;
+  el.className = 'beam-dot' + (ok ? ' on' : '');
+  el.style.background = ok ? 'var(--ok)' : 'var(--bad)';
+}
+
+/* =========================================================================
+   CHART INFRA -- ported verbatim from index.html's Dashboard charts so this
+   window renders pixel-identical graphs. Keep in sync if that logic changes.
+   ========================================================================= */
+var HISTORY_SECS = 300;
+var CPU_HISTORY = 120, CPU_WARN = 70, CPU_CRIT = 90;
+var sCpuData = {c0: new Array(CPU_HISTORY).fill(null), c1: new Array(CPU_HISTORY).fill(null)};
+var sCpuHoverIdx = -1;
+var SENSOR_COLORS = ['#ff3366', '#00ff88', '#00d4ff', '#ffcc00', '#ff00ff'];
+var CPU_TEMP_COLOR = '#8866ff';
+var TEMP_HISTORY = [];
+var KPPS_HISTORY = [];
+var FRAME_HISTORY = [];
+var BUFFER_HISTORY = [];
+var RSSI_HISTORY = [];
+var BUFFER_WARN = 80, BUFFER_CRIT = 95;
+var RSSI_MIN = -100, RSSI_MAX = -20;
+var RSSI_GOOD = -60, RSSI_BAD = -75;
+var sTempHoverFrac = -1, sBufferHoverFrac = -1, sRssiHoverFrac = -1;
+
+function statsLine(values, fmt) {
+  var vals = values.filter(function(v) { return v !== null && v !== undefined && !isNaN(v); });
+  if (!vals.length) return '';
+  var min = Math.min.apply(null, vals), max = Math.max.apply(null, vals);
+  var avg = vals.reduce(function(a, b) { return a + b; }, 0) / vals.length;
+  return 'min ' + fmt(min) + '  ·  avg ' + fmt(avg) + '  ·  max ' + fmt(max);
+}
+function fitCanvas(canvas, cssHeight) {
+  var dpr = window.devicePixelRatio || 1;
+  var w = (canvas.parentNode && canvas.parentNode.clientWidth) || canvas.clientWidth || 300;
+  var h = cssHeight || 140;
+  canvas.style.width = '100%'; canvas.style.height = h + 'px';
+  var pw = Math.max(1, Math.round(w * dpr)), ph = Math.max(1, Math.round(h * dpr));
+  if (canvas.width !== pw || canvas.height !== ph) { canvas.width = pw; canvas.height = ph; }
+  var ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return {ctx: ctx, w: w, h: h};
+}
+function chartBg(ctx, w, h) {
+  var g = ctx.createLinearGradient(0, 0, 0, h);
+  g.addColorStop(0, 'rgba(var(--bg-rgb),0.4)'.replace('var(--bg-rgb)', cssVar('--bg-rgb') || '10,10,15'));
+  g.addColorStop(1, cssVar('--bg') || '#000');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
+  ctx.fillStyle = 'rgba(255,255,255,0.015)';
+  for (var y = 0; y < h; y += 4) ctx.fillRect(0, y, w, 2);
+}
+function chartGridY(ctx, w, h, count, fmt) {
+  ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+  ctx.fillStyle = cssVar('--text-dim') || '#888';
+  ctx.font = '10px ' + (cssVar('--font-mono') || 'monospace');
+  for (var i = 0; i <= count; i++) {
+    var frac = i / count, y = h - frac * h;
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+    if (fmt) ctx.fillText(fmt(frac), 4, y > h - 12 ? y - 4 : y + 10);
+  }
+}
+function chartDashedLine(ctx, w, h, frac, color) {
+  ctx.save(); ctx.setLineDash([4, 4]); ctx.strokeStyle = color; ctx.lineWidth = 1;
+  var y = h - frac * h;
+  ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); ctx.restore();
+}
+function colorWithAlpha(color, alpha) {
+  if (color.charAt(0) === '#') {
+    var hex = color.length === 4
+      ? color[1] + color[1] + color[2] + color[2] + color[3] + color[3]
+      : color.slice(1);
+    var r = parseInt(hex.substr(0, 2), 16), g = parseInt(hex.substr(2, 2), 16), b = parseInt(hex.substr(4, 2), 16);
+    return 'rgba(' + r + ',' + g + ',' + b + ',' + alpha + ')';
+  }
+  return color.replace(')', ',' + alpha + ')').replace('rgb', 'rgba');
+}
+function chartLine(ctx, pts, color, lw, glow, filled, h) {
+  if (!pts.length) return;
+  function path() {
+    ctx.beginPath();
+    var started = false;
+    pts.forEach(function(p) {
+      if (p === null) { started = false; return; }
+      if (!started) { ctx.moveTo(p.x, p.y); started = true; } else ctx.lineTo(p.x, p.y);
+    });
+  }
+  if (filled) {
+    var g = ctx.createLinearGradient(0, 0, 0, h);
+    g.addColorStop(0, colorWithAlpha(color, 0.15));
+    g.addColorStop(1, colorWithAlpha(color, 0.02));
+    path();
+    var first = pts.find(function(p) { return p !== null; });
+    var last = null;
+    for (var i = pts.length - 1; i >= 0; i--) { if (pts[i] !== null) { last = pts[i]; break; } }
+    if (first && last) { ctx.lineTo(last.x, h); ctx.lineTo(first.x, h); ctx.closePath(); ctx.fillStyle = g; ctx.fill(); }
+  }
+  if (glow) { path(); ctx.strokeStyle = color; ctx.lineWidth = lw + 4; ctx.globalAlpha = 0.25; ctx.stroke(); ctx.globalAlpha = 1; }
+  path(); ctx.strokeStyle = color; ctx.lineWidth = lw; ctx.stroke();
+}
+function trimHistory(arr) {
+  var cutoff = Date.now() - HISTORY_SECS * 1000;
+  while (arr.length && arr[0].ts < cutoff) arr.shift();
+}
+
+function pushCpu(c0, c1) {
+  sCpuData.c0.shift(); sCpuData.c0.push(c0);
+  sCpuData.c1.shift(); sCpuData.c1.push(c1);
+  renderCpuGraph();
+}
+function renderCpuGraph() {
+  var canvas = document.getElementById('cpu-canvas');
+  if (!canvas || !canvas.offsetParent) return;
+  var fc = fitCanvas(canvas); var ctx = fc.ctx, w = fc.w, h = fc.h;
+  ctx.clearRect(0, 0, w, h);
+  chartBg(ctx, w, h);
+  chartGridY(ctx, w, h, 4, function(f) { return Math.round(f * 100) + '%'; });
+  chartDashedLine(ctx, w, h, CPU_WARN / 100, cssVar('--warn') || '#ffcc00');
+  chartDashedLine(ctx, w, h, CPU_CRIT / 100, cssVar('--bad') || '#ff3366');
+  var pts = sCpuData.c0.map(function(v, i) {
+    return v === null ? null : {x: (i / (CPU_HISTORY - 1)) * w, y: h - (v / 100) * h};
+  });
+  chartLine(ctx, pts, cssVar('--accent') || '#00ff88', 1.8, true, true, h);
+  var last = sCpuData.c0[CPU_HISTORY - 1];
+  var readout = document.getElementById('cpu-readout');
+  if (readout && last !== null) {
+    var color = last >= CPU_CRIT ? 'var(--bad)' : last >= CPU_WARN ? 'var(--warn)' : 'var(--accent)';
+    readout.innerHTML = '<span style="color:' + color + '">C0: ' + last.toFixed(0) + '%</span>';
+  }
+  if (sCpuHoverIdx >= 0) {
+    var hx = (sCpuHoverIdx / (CPU_HISTORY - 1)) * w;
+    ctx.save(); ctx.setLineDash([3, 3]); ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+    ctx.beginPath(); ctx.moveTo(hx, 0); ctx.lineTo(hx, h); ctx.stroke(); ctx.restore();
+    var v = sCpuData.c0[sCpuHoverIdx];
+    if (v !== null && readout) readout.innerHTML += ' — ' + ((CPU_HISTORY - 1 - sCpuHoverIdx) * 0.5).toFixed(1) + 's ago  C0: ' + v.toFixed(0) + '%';
+  }
+  var stats = document.getElementById('cpu-stats');
+  if (stats) stats.textContent = statsLine(sCpuData.c0, function(v) { return v.toFixed(0) + '%'; });
+}
+function drawTempChart() {
+  var canvas = document.getElementById('temp-chart');
+  if (!canvas || !canvas.offsetParent) return;
+  var fc = fitCanvas(canvas); var ctx = fc.ctx, w = fc.w, h = fc.h;
+  ctx.clearRect(0, 0, w, h); chartBg(ctx, w, h);
+  chartGridY(ctx, w, h, 4.5, function(f) { return Math.round(convTemp(f * 90, s_tempUnit)) + tempUnitSuffix(s_tempUnit); });
+  if (!TEMP_HISTORY.length) return;
+  var t0 = TEMP_HISTORY[0].ts, t1 = TEMP_HISTORY[TEMP_HISTORY.length - 1].ts || t0 + 1;
+  var span = Math.max(1, t1 - t0);
+  var lastOk = window.s_lastTempState && window.s_lastTempState.ok;
+  for (var s = 0; s < 5; s++) {
+    if (lastOk && !lastOk[s]) continue;
+    var pts = TEMP_HISTORY.map(function(e) {
+      var v = e.temps[s];
+      if (v === null || v === undefined) return null;
+      return {x: ((e.ts - t0) / span) * w, y: h - (v / 90) * h};
+    });
+    chartLine(ctx, pts, SENSOR_COLORS[s], 1.6, true, false, h);
+  }
+  var cpuPts = TEMP_HISTORY.map(function(e) {
+    var v = e.cpuTemp;
+    if (v === null || v === undefined) return null;
+    return {x: ((e.ts - t0) / span) * w, y: h - (v / 90) * h};
+  });
+  chartLine(ctx, cpuPts, CPU_TEMP_COLOR, 1.6, true, false, h);
+  if (sTempHoverFrac >= 0) {
+    var hx = sTempHoverFrac * w;
+    ctx.save(); ctx.setLineDash([3, 3]); ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+    ctx.beginPath(); ctx.moveTo(hx, 0); ctx.lineTo(hx, h); ctx.stroke(); ctx.restore();
+  }
+}
+function drawKppsChart() {
+  var canvas = document.getElementById('kpps-chart');
+  if (!canvas || !canvas.offsetParent) return;
+  var fc = fitCanvas(canvas); var ctx = fc.ctx, w = fc.w, h = fc.h;
+  ctx.clearRect(0, 0, w, h); chartBg(ctx, w, h);
+  chartGridY(ctx, w, h, 4, function(f) { return Math.round(f * 60) + 'k'; });
+  if (!KPPS_HISTORY.length) return;
+  var t0 = KPPS_HISTORY[0].ts, t1 = KPPS_HISTORY[KPPS_HISTORY.length - 1].ts || t0 + 1;
+  var span = Math.max(1, t1 - t0);
+  var pts = KPPS_HISTORY.map(function(e) { return {x: ((e.ts - t0) / span) * w, y: h - (e.kpps / 60) * h}; });
+  chartLine(ctx, pts, cssVar('--tertiary') || '#00d4ff', 1.6, true, true, h);
+  var last = KPPS_HISTORY[KPPS_HISTORY.length - 1];
+  if (last) { ctx.fillStyle = cssVar('--tertiary') || '#00d4ff'; ctx.font = '12px ' + (cssVar('--font-mono') || 'monospace'); ctx.textAlign = 'right'; ctx.fillText(last.kpps.toFixed(1) + ' kpps', w - 4, 14); ctx.textAlign = 'left'; }
+  var stats = document.getElementById('kpps-stats');
+  if (stats) stats.textContent = statsLine(KPPS_HISTORY.map(function(e) { return e.kpps; }), function(v) { return v.toFixed(1) + 'k'; });
+}
+function drawFrameChart() {
+  var canvas = document.getElementById('frame-chart');
+  if (!canvas || !canvas.offsetParent) return;
+  var fc = fitCanvas(canvas); var ctx = fc.ctx, w = fc.w, h = fc.h;
+  ctx.clearRect(0, 0, w, h); chartBg(ctx, w, h);
+  if (!FRAME_HISTORY.length) return;
+  var maxN = Math.max(100, Math.max.apply(null, FRAME_HISTORY.map(function(e) { return e.n; })));
+  chartGridY(ctx, w, h, 4, function(f) { return Math.round(f * maxN); });
+  var t0 = FRAME_HISTORY[0].ts, t1 = FRAME_HISTORY[FRAME_HISTORY.length - 1].ts || t0 + 1;
+  var span = Math.max(1, t1 - t0);
+  function toPts(field) {
+    return FRAME_HISTORY.map(function(e) { return {x: ((e.ts - t0) / span) * w, y: h - (e[field] / maxN) * h}; });
+  }
+  ctx.save(); ctx.setLineDash([3, 3]);
+  chartLine(ctx, toPts('n'), cssVar('--text-dim') || '#888', 1, false, true, h);
+  ctx.restore();
+  chartLine(ctx, toPts('lit'), cssVar('--ok') || '#00ff88', 1.6, true, true, h);
+  ctx.save(); ctx.setLineDash([3, 3]);
+  chartLine(ctx, toPts('blank'), cssVar('--warn') || '#ffcc00', 1.2, false, false, h);
+  ctx.restore();
+  var last = FRAME_HISTORY[FRAME_HISTORY.length - 1];
+  if (last) {
+    ctx.font = '10px ' + (cssVar('--font-mono') || 'monospace');
+    ctx.fillStyle = cssVar('--text-dim') || '#888'; ctx.fillText('n=' + last.n, 4, 12);
+    ctx.fillStyle = cssVar('--ok') || '#00ff88'; ctx.fillText('lit=' + last.lit, w * 0.35, 12);
+    ctx.fillStyle = cssVar('--warn') || '#ffcc00'; ctx.fillText('blank=' + last.blank, w * 0.65, 12);
+  }
+}
+function drawBufferChart() {
+  var canvas = document.getElementById('buffer-chart');
+  if (!canvas || !canvas.offsetParent) return;
+  var fc = fitCanvas(canvas); var ctx = fc.ctx, w = fc.w, h = fc.h;
+  ctx.clearRect(0, 0, w, h); chartBg(ctx, w, h);
+  chartGridY(ctx, w, h, 4, function(f) { return Math.round(f * 100) + '%'; });
+  chartDashedLine(ctx, w, h, BUFFER_WARN / 100, cssVar('--warn') || '#ffcc00');
+  chartDashedLine(ctx, w, h, BUFFER_CRIT / 100, cssVar('--bad') || '#ff3366');
+  if (!BUFFER_HISTORY.length) return;
+  var t0 = BUFFER_HISTORY[0].ts, t1 = BUFFER_HISTORY[BUFFER_HISTORY.length - 1].ts || t0 + 1;
+  var span = Math.max(1, t1 - t0);
+  var pts = BUFFER_HISTORY.map(function(e) { return {x: ((e.ts - t0) / span) * w, y: h - (e.fill / 100) * h}; });
+  var last = BUFFER_HISTORY[BUFFER_HISTORY.length - 1].fill;
+  var color = last >= BUFFER_CRIT ? (cssVar('--bad') || '#ff3366') : last >= BUFFER_WARN ? (cssVar('--warn') || '#ffcc00') : (cssVar('--accent') || '#00ff88');
+  chartLine(ctx, pts, color, 1.6, true, true, h);
+  ctx.fillStyle = color; ctx.font = '12px ' + (cssVar('--font-mono') || 'monospace'); ctx.textAlign = 'right'; ctx.fillText(last.toFixed(0) + '%', w - 4, 14); ctx.textAlign = 'left';
+  if (sBufferHoverFrac >= 0) {
+    var hx = sBufferHoverFrac * w;
+    ctx.save(); ctx.setLineDash([3, 3]); ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+    ctx.beginPath(); ctx.moveTo(hx, 0); ctx.lineTo(hx, h); ctx.stroke(); ctx.restore();
+  }
+  var stats = document.getElementById('buffer-stats');
+  if (stats) stats.textContent = statsLine(BUFFER_HISTORY.map(function(e) { return e.fill; }), function(v) { return v.toFixed(0) + '%'; });
+}
+function rssiFrac(dbm) { return Math.max(0, Math.min(1, (dbm - RSSI_MIN) / (RSSI_MAX - RSSI_MIN))); }
+function drawRssiChart() {
+  var canvas = document.getElementById('rssi-chart');
+  if (!canvas || !canvas.offsetParent) return;
+  var fc = fitCanvas(canvas); var ctx = fc.ctx, w = fc.w, h = fc.h;
+  ctx.clearRect(0, 0, w, h); chartBg(ctx, w, h);
+  var yGood = h - rssiFrac(RSSI_GOOD) * h, yBad = h - rssiFrac(RSSI_BAD) * h;
+  ctx.fillStyle = colorWithAlpha(cssVar('--ok') || '#00ff88', 0.08); ctx.fillRect(0, 0, w, yGood);
+  ctx.fillStyle = colorWithAlpha(cssVar('--warn') || '#ffcc00', 0.08); ctx.fillRect(0, yGood, w, yBad - yGood);
+  ctx.fillStyle = colorWithAlpha(cssVar('--bad') || '#ff3366', 0.08); ctx.fillRect(0, yBad, w, h - yBad);
+  chartGridY(ctx, w, h, 4, function(f) { return Math.round(RSSI_MIN + f * (RSSI_MAX - RSSI_MIN)) + ' dBm'; });
+  if (!RSSI_HISTORY.length) return;
+  var t0 = RSSI_HISTORY[0].ts, t1 = RSSI_HISTORY[RSSI_HISTORY.length - 1].ts || t0 + 1;
+  var span = Math.max(1, t1 - t0);
+  var pts = RSSI_HISTORY.map(function(e) { return {x: ((e.ts - t0) / span) * w, y: h - rssiFrac(e.rssi) * h}; });
+  var last = RSSI_HISTORY[RSSI_HISTORY.length - 1].rssi;
+  var color = last >= RSSI_GOOD ? (cssVar('--ok') || '#00ff88') : last <= RSSI_BAD ? (cssVar('--bad') || '#ff3366') : (cssVar('--warn') || '#ffcc00');
+  chartLine(ctx, pts, color, 1.6, true, true, h);
+  ctx.fillStyle = color; ctx.font = '12px ' + (cssVar('--font-mono') || 'monospace'); ctx.textAlign = 'right'; ctx.fillText(last + ' dBm', w - 4, 14); ctx.textAlign = 'left';
+  if (sRssiHoverFrac >= 0) {
+    var hx = sRssiHoverFrac * w;
+    ctx.save(); ctx.setLineDash([3, 3]); ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+    ctx.beginPath(); ctx.moveTo(hx, 0); ctx.lineTo(hx, h); ctx.stroke(); ctx.restore();
+  }
+  var stats = document.getElementById('rssi-stats');
+  if (stats) stats.textContent = statsLine(RSSI_HISTORY.map(function(e) { return e.rssi; }), function(v) { return v.toFixed(0) + ' dBm'; });
+}
+function initHoverChart(canvasId, setter, redraw) {
+  var canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  canvas.addEventListener('mousemove', function(e) {
+    var r = canvas.getBoundingClientRect();
+    setter(Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)));
+    redraw();
+  });
+  canvas.addEventListener('mouseleave', function() { setter(-1); redraw(); });
+  window.addEventListener('resize', redraw);
+  if (window.ResizeObserver) new ResizeObserver(redraw).observe(canvas.parentNode);
+}
+function initCpuGraph() {
+  var canvas = document.getElementById('cpu-canvas');
+  if (!canvas) return;
+  canvas.addEventListener('mousemove', function(e) {
+    var r = canvas.getBoundingClientRect();
+    sCpuHoverIdx = Math.round(Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * (CPU_HISTORY - 1));
+    renderCpuGraph();
+  });
+  canvas.addEventListener('mouseleave', function() { sCpuHoverIdx = -1; renderCpuGraph(); });
+  window.addEventListener('resize', renderCpuGraph);
+  if (window.ResizeObserver) new ResizeObserver(renderCpuGraph).observe(canvas.parentNode);
+  requestAnimationFrame(renderCpuGraph);
+}
+
+/* =========================================================================
+   STATE POLL -- mirrors index.html's pollState()/dashboard handler, minus
+   every control (no ARM/DISARM, no overrides, no editable fields).
+   ========================================================================= */
+var s_pollInFlight = false;
+async function pollState() {
+  if (s_pollInFlight) return;
+  s_pollInFlight = true;
+  try {
+    var s = await apiGet('/api/state');
+    if (!s) { setConnPill(false); return; }
+    setConnPill(true);
+    renderState(s);
+  } finally {
+    s_pollInFlight = false;
+  }
+}
+function renderState(s) {
+  var setText = function(id, v) { var e = document.getElementById(id); if (e) e.textContent = v; };
+
+  if (s.fw_version) { document.title = 'GalvOS Monitor — FW ' + s.fw_version; setText('mon-fw-ver', s.fw_version); }
+
+  var pill = document.getElementById('armed-pill');
+  if (s.laser_armed) { pill.className = 'pill armed'; pill.textContent = '⚡ ARMED'; }
+  else { pill.className = 'pill bad'; pill.textContent = 'DISARMED'; }
+
+  var faultEl = document.getElementById('mon-fault-reason');
+  var fr = [];
+  if (!s.laser_armed) {
+    if (s.estop_ok === false) fr.push('E-Stop');
+    if (s.scanfail_ok === false) fr.push('Scan-Fail');
+  }
+  faultEl.textContent = fr.length ? ('⚠ Prevents ARM: ' + fr.join(', ')) : '';
+  faultEl.classList.toggle('hidden', fr.length === 0);
+  document.getElementById('mon-safety-override').classList.toggle('hidden', !s.safety_override);
+
+  setLed('estop', s.estop_ok);
+  setLed('scanfail', s.scanfail_ok);
+
+  var modeEl = document.getElementById('active-mode-pill');
+  var mode = '';
+  if (s.calib_active) mode = 'Calibration';
+  else if (s.ilda_active) mode = 'ILDA Player';
+  else if (s.playlist_active) mode = 'Playlist';
+  else if (s.laser_armed && s.preset_idx >= 0) mode = 'Pattern';
+  if (mode) { modeEl.textContent = mode; modeEl.classList.remove('hidden'); }
+  else modeEl.classList.add('hidden');
+  var beamDot = document.getElementById('beam-dot');
+  beamDot.classList.toggle('on', !!mode);
+
+  if (s.cpu0 !== undefined) pushCpu(s.cpu0, s.cpu1);
+  if (s.buffer_fill !== undefined) {
+    BUFFER_HISTORY.push({ts: Date.now(), fill: s.buffer_fill});
+    trimHistory(BUFFER_HISTORY); drawBufferChart();
+  }
+  if (s.rssi !== undefined) {
+    RSSI_HISTORY.push({ts: Date.now(), rssi: s.rssi});
+    trimHistory(RSSI_HISTORY); drawRssiChart();
+  }
+  if (s.points_per_sec !== undefined) {
+    KPPS_HISTORY.push({ts: Date.now(), kpps: s.points_per_sec / 1000});
+    trimHistory(KPPS_HISTORY); drawKppsChart();
+  }
+  if (s.frame_n !== undefined) {
+    FRAME_HISTORY.push({ts: Date.now(), n: s.frame_n, lit: s.frame_lit, blank: s.frame_blank});
+    trimHistory(FRAME_HISTORY); drawFrameChart();
+  }
+
+  setText('mon-source', ['DMX', 'ArtNet', 'EtherDream', 'Helios', 'OSC', 'sACN', 'Internal'][s.source] || s.source);
+  setText('mon-master-dimmer', s.master_dimmer);
+  setText('mon-dmx-frames', s.dmx_frame_count);
+  setText('mon-dmx-age', (s.last_dmx_age_ms < 0) ? 'never' : (s.last_dmx_age_ms + ' ms ago'));
+  setText('mon-pps', s.points_per_sec);
+  setText('mon-buffer-fill', (s.buffer_fill || 0).toFixed(0) + '%');
+  setText('mon-fps', s.fps !== undefined ? s.fps + ' fps' : '--');
+  setText('mon-frame', s.frame_n !== undefined ? (s.frame_n + ' / ' + s.frame_lit + ' / ' + s.frame_blank) : '--');
+  setText('mon-hostname', s.hostname);
+  setText('mon-ip', s.ip);
+  setText('mon-rssi', s.rssi + ' dBm');
+  setText('mon-cpu-temp', (s.cpu_temp === null || s.cpu_temp === undefined) ? '--' : (convTemp(s.cpu_temp, s_tempUnit).toFixed(1) + tempUnitSuffix(s_tempUnit)));
+  setText('mon-uptime', fmtUptime(s.uptime_s));
+  setText('mon-heap', fmtBytes(s.free_heap));
+  setText('mon-psram', fmtBytes(s.free_psram));
+  setText('mon-dac-status', s.no_hw_mode ? 'No-HW' : (s.dac_ok ? 'OK' : 'FAIL'));
+  setText('mon-sd-status', s.sd_ready ? (s.sd_fs_type + ' ' + fmtBytes(s.sd_free_kb * 1024) + ' free / ' + s.sd_file_count + ' files') : (s.sd_error || 'Not ready'));
+
+  if (!s.temps) return;
+  if (s.temp_unit !== undefined) s_tempUnit = s.temp_unit;
+  window.s_lastTempState = s;
+  TEMP_HISTORY.push({ts: Date.now(), temps: s.temps.slice(), cpuTemp: (s.cpu_temp === null || s.cpu_temp === undefined) ? null : s.cpu_temp});
+  trimHistory(TEMP_HISTORY);
+  drawTempChart();
+  var badges = document.getElementById('mon-temp-badges');
+  if (badges) {
+    var html = s.temps.map(function(t, i) {
+      var ok = s.ok && s.ok[i];
+      if (!ok) return '';
+      var name = (s.names && s.names[i]) || ('Sensor ' + (i + 1));
+      return '<div class="row"><span style="width:10px;height:10px;border-radius:50%;background:' + SENSOR_COLORS[i] + ';display:inline-block"></span>' +
+        '<span>' + name + '</span><span style="margin-left:auto;color:var(--text)">' + convTemp(t, s_tempUnit).toFixed(1) + tempUnitSuffix(s_tempUnit) + '</span></div>';
+    }).join('');
+    if (s.cpu_temp !== null && s.cpu_temp !== undefined) {
+      html += '<div class="row"><span style="width:10px;height:10px;border-radius:50%;background:' + CPU_TEMP_COLOR + ';display:inline-block"></span>' +
+        '<span>CPU</span><span style="margin-left:auto;color:var(--text)">' + convTemp(s.cpu_temp, s_tempUnit).toFixed(1) + tempUnitSuffix(s_tempUnit) + '</span></div>';
+    }
+    badges.innerHTML = html;
+  }
+}
+
+/* =========================================================================
+   OPTIMIZER LIVE TELEMETRY -- mirrors index.html's Optimizer tab poll.
+   Budget % needs the active profile's max_pts_per_frame, fetched once (not
+   polled -- it only changes when a human edits Optimizer settings elsewhere).
+   ========================================================================= */
+var s_optBudget = 0;
+async function loadOptBudget() {
+  var c = await apiGet('/api/config');
+  if (!c) return;
+  var active = c.opt_active_profile || 0;
+  var p = (c.opt_profiles && c.opt_profiles[active]) || c;
+  s_optBudget = p.opt_max_pts_per_frame || 0;
+}
+async function pollOptimizerStats() {
+  var r = await apiGet('/api/optimizer-stats');
+  if (r && r.frame) renderOptimizerStats(r.frame);
+}
+function renderOptimizerStats(f) {
+  var setText = function(id, v, bad) {
+    var e = document.getElementById(id);
+    if (!e) return;
+    e.textContent = v;
+    e.style.color = bad ? 'var(--bad)' : '';
+  };
+  var lit = f.emitted_lit || 0, blank = f.emitted_blank || 0;
+  var emitted = lit + blank;
+  var trunc = f.truncated || 0;
+  setText('opt-st-points', lit + ' / ' + blank);
+  setText('opt-st-trunc', trunc, trunc > 0);
+  setText('opt-st-jumps', f.jump_count || 0);
+  setText('opt-st-jumpdist', Math.round(f.jump_distance_total || 0) + ' units');
+  setText('opt-st-budget',
+          s_optBudget ? emitted + ' / ' + s_optBudget + ' (' + Math.round(emitted / s_optBudget * 100) + '%)' : emitted,
+          s_optBudget > 0 && emitted > s_optBudget);
+  setText('opt-st-calls', f.calls || 0);
+  var pill = function(id, label, state) {
+    var e = document.getElementById(id);
+    if (!e) return;
+    e.className = 'pill' + (state ? ' ' + state : '');
+    e.textContent = label;
+  };
+  var scale = (f.stage2_scale === undefined) ? 1 : f.stage2_scale;
+  pill('opt-st-s1', 'Stage 1 ' + (f.stage1_triggered ? 'active' : 'idle'), f.stage1_triggered ? 'bad' : '');
+  pill('opt-st-s15', 'Stage 1.5 ' + (f.stage15_triggered ? 'active' : 'idle'), f.stage15_triggered ? 'bad' : '');
+  pill('opt-st-s2', 'Interior ×' + scale.toFixed(2), scale < 0.999 ? 'bad' : '');
+  pill('opt-st-zv', 'ZV Shaper ' + (f.ringing_active ? 'shaping' : 'inactive'), f.ringing_active ? 'ok' : '');
+}
+
+/* =========================================================================
+   BOOT
+   ========================================================================= */
+initCpuGraph();
+initHoverChart('temp-chart', function(f) { sTempHoverFrac = f; }, drawTempChart);
+initHoverChart('buffer-chart', function(f) { sBufferHoverFrac = f; }, drawBufferChart);
+initHoverChart('rssi-chart', function(f) { sRssiHoverFrac = f; }, drawRssiChart);
+window.addEventListener('resize', function() { drawKppsChart(); drawFrameChart(); });
+
+loadOptBudget();
+pollState();
+pollOptimizerStats();
+setInterval(pollState, 1500);
+setInterval(pollOptimizerStats, 1000);
+setInterval(loadOptBudget, 30000);
+</script>
+</body>
+</html>
