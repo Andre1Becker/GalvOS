@@ -1333,11 +1333,16 @@ void init() {
     // Registered ahead of the other /api/optimizer* routes so a future
     // prefix-matching handler on that stem cannot swallow it.
     s_server.on("/api/optimizer-stats", HTTP_GET, [](AsyncWebServerRequest* req) {
-        // Snapshot both records before serializing: the pattern task on core 1
-        // keeps writing them while this handler runs on core 0, and a struct
-        // copy at least keeps the numbers of one response self-consistent.
+        // Copy both records before serializing: the pattern task on core 1
+        // keeps writing them while this handler runs on core 0. gLastStats is
+        // only ever overwritten whole, never zeroed, so a torn read at worst
+        // mixes two real calls' numbers. gFrameStatsSnapshot (NOT the live
+        // gFrameStats accumulator -- see its doc comment) is published the
+        // same way, once per frame, specifically so this handler can never
+        // catch it mid-reset-then-refill and report an all-zero frame that
+        // never actually happened.
         optimizer::Stats last  = optimizer::gLastStats;
-        optimizer::Stats frame = optimizer::gFrameStats;
+        optimizer::Stats frame = optimizer::gFrameStatsSnapshot;
         JsonDocument doc(&jsonAllocator());
         JsonObject l = doc["last"].to<JsonObject>();
         fillOptimizerStats(l, last);

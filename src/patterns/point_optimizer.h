@@ -349,10 +349,24 @@ extern Stats gLastStats;
 // same publish-per-frame lifecycle as gLiveTransform above. This is the record
 // the point budget is a property of: a preset that draws three primitives
 // calls optimize() three times, and only the sum is the frame.
+//
+// Core-1-internal accumulator -- not for cross-core reading. Between
+// resetFrameStats()'s zeroing and the frame's last add(), this sits at all-
+// zero for however long that frame's generate() takes, and a core-0 reader
+// (the /api/optimizer-stats handler) landing in that window would see a
+// spurious all-zero record even though the pattern task never actually went
+// idle. gFrameStatsSnapshot below is what readers want instead.
 extern Stats gFrameStats;
 
-// Clears gFrameStats. Called once per frame by pattern_engine, before any
-// generate() runs.
+// The last FULLY-BUILT gFrameStats, published by resetFrameStats() via one
+// whole-struct assignment before it zeroes gFrameStats for the new frame --
+// so it always holds a complete frame's numbers (one frame stale, at most),
+// never the mid-build zero. Safe for a core-0 reader to copy without a lock:
+// by the time the assignment runs, nothing is still writing into its source.
+extern Stats gFrameStatsSnapshot;
+
+// Publishes gFrameStats to gFrameStatsSnapshot, then clears gFrameStats.
+// Called once per frame by pattern_engine, before any generate() runs.
 void resetFrameStats();
 
 // Runs Pillar-1 density optimization across all given segments and writes

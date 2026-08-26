@@ -37,6 +37,7 @@ static constexpr float TAU_F = 2.0f * PI_F;
 
 Stats gLastStats;
 Stats gFrameStats;
+Stats gFrameStatsSnapshot;
 
 namespace {
     uint32_t sPlanned   = 0;   // attempted writes (emit stage + clamp inserts)
@@ -74,7 +75,12 @@ void Stats::add(const Stats& call) {
     ringingActive    |= call.ringingActive;
 }
 
-void resetFrameStats() { gFrameStats.reset(); }
+// Publish before clearing: gFrameStats at this point is the PREVIOUS frame's
+// fully-accumulated total (nothing writes it between the last frame's final
+// add() and this call, since both run sequentially on Core 1), so the
+// snapshot assignment always sees a complete record -- never the zero this
+// function is about to write. See gFrameStatsSnapshot's doc comment.
+void resetFrameStats() { gFrameStatsSnapshot = gFrameStats; gFrameStats.reset(); }
 
 // ── internal helpers ─────────────────────────────────────────────────────
 
