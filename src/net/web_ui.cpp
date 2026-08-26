@@ -3942,6 +3942,87 @@ void init() {
         req->send(200, "application/json", buf);
     });
 
+    // ═══ GET /api/debug/optimizers — per-stage optimizer kill-switch state ═══
+    // See DebugOptDisable (config.h) for what each field disables and why
+    // it's RAM-only (never persisted). "gamma" isn't a field on that struct
+    // -- it echoes the existing gConfig.gamma_enable toggle instead of
+    // duplicating it.
+    s_server.on("/api/debug/optimizers", HTTP_GET, [](AsyncWebServerRequest* req) {
+        JsonDocument doc(&jsonAllocator());
+        doc["corner_density"]   = gDebugOptDisable.corner_density;
+        doc["blank_density"]    = gDebugOptDisable.blank_density;
+        doc["resample"]         = gDebugOptDisable.resample;
+        doc["curvature"]        = gDebugOptDisable.curvature;
+        doc["ringing"]          = gDebugOptDisable.ringing;
+        doc["vel_clamp"]        = gDebugOptDisable.vel_clamp;
+        doc["accel_clamp"]      = gDebugOptDisable.accel_clamp;
+        doc["jitter"]           = gDebugOptDisable.jitter;
+        doc["reorder"]          = gDebugOptDisable.reorder;
+        doc["reorder_2opt"]     = gDebugOptDisable.reorder_2opt;
+        doc["pps_scaling"]      = gDebugOptDisable.pps_scaling;
+        doc["pipeline_cache"]   = gDebugOptDisable.pipeline_cache;
+        doc["mirror"]           = gDebugOptDisable.mirror;
+        doc["kaleido"]          = gDebugOptDisable.kaleido;
+        doc["duplicator"]       = gDebugOptDisable.duplicator;
+        doc["transform"]        = gDebugOptDisable.transform;
+        doc["laser_hold_ticks"] = gDebugOptDisable.laser_hold_ticks;
+        doc["gamma"]            = !gConfig.gamma_enable;  // "disabled" framing, matches the rest
+        sendJsonPsram(req, doc);
+    });
+
+    // ═══ POST /api/debug/optimizers — flip one or more kill switches ═════════
+    // Body: {"<field>": true|false, ...} using the same names as the GET
+    // above. Unknown keys are ignored. Applies immediately (no arming/E-Stop
+    // guard -- these only ever make the pipeline do LESS, never drive
+    // hardware directly, unlike /api/debug/hw). {"all": true|false} is a
+    // convenience that sets every switch (including gamma) at once, e.g. to
+    // get back to a known-clean baseline after a debugging session.
+    s_server.on("/api/debug/optimizers", HTTP_POST,
+        [](AsyncWebServerRequest* req) {},
+        nullptr,
+        [](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t, size_t) {
+            JsonDocument doc(&jsonAllocator());
+            if (deserializeJson(doc, data, len)) { req->send(400, "text/plain", "bad json"); return; }
+            if (doc["all"].is<bool>()) {
+                bool v = (bool)doc["all"];
+                gDebugOptDisable = DebugOptDisable();  // reset every field to its default (false)
+                if (v) {
+                    gDebugOptDisable.corner_density = gDebugOptDisable.blank_density =
+                        gDebugOptDisable.resample = gDebugOptDisable.curvature =
+                        gDebugOptDisable.ringing = gDebugOptDisable.vel_clamp =
+                        gDebugOptDisable.accel_clamp = gDebugOptDisable.jitter =
+                        gDebugOptDisable.reorder = gDebugOptDisable.reorder_2opt =
+                        gDebugOptDisable.pps_scaling = gDebugOptDisable.pipeline_cache =
+                        gDebugOptDisable.mirror = gDebugOptDisable.kaleido =
+                        gDebugOptDisable.duplicator = gDebugOptDisable.transform =
+                        gDebugOptDisable.laser_hold_ticks = true;
+                }
+                gConfig.gamma_enable = !v;
+            }
+            if (doc["corner_density"].is<bool>())   gDebugOptDisable.corner_density   = (bool)doc["corner_density"];
+            if (doc["blank_density"].is<bool>())    gDebugOptDisable.blank_density    = (bool)doc["blank_density"];
+            if (doc["resample"].is<bool>())         gDebugOptDisable.resample         = (bool)doc["resample"];
+            if (doc["curvature"].is<bool>())        gDebugOptDisable.curvature        = (bool)doc["curvature"];
+            if (doc["ringing"].is<bool>())          gDebugOptDisable.ringing          = (bool)doc["ringing"];
+            if (doc["vel_clamp"].is<bool>())        gDebugOptDisable.vel_clamp        = (bool)doc["vel_clamp"];
+            if (doc["accel_clamp"].is<bool>())      gDebugOptDisable.accel_clamp      = (bool)doc["accel_clamp"];
+            if (doc["jitter"].is<bool>())           gDebugOptDisable.jitter           = (bool)doc["jitter"];
+            if (doc["reorder"].is<bool>())          gDebugOptDisable.reorder          = (bool)doc["reorder"];
+            if (doc["reorder_2opt"].is<bool>())     gDebugOptDisable.reorder_2opt     = (bool)doc["reorder_2opt"];
+            if (doc["pps_scaling"].is<bool>())      gDebugOptDisable.pps_scaling      = (bool)doc["pps_scaling"];
+            if (doc["pipeline_cache"].is<bool>())   gDebugOptDisable.pipeline_cache   = (bool)doc["pipeline_cache"];
+            if (doc["mirror"].is<bool>())           gDebugOptDisable.mirror           = (bool)doc["mirror"];
+            if (doc["kaleido"].is<bool>())          gDebugOptDisable.kaleido          = (bool)doc["kaleido"];
+            if (doc["duplicator"].is<bool>())       gDebugOptDisable.duplicator       = (bool)doc["duplicator"];
+            if (doc["transform"].is<bool>())        gDebugOptDisable.transform        = (bool)doc["transform"];
+            if (doc["laser_hold_ticks"].is<bool>()) gDebugOptDisable.laser_hold_ticks = (bool)doc["laser_hold_ticks"];
+            if (doc["gamma"].is<bool>())            gConfig.gamma_enable              = !(bool)doc["gamma"];
+            // A cached pipeline frame or a live-transform snapshot could otherwise
+            // outlive the flag flip until the next state change invalidates it.
+            gPatternCacheGen++;
+            req->send(200, "text/plain", "OK");
+        });
+
     // ═══ POST /api/debug/resonance — Resonance test: single-axis sine drive ═
     // Prompt 13 (galvo resonance measurement). Requires laser_armed (or
     // gDebugNoHW), same guard as /api/debug/hw. See docs/feature-prompts/

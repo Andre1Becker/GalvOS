@@ -1732,6 +1732,39 @@ canvas { max-width: 100%; display: block; }
           <button class="btn sm danger" onclick="hwDebugCmd('exit')">Exit Debug</button>
         </div>
       </div>
+
+      <div class="card">
+        <h2>Optimizer Debug — Kill Switches</h2>
+        <p style="font-size:0.75rem;color:var(--text-dim)">Force individual pipeline stages off to isolate a hardware artifact, independent of the active optimizer profile's own settings. Applies immediately. RAM-only — resets to all-off on reboot.</p>
+        <div class="row">
+          <button class="btn sm danger" onclick="setAllDebugOpt(true)">Disable All</button>
+          <button class="btn sm" onclick="setAllDebugOpt(false)">Enable All (Reset)</button>
+        </div>
+        <h3>Galvo Pipeline</h3>
+        <div class="grid grid-2">
+          <label class="row"><input type="checkbox" id="dbgopt-corner_density" onchange="setDebugOpt('corner_density', this.checked)"> Corner Density (Pillar 1)</label>
+          <label class="row"><input type="checkbox" id="dbgopt-blank_density" onchange="setDebugOpt('blank_density', this.checked)"> Blank-Jump Density (Pillar 2)</label>
+          <label class="row"><input type="checkbox" id="dbgopt-resample" onchange="setDebugOpt('resample', this.checked)"> Resample</label>
+          <label class="row"><input type="checkbox" id="dbgopt-curvature" onchange="setDebugOpt('curvature', this.checked)"> Curvature-Adaptive Resample</label>
+          <label class="row"><input type="checkbox" id="dbgopt-ringing" onchange="setDebugOpt('ringing', this.checked)"> Ringing Compensation (Pillar 3)</label>
+          <label class="row"><input type="checkbox" id="dbgopt-vel_clamp" onchange="setDebugOpt('vel_clamp', this.checked)"> Velocity Clamp</label>
+          <label class="row"><input type="checkbox" id="dbgopt-accel_clamp" onchange="setDebugOpt('accel_clamp', this.checked)"> Acceleration Clamp</label>
+          <label class="row"><input type="checkbox" id="dbgopt-jitter" onchange="setDebugOpt('jitter', this.checked)"> Jitter</label>
+          <label class="row"><input type="checkbox" id="dbgopt-reorder" onchange="setDebugOpt('reorder', this.checked)"> Segment Reorder</label>
+          <label class="row"><input type="checkbox" id="dbgopt-reorder_2opt" onchange="setDebugOpt('reorder_2opt', this.checked)"> Reorder 2-opt</label>
+          <label class="row"><input type="checkbox" id="dbgopt-pps_scaling" onchange="setDebugOpt('pps_scaling', this.checked)"> PPS Scaling</label>
+          <label class="row"><input type="checkbox" id="dbgopt-pipeline_cache" onchange="setDebugOpt('pipeline_cache', this.checked)"> Pipeline Cache</label>
+          <label class="row"><input type="checkbox" id="dbgopt-mirror" onchange="setDebugOpt('mirror', this.checked)"> Mirror</label>
+          <label class="row"><input type="checkbox" id="dbgopt-kaleido" onchange="setDebugOpt('kaleido', this.checked)"> Kaleidoscope</label>
+          <label class="row"><input type="checkbox" id="dbgopt-duplicator" onchange="setDebugOpt('duplicator', this.checked)"> Duplicator</label>
+          <label class="row"><input type="checkbox" id="dbgopt-transform" onchange="setDebugOpt('transform', this.checked)"> Live Transform (Z-rot/Move)</label>
+        </div>
+        <h3>TTL / Laser Output</h3>
+        <div class="grid grid-2">
+          <label class="row"><input type="checkbox" id="dbgopt-laser_hold_ticks" onchange="setDebugOpt('laser_hold_ticks', this.checked)"> Laser Hold-Tick Latency Compensation</label>
+          <label class="row"><input type="checkbox" id="dbgopt-gamma" onchange="setDebugOpt('gamma', this.checked)"> RGB Gamma Correction</label>
+        </div>
+      </div>
     </section>
   </main>
 
@@ -1755,7 +1788,7 @@ canvas { max-width: 100%; display: block; }
 /* =========================================================================
    GLOBAL STATE
    ========================================================================= */
-var UI_VERSION = '1.28.0';   // WebUI version -- independent from firmware version
+var UI_VERSION = '1.29.0';   // WebUI version -- independent from firmware version
 var NAV_TABS = [
   {id: 'dashboard', label: 'Dashboard', icon: '🏠', bottom: true},
   {id: 'presets', label: 'Presets', icon: '🎮', bottom: true},
@@ -6429,6 +6462,28 @@ async function loadConfig() {
   setc('cfg-gw-watchdog', c.wifi_watchdog_reboot_enabled);
   await loadCalibrationFields();
   if (typeof loadOptimizerConfig === 'function') loadOptimizerConfig(c);
+  await loadDebugOptimizers();
+}
+/* ---- Optimizer debug kill switches (/api/debug/optimizers) ---- */
+var DEBUG_OPT_KEYS = ['corner_density', 'blank_density', 'resample', 'curvature', 'ringing',
+  'vel_clamp', 'accel_clamp', 'jitter', 'reorder', 'reorder_2opt', 'pps_scaling',
+  'pipeline_cache', 'mirror', 'kaleido', 'duplicator', 'transform', 'laser_hold_ticks', 'gamma'];
+async function loadDebugOptimizers() {
+  var d = await apiCall('GET', '/api/debug/optimizers');
+  if (!d) return;
+  DEBUG_OPT_KEYS.forEach(function(k) {
+    var el = document.getElementById('dbgopt-' + k);
+    if (el && document.activeElement !== el) el.checked = !!d[k];
+  });
+}
+async function setDebugOpt(key, checked) {
+  var body = {}; body[key] = checked;
+  await apiCall('POST', '/api/debug/optimizers', body);
+}
+async function setAllDebugOpt(disable) {
+  await apiCall('POST', '/api/debug/optimizers', {all: disable});
+  await loadDebugOptimizers();
+  toast(disable ? 'All optimizer stages disabled' : 'All optimizer stages re-enabled');
 }
 async function saveDmxArtnetConfig() {
   await apiCall('POST', '/api/config', {

@@ -492,6 +492,7 @@ struct GalvoSnapshot {
     volatile uint8_t  gain_g      =  255;
     volatile uint8_t  gain_b      = 255;
     bool     gamma_en    = true;
+    bool     laser_hold_disabled = false;  // debug: forces LASER_ON/OFF_HOLD_TICKS to 0
     uint8_t  thresh_r    = 10;
     uint8_t  thresh_g    = 8;
     uint8_t  thresh_b    = 8;
@@ -519,6 +520,7 @@ static inline void updateSnapshot() {
         s_snap.gain_g   = gConfig.gain_g;
         s_snap.gain_b   = gConfig.gain_b;
         s_snap.gamma_en = gConfig.gamma_enable;
+        s_snap.laser_hold_disabled = gDebugOptDisable.laser_hold_ticks;
         s_snap.thresh_r = gConfig.thresh_r;
         s_snap.thresh_g = gConfig.thresh_g;
         s_snap.thresh_b = gConfig.thresh_b;
@@ -840,7 +842,7 @@ static void IRAM_ATTR galvoTask(void*) {
                 (s_snap.zone.enabled && !s_snap.zone.contains(p.x, p.y));
             if (zone_blank) {
                     rgbOff();
-                    s_laser_on_hold = LASER_ON_HOLD_TICKS;  // arm on-hold for next lit point
+                    s_laser_on_hold = s_snap.laser_hold_disabled ? 0 : LASER_ON_HOLD_TICKS;  // arm on-hold for next lit point
                     if (s_laser_off_hold > 0) {
                         // Still within hold window: keep DAC parked at the
                         // last lit position while LEDC/6N137 finish turning off.
@@ -894,7 +896,7 @@ static void IRAM_ATTR galvoTask(void*) {
                     } else {
                         rgbWrite(r, g, b, s_snap.thresh_r, s_snap.thresh_g, s_snap.thresh_b);
                     }
-                    s_laser_off_hold = LASER_OFF_HOLD_TICKS;
+                    s_laser_off_hold = s_snap.laser_hold_disabled ? 0 : LASER_OFF_HOLD_TICKS;
                 }
             }
         }

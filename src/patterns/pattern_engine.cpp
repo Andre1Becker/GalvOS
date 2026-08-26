@@ -2074,7 +2074,7 @@ void task(void*) {
                     }
                 }
 
-                applyKaleidoscope(n);
+                if (!gDebugOptDisable.kaleido) applyKaleidoscope(n);
 
                 // Dimming is applied once, in galvoTask (max(master_dimmer,
                 // ui_master_dimmer) per point) -- pre-scaling RGB here as
@@ -2183,7 +2183,8 @@ void task(void*) {
                                  !gLivePreset.points_mode_enabled &&
                                  !gLivePreset.flow_mode_enabled &&
                                  dupExtraCopies <= 0 &&
-                                 !invfilter::isActive();
+                                 !invfilter::isActive() &&
+                                 !gDebugOptDisable.pipeline_cache;  // debug: force a re-render every frame
             PipelineSig sig;
             if (cacheEligible) {
                 sig.presetIdx    = static_cast<uint8_t>(s_preset_idx);
@@ -2327,14 +2328,14 @@ void task(void*) {
                     // Duplicator (Phase 3) -- generic N-copy chain, runs before the
                     // symmetry-specific Mirror/Kaleidoscope effects so those apply to
                     // the whole duplicated field.
-                    applyDuplicator(n);
+                    if (!gDebugOptDisable.duplicator) applyDuplicator(n);
                     if (n == 0) { static LaserPoint blank_pt={0,0,0,0,0,1}; galvo::pushFrame(&blank_pt,1); vTaskDelay(pdMS_TO_TICKS(40)); continue; }  // guard: duplicator emptied frame
 
                     // Mirror (separate from Kaleidoscope, see applyMirror())
-                    applyMirror(n);
+                    if (!gDebugOptDisable.mirror) applyMirror(n);
                     if (n == 0) { static LaserPoint blank_pt={0,0,0,0,0,1}; galvo::pushFrame(&blank_pt,1); vTaskDelay(pdMS_TO_TICKS(40)); continue; }  // guard: preset generated 0 points
 
-                    applyKaleidoscope(n);
+                    if (!gDebugOptDisable.kaleido) applyKaleidoscope(n);
                     applyFlowMode(n);         // sliding trail(s) -- only ever blanks more points, n unchanged
                     applyPointsOnlyMode(n);   // if both enabled, dwell-samples from whatever the trail left lit
                     if (n == 0) { static LaserPoint blank_pt={0,0,0,0,0,1}; galvo::pushFrame(&blank_pt,1); vTaskDelay(pdMS_TO_TICKS(40)); continue; }  // guard: points mode emptied frame

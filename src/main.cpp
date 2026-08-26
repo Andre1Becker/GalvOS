@@ -77,6 +77,7 @@ static PaintConfig* allocPaintConfig() {
 PaintConfig&     gPaint = *allocPaintConfig();  // paint-by-finger canvas
 WeldConfig       gWeld;                          // laser welding effect (RAM-only, small struct -> plain DRAM)
 volatile bool    gDebugNoHW = false;
+DebugOptDisable  gDebugOptDisable;                 // per-stage optimizer kill switches (RAM-only, see config.h)
 
 static const char* TAG = "main";
 static Preferences s_prefs;

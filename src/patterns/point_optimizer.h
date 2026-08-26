@@ -528,9 +528,29 @@ inline OptimizerConfig configFromLive(const OptimizerLiveConfig& live,
     cfg.reorder_segments             = live.reorder_segments;
     cfg.reorder_2opt                 = live.reorder_2opt;
     cfg.galvo_kpps                   = outputKpps;
-    cfg.transform                    = gLiveTransform;  // Phase 3: live Z-rot + move
+    cfg.transform                    = gDebugOptDisable.transform
+                                            ? AffineTransform()          // debug: identity, skip live Z-rot/move
+                                            : gLiveTransform;            // Phase 3: live Z-rot + move
     // PPS-derived scaling: density (both forms) + blank density + both clamps.
-    applyPpsScaling(cfg, ratedKpps, outputKpps);
+    if (!gDebugOptDisable.pps_scaling) applyPpsScaling(cfg, ratedKpps, outputKpps);
+
+    // ── Debug: per-stage kill switches (config.h) ─────────────────────────
+    // Forced off AFTER the live/PPS mapping above, regardless of what the
+    // active profile itself has enabled -- see DebugOptDisable's own header
+    // comment. Pillar 1/2 have no boolean of their own, so their switches
+    // instead collapse the min/max range that drives their adaptive part
+    // down to a constant, leaving the rest of the pipeline (easing, Pillar-3
+    // shaping) untouched.
+    if (gDebugOptDisable.corner_density) cfg.max_corner_pts    = cfg.min_corner_pts;
+    if (gDebugOptDisable.blank_density)  cfg.min_blank_samples = cfg.blank_samples;
+    if (gDebugOptDisable.resample)       cfg.resample_enabled           = false;
+    if (gDebugOptDisable.curvature)      cfg.curvature_resample_enabled = false;
+    if (gDebugOptDisable.ringing)        cfg.ringing_comp_enabled       = false;
+    if (gDebugOptDisable.vel_clamp)      cfg.vel_clamp_enabled          = false;
+    if (gDebugOptDisable.accel_clamp)    cfg.accel_clamp_enabled        = false;
+    if (gDebugOptDisable.jitter)         cfg.jitter_enabled             = false;
+    if (gDebugOptDisable.reorder)        cfg.reorder_segments           = false;
+    if (gDebugOptDisable.reorder_2opt)   cfg.reorder_2opt               = false;
     return cfg;
 }
 

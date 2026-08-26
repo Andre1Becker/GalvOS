@@ -182,6 +182,52 @@ struct OptimizerLiveConfig {
     bool     reorder_2opt                  = OPT_DEFAULT_REORDER_2OPT;
 };
 
+// ── DEBUG: PER-STAGE OPTIMIZATION KILL SWITCHES ───────────────────────────
+// RAM-only overrides (never persisted -- resets false on every boot, same
+// lifecycle as gDebugNoHW's RAM state) that force one pipeline stage off at
+// a time for isolating a hardware artifact, independent of whichever
+// OptimizerLiveConfig profile is active and without touching that profile's
+// own saved enable flags. A stage the active profile already has off stays
+// off either way; one the profile has ON is forced off only while its
+// switch here is set. All false by default -> no behavioural change until a
+// developer flips one via /api/debug/optimizers.
+//
+// Deliberately NOT persisted to NVS: a debug session that forgets to flip a
+// switch back should not silently degrade normal operation across a power
+// cycle.
+//
+// Applied in optimizer::configFromLive() (point_optimizer.h -- the one
+// mapping point between OptimizerLiveConfig and OptimizerConfig, see that
+// function's own header comment) except pipeline_cache/mirror/kaleido/
+// duplicator (pattern_engine.cpp call sites) and laser_hold_ticks (galvo_out.cpp,
+// via GalvoSnapshot -- see updateSnapshot()). gamma has no field here: it
+// reuses the existing gConfig.gamma_enable toggle (already a runtime switch),
+// the debug panel just surfaces it alongside these.
+struct DebugOptDisable {
+    // Galvo pipeline
+    bool corner_density  = false;  // Pillar 1: collapses max_corner_pts to min_corner_pts
+    bool blank_density   = false;  // Pillar 2: collapses min_blank_samples to blank_samples
+                                    // (fixed count per jump; smoothstep easing/Pillar-3
+                                    // shaping, if their own flags are on, still apply)
+    bool resample        = false;
+    bool curvature       = false;
+    bool ringing         = false;
+    bool vel_clamp       = false;
+    bool accel_clamp     = false;
+    bool jitter          = false;
+    bool reorder         = false;
+    bool reorder_2opt    = false;
+    bool pps_scaling     = false;  // skips applyPpsScaling() in configFromLive()
+    bool pipeline_cache  = false;  // forces cacheEligible=false (pattern_engine.cpp)
+    bool mirror          = false;
+    bool kaleido         = false;
+    bool duplicator      = false;
+    bool transform       = false;  // forces optimizer::gLiveTransform to identity
+    // TTL / laser output
+    bool laser_hold_ticks = false; // LASER_ON_HOLD_TICKS / LASER_OFF_HOLD_TICKS -> 0
+};
+extern DebugOptDisable gDebugOptDisable;
+
 // Which OptimizerNormalizeResult field(s) normalizeOptimizerConfig() had to
 // correct -- so a caller with a JSON `applied` echo (web_ui.cpp) can report
 // the effective value back instead of silently accepting the request's.
