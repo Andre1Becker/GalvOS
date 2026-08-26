@@ -2261,7 +2261,7 @@ void task(void*) {
                 }
 
                 n = presets::generate(static_cast<uint8_t>(s_preset_idx), s_frame,
-                                      PATTERN_POINTS_MAX, phase, speed, sz);
+                                      PATTERN_POINTS_MAX, phase, speed, sz, s_frameDt);
                 rtAfterGenerate = esp_timer_get_time();
 
                 // For Particle presets: apply Z-rotation + modulator scale/shift

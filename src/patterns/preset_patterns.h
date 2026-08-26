@@ -108,8 +108,21 @@ extern const PresetInfo PRESETS[PRESET_COUNT];
 uint8_t     profileMemberCount(uint8_t profile);
 const char* profileMemberName(uint8_t profile, uint8_t n);
 
+// frame_dt: wall-clock frame delta (pattern_engine.cpp's s_frameDt, real
+// elapsed-ms / kAnimPhaseFrameMs) -- passed through so per-preset generators
+// that need finer-than-one-integer-phase-tick smoothness (H Line's bounce
+// offset is the first case, see p13) can accumulate their own continuous
+// state instead of quantizing to the shared `phase` counter. See the
+// s_hlineOffAngle comment at p13 for why: `phase` only steps once every
+// ~40ms regardless of how often generate() itself gets called (the producer
+// loop self-paces to content drain time, see pattern_engine.cpp's
+// paceProducer()), so a preset whose visible position is `phase`-quantized
+// jumps in one visible step every tick -- fine for a rotation sweeping a
+// small arc, jarring for HLine which maps the full ramp onto a full-amplitude
+// linear translation. Reusing `frame_dt` (already computed once per producer
+// loop iteration, zero extra cost) sidesteps the quantization entirely.
 size_t generate(uint8_t idx, LaserPoint* out, size_t max_pts,
-                uint32_t phase, uint8_t speed, uint8_t size_val);
+                uint32_t phase, uint8_t speed, uint8_t size_val, float frame_dt = 1.0f);
 
 // True for the small explicit allow-list of presets whose DISPATCH function
 // ignores `phase` and reads no wall-clock/random state -- see the

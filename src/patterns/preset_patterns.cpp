@@ -39,6 +39,13 @@ static inline float aang(uint32_t ph, uint8_t sp, float m=1.0f) {
     if (!sp) return 0.f;
     return fmodf(ph * (sp / 1700.0f) * m, PI2);
 }
+
+// Wall-clock frame delta for this generate() call, set by generate() itself
+// right before dispatch -- see preset_patterns.h's frame_dt comment. Default
+// 1.0 (== pattern_engine.cpp's nominal untouched s_frameDt) so anything
+// reading this before the first generate() call, or a build path that never
+// passes frame_dt, gets the same rate it always did.
+static float s_animFrameDt = 1.0f;
 static inline void ap(LaserPoint* o, size_t& n, size_t mx,
                        float x, float y, uint8_t r, uint8_t g, uint8_t b, uint8_t bl=0) {
     if (n>=mx) return;
@@ -578,7 +585,26 @@ static size_t p12(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){size_
 static size_t p13(LaserPoint*o,size_t m,uint32_t ph,uint8_t sp,uint8_t sz){
     // Straight stroke -> line() (already optimizer-backed). The old fixed
     // 60-sample loop is exactly what edgeInteriorCount() derives from length.
-    size_t n=0;float s=SC*ssc(sz)*.9f,r=aang(ph,sp)/PI2;  // r: 0..1 sawtooth ramp
+    size_t n=0;float s=SC*ssc(sz)*.9f;
+    // r: 0..1 sawtooth ramp -- continuous accumulator, NOT aang(ph,sp)/PI2.
+    // aang() quantizes to `ph`, which only steps once every ~40ms of real
+    // time (pattern_engine's kAnimPhaseFrameMs) regardless of how often this
+    // function itself gets called -- fine for a rotation (small arc per
+    // tick), but HLine maps the full ramp onto a full-amplitude linear
+    // offset (+-s, up to ~21000 DAC codes), so the same per-tick step reads
+    // as a visible jump between discrete rows, worse the higher Speed is set
+    // (confirmed on hardware via sigrokCapture.py: DAC Y-code steps were
+    // perfectly uniform and correctly speed-scaled -- not a timing bug, just
+    // 25fps-equivalent quantization on a signal too position-sensitive for
+    // it). Advancing by s_animFrameDt every call instead reuses the exact
+    // same long-run rate (matches aang()'s sp/1700 rad/tick, s_animFrameDt is
+    // in the same tick units) but updates every producer-loop iteration --
+    // for a single-line preset that's already well above 25/s (see
+    // paceProducer()), so this is smoother for free, no extra generate() cost.
+    static float s_hlineAngle = 0.f;
+    if (sp) s_hlineAngle = fmodf(s_hlineAngle + (sp / 1700.0f) * s_animFrameDt, PI2);
+    else    s_hlineAngle = 0.f;  // matches aang()'s sp==0 -> always 0 freeze-at-bottom
+    float r = s_hlineAngle / PI2;
     // Default: sawtooth ramp bottom->top, snapping back to bottom every wrap.
     // Bounce: fold the ramp into a 0..1..0 triangle so the line eases back
     // down instead of snapping (bugs01.md P3 #8 -- "not just bottom->top").
@@ -3173,8 +3199,15 @@ Preset presetFromIndex(int raw) {
 }
 
 size_t generate(uint8_t idx, LaserPoint* out, size_t max_pts,
-                uint32_t phase, uint8_t speed, uint8_t size_val) {
+                uint32_t phase, uint8_t speed, uint8_t size_val, float frame_dt) {
     if (idx >= PRESET_COUNT || !out) return 0;
+    // See preset_patterns.h's comment on frame_dt: stashed for the handful of
+    // DISPATCH functions (currently just p13/H Line) that need continuous
+    // sub-tick timing instead of the quantized `phase` counter. Clamped the
+    // same way pattern_engine.cpp caps its own s_frameDt (post-stall/mode-
+    // switch), so a caller that ever passes a raw uninitialized/huge value
+    // can't make a preset's own accumulator leap.
+    s_animFrameDt = (frame_dt > 0.f && frame_dt < 6.f) ? frame_dt : 1.0f;
     const uint32_t safe_phase = phase % 0xFFFFFF;
     size_t n = dispatchCached(idx, out, max_pts, safe_phase, speed, size_val);
 
