@@ -126,6 +126,28 @@ in `optimizer::optimize()` — 5942 µs of a 7936 µs frame for Circle, measured
 `presets::isStaticPreset()`'s explicit allow-list, so everything else pays this every
 frame.
 
+### Blank/unblank LEDC hold-tick margin unverified at high point rates
+
+**Status:** Open — investigated 2026-08-26, inconclusive
+**Detail:** `galvo_out.cpp:56-74` documents LEDC's own turn-on/turn-off latency (up to
+2 PWM periods, ~40µs) and compensates with `LASER_ON_HOLD_TICKS`/`LASER_OFF_HOLD_TICKS`
+(2 output ticks each), holding the DAC or the laser output steady around a blank
+transition so LEDC has time to catch up before the galvo moves again. At the point rate
+measured live this session (~43.5-45kpps, ~23µs/point), 2 ticks ≈ 46µs — a positive but
+thin margin over the documented ~40µs latency, and it only gets thinner as point rate
+climbs toward the ~46.9kpps output-rate ceiling.
+
+A same-session attempt to verify this electrically (SPI + laser-TTL capture during a
+real running preset) found evidence-shaped data — a 53-sample blanked stretch with two
+single-frame "laser on" blips in the middle of it — but the test preset (Grid 3x3)
+turned out to have real per-point behavior richer than a simple lit→blank→lit model
+(a multi-tick dwell-and-relight at line junctions), making it impossible to distinguish
+"intentional corner behavior" from "the margin is too thin" from electrical data alone.
+See [`docs/sigrok-capture-tool.md`](sigrok-capture-tool.md)'s "Investigation: RGB
+blanking-edge alignment" section for the full writeup and two concrete next steps
+(a simpler two-shape preset, or temporary firmware logging of the intended per-point
+blank flag).
+
 ### Curves backend is now dead code (WebUI card removed)
 
 **Status:** Open — cleanup TODO  
@@ -205,6 +227,28 @@ the open listen socket itself, which costs nothing to hold.
 ---
 
 ## Build & Tooling Issues
+
+### `sigrokCapture.py`: LA1010 capture duration collapses with >3 channels; two live-session gotchas
+
+**Status:** Open — documented, worked around, not fixed
+**Detail:** Confirmed live 2026-08-26, three separate findings while probing GPIO7/8/21
+alongside the DAC SPI bus (see [`docs/sigrok-capture-tool.md`](sigrok-capture-tool.md)
+for full detail):
+
+- `kingst-la2016`'s `--time` delivers a real captured window that shrinks hard as more
+  channels are enabled — 3 channels (SCLK/DIN/SYNC) got ~84% of a requested 50ms, adding
+  one more channel dropped that to ~9%, adding all three RGB channels dropped it to ~2%
+  (~1ms), independent of what duration is actually requested. `--samples` doesn't avoid
+  this — it hangs outright with any laser-TTL channel enabled, at any sample count tried.
+- `gState.calib_thresh_test` (left `true` from an earlier session) silently overrides
+  `/api/debug/hw` — `galvo_out.cpp`'s output task checks it before `s_hw_debug_active`,
+  forcing `writeDAC8562XY(0x8000, 0x8000)` regardless of debug x/y, with no indication
+  anywhere in `/api/state`/`/api/status` that it's the actual cause.
+- `/api/debug/hw`'s `x` field looks sign-inverted (`x:3000` and `x:-3000` both produced
+  the DAC code for `-3000`) — not investigated further.
+
+No firmware or tool changes made yet; filed as a heads-up for the next person using
+`sigrokCapture.py` against RGB TTL lines or `/api/debug/hw`.
 
 ### Host regression suite cannot be run
 
