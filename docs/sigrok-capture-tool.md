@@ -5,7 +5,11 @@ Hardware measurement tool wrapping `sigrok-cli` for two instruments:
 - **Kingst LA1010** (logic analyzer) — probes the DAC8562 SPI bus
   (SCLK/GPIO12, DIN/GPIO11, /SYNC/GPIO10) and decodes DAC8562 write
   frames into a `[syncTimestamp, channel, rawCode, frameDurationUs,
-  interFrameGapUs]` DataFrame.
+  interFrameGapUs]` DataFrame. Optionally also probes the laser RGB TTL
+  lines (GPIO7/8/21) via `--r-channel`/`--g-channel`/`--b-channel`, adding
+  `laserR`/`laserG`/`laserB` columns (raw GPIO level at each frame's
+  `/SYNC`-low edge, inverted convention: 1=OFF, 0=ON) — for checking
+  blanking-edge alignment against DAC frame timing.
 - **Hantek 6022BE** (oscilloscope) — probes galvo analog X/Y at
   J_GALVO Pin2/Pin4, for ring-parameter extraction (ZV-shaper
   verification) and general waveform capture.
@@ -14,6 +18,8 @@ Hardware measurement tool wrapping `sigrok-cli` for two instruments:
 
 ```bash
 sigrokCapture.py --mode spi    --duration 3 --output spi.csv
+sigrokCapture.py --mode spi    --duration 3 --output spi.csv \
+    --r-channel CH4 --g-channel CH5 --b-channel CH6   # + laser TTL
 sigrokCapture.py --mode analog --channels x,y --duration 3 --output xy.csv
 sigrokCapture.py --mode scan
 sigrokCapture.py --mode show --driver kingst-la2016

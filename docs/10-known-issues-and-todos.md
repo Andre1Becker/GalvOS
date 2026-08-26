@@ -66,6 +66,37 @@ update the documented intent if the wider bypass is actually deliberate.
 **Status:** Known, compensated in firmware  
 **Detail:** The OPA4134 feedback resistors R2/R4 are 22 kΩ instead of the theoretical 10 kΩ, resulting in a gain of 2.2× rather than 2.0×. This means the full DAC swing would produce slightly more than ±5V at the galvo input. Compensated via `dac_limit_min`/`dac_limit_max` in `RuntimeConfig` (default: 0x0666..0xF999, ≈95% of full range). No action required unless you replace the resistors.
 
+### Galvo driver board (vendor, JY-15K-BL) has marginal current-loop phase margin
+
+**Status:** Open — confirmed by bench test, 2026-08-25  
+**Detail:** Probing the X-axis coil leads directly (identified via resistance mapping on the
+galvo's 7-pin connector: pin 1 red ↔ pin 4, 1.82 Ω — the only low-resistance pair, all other
+pin combinations read MΩ/open) makes the galvo oscillate erratically. This reproduced with a
+battery-powered, fully isolated handheld scope (Zoyi) — ruling out ground-loop/earth-reference
+coupling as the cause — and persisted even with a 10:1 probe and a short spring ground tip,
+i.e. with probe-added capacitance minimized as far as available equipment allows. That points
+to the driver board's internal current-feedback loop having very little phase margin: even a
+few pF of added load at the coil output is enough to tip it into instability.
+
+Practical fallout:
+
+- Cable/connector capacitance between the driver board and the galvo coil is not just a
+  measurement inconvenience — it is plausibly part of the system's real stability margin.
+  Longer or higher-capacitance wiring there could matter for actual operation, not only for
+  probing it.
+- Some fraction of the galvo ringing the point-optimizer compensates for
+  ([`docs/05-optimizer.md`](05-optimizer.md), ringing/settling stages) may be electrical
+  (driver loop) rather than purely mechanical (galvo resonance). The optimizer currently
+  treats ringing as a mechanical/geometric problem to solve via dwell time and point density;
+  it has no model for driver-loop-induced ringing and no way to distinguish the two sources
+  from the pattern-generation side.
+- The driver board is a sealed third-party module (not GalvOS firmware/hardware scope), so
+  there is no fix available here beyond documenting it and being conservative about coil-side
+  wiring changes.
+
+No firmware action taken. Filed for awareness and as a possible lead if ringing compensation
+tuning stalls on the mechanical-only model.
+
 ---
 
 ## Pattern Issues

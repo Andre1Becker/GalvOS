@@ -21,6 +21,9 @@ Physical wiring (see CLAUDE.md "Key GPIO Map" / hardware/schematics):
   DIN    = ESP32-S3 GPIO11  (PIN_GALVO_MOSI, include/pinmap.h:44)
   /SYNC  = ESP32-S3 GPIO10  (PIN_GALVO_CS,   include/pinmap.h:45, active-low)
   J_GALVO Pin2/Pin4 = analog X/Y galvo drive, referenced to AGND
+  Laser R TTL = ESP32-S3 GPIO7  (PIN_LASER_R, optional, inverted logic)
+  Laser G TTL = ESP32-S3 GPIO8  (PIN_LASER_G, optional, inverted logic)
+  Laser B TTL = ESP32-S3 GPIO21 (PIN_LASER_B, optional, inverted logic)
 
 These GPIO numbers are the board's own pin names, NOT sigrok channel
 names -- the LA1010's channel numbering is independent and depends on
@@ -28,7 +31,11 @@ which of its probe leads you actually clipped to which board pin. Map that
 with --sclk-channel/--din-channel/--sync-channel/--sd-cs-channel (defaults
 CH0/CH1/CH2, matching the LA1010's own channel names -- confirmed live via
 `sigrok-cli -d kingst-la2016 --show`; see --mode show below to re-verify
-your own probe assignment).
+your own probe assignment). The laser RGB TTL lines are optional extra
+probes on any free LA1010 channel(s) -- map with --r-channel/--g-channel/
+--b-channel; when set, SpiCapture.decode() adds laserR/laserG/laserB
+columns (raw GPIO level, 1=OFF/0=ON per CLAUDE.md's inverted convention)
+for checking blanking-edge alignment against DAC frame timing.
 
 NOTE (2026): the SD card was rewired off the DAC's SPI2 bus onto its own
 independent SPI3 bus (GPIO5/6/1/42) in firmware v5.90.0 -- see CLAUDE.md's
@@ -39,6 +46,8 @@ no-op if omitted.
 
 Usage:
   sigrokCapture.py --mode spi    --duration 2 --output spi_frames.csv
+  sigrokCapture.py --mode spi    --duration 2 --output spi_frames.csv \
+      --r-channel CH4 --g-channel CH5 --b-channel CH6  # + laser TTL
   sigrokCapture.py --mode analog --channels x,y --duration 0.5 --output xy.csv
   sigrokCapture.py --mode scan   [--driver kingst-la2016]
   sigrokCapture.py --mode show   --driver kingst-la2016
@@ -380,6 +389,13 @@ class SpiCapture:
 
     Two channels = two separate 24-bit frames (two CS pulses), X then Y,
     per point (writeDAC8562XY() toggles CS between them).
+
+    Optionally also probes the laser RGB TTL lines (GPIO7/8/21,
+    PIN_LASER_R/G/B) via --r-channel/--g-channel/--b-channel, for checking
+    blanking-edge alignment against DAC frame timing. When set, decode()
+    adds laserR/laserG/laserB columns: the raw GPIO level in force at each
+    frame's /SYNC-low edge. CLAUDE.md's inverted convention applies here
+    too -- 1 = laser OFF (fail-safe default), 0 = laser ON.
     """
 
     FRAME_BITS = 24
@@ -389,7 +405,8 @@ class SpiCapture:
 
     def __init__(self, driver="kingst-la2016", samplerate_hz=100_000_000,
                  sclk_channel="CH0", din_channel="CH1", sync_channel="CH2",
-                 sd_cs_channel=None, voltage_threshold=None, sigrok_cli=None):
+                 sd_cs_channel=None, r_channel=None, g_channel=None, b_channel=None,
+                 voltage_threshold=None, sigrok_cli=None):
         if samplerate_hz < 100_000_000:
             prWarn(f"samplerate {samplerate_hz/1e6:.1f} MHz is below the requested "
                    ">=100 MHz minimum for resolving a 40 MHz SCLK edge-accurately")
@@ -399,6 +416,15 @@ class SpiCapture:
         self.din_channel = din_channel
         self.sync_channel = sync_channel
         self.sd_cs_channel = sd_cs_channel
+        # Optional laser RGB TTL probes -- GPIO7/8/21 (PIN_LASER_R/G/B). Not
+        # part of the SPI bus itself; along for the ride so decode() can
+        # report the blanking level in force at each DAC frame's timestamp,
+        # for checking blanking-edge-to-DAC-frame alignment. Raw GPIO level
+        # is reported as-is -- CLAUDE.md's inverted convention applies:
+        # 1 = laser OFF (fail-safe default), 0 = laser ON.
+        self.r_channel = r_channel
+        self.g_channel = g_channel
+        self.b_channel = b_channel
         # kingst-la2016's discrete voltage_threshold steps (confirmed via
         # `sigrok-cli -d kingst-la2016 --show`): 0.4/0.6/0.9/1.2/1.4(device
         # default)/2.0/2.5/4.0 V. ESP32-S3 GPIOs are 3.3V CMOS (ideal
@@ -412,6 +438,12 @@ class SpiCapture:
         parts = [f"{self.sclk_channel}=SCLK", f"{self.din_channel}=DIN", f"{self.sync_channel}=SYNC"]
         if self.sd_cs_channel is not None:
             parts.append(f"{self.sd_cs_channel}=SDCS")
+        if self.r_channel is not None:
+            parts.append(f"{self.r_channel}=LASER_R")
+        if self.g_channel is not None:
+            parts.append(f"{self.g_channel}=LASER_G")
+        if self.b_channel is not None:
+            parts.append(f"{self.b_channel}=LASER_B")
         return ",".join(parts)
 
     def capture(self, duration_s=None, num_samples=None, keep_raw_path=None):
@@ -475,6 +507,9 @@ class SpiCapture:
         din_t, din_v = traces["DIN"]
         sync_t, sync_v = traces["SYNC"]
         sdcs = traces.get("SDCS")
+        laser_r = traces.get("LASER_R")
+        laser_g = traces.get("LASER_G")
+        laser_b = traces.get("LASER_B")
 
         cs_windows = _level_low_windows(sync_t, sync_v)
         if not cs_windows:
@@ -511,17 +546,30 @@ class SpiCapture:
                 prev_end = t_end
                 continue
             gap_us = ((t_start - prev_end) * 1e6) if prev_end is not None else float("nan")
-            rows.append({
+            row = {
                 "syncTimestamp": t_start,
                 "channel": channel,
                 "rawCode": np.uint16(word & 0xFFFF),
                 "frameDurationUs": (t_end - t_start) * 1e6,
                 "interFrameGapUs": gap_us,
-            })
+            }
+            # Laser TTL level in force at the frame's /SYNC-low edge -- raw
+            # GPIO value, CLAUDE.md's inverted convention applies (1 = OFF,
+            # 0 = ON). Only present if the corresponding --*-channel was set.
+            if laser_r is not None:
+                row["laserR"] = _value_at(laser_r[0], laser_r[1], t_start)
+            if laser_g is not None:
+                row["laserG"] = _value_at(laser_g[0], laser_g[1], t_start)
+            if laser_b is not None:
+                row["laserB"] = _value_at(laser_b[0], laser_b[1], t_start)
+            rows.append(row)
             prev_end = t_end
 
-        df = pd.DataFrame(rows, columns=["syncTimestamp", "channel", "rawCode",
-                                          "frameDurationUs", "interFrameGapUs"])
+        columns = ["syncTimestamp", "channel", "rawCode", "frameDurationUs", "interFrameGapUs"]
+        for name, trace in (("laserR", laser_r), ("laserG", laser_g), ("laserB", laser_b)):
+            if trace is not None:
+                columns.append(name)
+        df = pd.DataFrame(rows, columns=columns)
         if not df.empty:
             df["rawCode"] = df["rawCode"].astype(np.uint16)
 
@@ -829,6 +877,15 @@ def _build_argparser():
                       help="LA1010 input logic threshold in volts. Confirmed discrete steps "
                           "(sigrok-cli -d kingst-la2016 --show): 0.4/0.6/0.9/1.2/1.4 "
                           "(device default)/2.0/2.5/4.0. Left at the device default unless set.")
+    spi.add_argument("--r-channel", default=None,
+                      help="optional laser R TTL probe channel (GPIO7/PIN_LASER_R); adds a "
+                          "laserR column (raw GPIO level, 1=OFF/0=ON) to the decoded frames")
+    spi.add_argument("--g-channel", default=None,
+                      help="optional laser G TTL probe channel (GPIO8/PIN_LASER_G); adds a "
+                          "laserG column (raw GPIO level, 1=OFF/0=ON) to the decoded frames")
+    spi.add_argument("--b-channel", default=None,
+                      help="optional laser B TTL probe channel (GPIO21/PIN_LASER_B); adds a "
+                          "laserB column (raw GPIO level, 1=OFF/0=ON) to the decoded frames")
 
     analog = p.add_argument_group("analog mode")
     analog.add_argument("--channels", default="x,y", help="analog channels to capture (x,y)")
@@ -869,6 +926,7 @@ def main(argv=None):
                 samplerate_hz=args.samplerate or 100_000_000,
                 sclk_channel=args.sclk_channel, din_channel=args.din_channel,
                 sync_channel=args.sync_channel, sd_cs_channel=args.sd_cs_channel,
+                r_channel=args.r_channel, g_channel=args.g_channel, b_channel=args.b_channel,
                 voltage_threshold=args.voltage_threshold, sigrok_cli=args.sigrok_cli,
             )
             prInfo(f"capturing SPI bus via {cap.driver} @ {cap.samplerate_hz/1e6:.1f} MHz ...")
