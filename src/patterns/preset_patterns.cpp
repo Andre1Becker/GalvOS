@@ -25,9 +25,19 @@ static constexpr float PI2  = 2.0f * M_PI;
 static constexpr float SC   = 18000.0f;
 
 static inline float ssc(uint8_t s) { return 0.25f + (s / 255.0f) * 1.1765f; }
+// Divisor was 5000 since the initial commit (v4.5.9) -- ph advances at a
+// fixed 25/s (kAnimPhaseFrameMs, pattern_engine.cpp), so max speed (sp=255)
+// capped every aang()-driven rotation/sweep at 25*255/5000 = 1.275 rad/s
+// (~73 deg/s, ~4.9s/revolution) no matter how high Speed was set -- hardware-
+// confirmed (LA1010 SPI capture, RotatingCube, sp=200 measured ~50-70 deg/s,
+// matching the formula) as the actual cause of animated presets reading as
+// "lahm"/sluggish even at near-max speed. Raised 3x (5000->1700) to lift the
+// ceiling to ~3.75 rad/s (~215 deg/s, ~1.67s/revolution); every aang() caller
+// (2D shapes at m=1, 3D wireframe axes at their per-axis m, wave phases,
+// etc.) speeds up proportionally since none re-derive an absolute rate.
 static inline float aang(uint32_t ph, uint8_t sp, float m=1.0f) {
     if (!sp) return 0.f;
-    return fmodf(ph * (sp / 5000.0f) * m, PI2);
+    return fmodf(ph * (sp / 1700.0f) * m, PI2);
 }
 static inline void ap(LaserPoint* o, size_t& n, size_t mx,
                        float x, float y, uint8_t r, uint8_t g, uint8_t b, uint8_t bl=0) {
