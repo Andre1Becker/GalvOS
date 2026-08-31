@@ -29,3 +29,4 @@ debug.log
 .tokensave/tokensave.db
 .vscode/settings.json
 audit.log
+GalvOS.code-workspace
