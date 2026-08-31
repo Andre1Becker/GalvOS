@@ -1907,6 +1907,40 @@ Current resonance-test state (axis, frequency, amplitude, whether it is running)
 
 ---
 
+### `GET /api/debug/optimizers`
+
+Current state of the per-stage optimizer kill switches (WebUI: Configuration → Debug → [Optimizer Debug — Kill Switches](04-ui-guide.md#optimizer-debug--kill-switches)). RAM-only — resets to all-`false` on every boot, never written to NVS.
+
+```json
+{
+  "corner_density": false, "blank_density": false, "resample": false,
+  "curvature": false, "ringing": false, "vel_clamp": false, "accel_clamp": false,
+  "jitter": false, "reorder": false, "reorder_2opt": false, "pps_scaling": false,
+  "pipeline_cache": false, "mirror": false, "kaleido": false, "duplicator": false,
+  "transform": false, "laser_hold_ticks": false, "gamma": false
+}
+```
+
+Every field is a "disable" flag — `true` forces that pipeline stage off regardless of what the active optimizer profile's own settings say. `gamma` isn't a field on the underlying `DebugOptDisable` struct; it echoes the existing `gConfig.gamma_enable` toggle (inverted) so gamma sits in the same panel without a duplicate switch.
+
+---
+
+### `POST /api/debug/optimizers`
+
+Flip one or more kill switches. Body: `{"<field>": true|false, ...}` using the same field names as the `GET` above; unknown keys are ignored. Applies immediately, no arming/E-Stop guard required — these switches only ever make the render pipeline do *less*, they never drive hardware directly (unlike [`/api/debug/hw`](#post-apidebughw)).
+
+```json
+{"ringing": true, "vel_clamp": true}
+```
+
+`{"all": true|false}` is a convenience that sets every switch (including `gamma`) at once — `true` to isolate a hardware artifact with the whole pipeline stripped down, `false` to get back to a known-clean baseline after a debugging session in one call instead of clicking every checkbox.
+
+```json
+{"all": false}
+```
+
+---
+
 ### `POST /api/reboot`
 
 Restarts the device. Body: empty. The response is sent first and the restart is scheduled ~500 ms later on a separate timer task, so the HTTP response actually reaches the browser instead of dying with the connection.

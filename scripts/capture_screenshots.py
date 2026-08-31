@@ -65,9 +65,12 @@ SENSITIVE_SELECTORS = [
     '[id*="hostname" i]', '[class*="hostname" i]',
 ]
 
-# Card root is `.card:has(h2:text-is("<heading>"))`. Tab id must match
-# data/index.html's NAV_TABS ids (note: Calibration's real tab id is "calib",
-# not "calibration").
+# Card root is `.card:has(h2:text-is("<heading>"))` for a plain card, or
+# `.card:has(summary:text-is("<heading>"))` for one whose body lives inside a
+# collapsible `<details>` (Sequencer, Bindings, Points-Only/Flow Mode, ...) --
+# save_card() tries both and force-opens any collapsed `<details>` it finds
+# before shooting. Tab id must match data/index.html's NAV_TABS ids (note:
+# Calibration's real tab id is "calib", not "calibration").
 TAB_SHOTS = [
     ("Dashboard", "dashboard", "tab_dashboard.png"),
     ("Presets", "presets", "tab_presets.png"),
@@ -99,6 +102,7 @@ CARD_SHOTS = [
     ("calib", "Projection Zone", "card_zone.png"),
     ("log", "Memory Viewer", "card_memory.png"),
     ("config", "Debug", "card_debug.png"),
+    ("config", "Optimizer Debug — Kill Switches", "card_debug_optimizers.png"),
 ]
 
 results = []   # (filename, label) in capture order, for the final MD block
@@ -195,9 +199,15 @@ def save_full_page(page, out_path, label):
 def save_card(page, tab_id, heading, out_path, label):
     global ok_count, skip_count
     try:
-        card = page.locator(f'.card:has(h2:text-is("{heading}"))').first
+        card = page.locator(
+            f'.card:has(h2:text-is("{heading}")), .card:has(summary:text-is("{heading}"))'
+        ).first
         card.wait_for(state="visible", timeout=5000)
         card.scroll_into_view_if_needed()
+        # Force-open any collapsed <details> inside the card (Sequencer,
+        # Bindings, Points-Only/Flow Mode, ...) so its body is visible instead
+        # of just the summary bar.
+        card.evaluate("el => el.querySelectorAll('details.collapsible').forEach(d => d.open = true)")
         page.wait_for_timeout(200)
         card_box = card.bounding_box()
         if not card_box:
@@ -318,6 +328,21 @@ def main():
             for heading, card_filename in card_lookup.get(tab_id, []):
                 card_label = f"{label} - {heading}"
                 save_card(page, tab_id, heading, out_dir / card_filename, card_label)
+
+        # ---- Monitoring popup page (monitor.html) ----
+        # Not a tab in #app -- a separate static page, opened via window.open()
+        # from the topbar in normal use. Navigate directly and let its own
+        # polling loop populate before shooting it, same idea as the
+        # Dashboard settle wait above.
+        try:
+            page.goto(f"{BASE_URL}/monitor.html", wait_until="load", timeout=15000)
+            page.wait_for_timeout(NAV_WAIT_MS)
+            print(f"Waiting {DASHBOARD_SETTLE_MS // 1000}s for Monitoring page data to settle...")
+            page.wait_for_timeout(DASHBOARD_SETTLE_MS)
+            save_full_page(page, out_dir / "page_monitor.png", "Monitoring popup window")
+        except Exception as e:
+            warn(f"failed to capture monitor.html: {e}")
+            skip_count += 1
 
         browser.close()
 

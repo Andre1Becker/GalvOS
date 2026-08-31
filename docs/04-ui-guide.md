@@ -10,6 +10,7 @@ The GalvOS WebUI is a single-page application served directly from the ESP32's L
 - [Installing as a PWA](#installing-as-a-pwa)
 - [General Layout](#general-layout)
 - [Themes](#themes)
+- [Monitoring Popup Window](#monitoring-popup-window)
 - [Tab: Dashboard](#tab-dashboard)
 - [Tab: Presets](#tab-presets)
 - [Tab: Preset Manager](#tab-preset-manager)
@@ -78,6 +79,7 @@ The **top bar** stays pinned while you scroll and carries the controls that must
 - **ARM / DISARM** — the laser arm control lives here, on its own always-visible row, guaranteed on screen at every viewport width from 320 px up. It is the one control you must never have to hunt for on the phone you're holding during a show.
 - **Master Dimmer** — global brightness as a top-bar chip, visible even on the narrowest mobile layout.
 - **Status dots** — beam, E-Stop, scan-fail, sequencer beat, and Wi-Fi state, each with proper `role=status`/`aria-label` for screen readers.
+- **📡 Open Monitoring window** — opens the read-only [monitoring popup](#monitoring-popup-window) in a separate browser window.
 - The **safety banner** (shown when an interlock trips) stacks above the top bar instead of fighting it for the same pixels.
 
 The page title shows both version numbers as `FW: x.y.z - UI:X.Y.Z`. The WebUI carries its own version (`UI_VERSION`), independent of the firmware — flashing only the filesystem changes one and not the other, so "which UI build am I actually looking at" has an answer.
@@ -95,6 +97,16 @@ The WebUI ships **three switchable themes**, driven by a CSS custom-property tok
 - **Minimalist Dark** — no glow, no decor, just controls. The theme you switch to when someone serious is watching.
 
 Pick a theme via the theme buttons in the navigation. The choice persists in the browser's localStorage and is applied by an inline boot script before first paint — no flash of the wrong theme on reload. Colors that encode real meaning (sensor chart lines, log severity, laser color swatches) are deliberately identical across all themes.
+
+---
+
+## Monitoring Popup Window
+
+![Monitoring popup window](assets/screenshots/page_monitor.png)
+
+A second, read-only page (`monitor.html`) opened via the **📡** button in the top bar, so the show can run full-screen on the main display while the numbers watch themselves on a second monitor. It never sends a write API call — no ARM/DISARM, no sliders, nothing that touches the pattern engine — it only polls the same status endpoints the Dashboard does.
+
+It carries its own connection/armed-state pills, a Safety card (E-Stop/Scan-Fail LEDs, fault reason, override warning), System and Telemetry field grids, the same six scrolling charts as the [Dashboard tab](#tab-dashboard) (CPU Load, Temperature History, Galvo Output Rate, Frame Composition, Buffer Fill, WiFi Signal), the Optimizer's [Live Telemetry](#live-telemetry) block, and a mirror of the current preset + log tail in its sidebar. Since it is a plain `window.open()` popup rather than a tab, it keeps running — and polling — independently of whatever tab is active in the main window.
 
 ---
 
@@ -833,6 +845,18 @@ Because "I remember my DAC limits" is not a disaster recovery plan.
 - **Hardware Test (direct galvo/laser)** — positions the beam directly: X/Y sliders, R/G/B channel toggles, corner/center jump buttons, **Reset**, **All Off**, and **Exit Debug**. While active it blocks normal pattern output.
 - **Status** — the current preset and a tail of the log, so you can see what the device thinks it is doing without switching tabs.
 - **OTA Update** — firmware update via HTTP at `http://laser/update` (admin / your password). The page itself covers firmware and WebUI updates, a config backup shortcut, and a reboot button — see [Chapter 3 — Wireless / OTA Update](03-build-and-config.md#wireless--ota-update).
+
+### Optimizer Debug — Kill Switches
+
+![Optimizer Debug — Kill Switches card](assets/screenshots/card_debug_optimizers.png)
+
+A separate card directly below Debug, backed by [`GET`/`POST /api/debug/optimizers`](08-api-reference.md#get-apidebugoptimizers). Each checkbox forces one render-pipeline stage off, independent of whichever optimizer profile is active — for isolating a hardware artifact (ringing, clipping, a stray jump) one variable at a time without touching that profile's own saved settings.
+
+- **Galvo Pipeline** — Corner Density (Pillar 1), Blank-Jump Density (Pillar 2), Resample, Curvature-Adaptive Resample, Ringing Compensation (Pillar 3), Velocity Clamp, Acceleration Clamp, Jitter, Segment Reorder, Reorder 2-opt, PPS Scaling, Pipeline Cache, Mirror, Kaleidoscope, Duplicator, Live Transform (Z-rotation/move).
+- **TTL / Laser Output** — Laser Hold-Tick Latency Compensation, RGB Gamma Correction.
+- **Disable All** / **Enable All (Reset)** — flips every switch at once, e.g. to strip the pipeline down to bare geometry, or to snap back to a known-clean baseline after a debugging session.
+
+**RAM-only — resets to all-off on reboot.** A forgotten switch can't silently haunt the next power cycle, but it also means these are a *this-session-only* tool: to compare two settings, start from an **active** profile (a static, mostly-off profile like Particles will show little to no visible difference with everything else disabled too).
 
 ---
 

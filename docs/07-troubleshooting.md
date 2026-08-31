@@ -278,6 +278,10 @@ If the ESP32 crashes with a Guru Meditation error, the serial monitor prints a b
 **Diagnosis:** Change a non-optimizer parameter (e.g. speed), then change back — this forces a cache invalidation.  
 **Expected behaviour:** Any optimizer parameter change via the WebUI automatically bumps `gPatternCacheGen`. If you are changing parameters directly in NVS without going through the WebUI, you may need to restart.
 
+**Cause B:** A per-stage debug kill switch (Configuration → Debug → [Optimizer Debug — Kill Switches](04-ui-guide.md#optimizer-debug--kill-switches)) is forcing the exact stage you're tuning off, independent of the profile's own setting.  
+**Diagnosis:** `GET /api/debug/optimizers` — any field `true` overrides that stage off regardless of the active profile.  
+**Fix:** Flip the switch back, or `POST /api/debug/optimizers {"all": false}` to clear all of them. These are RAM-only and reset on reboot, but not mid-session — a switch left on from an earlier debugging pass survives until you clear it or power-cycle.
+
 ### PPS scaling produces unexpected densities
 
 **Cause:** `galvo_rated_kpps` not set correctly for your galvo.  
