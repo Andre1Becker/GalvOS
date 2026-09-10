@@ -30,3 +30,4 @@ debug.log
 .vscode/settings.json
 audit.log
 GalvOS.code-workspace
+.serena/
