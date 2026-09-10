@@ -1,15 +1,15 @@
 (export
 	(version "E")
 	(design
-		(source "D:\\Sourcecode\\Firmware\\GalvOS\\hardware\\schematics\\Laser Controller.kicad_sch")
-		(date "2026-07-30T16:08:02")
-		(tool "Eeschema 10.0.3")
+		(source "/mnt/daten-i/Sourcecode/Firmware/GalvOS/hardware/schematics/Laser Controller.kicad_sch")
+		(date "2026-09-10T15:16:51")
+		(tool "Eeschema 10.0.6")
 		(sheet
 			(number "1")
 			(name "/")
 			(tstamps "/")
 			(title_block
-				(title "ESP32 Laser Controller Board")
+				(title "GalvOS ESP32 Laser Controller Board V1.2.7")
 				(company)
 				(rev)
 				(date "2026-07-24")
@@ -57,11 +57,11 @@
 		(comp
 			(ref "C1")
 			(value "100nF")
-			(footprint "Capacitor_THT:CP_Radial_D4.0mm_P1.50mm")
+			(footprint "Capacitor_SMD:C_1206_3216Metric")
 			(description "Unpolarized capacitor")
 			(fields
 				(field
-					(name "Footprint") "Capacitor_THT:CP_Radial_D4.0mm_P1.50mm")
+					(name "Footprint") "Capacitor_SMD:C_1206_3216Metric")
 				(field
 					(name "Datasheet")
 				)
@@ -75,11 +75,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "")
+				(value "Laser Controller")
 			)
 			(property
 				(name "Sheetfile")
-				(value "hardware/schematics/Laser Controller.kicad_sch")
+				(value "Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -111,11 +111,11 @@
 		(comp
 			(ref "C2")
 			(value "100nF")
-			(footprint "Capacitor_THT:CP_Radial_D4.0mm_P1.50mm")
+			(footprint "Capacitor_SMD:C_1206_3216Metric")
 			(description "Unpolarized capacitor")
 			(fields
 				(field
-					(name "Footprint") "Capacitor_THT:CP_Radial_D4.0mm_P1.50mm")
+					(name "Footprint") "Capacitor_SMD:C_1206_3216Metric")
 				(field
 					(name "Datasheet")
 				)
@@ -129,11 +129,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "")
+				(value "Laser Controller")
 			)
 			(property
 				(name "Sheetfile")
-				(value "hardware/schematics/Laser Controller.kicad_sch")
+				(value "Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -165,11 +165,11 @@
 		(comp
 			(ref "C3")
 			(value "1nF")
-			(footprint "Capacitor_THT:CP_Radial_D4.0mm_P1.50mm")
+			(footprint "Capacitor_SMD:C_1206_3216Metric")
 			(description "Unpolarized capacitor")
 			(fields
 				(field
-					(name "Footprint") "Capacitor_THT:CP_Radial_D4.0mm_P1.50mm")
+					(name "Footprint") "Capacitor_SMD:C_1206_3216Metric")
 				(field
 					(name "Datasheet")
 				)
@@ -183,11 +183,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "")
+				(value "Laser Controller")
 			)
 			(property
 				(name "Sheetfile")
-				(value "hardware/schematics/Laser Controller.kicad_sch")
+				(value "Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -219,11 +219,11 @@
 		(comp
 			(ref "C4")
 			(value "1nF")
-			(footprint "Capacitor_THT:CP_Radial_D4.0mm_P1.50mm")
+			(footprint "Capacitor_SMD:C_1206_3216Metric")
 			(description "Unpolarized capacitor")
 			(fields
 				(field
-					(name "Footprint") "Capacitor_THT:CP_Radial_D4.0mm_P1.50mm")
+					(name "Footprint") "Capacitor_SMD:C_1206_3216Metric")
 				(field
 					(name "Datasheet")
 				)
@@ -237,11 +237,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "")
+				(value "Laser Controller")
 			)
 			(property
 				(name "Sheetfile")
-				(value "hardware/schematics/Laser Controller.kicad_sch")
+				(value "Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -273,11 +273,11 @@
 		(comp
 			(ref "C5")
 			(value "100nF")
-			(footprint "Capacitor_THT:CP_Radial_D4.0mm_P1.50mm")
+			(footprint "Capacitor_SMD:C_1206_3216Metric")
 			(description "Unpolarized capacitor")
 			(fields
 				(field
-					(name "Footprint") "Capacitor_THT:CP_Radial_D4.0mm_P1.50mm")
+					(name "Footprint") "Capacitor_SMD:C_1206_3216Metric")
 				(field
 					(name "Datasheet")
 				)
@@ -291,11 +291,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "")
+				(value "Laser Controller")
 			)
 			(property
 				(name "Sheetfile")
-				(value "hardware/schematics/Laser Controller.kicad_sch")
+				(value "Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -327,11 +327,11 @@
 		(comp
 			(ref "C6")
 			(value "100nF")
-			(footprint "Capacitor_THT:CP_Radial_D4.0mm_P1.50mm")
+			(footprint "Capacitor_SMD:C_1206_3216Metric")
 			(description "Unpolarized capacitor")
 			(fields
 				(field
-					(name "Footprint") "Capacitor_THT:CP_Radial_D4.0mm_P1.50mm")
+					(name "Footprint") "Capacitor_SMD:C_1206_3216Metric")
 				(field
 					(name "Datasheet")
 				)
@@ -345,11 +345,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "")
+				(value "Laser Controller")
 			)
 			(property
 				(name "Sheetfile")
-				(value "hardware/schematics/Laser Controller.kicad_sch")
+				(value "Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -381,11 +381,11 @@
 		(comp
 			(ref "C7")
 			(value "100nF")
-			(footprint "Capacitor_THT:CP_Radial_D4.0mm_P1.50mm")
+			(footprint "Capacitor_SMD:C_1206_3216Metric")
 			(description "Unpolarized capacitor")
 			(fields
 				(field
-					(name "Footprint") "Capacitor_THT:CP_Radial_D4.0mm_P1.50mm")
+					(name "Footprint") "Capacitor_SMD:C_1206_3216Metric")
 				(field
 					(name "Datasheet")
 				)
@@ -399,11 +399,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "")
+				(value "Laser Controller")
 			)
 			(property
 				(name "Sheetfile")
-				(value "hardware/schematics/Laser Controller.kicad_sch")
+				(value "Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -435,11 +435,11 @@
 		(comp
 			(ref "C8")
 			(value "100nF")
-			(footprint "Capacitor_THT:CP_Radial_D4.0mm_P1.50mm")
+			(footprint "Capacitor_SMD:C_1206_3216Metric")
 			(description "Unpolarized capacitor")
 			(fields
 				(field
-					(name "Footprint") "Capacitor_THT:CP_Radial_D4.0mm_P1.50mm")
+					(name "Footprint") "Capacitor_SMD:C_1206_3216Metric")
 				(field
 					(name "Datasheet")
 				)
@@ -453,11 +453,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "")
+				(value "Laser Controller")
 			)
 			(property
 				(name "Sheetfile")
-				(value "hardware/schematics/Laser Controller.kicad_sch")
+				(value "Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -472,6 +472,870 @@
 				(tstamps "/")
 			)
 			(tstamps "08895478-0510-4d77-b5b9-7ff619cc7aa4")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "C_ANA1")
+			(value "10uF")
+			(footprint "Capacitor_SMD:C_0805_2012Metric")
+			(description "Unpolarized capacitor")
+			(fields
+				(field
+					(name "Footprint") "Capacitor_SMD:C_0805_2012Metric")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Unpolarized capacitor")
+			)
+			(libsource
+				(lib "Device")
+				(part "C")
+				(description "Unpolarized capacitor")
+			)
+			(property
+				(name "Sheetname")
+				(value "Laser Controller")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Laser Controller.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "cap capacitor")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "C_*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "66c35f36-542a-40c3-9eb4-a2e028371139")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "C_ANA2")
+			(value "100nF")
+			(footprint "Capacitor_SMD:C_1206_3216Metric")
+			(description "Unpolarized capacitor")
+			(fields
+				(field
+					(name "Footprint") "Capacitor_SMD:C_1206_3216Metric")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Unpolarized capacitor")
+			)
+			(libsource
+				(lib "Device")
+				(part "C")
+				(description "Unpolarized capacitor")
+			)
+			(property
+				(name "Sheetname")
+				(value "Laser Controller")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Laser Controller.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "cap capacitor")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "C_*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "5006ce20-f650-4eef-8bb3-a9bb6abb1335")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "C_BOOT1")
+			(value "100nF")
+			(footprint "Capacitor_SMD:C_1206_3216Metric")
+			(description "Unpolarized capacitor")
+			(fields
+				(field
+					(name "Footprint") "Capacitor_SMD:C_1206_3216Metric")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Unpolarized capacitor")
+			)
+			(libsource
+				(lib "Device")
+				(part "C")
+				(description "Unpolarized capacitor")
+			)
+			(property
+				(name "Sheetname")
+				(value "Laser Controller")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Laser Controller.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "cap capacitor")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "C_*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "d1714ba6-0b1d-4084-b27a-fea650884a99")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "C_IN1")
+			(value "10uF")
+			(footprint "Capacitor_SMD:C_1210_3225Metric")
+			(description "Unpolarized capacitor")
+			(fields
+				(field
+					(name "Footprint") "Capacitor_SMD:C_1210_3225Metric")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Unpolarized capacitor")
+			)
+			(libsource
+				(lib "Device")
+				(part "C")
+				(description "Unpolarized capacitor")
+			)
+			(property
+				(name "Sheetname")
+				(value "Laser Controller")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Laser Controller.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "cap capacitor")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "C_*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "6a173777-0c93-40cc-8480-a47fa3bc92e4")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "C_IN2")
+			(value "10uF")
+			(footprint "Capacitor_SMD:C_1210_3225Metric")
+			(description "Unpolarized capacitor")
+			(fields
+				(field
+					(name "Footprint") "Capacitor_SMD:C_1210_3225Metric")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Unpolarized capacitor")
+			)
+			(libsource
+				(lib "Device")
+				(part "C")
+				(description "Unpolarized capacitor")
+			)
+			(property
+				(name "Sheetname")
+				(value "Laser Controller")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Laser Controller.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "cap capacitor")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "C_*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "93cff889-a12d-410e-9dad-23a7bde1d952")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "C_INHF1")
+			(value "100nF")
+			(footprint "Capacitor_SMD:C_1206_3216Metric")
+			(description "Unpolarized capacitor")
+			(fields
+				(field
+					(name "Footprint") "Capacitor_SMD:C_1206_3216Metric")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Unpolarized capacitor")
+			)
+			(libsource
+				(lib "Device")
+				(part "C")
+				(description "Unpolarized capacitor")
+			)
+			(property
+				(name "Sheetname")
+				(value "Laser Controller")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Laser Controller.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "cap capacitor")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "C_*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "b268e86d-57b5-4ef9-a3fa-ddd8b5667f40")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "C_OUT1")
+			(value "22uF")
+			(footprint "Capacitor_SMD:C_1206_3216Metric")
+			(description "Unpolarized capacitor")
+			(fields
+				(field
+					(name "Footprint") "Capacitor_SMD:C_1206_3216Metric")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Unpolarized capacitor")
+			)
+			(libsource
+				(lib "Device")
+				(part "C")
+				(description "Unpolarized capacitor")
+			)
+			(property
+				(name "Sheetname")
+				(value "Laser Controller")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Laser Controller.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "cap capacitor")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "C_*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "61f6c110-01b0-4a69-8303-61cc30d0a3ae")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "C_OUT2")
+			(value "22uF")
+			(footprint "Capacitor_SMD:C_1206_3216Metric")
+			(description "Unpolarized capacitor")
+			(fields
+				(field
+					(name "Footprint") "Capacitor_SMD:C_1206_3216Metric")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Unpolarized capacitor")
+			)
+			(libsource
+				(lib "Device")
+				(part "C")
+				(description "Unpolarized capacitor")
+			)
+			(property
+				(name "Sheetname")
+				(value "Laser Controller")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Laser Controller.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "cap capacitor")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "C_*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "0aec6885-22fe-450b-9cc7-adbe6b1f8947")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "C_SCANCONT1")
+			(value "10nF")
+			(footprint "Capacitor_SMD:C_1206_3216Metric")
+			(description "Unpolarized capacitor")
+			(fields
+				(field
+					(name "Footprint") "Capacitor_SMD:C_1206_3216Metric")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Unpolarized capacitor")
+			)
+			(libsource
+				(lib "Device")
+				(part "C")
+				(description "Unpolarized capacitor")
+			)
+			(property
+				(name "Sheetname")
+				(value "Laser Controller")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Laser Controller.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "cap capacitor")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "C_*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "8e325ee4-cd2f-436d-816e-84865f6a6d47")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "C_SCANT1")
+			(value "10nF")
+			(footprint "Capacitor_SMD:C_1206_3216Metric")
+			(description "Unpolarized capacitor")
+			(fields
+				(field
+					(name "Footprint") "Capacitor_SMD:C_1206_3216Metric")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Unpolarized capacitor")
+			)
+			(libsource
+				(lib "Device")
+				(part "C")
+				(description "Unpolarized capacitor")
+			)
+			(property
+				(name "Sheetname")
+				(value "Laser Controller")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Laser Controller.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "cap capacitor")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "C_*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "dcb9ab69-6dd3-47a9-9b98-b6b2c68bd6d9")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "C_SCANX1")
+			(value "100nF")
+			(footprint "Capacitor_SMD:C_1206_3216Metric")
+			(description "Unpolarized capacitor")
+			(fields
+				(field
+					(name "Footprint") "Capacitor_SMD:C_1206_3216Metric")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Unpolarized capacitor")
+			)
+			(libsource
+				(lib "Device")
+				(part "C")
+				(description "Unpolarized capacitor")
+			)
+			(property
+				(name "Sheetname")
+				(value "Laser Controller")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Laser Controller.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "cap capacitor")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "C_*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "1e7b1d11-9ce0-43aa-bf2b-ff0e404b0aed")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "C_SCANY1")
+			(value "100nF")
+			(footprint "Capacitor_SMD:C_1206_3216Metric")
+			(description "Unpolarized capacitor")
+			(fields
+				(field
+					(name "Footprint") "Capacitor_SMD:C_1206_3216Metric")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Unpolarized capacitor")
+			)
+			(libsource
+				(lib "Device")
+				(part "C")
+				(description "Unpolarized capacitor")
+			)
+			(property
+				(name "Sheetname")
+				(value "Laser Controller")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Laser Controller.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "cap capacitor")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "C_*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "5d9e8aad-5251-44cf-b8db-f8e097ee264c")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "C_TRIGC_WD1")
+			(value "1nF")
+			(footprint "Capacitor_SMD:C_1206_3216Metric")
+			(description "Unpolarized capacitor")
+			(fields
+				(field
+					(name "Footprint") "Capacitor_SMD:C_1206_3216Metric")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Unpolarized capacitor")
+			)
+			(libsource
+				(lib "Device")
+				(part "C")
+				(description "Unpolarized capacitor")
+			)
+			(property
+				(name "Sheetname")
+				(value "Laser Controller")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Laser Controller.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "cap capacitor")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "C_*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "296247ce-7b20-4bae-a220-38f8fb1dbdca")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "C_VCC1")
+			(value "1uF")
+			(footprint "Capacitor_SMD:C_1206_3216Metric")
+			(description "Unpolarized capacitor")
+			(fields
+				(field
+					(name "Footprint") "Capacitor_SMD:C_1206_3216Metric")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Unpolarized capacitor")
+			)
+			(libsource
+				(lib "Device")
+				(part "C")
+				(description "Unpolarized capacitor")
+			)
+			(property
+				(name "Sheetname")
+				(value "Laser Controller")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Laser Controller.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "cap capacitor")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "C_*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "56ad0bb2-bb04-407b-ae14-129a1ee7af75")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "C_WD1")
+			(value "100nF")
+			(footprint "Capacitor_SMD:C_1206_3216Metric")
+			(description "Unpolarized capacitor")
+			(fields
+				(field
+					(name "Footprint") "Capacitor_SMD:C_1206_3216Metric")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Unpolarized capacitor")
+			)
+			(libsource
+				(lib "Device")
+				(part "C")
+				(description "Unpolarized capacitor")
+			)
+			(property
+				(name "Sheetname")
+				(value "Laser Controller")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Laser Controller.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "cap capacitor")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "C_*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "84156e73-55e8-4453-8048-6a1cb1203391")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "C_WDCONT1")
+			(value "10nF")
+			(footprint "Capacitor_SMD:C_1206_3216Metric")
+			(description "Unpolarized capacitor")
+			(fields
+				(field
+					(name "Footprint") "Capacitor_SMD:C_1206_3216Metric")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Unpolarized capacitor")
+			)
+			(libsource
+				(lib "Device")
+				(part "C")
+				(description "Unpolarized capacitor")
+			)
+			(property
+				(name "Sheetname")
+				(value "Laser Controller")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Laser Controller.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "cap capacitor")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "C_*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "b284257c-b652-48d0-b26b-42b4e804cbb0")
 			(units
 				(unit
 					(name "A")
@@ -507,11 +1371,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "")
+				(value "Laser Controller")
 			)
 			(property
 				(name "Sheetfile")
-				(value "hardware/schematics/Laser Controller.kicad_sch")
+				(value "Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -541,45 +1405,261 @@
 			)
 		)
 		(comp
-			(ref "J1")
-			(value "Micro_SD_Card")
-			(footprint "Connector_Card:SD_Card_Device_16mm_SlotDepth")
-			(datasheet "https://www.we-online.com/components/products/datasheet/693072010801.pdf")
-			(description "Micro SD Card Socket")
+			(ref "D2")
+			(value "1N5822")
+			(footprint "Diode_THT:D_DO-201AD_P15.24mm_Horizontal")
+			(datasheet "http://www.vishay.com/docs/88526/1n5820.pdf")
+			(description "40V 3A Schottky Barrier Rectifier Diode, DO-201AD")
 			(fields
 				(field
-					(name "Footprint") "Connector_Card:SD_Card_Device_16mm_SlotDepth")
+					(name "Footprint") "Diode_THT:D_DO-201AD_P15.24mm_Horizontal")
 				(field
-					(name "Datasheet") "https://www.we-online.com/components/products/datasheet/693072010801.pdf")
+					(name "Datasheet") "http://www.vishay.com/docs/88526/1n5820.pdf")
 				(field
-					(name "Description") "Micro SD Card Socket")
+					(name "Description") "40V 3A Schottky Barrier Rectifier Diode, DO-201AD")
 			)
 			(libsource
-				(lib "Connector")
-				(part "Micro_SD_Card")
-				(description "Micro SD Card Socket")
+				(lib "Diode")
+				(part "1N5822")
+				(description "40V 3A Schottky Barrier Rectifier Diode, DO-201AD")
 			)
 			(property
 				(name "Sheetname")
-				(value "")
+				(value "Laser Controller")
 			)
 			(property
 				(name "Sheetfile")
-				(value "hardware/schematics/Laser Controller.kicad_sch")
+				(value "Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
-				(value "connector SD microsd")
+				(value "diode Schottky")
 			)
 			(property
 				(name "ki_fp_filters")
-				(value "microSD*")
+				(value "D*DO?201AD*")
 			)
 			(sheetpath
 				(names "/")
 				(tstamps "/")
 			)
-			(tstamps "8a7d2cde-778e-4eed-9a1c-c0e5bb36608b")
+			(tstamps "bc04a00f-ef4d-4137-8e5b-7a2603b0f9c4")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "D_TRIGCL_SCAN1")
+			(value "1N4148")
+			(footprint "Diode_SMD:D_SOD-123")
+			(datasheet "https://assets.nexperia.com/documents/data-sheet/1N4148_1N4448.pdf")
+			(description "100V 0.15A standard switching diode, DO-35")
+			(fields
+				(field
+					(name "Footprint") "Diode_SMD:D_SOD-123")
+				(field
+					(name "Datasheet") "https://assets.nexperia.com/documents/data-sheet/1N4148_1N4448.pdf")
+				(field
+					(name "Description") "100V 0.15A standard switching diode, DO-35")
+			)
+			(libsource
+				(lib "Diode")
+				(part "1N4148")
+				(description "100V 0.15A standard switching diode, DO-35")
+			)
+			(property
+				(name "Sheetname")
+				(value "Laser Controller")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Laser Controller.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "diode")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "D*DO?35*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "e4fab5ef-bae3-4b3b-879a-4b9685c6c94b")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "D_TRIGCL_WD1")
+			(value "1N4148")
+			(footprint "Diode_SMD:D_SOD-123")
+			(datasheet "https://assets.nexperia.com/documents/data-sheet/1N4148_1N4448.pdf")
+			(description "100V 0.15A standard switching diode, DO-35")
+			(fields
+				(field
+					(name "Footprint") "Diode_SMD:D_SOD-123")
+				(field
+					(name "Datasheet") "https://assets.nexperia.com/documents/data-sheet/1N4148_1N4448.pdf")
+				(field
+					(name "Description") "100V 0.15A standard switching diode, DO-35")
+			)
+			(libsource
+				(lib "Diode")
+				(part "1N4148")
+				(description "100V 0.15A standard switching diode, DO-35")
+			)
+			(property
+				(name "Sheetname")
+				(value "Laser Controller")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Laser Controller.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "diode")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "D*DO?35*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "190b4137-f313-4e3d-8f75-61d3cec0b5c9")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "FB1")
+			(value "BLM18PG221SN1")
+			(footprint "Inductor_SMD:L_0603_1608Metric")
+			(description "Ferrite bead, small symbol")
+			(fields
+				(field
+					(name "Footprint") "Inductor_SMD:L_0603_1608Metric")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Ferrite bead, small symbol")
+			)
+			(libsource
+				(lib "Device")
+				(part "FerriteBead_Small")
+				(description "Ferrite bead, small symbol")
+			)
+			(property
+				(name "Sheetname")
+				(value "Laser Controller")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Laser Controller.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "L ferrite bead inductor filter")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "Inductor_* L_* *Ferrite*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "349dca26-7075-4dd6-8946-43b3db534075")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "J1")
+			(value "SD Card Module (6-pin, 2.54mm)")
+			(footprint "Connector_PinSocket_2.54mm:PinSocket_1x06_P2.54mm_Vertical")
+			(description "Generic connector, single row, 01x06, script generated")
+			(fields
+				(field
+					(name "Footprint") "Connector_PinSocket_2.54mm:PinSocket_1x06_P2.54mm_Vertical")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Generic connector, single row, 01x06, script generated")
+			)
+			(libsource
+				(lib "Connector")
+				(part "Conn_01x06_Socket")
+				(description "Generic connector, single row, 01x06, script generated")
+			)
+			(property
+				(name "Sheetname")
+				(value "Laser Controller")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Laser Controller.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "connector")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "Connector*:*_1x??_*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "51d8195d-41b6-427b-9c79-beb4c57d8bd8")
 			(units
 				(unit
 					(name "A")
@@ -608,17 +1688,17 @@
 		)
 		(comp
 			(ref "J2")
-			(value "PWR IN +5V")
-			(footprint "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical")
-			(description "Generic connector, single row, 01x02, script generated")
+			(value "PWR IN VIN_BUCK (10-30V)")
+			(footprint "Connector_JST:JST_XH_B2B-XH-A_1x02_P2.50mm_Vertical")
+			(description "PSU raw input, 10-30V, to onboard buck via D2 reverse-polarity protection")
 			(fields
 				(field
-					(name "Footprint") "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical")
+					(name "Footprint") "Connector_JST:JST_XH_B2B-XH-A_1x02_P2.50mm_Vertical")
 				(field
 					(name "Datasheet")
 				)
 				(field
-					(name "Description") "Generic connector, single row, 01x02, script generated")
+					(name "Description") "PSU raw input, 10-30V, to onboard buck via D2 reverse-polarity protection")
 			)
 			(libsource
 				(lib "")
@@ -627,11 +1707,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "")
+				(value "Laser Controller")
 			)
 			(property
 				(name "Sheetfile")
-				(value "hardware/schematics/Laser Controller.kicad_sch")
+				(value "Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -663,11 +1743,11 @@
 		(comp
 			(ref "J3")
 			(value "PWR IN Galvo")
-			(footprint "Connector_PinHeader_2.54mm:PinHeader_1x04_P2.54mm_Vertical")
+			(footprint "Connector_JST:JST_XH_B4B-XH-A_1x04_P2.50mm_Vertical")
 			(description "Generic connector, single row, 01x04, script generated")
 			(fields
 				(field
-					(name "Footprint") "Connector_PinHeader_2.54mm:PinHeader_1x04_P2.54mm_Vertical")
+					(name "Footprint") "Connector_JST:JST_XH_B4B-XH-A_1x04_P2.50mm_Vertical")
 				(field
 					(name "Datasheet")
 				)
@@ -681,11 +1761,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "")
+				(value "Laser Controller")
 			)
 			(property
 				(name "Sheetfile")
-				(value "hardware/schematics/Laser Controller.kicad_sch")
+				(value "Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -699,7 +1779,7 @@
 				(names "/")
 				(tstamps "/")
 			)
-			(tstamps "a8616f7e-c0ff-48ef-89c8-6e15cfca100b")
+			(tstamps "c47fef22-aa3e-4277-ac3f-0ab88cd79e4d")
 			(units
 				(unit
 					(name "A")
@@ -721,13 +1801,463 @@
 			)
 		)
 		(comp
+			(ref "J4")
+			(value "FAN1 PWR IN")
+			(footprint "Connector_JST:JST_XH_B2B-XH-A_1x02_P2.50mm_Vertical")
+			(description "Generic connector, single row, 01x02, script generated")
+			(fields
+				(field
+					(name "Footprint") "Connector_JST:JST_XH_B2B-XH-A_1x02_P2.50mm_Vertical")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Generic connector, single row, 01x02, script generated")
+			)
+			(libsource
+				(lib "Connector")
+				(part "Conn_01x02_Socket")
+				(description "Generic connector, single row, 01x02, script generated")
+			)
+			(property
+				(name "Sheetname")
+				(value "Laser Controller")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Laser Controller.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "connector")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "Connector*:*_1x??_*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "c71bef6c-dde2-4e92-8cd1-8f00ee6e7998")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "J5")
+			(value "FAN1")
+			(footprint "Connector_Molex:Molex_KK-254_AE-6410-04A_1x04_P2.54mm_Vertical")
+			(description "Generic connector, single row, 01x04, script generated")
+			(fields
+				(field
+					(name "Footprint") "Connector_Molex:Molex_KK-254_AE-6410-04A_1x04_P2.54mm_Vertical")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Generic connector, single row, 01x04, script generated")
+			)
+			(libsource
+				(lib "Connector")
+				(part "Conn_01x04_Socket")
+				(description "Generic connector, single row, 01x04, script generated")
+			)
+			(property
+				(name "Sheetname")
+				(value "Laser Controller")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Laser Controller.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "connector")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "Connector*:*_1x??_*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "3a3e20e3-d3af-402e-9fb9-efaffb751d55")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+						(pin
+							(num "3")
+						)
+						(pin
+							(num "4")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "J6")
+			(value "FAN2 PWR IN")
+			(footprint "Connector_JST:JST_XH_B2B-XH-A_1x02_P2.50mm_Vertical")
+			(description "Generic connector, single row, 01x02, script generated")
+			(fields
+				(field
+					(name "Footprint") "Connector_JST:JST_XH_B2B-XH-A_1x02_P2.50mm_Vertical")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Generic connector, single row, 01x02, script generated")
+			)
+			(libsource
+				(lib "Connector")
+				(part "Conn_01x02_Socket")
+				(description "Generic connector, single row, 01x02, script generated")
+			)
+			(property
+				(name "Sheetname")
+				(value "Laser Controller")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Laser Controller.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "connector")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "Connector*:*_1x??_*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "68959d6e-8d9e-4791-8b71-ae81a93b8699")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "J7")
+			(value "FAN2")
+			(footprint "Connector_Molex:Molex_KK-254_AE-6410-04A_1x04_P2.54mm_Vertical")
+			(description "Generic connector, single row, 01x04, script generated")
+			(fields
+				(field
+					(name "Footprint") "Connector_Molex:Molex_KK-254_AE-6410-04A_1x04_P2.54mm_Vertical")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Generic connector, single row, 01x04, script generated")
+			)
+			(libsource
+				(lib "Connector")
+				(part "Conn_01x04_Socket")
+				(description "Generic connector, single row, 01x04, script generated")
+			)
+			(property
+				(name "Sheetname")
+				(value "Laser Controller")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Laser Controller.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "connector")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "Connector*:*_1x??_*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "6f7e2a9f-69ed-426b-9ea8-56cb21343c96")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+						(pin
+							(num "3")
+						)
+						(pin
+							(num "4")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "J_DMX1")
+			(value "DMX MAX485")
+			(footprint "Connector_JST:JST_XH_B4B-XH-A_1x04_P2.50mm_Vertical")
+			(description "Generic connector, single row, 01x04, script generated")
+			(fields
+				(field
+					(name "Footprint") "Connector_JST:JST_XH_B4B-XH-A_1x04_P2.50mm_Vertical")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Generic connector, single row, 01x04, script generated")
+			)
+			(libsource
+				(lib "Connector")
+				(part "Conn_01x04_Socket")
+				(description "Generic connector, single row, 01x04, script generated")
+			)
+			(property
+				(name "Sheetname")
+				(value "Laser Controller")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Laser Controller.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "connector")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "Connector*:*_1x??_*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "18ed9caf-3e25-4803-85cb-932e464307fb")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+						(pin
+							(num "3")
+						)
+						(pin
+							(num "4")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "J_ESTOP1")
+			(value "E-STOP")
+			(footprint "Connector_JST:JST_XH_B2B-XH-A_1x02_P2.50mm_Vertical")
+			(description "Generic connector, single row, 01x02, script generated")
+			(fields
+				(field
+					(name "Footprint") "Connector_JST:JST_XH_B2B-XH-A_1x02_P2.50mm_Vertical")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Generic connector, single row, 01x02, script generated")
+			)
+			(libsource
+				(lib "Connector")
+				(part "Conn_01x02_Socket")
+				(description "Generic connector, single row, 01x02, script generated")
+			)
+			(property
+				(name "Sheetname")
+				(value "Laser Controller")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Laser Controller.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "connector")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "Connector*:*_1x??_*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "9bf87003-cbd5-4fed-98fa-df4d5d70b70b")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "J_SSR1")
+			(value "SSR1 CTRL")
+			(footprint "Connector_JST:JST_XH_B2B-XH-A_1x02_P2.50mm_Vertical")
+			(description "Generic connector, single row, 01x02, script generated")
+			(fields
+				(field
+					(name "Footprint") "Connector_JST:JST_XH_B2B-XH-A_1x02_P2.50mm_Vertical")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Generic connector, single row, 01x02, script generated")
+			)
+			(libsource
+				(lib "Connector")
+				(part "Conn_01x02_Socket")
+				(description "Generic connector, single row, 01x02, script generated")
+			)
+			(property
+				(name "Sheetname")
+				(value "Laser Controller")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Laser Controller.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "connector")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "Connector*:*_1x??_*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "e310e7a7-6b15-4de3-a3e2-e4d9b4cfc373")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "L1")
+			(value "6.8uH")
+			(footprint "Inductor_SMD:L_Sunlord_MWSA1204S-6R8")
+			(description "Inductor")
+			(fields
+				(field
+					(name "Footprint") "Inductor_SMD:L_Sunlord_MWSA1204S-6R8")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Inductor")
+			)
+			(libsource
+				(lib "Device")
+				(part "L")
+				(description "Inductor")
+			)
+			(property
+				(name "Sheetname")
+				(value "Laser Controller")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Laser Controller.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "inductor choke coil reactor magnetic")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "Choke_* *Coil* Inductor_* L_*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "521841e1-ed3e-4a65-a9cb-74edc3f8b3f4")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
 			(ref "R1")
 			(value "220")
-			(footprint "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+			(footprint "Resistor_SMD:R_1206_3216Metric")
 			(description "Resistor")
 			(fields
 				(field
-					(name "Footprint") "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+					(name "Footprint") "Resistor_SMD:R_1206_3216Metric")
 				(field
 					(name "Datasheet")
 				)
@@ -741,11 +2271,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "")
+				(value "Laser Controller")
 			)
 			(property
 				(name "Sheetfile")
-				(value "hardware/schematics/Laser Controller.kicad_sch")
+				(value "Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -777,11 +2307,11 @@
 		(comp
 			(ref "R2")
 			(value "220")
-			(footprint "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+			(footprint "Resistor_SMD:R_1206_3216Metric")
 			(description "Resistor")
 			(fields
 				(field
-					(name "Footprint") "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+					(name "Footprint") "Resistor_SMD:R_1206_3216Metric")
 				(field
 					(name "Datasheet")
 				)
@@ -795,11 +2325,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "")
+				(value "Laser Controller")
 			)
 			(property
 				(name "Sheetfile")
-				(value "hardware/schematics/Laser Controller.kicad_sch")
+				(value "Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -831,11 +2361,11 @@
 		(comp
 			(ref "R3")
 			(value "10K")
-			(footprint "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+			(footprint "Resistor_SMD:R_1206_3216Metric")
 			(description "Resistor")
 			(fields
 				(field
-					(name "Footprint") "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+					(name "Footprint") "Resistor_SMD:R_1206_3216Metric")
 				(field
 					(name "Datasheet")
 				)
@@ -849,11 +2379,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "")
+				(value "Laser Controller")
 			)
 			(property
 				(name "Sheetfile")
-				(value "hardware/schematics/Laser Controller.kicad_sch")
+				(value "Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -885,11 +2415,11 @@
 		(comp
 			(ref "R4")
 			(value "220")
-			(footprint "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+			(footprint "Resistor_SMD:R_1206_3216Metric")
 			(description "Resistor")
 			(fields
 				(field
-					(name "Footprint") "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+					(name "Footprint") "Resistor_SMD:R_1206_3216Metric")
 				(field
 					(name "Datasheet")
 				)
@@ -903,11 +2433,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "")
+				(value "Laser Controller")
 			)
 			(property
 				(name "Sheetfile")
-				(value "hardware/schematics/Laser Controller.kicad_sch")
+				(value "Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -939,11 +2469,11 @@
 		(comp
 			(ref "R5")
 			(value "4.7K")
-			(footprint "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+			(footprint "Resistor_SMD:R_1206_3216Metric")
 			(description "Resistor")
 			(fields
 				(field
-					(name "Footprint") "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+					(name "Footprint") "Resistor_SMD:R_1206_3216Metric")
 				(field
 					(name "Datasheet")
 				)
@@ -957,11 +2487,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "")
+				(value "Laser Controller")
 			)
 			(property
 				(name "Sheetfile")
-				(value "hardware/schematics/Laser Controller.kicad_sch")
+				(value "Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -993,11 +2523,11 @@
 		(comp
 			(ref "R6")
 			(value "100")
-			(footprint "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+			(footprint "Resistor_SMD:R_1206_3216Metric")
 			(description "Resistor")
 			(fields
 				(field
-					(name "Footprint") "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+					(name "Footprint") "Resistor_SMD:R_1206_3216Metric")
 				(field
 					(name "Datasheet")
 				)
@@ -1011,11 +2541,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "")
+				(value "Laser Controller")
 			)
 			(property
 				(name "Sheetfile")
-				(value "hardware/schematics/Laser Controller.kicad_sch")
+				(value "Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -1047,11 +2577,11 @@
 		(comp
 			(ref "R7")
 			(value "10k")
-			(footprint "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+			(footprint "Resistor_SMD:R_1206_3216Metric")
 			(description "Resistor")
 			(fields
 				(field
-					(name "Footprint") "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+					(name "Footprint") "Resistor_SMD:R_1206_3216Metric")
 				(field
 					(name "Datasheet")
 				)
@@ -1065,11 +2595,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "")
+				(value "Laser Controller")
 			)
 			(property
 				(name "Sheetfile")
-				(value "hardware/schematics/Laser Controller.kicad_sch")
+				(value "Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -1099,70 +2629,13 @@
 			)
 		)
 		(comp
-			(ref "R8")
-			(value "22k")
-			(footprint "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
-			(description "Resistor")
-			(fields
-				(field
-					(name "Footprint") "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
-				(field
-					(name "Datasheet")
-				)
-				(field
-					(name "Description") "Resistor")
-			)
-			(libsource
-				(lib "Device")
-				(part "R")
-				(description "Resistor")
-			)
-			(property
-				(name "Sheetname")
-				(value "")
-			)
-			(property
-				(name "Sheetfile")
-				(value "hardware/schematics/Laser Controller.kicad_sch")
-			)
-			(property
-				(name "dnp")
-			)
-			(property
-				(name "ki_keywords")
-				(value "R res resistor")
-			)
-			(property
-				(name "ki_fp_filters")
-				(value "R_*")
-			)
-			(sheetpath
-				(names "/")
-				(tstamps "/")
-			)
-			(tstamps "b1cb14ad-3c1e-4c13-8f11-35332b6121f3")
-			(units
-				(unit
-					(name "A")
-					(pins
-						(pin
-							(num "1")
-						)
-						(pin
-							(num "2")
-						)
-					)
-				)
-			)
-		)
-		(comp
 			(ref "R9")
 			(value "22k")
-			(footprint "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+			(footprint "Resistor_SMD:R_1206_3216Metric")
 			(description "Resistor")
 			(fields
 				(field
-					(name "Footprint") "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+					(name "Footprint") "Resistor_SMD:R_1206_3216Metric")
 				(field
 					(name "Datasheet")
 				)
@@ -1176,11 +2649,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "")
+				(value "Laser Controller")
 			)
 			(property
 				(name "Sheetfile")
-				(value "hardware/schematics/Laser Controller.kicad_sch")
+				(value "Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -1212,11 +2685,11 @@
 		(comp
 			(ref "R10")
 			(value "10k")
-			(footprint "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+			(footprint "Resistor_SMD:R_1206_3216Metric")
 			(description "Resistor")
 			(fields
 				(field
-					(name "Footprint") "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+					(name "Footprint") "Resistor_SMD:R_1206_3216Metric")
 				(field
 					(name "Datasheet")
 				)
@@ -1230,11 +2703,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "")
+				(value "Laser Controller")
 			)
 			(property
 				(name "Sheetfile")
-				(value "hardware/schematics/Laser Controller.kicad_sch")
+				(value "Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -1266,11 +2739,11 @@
 		(comp
 			(ref "R11")
 			(value "100")
-			(footprint "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+			(footprint "Resistor_SMD:R_1206_3216Metric")
 			(description "Resistor")
 			(fields
 				(field
-					(name "Footprint") "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+					(name "Footprint") "Resistor_SMD:R_1206_3216Metric")
 				(field
 					(name "Datasheet")
 				)
@@ -1284,11 +2757,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "")
+				(value "Laser Controller")
 			)
 			(property
 				(name "Sheetfile")
-				(value "hardware/schematics/Laser Controller.kicad_sch")
+				(value "Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -1320,11 +2793,11 @@
 		(comp
 			(ref "R12")
 			(value "22k")
-			(footprint "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+			(footprint "Resistor_SMD:R_1206_3216Metric")
 			(description "Resistor")
 			(fields
 				(field
-					(name "Footprint") "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+					(name "Footprint") "Resistor_SMD:R_1206_3216Metric")
 				(field
 					(name "Datasheet")
 				)
@@ -1338,11 +2811,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "")
+				(value "Laser Controller")
 			)
 			(property
 				(name "Sheetfile")
-				(value "hardware/schematics/Laser Controller.kicad_sch")
+				(value "Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -1374,11 +2847,11 @@
 		(comp
 			(ref "R13")
 			(value "100")
-			(footprint "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+			(footprint "Resistor_SMD:R_1206_3216Metric")
 			(description "Resistor")
 			(fields
 				(field
-					(name "Footprint") "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+					(name "Footprint") "Resistor_SMD:R_1206_3216Metric")
 				(field
 					(name "Datasheet")
 				)
@@ -1392,11 +2865,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "")
+				(value "Laser Controller")
 			)
 			(property
 				(name "Sheetfile")
-				(value "hardware/schematics/Laser Controller.kicad_sch")
+				(value "Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -1428,11 +2901,11 @@
 		(comp
 			(ref "R14")
 			(value "10k")
-			(footprint "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+			(footprint "Resistor_SMD:R_1206_3216Metric")
 			(description "Resistor")
 			(fields
 				(field
-					(name "Footprint") "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+					(name "Footprint") "Resistor_SMD:R_1206_3216Metric")
 				(field
 					(name "Datasheet")
 				)
@@ -1446,11 +2919,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "")
+				(value "Laser Controller")
 			)
 			(property
 				(name "Sheetfile")
-				(value "hardware/schematics/Laser Controller.kicad_sch")
+				(value "Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -1482,11 +2955,11 @@
 		(comp
 			(ref "R15")
 			(value "10k")
-			(footprint "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+			(footprint "Resistor_SMD:R_1206_3216Metric")
 			(description "Resistor")
 			(fields
 				(field
-					(name "Footprint") "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+					(name "Footprint") "Resistor_SMD:R_1206_3216Metric")
 				(field
 					(name "Datasheet")
 				)
@@ -1500,11 +2973,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "")
+				(value "Laser Controller")
 			)
 			(property
 				(name "Sheetfile")
-				(value "hardware/schematics/Laser Controller.kicad_sch")
+				(value "Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -1536,11 +3009,11 @@
 		(comp
 			(ref "R16")
 			(value "100")
-			(footprint "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+			(footprint "Resistor_SMD:R_1206_3216Metric")
 			(description "Resistor")
 			(fields
 				(field
-					(name "Footprint") "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+					(name "Footprint") "Resistor_SMD:R_1206_3216Metric")
 				(field
 					(name "Datasheet")
 				)
@@ -1554,11 +3027,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "")
+				(value "Laser Controller")
 			)
 			(property
 				(name "Sheetfile")
-				(value "hardware/schematics/Laser Controller.kicad_sch")
+				(value "Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -1590,11 +3063,11 @@
 		(comp
 			(ref "R17")
 			(value "22k")
-			(footprint "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+			(footprint "Resistor_SMD:R_1206_3216Metric")
 			(description "Resistor")
 			(fields
 				(field
-					(name "Footprint") "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+					(name "Footprint") "Resistor_SMD:R_1206_3216Metric")
 				(field
 					(name "Datasheet")
 				)
@@ -1608,11 +3081,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "")
+				(value "Laser Controller")
 			)
 			(property
 				(name "Sheetfile")
-				(value "hardware/schematics/Laser Controller.kicad_sch")
+				(value "Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -1644,11 +3117,11 @@
 		(comp
 			(ref "R18")
 			(value "1k")
-			(footprint "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+			(footprint "Resistor_SMD:R_1206_3216Metric")
 			(description "Resistor")
 			(fields
 				(field
-					(name "Footprint") "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+					(name "Footprint") "Resistor_SMD:R_1206_3216Metric")
 				(field
 					(name "Datasheet")
 				)
@@ -1662,11 +3135,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "")
+				(value "Laser Controller")
 			)
 			(property
 				(name "Sheetfile")
-				(value "hardware/schematics/Laser Controller.kicad_sch")
+				(value "Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -1698,11 +3171,11 @@
 		(comp
 			(ref "R19")
 			(value "1k")
-			(footprint "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+			(footprint "Resistor_SMD:R_1206_3216Metric")
 			(description "Resistor")
 			(fields
 				(field
-					(name "Footprint") "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+					(name "Footprint") "Resistor_SMD:R_1206_3216Metric")
 				(field
 					(name "Datasheet")
 				)
@@ -1716,11 +3189,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "")
+				(value "Laser Controller")
 			)
 			(property
 				(name "Sheetfile")
-				(value "hardware/schematics/Laser Controller.kicad_sch")
+				(value "Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -1752,11 +3225,11 @@
 		(comp
 			(ref "R20")
 			(value "1k")
-			(footprint "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+			(footprint "Resistor_SMD:R_1206_3216Metric")
 			(description "Resistor")
 			(fields
 				(field
-					(name "Footprint") "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+					(name "Footprint") "Resistor_SMD:R_1206_3216Metric")
 				(field
 					(name "Datasheet")
 				)
@@ -1770,11 +3243,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "")
+				(value "Laser Controller")
 			)
 			(property
 				(name "Sheetfile")
-				(value "hardware/schematics/Laser Controller.kicad_sch")
+				(value "Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -1806,11 +3279,11 @@
 		(comp
 			(ref "R21")
 			(value "1k")
-			(footprint "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+			(footprint "Resistor_SMD:R_1206_3216Metric")
 			(description "Resistor")
 			(fields
 				(field
-					(name "Footprint") "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+					(name "Footprint") "Resistor_SMD:R_1206_3216Metric")
 				(field
 					(name "Datasheet")
 				)
@@ -1824,11 +3297,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "")
+				(value "Laser Controller")
 			)
 			(property
 				(name "Sheetfile")
-				(value "hardware/schematics/Laser Controller.kicad_sch")
+				(value "Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -1860,11 +3333,11 @@
 		(comp
 			(ref "R22")
 			(value "1k")
-			(footprint "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+			(footprint "Resistor_SMD:R_1206_3216Metric")
 			(description "Resistor")
 			(fields
 				(field
-					(name "Footprint") "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+					(name "Footprint") "Resistor_SMD:R_1206_3216Metric")
 				(field
 					(name "Datasheet")
 				)
@@ -1878,11 +3351,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "")
+				(value "Laser Controller")
 			)
 			(property
 				(name "Sheetfile")
-				(value "hardware/schematics/Laser Controller.kicad_sch")
+				(value "Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -1914,11 +3387,11 @@
 		(comp
 			(ref "R23")
 			(value "1k")
-			(footprint "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+			(footprint "Resistor_SMD:R_1206_3216Metric")
 			(description "Resistor")
 			(fields
 				(field
-					(name "Footprint") "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+					(name "Footprint") "Resistor_SMD:R_1206_3216Metric")
 				(field
 					(name "Datasheet")
 				)
@@ -1932,11 +3405,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "")
+				(value "Laser Controller")
 			)
 			(property
 				(name "Sheetfile")
-				(value "hardware/schematics/Laser Controller.kicad_sch")
+				(value "Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -1968,11 +3441,11 @@
 		(comp
 			(ref "R25")
 			(value "22k")
-			(footprint "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+			(footprint "Resistor_SMD:R_1206_3216Metric")
 			(description "Resistor")
 			(fields
 				(field
-					(name "Footprint") "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+					(name "Footprint") "Resistor_SMD:R_1206_3216Metric")
 				(field
 					(name "Datasheet")
 				)
@@ -1986,11 +3459,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "")
+				(value "Laser Controller")
 			)
 			(property
 				(name "Sheetfile")
-				(value "hardware/schematics/Laser Controller.kicad_sch")
+				(value "Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -2022,11 +3495,11 @@
 		(comp
 			(ref "R26")
 			(value "0")
-			(footprint "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+			(footprint "Resistor_SMD:R_1206_3216Metric")
 			(description "Resistor")
 			(fields
 				(field
-					(name "Footprint") "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+					(name "Footprint") "Resistor_SMD:R_1206_3216Metric")
 				(field
 					(name "Datasheet")
 				)
@@ -2040,11 +3513,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "")
+				(value "Laser Controller")
 			)
 			(property
 				(name "Sheetfile")
-				(value "hardware/schematics/Laser Controller.kicad_sch")
+				(value "Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -2076,11 +3549,11 @@
 		(comp
 			(ref "R27")
 			(value "10k")
-			(footprint "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+			(footprint "Resistor_SMD:R_1206_3216Metric")
 			(description "Resistor")
 			(fields
 				(field
-					(name "Footprint") "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+					(name "Footprint") "Resistor_SMD:R_1206_3216Metric")
 				(field
 					(name "Datasheet")
 				)
@@ -2094,11 +3567,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "")
+				(value "Laser Controller")
 			)
 			(property
 				(name "Sheetfile")
-				(value "hardware/schematics/Laser Controller.kicad_sch")
+				(value "Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -2130,11 +3603,11 @@
 		(comp
 			(ref "R28")
 			(value "10k")
-			(footprint "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+			(footprint "Resistor_SMD:R_1206_3216Metric")
 			(description "Resistor")
 			(fields
 				(field
-					(name "Footprint") "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+					(name "Footprint") "Resistor_SMD:R_1206_3216Metric")
 				(field
 					(name "Datasheet")
 				)
@@ -2148,11 +3621,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "")
+				(value "Laser Controller")
 			)
 			(property
 				(name "Sheetfile")
-				(value "hardware/schematics/Laser Controller.kicad_sch")
+				(value "Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -2184,11 +3657,11 @@
 		(comp
 			(ref "R29")
 			(value "10k")
-			(footprint "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+			(footprint "Resistor_SMD:R_1206_3216Metric")
 			(description "Resistor")
 			(fields
 				(field
-					(name "Footprint") "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+					(name "Footprint") "Resistor_SMD:R_1206_3216Metric")
 				(field
 					(name "Datasheet")
 				)
@@ -2202,11 +3675,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "")
+				(value "Laser Controller")
 			)
 			(property
 				(name "Sheetfile")
-				(value "hardware/schematics/Laser Controller.kicad_sch")
+				(value "Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -2236,6 +3709,600 @@
 			)
 		)
 		(comp
+			(ref "R30")
+			(value "4.7k")
+			(footprint "Resistor_SMD:R_1206_3216Metric")
+			(description "Resistor")
+			(fields
+				(field
+					(name "Footprint") "Resistor_SMD:R_1206_3216Metric")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Resistor")
+			)
+			(libsource
+				(lib "Device")
+				(part "R")
+				(description "Resistor")
+			)
+			(property
+				(name "Sheetname")
+				(value "Laser Controller")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Laser Controller.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "R res resistor")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "R_*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "f87c1fa7-0e32-4169-a4f3-dab046933f2a")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "R31")
+			(value "4.7k")
+			(footprint "Resistor_SMD:R_1206_3216Metric")
+			(description "Resistor")
+			(fields
+				(field
+					(name "Footprint") "Resistor_SMD:R_1206_3216Metric")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Resistor")
+			)
+			(libsource
+				(lib "Device")
+				(part "R")
+				(description "Resistor")
+			)
+			(property
+				(name "Sheetname")
+				(value "Laser Controller")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Laser Controller.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "R res resistor")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "R_*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "fac61eeb-1790-4d0a-a968-1e4d7908b29b")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "R_EN1")
+			(value "63.4k 1%")
+			(footprint "Resistor_SMD:R_1206_3216Metric")
+			(description "Resistor")
+			(fields
+				(field
+					(name "Footprint") "Resistor_SMD:R_1206_3216Metric")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Resistor")
+			)
+			(libsource
+				(lib "Device")
+				(part "R")
+				(description "Resistor")
+			)
+			(property
+				(name "Sheetname")
+				(value "Laser Controller")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Laser Controller.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "R res resistor")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "R_*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "bc8c6c98-ded8-45d6-b0c2-f2f0322f2a67")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "R_EN2")
+			(value "10k 1%")
+			(footprint "Resistor_SMD:R_1206_3216Metric")
+			(description "Resistor")
+			(fields
+				(field
+					(name "Footprint") "Resistor_SMD:R_1206_3216Metric")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Resistor")
+			)
+			(libsource
+				(lib "Device")
+				(part "R")
+				(description "Resistor")
+			)
+			(property
+				(name "Sheetname")
+				(value "Laser Controller")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Laser Controller.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "R res resistor")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "R_*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "339a0a68-ca0f-488e-addd-55ed997e5a2c")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "R_FB1")
+			(value "100k 1%")
+			(footprint "Resistor_SMD:R_1206_3216Metric")
+			(description "Resistor")
+			(fields
+				(field
+					(name "Footprint") "Resistor_SMD:R_1206_3216Metric")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Resistor")
+			)
+			(libsource
+				(lib "Device")
+				(part "R")
+				(description "Resistor")
+			)
+			(property
+				(name "Sheetname")
+				(value "Laser Controller")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Laser Controller.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "R res resistor")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "R_*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "1cde6cc6-a2e6-4c45-8981-bf9631ae0db1")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "R_FB2")
+			(value "24.9k 1%")
+			(footprint "Resistor_SMD:R_1206_3216Metric")
+			(description "Resistor")
+			(fields
+				(field
+					(name "Footprint") "Resistor_SMD:R_1206_3216Metric")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Resistor")
+			)
+			(libsource
+				(lib "Device")
+				(part "R")
+				(description "Resistor")
+			)
+			(property
+				(name "Sheetname")
+				(value "Laser Controller")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Laser Controller.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "R res resistor")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "R_*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "3a949065-6d81-4d7a-bd03-8286a989bd14")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "R_SCANT1")
+			(value "1.8M")
+			(footprint "Resistor_SMD:R_1206_3216Metric")
+			(description "Resistor")
+			(fields
+				(field
+					(name "Footprint") "Resistor_SMD:R_1206_3216Metric")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Resistor")
+			)
+			(libsource
+				(lib "Device")
+				(part "R")
+				(description "Resistor")
+			)
+			(property
+				(name "Sheetname")
+				(value "Laser Controller")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Laser Controller.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "R res resistor")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "R_*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "28be965c-b2d7-49e0-abe6-7bccd64da521")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "R_SSRCTRL1")
+			(value "330")
+			(footprint "Resistor_SMD:R_1206_3216Metric")
+			(description "Resistor")
+			(fields
+				(field
+					(name "Footprint") "Resistor_SMD:R_1206_3216Metric")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Resistor")
+			)
+			(libsource
+				(lib "Device")
+				(part "R")
+				(description "Resistor")
+			)
+			(property
+				(name "Sheetname")
+				(value "Laser Controller")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Laser Controller.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "R res resistor")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "R_*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "b774b05a-98c0-4d5c-9261-edbc32de3f46")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "R_TRIGPU_SCAN1")
+			(value "10k")
+			(footprint "Resistor_SMD:R_1206_3216Metric")
+			(description "Resistor")
+			(fields
+				(field
+					(name "Footprint") "Resistor_SMD:R_1206_3216Metric")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Resistor")
+			)
+			(libsource
+				(lib "Device")
+				(part "R")
+				(description "Resistor")
+			)
+			(property
+				(name "Sheetname")
+				(value "Laser Controller")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Laser Controller.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "R res resistor")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "R_*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "775a86b1-7a61-4982-94bd-957916291175")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "R_TRIGPU_WD1")
+			(value "10k")
+			(footprint "Resistor_SMD:R_1206_3216Metric")
+			(description "Resistor")
+			(fields
+				(field
+					(name "Footprint") "Resistor_SMD:R_1206_3216Metric")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Resistor")
+			)
+			(libsource
+				(lib "Device")
+				(part "R")
+				(description "Resistor")
+			)
+			(property
+				(name "Sheetname")
+				(value "Laser Controller")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Laser Controller.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "R res resistor")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "R_*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "39a9c81d-521d-4ef8-ae3a-005d250c4ffe")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "R_WD1")
+			(value "910k 1%")
+			(footprint "Resistor_SMD:R_1206_3216Metric")
+			(description "Resistor")
+			(fields
+				(field
+					(name "Footprint") "Resistor_SMD:R_1206_3216Metric")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Resistor")
+			)
+			(libsource
+				(lib "Device")
+				(part "R")
+				(description "Resistor")
+			)
+			(property
+				(name "Sheetname")
+				(value "Laser Controller")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Laser Controller.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "R res resistor")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "R_*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "2aadbb38-772d-454c-819b-bc527f58a805")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
 			(ref "U1")
 			(value "ESP32-S3-N16R8-DevKit")
 			(footprint "Footprint:XCVR_ESP32-S3-N16R8-DevKit")
@@ -2247,6 +4314,8 @@
 				(field
 					(name "MP") "ESP32-S3-N16R8-DevKit")
 				(field
+					(name "Assembly") "Mounted via 2x 1x22 2.54mm female pin socket strip (footprint pads already match this pitch/spacing) - DevKit board plugs in, not soldered direct")
+				(field
 					(name "Footprint") "Footprint:XCVR_ESP32-S3-N16R8-DevKit")
 				(field
 					(name "Datasheet") "https://www.espressif.com/sites/default/files/documentation/esp32-s3_datasheet_en.pdf")
@@ -2254,7 +4323,7 @@
 					(name "Description") "ESP32-S3-N16R8 Development Board, 16MB Flash, 8MB PSRAM, WiFi 2.4G, BT5, Dual USB-C, RGB-LED")
 			)
 			(libsource
-				(lib "RF_Module")
+				(lib "ESP32")
 				(part "ESP32-S3-N16R8-DevKit")
 				(description "ESP32-S3-N16R8 Development Board, 16MB Flash, 8MB PSRAM, WiFi 2.4G, BT5, Dual USB-C, RGB-LED")
 			)
@@ -2267,12 +4336,16 @@
 				(value "ESP32-S3-N16R8-DevKit")
 			)
 			(property
+				(name "Assembly")
+				(value "Mounted via 2x 1x22 2.54mm female pin socket strip (footprint pads already match this pitch/spacing) - DevKit board plugs in, not soldered direct")
+			)
+			(property
 				(name "Sheetname")
-				(value "")
+				(value "Laser Controller")
 			)
 			(property
 				(name "Sheetfile")
-				(value "hardware/schematics/Laser Controller.kicad_sch")
+				(value "Laser Controller.kicad_sch")
 			)
 			(sheetpath
 				(names "/")
@@ -2482,11 +4555,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "")
+				(value "Laser Controller")
 			)
 			(property
 				(name "Sheetfile")
-				(value "hardware/schematics/Laser Controller.kicad_sch")
+				(value "Laser Controller.kicad_sch")
 			)
 			(sheetpath
 				(names "/")
@@ -2534,11 +4607,11 @@
 		(comp
 			(ref "U3")
 			(value "TTL_RGB Blue")
-			(footprint "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical")
+			(footprint "Connector_JST:JST_XH_B2B-XH-A_1x02_P2.50mm_Vertical")
 			(description "Generic connector, single row, 01x02, script generated")
 			(fields
 				(field
-					(name "Footprint") "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical")
+					(name "Footprint") "Connector_JST:JST_XH_B2B-XH-A_1x02_P2.50mm_Vertical")
 				(field
 					(name "Datasheet")
 				)
@@ -2552,11 +4625,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "")
+				(value "Laser Controller")
 			)
 			(property
 				(name "Sheetfile")
-				(value "hardware/schematics/Laser Controller.kicad_sch")
+				(value "Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -2588,11 +4661,11 @@
 		(comp
 			(ref "U4")
 			(value "TTL_RGB Red")
-			(footprint "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical")
+			(footprint "Connector_JST:JST_XH_B2B-XH-A_1x02_P2.50mm_Vertical")
 			(description "Generic connector, single row, 01x02, script generated")
 			(fields
 				(field
-					(name "Footprint") "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical")
+					(name "Footprint") "Connector_JST:JST_XH_B2B-XH-A_1x02_P2.50mm_Vertical")
 				(field
 					(name "Datasheet")
 				)
@@ -2606,11 +4679,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "")
+				(value "Laser Controller")
 			)
 			(property
 				(name "Sheetfile")
-				(value "hardware/schematics/Laser Controller.kicad_sch")
+				(value "Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -2642,11 +4715,11 @@
 		(comp
 			(ref "U5")
 			(value "TTL_RGB Green")
-			(footprint "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical")
+			(footprint "Connector_JST:JST_XH_B2B-XH-A_1x02_P2.50mm_Vertical")
 			(description "Generic connector, single row, 01x02, script generated")
 			(fields
 				(field
-					(name "Footprint") "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical")
+					(name "Footprint") "Connector_JST:JST_XH_B2B-XH-A_1x02_P2.50mm_Vertical")
 				(field
 					(name "Datasheet")
 				)
@@ -2660,11 +4733,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "")
+				(value "Laser Controller")
 			)
 			(property
 				(name "Sheetfile")
-				(value "hardware/schematics/Laser Controller.kicad_sch")
+				(value "Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -2696,12 +4769,12 @@
 		(comp
 			(ref "U6")
 			(value "DS18B20")
-			(footprint "Package_TO_SOT_THT:TO-92_Inline")
+			(footprint "Connector_JST:JST_XH_B3B-XH-A_1x03_P2.50mm_Vertical")
 			(datasheet "http://datasheets.maximintegrated.com/en/ds/DS18B20.pdf")
 			(description "Programmable Resolution 1-Wire Digital Thermometer TO-92")
 			(fields
 				(field
-					(name "Footprint") "Package_TO_SOT_THT:TO-92_Inline")
+					(name "Footprint") "Connector_JST:JST_XH_B3B-XH-A_1x03_P2.50mm_Vertical")
 				(field
 					(name "Datasheet") "http://datasheets.maximintegrated.com/en/ds/DS18B20.pdf")
 				(field
@@ -2714,11 +4787,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "")
+				(value "Laser Controller")
 			)
 			(property
 				(name "Sheetfile")
-				(value "hardware/schematics/Laser Controller.kicad_sch")
+				(value "Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -2753,12 +4826,12 @@
 		(comp
 			(ref "U7")
 			(value "DS18B20")
-			(footprint "Package_TO_SOT_THT:TO-92_Inline")
+			(footprint "Connector_JST:JST_XH_B3B-XH-A_1x03_P2.50mm_Vertical")
 			(datasheet "http://datasheets.maximintegrated.com/en/ds/DS18B20.pdf")
 			(description "Programmable Resolution 1-Wire Digital Thermometer TO-92")
 			(fields
 				(field
-					(name "Footprint") "Package_TO_SOT_THT:TO-92_Inline")
+					(name "Footprint") "Connector_JST:JST_XH_B3B-XH-A_1x03_P2.50mm_Vertical")
 				(field
 					(name "Datasheet") "http://datasheets.maximintegrated.com/en/ds/DS18B20.pdf")
 				(field
@@ -2771,11 +4844,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "")
+				(value "Laser Controller")
 			)
 			(property
 				(name "Sheetfile")
-				(value "hardware/schematics/Laser Controller.kicad_sch")
+				(value "Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -2810,12 +4883,12 @@
 		(comp
 			(ref "U8")
 			(value "DS18B20")
-			(footprint "Package_TO_SOT_THT:TO-92_Inline")
+			(footprint "Connector_JST:JST_XH_B3B-XH-A_1x03_P2.50mm_Vertical")
 			(datasheet "http://datasheets.maximintegrated.com/en/ds/DS18B20.pdf")
 			(description "Programmable Resolution 1-Wire Digital Thermometer TO-92")
 			(fields
 				(field
-					(name "Footprint") "Package_TO_SOT_THT:TO-92_Inline")
+					(name "Footprint") "Connector_JST:JST_XH_B3B-XH-A_1x03_P2.50mm_Vertical")
 				(field
 					(name "Datasheet") "http://datasheets.maximintegrated.com/en/ds/DS18B20.pdf")
 				(field
@@ -2828,11 +4901,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "")
+				(value "Laser Controller")
 			)
 			(property
 				(name "Sheetfile")
-				(value "hardware/schematics/Laser Controller.kicad_sch")
+				(value "Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -2867,12 +4940,12 @@
 		(comp
 			(ref "U9")
 			(value "DS18B20")
-			(footprint "Package_TO_SOT_THT:TO-92_Inline")
+			(footprint "Connector_JST:JST_XH_B3B-XH-A_1x03_P2.50mm_Vertical")
 			(datasheet "http://datasheets.maximintegrated.com/en/ds/DS18B20.pdf")
 			(description "Programmable Resolution 1-Wire Digital Thermometer TO-92")
 			(fields
 				(field
-					(name "Footprint") "Package_TO_SOT_THT:TO-92_Inline")
+					(name "Footprint") "Connector_JST:JST_XH_B3B-XH-A_1x03_P2.50mm_Vertical")
 				(field
 					(name "Datasheet") "http://datasheets.maximintegrated.com/en/ds/DS18B20.pdf")
 				(field
@@ -2885,11 +4958,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "")
+				(value "Laser Controller")
 			)
 			(property
 				(name "Sheetfile")
-				(value "hardware/schematics/Laser Controller.kicad_sch")
+				(value "Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -2924,12 +4997,12 @@
 		(comp
 			(ref "U10")
 			(value "DS18B20")
-			(footprint "Package_TO_SOT_THT:TO-92_Inline")
+			(footprint "Connector_JST:JST_XH_B3B-XH-A_1x03_P2.50mm_Vertical")
 			(datasheet "http://datasheets.maximintegrated.com/en/ds/DS18B20.pdf")
 			(description "Programmable Resolution 1-Wire Digital Thermometer TO-92")
 			(fields
 				(field
-					(name "Footprint") "Package_TO_SOT_THT:TO-92_Inline")
+					(name "Footprint") "Connector_JST:JST_XH_B3B-XH-A_1x03_P2.50mm_Vertical")
 				(field
 					(name "Datasheet") "http://datasheets.maximintegrated.com/en/ds/DS18B20.pdf")
 				(field
@@ -2942,11 +5015,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "")
+				(value "Laser Controller")
 			)
 			(property
 				(name "Sheetfile")
-				(value "hardware/schematics/Laser Controller.kicad_sch")
+				(value "Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -3041,11 +5114,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "")
+				(value "Laser Controller")
 			)
 			(property
 				(name "Sheetfile")
-				(value "hardware/schematics/Laser Controller.kicad_sch")
+				(value "Laser Controller.kicad_sch")
 			)
 			(sheetpath
 				(names "/")
@@ -3105,11 +5178,11 @@
 		(comp
 			(ref "U13")
 			(value "Galvo Input")
-			(footprint "Connector_FFC-FPC:TE_84982-4_2Rows-04Pins-P1.0mm_Vertical")
+			(footprint "Connector_JST:JST_XH_B3B-XH-A_1x03_P2.50mm_Vertical")
 			(description "Generic connector, single row, 01x04, script generated")
 			(fields
 				(field
-					(name "Footprint") "Connector_FFC-FPC:TE_84982-4_2Rows-04Pins-P1.0mm_Vertical")
+					(name "Footprint") "Connector_JST:JST_XH_B3B-XH-A_1x03_P2.50mm_Vertical")
 				(field
 					(name "Datasheet")
 				)
@@ -3118,16 +5191,16 @@
 			)
 			(libsource
 				(lib "Connector")
-				(part "Conn_01x04_Socket")
-				(description "Generic connector, single row, 01x04, script generated")
+				(part "Conn_01x03_Socket")
+				(description "Generic connector, single row, 01x03, script generated")
 			)
 			(property
 				(name "Sheetname")
-				(value "")
+				(value "Laser Controller")
 			)
 			(property
 				(name "Sheetfile")
-				(value "hardware/schematics/Laser Controller.kicad_sch")
+				(value "Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -3141,7 +5214,7 @@
 				(names "/")
 				(tstamps "/")
 			)
-			(tstamps "e4de4e25-c014-4d3b-86bc-24ea12a20c99")
+			(tstamps "27e26f12-1445-4da7-8e9f-b5083b82e1a4")
 			(units
 				(unit
 					(name "A")
@@ -3154,9 +5227,6 @@
 						)
 						(pin
 							(num "3")
-						)
-						(pin
-							(num "4")
 						)
 					)
 				)
@@ -3183,11 +5253,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "")
+				(value "Laser Controller")
 			)
 			(property
 				(name "Sheetfile")
-				(value "hardware/schematics/Laser Controller.kicad_sch")
+				(value "Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -3255,11 +5325,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "")
+				(value "Laser Controller")
 			)
 			(property
 				(name "Sheetfile")
-				(value "hardware/schematics/Laser Controller.kicad_sch")
+				(value "Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -3327,11 +5397,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "")
+				(value "Laser Controller")
 			)
 			(property
 				(name "Sheetfile")
-				(value "hardware/schematics/Laser Controller.kicad_sch")
+				(value "Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -3379,13 +5449,232 @@
 			)
 		)
 		(comp
-			(ref "X_Knoten1")
+			(ref "U_BUCK1")
+			(value "LMR33630ADDA")
+			(footprint "Package_SO:Texas_HSOP-8-1EP_3.9x4.9mm_P1.27mm_ThermalVias")
+			(datasheet "http://www.ti.com/lit/ds/symlink/lmr33630.pdf")
+			(description "Simple Switcher Synchronous Buck Regulator, Vin=3.8-36V, Iout=3A, F=400kHz, Adjustable output voltage, HSOP-8")
+			(fields
+				(field
+					(name "Footprint") "Package_SO:Texas_HSOP-8-1EP_3.9x4.9mm_P1.27mm_ThermalVias")
+				(field
+					(name "Datasheet") "http://www.ti.com/lit/ds/symlink/lmr33630.pdf")
+				(field
+					(name "Description") "Simple Switcher Synchronous Buck Regulator, Vin=3.8-36V, Iout=3A, F=400kHz, Adjustable output voltage, HSOP-8")
+			)
+			(libsource
+				(lib "Regulator_Switching")
+				(part "LMR33630ADDA")
+				(description "Simple Switcher Synchronous Buck Regulator, Vin=3.8-36V, Iout=3A, F=400kHz, Adjustable output voltage, HSOP-8")
+			)
+			(property
+				(name "Sheetname")
+				(value "Laser Controller")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Laser Controller.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "simple-switcher synchronous buck step-down voltage-regulator")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "Texas*HSOP*1EP*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "fb8ce3e4-cabb-45d7-9b17-6e3eb8054988")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "2")
+						)
+						(pin
+							(num "3")
+						)
+						(pin
+							(num "6")
+						)
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "9")
+						)
+						(pin
+							(num "7")
+						)
+						(pin
+							(num "8")
+						)
+						(pin
+							(num "5")
+						)
+						(pin
+							(num "4")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "U_SCAN1")
+			(value "NE555D")
+			(footprint "Package_SO:SOIC-8_3.9x4.9mm_P1.27mm")
+			(datasheet "http://www.ti.com/lit/ds/symlink/ne555.pdf")
+			(description "Precision Timers, 555 compatible, SOIC-8")
+			(fields
+				(field
+					(name "Footprint") "Package_SO:SOIC-8_3.9x4.9mm_P1.27mm")
+				(field
+					(name "Datasheet") "http://www.ti.com/lit/ds/symlink/ne555.pdf")
+				(field
+					(name "Description") "Precision Timers, 555 compatible, SOIC-8")
+			)
+			(libsource
+				(lib "Timer")
+				(part "NE555D")
+				(description "Precision Timers, 555 compatible, SOIC-8")
+			)
+			(property
+				(name "Sheetname")
+				(value "Laser Controller")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Laser Controller.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "single timer 555")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "SOIC*3.9x4.9mm*P1.27mm*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "8ec42cf7-8353-4259-9867-98c9bb3a0c77")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "4")
+						)
+						(pin
+							(num "7")
+						)
+						(pin
+							(num "6")
+						)
+						(pin
+							(num "2")
+						)
+						(pin
+							(num "5")
+						)
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "8")
+						)
+						(pin
+							(num "3")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "U_WD1")
+			(value "NE555D")
+			(footprint "Package_SO:SOIC-8_3.9x4.9mm_P1.27mm")
+			(datasheet "http://www.ti.com/lit/ds/symlink/ne555.pdf")
+			(description "Precision Timers, 555 compatible, SOIC-8")
+			(fields
+				(field
+					(name "Footprint") "Package_SO:SOIC-8_3.9x4.9mm_P1.27mm")
+				(field
+					(name "Datasheet") "http://www.ti.com/lit/ds/symlink/ne555.pdf")
+				(field
+					(name "Description") "Precision Timers, 555 compatible, SOIC-8")
+			)
+			(libsource
+				(lib "Timer")
+				(part "NE555D")
+				(description "Precision Timers, 555 compatible, SOIC-8")
+			)
+			(property
+				(name "Sheetname")
+				(value "Laser Controller")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Laser Controller.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "single timer 555")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "SOIC*3.9x4.9mm*P1.27mm*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "95fe9fa0-2d42-446a-a5dc-f5ec8c293697")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "4")
+						)
+						(pin
+							(num "7")
+						)
+						(pin
+							(num "6")
+						)
+						(pin
+							(num "2")
+						)
+						(pin
+							(num "5")
+						)
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "8")
+						)
+						(pin
+							(num "3")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "X_NODE1")
 			(value "0")
-			(footprint "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+			(footprint "Resistor_SMD:R_1206_3216Metric")
 			(description "Resistor")
 			(fields
 				(field
-					(name "Footprint") "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+					(name "Footprint") "Resistor_SMD:R_1206_3216Metric")
 				(field
 					(name "Datasheet")
 				)
@@ -3399,11 +5688,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "")
+				(value "Laser Controller")
 			)
 			(property
 				(name "Sheetfile")
-				(value "hardware/schematics/Laser Controller.kicad_sch")
+				(value "Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -3433,13 +5722,13 @@
 			)
 		)
 		(comp
-			(ref "Y_Knoten1")
+			(ref "Y_NODE1")
 			(value "0")
-			(footprint "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+			(footprint "Resistor_SMD:R_1206_3216Metric")
 			(description "Resistor")
 			(fields
 				(field
-					(name "Footprint") "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P1.90mm_Vertical")
+					(name "Footprint") "Resistor_SMD:R_1206_3216Metric")
 				(field
 					(name "Datasheet")
 				)
@@ -3453,11 +5742,11 @@
 			)
 			(property
 				(name "Sheetname")
-				(value "")
+				(value "Laser Controller")
 			)
 			(property
 				(name "Sheetfile")
-				(value "hardware/schematics/Laser Controller.kicad_sch")
+				(value "Laser Controller.kicad_sch")
 			)
 			(property
 				(name "ki_keywords")
@@ -3780,6 +6069,45 @@
 		)
 		(libpart
 			(lib "Connector")
+			(part "Conn_01x03_Socket")
+			(description "Generic connector, single row, 01x03, script generated")
+			(footprints
+				(fp "Connector*:*_1x??_*")
+			)
+			(fields
+				(field
+					(name "Reference") "J")
+				(field
+					(name "Value") "Conn_01x03_Socket")
+				(field
+					(name "Footprint")
+				)
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Generic connector, single row, 01x03, script generated")
+			)
+			(pins
+				(pin
+					(num "1")
+					(name "Pin_1")
+					(type "passive")
+				)
+				(pin
+					(num "2")
+					(name "Pin_2")
+					(type "passive")
+				)
+				(pin
+					(num "3")
+					(name "Pin_3")
+					(type "passive")
+				)
+			)
+		)
+		(libpart
+			(lib "Connector")
 			(part "Conn_01x04_Socket")
 			(description "Generic connector, single row, 01x04, script generated")
 			(footprints
@@ -3824,55 +6152,55 @@
 		)
 		(libpart
 			(lib "Connector")
-			(part "Micro_SD_Card")
-			(description "Micro SD Card Socket")
-			(docs "https://www.we-online.com/components/products/datasheet/693072010801.pdf")
+			(part "Conn_01x06_Socket")
+			(description "Generic connector, single row, 01x06, script generated")
 			(footprints
-				(fp "microSD*")
+				(fp "Connector*:*_1x??_*")
 			)
 			(fields
 				(field
 					(name "Reference") "J")
 				(field
-					(name "Value") "Micro_SD_Card")
+					(name "Value") "Conn_01x06_Socket")
 				(field
 					(name "Footprint")
 				)
 				(field
-					(name "Datasheet") "https://www.we-online.com/components/products/datasheet/693072010801.pdf")
+					(name "Datasheet")
+				)
 				(field
-					(name "Description") "Micro SD Card Socket")
+					(name "Description") "Generic connector, single row, 01x06, script generated")
 			)
 			(pins
 				(pin
 					(num "1")
-					(name "3v3")
-					(type "power_in")
+					(name "Pin_1")
+					(type "passive")
 				)
 				(pin
 					(num "2")
-					(name "CS")
-					(type "bidirectional")
+					(name "Pin_2")
+					(type "passive")
 				)
 				(pin
 					(num "3")
-					(name "MOSI")
-					(type "input")
+					(name "Pin_3")
+					(type "passive")
 				)
 				(pin
 					(num "4")
-					(name "CLK")
-					(type "power_in")
+					(name "Pin_4")
+					(type "passive")
 				)
 				(pin
 					(num "5")
-					(name "MISO")
-					(type "input")
+					(name "Pin_5")
+					(type "passive")
 				)
 				(pin
 					(num "6")
-					(name "GND")
-					(type "power_in")
+					(name "Pin_6")
+					(type "passive")
 				)
 			)
 		)
@@ -3906,6 +6234,79 @@
 				(pin
 					(num "2")
 					(name "")
+					(type "passive")
+				)
+			)
+		)
+		(libpart
+			(lib "Device")
+			(part "FerriteBead_Small")
+			(description "Ferrite bead, small symbol")
+			(footprints
+				(fp "Inductor_*")
+				(fp "L_*")
+				(fp "*Ferrite*")
+			)
+			(fields
+				(field
+					(name "Reference") "FB")
+				(field
+					(name "Value") "FerriteBead_Small")
+				(field
+					(name "Footprint")
+				)
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Ferrite bead, small symbol")
+			)
+			(pins
+				(pin
+					(num "1")
+					(name "")
+					(type "passive")
+				)
+				(pin
+					(num "2")
+					(name "")
+					(type "passive")
+				)
+			)
+		)
+		(libpart
+			(lib "Device")
+			(part "L")
+			(description "Inductor")
+			(footprints
+				(fp "Choke_*")
+				(fp "*Coil*")
+				(fp "Inductor_*")
+				(fp "L_*")
+			)
+			(fields
+				(field
+					(name "Reference") "L")
+				(field
+					(name "Value") "L")
+				(field
+					(name "Footprint")
+				)
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Inductor")
+			)
+			(pins
+				(pin
+					(num "1")
+					(name "1")
+					(type "passive")
+				)
+				(pin
+					(num "2")
+					(name "2")
 					(type "passive")
 				)
 			)
@@ -3946,6 +6347,43 @@
 		)
 		(libpart
 			(lib "Diode")
+			(part "1N4148")
+			(description "100V 0.15A standard switching diode, DO-35")
+			(docs "https://assets.nexperia.com/documents/data-sheet/1N4148_1N4448.pdf")
+			(footprints
+				(fp "D*DO?35*")
+			)
+			(fields
+				(field
+					(name "Reference") "D")
+				(field
+					(name "Value") "1N4148")
+				(field
+					(name "Footprint") "Diode_THT:D_DO-35_SOD27_P7.62mm_Horizontal")
+				(field
+					(name "Datasheet") "https://assets.nexperia.com/documents/data-sheet/1N4148_1N4448.pdf")
+				(field
+					(name "Description") "100V 0.15A standard switching diode, DO-35")
+				(field
+					(name "Sim.Device") "D")
+				(field
+					(name "Sim.Pins") "1=K 2=A")
+			)
+			(pins
+				(pin
+					(num "1")
+					(name "K")
+					(type "passive")
+				)
+				(pin
+					(num "2")
+					(name "A")
+					(type "passive")
+				)
+			)
+		)
+		(libpart
+			(lib "Diode")
 			(part "1N5819")
 			(description "40V 1A Schottky Barrier Rectifier Diode, DO-41")
 			(docs "http://www.vishay.com/docs/88525/1n5817.pdf")
@@ -3978,29 +6416,29 @@
 			)
 		)
 		(libpart
-			(lib "Isolator")
-			(part "6N137")
-			(description "Single High Speed LSTTL/TTL Compatible Optocoupler with enable, dV/dt 1000/us, VCM 10, max 7V VCC, DIP-8")
-			(docs "https://docs.broadcom.com/docs/AV02-0940EN")
+			(lib "Diode")
+			(part "1N5822")
+			(description "40V 3A Schottky Barrier Rectifier Diode, DO-201AD")
+			(docs "http://www.vishay.com/docs/88526/1n5820.pdf")
 			(footprints
-				(fp "DIP*W7.62mm*")
+				(fp "D*DO?201AD*")
 			)
 			(fields
 				(field
-					(name "Reference") "U")
+					(name "Reference") "D")
 				(field
-					(name "Value") "6N137")
+					(name "Value") "1N5822")
 				(field
-					(name "Footprint") "Package_DIP:DIP-8_W7.62mm")
+					(name "Footprint") "Diode_THT:D_DO-201AD_P15.24mm_Horizontal")
 				(field
-					(name "Datasheet") "https://docs.broadcom.com/docs/AV02-0940EN")
+					(name "Datasheet") "http://www.vishay.com/docs/88526/1n5820.pdf")
 				(field
-					(name "Description") "Single High Speed LSTTL/TTL Compatible Optocoupler with enable, dV/dt 1000/us, VCM 10, max 7V VCC, DIP-8")
+					(name "Description") "40V 3A Schottky Barrier Rectifier Diode, DO-201AD")
 			)
 			(pins
 				(pin
 					(num "1")
-					(name "NC")
+					(name "K")
 					(type "passive")
 				)
 				(pin
@@ -4008,40 +6446,10 @@
 					(name "A")
 					(type "passive")
 				)
-				(pin
-					(num "3")
-					(name "C")
-					(type "passive")
-				)
-				(pin
-					(num "4")
-					(name "NC")
-					(type "passive")
-				)
-				(pin
-					(num "5")
-					(name "GND")
-					(type "power_in")
-				)
-				(pin
-					(num "6")
-					(name "VO")
-					(type "open_collector")
-				)
-				(pin
-					(num "7")
-					(name "EN")
-					(type "input")
-				)
-				(pin
-					(num "8")
-					(name "VCC")
-					(type "power_in")
-				)
 			)
 		)
 		(libpart
-			(lib "RF_Module")
+			(lib "ESP32")
 			(part "ESP32-S3-N16R8-DevKit")
 			(description "ESP32-S3-N16R8 Development Board, 16MB Flash, 8MB PSRAM, WiFi 2.4G, BT5, Dual USB-C, RGB-LED")
 			(docs "https://www.espressif.com/sites/default/files/documentation/esp32-s3_datasheet_en.pdf")
@@ -4285,6 +6693,137 @@
 			)
 		)
 		(libpart
+			(lib "Isolator")
+			(part "6N137")
+			(description "Single High Speed LSTTL/TTL Compatible Optocoupler with enable, dV/dt 1000/us, VCM 10, max 7V VCC, DIP-8")
+			(docs "https://docs.broadcom.com/docs/AV02-0940EN")
+			(footprints
+				(fp "DIP*W7.62mm*")
+			)
+			(fields
+				(field
+					(name "Reference") "U")
+				(field
+					(name "Value") "6N137")
+				(field
+					(name "Footprint") "Package_DIP:DIP-8_W7.62mm")
+				(field
+					(name "Datasheet") "https://docs.broadcom.com/docs/AV02-0940EN")
+				(field
+					(name "Description") "Single High Speed LSTTL/TTL Compatible Optocoupler with enable, dV/dt 1000/us, VCM 10, max 7V VCC, DIP-8")
+			)
+			(pins
+				(pin
+					(num "1")
+					(name "NC")
+					(type "passive")
+				)
+				(pin
+					(num "2")
+					(name "A")
+					(type "passive")
+				)
+				(pin
+					(num "3")
+					(name "C")
+					(type "passive")
+				)
+				(pin
+					(num "4")
+					(name "NC")
+					(type "passive")
+				)
+				(pin
+					(num "5")
+					(name "GND")
+					(type "power_in")
+				)
+				(pin
+					(num "6")
+					(name "VO")
+					(type "open_collector")
+				)
+				(pin
+					(num "7")
+					(name "EN")
+					(type "input")
+				)
+				(pin
+					(num "8")
+					(name "VCC")
+					(type "power_in")
+				)
+			)
+		)
+		(libpart
+			(lib "Regulator_Switching")
+			(part "LMR33630ADDA")
+			(description "Simple Switcher Synchronous Buck Regulator, Vin=3.8-36V, Iout=3A, F=400kHz, Adjustable output voltage, HSOP-8")
+			(docs "http://www.ti.com/lit/ds/symlink/lmr33630.pdf")
+			(footprints
+				(fp "Texas*HSOP*1EP*")
+			)
+			(fields
+				(field
+					(name "Reference") "U")
+				(field
+					(name "Value") "LMR33630ADDA")
+				(field
+					(name "Footprint") "Package_SO:Texas_HSOP-8-1EP_3.9x4.9mm_P1.27mm_ThermalVias")
+				(field
+					(name "Datasheet") "http://www.ti.com/lit/ds/symlink/lmr33630.pdf")
+				(field
+					(name "Description") "Simple Switcher Synchronous Buck Regulator, Vin=3.8-36V, Iout=3A, F=400kHz, Adjustable output voltage, HSOP-8")
+			)
+			(pins
+				(pin
+					(num "1")
+					(name "GND")
+					(type "power_in")
+				)
+				(pin
+					(num "2")
+					(name "VIN")
+					(type "power_in")
+				)
+				(pin
+					(num "3")
+					(name "EN")
+					(type "input")
+				)
+				(pin
+					(num "4")
+					(name "PG")
+					(type "open_collector")
+				)
+				(pin
+					(num "5")
+					(name "FB")
+					(type "input")
+				)
+				(pin
+					(num "6")
+					(name "VCC")
+					(type "power_out")
+				)
+				(pin
+					(num "7")
+					(name "BOOT")
+					(type "input")
+				)
+				(pin
+					(num "8")
+					(name "SW")
+					(type "output")
+				)
+				(pin
+					(num "9")
+					(name "GND")
+					(type "passive")
+				)
+			)
+		)
+		(libpart
 			(lib "Sensor_Temperature")
 			(part "DS18B20")
 			(description "Programmable Resolution 1-Wire Digital Thermometer TO-92")
@@ -4426,11 +6965,74 @@
 				)
 			)
 		)
+		(libpart
+			(lib "Timer")
+			(part "NE555D")
+			(description "Precision Timers, 555 compatible, SOIC-8")
+			(docs "http://www.ti.com/lit/ds/symlink/ne555.pdf")
+			(footprints
+				(fp "SOIC*3.9x4.9mm*P1.27mm*")
+			)
+			(fields
+				(field
+					(name "Reference") "U")
+				(field
+					(name "Value") "NE555D")
+				(field
+					(name "Footprint") "Package_SO:SOIC-8_3.9x4.9mm_P1.27mm")
+				(field
+					(name "Datasheet") "http://www.ti.com/lit/ds/symlink/ne555.pdf")
+				(field
+					(name "Description") "Precision Timers, 555 compatible, SOIC-8")
+			)
+			(pins
+				(pin
+					(num "1")
+					(name "GND")
+					(type "power_in")
+				)
+				(pin
+					(num "2")
+					(name "TRIG")
+					(type "input")
+				)
+				(pin
+					(num "3")
+					(name "OUT")
+					(type "output")
+				)
+				(pin
+					(num "4")
+					(name "~{RST}")
+					(type "input")
+				)
+				(pin
+					(num "5")
+					(name "CONT")
+					(type "passive")
+				)
+				(pin
+					(num "6")
+					(name "THRES")
+					(type "input")
+				)
+				(pin
+					(num "7")
+					(name "DISCH")
+					(type "input")
+				)
+				(pin
+					(num "8")
+					(name "VCC")
+					(type "power_in")
+				)
+			)
+		)
 	)
 	(libraries
 		(library
 			(logical "Buffer")
-			(uri "${KICAD10_SYMBOL_DIR}/Buffer.kicad_sym")
+			(uri "/mnt/daten-i/Sourcecode/KiCad_Libs/Symbols/DAC8562SDGST.kicad_sym")
 		)
 		(library
 			(logical "Connector")
@@ -4445,12 +7047,16 @@
 			(uri "${KICAD10_SYMBOL_DIR}/Diode.kicad_sym")
 		)
 		(library
+			(logical "ESP32")
+			(uri "/mnt/daten-i/Sourcecode/KiCad_Libs/Symbols/ESP32-S3-N16R8-DevKit.kicad_sym")
+		)
+		(library
 			(logical "Isolator")
 			(uri "${KICAD10_SYMBOL_DIR}/Isolator.kicad_sym")
 		)
 		(library
-			(logical "RF_Module")
-			(uri "${KICAD10_SYMBOL_DIR}/RF_Module.kicad_sym")
+			(logical "Regulator_Switching")
+			(uri "${KICAD10_SYMBOL_DIR}/Regulator_Switching.kicad_sym")
 		)
 		(library
 			(logical "Sensor_Temperature")
@@ -4458,7 +7064,11 @@
 		)
 		(library
 			(logical "Symbols")
-			(uri "D:/Sourcecode/KiCad_Libs/Symbols")
+			(uri "/mnt/daten-i/Sourcecode/KiCad_Libs/Symbols/OPA4134UA_2K5.kicad_sym")
+		)
+		(library
+			(logical "Timer")
+			(uri "${KICAD10_SYMBOL_DIR}/Timer.kicad_sym")
 		)
 	)
 	(nets
@@ -4467,15 +7077,10 @@
 			(name "+3V3")
 			(class "Default")
 			(node
-				(ref "C1")
-				(pin "1")
-				(pintype "passive")
-			)
-			(node
 				(ref "J1")
 				(pin "1")
-				(pinfunction "3v3_1")
-				(pintype "power_in")
+				(pinfunction "Pin_1_1")
+				(pintype "passive")
 			)
 			(node
 				(ref "R18")
@@ -4513,6 +7118,16 @@
 				(pintype "passive")
 			)
 			(node
+				(ref "R30")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "R31")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
 				(ref "R5")
 				(pin "2")
 				(pintype "passive")
@@ -4533,12 +7148,6 @@
 				(ref "U10")
 				(pin "3")
 				(pinfunction "V_{DD}_3")
-				(pintype "power_in")
-			)
-			(node
-				(ref "U2")
-				(pin "9")
-				(pinfunction "AVDD_9")
 				(pintype "power_in")
 			)
 			(node
@@ -4594,6 +7203,12 @@
 			(class "Default")
 			(node
 				(ref "J3")
+				(pin "3")
+				(pinfunction "Pin_3_3")
+				(pintype "passive")
+			)
+			(node
+				(ref "J3")
 				(pin "4")
 				(pinfunction "Pin_4_4")
 				(pintype "passive")
@@ -4607,6 +7222,37 @@
 		)
 		(net
 			(code "4")
+			(name "/+5V_ANA")
+			(class "Default")
+			(node
+				(ref "C1")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "C_ANA1")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "C_ANA2")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "FB1")
+				(pin "2")
+				(pintype "passive")
+			)
+			(node
+				(ref "U2")
+				(pin "9")
+				(pinfunction "AVDD_9")
+				(pintype "power_in")
+			)
+		)
+		(net
+			(code "5")
 			(name "/+5V_MCU")
 			(class "Default")
 			(node
@@ -4623,7 +7269,160 @@
 			)
 		)
 		(net
-			(code "5")
+			(code "6")
+			(name "/BOOT_BUCK")
+			(class "Default")
+			(node
+				(ref "C_BOOT1")
+				(pin "2")
+				(pintype "passive")
+			)
+			(node
+				(ref "U_BUCK1")
+				(pin "7")
+				(pinfunction "BOOT_7")
+				(pintype "input")
+			)
+		)
+		(net
+			(code "7")
+			(name "/EN_BUCK")
+			(class "Default")
+			(node
+				(ref "R_EN1")
+				(pin "2")
+				(pintype "passive")
+			)
+			(node
+				(ref "R_EN2")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "U_BUCK1")
+				(pin "3")
+				(pinfunction "EN_3")
+				(pintype "input")
+			)
+		)
+		(net
+			(code "8")
+			(name "/FAN1_PWM")
+			(class "Default")
+			(node
+				(ref "J5")
+				(pin "4")
+				(pinfunction "Pin_4_4")
+				(pintype "passive")
+			)
+			(node
+				(ref "U1")
+				(pin "J1_9")
+				(pinfunction "GPIO16_J1_9")
+				(pintype "bidirectional")
+			)
+		)
+		(net
+			(code "9")
+			(name "/FAN1_TACH")
+			(class "Default")
+			(node
+				(ref "J5")
+				(pin "3")
+				(pinfunction "Pin_3_3")
+				(pintype "passive")
+			)
+			(node
+				(ref "R30")
+				(pin "2")
+				(pintype "passive")
+			)
+			(node
+				(ref "U1")
+				(pin "J1_15")
+				(pinfunction "GPIO9_J1_15")
+				(pintype "bidirectional")
+			)
+		)
+		(net
+			(code "10")
+			(name "/FAN2_PWM")
+			(class "Default")
+			(node
+				(ref "J7")
+				(pin "4")
+				(pinfunction "Pin_4_4")
+				(pintype "passive")
+			)
+			(node
+				(ref "U1")
+				(pin "J1_10")
+				(pinfunction "GPIO17_J1_10")
+				(pintype "bidirectional")
+			)
+		)
+		(net
+			(code "11")
+			(name "/FAN2_TACH")
+			(class "Default")
+			(node
+				(ref "J7")
+				(pin "3")
+				(pinfunction "Pin_3_3")
+				(pintype "passive")
+			)
+			(node
+				(ref "R31")
+				(pin "2")
+				(pintype "passive")
+			)
+			(node
+				(ref "U1")
+				(pin "J2_5")
+				(pinfunction "GPIO2_J2_5")
+				(pintype "bidirectional")
+			)
+		)
+		(net
+			(code "12")
+			(name "/FB_BUCK")
+			(class "Default")
+			(node
+				(ref "R_FB1")
+				(pin "2")
+				(pintype "passive")
+			)
+			(node
+				(ref "R_FB2")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "U_BUCK1")
+				(pin "5")
+				(pinfunction "FB_5")
+				(pintype "input")
+			)
+		)
+		(net
+			(code "13")
+			(name "/GPIO4")
+			(class "Default")
+			(node
+				(ref "J_DMX1")
+				(pin "3")
+				(pinfunction "Pin_3_3")
+				(pintype "passive")
+			)
+			(node
+				(ref "U1")
+				(pin "J1_4")
+				(pinfunction "GPIO4_J1_4")
+				(pintype "bidirectional")
+			)
+		)
+		(net
+			(code "14")
 			(name "/GPIO7")
 			(class "Default")
 			(node
@@ -4644,7 +7443,7 @@
 			)
 		)
 		(net
-			(code "6")
+			(code "15")
 			(name "/GPIO8")
 			(class "Default")
 			(node
@@ -4665,7 +7464,23 @@
 			)
 		)
 		(net
-			(code "7")
+			(code "16")
+			(name "/GPIO14")
+			(class "Default")
+			(node
+				(ref "C_TRIGC_WD1")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "U1")
+				(pin "J1_20")
+				(pinfunction "GPIO14_J1_20")
+				(pintype "bidirectional")
+			)
+		)
+		(net
+			(code "17")
 			(name "/GPIO21")
 			(class "Default")
 			(node
@@ -4686,7 +7501,373 @@
 			)
 		)
 		(net
-			(code "8")
+			(code "18")
+			(name "/GPIO38")
+			(class "Default")
+			(node
+				(ref "U1")
+				(pin "J2_10")
+				(pinfunction "GPIO38_J2_10")
+				(pintype "bidirectional")
+			)
+			(node
+				(ref "U_WD1")
+				(pin "4")
+				(pinfunction "~{RST}_4")
+				(pintype "input")
+			)
+		)
+		(net
+			(code "19")
+			(name "/GPIO39")
+			(class "Default")
+			(node
+				(ref "U1")
+				(pin "J2_9")
+				(pinfunction "GPIO39_J2_9")
+				(pintype "bidirectional")
+			)
+			(node
+				(ref "U_SCAN1")
+				(pin "3")
+				(pinfunction "OUT_3")
+				(pintype "output")
+			)
+		)
+		(net
+			(code "20")
+			(name "/GPIO47")
+			(class "Default")
+			(node
+				(ref "J_ESTOP1")
+				(pin "1")
+				(pinfunction "Pin_1_1")
+				(pintype "passive")
+			)
+			(node
+				(ref "U1")
+				(pin "J2_17")
+				(pinfunction "GPIO47_J2_17")
+				(pintype "bidirectional")
+			)
+		)
+		(net
+			(code "21")
+			(name "/SCAN_CONT")
+			(class "Default")
+			(node
+				(ref "C_SCANCONT1")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "U_SCAN1")
+				(pin "5")
+				(pinfunction "CONT_5")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "22")
+			(name "/SCAN_RC")
+			(class "Default")
+			(node
+				(ref "C_SCANT1")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "R_SCANT1")
+				(pin "2")
+				(pintype "passive")
+			)
+			(node
+				(ref "U_SCAN1")
+				(pin "6")
+				(pinfunction "THRES_6")
+				(pintype "input")
+			)
+			(node
+				(ref "U_SCAN1")
+				(pin "7")
+				(pinfunction "DISCH_7")
+				(pintype "input")
+			)
+		)
+		(net
+			(code "23")
+			(name "/SCAN_TRIG")
+			(class "Default")
+			(node
+				(ref "C_SCANX1")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "C_SCANY1")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "D_TRIGCL_SCAN1")
+				(pin "1")
+				(pinfunction "K_1")
+				(pintype "passive")
+			)
+			(node
+				(ref "R_TRIGPU_SCAN1")
+				(pin "2")
+				(pintype "passive")
+			)
+			(node
+				(ref "U_SCAN1")
+				(pin "2")
+				(pinfunction "TRIG_2")
+				(pintype "input")
+			)
+		)
+		(net
+			(code "24")
+			(name "/SD_CS")
+			(class "Default")
+			(node
+				(ref "J1")
+				(pin "2")
+				(pinfunction "Pin_2_2")
+				(pintype "passive")
+			)
+			(node
+				(ref "U1")
+				(pin "J2_6")
+				(pinfunction "GPIO42_J2_6")
+				(pintype "bidirectional")
+			)
+		)
+		(net
+			(code "25")
+			(name "/SD_MISO")
+			(class "Default")
+			(node
+				(ref "J1")
+				(pin "5")
+				(pinfunction "Pin_5_5")
+				(pintype "passive")
+			)
+			(node
+				(ref "U1")
+				(pin "J2_4")
+				(pinfunction "GPIO1_J2_4")
+				(pintype "bidirectional")
+			)
+		)
+		(net
+			(code "26")
+			(name "/SD_MOSI")
+			(class "Default")
+			(node
+				(ref "J1")
+				(pin "3")
+				(pinfunction "Pin_3_3")
+				(pintype "passive")
+			)
+			(node
+				(ref "U1")
+				(pin "J1_6")
+				(pinfunction "GPIO6_J1_6")
+				(pintype "bidirectional")
+			)
+		)
+		(net
+			(code "27")
+			(name "/SD_SCK")
+			(class "Default")
+			(node
+				(ref "J1")
+				(pin "4")
+				(pinfunction "Pin_4_4")
+				(pintype "passive")
+			)
+			(node
+				(ref "U1")
+				(pin "J1_5")
+				(pinfunction "GPIO5_J1_5")
+				(pintype "bidirectional")
+			)
+		)
+		(net
+			(code "28")
+			(name "/SSR1_CTRL")
+			(class "Default")
+			(node
+				(ref "J_SSR1")
+				(pin "1")
+				(pinfunction "Pin_1_1")
+				(pintype "passive")
+			)
+			(node
+				(ref "R_SSRCTRL1")
+				(pin "2")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "29")
+			(name "/SW_BUCK")
+			(class "Default")
+			(node
+				(ref "C_BOOT1")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "L1")
+				(pin "1")
+				(pinfunction "1_1")
+				(pintype "passive")
+			)
+			(node
+				(ref "U_BUCK1")
+				(pin "8")
+				(pinfunction "SW_8")
+				(pintype "output")
+			)
+		)
+		(net
+			(code "30")
+			(name "/TTL_RGB_BLUE")
+			(class "Default")
+			(node
+				(ref "R22")
+				(pin "2")
+				(pintype "passive")
+			)
+			(node
+				(ref "R23")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "U17")
+				(pin "6")
+				(pinfunction "VO_6")
+				(pintype "open_collector")
+			)
+			(node
+				(ref "U3")
+				(pin "2")
+				(pinfunction "Pin_2_2")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "31")
+			(name "/TTL_RGB_GREEN")
+			(class "Default")
+			(node
+				(ref "R20")
+				(pin "2")
+				(pintype "passive")
+			)
+			(node
+				(ref "R21")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "U16")
+				(pin "6")
+				(pinfunction "VO_6")
+				(pintype "open_collector")
+			)
+			(node
+				(ref "U5")
+				(pin "2")
+				(pinfunction "Pin_2_2")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "32")
+			(name "/TTL_RGB_RED")
+			(class "Default")
+			(node
+				(ref "R18")
+				(pin "2")
+				(pintype "passive")
+			)
+			(node
+				(ref "R19")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "U15")
+				(pin "6")
+				(pinfunction "VO_6")
+				(pintype "open_collector")
+			)
+			(node
+				(ref "U4")
+				(pin "2")
+				(pinfunction "Pin_2_2")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "33")
+			(name "/VCC_BUCK")
+			(class "Default")
+			(node
+				(ref "C_VCC1")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "U_BUCK1")
+				(pin "6")
+				(pinfunction "VCC_6")
+				(pintype "power_out")
+			)
+		)
+		(net
+			(code "34")
+			(name "/VIN_BUCK")
+			(class "Default")
+			(node
+				(ref "C_IN1")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "C_IN2")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "C_INHF1")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "D2")
+				(pin "1")
+				(pinfunction "K_1")
+				(pintype "passive")
+			)
+			(node
+				(ref "R_EN1")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "U_BUCK1")
+				(pin "2")
+				(pinfunction "VIN_2")
+				(pintype "power_in")
+			)
+		)
+		(net
+			(code "35")
 			(name "/VREF_BUF")
 			(class "Default")
 			(node
@@ -4713,7 +7894,93 @@
 			)
 		)
 		(net
-			(code "9")
+			(code "36")
+			(name "/WD_CONT")
+			(class "Default")
+			(node
+				(ref "C_WDCONT1")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "U_WD1")
+				(pin "5")
+				(pinfunction "CONT_5")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "37")
+			(name "/WD_OUT")
+			(class "Default")
+			(node
+				(ref "R_SSRCTRL1")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "U_WD1")
+				(pin "3")
+				(pinfunction "OUT_3")
+				(pintype "output")
+			)
+		)
+		(net
+			(code "38")
+			(name "/WD_RC")
+			(class "Default")
+			(node
+				(ref "C_WD1")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "R_WD1")
+				(pin "2")
+				(pintype "passive")
+			)
+			(node
+				(ref "U_WD1")
+				(pin "6")
+				(pinfunction "THRES_6")
+				(pintype "input")
+			)
+			(node
+				(ref "U_WD1")
+				(pin "7")
+				(pinfunction "DISCH_7")
+				(pintype "input")
+			)
+		)
+		(net
+			(code "39")
+			(name "/WD_TRIG")
+			(class "Default")
+			(node
+				(ref "C_TRIGC_WD1")
+				(pin "2")
+				(pintype "passive")
+			)
+			(node
+				(ref "D_TRIGCL_WD1")
+				(pin "1")
+				(pinfunction "K_1")
+				(pintype "passive")
+			)
+			(node
+				(ref "R_TRIGPU_WD1")
+				(pin "2")
+				(pintype "passive")
+			)
+			(node
+				(ref "U_WD1")
+				(pin "2")
+				(pinfunction "TRIG_2")
+				(pintype "input")
+			)
+		)
+		(net
+			(code "40")
 			(name "5V GND Buck")
 			(class "Default")
 			(node
@@ -4732,13 +7999,117 @@
 				(pintype "passive")
 			)
 			(node
+				(ref "C_IN1")
+				(pin "2")
+				(pintype "passive")
+			)
+			(node
+				(ref "C_IN2")
+				(pin "2")
+				(pintype "passive")
+			)
+			(node
+				(ref "C_INHF1")
+				(pin "2")
+				(pintype "passive")
+			)
+			(node
+				(ref "C_OUT1")
+				(pin "2")
+				(pintype "passive")
+			)
+			(node
+				(ref "C_OUT2")
+				(pin "2")
+				(pintype "passive")
+			)
+			(node
+				(ref "C_SCANCONT1")
+				(pin "2")
+				(pintype "passive")
+			)
+			(node
+				(ref "C_SCANT1")
+				(pin "2")
+				(pintype "passive")
+			)
+			(node
+				(ref "C_VCC1")
+				(pin "2")
+				(pintype "passive")
+			)
+			(node
+				(ref "C_WD1")
+				(pin "2")
+				(pintype "passive")
+			)
+			(node
+				(ref "C_WDCONT1")
+				(pin "2")
+				(pintype "passive")
+			)
+			(node
+				(ref "D_TRIGCL_SCAN1")
+				(pin "2")
+				(pinfunction "A_2")
+				(pintype "passive")
+			)
+			(node
+				(ref "D_TRIGCL_WD1")
+				(pin "2")
+				(pinfunction "A_2")
+				(pintype "passive")
+			)
+			(node
 				(ref "J1")
 				(pin "6")
-				(pinfunction "GND_6")
-				(pintype "power_in")
+				(pinfunction "Pin_6_6")
+				(pintype "passive")
 			)
 			(node
 				(ref "J2")
+				(pin "2")
+				(pinfunction "Pin_2_2")
+				(pintype "passive")
+			)
+			(node
+				(ref "J4")
+				(pin "2")
+				(pinfunction "Pin_2_2")
+				(pintype "passive")
+			)
+			(node
+				(ref "J5")
+				(pin "1")
+				(pinfunction "Pin_1_1")
+				(pintype "passive")
+			)
+			(node
+				(ref "J6")
+				(pin "2")
+				(pinfunction "Pin_2_2")
+				(pintype "passive")
+			)
+			(node
+				(ref "J7")
+				(pin "1")
+				(pinfunction "Pin_1_1")
+				(pintype "passive")
+			)
+			(node
+				(ref "J_DMX1")
+				(pin "2")
+				(pinfunction "Pin_2_2")
+				(pintype "passive")
+			)
+			(node
+				(ref "J_ESTOP1")
+				(pin "2")
+				(pinfunction "Pin_2_2")
+				(pintype "passive")
+			)
+			(node
+				(ref "J_SSR1")
 				(pin "2")
 				(pinfunction "Pin_2_2")
 				(pintype "passive")
@@ -4760,6 +8131,16 @@
 			)
 			(node
 				(ref "R26")
+				(pin "2")
+				(pintype "passive")
+			)
+			(node
+				(ref "R_EN2")
+				(pin "2")
+				(pintype "passive")
+			)
+			(node
+				(ref "R_FB2")
 				(pin "2")
 				(pintype "passive")
 			)
@@ -4871,9 +8252,33 @@
 				(pinfunction "GND_1")
 				(pintype "power_in")
 			)
+			(node
+				(ref "U_BUCK1")
+				(pin "1")
+				(pinfunction "GND_1")
+				(pintype "power_in")
+			)
+			(node
+				(ref "U_BUCK1")
+				(pin "9")
+				(pinfunction "GND_9")
+				(pintype "passive")
+			)
+			(node
+				(ref "U_SCAN1")
+				(pin "1")
+				(pinfunction "GND_1")
+				(pintype "power_in")
+			)
+			(node
+				(ref "U_WD1")
+				(pin "1")
+				(pinfunction "GND_1")
+				(pintype "power_in")
+			)
 		)
 		(net
-			(code "10")
+			(code "41")
 			(name "AGND (from Galvo Board)")
 			(class "Default")
 			(node
@@ -4902,15 +8307,19 @@
 				(pintype "passive")
 			)
 			(node
-				(ref "J3")
+				(ref "C_ANA1")
 				(pin "2")
-				(pinfunction "Pin_2_2")
+				(pintype "passive")
+			)
+			(node
+				(ref "C_ANA2")
+				(pin "2")
 				(pintype "passive")
 			)
 			(node
 				(ref "J3")
-				(pin "3")
-				(pinfunction "Pin_3_3")
+				(pin "2")
+				(pinfunction "Pin_2_2")
 				(pintype "passive")
 			)
 			(node
@@ -4921,11 +8330,6 @@
 			(node
 				(ref "R26")
 				(pin "1")
-				(pintype "passive")
-			)
-			(node
-				(ref "R8")
-				(pin "2")
 				(pintype "passive")
 			)
 			(node
@@ -4941,8 +8345,8 @@
 			)
 			(node
 				(ref "U13")
-				(pin "3")
-				(pinfunction "Pin_3_3")
+				(pin "1")
+				(pinfunction "Pin_1_1")
 				(pintype "passive")
 			)
 			(node
@@ -4959,7 +8363,7 @@
 			)
 		)
 		(net
-			(code "11")
+			(code "42")
 			(name "Buck +5V")
 			(class "Default")
 			(node
@@ -4978,15 +8382,85 @@
 				(pintype "passive")
 			)
 			(node
+				(ref "C_OUT1")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "C_OUT2")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
 				(ref "D1")
 				(pin "2")
 				(pinfunction "A_2")
 				(pintype "passive")
 			)
 			(node
-				(ref "J2")
+				(ref "FB1")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "J4")
 				(pin "1")
 				(pinfunction "Pin_1_1")
+				(pintype "passive")
+			)
+			(node
+				(ref "J5")
+				(pin "2")
+				(pinfunction "Pin_2_2")
+				(pintype "passive")
+			)
+			(node
+				(ref "J6")
+				(pin "1")
+				(pinfunction "Pin_1_1")
+				(pintype "passive")
+			)
+			(node
+				(ref "J7")
+				(pin "2")
+				(pinfunction "Pin_2_2")
+				(pintype "passive")
+			)
+			(node
+				(ref "J_DMX1")
+				(pin "1")
+				(pinfunction "Pin_1_1")
+				(pintype "passive")
+			)
+			(node
+				(ref "L1")
+				(pin "2")
+				(pinfunction "2_2")
+				(pintype "passive")
+			)
+			(node
+				(ref "R_FB1")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "R_SCANT1")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "R_TRIGPU_SCAN1")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "R_TRIGPU_WD1")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "R_WD1")
+				(pin "1")
 				(pintype "passive")
 			)
 			(node
@@ -5025,9 +8499,27 @@
 				(pinfunction "VCC_8")
 				(pintype "power_in")
 			)
+			(node
+				(ref "U_SCAN1")
+				(pin "4")
+				(pinfunction "~{RST}_4")
+				(pintype "input")
+			)
+			(node
+				(ref "U_SCAN1")
+				(pin "8")
+				(pinfunction "VCC_8")
+				(pintype "power_in")
+			)
+			(node
+				(ref "U_WD1")
+				(pin "8")
+				(pinfunction "VCC_8")
+				(pintype "power_in")
+			)
 		)
 		(net
-			(code "12")
+			(code "43")
 			(name "Net-(C3-Pad1)")
 			(class "Default")
 			(node
@@ -5041,13 +8533,13 @@
 				(pintype "passive")
 			)
 			(node
-				(ref "X_Knoten1")
+				(ref "X_NODE1")
 				(pin "1")
 				(pintype "passive")
 			)
 		)
 		(net
-			(code "13")
+			(code "44")
 			(name "Net-(C4-Pad1)")
 			(class "Default")
 			(node
@@ -5061,111 +8553,53 @@
 				(pintype "passive")
 			)
 			(node
-				(ref "Y_Knoten1")
+				(ref "Y_NODE1")
 				(pin "1")
 				(pintype "passive")
 			)
 		)
 		(net
-			(code "14")
-			(name "Net-(J1-CLK)")
+			(code "45")
+			(name "Net-(C_SCANX1-Pad2)")
 			(class "Default")
 			(node
-				(ref "J1")
-				(pin "4")
-				(pinfunction "CLK_4")
-				(pintype "power_in")
-			)
-			(node
-				(ref "U1")
-				(pin "J1_5")
-				(pinfunction "GPIO5_J1_5")
-				(pintype "bidirectional")
-			)
-		)
-		(net
-			(code "15")
-			(name "Net-(J1-CS)")
-			(class "Default")
-			(node
-				(ref "J1")
+				(ref "C_SCANX1")
 				(pin "2")
-				(pinfunction "CS_2")
-				(pintype "bidirectional")
+				(pintype "passive")
 			)
-			(node
-				(ref "U1")
-				(pin "J2_6")
-				(pinfunction "GPIO42_J2_6")
-				(pintype "bidirectional")
-			)
-		)
-		(net
-			(code "16")
-			(name "Net-(J1-MISO)")
-			(class "Default")
-			(node
-				(ref "J1")
-				(pin "5")
-				(pinfunction "MISO_5")
-				(pintype "input")
-			)
-			(node
-				(ref "U1")
-				(pin "J2_4")
-				(pinfunction "GPIO1_J2_4")
-				(pintype "bidirectional")
-			)
-		)
-		(net
-			(code "17")
-			(name "Net-(J1-MOSI)")
-			(class "Default")
-			(node
-				(ref "J1")
-				(pin "3")
-				(pinfunction "MOSI_3")
-				(pintype "input")
-			)
-			(node
-				(ref "U1")
-				(pin "J1_6")
-				(pinfunction "GPIO6_J1_6")
-				(pintype "bidirectional")
-			)
-		)
-		(net
-			(code "18")
-			(name "Net-(R7-Pad2)")
-			(class "Default")
 			(node
 				(ref "R7")
 				(pin "2")
 				(pintype "passive")
 			)
 			(node
-				(ref "X_Knoten1")
+				(ref "X_NODE1")
 				(pin "2")
 				(pintype "passive")
 			)
 		)
 		(net
-			(code "19")
-			(name "Net-(R14-Pad2)")
+			(code "46")
+			(name "Net-(C_SCANY1-Pad2)")
 			(class "Default")
+			(node
+				(ref "C_SCANY1")
+				(pin "2")
+				(pintype "passive")
+			)
 			(node
 				(ref "R14")
 				(pin "2")
 				(pintype "passive")
 			)
 			(node
-				(ref "Y_Knoten1")
+				(ref "Y_NODE1")
 				(pin "2")
 				(pintype "passive")
 			)
 		)
 		(net
-			(code "20")
+			(code "47")
 			(name "Net-(U1-GPIO10)")
 			(class "Default")
 			(node
@@ -5182,7 +8616,7 @@
 			)
 		)
 		(net
-			(code "21")
+			(code "48")
 			(name "Net-(U1-GPIO11)")
 			(class "Default")
 			(node
@@ -5199,7 +8633,7 @@
 			)
 		)
 		(net
-			(code "22")
+			(code "49")
 			(name "Net-(U1-GPIO12)")
 			(class "Default")
 			(node
@@ -5216,7 +8650,7 @@
 			)
 		)
 		(net
-			(code "23")
+			(code "50")
 			(name "Net-(U1-GPIO18)")
 			(class "Default")
 			(node
@@ -5262,7 +8696,7 @@
 			)
 		)
 		(net
-			(code "24")
+			(code "51")
 			(name "Net-(U2-CLR)")
 			(class "Default")
 			(node
@@ -5278,7 +8712,7 @@
 			)
 		)
 		(net
-			(code "25")
+			(code "52")
 			(name "Net-(U2-VOUTA)")
 			(class "Default")
 			(node
@@ -5294,7 +8728,7 @@
 			)
 		)
 		(net
-			(code "26")
+			(code "53")
 			(name "Net-(U2-VOUTB)")
 			(class "Default")
 			(node
@@ -5310,7 +8744,7 @@
 			)
 		)
 		(net
-			(code "27")
+			(code "54")
 			(name "Net-(U12-+IN_A)")
 			(class "Default")
 			(node
@@ -5331,7 +8765,7 @@
 			)
 		)
 		(net
-			(code "28")
+			(code "55")
 			(name "Net-(U12-+IN_B)")
 			(class "Default")
 			(node
@@ -5352,7 +8786,7 @@
 			)
 		)
 		(net
-			(code "29")
+			(code "56")
 			(name "Net-(U12-+IN_C)")
 			(class "Default")
 			(node
@@ -5374,7 +8808,7 @@
 			)
 		)
 		(net
-			(code "30")
+			(code "57")
 			(name "Net-(U12--IN_A)")
 			(class "Default")
 			(node
@@ -5388,11 +8822,6 @@
 				(pintype "passive")
 			)
 			(node
-				(ref "R8")
-				(pin "1")
-				(pintype "passive")
-			)
-			(node
 				(ref "U12")
 				(pin "2")
 				(pinfunction "-IN_A_2")
@@ -5400,7 +8829,7 @@
 			)
 		)
 		(net
-			(code "31")
+			(code "58")
 			(name "Net-(U12--IN_B)")
 			(class "Default")
 			(node
@@ -5421,7 +8850,7 @@
 			)
 		)
 		(net
-			(code "32")
+			(code "59")
 			(name "Net-(U12--IN_D)")
 			(class "Default")
 			(node
@@ -5438,7 +8867,7 @@
 			)
 		)
 		(net
-			(code "33")
+			(code "60")
 			(name "Net-(U12-OUT_A)")
 			(class "Default")
 			(node
@@ -5459,7 +8888,7 @@
 			)
 		)
 		(net
-			(code "34")
+			(code "61")
 			(name "Net-(U12-OUT_B)")
 			(class "Default")
 			(node
@@ -5480,7 +8909,7 @@
 			)
 		)
 		(net
-			(code "35")
+			(code "62")
 			(name "Net-(U13-Pin_2)")
 			(class "Default")
 			(node
@@ -5496,8 +8925,8 @@
 			)
 		)
 		(net
-			(code "36")
-			(name "Net-(U13-Pin_4)")
+			(code "63")
+			(name "Net-(U13-Pin_3)")
 			(class "Default")
 			(node
 				(ref "R16")
@@ -5506,13 +8935,13 @@
 			)
 			(node
 				(ref "U13")
-				(pin "4")
-				(pinfunction "Pin_4_4")
+				(pin "3")
+				(pinfunction "Pin_3_3")
 				(pintype "passive")
 			)
 		)
 		(net
-			(code "37")
+			(code "64")
 			(name "Net-(U15-A)")
 			(class "Default")
 			(node
@@ -5528,34 +8957,7 @@
 			)
 		)
 		(net
-			(code "38")
-			(name "Net-(U15-VO)")
-			(class "Default")
-			(node
-				(ref "R18")
-				(pin "2")
-				(pintype "passive")
-			)
-			(node
-				(ref "R19")
-				(pin "1")
-				(pintype "passive")
-			)
-			(node
-				(ref "U15")
-				(pin "6")
-				(pinfunction "VO_6")
-				(pintype "open_collector")
-			)
-			(node
-				(ref "U4")
-				(pin "2")
-				(pinfunction "Pin_2_2")
-				(pintype "passive")
-			)
-		)
-		(net
-			(code "39")
+			(code "65")
 			(name "Net-(U16-A)")
 			(class "Default")
 			(node
@@ -5571,34 +8973,7 @@
 			)
 		)
 		(net
-			(code "40")
-			(name "Net-(U16-VO)")
-			(class "Default")
-			(node
-				(ref "R20")
-				(pin "2")
-				(pintype "passive")
-			)
-			(node
-				(ref "R21")
-				(pin "1")
-				(pintype "passive")
-			)
-			(node
-				(ref "U16")
-				(pin "6")
-				(pinfunction "VO_6")
-				(pintype "open_collector")
-			)
-			(node
-				(ref "U5")
-				(pin "2")
-				(pinfunction "Pin_2_2")
-				(pintype "passive")
-			)
-		)
-		(net
-			(code "41")
+			(code "66")
 			(name "Net-(U17-A)")
 			(class "Default")
 			(node
@@ -5614,34 +8989,35 @@
 			)
 		)
 		(net
-			(code "42")
-			(name "Net-(U17-VO)")
+			(code "67")
+			(name "VIN_RAW")
 			(class "Default")
 			(node
-				(ref "R22")
+				(ref "D2")
 				(pin "2")
+				(pinfunction "A_2")
 				(pintype "passive")
 			)
 			(node
-				(ref "R23")
+				(ref "J2")
 				(pin "1")
-				(pintype "passive")
-			)
-			(node
-				(ref "U17")
-				(pin "6")
-				(pinfunction "VO_6")
-				(pintype "open_collector")
-			)
-			(node
-				(ref "U3")
-				(pin "2")
-				(pinfunction "Pin_2_2")
+				(pinfunction "Pin_1_1")
 				(pintype "passive")
 			)
 		)
 		(net
-			(code "43")
+			(code "68")
+			(name "unconnected-(J_DMX1-Pin_4-Pad4)")
+			(class "Default")
+			(node
+				(ref "J_DMX1")
+				(pin "4")
+				(pinfunction "Pin_4_4")
+				(pintype "passive+no_connect")
+			)
+		)
+		(net
+			(code "69")
 			(name "unconnected-(U1-GPIO0{slash}BOOT-PadJ2_14)")
 			(class "Default")
 			(node
@@ -5652,18 +9028,7 @@
 			)
 		)
 		(net
-			(code "44")
-			(name "unconnected-(U1-GPIO2-PadJ2_5)")
-			(class "Default")
-			(node
-				(ref "U1")
-				(pin "J2_5")
-				(pinfunction "GPIO2_J2_5")
-				(pintype "bidirectional+no_connect")
-			)
-		)
-		(net
-			(code "45")
+			(code "70")
 			(name "unconnected-(U1-GPIO3-PadJ1_13)")
 			(class "Default")
 			(node
@@ -5674,29 +9039,7 @@
 			)
 		)
 		(net
-			(code "46")
-			(name "unconnected-(U1-GPIO4-PadJ1_4)")
-			(class "Default")
-			(node
-				(ref "U1")
-				(pin "J1_4")
-				(pinfunction "GPIO4_J1_4")
-				(pintype "bidirectional+no_connect")
-			)
-		)
-		(net
-			(code "47")
-			(name "unconnected-(U1-GPIO9-PadJ1_15)")
-			(class "Default")
-			(node
-				(ref "U1")
-				(pin "J1_15")
-				(pinfunction "GPIO9_J1_15")
-				(pintype "bidirectional+no_connect")
-			)
-		)
-		(net
-			(code "48")
+			(code "71")
 			(name "unconnected-(U1-GPIO13-PadJ1_19)")
 			(class "Default")
 			(node
@@ -5707,18 +9050,7 @@
 			)
 		)
 		(net
-			(code "49")
-			(name "unconnected-(U1-GPIO14-PadJ1_20)")
-			(class "Default")
-			(node
-				(ref "U1")
-				(pin "J1_20")
-				(pinfunction "GPIO14_J1_20")
-				(pintype "bidirectional+no_connect")
-			)
-		)
-		(net
-			(code "50")
+			(code "72")
 			(name "unconnected-(U1-GPIO15-PadJ1_8)")
 			(class "Default")
 			(node
@@ -5729,29 +9061,7 @@
 			)
 		)
 		(net
-			(code "51")
-			(name "unconnected-(U1-GPIO16-PadJ1_9)")
-			(class "Default")
-			(node
-				(ref "U1")
-				(pin "J1_9")
-				(pinfunction "GPIO16_J1_9")
-				(pintype "bidirectional+no_connect")
-			)
-		)
-		(net
-			(code "52")
-			(name "unconnected-(U1-GPIO17-PadJ1_10)")
-			(class "Default")
-			(node
-				(ref "U1")
-				(pin "J1_10")
-				(pinfunction "GPIO17_J1_10")
-				(pintype "bidirectional+no_connect")
-			)
-		)
-		(net
-			(code "53")
+			(code "73")
 			(name "unconnected-(U1-GPIO19{slash}USB_D--PadJ2_20)")
 			(class "Default")
 			(node
@@ -5762,7 +9072,7 @@
 			)
 		)
 		(net
-			(code "54")
+			(code "74")
 			(name "unconnected-(U1-GPIO20{slash}USB_D+-PadJ2_19)")
 			(class "Default")
 			(node
@@ -5773,7 +9083,7 @@
 			)
 		)
 		(net
-			(code "55")
+			(code "75")
 			(name "unconnected-(U1-GPIO35-PadJ2_13)")
 			(class "Default")
 			(node
@@ -5784,7 +9094,7 @@
 			)
 		)
 		(net
-			(code "56")
+			(code "76")
 			(name "unconnected-(U1-GPIO36-PadJ2_12)")
 			(class "Default")
 			(node
@@ -5795,7 +9105,7 @@
 			)
 		)
 		(net
-			(code "57")
+			(code "77")
 			(name "unconnected-(U1-GPIO37-PadJ2_11)")
 			(class "Default")
 			(node
@@ -5806,29 +9116,7 @@
 			)
 		)
 		(net
-			(code "58")
-			(name "unconnected-(U1-GPIO38-PadJ2_10)")
-			(class "Default")
-			(node
-				(ref "U1")
-				(pin "J2_10")
-				(pinfunction "GPIO38_J2_10")
-				(pintype "bidirectional+no_connect")
-			)
-		)
-		(net
-			(code "59")
-			(name "unconnected-(U1-GPIO39-PadJ2_9)")
-			(class "Default")
-			(node
-				(ref "U1")
-				(pin "J2_9")
-				(pinfunction "GPIO39_J2_9")
-				(pintype "bidirectional+no_connect")
-			)
-		)
-		(net
-			(code "60")
+			(code "78")
 			(name "unconnected-(U1-GPIO40-PadJ2_8)")
 			(class "Default")
 			(node
@@ -5839,7 +9127,7 @@
 			)
 		)
 		(net
-			(code "61")
+			(code "79")
 			(name "unconnected-(U1-GPIO41-PadJ2_7)")
 			(class "Default")
 			(node
@@ -5850,7 +9138,7 @@
 			)
 		)
 		(net
-			(code "62")
+			(code "80")
 			(name "unconnected-(U1-GPIO43{slash}TX-PadJ2_2)")
 			(class "Default")
 			(node
@@ -5861,7 +9149,7 @@
 			)
 		)
 		(net
-			(code "63")
+			(code "81")
 			(name "unconnected-(U1-GPIO44{slash}RX-PadJ2_3)")
 			(class "Default")
 			(node
@@ -5872,7 +9160,7 @@
 			)
 		)
 		(net
-			(code "64")
+			(code "82")
 			(name "unconnected-(U1-GPIO45-PadJ2_15)")
 			(class "Default")
 			(node
@@ -5883,7 +9171,7 @@
 			)
 		)
 		(net
-			(code "65")
+			(code "83")
 			(name "unconnected-(U1-GPIO46-PadJ1_14)")
 			(class "Default")
 			(node
@@ -5894,18 +9182,7 @@
 			)
 		)
 		(net
-			(code "66")
-			(name "unconnected-(U1-GPIO47-PadJ2_17)")
-			(class "Default")
-			(node
-				(ref "U1")
-				(pin "J2_17")
-				(pinfunction "GPIO47_J2_17")
-				(pintype "bidirectional+no_connect")
-			)
-		)
-		(net
-			(code "67")
+			(code "84")
 			(name "unconnected-(U1-GPIO48-PadJ2_16)")
 			(class "Default")
 			(node
@@ -5916,7 +9193,7 @@
 			)
 		)
 		(net
-			(code "68")
+			(code "85")
 			(name "unconnected-(U1-RST-PadJ1_3)")
 			(class "Default")
 			(node
@@ -5927,18 +9204,7 @@
 			)
 		)
 		(net
-			(code "69")
-			(name "unconnected-(U13-Pin_1-Pad1)")
-			(class "Default")
-			(node
-				(ref "U13")
-				(pin "1")
-				(pinfunction "Pin_1_1")
-				(pintype "passive+no_connect")
-			)
-		)
-		(net
-			(code "70")
+			(code "86")
 			(name "unconnected-(U15-NC-Pad1)")
 			(class "Default")
 			(node
@@ -5949,7 +9215,7 @@
 			)
 		)
 		(net
-			(code "71")
+			(code "87")
 			(name "unconnected-(U15-NC-Pad4)")
 			(class "Default")
 			(node
@@ -5960,7 +9226,7 @@
 			)
 		)
 		(net
-			(code "72")
+			(code "88")
 			(name "unconnected-(U16-NC-Pad1)")
 			(class "Default")
 			(node
@@ -5971,7 +9237,7 @@
 			)
 		)
 		(net
-			(code "73")
+			(code "89")
 			(name "unconnected-(U16-NC-Pad4)")
 			(class "Default")
 			(node
@@ -5982,7 +9248,7 @@
 			)
 		)
 		(net
-			(code "74")
+			(code "90")
 			(name "unconnected-(U17-NC-Pad1)")
 			(class "Default")
 			(node
@@ -5993,7 +9259,7 @@
 			)
 		)
 		(net
-			(code "75")
+			(code "91")
 			(name "unconnected-(U17-NC-Pad4)")
 			(class "Default")
 			(node
@@ -6001,6 +9267,17 @@
 				(pin "4")
 				(pinfunction "NC_4")
 				(pintype "passive+no_connect")
+			)
+		)
+		(net
+			(code "92")
+			(name "unconnected-(U_BUCK1-PG-Pad4)")
+			(class "Default")
+			(node
+				(ref "U_BUCK1")
+				(pin "4")
+				(pinfunction "PG_4")
+				(pintype "open_collector+no_connect")
 			)
 		)
 	)

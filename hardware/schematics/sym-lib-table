@@ -2,4 +2,5 @@
   (version 7)
   (lib (name "Symbols")(type "KiCad")(uri "/mnt/daten-i/Sourcecode/KiCad_Libs/Symbols/OPA4134UA_2K5.kicad_sym")(options "")(descr "Custom symbol library (OPA4134UA quad op-amp)"))
   (lib (name "Buffer")(type "KiCad")(uri "/mnt/daten-i/Sourcecode/KiCad_Libs/Symbols/DAC8562SDGST.kicad_sym")(options "")(descr "Custom symbol library (DAC8562SDGST dual 16-bit DAC)"))
+  (lib (name "ESP32")(type "KiCad")(uri "/mnt/daten-i/Sourcecode/KiCad_Libs/Symbols/ESP32-S3-N16R8-DevKit.kicad_sym")(options "")(descr "Custom symbol library (ESP32-S3-WROOM-1 N16R8 DevKit board)"))
 )

@@ -3799,7 +3799,7 @@
 			)
 			(embedded_fonts no)
 		)
-		(symbol "RF_Module:ESP32-S3-N16R8-DevKit"
+		(symbol "ESP32:ESP32-S3-N16R8-DevKit"
 			(pin_names
 				(offset 1.016)
 				(hide yes)
@@ -5112,10 +5112,6 @@
 			(embedded_fonts no)
 		)
 		(symbol "Regulator_Switching:LMR33630ADDA"
-			(pin_names
-				(offset 1.016)
-				(hide yes)
-			)
 			(exclude_from_sim no)
 			(in_bom yes)
 			(on_board yes)
@@ -5377,10 +5373,6 @@
 			(embedded_fonts no)
 		)
 		(symbol "Sensor_Temperature:DS18B20"
-			(pin_names
-				(offset 1.016)
-				(hide yes)
-			)
 			(exclude_from_sim no)
 			(in_bom yes)
 			(on_board yes)
@@ -6068,10 +6060,6 @@
 			(embedded_fonts no)
 		)
 		(symbol "Timer:NE555D"
-			(pin_names
-				(offset 1.016)
-				(hide yes)
-			)
 			(exclude_from_sim no)
 			(in_bom yes)
 			(on_board yes)
@@ -20719,7 +20707,7 @@
 		)
 	)
 	(symbol
-		(lib_id "RF_Module:ESP32-S3-N16R8-DevKit")
+		(lib_id "ESP32:ESP32-S3-N16R8-DevKit")
 		(at 259.08 227.33 0)
 		(unit 1)
 		(body_style 1)
