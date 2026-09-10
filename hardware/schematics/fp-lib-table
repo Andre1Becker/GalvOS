@@ -1,0 +1,6 @@
+(fp_lib_table
+  (version 7)
+  (lib (name "Footprint")(type "KiCad")(uri "/mnt/daten-i/Sourcecode/KiCad_Libs/Footprint")(options "")(descr "Custom footprints (D14, DGS10, SOIC127P600X175-14N, XCVR_ESP32-S3-N16R8-DevKit)"))
+  (lib (name "DAC8562SDGST")(type "KiCad")(uri "/mnt/daten-i/Sourcecode/KiCad_Libs/Footprint")(options "")(descr "Alias nickname for the same custom footprint folder"))
+  (lib (name "ESP32-S3-N16R8-DevKit")(type "KiCad")(uri "/mnt/daten-i/Sourcecode/KiCad_Libs/Footprint")(options "")(descr "Alias nickname for the same custom footprint folder"))
+)
