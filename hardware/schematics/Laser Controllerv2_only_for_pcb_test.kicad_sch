@@ -5,8 +5,9 @@
 	(uuid "d54d297e-dc0d-4b80-be70-d4630411b2f0")
 	(paper "A2")
 	(title_block
-		(title "GalvOS ESP32 Laser Controller Board V1.2.7")
-		(date "2026-07-24")
+		(title "GalvOS ESP32 Laser Controller - V2 engineering review")
+		(date "2026-09-13")
+		(rev "DRAFT - NOT FOR FABRICATION")
 	)
 	(lib_symbols
 		(symbol "Buffer:DAC8562SDGST"
@@ -225,7 +226,7 @@
 						)
 					)
 				)
-				(pin bidirectional line
+				(pin input line
 					(at -22.86 -5.08 0)
 					(length 5.08)
 					(name "LDAC"
@@ -243,7 +244,7 @@
 						)
 					)
 				)
-				(pin bidirectional line
+				(pin input line
 					(at -22.86 0 0)
 					(length 5.08)
 					(name "CLR"
@@ -261,7 +262,7 @@
 						)
 					)
 				)
-				(pin bidirectional line
+				(pin input line
 					(at -22.86 -10.16 0)
 					(length 5.08)
 					(name "SYNC"
@@ -333,7 +334,7 @@
 						)
 					)
 				)
-				(pin input line
+				(pin bidirectional line
 					(at -22.86 5.08 0)
 					(length 5.08)
 					(name "VREFINNREFOUT"
@@ -7266,7 +7267,7 @@
 		)
 		(uuid "2cdbc9b2-1c10-45c7-8aa9-064d4b1d2c9d")
 	)
-	(text "FAIL-SAFE PULL-UPS - laser OFF on boot/crash"
+	(text "RGB PULL-UPS - default-OFF not yet verified"
 		(exclude_from_sim no)
 		(at 330.2 326.39 0)
 		(effects
@@ -24272,7 +24273,7 @@
 		)
 		(uuid "9eaffc57-7774-4336-a9a3-cb59c39e4898")
 	)
-	(text "LASER TTL ISOLATION - 6N137 (INVERTED)"
+	(text "LASER TTL INTERFACE - COMMON GROUND (INVERTED)"
 		(exclude_from_sim no)
 		(at 325.12 172.72 0)
 		(effects
@@ -24429,4 +24430,292 @@
 		)
 	)
 	(embedded_fonts no)
+	(symbol
+		(lib_id "Device:C")
+		(at 203.2 78.74 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "6c2019ba-ac3d-4ef1-b0b7-55e99b0cd57b")
+		(property "Reference" "C9"
+			(at 207.01 78.74 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "100nF"
+			(at 207.01 80.01 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "Capacitor_SMD:C_1206_3216Metric"
+			(at 204.1652 82.55 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 203.2 78.74 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Unpolarized capacitor"
+			(at 203.2 78.74 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "51207591-a0d8-414f-8d12-ce2e76d236c4")
+		)
+		(pin "2"
+			(uuid "ea75e9a0-c000-4ee5-8030-5096bded10fe")
+		)
+		(instances
+			(project "Laser Controllerv2_only_for_pcb_test"
+				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
+					(reference "C9")
+					(unit 1)
+				)
+			)
+		)
+		(property "Voltage" "50V" (at 203.2 78.74 0) (effects (font (size 1.27 1.27)) (hide yes)))
+		(property "Dielectric" "X7R" (at 203.2 78.74 0) (effects (font (size 1.27 1.27)) (hide yes)))
+		(property "Tolerance" "10%" (at 203.2 78.74 0) (effects (font (size 1.27 1.27)) (hide yes)))
+		(property "Layout" "Place next to U12 pin 11; short return to U12 analog ground." (at 203.2 78.74 0) (effects (font (size 1.27 1.27)) (hide yes)))
+	)
+	(label "-15V"
+		(at 203.2 74.93 0)
+		(effects (font (size 1.27 1.27)) (justify left bottom))
+		(uuid "37b0f153-e4fc-4f31-82c7-a95ce872a78b")
+	)
+	(label "AGND (from Galvo Board)"
+		(at 203.2 82.55 0)
+		(effects (font (size 1.27 1.27)) (justify left bottom))
+		(uuid "3935a454-457a-4777-8786-bf34be5de3af")
+	)
+	(symbol
+		(lib_id "Device:C")
+		(at 490.22 213.36 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "0bed4051-5dde-4f5f-8781-6819dca8bb95")
+		(property "Reference" "C_WDVCC1"
+			(at 494.03 213.36 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "100nF"
+			(at 494.03 214.63 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "Capacitor_SMD:C_1206_3216Metric"
+			(at 508.9652 217.17 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 508 213.36 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Unpolarized capacitor"
+			(at 508 213.36 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "8ce83d51-2171-474e-b329-3a9893c37c88")
+		)
+		(pin "2"
+			(uuid "4feb884a-dcbe-49b0-b52d-edef7a60fe9f")
+		)
+		(instances
+			(project "Laser Controllerv2_only_for_pcb_test"
+				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
+					(reference "C_WDVCC1")
+					(unit 1)
+				)
+			)
+		)
+		(property "Voltage" "50V" (at 508 213.36 0) (effects (font (size 1.27 1.27)) (hide yes)))
+		(property "Dielectric" "X7R" (at 508 213.36 0) (effects (font (size 1.27 1.27)) (hide yes)))
+		(property "Tolerance" "10%" (at 508 213.36 0) (effects (font (size 1.27 1.27)) (hide yes)))
+		(property "Layout" "Place directly between U_WD1 pins 8 and 1." (at 508 213.36 0) (effects (font (size 1.27 1.27)) (hide yes)))
+	)
+	(label "Buck +5V"
+		(at 490.22 209.55 0)
+		(effects (font (size 1.27 1.27)) (justify left bottom))
+		(uuid "5ead58d9-27f3-404d-9054-b0fc4adc2336")
+	)
+	(label "5V GND Buck"
+		(at 490.22 217.17 0)
+		(effects (font (size 1.27 1.27)) (justify left bottom))
+		(uuid "1e8bdf10-51c4-4f8a-8217-fd389f2c487c")
+	)
+	(symbol
+		(lib_id "Device:C")
+		(at 490.22 302.26 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "e9e95c61-decc-4918-b4c4-b260717e3804")
+		(property "Reference" "C_SCANVCC1"
+			(at 494.03 302.26 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "100nF"
+			(at 494.03 303.53 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "Capacitor_SMD:C_1206_3216Metric"
+			(at 508.9652 306.07 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 508 302.26 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Unpolarized capacitor"
+			(at 508 302.26 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "95a24c9d-32c4-4cb1-b1bf-43a140af5c5e")
+		)
+		(pin "2"
+			(uuid "782a60ff-1285-462f-8777-49fc35cc3983")
+		)
+		(instances
+			(project "Laser Controllerv2_only_for_pcb_test"
+				(path "/d54d297e-dc0d-4b80-be70-d4630411b2f0"
+					(reference "C_SCANVCC1")
+					(unit 1)
+				)
+			)
+		)
+		(property "Voltage" "50V" (at 508 302.26 0) (effects (font (size 1.27 1.27)) (hide yes)))
+		(property "Dielectric" "X7R" (at 508 302.26 0) (effects (font (size 1.27 1.27)) (hide yes)))
+		(property "Tolerance" "10%" (at 508 302.26 0) (effects (font (size 1.27 1.27)) (hide yes)))
+		(property "Layout" "Place directly between U_SCAN1 pins 8 and 1." (at 508 302.26 0) (effects (font (size 1.27 1.27)) (hide yes)))
+	)
+	(label "Buck +5V"
+		(at 490.22 298.45 0)
+		(effects (font (size 1.27 1.27)) (justify left bottom))
+		(uuid "35ccf07d-80f2-44ee-b8f8-09605eacf60e")
+	)
+	(label "5V GND Buck"
+		(at 490.22 306.07 0)
+		(effects (font (size 1.27 1.27)) (justify left bottom))
+		(uuid "7f84a241-a469-4248-a7a1-ff9a53366ca5")
+	)
 )

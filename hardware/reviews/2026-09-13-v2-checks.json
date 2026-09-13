@@ -1,0 +1,39 @@
+{
+  "date": "2026-09-13",
+  "kicad": "10.0.6",
+  "baseline_commit": "6bf007b5360fb4aac15ed3fce20ca96ec5048f54",
+  "schematic": "hardware/schematics/Laser Controllerv2_only_for_pcb_test.kicad_sch",
+  "schematic_sha256_before": "28ac348fad83389f226e05539cc3fe7453d2e8d932fcd5cc1a01355460d5c334",
+  "schematic_sha256_after": "2ecb9206d2dbfa8a4bf61d3537e43ac6f87888e8f3ae89edfcdf08b7c4470a4a",
+  "legacy_pcb_sha256": "9703ba1bf5343e8a77ab9dbb0781785384c4f238bedc52c1341898d9e9bbf6b2",
+  "erc_before": 7,
+  "erc_after": 0,
+  "legacy_drc_by_type": {
+    "solder_mask_bridge": 48,
+    "starved_thermal": 12,
+    "invalid_outline": 2,
+    "clearance": 13,
+    "shorting_items": 39,
+    "silk_overlap": 69,
+    "silk_over_copper": 3,
+    "lib_footprint_mismatch": 44,
+    "track_dangling": 97
+  },
+  "legacy_unconnected": 197,
+  "existing_connectivity_comparison": "PASS: all baseline reference/pin memberships, values and footprints preserved; only three specified bypass capacitors added",
+  "added_capacitors": {
+    "C9": [
+      "-15V",
+      "AGND (from Galvo Board)"
+    ],
+    "C_WDVCC1": [
+      "Buck +5V",
+      "5V GND Buck"
+    ],
+    "C_SCANVCC1": [
+      "Buck +5V",
+      "5V GND Buck"
+    ]
+  },
+  "release_status": "NOT RELEASED"
+}

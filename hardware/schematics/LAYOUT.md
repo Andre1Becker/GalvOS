@@ -1,5 +1,12 @@
 # Laser Controller PCB — layout notes
 
+> **2026-09-13: historical notes, not a fabrication release.** A fresh KiCad
+> 10.0.6 DRC of the current `Laser Controller.kicad_pcb`, with zones refilled,
+> reports 327 violations and 197 unconnected items, including shorts and invalid
+> outline errors. The v2 schematic has a different basename and is not proven
+> to match this PCB or the existing Gerbers. Statements below describe an older
+> layout state. See [production work log](../../codex-todos.md) for current status.
+
 Board: **118 × 90 mm, 2 layers**, placed and **fully routed** — 257 tracks,
 14 vias, **zero unconnected items and zero clearance violations**. Gerbers and
 drill files are in [../gerbers/](../gerbers/). See
