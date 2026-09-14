@@ -7,7 +7,7 @@
 	(title_block
 		(title "GalvOS ESP32 Laser Controller - V2 engineering review")
 		(date "2026-09-14")
-		(rev "V2.0.4 DRAFT - NOT FOR FABRICATION")
+		(rev "V2.0.5 DRAFT - NOT FOR FABRICATION")
 	)
 	(lib_symbols
 (symbol "74xGxx:74LVC1G17"
@@ -13539,16 +13539,8 @@
 		)
 		(uuid "8c8759d8-2b1f-4a2e-b7d1-0cde255f46aa")
 	)
-	(label "GPIO4"
-		(at 105.41 402.59 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left)
-		)
-		(uuid "8d39a4ca-3a36-419b-aec0-87fd334a1eab")
-	)
+(label "DMX_RO_5V" (at 88.9 402.59 0) (effects (font (size 1 1)) (justify left bottom)) (uuid "1207ea0b-66ca-4053-b3ce-be53e4be5bb4"))
+(wire (pts (xy 88.9 402.59) (xy 105.41 402.59)) (stroke (width 0) (type default)) (uuid "6a005459-4cd1-47e3-a903-ac84f47f51d9"))
 	(label "FAN2_PWM"
 		(at 236.22 224.79 0)
 		(effects
@@ -13779,16 +13771,8 @@
 		)
 		(uuid "b8f12542-be9b-42b4-aa01-8791be560053")
 	)
-	(label "Buck +5V"
-		(at 105.41 397.51 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left)
-		)
-		(uuid "bc04f703-bc5a-4e2c-98db-fbfffacd62c3")
-	)
+(label "Buck +5V" (at 88.9 397.51 0) (effects (font (size 1 1)) (justify left bottom)) (uuid "0445f60e-fad9-487c-9eb2-d859a549f8e7"))
+(wire (pts (xy 88.9 397.51) (xy 105.41 397.51)) (stroke (width 0) (type default)) (uuid "278b53e1-2ec5-4f77-bad2-d238140f039b"))
 	(label "SW_BUCK"
 		(at 554.99 116.84 180)
 		(effects
@@ -14079,16 +14063,8 @@
 		)
 		(uuid "f22555aa-b1e2-4e9b-9103-3c0e93a52171")
 	)
-	(label "5V GND Buck"
-		(at 105.41 400.05 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left)
-		)
-		(uuid "f37cf53a-e443-4d44-8504-2d1562ed3c57")
-	)
+(label "5V GND Buck" (at 88.9 400.05 0) (effects (font (size 1 1)) (justify left bottom)) (uuid "6b2850c2-131e-4025-96d4-13e070f5d073"))
+(wire (pts (xy 88.9 400.05) (xy 105.41 400.05)) (stroke (width 0) (type default)) (uuid "6029d2a6-1d0b-4993-9f34-16e0dbaf1337"))
 	(label "+5V_MCU"
 		(at 187.96 262.89 90)
 		(effects
@@ -15327,7 +15303,7 @@
 			)
 		)
 	)
-	(symbol
+(symbol
 		(lib_id "Connector:Conn_01x04_Socket")
 		(at 110.49 400.05 0)
 		(unit 1)
@@ -15412,6 +15388,52 @@
 			)
 		)
 	)
+(symbol (lib_id "74xGxx:74LVC1G17") (at 226.06 374.65 0) (unit 1) (in_bom yes) (on_board yes) (dnp no)
+(uuid "30a31a22-0304-428e-b56c-6d229bcac07a")
+(property "Reference" "U_DMXLV1" (at 228.6 367.03 0) (effects (font (size 1 1))))
+(property "Value" "SN74LVC1G17DBVR" (at 228.6 389.89 0) (effects (font (size 1 1))))
+(property "Footprint" "Package_TO_SOT_SMD:SOT-23-5" (at 226.06 374.65 0) (hide yes) (effects (font (size 1 1))))
+(property "Datasheet" "https://www.ti.com/lit/ds/symlink/sn74lvc1g17.pdf" (at 226.06 374.65 0) (hide yes) (effects (font (size 1 1))))
+(property "Manufacturer" "Texas Instruments" (at 226.06 374.65 0) (hide yes) (effects (font (size 1 1))))
+(property "MPN" "SN74LVC1G17DBVR" (at 226.06 374.65 0) (hide yes) (effects (font (size 1 1))))
+(property "Layout" "5.5V-tolerant noninverting RO buffer, powered by MCU +3V3 with local bypass. Not galvanically isolated; qualify external module and cable." (at 226.06 374.65 0) (hide yes) (effects (font (size 1 1))))
+(instances (project "Laser Controllerv2_only_for_pcb_test" (path "/d54d297e-dc0d-4b80-be70-d4630411b2f0" (reference "U_DMXLV1") (unit 1)))))
+(symbol (lib_id "Device:R") (at 193.04 374.65 0) (unit 1) (in_bom yes) (on_board yes) (dnp no)
+(uuid "f5b7fa5f-7f3e-4c2c-a18f-74e2ef8a5401")
+(property "Reference" "R_DMXIN1" (at 193.04 365.76 0) (effects (font (size 1 1))))
+(property "Value" "10k" (at 187.96 374.65 0) (effects (font (size 1 1))))
+(property "Footprint" "Resistor_SMD:R_1206_3216Metric" (at 193.04 374.65 0) (hide yes) (effects (font (size 1 1))))
+(property "Tolerance" "1%" (at 193.04 374.65 0) (hide yes) (effects (font (size 1 1))))
+(property "Power" "0.25W" (at 193.04 374.65 0) (hide yes) (effects (font (size 1 1))))
+(property "Layout" "Pull RO-side input LOW when disconnected; UART sees break/no valid packet, not idle HIGH. Does not provide laser shutdown." (at 193.04 374.65 0) (hide yes) (effects (font (size 1 1))))
+(instances (project "Laser Controllerv2_only_for_pcb_test" (path "/d54d297e-dc0d-4b80-be70-d4630411b2f0" (reference "R_DMXIN1") (unit 1)))))
+(symbol (lib_id "Device:C") (at 251.46 361.95 0) (unit 1) (in_bom yes) (on_board yes) (dnp no)
+(uuid "6e2afdc0-20d0-4ffd-9688-14deb3361a7c")
+(property "Reference" "C_DMXLV1" (at 251.46 351.79 0) (effects (font (size 1 1))))
+(property "Value" "100nF" (at 257.81 361.95 0) (effects (font (size 1 1))))
+(property "Footprint" "Capacitor_SMD:C_1206_3216Metric" (at 251.46 361.95 0) (hide yes) (effects (font (size 1 1))))
+(property "Voltage" "50V" (at 251.46 361.95 0) (hide yes) (effects (font (size 1 1))))
+(property "Dielectric" "X7R" (at 251.46 361.95 0) (hide yes) (effects (font (size 1 1))))
+(property "Tolerance" "10%" (at 251.46 361.95 0) (hide yes) (effects (font (size 1 1))))
+(property "Layout" "Place directly between U_DMXLV1.5 (+3V3) and U_DMXLV1.3 (MCU power ground)." (at 251.46 361.95 0) (hide yes) (effects (font (size 1 1))))
+(instances (project "Laser Controllerv2_only_for_pcb_test" (path "/d54d297e-dc0d-4b80-be70-d4630411b2f0" (reference "C_DMXLV1") (unit 1)))))
+(wire (pts (xy 213.36 374.65) (xy 200.66 374.65)) (stroke (width 0) (type default)) (uuid "4c56fc5d-e94e-4f7d-8d53-4d90d86550a3"))
+(label "DMX_RO_5V" (at 200.66 374.65 0) (effects (font (size 1 1)) (justify left bottom)) (uuid "30e551aa-caae-46ac-b67d-79a98094e8ec"))
+(wire (pts (xy 236.22 374.65) (xy 246.38 374.65)) (stroke (width 0) (type default)) (uuid "7b264015-f5f4-410c-badd-1dbcebb18375"))
+(label "GPIO4" (at 246.38 374.65 180) (effects (font (size 1 1)) (justify right bottom)) (uuid "6cf8278f-8c73-45c6-8310-c47834e81ab4"))
+(wire (pts (xy 220.98 364.49) (xy 220.98 356.87)) (stroke (width 0) (type default)) (uuid "33eb5c3d-6fdd-40a6-8a62-33993164583f"))
+(label "+3V3" (at 220.98 356.87 0) (effects (font (size 1 1)) (justify left bottom)) (uuid "7bc003e2-734e-48c5-8f03-ac59828a705a"))
+(wire (pts (xy 220.98 384.81) (xy 220.98 393.7)) (stroke (width 0) (type default)) (uuid "7028d630-db7c-413e-a3e6-d5024ea56189"))
+(label "5V GND Buck" (at 220.98 393.7 0) (effects (font (size 1 1)) (justify left bottom)) (uuid "78b25fc0-8c05-492a-bee7-bc52fe7d933e"))
+(wire (pts (xy 193.04 370.84) (xy 180.34 370.84)) (stroke (width 0) (type default)) (uuid "98be62fa-4f49-4e70-9b64-6647e1842929"))
+(label "DMX_RO_5V" (at 180.34 370.84 0) (effects (font (size 1 1)) (justify left bottom)) (uuid "4a214836-246a-4b81-b988-b580d595f75f"))
+(wire (pts (xy 193.04 378.46) (xy 193.04 393.7)) (stroke (width 0) (type default)) (uuid "d660dcae-0d8f-4183-aeb3-4777e66441ca"))
+(label "5V GND Buck" (at 193.04 393.7 0) (effects (font (size 1 1)) (justify left bottom)) (uuid "bf0fd428-fbcf-492c-b647-92f2e3c15661"))
+(wire (pts (xy 251.46 358.14) (xy 260.35 358.14)) (stroke (width 0) (type default)) (uuid "3b2edc90-9180-4dac-a477-3f1f63b164fe"))
+(label "+3V3" (at 260.35 358.14 180) (effects (font (size 1 1)) (justify right bottom)) (uuid "deaa5492-2c4a-444d-a1fc-98a067d44604"))
+(wire (pts (xy 251.46 365.76) (xy 260.35 365.76)) (stroke (width 0) (type default)) (uuid "ea939759-4ad7-4dd8-805f-72021e255bb1"))
+(label "5V GND Buck" (at 260.35 365.76 180) (effects (font (size 1 1)) (justify right bottom)) (uuid "193a37e2-dd37-4036-b743-f86b58d2051e"))
+(text "3V3 DMX input protection; no galvanic isolation" (at 187.96 346.71 0) (effects (font (size 1.27 1.27)) (justify left)) (uuid "28253637-0477-4a98-a4ad-3c6fcba21fe0"))
 	(symbol
 		(lib_id "Diode:1N4148")
 		(at 490.22 270.51 0)

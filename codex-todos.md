@@ -1,5 +1,37 @@
 # GalvOS production PCB work log
 
+## Latest checkpoint: V2.0.5 DMX input protection (2026-09-14)
+
+- Previous goal turn was a status-only reply (no progress). Resumed from the
+  actual dirty schematic/PCB and completed the pending DMX buffer routing.
+- Added U_DMXLV1, R_DMXIN1 and C_DMXLV1. The exact three-component electrical
+  delta against V2.0.4 passes; 122 components/110 nets. GPIO4 now receives
+  a 3V3-powered noninverting output instead of raw module RO. Module connector,
+  supply, firmware and laser shutdown/arming behavior are unchanged.
+- Final board: 122 footprints, 1017 segments, 111 vias, three filled zones.
+  Native comparison preserves all 119 old placements/pad geometry and 1097 old
+  copper geometries; one old RO diagonal is intentionally shortened. Six old
+  copper items are renamed RO, including that diagonal. Unrelated router changes
+  and replacement UUIDs were restored. New tracks stay local to the DMX stage.
+- Rejected a manual route that crossed SD_CS/FAN1_TACH. The adopted F.Cu route
+  passes native DRC. Final ERC has zero findings, DRC has zero unconnected items
+  and no errors, parity retains only two known diode-filter warnings and DRC
+  the known buck-type warning. Project rules remain byte-identical to V2.0.4.
+- Five interface checks and 28 tests pass. Added eleven DMX tests; rendered and
+  inspected the routed front-layer detail. See CURRENT-HARDWARE.md for hashes
+  and reproduction commands, and 2026-09-14-v2-dmx-input.md for limitations.
+- Two 22-position female sockets remain specified. Actual mechanical fit,
+  module electrical qualification, supply/current/thermal and independent
+  Class 4 shutdown/rearm remain open. This is not a manufacturing approval.
+- KiBot remains unchanged: missing schematic path, legacy PCB target and
+  filename-case filter defect are diagnosed; input switch awaits approval.
+- Relocated staged-copy proof passed: fresh export/ERC, all five interface
+  checks, 28 tests, native DRC/parity and the unchanged-rule draft guard.
+  Native baseline placement/pad/copper preservation also passes on that copy.
+  It contains only tracked hardware/work-log files, not the user's agents.md.
+- Version/tag for Git publication: `hw-v2.0.5-draft`. Remote-reference
+  verification is reported at handoff; the full production goal remains open.
+
 ## Objective and release status
 
 Optimize `hardware/schematics/Laser Controllerv2_only_for_pcb_test.kicad_sch`
