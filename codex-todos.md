@@ -262,3 +262,27 @@ versioned in Git. The pre-existing untracked `agents.md` belongs to the user.
   checks but retains the user-arm request. No firmware safety change made.
 - The overall objective remains active and unachieved; no release or physical
   interface qualification is implied by the successful GPIO matches.
+
+## 2026-09-14 — blocked checkpoint after repeated approval requests
+
+- Previous goal turn: **progress**, with the GPIO contract audit in `6867729`.
+  This continuation adds no implementation progress; it revalidates blockers.
+- Current worktree has no new schematic, firmware, specification or layout
+  changes; only the pre-existing user-owned `agents.md` is untracked.
+- The same design-approval dependency has persisted through three consecutive
+  goal turns: package/BOM review (`40585b3`), interface review (`6867729`), and
+  this checkpoint. Automatic goal messages have not supplied the requested
+  explicit approval. The brainstorming skill's implementation gate remains.
+- Safe independent reviews have identified the next concrete corrections.
+  Repeating those reviews is not a substitute for implementing them, and no
+  live external process is being awaited. Stop automatic work as blocked,
+  not complete, until user input permits meaningful next action.
+- Immediate resume condition: approve representing U6..U10 as sensor
+  connectors and correcting FAN1_TACH to GPIO2 / FAN2_TACH to GPIO9, with
+  the preservation checks described in the existing review proposals.
+- Wider release dependencies remain: actual source/5 V load and fan data;
+  external module/connector contracts; independent Class 4 laser shutdown
+  ownership; board outline, mounting, connector positions and antenna space.
+  No matched v2 PCB or measured qualification evidence has been supplied.
+- The production-ready PCB objective is unchanged and unachieved. Blocked
+  status is an input checkpoint, not a hardware release or abandoned scope.
