@@ -1,5 +1,16 @@
 # GalvOS production PCB work log
 
+## Latest checkpoint: V2.0.9 DAC source links (2026-09-14)
+
+- Previous reply only answered the SMD-count question (no implementation progress). Revalidated main at f29ffd0 and preserved untracked user-owned agents.md. Continued the source-resistor investigation from V2.0.8, not an earlier board.
+- Moved the four existing 22 ohm DAC source resistors; shortened SCLK/DIN/SYNC/CLR source traces to 2.962/2.796/4.563/6.352 mm, all F.Cu without vias. Local DAC-side routing completed and five obsolete tails removed.
+- Preserved all 122 values/footprints, 110 electrical nets, 118 placements, all pad geometry/nets/UUIDs and 1084 retained copper objects. Final board: 1011 segments, 104 vias, five zones. Project rules, firmware, legacy PCB and KiBot unchanged.
+- ERC zero; all-track DRC/refill/parity zero errors/unconnected items, only the same three known package warnings. Six interface checks, 33 unit tests, draft and buck-input guards pass. Added source-layout guard; old baseline and six text-mutated negative fixtures are rejected. Failed native mutation-harness attempts are not counted as passes.
+- Source-locality improvement does not establish 40 MHz timing. Existing MCU-side geometric ground-overlap measurements remain identical. Native copper/silk views inspected.
+- Evidence: [source-layout review](hardware/reviews/2026-09-14-v2-dac-source-layout.md), [measurements/hashes](hardware/reviews/2026-09-14-dac-source-checks.json), [current checkpoint](hardware/reviews/CURRENT-HARDWARE.md).
+- Relocated staged hardware copy repeats export, six interface checks, 33 tests, ERC, native DRC/parity and both layout guards. Artifact hashes, preservation and ground-overlap measurements match. Publish as hw-v2.0.9-draft; verify remote branch and peeled tag after push. No fabrication/laser-operation approval or Gerbers. Next: close timing qualification, power/load/thermal, actual module fit and independent shutdown gates; request missing user specifications instead of inventing them.
+
+
 ## Latest checkpoint: V2.0.8 return copper and module envelope (2026-09-14)
 
 - Previous goal work made progress through isolated candidates; the intervening

@@ -1,0 +1,161 @@
+{
+  "version": "hw-v2.0.9-draft",
+  "date": "2026-09-14",
+  "baseline_commit": "f29ffd0494d83855157dfe3d3dfa84a241f2b0d5",
+  "status": "Engineering draft; not for fabrication or laser operation",
+  "artifacts": [
+    {
+      "hash": "c7c9176f9a606fb30cbd5f8197d4375d622b77b1c3ecf685763daf42b426391f",
+      "path": "hardware/schematics/Laser Controllerv2_only_for_pcb_test.kicad_pcb"
+    },
+    {
+      "hash": "ece017aa864600617ff52d5a8e4b437b9000ba650b4c230d1f898bbad325e57e",
+      "path": "hardware/schematics/Laser Controllerv2_only_for_pcb_test.kicad_sch"
+    },
+    {
+      "hash": "dc77f4155067018d81c509e667ad67642031a5cf69abe7181144c19c11bd3b1b",
+      "path": "hardware/schematics/Laser Controllerv2_only_for_pcb_test.kicad_pro"
+    },
+    {
+      "hash": "2bac8e8cf9b7c0b732693eeeb71bab8263bb6c073e00029bbbe89bbf2153b931",
+      "path": "hardware/tests/check_dac_source_layout.py"
+    }
+  ],
+  "preservation": {
+    "footprints": 122,
+    "unchanged_placements": 118,
+    "retained_copper": 1084,
+    "removed_copper": 35,
+    "added_copper": 31,
+    "segments": 1011,
+    "vias": 104,
+    "zones": 5
+  },
+  "source_links": {
+    "SCLK": {
+      "before_mm": 11.629223895,
+      "after_mm": 2.962,
+      "before_vias": 2,
+      "after_vias": 0
+    },
+    "DIN": {
+      "before_mm": 7.238050615,
+      "after_mm": 2.796,
+      "before_vias": 0,
+      "after_vias": 0
+    },
+    "SYNC": {
+      "before_mm": 6.783021279,
+      "after_mm": 4.563,
+      "before_vias": 2,
+      "after_vias": 0
+    },
+    "CLR": {
+      "before_mm": 16.095167002,
+      "after_mm": 6.352,
+      "before_vias": 2,
+      "after_vias": 0
+    }
+  },
+  "native_drc": {
+    "errors": 0,
+    "unconnected": 0,
+    "package_warnings": [
+      "U_BUCK1 footprint_type_mismatch",
+      "D_TRIGCL_SCAN1 footprint_filters_mismatch",
+      "D_TRIGCL_WD1 footprint_filters_mismatch"
+    ]
+  },
+  "native_erc_findings": 0,
+  "interface_checkers": 6,
+  "unit_tests": 33,
+  "source_guard_negative_fixtures": {
+    "missing_source_segment": {
+      "rejected": true,
+      "exit_code": 1,
+      "expected_reason": "source pad is not a trace endpoint"
+    },
+    "source_via": {
+      "rejected": true,
+      "exit_code": 1,
+      "expected_reason": "without vias"
+    },
+    "wrong_layer": {
+      "rejected": true,
+      "exit_code": 1,
+      "expected_reason": "without vias"
+    },
+    "branched_source": {
+      "rejected": true,
+      "exit_code": 1,
+      "expected_reason": "source pad is not a trace endpoint"
+    },
+    "excess_length": {
+      "rejected": true,
+      "exit_code": 1,
+      "expected_reason": "exceeds draft bound"
+    },
+    "wrong_resistor": {
+      "rejected": true,
+      "exit_code": 1,
+      "expected_reason": "expected 22 ohm"
+    }
+  },
+  "mcu_input_overlap": {
+    "scope": "Geometric samples only; NOT a safety or production gate",
+    "sample_step_mm": 0.1,
+    "R26": {
+      "value": "0",
+      "position_mm": [
+        92.8,
+        45
+      ],
+      "pad_nets": {
+        "1": "AGND (from Galvo Board)",
+        "2": "5V GND Buck"
+      }
+    },
+    "signals": {
+      "/DAC_SCLK_3V3": {
+        "trace_length_mm": 37.434,
+        "over_ground_mm": 28.301,
+        "coverage_percent": 75.602
+      },
+      "/DAC_DIN_3V3": {
+        "trace_length_mm": 29.958,
+        "over_ground_mm": 22.403,
+        "coverage_percent": 74.781
+      },
+      "/DAC_SYNC_3V3": {
+        "trace_length_mm": 28.971,
+        "over_ground_mm": 22.763,
+        "coverage_percent": 78.571
+      },
+      "/DAC_CLR_3V3": {
+        "trace_length_mm": 32.983,
+        "over_ground_mm": 29.908,
+        "coverage_percent": 90.677
+      }
+    }
+  },
+  "limitations": [
+    "Source length limits and ground overlap are geometric guards, not electrical qualification.",
+    "40 MHz source/PCB timing, including CS/CLR intervals, remains unqualified.",
+    "Physical load/current/thermal, module fit, BOM/assembly and independent Class 4 shutdown remain unqualified.",
+    "Initial in-memory native mutation fixture generation failed; only separately text-mutated read-only checks count."
+  ],
+  "relocated_staged_copy": {
+    "verified": true,
+    "erc_findings": 0,
+    "drc_errors": 0,
+    "unconnected_items": 0,
+    "known_package_warnings": 3,
+    "interface_checkers": 6,
+    "unit_tests": 33,
+    "native_source_guard": "pass",
+    "native_buck_input_guard": "pass",
+    "preservation": "identical to adopted-board proof",
+    "artifact_hashes": "identical",
+    "mcu_input_overlap": "identical"
+  }
+}

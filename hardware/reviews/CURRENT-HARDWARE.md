@@ -1,6 +1,6 @@
 # Current hardware checkpoint
 
-Version/tag: **hw-v2.0.8-draft** (2026-09-14).
+Version/tag: **hw-v2.0.9-draft** (2026-09-14).
 
 **FULLY CONNECTED ROUTING DRAFT — NOT FOR FABRICATION OR LASER OPERATION.**
 
@@ -10,15 +10,17 @@ Paths are relative to `hardware/schematics/`.
 
 | Artifact | State | SHA-256 |
 |---|---|---|
-| `Laser Controllerv2_only_for_pcb_test.kicad_sch` | V2.0.8; 122 components, 110 nets | `1d5d3cf3a9f59ba76881ce68f85e1cc638fb315ea83b81be6628c56f01bc815a` |
-| `Laser Controllerv2_only_for_pcb_test.kicad_pcb` | Routed v2 engineering draft with five ground zones | `9211eece3d568552b271c6080eced92e04fe15dd79d211985cf1043c5bb49172` |
+| `Laser Controllerv2_only_for_pcb_test.kicad_sch` | V2.0.9; 122 components, 110 nets | `ece017aa864600617ff52d5a8e4b437b9000ba650b4c230d1f898bbad325e57e` |
+| `Laser Controllerv2_only_for_pcb_test.kicad_pcb` | Routed v2 engineering draft with five ground zones | `c7c9176f9a606fb30cbd5f8197d4375d622b77b1c3ecf685763daf42b426391f` |
 | `Laser Controller.kicad_pcb` | Unchanged historical board; not the v2 layout | `9703ba1bf5343e8a77ab9dbb0781785384c4f238bedc52c1341898d9e9bbf6b2` |
 
 ## Implemented
 
+- V2.0.9 moves the four existing 22 ohm DAC source resistors closer to the translator. Source links drop from 6.783–16.095 mm to 2.796–6.352 mm, all on F.Cu without vias. Only four placements and local source/DAC-side routing change; 118 placements and 1084 retained copper objects are exact. All 122 values/footprints and 110 nets remain unchanged. The native source-layout guard and six negative fixtures pass; 40 MHz timing remains unqualified. See [source-layout evidence](2026-09-14-v2-dac-source-layout.md).
+
 - V2.0.8 moves R26 toward the MCU/DAC boundary, adds two local front-layer return zones and three AGND stitching vias, and preserves all signal routing. Geometric opposite-layer ground overlap on the four DAC input nets improves from 1.8–31.9% to 74.8–90.7%; this does not qualify impedance, timing or EMC.
 - User reports a 28 x 57 mm ESP32 body with 22 pins per side. Updated U1's placed/library body and courtyard while preserving all 44 pads. Two bypass capacitors move/rotate clear of the wider module while retaining their VCC pad positions. Their ground routing and two nearby supply-feed segments are adapted. Pin-grid centering, 2.54 mm pitch, 22.86 mm row spacing and antenna/USB clearance remain provisional.
-- Against V2.0.7: all 122 values/footprint assignments and all 110 net memberships are unchanged; 119 placements and 1104 retained copper objects are preserved. Ten obsolete copper objects are replaced by fifteen scoped objects; project rules and the legacy PCB are unchanged. See the [V2.0.8 return/mechanics review](2026-09-14-v2-return-layout.md).
+- In V2.0.8, against V2.0.7: all 122 values/footprint assignments and all 110 net memberships are unchanged; 119 placements and 1104 retained copper objects are preserved. Ten obsolete copper objects are replaced by fifteen scoped objects; project rules and the legacy PCB are unchanged. See the [V2.0.8 return/mechanics review](2026-09-14-v2-return-layout.md).
 
 - V2.0.7 relocates the existing C_IN2 10 uF capacitor beside C_INHF1. Its VIN and ground paths to U_BUCK1 are each 6.905 mm of direct F.Cu routing, without vias in those local connections. Six obsolete capacitor stubs/vias are removed and two 0.8 mm local traces added. All values, footprint types and electrical memberships are unchanged; 121 placements are retained.
 - The exact-object audit found two coincident +3V3 trace pairs carrying duplicate IDs since V2.0.5's UUID restoration. V2.0.7 removes one identical copy from each pair, without changing the occupied +3V3 copper geometry. All 1112 retained unique baseline copper objects match their original geometry/width/IDs. The new input-layout guard also rejects duplicate copper IDs.
@@ -32,7 +34,7 @@ Paths are relative to `hardware/schematics/`.
 - Preserve the approved external 12 V fan rails: J4.1–J5.2 and J6.1–J7.2, separate from each other and the buck positive rails. J2 supplies 12.6 V to the 5 V buck.
 - Added U_SCANLV1 (SN74LVC1G17DBVR), R_SCANIN1 (10 kohm input pull-down) and C_SCANLV1 (100 nF local bypass). The timer's 5 V output no longer directly drives GPIO39. The buffer uses MCU +3V3 and power ground, preserving HIGH=OK. Full supply/temperature/fault qualification remains open; see the scan-status review.
 - The earlier V2.0.4 change against v2.0.3 added exactly three components and changed only the status/3V3/power-ground memberships. All previous values, footprints and unrelated electrical memberships match. Firmware and shutdown/arming logic are unchanged.
-- PCB: 175 x 115 mm closed outline, two copper layers, nominal 1.6 mm thickness, 122 footprints, 1010 trace segments, 109 vias and five filled ground zones (two new zones explicitly named).
+- PCB: 175 x 115 mm closed outline, two copper layers, nominal 1.6 mm thickness, 122 footprints, 1011 trace segments, 104 vias and five filled ground zones (two new zones explicitly named).
 - In V2.0.4, all original 116 footprint placements and pad geometries are preserved. Removed one original GPIO39 segment at the MCU end and reassigned the other six status copper items to SCAN_STATUS_5V. All 1066 retained baseline copper items were verified exactly after that rename. Unrelated autorouter normalization was restored from the baseline.
 - U1 already specifies two 1x22 female socket strips; corrected the footprint's stale 21/20-pin description. Retained all 44 pads, 2.54 mm pitch and provisional 22.86 mm row spacing. V2.0.8 adds the user-reported 28 x 57 mm body envelope; actual pin-grid alignment, fit and antenna/USB clearance remain unqualified.
 - Repositioned seven analog parts for local feedback/supply routing; routed analog feedback, output and bypass connections manually. All 30 pre-autoroute segments survived the routing import exactly, along with every footprint position and pad net.
@@ -84,9 +86,11 @@ PYTHONDONTWRITEBYTECODE=1 python hardware/tests/check_pcb_draft.py \
   'hardware/schematics/Laser Controllerv2_only_for_pcb_test.kicad_pro'
 ```
 
-Also run the native layout guard with KiCad's Python bindings:
+Also run the native layout guards with KiCad's Python bindings:
 
 ```sh
+/usr/bin/python -B hardware/tests/check_dac_source_layout.py \
+  'hardware/schematics/Laser Controllerv2_only_for_pcb_test.kicad_pcb'
 /usr/bin/python -B hardware/tests/check_buck_input_layout.py \
   'hardware/schematics/Laser Controllerv2_only_for_pcb_test.kicad_pcb'
 ```
