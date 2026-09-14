@@ -240,3 +240,25 @@ versioned in Git. The pre-existing untracked `agents.md` belongs to the user.
   [package audit](hardware/reviews/2026-09-14-package-audit.md).
 - Overall objective remains unfinished; this audit is not a manufacturing
   release and does not settle power, safety or external connector contracts.
+
+## 2026-09-14 — external GPIO contract audit
+
+- Previous goal turn: **progress**; package/BOM audit committed as `40585b3`.
+  Automatic continuation is not approval of the pending sensor-symbol fix.
+- Compared 17 schematic endpoints with numeric firmware pin definitions:
+  15 match, two do not. FAN1_TACH actually reaches GPIO9 and FAN2_TACH GPIO2,
+  opposite `PIN_FAN1_TACH=2` / `PIN_FAN2_TACH=9` and repository instructions.
+- Reproduced both mismatches from exported MCU pin functions. Tach acquisition
+  is not implemented, so this is a latent channel-identity error, not a
+  demonstrated current RPM failure. PWM and separate SD/DAC assignments match.
+- Proposed swapping only the two schematic MCU tach destinations, preserving
+  connectors, pull-ups, PWM, firmware and all values/footprints. Pending design
+  approval alongside the five sensor connector/BOM corrections.
+- Recorded SD/DMX/fan/sensor/RGB connector maps and qualification gaps in
+  [external-interface audit](hardware/reviews/2026-09-14-external-interfaces.md).
+  In particular, fan firmware comments describe MOSFET modules while v2 uses
+  direct four-pin fan headers; actual intended hardware is still required.
+- Clarified safety override precisely: it bypasses E-stop/watchdog/subsystem
+  checks but retains the user-arm request. No firmware safety change made.
+- The overall objective remains active and unachieved; no release or physical
+  interface qualification is implied by the successful GPIO matches.
