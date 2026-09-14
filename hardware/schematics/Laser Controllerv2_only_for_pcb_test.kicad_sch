@@ -7,7 +7,7 @@
 	(title_block
 		(title "GalvOS ESP32 Laser Controller - V2 engineering review")
 		(date "2026-09-14")
-		(rev "V2.0.9 DRAFT - NOT FOR FABRICATION")
+		(rev "V2.0.10 DRAFT - NOT FOR FABRICATION")
 	)
 	(lib_symbols
 (symbol "74xGxx:74LVC1G17"
@@ -4029,7 +4029,7 @@
 			)
 			(embedded_fonts no)
 		)
-		(symbol "Diode:1N4148"
+		(symbol "Diode:1N4148W"
 			(pin_numbers
 				(hide yes)
 			)
@@ -4051,7 +4051,7 @@
 					)
 				)
 			)
-			(property "Value" "1N4148"
+			(property "Value" "1N4148W"
 				(at 0 -2.54 0)
 				(show_name no)
 				(do_not_autoplace no)
@@ -4061,7 +4061,7 @@
 					)
 				)
 			)
-			(property "Footprint" "Diode_THT:D_DO-35_SOD27_P7.62mm_Horizontal"
+			(property "Footprint" "Diode_SMD:D_SOD-123"
 				(at 0 0 0)
 				(show_name no)
 				(do_not_autoplace no)
@@ -4072,7 +4072,7 @@
 					)
 				)
 			)
-			(property "Datasheet" "https://assets.nexperia.com/documents/data-sheet/1N4148_1N4448.pdf"
+			(property "Datasheet" "https://www.vishay.com/docs/85748/1n4148w.pdf"
 				(at 0 0 0)
 				(show_name no)
 				(do_not_autoplace no)
@@ -4083,7 +4083,7 @@
 					)
 				)
 			)
-			(property "Description" "100V 0.15A standard switching diode, DO-35"
+			(property "Description" "75V 0.15A Fast Switching Diode, SOD-123"
 				(at 0 0 0)
 				(show_name no)
 				(do_not_autoplace no)
@@ -4127,7 +4127,7 @@
 					)
 				)
 			)
-			(property "ki_fp_filters" "D*DO?35*"
+			(property "ki_fp_filters" "D*SOD?123*"
 				(at 0 0 0)
 				(show_name no)
 				(do_not_autoplace no)
@@ -4138,7 +4138,7 @@
 					)
 				)
 			)
-			(symbol "1N4148_0_1"
+			(symbol "1N4148W_0_1"
 				(polyline
 					(pts
 						(xy -1.27 1.27) (xy -1.27 -1.27)
@@ -4176,7 +4176,7 @@
 					)
 				)
 			)
-			(symbol "1N4148_1_1"
+			(symbol "1N4148W_1_1"
 				(pin passive line
 					(at -3.81 0 0)
 					(length 2.54)
@@ -15435,7 +15435,7 @@
 (label "5V GND Buck" (at 260.35 365.76 180) (effects (font (size 1 1)) (justify right bottom)) (uuid "193a37e2-dd37-4036-b743-f86b58d2051e"))
 (text "3V3 DMX input protection; no galvanic isolation" (at 187.96 346.71 0) (effects (font (size 1.27 1.27)) (justify left)) (uuid "28253637-0477-4a98-a4ad-3c6fcba21fe0"))
 	(symbol
-		(lib_id "Diode:1N4148")
+		(lib_id "Diode:1N4148W")
 		(at 490.22 270.51 0)
 		(unit 1)
 		(body_style 1)
@@ -15455,7 +15455,7 @@
 				)
 			)
 		)
-		(property "Value" "1N4148"
+		(property "Value" "1N4148W"
 			(at 490.22 266.70000000000005 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -15476,7 +15476,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "https://assets.nexperia.com/documents/data-sheet/1N4148_1N4448.pdf"
+		(property "Datasheet" "https://www.diodes.com/assets/Datasheets/ds30086.pdf"
 			(at 490.22 270.51 0)
 			(hide yes)
 			(show_name no)
@@ -15487,7 +15487,7 @@
 				)
 			)
 		)
-		(property "Description" "100V 0.15A standard switching diode, DO-35"
+		(property "Description" "100V 300mA fast switching diode, SOD-123; ratings subject to datasheet conditions"
 			(at 490.22 270.51 0)
 			(hide yes)
 			(show_name no)
@@ -15497,6 +15497,21 @@
 					(size 1.27 1.27)
 				)
 			)
+		)
+		(property "Manufacturer" "Diodes Incorporated"
+			(at 490.22 270.51 0)
+			(hide yes)
+			(effects (font (size 1.27 1.27)))
+		)
+		(property "MPN" "1N4148W-7-F"
+			(at 490.22 270.51 0)
+			(hide yes)
+			(effects (font (size 1.27 1.27)))
+		)
+		(property "Assembly" "SOD-123; cathode band to pad 1 (trigger); anode pad 2 to power ground. Negative clamp only, not complete timer-input protection."
+			(at 490.22 270.51 0)
+			(hide yes)
+			(effects (font (size 1.27 1.27)))
 		)
 		(pin "1"
 			(uuid "fc0b4fa8-c60e-4780-a7ec-9c1968776aef")
@@ -24156,7 +24171,7 @@
 		)
 	)
 	(symbol
-		(lib_id "Diode:1N4148")
+		(lib_id "Diode:1N4148W")
 		(at 490.22 355.6 0)
 		(unit 1)
 		(body_style 1)
@@ -24176,7 +24191,7 @@
 				)
 			)
 		)
-		(property "Value" "1N4148"
+		(property "Value" "1N4148W"
 			(at 490.22 351.79 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -24197,7 +24212,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "https://assets.nexperia.com/documents/data-sheet/1N4148_1N4448.pdf"
+		(property "Datasheet" "https://www.diodes.com/assets/Datasheets/ds30086.pdf"
 			(at 490.22 355.6 0)
 			(hide yes)
 			(show_name no)
@@ -24208,7 +24223,7 @@
 				)
 			)
 		)
-		(property "Description" "100V 0.15A standard switching diode, DO-35"
+		(property "Description" "100V 300mA fast switching diode, SOD-123; ratings subject to datasheet conditions"
 			(at 490.22 355.6 0)
 			(hide yes)
 			(show_name no)
@@ -24218,6 +24233,21 @@
 					(size 1.27 1.27)
 				)
 			)
+		)
+		(property "Manufacturer" "Diodes Incorporated"
+			(at 490.22 355.6 0)
+			(hide yes)
+			(effects (font (size 1.27 1.27)))
+		)
+		(property "MPN" "1N4148W-7-F"
+			(at 490.22 355.6 0)
+			(hide yes)
+			(effects (font (size 1.27 1.27)))
+		)
+		(property "Assembly" "SOD-123; cathode band to pad 1 (trigger); anode pad 2 to power ground. Negative clamp only, not complete timer-input protection."
+			(at 490.22 355.6 0)
+			(hide yes)
+			(effects (font (size 1.27 1.27)))
 		)
 		(pin "1"
 			(uuid "3efa8cfc-19c3-4edd-b54c-06d616a905e9")

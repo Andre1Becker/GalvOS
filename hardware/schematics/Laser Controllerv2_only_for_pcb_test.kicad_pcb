@@ -10,7 +10,7 @@
 	(title_block
 		(title "GalvOS Laser Controller V2")
 		(date "2026-09-14")
-		(rev "V2.0.9 DRAFT")
+		(rev "V2.0.10 DRAFT")
 		(comment 1 "NOT FOR FABRICATION OR LASER OPERATION")
 	)
 	(layers
@@ -7916,7 +7916,7 @@
 				)
 			)
 		)
-		(property "Value" "1N4148"
+		(property "Value" "1N4148W"
 			(at 0 2.1 0)
 			(layer "F.Fab")
 			(uuid "1affc03f-3ceb-410f-a314-d3def08d77b3")
@@ -7927,7 +7927,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "https://assets.nexperia.com/documents/data-sheet/1N4148_1N4448.pdf"
+		(property "Datasheet" "https://www.diodes.com/assets/Datasheets/ds30086.pdf"
 			(at 0 0 0)
 			(unlocked yes)
 			(layer "F.Fab")
@@ -7940,7 +7940,7 @@
 				)
 			)
 		)
-		(property "Description" "100V 0.15A standard switching diode, DO-35"
+		(property "Description" "100V 300mA fast switching diode, SOD-123; ratings subject to datasheet conditions"
 			(at 0 0 0)
 			(unlocked yes)
 			(layer "F.Fab")
@@ -7952,6 +7952,27 @@
 					(thickness 0.15)
 				)
 			)
+		)
+		(property "Manufacturer" "Diodes Incorporated"
+			(at 0 0 0)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "78c81701-44ac-4e67-a001-000000000001")
+			(effects (font (size 1 1) (thickness 0.15)))
+		)
+		(property "MPN" "1N4148W-7-F"
+			(at 0 0 0)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "78c81701-44ac-4e67-a001-000000000002")
+			(effects (font (size 1 1) (thickness 0.15)))
+		)
+		(property "Assembly" "SOD-123; cathode band to pad 1 (trigger); anode pad 2 to power ground. Negative clamp only, not complete timer-input protection."
+			(at 0 0 0)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "78c81701-44ac-4e67-a001-000000000003")
+			(effects (font (size 1 1) (thickness 0.15)))
 		)
 		(path "/e4fab5ef-bae3-4b3b-879a-4b9685c6c94b")
 		(attr smd)
@@ -25132,7 +25153,7 @@
 				)
 			)
 		)
-		(property "Value" "1N4148"
+		(property "Value" "1N4148W"
 			(at 0 2.1 0)
 			(layer "F.Fab")
 			(uuid "ea867564-8ff5-4f4d-b56e-2c05fd005de7")
@@ -25143,7 +25164,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "https://assets.nexperia.com/documents/data-sheet/1N4148_1N4448.pdf"
+		(property "Datasheet" "https://www.diodes.com/assets/Datasheets/ds30086.pdf"
 			(at 0 0 0)
 			(unlocked yes)
 			(layer "F.Fab")
@@ -25156,7 +25177,7 @@
 				)
 			)
 		)
-		(property "Description" "100V 0.15A standard switching diode, DO-35"
+		(property "Description" "100V 300mA fast switching diode, SOD-123; ratings subject to datasheet conditions"
 			(at 0 0 0)
 			(unlocked yes)
 			(layer "F.Fab")
@@ -25168,6 +25189,27 @@
 					(thickness 0.15)
 				)
 			)
+		)
+		(property "Manufacturer" "Diodes Incorporated"
+			(at 0 0 0)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "78c81701-44ac-4e67-a002-000000000001")
+			(effects (font (size 1 1) (thickness 0.15)))
+		)
+		(property "MPN" "1N4148W-7-F"
+			(at 0 0 0)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "78c81701-44ac-4e67-a002-000000000002")
+			(effects (font (size 1 1) (thickness 0.15)))
+		)
+		(property "Assembly" "SOD-123; cathode band to pad 1 (trigger); anode pad 2 to power ground. Negative clamp only, not complete timer-input protection."
+			(at 0 0 0)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "78c81701-44ac-4e67-a002-000000000003")
+			(effects (font (size 1 1) (thickness 0.15)))
 		)
 		(path "/190b4137-f313-4e3d-8f75-61d3cec0b5c9")
 		(attr smd)
@@ -26288,7 +26330,7 @@
 			)
 		)
 	)
-	(gr_text "GalvOS V2.0.9 DRAFT"
+	(gr_text "GalvOS V2.0.10 DRAFT"
 		(at 108 73 0)
 		(layer "F.SilkS")
 		(uuid "07bc2118-00f8-4473-8453-8f0b4ee1cc95")

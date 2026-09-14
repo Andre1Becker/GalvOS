@@ -1,5 +1,24 @@
 # GalvOS production PCB work log
 
+## Current user scope decision (2026-09-14)
+
+- User explicitly requested: ignore thermal, load and timing work. Do not pursue further calculations, optimization or qualification in those three areas unless requested again.
+- Existing measurements and warnings remain visible. These subjects are excluded from the requested work, not verified, passed or certified; no current-capacity, thermal or timing guarantee is implied.
+- Continue mechanical fit, part/BOM/assembly consistency, manufacturing-data correctness and remaining safety/interface work. Existing assembly/DRC warnings are not silently excluded. No fabrication or laser-operation approval is inferred from this scope decision.
+
+## Latest checkpoint: V2.0.10 trigger-diode package identity (2026-09-14)
+
+- Previous turn made verified progress and published d529675 / hw-v2.0.9-draft. Revalidated local/remote main and preserved user-owned untracked agents.md.
+- Traced the two package warnings to axial 1N4148 symbols/descriptions and DO-35 filters on existing SOD-123 footprints. Selected Diodes Incorporated 1N4148W-7-F from manufacturer DS30086 Rev. 31-2; reused standard 1N4148W symbols and added explicit manufacturer/MPN/assembly fields in schematic and PCB.
+- Confirmed cathode-band/pad-1 trigger polarity and pad-2 power-ground polarity; checked actual pad dimensions against manufacturer lead envelope. Existing pad pattern differs from the suggested pattern but has positive ideal-centered geometric allowances; assembly yield/process is not qualified.
+- Only two diode value/identity corrections. All 122 footprints/placements, 400 pad records, 1115 copper objects, five zones, 110 nets, wires/labels and project rules are unchanged. Firmware, old PCB and KiBot untouched.
+- Native ERC zero; all-track DRC/refill/parity zero errors and unconnected items, zero parity findings. One existing buck thermal-hole footprint-type warning remains. Removed resolved diode warnings from the allowed set; their reappearance fails the draft gate.
+- Seven interface checks, 41 unit tests, DAC-source and buck-input guards pass. New diode checker rejects V2.0.9 and proves the exact two-part delta; negative tests cover part/package, reversed polarity, wrong ground/BOM/symbol pin mapping and resolved-warning regressions.
+- Evidence: [package review](hardware/reviews/2026-09-14-v2-diode-package.md), [hashes/checks](hardware/reviews/2026-09-14-diode-package-checks.json), [current checkpoint](hardware/reviews/CURRENT-HARDWARE.md).
+- Relocated staged hardware repeats export, seven interface checks, the V2.0.9 delta comparison, 41 tests, ERC, native DRC/parity and both layout guards; all recorded hashes match. Publish hw-v2.0.10-draft and verify remote main/peeled tag after push.
+- This corrects assembly identity, not trigger protection. Negative-only clamps, analog/scan limitations, independent shutdown/rearm, ESP32 fit and physical safety qualification remain open. Thermal, load and timing topics remain unverified but are now outside further work by explicit user request above. No Gerbers or fabrication/laser-operation release.
+
+
 ## Latest checkpoint: V2.0.9 DAC source links (2026-09-14)
 
 - Previous reply only answered the SMD-count question (no implementation progress). Revalidated main at f29ffd0 and preserved untracked user-owned agents.md. Continued the source-resistor investigation from V2.0.8, not an earlier board.

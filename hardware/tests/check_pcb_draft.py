@@ -34,8 +34,6 @@ MINIMA = {
 # These native warnings remain visible and block production release.
 KNOWN_PACKAGE_WARNINGS = {
     ("footprint_type_mismatch", "Footprint U_BUCK1"),
-    ("footprint_filters_mismatch", "Footprint D_TRIGCL_SCAN1"),
-    ("footprint_filters_mismatch", "Footprint D_TRIGCL_WD1"),
 }
 
 

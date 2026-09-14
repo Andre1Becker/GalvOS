@@ -77,6 +77,16 @@ class DraftEvidenceTests(unittest.TestCase):
         self.assertEqual(unconnected, 1)
         self.assertEqual(warnings, {"footprint_type_mismatch": 1})
 
+    def test_rejects_resolved_diode_package_warnings(self):
+        for ref in ("D_TRIGCL_SCAN1", "D_TRIGCL_WD1"):
+            with self.subTest(ref=ref):
+                self.report["schematic_parity"] = [{
+                    "severity": "warning", "type": "footprint_filters_mismatch",
+                    "items": [{"description": f"Footprint {ref}"}],
+                }]
+                with self.assertRaises(ValueError):
+                    check(self.report, self.project)
+
     def test_rejects_exclusions(self):
         self.project["board"]["design_settings"]["drc_exclusions"] = ["test exclusion"]
         with self.assertRaises(ValueError):

@@ -1,0 +1,208 @@
+{
+  "version": "hw-v2.0.10-draft",
+  "date": "2026-09-14",
+  "baseline_commit": "d5296757928db13225d147827076c8460646e2ab",
+  "status": "Engineering draft; not for fabrication or laser operation",
+  "selected_part": {
+    "references": [
+      "D_TRIGCL_SCAN1",
+      "D_TRIGCL_WD1"
+    ],
+    "value": "1N4148W",
+    "manufacturer": "Diodes Incorporated",
+    "mpn": "1N4148W-7-F",
+    "datasheet_url": "https://www.diodes.com/assets/Datasheets/ds30086.pdf",
+    "datasheet_revision": "DS30086 Rev. 31-2, September 2024",
+    "datasheet_sha256": "39c16a6888bdab22418e93e17182174aad763a66957a4632e70c944194e3fc08",
+    "footprint": "Diode_SMD:D_SOD-123",
+    "cathode": "pad 1 to respective TRIG",
+    "anode": "pad 2 to MCU/timer power ground"
+  },
+  "artifacts": [
+    {
+      "hash": "1c08ed228b0a761c93492e01701c795e6f5146387c1c72d1870124a35a81882e",
+      "path": "hardware/schematics/Laser Controllerv2_only_for_pcb_test.kicad_sch"
+    },
+    {
+      "hash": "267c312d4451f386fe3bcb2e500c779456d1787064c24c7be033837a4de578ee",
+      "path": "hardware/schematics/Laser Controllerv2_only_for_pcb_test.kicad_pcb"
+    },
+    {
+      "hash": "dc77f4155067018d81c509e667ad67642031a5cf69abe7181144c19c11bd3b1b",
+      "path": "hardware/schematics/Laser Controllerv2_only_for_pcb_test.kicad_pro"
+    },
+    {
+      "hash": "69ac6eecf83626c1c4dd591ac726cfce8af04e48b363cac63b7ebe8827bc1142",
+      "path": "hardware/tests/check_trigger_diodes.py"
+    },
+    {
+      "hash": "65d38f29a8346f12238196c94188736e45230b4e4f63e100ce0df292a8f6ece5",
+      "path": "hardware/tests/test_trigger_diodes.py"
+    },
+    {
+      "hash": "8d57dc31288676b50240744d5d4c29c1e6bd3c097219fa3eb45c1cb92bad0ba2",
+      "path": "hardware/tests/check_pcb_draft.py"
+    },
+    {
+      "hash": "d76ac98616c774c7620532a22e9480c3a7aae781aebd583a59deafdf54acf48c",
+      "path": "hardware/tests/test_pcb_draft.py"
+    }
+  ],
+  "preservation": {
+    "footprints": 122,
+    "unchanged_placements": 122,
+    "unchanged_pads": 400,
+    "unchanged_copper_objects": 1115,
+    "unchanged_zones": 5,
+    "only_changed_pcb_objects": [
+      "revision",
+      "D_TRIGCL_SCAN1",
+      "D_TRIGCL_WD1",
+      "revision"
+    ],
+    "only_changed_schematic_root_objects": 4,
+    "cached_symbol_pin_geometry": "unchanged",
+    "all_wires_and_labels": "byte-identical"
+  },
+  "electrical_delta": {
+    "changed_values": 2,
+    "unchanged_other_values": 120,
+    "unchanged_footprint_assignments": 122,
+    "unchanged_net_memberships": 110
+  },
+  "placed_pads": [
+    {
+      "ref": "D_TRIGCL_SCAN1",
+      "xy": [
+        72,
+        58
+      ],
+      "angle": 0,
+      "pads": [
+        {
+          "number": "1",
+          "net": "/SCAN_TRIG",
+          "xy": [
+            70.35,
+            58
+          ],
+          "size": [
+            0.9,
+            1.2
+          ]
+        },
+        {
+          "number": "2",
+          "net": "5V GND Buck",
+          "xy": [
+            73.65,
+            58
+          ],
+          "size": [
+            0.9,
+            1.2
+          ]
+        }
+      ]
+    },
+    {
+      "ref": "D_TRIGCL_WD1",
+      "xy": [
+        75,
+        92
+      ],
+      "angle": 0,
+      "pads": [
+        {
+          "number": "1",
+          "net": "/WD_TRIG",
+          "xy": [
+            73.35,
+            92
+          ],
+          "size": [
+            0.9,
+            1.2
+          ]
+        },
+        {
+          "number": "2",
+          "net": "5V GND Buck",
+          "xy": [
+            76.65,
+            92
+          ],
+          "size": [
+            0.9,
+            1.2
+          ]
+        }
+      ]
+    }
+  ],
+  "package_fit": {
+    "ideal_centering_only": true,
+    "pad_mm": [
+      0.9,
+      1.2
+    ],
+    "pad_centers_mm": [
+      -1.65,
+      1.65
+    ],
+    "minimum_toe_mm": 0.175,
+    "minimum_heel_mm": 0.175,
+    "minimum_side_mm": 0.29,
+    "not_assembly_yield_proof": true
+  },
+  "verification": {
+    "erc_findings": 0,
+    "drc_errors": 0,
+    "unconnected_items": 0,
+    "schematic_parity_findings": 0,
+    "remaining_warning": "U_BUCK1 footprint_type_mismatch",
+    "interface_checkers": 7,
+    "unit_tests": 41,
+    "dac_source_guard": "pass",
+    "buck_input_guard": "pass",
+    "v209_negative_control": "rejected wrong diode/package",
+    "v209_preservation_comparison": "pass"
+  },
+  "limitations": [
+    "Negative-only clamps do not enforce NE555 maximum trigger voltage.",
+    "Actual clamp current, temperature, timing and power sequencing remain unqualified.",
+    "Package fit is geometric; sourcing, paste/process, joint quality and complete assembly review remain open.",
+    "No laser safety or fabrication release; all previous system-level gates remain open."
+  ],
+  "relocated_staged_verification": {
+    "passed": true,
+    "artifact_hashes": "all match",
+    "interface_checkers": 7,
+    "unit_tests": 41,
+    "v209_delta_comparison": "pass",
+    "erc_findings": 0,
+    "drc_errors": 0,
+    "unconnected_items": 0,
+    "schematic_parity_findings": 0,
+    "remaining_known_warnings": 1,
+    "dac_source_guard": "pass",
+    "buck_input_guard": "pass",
+    "user_owned_untracked_files": "excluded"
+  },
+  "user_scope_decision": {
+    "date": "2026-09-14",
+    "excluded_from_further_work": [
+      "thermal",
+      "load",
+      "timing"
+    ],
+    "status": "Unverified, not passed; retain existing evidence and warnings",
+    "remaining_focus": [
+      "mechanical fit",
+      "BOM/assembly",
+      "manufacturing-data correctness",
+      "remaining safety/interface work"
+    ],
+    "release_approval": false
+  }
+}

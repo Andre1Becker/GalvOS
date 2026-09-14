@@ -1,8 +1,15 @@
 # Current hardware checkpoint
 
-Version/tag: **hw-v2.0.9-draft** (2026-09-14).
+Version/tag: **hw-v2.0.10-draft** (2026-09-14).
 
 **FULLY CONNECTED ROUTING DRAFT — NOT FOR FABRICATION OR LASER OPERATION.**
+
+User scope decision (2026-09-14): thermal, load and timing work is excluded
+from further activity unless requested again. Existing evidence and warnings
+remain recorded; these subjects are **unverified, not passed**. Continue
+mechanical, BOM/assembly, manufacturing-data and remaining safety/interface
+work. The exclusion does not imply a thermal/current/timing guarantee or
+fabrication/laser-operation approval.
 
 ## Artifacts
 
@@ -10,11 +17,13 @@ Paths are relative to `hardware/schematics/`.
 
 | Artifact | State | SHA-256 |
 |---|---|---|
-| `Laser Controllerv2_only_for_pcb_test.kicad_sch` | V2.0.9; 122 components, 110 nets | `ece017aa864600617ff52d5a8e4b437b9000ba650b4c230d1f898bbad325e57e` |
-| `Laser Controllerv2_only_for_pcb_test.kicad_pcb` | Routed v2 engineering draft with five ground zones | `c7c9176f9a606fb30cbd5f8197d4375d622b77b1c3ecf685763daf42b426391f` |
+| `Laser Controllerv2_only_for_pcb_test.kicad_sch` | V2.0.10; 122 components, 110 nets | `1c08ed228b0a761c93492e01701c795e6f5146387c1c72d1870124a35a81882e` |
+| `Laser Controllerv2_only_for_pcb_test.kicad_pcb` | Routed v2 engineering draft with five ground zones | `267c312d4451f386fe3bcb2e500c779456d1787064c24c7be033837a4de578ee` |
 | `Laser Controller.kicad_pcb` | Unchanged historical board; not the v2 layout | `9703ba1bf5343e8a77ab9dbb0781785384c4f238bedc52c1341898d9e9bbf6b2` |
 
 ## Implemented
+
+- V2.0.10 resolves the two trigger-diode package identities using standard 1N4148W symbols and explicit Diodes Incorporated 1N4148W-7-F manufacturer/MPN/assembly fields. SOD-123 geometry, all 122 placements, all 400 pad records, all 1115 copper objects and all 110 electrical nets are unchanged. Only two diode values/identities and metadata change. The negative-only clamps still do not qualify timer-input protection or laser safety. See [package/polarity review](2026-09-14-v2-diode-package.md).
 
 - V2.0.9 moves the four existing 22 ohm DAC source resistors closer to the translator. Source links drop from 6.783–16.095 mm to 2.796–6.352 mm, all on F.Cu without vias. Only four placements and local source/DAC-side routing change; 118 placements and 1084 retained copper objects are exact. All 122 values/footprints and 110 nets remain unchanged. The native source-layout guard and six negative fixtures pass; 40 MHz timing remains unqualified. See [source-layout evidence](2026-09-14-v2-dac-source-layout.md).
 
@@ -48,18 +57,18 @@ KiCad 10.0.6, native all-severity DRC with schematic parity and freshly refilled
 
 - ERC: **0 violations**.
 - PCB: **0 unconnected items**, **0 non-routing errors**, **1 footprint-type warning**.
-- Native schematic-parity section: **2 footprint-filter warnings**, no other mismatches.
+- Native schematic-parity section: **0 findings**. Both diode-filter warnings are resolved by explicit matching SOD-123 part identities, not exclusions.
 - No reported shorts, clearance/courtyard conflicts, undersized tracks, silk collisions, isolated copper or starved thermals.
-- DAC, sensor/tach, fan-power, scan-status, DMX and buck checks pass. The buck checker verifies unchanged net membership and only the input-bypass value change against V2.0.5. The DMX checker also verifies exactly the approved electrical delta against the v2.0.4 netlist.
+- DAC, sensor/tach, fan-power, scan-status, DMX, buck and trigger-diode interface checks pass. The diode checker also verifies only the two approved identity changes against V2.0.9; all electrical net memberships remain identical. Earlier optional baseline comparisons in individual historical reviews apply to their named revisions.
 - Input-layout guard proves the two explicit same-layer connections and unique copper IDs; negative checks reject the old duplicate-ID board and a candidate with the local VIN link removed. Its 8 mm/0.60 mm limits are project-local routing guards, not manufacturer electrical ratings.
-- Draft-evidence guard passes. Thirty-three unit tests cover nine report/rule guards, eight scan-buffer cases, eleven DMX cases and five buck test methods (including five power-pin subcases). A passing draft guard is not a production approval.
+- Draft-evidence guard passes. Forty-one unit tests cover ten report/rule methods, eight scan-buffer cases, eleven DMX cases, five buck methods and seven diode methods (including parameterized cases). Resolved diode warnings are no longer allowed. A passing draft guard is not production approval.
 - Combined front/back copper and the revised module outline/placements were rendered and inspected. Native inspection confirms five filled zones assigned to the intended ground nets. The read-only DAC overlap diagnostic records geometric improvement, not electrical qualification.
-- Export, all six interface checks, thirty-three unit tests, the native input-layout guard, ERC and the same native DRC/parity result were reproduced from a relocated copy of the staged project without untracked user files.
+- Current local verification includes export, seven interface checks, 41 unit tests, both native layout guards, ERC and native DRC/parity. Relocated-copy results are recorded in the current revision's review.
 
-Known warnings remain visible:
+Remaining known warning:
 
 1. `U_BUCK1`: KiCad's type heuristic expects through-hole because the SMD footprint contains plated thermal holes. Qualify the exposed-pad, solder/paste, thermal-hole and assembly construction.
-2. `D_TRIGCL_SCAN1` and `D_TRIGCL_WD1`: SOD-123 footprints conflict with the existing symbols' DO-35 filters. Qualify actual diode MPN/package/polarity before resolving this metadata/BOM mismatch.
+The former D_TRIGCL_SCAN1/D_TRIGCL_WD1 package warnings were resolved in V2.0.10. Reappearance is a failed draft gate; trigger-circuit electrical and safety qualification remains open.
 
 Correction to the v2.0.2 report: its committed project actually retained **0.00 mm** minimum silk clearance, despite the documented 0.10 mm intent. Native save/export operations reset this setting. V2.0.3 explicitly stores and verifies 0.10 mm; the new guard rejects the old/reset value and skipped checks. No findings were excluded.
 
@@ -74,6 +83,7 @@ PYTHONDONTWRITEBYTECODE=1 python hardware/tests/check_dac_interface.py /tmp/galv
 PYTHONDONTWRITEBYTECODE=1 python hardware/tests/check_scan_status.py /tmp/galvos-current.xml
 PYTHONDONTWRITEBYTECODE=1 python hardware/tests/check_dmx_interface.py /tmp/galvos-current.xml
 PYTHONDONTWRITEBYTECODE=1 python hardware/tests/check_buck_interface.py /tmp/galvos-current.xml
+PYTHONDONTWRITEBYTECODE=1 python hardware/tests/check_trigger_diodes.py /tmp/galvos-current.xml
 PYTHONDONTWRITEBYTECODE=1 python -m unittest discover -s hardware/tests -p 'test_*.py'
 kicad-cli sch erc --format json --severity-all --exit-code-violations \
   -o /tmp/galvos-current-erc.json \
@@ -99,7 +109,7 @@ PCB DRC deliberately collects the remaining warnings. Its process exit code alon
 
 ## Release remains blocked by engineering work
 
-Routing connectivity is complete, not production qualification. Review/refine the MCU/DAC return boundary and R26 placement, high-speed paths and timing, buck hot loop/feedback/thermal layout, actual load currents/copper weight, and external interfaces. Antenna/USB keepouts, enclosure/mounting/connectors, BOM/assembly review and independent review are still unqualified.
+Routing connectivity is complete, not production qualification. Continue actual ESP32/header fit, antenna/USB and enclosure/connector mechanics, complete BOM/assembly review, manufacturing-data correctness and independent review. Remaining safety/interface gates include independent Class 4 shutdown/rearm, E-stop/override behavior, RGB reset-off drive, scan-fail limitations, external interface protection and physical safety qualification. Thermal, load/current-capacity and timing findings remain unverified but are excluded from further work by explicit user request; do not treat that exclusion as evidence of compliance. V1 perfboard operation does not qualify v2 fault safety. No Gerbers have been generated.
 
 Existing circuit gates remain: independent Class 4 shutdown/rearm, E-stop/override behavior, RGB reset-off drive, DMX module/receiver/cable qualification and fan PWM contracts, analog output range, scan-fail limitations and full buffer/timer qualification, buck ratings and input protection. Physical testing is required. V1 perfboard operation does not qualify v2 or fault safety. No Gerbers were generated.
 
