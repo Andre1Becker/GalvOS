@@ -1,5 +1,42 @@
 # GalvOS production PCB work log
 
+## Latest review: shutdown boundary, hardware unchanged (2026-09-14)
+
+- Previous response was a status-only checkpoint, not implementation progress.
+  Revalidated the worktree and remote: main and peeled hw-v2.0.7-draft both
+  point to b4385e3a3fff1313cbd545e9392028e87c34ad1a.
+- Completed the previously missing [shutdown-boundary review](hardware/reviews/2026-09-14-shutdown-boundary.md)
+  and corrected four manual/README sections that overstated firmware-independent
+  E-stop, reset-OFF, galvanic isolation and actual mirror-motion protection.
+- Fresh V2 netlist export confirms J_ESTOP1 reaches GPIO47 only; GPIO38 controls
+  U_WD1 reset, and its output reaches J_SSR1 through 330 ohm. External switching,
+  key/enclosure contacts, shutter and mirror feedback remain unidentified.
+- Preserved a dated [host diagnostic probe](hardware/reviews/2026-09-14-shutdown-probe.cpp).
+  Source comparison proves allOk(), emergencyStop() and the E-stop sampling
+  expression match the audited firmware. C++17 compilation with strict warnings
+  and all assertions pass. These assertions reproduce unsafe baseline behavior;
+  they are not a production/safety acceptance test or a complete firmware build.
+- Each of four status faults blocks enable without override but is bypassed
+  with override and ARM true. emergencyStop() immediately lowers GPIO38 in both
+  modes, but override retains ARM and permits the next enable decision.
+  Additional evidence: status recovery can permit re-enable without a new ARM
+  action even with override disabled; the task's status path does not latch
+  a trip. HIGH/open E-stop is accepted. Thermal alert/critical separately
+  clears ARM, including with override; do not conflate those paths.
+- Hardware/project and audited firmware SHA-256 values match V2.0.7. No
+  schematic, PCB, firmware or KiBot change; no new hardware version or Gerbers.
+  User-owned untracked agents.md remains untouched and excluded from staging.
+- All 23 added/review Markdown links resolve; the existing safety-section
+  anchor is preserved and git diff --check passes. Full ERC/DRC was not rerun
+  for this review because the design artifacts are byte-identical to V2.0.7.
+  Review tag target: hw-v2.0.7-safety-review (not a hardware release).
+- Next architecture input: external independent shutdown wiring/photo and
+  exact SSR/power-switch model, or confirmation that no such circuit exists.
+  Do not silently assume a safety architecture. Current routing draft remains
+  unapproved for fabrication/operation; load, mechanical, thermal/EMC, interface
+  and independent-review gates remain open. Overall goal stays active.
+
+
 ## Latest checkpoint: V2.0.7 local buck input capacitor (2026-09-14)
 
 - Previous goal turn made progress: V2.0.6 was committed/pushed as `5cde493`;

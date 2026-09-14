@@ -418,7 +418,7 @@ A Node.js command that parses a JavaScript file for syntax errors without execut
 A declaration by the manufacturer that a product meets applicable EU directives (safety, EMC, etc.). Modifying the hardware voids the original CE marking. The modified device is no longer CE-marked and cannot legally be placed on the EU market as a consumer product.
 
 **E-Stop (Emergency Stop)**
-A hardware safety switch that immediately cuts the laser power rail when pressed, regardless of firmware state. Connected to GPIO47 (PIN_ESTOP) via a 10 kΩ pull-up resistor. Normally open = safe; switch press shorts to GND = E-Stop active. One of the five conditions that must be satisfied to ARM the laser.
+An emergency-stop function must inhibit hazardous emission through a qualified safety path. In the current V2 schematic, J_ESTOP1 is only a GPIO47 status input; firmware enables its pull-up and accepts HIGH/open as OK. That does not prove wire-break detection or shutdown independent of firmware. The external shutdown circuit remains to be identified; see the [shutdown-boundary review](../hardware/reviews/2026-09-14-shutdown-boundary.md).
 
 **IEC 60825-1**
 The international standard for laser product safety classification and labelling. Defines the laser hazard classes (1, 1M, 2, 2M, 3R, 3B, 4). The Mikoy 5W falls in Class 3B or 4 depending on configuration. Compliance is required for commercial laser products in most jurisdictions.
@@ -427,7 +427,7 @@ The international standard for laser product safety classification and labelling
 The maximum laser power or energy density that the eye or skin can be exposed to without damage, as defined in IEC 60825-1 and ANSI Z136.1. Used to calculate minimum safe distances and required OD for protective eyewear.
 
 **Scan-fail safety**
-A hardware interlock that detects whether the galvo mirrors are actually scanning. In GalvOS, the NE555 (U11) is triggered by AC-coupled activity on the DAC VOUTA output. If the galvos stop moving (firmware hang, DAC failure), the NE555 times out and the safety system disarms the laser. This prevents the stationary beam from burning a spot.
+A scan-safety function requires evidence of actual mirror motion and a qualified emission-inhibit path. GalvOS V2 currently monitors electrical scan-command activity with U_SCAN1; command activity does not prove mirror movement. The present circuit must not be claimed to detect a mechanically stalled mirror or guarantee stationary-beam protection.
 
 ---
 

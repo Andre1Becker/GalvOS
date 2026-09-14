@@ -363,7 +363,7 @@ If the ESP32 crashes with a Guru Meditation error, the serial monitor prints a b
 ### `task_wdt` reset while loading a big ILDA file
 
 **Cause:** a genuinely slow card. Real SD cards can stall a single read for seconds during internal housekeeping, and a large file means many of those reads.  
-**Fix:** loads yield on a wall-clock schedule and the task watchdog timeout is 15 s to accommodate such stalls, so a healthy card should not trip this — one that still does is failing or too slow (use Class 10 UHS-I). The longer timeout does **not** weaken any laser interlock: the safety and DMX tasks outrank anything that can block on SD, and the NE555 hardware chain doesn't involve software at all.
+**Fix:** loads yield on a wall-clock schedule and the task watchdog timeout is 15 s to accommodate such stalls, so a healthy card should not trip this — one that still does is failing or too slow (use Class 10 UHS-I). This task-watchdog timeout is a software recovery setting, not a qualified maximum laser-shutdown time. In the current V2 design, E-stop status is evaluated by firmware and GPIO38 controls the NE555 reset input; firmware-independent shutdown has not been established. See the [shutdown-boundary review](../hardware/reviews/2026-09-14-shutdown-boundary.md).
 
 ### ILDA playback stops by itself after a moment
 

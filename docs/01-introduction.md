@@ -93,7 +93,7 @@ Depending on your jurisdiction, operating a Class IIIB or Class IV laser device 
 
 ### The Built-In Safety Chain
 
-GalvOS includes multiple layers of hardware and software safety (described in detail in [Safety Interlock Chain](#safety-interlock-chain)), but these are engineering safeguards — they are not a substitute for physical safety discipline and appropriate protective equipment.
+GalvOS includes hardware and software monitoring functions, but the current V2 PCB is **not approved for fabrication or laser operation**. An independent, default-off shutdown path has not been established by the available design evidence. See [Safety Interlock Chain](#safety-interlock-chain) and the [current hardware checkpoint](../hardware/reviews/CURRENT-HARDWARE.md); neither a green UI status nor a passing ERC/DRC is a safety qualification.
 
 ---
 
@@ -218,24 +218,25 @@ Pattern Engine
   → MN-1W5AT laser driver (active-HIGH: HIGH = laser on)
 ```
 
-Note the logic inversion through the 6N137: a **high GPIO duty cycle = more time LOW at the optocoupler output = more time laser ON**. This is transparent to the firmware — `rgbWrite()` handles the inversion internally.
+With adequate LED drive, the 6N137 inverts the GPIO signal: **GPIO HIGH → optocoupler output LOW → laser TTL OFF** for the stated active-HIGH driver. More time HIGH at the GPIO therefore means more time OFF, not ON. `rgbWrite()` handles the intended inversion; actual driver thresholds and fault states still require qualification.
 
-**Fail-safe pull-ups:** GPIO 7, 8, and 21 each have a 10 kΩ pull-up resistor to +3.3V (R_FSR, R_FSG, R_FSB). On boot, before firmware configures the LEDC PWM, the GPIOs float high. This drives the 6N137 LEDs off, which pulls the optocoupler outputs to 1.65V (HIGH), which means **laser ON at boot** — which sounds alarming. The laser driver's own enable line (PIN_LASER_ENABLE / GPIO38) must be LOW for the laser power rail to be off. The safety system holds this LOW until all interlock conditions are satisfied. The pull-ups prevent the laser TTL signals from floating to an indeterminate state if firmware crashes mid-operation.
+**Reset-state limitation:** The 10 kΩ GPIO pull-ups bias the inputs in the intended OFF direction, but cannot guarantee enough 6N137 LED current to hold the outputs LOW. Do not infer a defined laser-OFF state during reset, brownout or partial power from these resistors. GPIO38 is configured LOW by firmware initialization; that is not proof of a hardware-enforced OFF state before initialization or during a fault. The V2 RGB optocouplers also share power ground on both sides, so their presence does not establish galvanic isolation.
 
 ---
 
 ## Safety Interlock Chain
 
-The laser power rail is controlled by a solid-state relay (SSR1). The relay is energized — and the laser capable of firing — **only when all of the following conditions are simultaneously true:**
+The intended system must inhibit emission independently of application software and must not automatically re-arm after a safety trip. The current V2 schematic and firmware do not prove those properties. The actual external SSR/power-switch circuit, any key/enclosure interlock chain and mirror feedback still need to be identified and qualified.
 
-1. **E-Stop not pressed** — J_ESTOP open (pulled high via R_ESTOP 10 kΩ), GPIO47 reads HIGH.
-2. **Scan-fail OK** — NE555 (U11) scan-fail timer has been recently triggered by DAC activity on VOUTA. If the galvo stops scanning, the NE555 times out and reports a fault.
-3. **Hardware watchdog OK** — NE555 (U12) watchdog has been recently retriggered by a heartbeat pulse on GPIO14. If firmware stops running, the watchdog times out and drops the relay.
-4. **Software arm** — user has explicitly armed the system via the WebUI. Firmware sets GPIO38 (PIN_LASER_ENABLE) HIGH only after all safety checks pass.
-5. **Thermal OK** — no temperature sensor has exceeded the shutdown threshold (default 70°C).
+Current implementation:
 
-If any condition fails, GPIO38 goes LOW, the SSR drops out, and the laser power rail is cut. Hardware conditions (E-Stop, watchdog) are enforced even if firmware is hung or crashed.
+1. **E-stop status:** J_ESTOP1.1 reaches GPIO47 only. Firmware enables the GPIO pull-up and currently accepts HIGH/open as OK; a broken/open wire is therefore not diagnosed as a trip by that input rule. No direct E-stop-to-SSR gate is shown in V2.
+2. **Scan-command activity:** U_SCAN1 monitors electrical command activity, not measured mirror position. Its status reaches GPIO39 through the V2 input buffer. This is not proof that a mirror is moving or that a stalled mirror will be detected.
+3. **Watchdog output:** U_WD1 drives J_SSR1 through a 330 Ω resistor. GPIO38 controls the timer's reset input; GPIO14 provides its trigger activity. Trigger margins, timeout/fault behavior and the actual external switch remain unqualified.
+4. **Software arm:** With `safety_override` disabled, `allOk()` combines E-stop status, scan status, software watchdog, subsystem health and the ARM request. The task's status-fault path does not clear ARM, so recovery can request enable again without a new ARM action. With override enabled, `allOk()` returns the ARM request alone and bypasses those status checks. In that mode, `emergencyStop()` lowers GPIO38 immediately but retains the ARM request, allowing the next decision to request enable again.
+5. **Temperature:** The monitor explicitly clears the ARM request on alert/critical conditions. That remains a software action, not an independently qualified thermal cutout.
 
+Do not treat this as a firmware-independent safety chain or assume that J_SSR1 alone proves laser-energy removal. The [shutdown-boundary review](../hardware/reviews/2026-09-14-shutdown-boundary.md) records current evidence and the information required before a safety redesign. Keep laser emission physically inhibited during bring-up.
 The `safety::lastFailsafeReason()` function stores the reason for the last shutdown in RTC memory, which survives `esp_restart()` — so you can read it in the serial log after a reset.
 
 ---

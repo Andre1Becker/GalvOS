@@ -23,7 +23,7 @@ The origin story: the stock firmware couldn't dim the laser — it was full-brig
 - ILDA file playback from SD card
 - Per-point laser modulation with full RGB PWM control
 - BPM-synced show engine: global tempo clock (Tap/DMX/Manual), preset sequencer, and an 8-slot modulation matrix (LFO/Noise/Envelope/Step-Sequencer → any live pattern parameter)
-- Hardware safety interlocks (scan-fail detection, watchdog, E-Stop, opto-isolated TTL)
+- Watchdog, scan-command activity and E-stop interfaces — [safety qualification remains open](hardware/reviews/2026-09-14-shutdown-boundary.md)
 - Point optimizer pipeline with adaptive density, S-curve blanking, and ringing compensation
 - Camera-in-the-loop auto-tuning of optimizer parameters via a companion Python tool (see [Chapter 6](docs/06-camera-autotuning.md))
 - Community Presets — browse, download, and activate GitHub-hosted preset bundles straight from the WebUI
