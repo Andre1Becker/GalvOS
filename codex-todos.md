@@ -286,3 +286,40 @@ versioned in Git. The pre-existing untracked `agents.md` belongs to the user.
   No matched v2 PCB or measured qualification evidence has been supplied.
 - The production-ready PCB objective is unchanged and unachieved. Blocked
   status is an input checkpoint, not a hardware release or abandoned scope.
+
+## 2026-09-14 — approved sensor/fan corrections; V2.0.1 draft checkpoint
+
+- User explicitly approved both bounded corrections, removing their approval
+  blocker. Resumed work is **progress**; the wider production objective remains
+  unachieved. User subsequently authorized intermediate commits and pushes of
+  the schematic/PCB current state. No push was authorized before that request.
+- U6..U10 now represent generic three-pin connectors, with correct connector
+  values/descriptions and no misleading TO-92 sensor datasheet. References,
+  pin numbers/UUIDs, JST footprints and electrical connections were preserved.
+- Corrected FAN1_TACH to GPIO2 and FAN2_TACH to GPIO9 by swapping only the
+  MCU-side labels. Improved those labels' placement; PWM and pull-ups unchanged.
+- Added `hardware/tests/check_sensor_fan_interfaces.py`. It failed against the
+  pre-correction export for both defects before schematic edits, then passed
+  on the corrected export including the exact allowed-change baseline check.
+- Negative checks reject sensor-symbol regression, sensor power/ground swap,
+  the original tach swap, unrelated PWM swap and the unchanged old design.
+  A list-versus-set bug in the new preservation check was corrected after an
+  independent set-difference check confirmed no unexpected connectivity changes.
+- Rendered and inspected the sensor region and MCU tach labels. Relocated
+  connector value text below the buses to avoid crossing wires.
+- Fresh corrected export: 116 components / 104 nets. ERC: zero violations at
+  all severities; new interface checker and unchanged DAC checker pass.
+- Repeated export/ERC and both checkers in a relocated archive of the staged
+  project: passed, including exact sensor/fan baseline preservation. Source
+  block comparison confirms only the title, embedded connector definition,
+  five instances, two labels and fifteen added wire segments changed.
+- Independent read-only review found no critical, important or minor issues
+  in the approved change; confirmed original pin UUIDs and unchanged PCB.
+- Version/tag target: `hw-v2.0.1-draft`; schematic title explicitly remains
+  NOT FOR FABRICATION. [Current hardware checkpoint](hardware/reviews/CURRENT-HARDWARE.md)
+  records hashes and reproduction commands for both tracked design artifacts.
+- The existing PCB is unchanged and still not a v2 implementation. It is
+  included as historical state in the Git snapshot, not falsely relabeled as
+  an updated PCB. No new Gerbers, PCB release or firmware version produced.
+- Power/safety/external-module/mechanical inputs and physical qualification
+  still govern the next substantial PCB-design work.

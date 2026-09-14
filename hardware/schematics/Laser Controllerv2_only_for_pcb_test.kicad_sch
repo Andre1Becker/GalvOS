@@ -7,7 +7,7 @@
 	(title_block
 		(title "GalvOS ESP32 Laser Controller - V2 engineering review")
 		(date "2026-09-14")
-		(rev "DRAFT - NOT FOR FABRICATION")
+		(rev "V2.0.1 DRAFT - NOT FOR FABRICATION")
 	)
 	(lib_symbols
 		(symbol "Logic_LevelTranslator:SN74LVC8T245"
@@ -6483,14 +6483,18 @@
 			)
 			(embedded_fonts no)
 		)
-		(symbol "Sensor_Temperature:DS18B20"
+		(symbol "Connector_Generic:Conn_01x03"
+			(pin_names
+				(offset 1.016)
+				(hide yes)
+			)
 			(exclude_from_sim no)
 			(in_bom yes)
 			(on_board yes)
 			(in_pos_files yes)
 			(duplicate_pin_numbers_are_jumpers no)
-			(property "Reference" "U"
-				(at -3.81 6.35 0)
+			(property "Reference" "J"
+				(at 0 5.08 0)
 				(show_name no)
 				(do_not_autoplace no)
 				(effects
@@ -6499,8 +6503,8 @@
 					)
 				)
 			)
-			(property "Value" "DS18B20"
-				(at 6.35 6.35 0)
+			(property "Value" "Conn_01x03"
+				(at 0 -5.08 0)
 				(show_name no)
 				(do_not_autoplace no)
 				(effects
@@ -6509,29 +6513,7 @@
 					)
 				)
 			)
-			(property "Footprint" "Package_TO_SOT_THT:TO-92_Inline"
-				(at -25.4 -6.35 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Datasheet" "http://datasheets.maximintegrated.com/en/ds/DS18B20.pdf"
-				(at -3.81 6.35 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Description" "Programmable Resolution 1-Wire Digital Thermometer TO-92"
+			(property "Footprint" ""
 				(at 0 0 0)
 				(show_name no)
 				(do_not_autoplace no)
@@ -6542,7 +6524,7 @@
 					)
 				)
 			)
-			(property "ki_keywords" "OneWire 1Wire Dallas Maxim"
+			(property "Datasheet" ""
 				(at 0 0 0)
 				(show_name no)
 				(do_not_autoplace no)
@@ -6553,7 +6535,7 @@
 					)
 				)
 			)
-			(property "ki_fp_filters" "TO*92*"
+			(property "Description" "Generic connector, single row, 01x03, script generated (kicad-library-utils/schlib/autogen/connector/)"
 				(at 0 0 0)
 				(show_name no)
 				(do_not_autoplace no)
@@ -6564,10 +6546,32 @@
 					)
 				)
 			)
-			(symbol "DS18B20_0_1"
+			(property "ki_keywords" "connector"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "ki_fp_filters" "Connector*:*_1x??_*"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "Conn_01x03_1_1"
 				(rectangle
-					(start -5.08 5.08)
-					(end 5.08 -5.08)
+					(start -1.27 3.81)
+					(end 1.27 -3.81)
 					(stroke
 						(width 0.254)
 						(type default)
@@ -6576,107 +6580,11 @@
 						(type background)
 					)
 				)
-				(polyline
-					(pts
-						(xy -3.937 3.175) (xy -3.937 0)
-					)
+				(rectangle
+					(start -1.27 2.667)
+					(end 0 2.413)
 					(stroke
-						(width 0.254)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(polyline
-					(pts
-						(xy -3.937 3.175) (xy -3.302 3.175)
-					)
-					(stroke
-						(width 0.254)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(polyline
-					(pts
-						(xy -3.937 2.54) (xy -3.302 2.54)
-					)
-					(stroke
-						(width 0.254)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(polyline
-					(pts
-						(xy -3.937 1.905) (xy -3.302 1.905)
-					)
-					(stroke
-						(width 0.254)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(polyline
-					(pts
-						(xy -3.937 1.27) (xy -3.302 1.27)
-					)
-					(stroke
-						(width 0.254)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(polyline
-					(pts
-						(xy -3.937 0.635) (xy -3.302 0.635)
-					)
-					(stroke
-						(width 0.254)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(arc
-					(start -3.937 3.175)
-					(mid -3.302 3.8073)
-					(end -2.667 3.175)
-					(stroke
-						(width 0.254)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(circle
-					(center -3.302 -2.54)
-					(radius 1.27)
-					(stroke
-						(width 0.254)
-						(type default)
-					)
-					(fill
-						(type outline)
-					)
-				)
-				(polyline
-					(pts
-						(xy -2.667 3.175) (xy -2.667 0)
-					)
-					(stroke
-						(width 0.254)
+						(width 0.1524)
 						(type default)
 					)
 					(fill
@@ -6684,22 +6592,31 @@
 					)
 				)
 				(rectangle
-					(start -2.667 -1.905)
-					(end -3.937 0)
+					(start -1.27 0.127)
+					(end 0 -0.127)
 					(stroke
-						(width 0.254)
+						(width 0.1524)
 						(type default)
 					)
 					(fill
-						(type outline)
+						(type none)
 					)
 				)
-			)
-			(symbol "DS18B20_1_1"
-				(pin power_in line
-					(at 0 -7.62 90)
-					(length 2.54)
-					(name "GND"
+				(rectangle
+					(start -1.27 -2.413)
+					(end 0 -2.667)
+					(stroke
+						(width 0.1524)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(pin passive line
+					(at -5.08 2.54 0)
+					(length 3.81)
+					(name "Pin_1"
 						(effects
 							(font
 								(size 1.27 1.27)
@@ -6714,10 +6631,10 @@
 						)
 					)
 				)
-				(pin bidirectional line
-					(at 7.62 0 180)
-					(length 2.54)
-					(name "DQ"
+				(pin passive line
+					(at -5.08 0 0)
+					(length 3.81)
+					(name "Pin_2"
 						(effects
 							(font
 								(size 1.27 1.27)
@@ -6732,10 +6649,10 @@
 						)
 					)
 				)
-				(pin power_in line
-					(at 0 7.62 270)
-					(length 2.54)
-					(name "V_{DD}"
+				(pin passive line
+					(at -5.08 -2.54 0)
+					(length 3.81)
+					(name "Pin_3"
 						(effects
 							(font
 								(size 1.27 1.27)
@@ -13204,13 +13121,13 @@
 		)
 		(uuid "5f3feb7c-87dd-4ea0-8e6c-f1d144ffc346")
 	)
-	(label "FAN1_TACH"
-		(at 236.22 237.49 0)
+	(label "FAN2_TACH"
+		(at 236.22 237.49 180)
 		(effects
 			(font
-				(size 1.27 1.27)
+				(size 1 1)
 			)
-			(justify left)
+			(justify right bottom)
 		)
 		(uuid "65e7e39a-fdc9-4d48-9239-bc6944f52c43")
 	)
@@ -13464,13 +13381,13 @@
 		)
 		(uuid "946d7ef2-12a4-46d8-8595-b09087934ad6")
 	)
-	(label "FAN2_TACH"
-		(at 281.94 212.09 180)
+	(label "FAN1_TACH"
+		(at 281.94 212.09 0)
 		(effects
 			(font
 				(size 1.27 1.27)
 			)
-			(justify right)
+			(justify left bottom)
 		)
 		(uuid "955e825e-008d-4bd7-9437-ee8076a5c734")
 	)
@@ -14014,6 +13931,82 @@
 		)
 		(uuid "ff96a974-6fd6-4e54-9eec-3a36607dc4a3")
 	)
+	(wire
+		(pts (xy 365.76 304.8) (xy 365.76 309.88))
+		(stroke (width 0) (type default))
+		(uuid "c8c4c692-d121-40a5-b642-4ebe2b023053")
+	)
+	(wire
+		(pts (xy 365.76 302.26) (xy 373.38 302.26))
+		(stroke (width 0) (type default))
+		(uuid "bec35416-e532-448b-9ca1-a7682662faff")
+	)
+	(wire
+		(pts (xy 365.76 299.72) (xy 365.76 294.64))
+		(stroke (width 0) (type default))
+		(uuid "e72b8f47-fb40-4885-b279-6b888daad285")
+	)
+	(wire
+		(pts (xy 391.16 303.53) (xy 391.16 308.61))
+		(stroke (width 0) (type default))
+		(uuid "152fe578-3f3b-4c4d-8253-06da47eee6aa")
+	)
+	(wire
+		(pts (xy 391.16 300.99) (xy 398.78 300.99))
+		(stroke (width 0) (type default))
+		(uuid "70749750-3cdb-465a-a209-ddea67635d49")
+	)
+	(wire
+		(pts (xy 391.16 298.45) (xy 391.16 293.37))
+		(stroke (width 0) (type default))
+		(uuid "646a2d49-01bc-4f66-a2fe-92a34a1ef29d")
+	)
+	(wire
+		(pts (xy 416.56 303.53) (xy 416.56 308.61))
+		(stroke (width 0) (type default))
+		(uuid "54f3e696-dfd0-4a5f-b737-a9e621b46ac8")
+	)
+	(wire
+		(pts (xy 416.56 300.99) (xy 424.18 300.99))
+		(stroke (width 0) (type default))
+		(uuid "ef58187b-ee63-4b10-aff1-1d6f817d1277")
+	)
+	(wire
+		(pts (xy 416.56 298.45) (xy 416.56 293.37))
+		(stroke (width 0) (type default))
+		(uuid "b2beeaf1-68a4-4c61-aa8b-b4faa7bf1122")
+	)
+	(wire
+		(pts (xy 443.23 303.53) (xy 443.23 308.61))
+		(stroke (width 0) (type default))
+		(uuid "b0c1cf06-0468-4378-9118-b3c2c5b2a656")
+	)
+	(wire
+		(pts (xy 443.23 300.99) (xy 450.85 300.99))
+		(stroke (width 0) (type default))
+		(uuid "84e3acca-461f-4715-a42d-eac96f32d74a")
+	)
+	(wire
+		(pts (xy 443.23 298.45) (xy 443.23 293.37))
+		(stroke (width 0) (type default))
+		(uuid "652e77dd-17f8-4c5c-8e80-ff63b8a7ab5b")
+	)
+	(wire
+		(pts (xy 468.63 302.26) (xy 468.63 307.34))
+		(stroke (width 0) (type default))
+		(uuid "03f898c1-6943-46e4-a7fd-9380115a94c2")
+	)
+	(wire
+		(pts (xy 468.63 299.72) (xy 476.25 299.72))
+		(stroke (width 0) (type default))
+		(uuid "fbd2852b-2951-449b-952d-2733aabc6f82")
+	)
+	(wire
+		(pts (xy 468.63 297.18) (xy 468.63 292.1))
+		(stroke (width 0) (type default))
+		(uuid "708d8d53-a24c-4c98-ae7c-00c122e220ed")
+	)
+
 	(symbol
 		(lib_id "power:GNDA")
 		(at 177.8 105.41 270)
@@ -14656,8 +14649,8 @@
 		)
 	)
 	(symbol
-		(lib_id "Sensor_Temperature:DS18B20")
-		(at 416.56 300.99 0)
+		(lib_id "Connector_Generic:Conn_01x03")
+		(at 411.48 300.99 180)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -14668,26 +14661,12 @@
 		(fields_autoplaced yes)
 		(uuid "0eac84e2-fd74-4bca-970e-2854b634be0d")
 		(property "Reference" "U8"
-			(at 416.56 290.83 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
-			)
+			(at 411.48 295.91 0)
+			(effects (font (size 1.27 1.27)))
 		)
-		(property "Value" "DS18B20"
-			(at 416.56 289.56 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
-			)
+		(property "Value" "DS18B20 connector"
+			(at 416.56 317.5 0)
+			(effects (font (size 1.27 1.27)))
 		)
 		(property "Footprint" "Connector_JST:JST_XH_B3B-XH-A_1x03_P2.50mm_Vertical"
 			(at 391.16 307.34 0)
@@ -14700,27 +14679,15 @@
 				)
 			)
 		)
-		(property "Datasheet" "http://datasheets.maximintegrated.com/en/ds/DS18B20.pdf"
-			(at 412.75 294.64 0)
+		(property "Datasheet" ""
+			(at 411.48 300.99 0)
 			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
+			(effects (font (size 1.27 1.27)))
 		)
-		(property "Description" "Programmable Resolution 1-Wire Digital Thermometer TO-92"
-			(at 416.56 300.99 0)
+		(property "Description" "External DS18B20 probe connector: 1=GND, 2=DATA, 3=+3V3"
+			(at 411.48 300.99 0)
 			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
+			(effects (font (size 1.27 1.27)))
 		)
 		(pin "2"
 			(uuid "a8620806-a771-421e-a2e3-c07483034845")
@@ -16184,8 +16151,8 @@
 		)
 	)
 	(symbol
-		(lib_id "Sensor_Temperature:DS18B20")
-		(at 468.63 299.72 0)
+		(lib_id "Connector_Generic:Conn_01x03")
+		(at 463.55 299.72 180)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -16196,26 +16163,12 @@
 		(fields_autoplaced yes)
 		(uuid "3018b739-855d-4f9b-91e0-9d02d2c36346")
 		(property "Reference" "U10"
-			(at 468.63 289.56 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
-			)
+			(at 463.55 294.64 0)
+			(effects (font (size 1.27 1.27)))
 		)
-		(property "Value" "DS18B20"
-			(at 468.63 288.29 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
-			)
+		(property "Value" "DS18B20 connector"
+			(at 468.63 317.5 0)
+			(effects (font (size 1.27 1.27)))
 		)
 		(property "Footprint" "Connector_JST:JST_XH_B3B-XH-A_1x03_P2.50mm_Vertical"
 			(at 443.23 306.07 0)
@@ -16228,27 +16181,15 @@
 				)
 			)
 		)
-		(property "Datasheet" "http://datasheets.maximintegrated.com/en/ds/DS18B20.pdf"
-			(at 464.82 293.37 0)
+		(property "Datasheet" ""
+			(at 463.55 299.72 0)
 			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
+			(effects (font (size 1.27 1.27)))
 		)
-		(property "Description" "Programmable Resolution 1-Wire Digital Thermometer TO-92"
-			(at 468.63 299.72 0)
+		(property "Description" "External DS18B20 probe connector: 1=GND, 2=DATA, 3=+3V3"
+			(at 463.55 299.72 0)
 			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
+			(effects (font (size 1.27 1.27)))
 		)
 		(pin "3"
 			(uuid "9feb251f-c6b9-449c-9ebd-a610837ea502")
@@ -17659,8 +17600,8 @@
 		)
 	)
 	(symbol
-		(lib_id "Sensor_Temperature:DS18B20")
-		(at 443.23 300.99 0)
+		(lib_id "Connector_Generic:Conn_01x03")
+		(at 438.15 300.99 180)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -17671,26 +17612,12 @@
 		(fields_autoplaced yes)
 		(uuid "5003e2e9-2265-4079-b1d7-197ddfda943f")
 		(property "Reference" "U9"
-			(at 443.23 290.83 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
-			)
+			(at 438.15 295.91 0)
+			(effects (font (size 1.27 1.27)))
 		)
-		(property "Value" "DS18B20"
-			(at 443.23 289.56 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
-			)
+		(property "Value" "DS18B20 connector"
+			(at 443.23 317.5 0)
+			(effects (font (size 1.27 1.27)))
 		)
 		(property "Footprint" "Connector_JST:JST_XH_B3B-XH-A_1x03_P2.50mm_Vertical"
 			(at 417.83 307.34 0)
@@ -17703,27 +17630,15 @@
 				)
 			)
 		)
-		(property "Datasheet" "http://datasheets.maximintegrated.com/en/ds/DS18B20.pdf"
-			(at 439.42 294.64 0)
+		(property "Datasheet" ""
+			(at 438.15 300.99 0)
 			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
+			(effects (font (size 1.27 1.27)))
 		)
-		(property "Description" "Programmable Resolution 1-Wire Digital Thermometer TO-92"
-			(at 443.23 300.99 0)
+		(property "Description" "External DS18B20 probe connector: 1=GND, 2=DATA, 3=+3V3"
+			(at 438.15 300.99 0)
 			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
+			(effects (font (size 1.27 1.27)))
 		)
 		(pin "2"
 			(uuid "fa2bbf60-db68-4f7a-942b-8f97ddf6ae17")
@@ -20197,8 +20112,8 @@
 		)
 	)
 	(symbol
-		(lib_id "Sensor_Temperature:DS18B20")
-		(at 391.16 300.99 0)
+		(lib_id "Connector_Generic:Conn_01x03")
+		(at 386.08 300.99 180)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -20209,26 +20124,12 @@
 		(fields_autoplaced yes)
 		(uuid "8c80053b-ef35-451b-8dc6-9b5eb6336b55")
 		(property "Reference" "U7"
-			(at 391.16 290.83 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
-			)
+			(at 386.08 295.91 0)
+			(effects (font (size 1.27 1.27)))
 		)
-		(property "Value" "DS18B20"
-			(at 391.16 289.56 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
-			)
+		(property "Value" "DS18B20 connector"
+			(at 391.16 317.5 0)
+			(effects (font (size 1.27 1.27)))
 		)
 		(property "Footprint" "Connector_JST:JST_XH_B3B-XH-A_1x03_P2.50mm_Vertical"
 			(at 365.76 307.34 0)
@@ -20241,27 +20142,15 @@
 				)
 			)
 		)
-		(property "Datasheet" "http://datasheets.maximintegrated.com/en/ds/DS18B20.pdf"
-			(at 387.35 294.64 0)
+		(property "Datasheet" ""
+			(at 386.08 300.99 0)
 			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
+			(effects (font (size 1.27 1.27)))
 		)
-		(property "Description" "Programmable Resolution 1-Wire Digital Thermometer TO-92"
-			(at 391.16 300.99 0)
+		(property "Description" "External DS18B20 probe connector: 1=GND, 2=DATA, 3=+3V3"
+			(at 386.08 300.99 0)
 			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
+			(effects (font (size 1.27 1.27)))
 		)
 		(pin "3"
 			(uuid "7aa65761-8e4d-4ddb-a105-0bd6190b6362")
@@ -22181,8 +22070,8 @@
 		)
 	)
 	(symbol
-		(lib_id "Sensor_Temperature:DS18B20")
-		(at 365.76 302.26 0)
+		(lib_id "Connector_Generic:Conn_01x03")
+		(at 360.68 302.26 180)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -22193,26 +22082,12 @@
 		(fields_autoplaced yes)
 		(uuid "afafd26f-a4eb-4c89-8afe-5565a4b3f592")
 		(property "Reference" "U6"
-			(at 365.76 292.1 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
-			)
+			(at 360.68 297.18 0)
+			(effects (font (size 1.27 1.27)))
 		)
-		(property "Value" "DS18B20"
-			(at 365.76 290.83000000000004 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
-			)
+		(property "Value" "DS18B20 connector"
+			(at 365.76 317.5 0)
+			(effects (font (size 1.27 1.27)))
 		)
 		(property "Footprint" "Connector_JST:JST_XH_B3B-XH-A_1x03_P2.50mm_Vertical"
 			(at 340.36 308.61 0)
@@ -22225,27 +22100,15 @@
 				)
 			)
 		)
-		(property "Datasheet" "http://datasheets.maximintegrated.com/en/ds/DS18B20.pdf"
-			(at 361.95 295.91 0)
+		(property "Datasheet" ""
+			(at 360.68 302.26 0)
 			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
+			(effects (font (size 1.27 1.27)))
 		)
-		(property "Description" "Programmable Resolution 1-Wire Digital Thermometer TO-92"
-			(at 365.76 302.26 0)
+		(property "Description" "External DS18B20 probe connector: 1=GND, 2=DATA, 3=+3V3"
+			(at 360.68 302.26 0)
 			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
+			(effects (font (size 1.27 1.27)))
 		)
 		(pin "3"
 			(uuid "a28eca24-af2f-48ed-a787-ffe949ce44d7")

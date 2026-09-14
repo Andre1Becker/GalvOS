@@ -1,5 +1,9 @@
 # v2 external-interface audit — 2026-09-14
 
+Follow-up: the two tach destinations below were approved and corrected in
+[hw-v2.0.1-draft](CURRENT-HARDWARE.md). The historical mismatch is retained
+here as evidence; the wider electrical/safety gates remain unresolved.
+
 **NOT RELEASED FOR MANUFACTURE.** Source commit `40585b3`. This review
 compares the current schematic export with actual definitions and uses in
 firmware; no schematic, firmware or interface contract was changed.

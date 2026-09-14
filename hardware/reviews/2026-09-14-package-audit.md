@@ -1,5 +1,9 @@
 # v2 package and assembly audit — 2026-09-14
 
+Follow-up: the U6..U10 connector-identity correction below was approved and
+implemented in [hw-v2.0.1-draft](CURRENT-HARDWARE.md). Findings below describe
+the pre-correction source; other qualification gaps remain open.
+
 **NOT RELEASED FOR MANUFACTURE.** No schematic or footprint edits in this
 review. Source commit: `03071ec`; schematic SHA-256:
 `1a01160112f6f8824b9dd158ffd85847ce2014c21dd0d4af20725a67be076cbc`.
