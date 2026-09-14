@@ -187,3 +187,33 @@ versioned in Git. The pre-existing untracked `agents.md` belongs to the user.
   path as a waveform fix without a reviewed protection replacement.
 - Progress is analytical evidence and explicit release gates. Complete
   analog qualification and the overall production PCB remain unfinished.
+
+## 2026-09-14 — buck and power-path audit
+
+- Continued from `9aa6ad5`; no schematic/firmware changes. Preserved `agents.md`.
+- Checked eight exact power nets, eleven output-rail connections, twelve
+  ground connections and thirteen values against a fresh KiCad XML export.
+- J4/J6, labeled fan power inputs, directly share the buck output. Independent
+  supplies there would be paralleled without isolation. D2 does not prevent
+  output-to-regulator backfeed. Exact fan and DevKit/USB contracts remain open.
+- Nominal feedback output is 5.016064 V; reference plus resistor corners give
+  4.862490..5.173655 V before other errors. Worst rising EN corner is 9.409782 V
+  after D2, leaving only 0.590218 V of startup headroom at 10 V raw input.
+- At 30 V buck input, 5 V output, 400 kHz and 6.8 uH, nominal ripple is
+  1.531863 A. An illustrative -20% L / 340 kHz case reaches 4.126370 A peak
+  at 3 A load, above the 3.85 A minimum high-side current-limit threshold.
+- Nominal local 44 uF output capacitance lacks bias/tolerance and load-step
+  qualification. For an illustrative 2 A / 250 mV step, TI equation 6 gives
+  about 50.867 uF effective at 30 V. This is not an assigned load requirement.
+- C_INHF1 is 100 nF versus TI's local 220 nF DDA input bypass recommendation.
+  L1/capacitor MPNs and ratings, input protection, reverse-energy handling,
+  thermal/layout design and physical measurements remain release gates.
+- Asked for actual source voltage and 5 V consumers, especially fan currents.
+  No unconfirmed requirements or replacement component values were adopted.
+- Evidence, formulas, qualifications and next steps:
+  [power audit](hardware/reviews/2026-09-14-power-path.md) and
+  `hardware/reviews/2026-09-14-power-checks.json`.
+- Fresh ERC: zero violations at all severities. DAC connectivity/preservation
+  checker passed; saved power calculations and source hashes were verified.
+- Overall production-PCB work remains unfinished; continue independent
+  interface checks while awaiting power and safety contracts.

@@ -1,0 +1,62 @@
+{
+  "status": "analysis_only_not_released",
+  "source_commit": "9aa6ad5",
+  "schematic_sha256": "1a01160112f6f8824b9dd158ffd85847ce2014c21dd0d4af20725a67be076cbc",
+  "datasheet_sha256": "3b0920a4e56a0b3f5f214a6317d3c06cff6e541e5054024adc31c30acc50c04a",
+  "verification": {
+    "erc_violations_all_severities": 0,
+    "dac_interface_checker": "pass_including_pre_translator_baseline",
+    "saved_calculation_values_recomputed": true,
+    "exact_power_nets": 8,
+    "output_rail_pin_memberships": 11,
+    "ground_pin_memberships": 12,
+    "component_values": 13,
+    "schematic_or_firmware_changed": false,
+    "bench_measurements": false
+  },
+  "dc_feedback": {
+    "nominal_output_V": 5.016064257028113,
+    "reference_and_1_percent_resistor_corners_V": [4.86249015865442, 5.173654821305423],
+    "excluded": "FB input current, line/load transients, PFM behavior",
+    "additional_max_FB_input_current_error_V": 0.00505
+  },
+  "enable": {
+    "voltage_location": "VIN_BUCK_after_D2",
+    "typical_rising_V": 9.035540000000001,
+    "rising_threshold_and_1_percent_resistor_corners_V": [8.657346534653465, 9.409781818181818],
+    "typical_falling_V_not_guaranteed": 8.30154,
+    "worst_rising_corner_headroom_at_10V_raw_V": 0.590218181818182
+  },
+  "nominal_CCM_model": {
+    "output_V": 5,
+    "frequency_Hz": 400000,
+    "inductance_H": 0.0000068,
+    "load_A": 3,
+    "columns": ["VIN_BUCK_V", "ripple_peak_to_peak_A", "peak_A", "valley_A"],
+    "rows": [
+      [10, 0.9191176470588236, 3.4595588235294117, 2.5404411764705883],
+      [12, 1.0723039215686272, 3.5361519607843137, 2.4638480392156863],
+      [24, 1.455269607843137, 3.7276348039215685, 2.2723651960784315],
+      [30, 1.5318627450980393, 3.7659313725490198, 2.2340686274509802]
+    ],
+    "inductor_RMS_A_at_30V": 3.032416575794231
+  },
+  "illustrative_low_L_low_frequency": {
+    "L_tolerance_not_a_BOM_specification": -0.2,
+    "frequency_Hz_datasheet_minimum": 340000,
+    "VIN_BUCK_V": 30,
+    "output_V": 5,
+    "ripple_peak_to_peak_A": 2.2527393310265285,
+    "peak_at_3A_A": 4.1263696655132645,
+    "high_side_current_limit_min_A": 3.85
+  },
+  "illustrative_transient": {
+    "load_step_A_not_a_product_requirement": 2,
+    "allowed_deviation_V_not_a_product_requirement": 0.25,
+    "columns": ["VIN_BUCK_V", "equation6_min_effective_C_uF"],
+    "rows": [[10, 43.40593137254902], [12, 45.24989696804648], [24, 49.9218655818809], [30, 50.866897240377625]],
+    "local_output_C_nominal_uF": 44,
+    "illustrative_C_uF_after_minus20pct_tolerance_and_minus10pct_bias": 31.68,
+    "30V_zero_ESR_44uF_switching_ripple_mV": 10.879706996434939
+  }
+}
