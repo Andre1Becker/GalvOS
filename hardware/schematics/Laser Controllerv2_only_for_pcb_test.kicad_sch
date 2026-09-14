@@ -6,10 +6,1120 @@
 	(paper "A2")
 	(title_block
 		(title "GalvOS ESP32 Laser Controller - V2 engineering review")
-		(date "2026-09-13")
+		(date "2026-09-14")
 		(rev "DRAFT - NOT FOR FABRICATION")
 	)
 	(lib_symbols
+		(symbol "Logic_LevelTranslator:SN74LVC8T245"
+				(exclude_from_sim no)
+				(in_bom yes)
+				(on_board yes)
+				(in_pos_files yes)
+				(duplicate_pin_numbers_are_jumpers no)
+				(property "Reference" "U"
+					(at -6.35 27.94 0)
+					(show_name no)
+					(do_not_autoplace no)
+					(effects
+						(font
+							(size 1.27 1.27)
+						)
+					)
+				)
+				(property "Value" "SN74LVC8T245"
+					(at 3.81 27.94 0)
+					(show_name no)
+					(do_not_autoplace no)
+					(effects
+						(font
+							(size 1.27 1.27)
+						)
+						(justify left)
+					)
+				)
+				(property "Footprint" ""
+					(at 20.32 -24.13 0)
+					(show_name no)
+					(do_not_autoplace no)
+					(hide yes)
+					(effects
+						(font
+							(size 1.27 1.27)
+						)
+					)
+				)
+				(property "Datasheet" "https://www.ti.com/lit/ds/symlink/sn74lvc8t245.pdf"
+					(at 0 -35.56 0)
+					(show_name no)
+					(do_not_autoplace no)
+					(hide yes)
+					(effects
+						(font
+							(size 1.27 1.27)
+						)
+					)
+				)
+				(property "Description" "8-Bit Dual-Supply Bus Transceiver With Configurable Voltage Translation and 3-State Outputs"
+					(at 0 0 0)
+					(show_name no)
+					(do_not_autoplace no)
+					(hide yes)
+					(effects
+						(font
+							(size 1.27 1.27)
+						)
+					)
+				)
+				(property "ki_keywords" "Dual Supply Level-Shifter CMOS-TTL-Translation"
+					(at 0 0 0)
+					(show_name no)
+					(do_not_autoplace no)
+					(hide yes)
+					(effects
+						(font
+							(size 1.27 1.27)
+						)
+					)
+				)
+				(property "ki_fp_filters" "SSOP*5.3x8.2mm* SSOP*3.9x8.7mm* TSSOP*4.4x7.8mm* TVSOP*4.4x5.0mm* Texas*VQFN*RHL*"
+					(at 0 0 0)
+					(show_name no)
+					(do_not_autoplace no)
+					(hide yes)
+					(effects
+						(font
+							(size 1.27 1.27)
+						)
+					)
+				)
+				(symbol "SN74LVC8T245_0_1"
+					(rectangle
+						(start -7.62 25.4)
+						(end 7.62 -25.4)
+						(stroke
+							(width 0.254)
+							(type default)
+						)
+						(fill
+							(type background)
+						)
+					)
+					(polyline
+						(pts
+							(xy -2.54 17.78) (xy -2.54 18.796) (xy -0.762 18.796)
+						)
+						(stroke
+							(width 0)
+							(type default)
+						)
+						(fill
+							(type none)
+						)
+					)
+					(polyline
+						(pts
+							(xy -2.54 7.62) (xy -2.54 8.636) (xy -0.762 8.636)
+						)
+						(stroke
+							(width 0)
+							(type default)
+						)
+						(fill
+							(type none)
+						)
+					)
+					(polyline
+						(pts
+							(xy -2.54 -2.54) (xy -2.54 -1.524) (xy -0.762 -1.524)
+						)
+						(stroke
+							(width 0)
+							(type default)
+						)
+						(fill
+							(type none)
+						)
+					)
+					(polyline
+						(pts
+							(xy -2.54 -12.7) (xy -2.54 -11.684) (xy -0.762 -11.684)
+						)
+						(stroke
+							(width 0)
+							(type default)
+						)
+						(fill
+							(type none)
+						)
+					)
+					(polyline
+						(pts
+							(xy -0.762 17.78) (xy -0.762 19.812) (xy 1.016 18.796) (xy -0.762 17.78)
+						)
+						(stroke
+							(width 0)
+							(type default)
+						)
+						(fill
+							(type none)
+						)
+					)
+					(polyline
+						(pts
+							(xy -0.762 16.764) (xy -2.54 16.764) (xy -2.54 17.78) (xy -4.572 17.78)
+						)
+						(stroke
+							(width 0)
+							(type default)
+						)
+						(fill
+							(type none)
+						)
+					)
+					(polyline
+						(pts
+							(xy -0.762 7.62) (xy -0.762 9.652) (xy 1.016 8.636) (xy -0.762 7.62)
+						)
+						(stroke
+							(width 0)
+							(type default)
+						)
+						(fill
+							(type none)
+						)
+					)
+					(polyline
+						(pts
+							(xy -0.762 6.604) (xy -2.54 6.604) (xy -2.54 7.62) (xy -4.572 7.62)
+						)
+						(stroke
+							(width 0)
+							(type default)
+						)
+						(fill
+							(type none)
+						)
+					)
+					(polyline
+						(pts
+							(xy -0.762 -2.54) (xy -0.762 -0.508) (xy 1.016 -1.524) (xy -0.762 -2.54)
+						)
+						(stroke
+							(width 0)
+							(type default)
+						)
+						(fill
+							(type none)
+						)
+					)
+					(polyline
+						(pts
+							(xy -0.762 -3.556) (xy -2.54 -3.556) (xy -2.54 -2.54) (xy -4.572 -2.54)
+						)
+						(stroke
+							(width 0)
+							(type default)
+						)
+						(fill
+							(type none)
+						)
+					)
+					(polyline
+						(pts
+							(xy -0.762 -12.7) (xy -0.762 -10.668) (xy 1.016 -11.684) (xy -0.762 -12.7)
+						)
+						(stroke
+							(width 0)
+							(type default)
+						)
+						(fill
+							(type none)
+						)
+					)
+					(polyline
+						(pts
+							(xy -0.762 -13.716) (xy -2.54 -13.716) (xy -2.54 -12.7) (xy -4.572 -12.7)
+						)
+						(stroke
+							(width 0)
+							(type default)
+						)
+						(fill
+							(type none)
+						)
+					)
+					(polyline
+						(pts
+							(xy 1.016 18.796) (xy 2.794 18.796) (xy 2.794 17.78) (xy 4.064 17.78)
+						)
+						(stroke
+							(width 0)
+							(type default)
+						)
+						(fill
+							(type none)
+						)
+					)
+					(polyline
+						(pts
+							(xy 1.016 17.78) (xy 1.016 16.002) (xy 1.016 15.748) (xy -0.762 16.764) (xy 1.016 17.78)
+						)
+						(stroke
+							(width 0)
+							(type default)
+						)
+						(fill
+							(type none)
+						)
+					)
+					(polyline
+						(pts
+							(xy 1.016 8.636) (xy 2.794 8.636) (xy 2.794 7.62) (xy 4.064 7.62)
+						)
+						(stroke
+							(width 0)
+							(type default)
+						)
+						(fill
+							(type none)
+						)
+					)
+					(polyline
+						(pts
+							(xy 1.016 7.62) (xy 1.016 5.842) (xy 1.016 5.588) (xy -0.762 6.604) (xy 1.016 7.62)
+						)
+						(stroke
+							(width 0)
+							(type default)
+						)
+						(fill
+							(type none)
+						)
+					)
+					(polyline
+						(pts
+							(xy 1.016 2.54) (xy 1.016 0.762) (xy 1.016 0.508) (xy -0.762 1.524) (xy 1.016 2.54)
+						)
+						(stroke
+							(width 0)
+							(type default)
+						)
+						(fill
+							(type none)
+						)
+					)
+					(polyline
+						(pts
+							(xy 1.016 -1.524) (xy 2.794 -1.524) (xy 2.794 -2.54) (xy 4.064 -2.54)
+						)
+						(stroke
+							(width 0)
+							(type default)
+						)
+						(fill
+							(type none)
+						)
+					)
+					(polyline
+						(pts
+							(xy 1.016 -2.54) (xy 1.016 -4.318) (xy 1.016 -4.572) (xy -0.762 -3.556) (xy 1.016 -2.54)
+						)
+						(stroke
+							(width 0)
+							(type default)
+						)
+						(fill
+							(type none)
+						)
+					)
+					(polyline
+						(pts
+							(xy 1.016 -11.684) (xy 2.794 -11.684) (xy 2.794 -12.7) (xy 4.064 -12.7)
+						)
+						(stroke
+							(width 0)
+							(type default)
+						)
+						(fill
+							(type none)
+						)
+					)
+					(polyline
+						(pts
+							(xy 1.016 -12.7) (xy 1.016 -14.478) (xy 1.016 -14.732) (xy -0.762 -13.716) (xy 1.016 -12.7)
+						)
+						(stroke
+							(width 0)
+							(type default)
+						)
+						(fill
+							(type none)
+						)
+					)
+					(polyline
+						(pts
+							(xy 1.016 -17.78) (xy 1.016 -19.558) (xy 1.016 -19.812) (xy -0.762 -18.796) (xy 1.016 -17.78)
+						)
+						(stroke
+							(width 0)
+							(type default)
+						)
+						(fill
+							(type none)
+						)
+					)
+					(polyline
+						(pts
+							(xy 2.794 17.78) (xy 2.794 16.764) (xy 1.016 16.764)
+						)
+						(stroke
+							(width 0)
+							(type default)
+						)
+						(fill
+							(type none)
+						)
+					)
+					(polyline
+						(pts
+							(xy 2.794 7.62) (xy 2.794 6.604) (xy 1.016 6.604)
+						)
+						(stroke
+							(width 0)
+							(type default)
+						)
+						(fill
+							(type none)
+						)
+					)
+					(polyline
+						(pts
+							(xy 2.794 -2.54) (xy 2.794 -3.556) (xy 1.016 -3.556)
+						)
+						(stroke
+							(width 0)
+							(type default)
+						)
+						(fill
+							(type none)
+						)
+					)
+					(polyline
+						(pts
+							(xy 2.794 -12.7) (xy 2.794 -13.716) (xy 1.016 -13.716)
+						)
+						(stroke
+							(width 0)
+							(type default)
+						)
+						(fill
+							(type none)
+						)
+					)
+				)
+				(symbol "SN74LVC8T245_1_1"
+					(polyline
+						(pts
+							(xy -2.54 12.7) (xy -2.54 13.716) (xy -0.762 13.716)
+						)
+						(stroke
+							(width 0)
+							(type default)
+						)
+						(fill
+							(type none)
+						)
+					)
+					(polyline
+						(pts
+							(xy -2.54 2.54) (xy -2.54 3.556) (xy -0.762 3.556)
+						)
+						(stroke
+							(width 0)
+							(type default)
+						)
+						(fill
+							(type none)
+						)
+					)
+					(polyline
+						(pts
+							(xy -2.54 -7.62) (xy -2.54 -6.604) (xy -0.762 -6.604)
+						)
+						(stroke
+							(width 0)
+							(type default)
+						)
+						(fill
+							(type none)
+						)
+					)
+					(polyline
+						(pts
+							(xy -2.54 -17.78) (xy -2.54 -16.764) (xy -0.762 -16.764)
+						)
+						(stroke
+							(width 0)
+							(type default)
+						)
+						(fill
+							(type none)
+						)
+					)
+					(polyline
+						(pts
+							(xy -0.762 12.7) (xy -0.762 14.732) (xy 1.016 13.716) (xy -0.762 12.7)
+						)
+						(stroke
+							(width 0)
+							(type default)
+						)
+						(fill
+							(type none)
+						)
+					)
+					(polyline
+						(pts
+							(xy -0.762 11.684) (xy -2.54 11.684) (xy -2.54 12.7) (xy -4.572 12.7)
+						)
+						(stroke
+							(width 0)
+							(type default)
+						)
+						(fill
+							(type none)
+						)
+					)
+					(polyline
+						(pts
+							(xy -0.762 2.54) (xy -0.762 4.572) (xy 1.016 3.556) (xy -0.762 2.54)
+						)
+						(stroke
+							(width 0)
+							(type default)
+						)
+						(fill
+							(type none)
+						)
+					)
+					(polyline
+						(pts
+							(xy -0.762 1.524) (xy -2.54 1.524) (xy -2.54 2.54) (xy -4.572 2.54)
+						)
+						(stroke
+							(width 0)
+							(type default)
+						)
+						(fill
+							(type none)
+						)
+					)
+					(polyline
+						(pts
+							(xy -0.762 -7.62) (xy -0.762 -5.588) (xy 1.016 -6.604) (xy -0.762 -7.62)
+						)
+						(stroke
+							(width 0)
+							(type default)
+						)
+						(fill
+							(type none)
+						)
+					)
+					(polyline
+						(pts
+							(xy -0.762 -8.636) (xy -2.54 -8.636) (xy -2.54 -7.62) (xy -4.572 -7.62)
+						)
+						(stroke
+							(width 0)
+							(type default)
+						)
+						(fill
+							(type none)
+						)
+					)
+					(polyline
+						(pts
+							(xy -0.762 -17.78) (xy -0.762 -15.748) (xy 1.016 -16.764) (xy -0.762 -17.78)
+						)
+						(stroke
+							(width 0)
+							(type default)
+						)
+						(fill
+							(type none)
+						)
+					)
+					(polyline
+						(pts
+							(xy -0.762 -18.796) (xy -2.54 -18.796) (xy -2.54 -17.78) (xy -4.572 -17.78)
+						)
+						(stroke
+							(width 0)
+							(type default)
+						)
+						(fill
+							(type none)
+						)
+					)
+					(polyline
+						(pts
+							(xy 1.016 13.716) (xy 2.794 13.716) (xy 2.794 12.7) (xy 4.064 12.7)
+						)
+						(stroke
+							(width 0)
+							(type default)
+						)
+						(fill
+							(type none)
+						)
+					)
+					(polyline
+						(pts
+							(xy 1.016 12.7) (xy 1.016 10.922) (xy 1.016 10.668) (xy -0.762 11.684) (xy 1.016 12.7)
+						)
+						(stroke
+							(width 0)
+							(type default)
+						)
+						(fill
+							(type none)
+						)
+					)
+					(polyline
+						(pts
+							(xy 1.016 3.556) (xy 2.794 3.556) (xy 2.794 2.54) (xy 4.064 2.54)
+						)
+						(stroke
+							(width 0)
+							(type default)
+						)
+						(fill
+							(type none)
+						)
+					)
+					(polyline
+						(pts
+							(xy 1.016 -6.604) (xy 2.794 -6.604) (xy 2.794 -7.62) (xy 4.064 -7.62)
+						)
+						(stroke
+							(width 0)
+							(type default)
+						)
+						(fill
+							(type none)
+						)
+					)
+					(polyline
+						(pts
+							(xy 1.016 -7.62) (xy 1.016 -9.398) (xy 1.016 -9.652) (xy -0.762 -8.636) (xy 1.016 -7.62)
+						)
+						(stroke
+							(width 0)
+							(type default)
+						)
+						(fill
+							(type none)
+						)
+					)
+					(polyline
+						(pts
+							(xy 1.016 -16.764) (xy 2.794 -16.764) (xy 2.794 -17.78) (xy 4.064 -17.78)
+						)
+						(stroke
+							(width 0)
+							(type default)
+						)
+						(fill
+							(type none)
+						)
+					)
+					(polyline
+						(pts
+							(xy 2.794 12.7) (xy 2.794 11.684) (xy 1.016 11.684)
+						)
+						(stroke
+							(width 0)
+							(type default)
+						)
+						(fill
+							(type none)
+						)
+					)
+					(polyline
+						(pts
+							(xy 2.794 2.54) (xy 2.794 1.524) (xy 1.016 1.524)
+						)
+						(stroke
+							(width 0)
+							(type default)
+						)
+						(fill
+							(type none)
+						)
+					)
+					(polyline
+						(pts
+							(xy 2.794 -7.62) (xy 2.794 -8.636) (xy 1.016 -8.636)
+						)
+						(stroke
+							(width 0)
+							(type default)
+						)
+						(fill
+							(type none)
+						)
+					)
+					(polyline
+						(pts
+							(xy 2.794 -17.78) (xy 2.794 -18.796) (xy 1.016 -18.796)
+						)
+						(stroke
+							(width 0)
+							(type default)
+						)
+						(fill
+							(type none)
+						)
+					)
+					(pin power_in line
+						(at -2.54 27.94 270)
+						(length 2.54)
+						(name "V_{CCA}"
+							(effects
+								(font
+									(size 1.27 1.27)
+								)
+							)
+						)
+						(number "1"
+							(effects
+								(font
+									(size 1.27 1.27)
+								)
+							)
+						)
+					)
+					(pin input line
+						(at -10.16 -22.86 0)
+						(length 2.54)
+						(name "DIR"
+							(effects
+								(font
+									(size 1.27 1.27)
+								)
+							)
+						)
+						(number "2"
+							(effects
+								(font
+									(size 1.27 1.27)
+								)
+							)
+						)
+					)
+					(pin bidirectional line
+						(at -10.16 17.78 0)
+						(length 2.54)
+						(name "A1"
+							(effects
+								(font
+									(size 1.27 1.27)
+								)
+							)
+						)
+						(number "3"
+							(effects
+								(font
+									(size 1.27 1.27)
+								)
+							)
+						)
+					)
+					(pin bidirectional line
+						(at -10.16 12.7 0)
+						(length 2.54)
+						(name "A2"
+							(effects
+								(font
+									(size 1.27 1.27)
+								)
+							)
+						)
+						(number "4"
+							(effects
+								(font
+									(size 1.27 1.27)
+								)
+							)
+						)
+					)
+					(pin bidirectional line
+						(at -10.16 7.62 0)
+						(length 2.54)
+						(name "A3"
+							(effects
+								(font
+									(size 1.27 1.27)
+								)
+							)
+						)
+						(number "5"
+							(effects
+								(font
+									(size 1.27 1.27)
+								)
+							)
+						)
+					)
+					(pin bidirectional line
+						(at -10.16 2.54 0)
+						(length 2.54)
+						(name "A4"
+							(effects
+								(font
+									(size 1.27 1.27)
+								)
+							)
+						)
+						(number "6"
+							(effects
+								(font
+									(size 1.27 1.27)
+								)
+							)
+						)
+					)
+					(pin bidirectional line
+						(at -10.16 -2.54 0)
+						(length 2.54)
+						(name "A5"
+							(effects
+								(font
+									(size 1.27 1.27)
+								)
+							)
+						)
+						(number "7"
+							(effects
+								(font
+									(size 1.27 1.27)
+								)
+							)
+						)
+					)
+					(pin bidirectional line
+						(at -10.16 -7.62 0)
+						(length 2.54)
+						(name "A6"
+							(effects
+								(font
+									(size 1.27 1.27)
+								)
+							)
+						)
+						(number "8"
+							(effects
+								(font
+									(size 1.27 1.27)
+								)
+							)
+						)
+					)
+					(pin bidirectional line
+						(at -10.16 -12.7 0)
+						(length 2.54)
+						(name "A7"
+							(effects
+								(font
+									(size 1.27 1.27)
+								)
+							)
+						)
+						(number "9"
+							(effects
+								(font
+									(size 1.27 1.27)
+								)
+							)
+						)
+					)
+					(pin bidirectional line
+						(at -10.16 -17.78 0)
+						(length 2.54)
+						(name "A8"
+							(effects
+								(font
+									(size 1.27 1.27)
+								)
+							)
+						)
+						(number "10"
+							(effects
+								(font
+									(size 1.27 1.27)
+								)
+							)
+						)
+					)
+					(pin power_in line
+						(at 0 -27.94 90)
+						(length 2.54)
+						(name "GND"
+							(effects
+								(font
+									(size 1.27 1.27)
+								)
+							)
+						)
+						(number "11"
+							(effects
+								(font
+									(size 1.27 1.27)
+								)
+							)
+						)
+					)
+					(pin passive line
+						(at 0 -27.94 90)
+						(length 2.54)
+						(hide yes)
+						(name "GND"
+							(effects
+								(font
+									(size 1.27 1.27)
+								)
+							)
+						)
+						(number "12"
+							(effects
+								(font
+									(size 1.27 1.27)
+								)
+							)
+						)
+					)
+					(pin passive line
+						(at 0 -27.94 90)
+						(length 2.54)
+						(hide yes)
+						(name "GND"
+							(effects
+								(font
+									(size 1.27 1.27)
+								)
+							)
+						)
+						(number "13"
+							(effects
+								(font
+									(size 1.27 1.27)
+								)
+							)
+						)
+					)
+					(pin bidirectional line
+						(at 10.16 -17.78 180)
+						(length 2.54)
+						(name "B8"
+							(effects
+								(font
+									(size 1.27 1.27)
+								)
+							)
+						)
+						(number "14"
+							(effects
+								(font
+									(size 1.27 1.27)
+								)
+							)
+						)
+					)
+					(pin bidirectional line
+						(at 10.16 -12.7 180)
+						(length 2.54)
+						(name "B7"
+							(effects
+								(font
+									(size 1.27 1.27)
+								)
+							)
+						)
+						(number "15"
+							(effects
+								(font
+									(size 1.27 1.27)
+								)
+							)
+						)
+					)
+					(pin bidirectional line
+						(at 10.16 -7.62 180)
+						(length 2.54)
+						(name "B6"
+							(effects
+								(font
+									(size 1.27 1.27)
+								)
+							)
+						)
+						(number "16"
+							(effects
+								(font
+									(size 1.27 1.27)
+								)
+							)
+						)
+					)
+					(pin bidirectional line
+						(at 10.16 -2.54 180)
+						(length 2.54)
+						(name "B5"
+							(effects
+								(font
+									(size 1.27 1.27)
+								)
+							)
+						)
+						(number "17"
+							(effects
+								(font
+									(size 1.27 1.27)
+								)
+							)
+						)
+					)
+					(pin bidirectional line
+						(at 10.16 2.54 180)
+						(length 2.54)
+						(name "B4"
+							(effects
+								(font
+									(size 1.27 1.27)
+								)
+							)
+						)
+						(number "18"
+							(effects
+								(font
+									(size 1.27 1.27)
+								)
+							)
+						)
+					)
+					(pin bidirectional line
+						(at 10.16 7.62 180)
+						(length 2.54)
+						(name "B3"
+							(effects
+								(font
+									(size 1.27 1.27)
+								)
+							)
+						)
+						(number "19"
+							(effects
+								(font
+									(size 1.27 1.27)
+								)
+							)
+						)
+					)
+					(pin bidirectional line
+						(at 10.16 12.7 180)
+						(length 2.54)
+						(name "B2"
+							(effects
+								(font
+									(size 1.27 1.27)
+								)
+							)
+						)
+						(number "20"
+							(effects
+								(font
+									(size 1.27 1.27)
+								)
+							)
+						)
+					)
+					(pin bidirectional line
+						(at 10.16 17.78 180)
+						(length 2.54)
+						(name "B1"
+							(effects
+								(font
+									(size 1.27 1.27)
+								)
+							)
+						)
+						(number "21"
+							(effects
+								(font
+									(size 1.27 1.27)
+								)
+							)
+						)
+					)
+					(pin input line
+						(at -10.16 -20.32 0)
+						(length 2.54)
+						(name "~{OE}"
+							(effects
+								(font
+									(size 1.27 1.27)
+								)
+							)
+						)
+						(number "22"
+							(effects
+								(font
+									(size 1.27 1.27)
+								)
+							)
+						)
+					)
+					(pin power_in line
+						(at 2.54 27.94 270)
+						(length 2.54)
+						(name "V_{CCB}"
+							(effects
+								(font
+									(size 1.27 1.27)
+								)
+							)
+						)
+						(number "23"
+							(effects
+								(font
+									(size 1.27 1.27)
+								)
+							)
+						)
+					)
+					(pin passive line
+						(at 2.54 27.94 270)
+						(length 2.54)
+						(hide yes)
+						(name "V_{CCB}"
+							(effects
+								(font
+									(size 1.27 1.27)
+								)
+							)
+						)
+						(number "24"
+							(effects
+								(font
+									(size 1.27 1.27)
+								)
+							)
+						)
+					)
+				)
+				(embedded_fonts no)
+			)
 		(symbol "Buffer:DAC8562SDGST"
 			(pin_names
 				(offset 1.016)
@@ -7744,10 +8854,6 @@
 		(uuid "64c71d80-2411-4699-9973-56af25d12de8")
 	)
 	(no_connect
-		(at 236.22 247.65)
-		(uuid "6a20cfd0-43ca-4076-9948-4712ff0b9e4a")
-	)
-	(no_connect
 		(at 281.94 229.87)
 		(uuid "7adf339d-8448-4926-ad53-7387b2630bde")
 	)
@@ -8058,16 +9164,6 @@
 			(type default)
 		)
 		(uuid "0ffb55c5-e937-44b9-9e24-769eab1d50ce")
-	)
-	(wire
-		(pts
-			(xy 213.36 154.94) (xy 234.95 154.94)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "11fc418e-1070-429d-a23c-fc8b633015a1")
 	)
 	(wire
 		(pts
@@ -8391,16 +9487,6 @@
 	)
 	(wire
 		(pts
-			(xy 223.52 175.26) (xy 234.95 175.26)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "33731420-9562-4069-9a1c-d55f1292bf49")
-	)
-	(wire
-		(pts
 			(xy 312.42 181.61) (xy 332.74 181.61)
 		)
 		(stroke
@@ -8518,16 +9604,6 @@
 			(type default)
 		)
 		(uuid "3a46bda4-7e10-411a-8185-4f70a05669b7")
-	)
-	(wire
-		(pts
-			(xy 213.36 154.94) (xy 213.36 242.57)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "3b66961f-add1-4e5c-9392-0e186c06364c")
 	)
 	(wire
 		(pts
@@ -8801,16 +9877,6 @@
 	)
 	(wire
 		(pts
-			(xy 236.22 240.03) (xy 223.52 240.03)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "4c31acf0-72f6-432b-991f-6afc2723467d")
-	)
-	(wire
-		(pts
 			(xy 402.59 184.15) (xy 402.59 177.8)
 		)
 		(stroke
@@ -8868,16 +9934,6 @@
 			(type default)
 		)
 		(uuid "5083d0a6-c393-44c6-91be-593beba5128c")
-	)
-	(wire
-		(pts
-			(xy 231.14 165.1) (xy 234.95 165.1)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "521277c5-360b-4bd4-829f-9558b17cf722")
 	)
 	(wire
 		(pts
@@ -9571,16 +10627,6 @@
 	)
 	(wire
 		(pts
-			(xy 219.71 157.48) (xy 234.95 157.48)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "8c26339e-0747-414f-b70d-60e28dbd2ba3")
-	)
-	(wire
-		(pts
 			(xy 439.42 247.65) (xy 444.5 247.65)
 		)
 		(stroke
@@ -9628,16 +10674,6 @@
 			(type default)
 		)
 		(uuid "91294ef1-0bf4-4e56-a1d1-f0688601e29e")
-	)
-	(wire
-		(pts
-			(xy 223.52 240.03) (xy 223.52 175.26)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "915f388c-ecf3-4ce8-af9c-6b6d4a9b9e3e")
 	)
 	(wire
 		(pts
@@ -9978,16 +11014,6 @@
 			(type default)
 		)
 		(uuid "ba2ff7f9-a6b1-42a3-8e46-c810b9611b77")
-	)
-	(wire
-		(pts
-			(xy 236.22 242.57) (xy 213.36 242.57)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "bac22f8d-1b6e-46ca-85cf-0190dc23c2cf")
 	)
 	(wire
 		(pts
@@ -10401,16 +11427,6 @@
 	)
 	(wire
 		(pts
-			(xy 236.22 245.11) (xy 219.71 245.11)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "e24e1ab6-e461-488e-aa16-3a134b2ecec8")
-	)
-	(wire
-		(pts
 			(xy 232.41 185.42) (xy 280.67 185.42)
 		)
 		(stroke
@@ -10548,16 +11564,6 @@
 			(type default)
 		)
 		(uuid "f58a28de-fdee-44d6-81e5-de2c87922213")
-	)
-	(wire
-		(pts
-			(xy 219.71 157.48) (xy 219.71 245.11)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "f5cf8a57-223e-4b95-8840-0c536d70433a")
 	)
 	(wire
 		(pts
@@ -12197,16 +13203,6 @@
 			(justify right)
 		)
 		(uuid "5f3feb7c-87dd-4ea0-8e6c-f1d144ffc346")
-	)
-	(label "+3V3"
-		(at 223.52 165.1 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left)
-		)
-		(uuid "65e3c25c-dfaf-4a9d-8744-2c81f2cc6866")
 	)
 	(label "FAN1_TACH"
 		(at 236.22 237.49 0)
@@ -16583,8 +17579,7 @@
 	)
 	(symbol
 		(lib_id "Device:R")
-		(at 227.33 165.1 270)
-		(mirror x)
+		(at 203.2 40.64 0)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -16594,7 +17589,7 @@
 		(dnp no)
 		(uuid "4f14bcfc-3640-45bc-8ba4-fcd974de12ae")
 		(property "Reference" "R3"
-			(at 227.33 161.29 0)
+			(at 207.01 39.37 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -16605,7 +17600,7 @@
 			)
 		)
 		(property "Value" "10K"
-			(at 227.33 160.01999999999998 0)
+			(at 207.01 41.91 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -16616,7 +17611,7 @@
 			)
 		)
 		(property "Footprint" "Resistor_SMD:R_1206_3216Metric"
-			(at 227.33 166.878 90)
+			(at 203.2 40.64 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -16627,7 +17622,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 227.33 165.1 0)
+			(at 203.2 40.64 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -16638,7 +17633,7 @@
 			)
 		)
 		(property "Description" "Resistor"
-			(at 227.33 165.1 0)
+			(at 203.2 40.64 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -17564,7 +18559,7 @@
 		(dnp no)
 		(uuid "66c35f36-542a-40c3-9eb4-a2e028371139")
 		(property "Reference" "C_ANA1"
-			(at 312.42 63.5 0)
+			(at 312.42 96.52 90)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -17575,7 +18570,7 @@
 			)
 		)
 		(property "Value" "10uF"
-			(at 312.42 62.23 0)
+			(at 312.42 93.98 90)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -24718,4 +25713,165 @@
 		(effects (font (size 1.27 1.27)) (justify left bottom))
 		(uuid "7f84a241-a469-4248-a7a1-ff9a53366ca5")
 	)
+	(symbol (lib_id "Logic_LevelTranslator:SN74LVC8T245") (at 260.35 48.26 0) (unit 1) (in_bom yes) (on_board yes) (dnp no) (uuid "72c2ecae-3f1c-4473-a061-538de3b9db65")
+(property "Reference" "U_DACLV1" (at 254 15.24 0) (effects (font (size 1 1)) (justify left)))
+(property "Value" "SN74LVC8T245PWR" (at 254 17.78 0) (effects (font (size 1 1)) (justify left)))
+(property "Footprint" "Package_SO:TSSOP-24_4.4x7.8mm_P0.65mm" (at 260.35 48.26 0) (effects (font (size 1 1)) (justify left) (hide yes)))
+(property "Datasheet" "https://www.ti.com/lit/ds/symlink/sn74lvc8t245.pdf" (at 260.35 48.26 0) (effects (font (size 1 1)) (justify left) (hide yes)))
+(property "Manufacturer" "Texas Instruments" (at 260.35 48.26 0) (effects (font (size 1 1)) (justify left) (hide yes)))
+(property "MPN" "SN74LVC8T245PWR" (at 260.35 48.26 0) (effects (font (size 1 1)) (justify left) (hide yes)))
+(property "Layout" "Place beside DAC at R26 ground bridge. Keep outputs short and matched. VCCB must share DAC AVDD supply." (at 260.35 48.26 0) (effects (font (size 1 1)) (justify left) (hide yes)))
+(instances (project "Laser Controllerv2_only_for_pcb_test" (path "/d54d297e-dc0d-4b80-be70-d4630411b2f0" (reference "U_DACLV1") (unit 1)))))
+	(label "DAC_SCLK_3V3" (at 236.22 245.11 0) (effects (font (size 0.8 0.8)) (justify right bottom)) (uuid "327e8b4d-03fc-4917-b4d9-91317db18b22"))
+	(label "DAC_SCLK_5V" (at 234.95 157.48 0) (effects (font (size 1 1)) (justify right bottom)) (uuid "98850861-e474-4acb-a61d-1a569433095d"))
+	(label "DAC_SCLK_3V3" (at 250.19 30.48 0) (effects (font (size 1 1)) (justify right bottom)) (uuid "0f5b7a65-400f-4dc7-87db-2d2898639069"))
+	(symbol (lib_id "Device:R") (at 280.67 30.48 270) (unit 1) (in_bom yes) (on_board yes) (dnp no) (uuid "f2a57d9d-b881-4672-938c-cc0477557499")
+(property "Reference" "R_DACSCLK1" (at 280.67 28.575 90) (effects (font (size 0.9 0.9)) ))
+(property "Value" "22" (at 280.67 32.385 90) (effects (font (size 0.9 0.9)) ))
+(property "Footprint" "Resistor_SMD:R_1206_3216Metric" (at 280.67 30.48 0) (effects (font (size 1 1)) (justify left) (hide yes)))
+(property "Tolerance" "1%" (at 280.67 30.48 0) (effects (font (size 1 1)) (justify left) (hide yes)))
+(property "Layout" "Source termination: place immediately beside U_DACLV1 output." (at 280.67 30.48 0) (effects (font (size 1 1)) (justify left) (hide yes)))
+(instances (project "Laser Controllerv2_only_for_pcb_test" (path "/d54d297e-dc0d-4b80-be70-d4630411b2f0" (reference "R_DACSCLK1") (unit 1)))))
+	(label "DAC_SCLK_5V" (at 284.48 30.48 0) (effects (font (size 1 1)) (justify left bottom)) (uuid "9585b5d7-b412-4184-b781-1cf672a47596"))
+	(symbol (lib_id "Device:R") (at 45.72 35.56 0) (unit 1) (in_bom yes) (on_board yes) (dnp no) (uuid "81c36217-30a7-4017-99ad-3c7b03c46e97")
+(property "Reference" "R_DACSCLKA1" (at 49.53 34.29 0) (effects (font (size 1 1)) (justify left)))
+(property "Value" "10k" (at 49.53 36.83 0) (effects (font (size 1 1)) (justify left)))
+(property "Footprint" "Resistor_SMD:R_1206_3216Metric" (at 45.72 35.56 0) (effects (font (size 1 1)) (justify left) (hide yes)))
+(property "Tolerance" "1%" (at 45.72 35.56 0) (effects (font (size 1 1)) (justify left) (hide yes)))
+(instances (project "Laser Controllerv2_only_for_pcb_test" (path "/d54d297e-dc0d-4b80-be70-d4630411b2f0" (reference "R_DACSCLKA1") (unit 1)))))
+	(label "DAC_SCLK_3V3" (at 45.72 31.75 0) (effects (font (size 1 1)) (justify left bottom)) (uuid "685c96cc-7415-4bfc-bb49-a190c4490cd1"))
+	(label "AGND (from Galvo Board)" (at 45.72 39.37 0) (effects (font (size 1 1)) (justify left bottom)) (uuid "0cfb59a3-2006-41be-86a9-eae91f462e73"))
+	(label "DAC_DIN_3V3" (at 236.22 242.57 0) (effects (font (size 0.8 0.8)) (justify right bottom)) (uuid "c0e3094b-49a9-4838-86b4-df049c95f332"))
+	(label "DAC_DIN_5V" (at 234.95 154.94 0) (effects (font (size 1 1)) (justify right bottom)) (uuid "01387b8b-44c1-44e8-8a85-3b0d9906c9bd"))
+	(label "DAC_DIN_3V3" (at 250.19 35.56 0) (effects (font (size 1 1)) (justify right bottom)) (uuid "4863b504-0684-4d6d-9e3e-40ec4ed60256"))
+	(symbol (lib_id "Device:R") (at 280.67 35.56 270) (unit 1) (in_bom yes) (on_board yes) (dnp no) (uuid "6948ed2c-46a5-41f2-a47c-a8dba9b2b910")
+(property "Reference" "R_DACDIN1" (at 280.67 33.655 90) (effects (font (size 0.9 0.9)) ))
+(property "Value" "22" (at 280.67 37.465 90) (effects (font (size 0.9 0.9)) ))
+(property "Footprint" "Resistor_SMD:R_1206_3216Metric" (at 280.67 35.56 0) (effects (font (size 1 1)) (justify left) (hide yes)))
+(property "Tolerance" "1%" (at 280.67 35.56 0) (effects (font (size 1 1)) (justify left) (hide yes)))
+(property "Layout" "Source termination: place immediately beside U_DACLV1 output." (at 280.67 35.56 0) (effects (font (size 1 1)) (justify left) (hide yes)))
+(instances (project "Laser Controllerv2_only_for_pcb_test" (path "/d54d297e-dc0d-4b80-be70-d4630411b2f0" (reference "R_DACDIN1") (unit 1)))))
+	(label "DAC_DIN_5V" (at 284.48 35.56 0) (effects (font (size 1 1)) (justify left bottom)) (uuid "f3160a7b-5558-4670-b22c-4a8347542307"))
+	(symbol (lib_id "Device:R") (at 71.12 35.56 0) (unit 1) (in_bom yes) (on_board yes) (dnp no) (uuid "b01c4e4c-d876-4413-8232-39d521aa21b3")
+(property "Reference" "R_DACDINA1" (at 74.93 34.29 0) (effects (font (size 1 1)) (justify left)))
+(property "Value" "10k" (at 74.93 36.83 0) (effects (font (size 1 1)) (justify left)))
+(property "Footprint" "Resistor_SMD:R_1206_3216Metric" (at 71.12 35.56 0) (effects (font (size 1 1)) (justify left) (hide yes)))
+(property "Tolerance" "1%" (at 71.12 35.56 0) (effects (font (size 1 1)) (justify left) (hide yes)))
+(instances (project "Laser Controllerv2_only_for_pcb_test" (path "/d54d297e-dc0d-4b80-be70-d4630411b2f0" (reference "R_DACDINA1") (unit 1)))))
+	(label "DAC_DIN_3V3" (at 71.12 31.75 0) (effects (font (size 1 1)) (justify left bottom)) (uuid "464b6c5a-cd35-43a8-900e-38d4b4a9a336"))
+	(label "AGND (from Galvo Board)" (at 71.12 39.37 0) (effects (font (size 1 1)) (justify left bottom)) (uuid "b69c55dd-468c-4dcf-be10-ac5a323d8ceb"))
+	(label "DAC_SYNC_3V3" (at 236.22 240.03 0) (effects (font (size 0.8 0.8)) (justify right bottom)) (uuid "55e574eb-2e44-40db-8c99-28db972dca80"))
+	(label "DAC_SYNC_5V" (at 234.95 175.26 0) (effects (font (size 1 1)) (justify right bottom)) (uuid "87b73f06-62c9-4b43-9574-a1c7288e295e"))
+	(label "DAC_SYNC_3V3" (at 250.19 40.64 0) (effects (font (size 1 1)) (justify right bottom)) (uuid "60c9ac62-4c3a-49ea-a905-60d4c9e1c969"))
+	(symbol (lib_id "Device:R") (at 280.67 40.64 270) (unit 1) (in_bom yes) (on_board yes) (dnp no) (uuid "89742cd8-1e6b-4ca9-b74b-dca825a837e3")
+(property "Reference" "R_DACSYNC1" (at 280.67 38.735 90) (effects (font (size 0.9 0.9)) ))
+(property "Value" "22" (at 280.67 42.545 90) (effects (font (size 0.9 0.9)) ))
+(property "Footprint" "Resistor_SMD:R_1206_3216Metric" (at 280.67 40.64 0) (effects (font (size 1 1)) (justify left) (hide yes)))
+(property "Tolerance" "1%" (at 280.67 40.64 0) (effects (font (size 1 1)) (justify left) (hide yes)))
+(property "Layout" "Source termination: place immediately beside U_DACLV1 output." (at 280.67 40.64 0) (effects (font (size 1 1)) (justify left) (hide yes)))
+(instances (project "Laser Controllerv2_only_for_pcb_test" (path "/d54d297e-dc0d-4b80-be70-d4630411b2f0" (reference "R_DACSYNC1") (unit 1)))))
+	(label "DAC_SYNC_5V" (at 284.48 40.64 0) (effects (font (size 1 1)) (justify left bottom)) (uuid "c4d2cad4-102f-423d-a1d9-c0b04191b341"))
+	(symbol (lib_id "Device:R") (at 96.52 35.56 0) (unit 1) (in_bom yes) (on_board yes) (dnp no) (uuid "680e8d9a-2b68-44eb-b4c9-6f36c9276d1b")
+(property "Reference" "R_DACSYNCA1" (at 100.33 34.29 0) (effects (font (size 1 1)) (justify left)))
+(property "Value" "10k" (at 100.33 36.83 0) (effects (font (size 1 1)) (justify left)))
+(property "Footprint" "Resistor_SMD:R_1206_3216Metric" (at 96.52 35.56 0) (effects (font (size 1 1)) (justify left) (hide yes)))
+(property "Tolerance" "1%" (at 96.52 35.56 0) (effects (font (size 1 1)) (justify left) (hide yes)))
+(instances (project "Laser Controllerv2_only_for_pcb_test" (path "/d54d297e-dc0d-4b80-be70-d4630411b2f0" (reference "R_DACSYNCA1") (unit 1)))))
+	(label "+3V3" (at 96.52 31.75 0) (effects (font (size 1 1)) (justify left bottom)) (uuid "45bc80d4-6132-4009-bc57-e2755505e92e"))
+	(label "DAC_SYNC_3V3" (at 96.52 39.37 0) (effects (font (size 1 1)) (justify left bottom)) (uuid "577e0897-07ea-41fd-9197-c627bd1978ac"))
+	(label "DAC_CLR_3V3" (at 236.22 247.65 0) (effects (font (size 0.8 0.8)) (justify right bottom)) (uuid "c512e7d3-95ab-48ac-adf1-b9d3a7bc7c95"))
+	(label "DAC_CLR_5V" (at 234.95 165.1 0) (effects (font (size 1 1)) (justify right bottom)) (uuid "2fd227ee-5c9f-486c-ae77-a3c77234dfdc"))
+	(label "DAC_CLR_3V3" (at 250.19 45.72 0) (effects (font (size 1 1)) (justify right bottom)) (uuid "99109e5e-b046-40d4-ba0a-b955d3ccbf89"))
+	(symbol (lib_id "Device:R") (at 280.67 45.72 270) (unit 1) (in_bom yes) (on_board yes) (dnp no) (uuid "15f8c824-451e-4851-b7fb-e31f388c9b70")
+(property "Reference" "R_DACCLR1" (at 280.67 43.815 90) (effects (font (size 0.9 0.9)) ))
+(property "Value" "22" (at 280.67 47.625 90) (effects (font (size 0.9 0.9)) ))
+(property "Footprint" "Resistor_SMD:R_1206_3216Metric" (at 280.67 45.72 0) (effects (font (size 1 1)) (justify left) (hide yes)))
+(property "Tolerance" "1%" (at 280.67 45.72 0) (effects (font (size 1 1)) (justify left) (hide yes)))
+(property "Layout" "Source termination: place immediately beside U_DACLV1 output." (at 280.67 45.72 0) (effects (font (size 1 1)) (justify left) (hide yes)))
+(instances (project "Laser Controllerv2_only_for_pcb_test" (path "/d54d297e-dc0d-4b80-be70-d4630411b2f0" (reference "R_DACCLR1") (unit 1)))))
+	(label "DAC_CLR_5V" (at 284.48 45.72 0) (effects (font (size 1 1)) (justify left bottom)) (uuid "522623c5-ddcd-4045-bb95-bf47f97adea3"))
+	(symbol (lib_id "Device:R") (at 121.92 35.56 0) (unit 1) (in_bom yes) (on_board yes) (dnp no) (uuid "8561896a-e2e4-4331-9258-50da7d674f22")
+(property "Reference" "R_DACCLRA1" (at 125.73 34.29 0) (effects (font (size 1 1)) (justify left)))
+(property "Value" "10k" (at 125.73 36.83 0) (effects (font (size 1 1)) (justify left)))
+(property "Footprint" "Resistor_SMD:R_1206_3216Metric" (at 121.92 35.56 0) (effects (font (size 1 1)) (justify left) (hide yes)))
+(property "Tolerance" "1%" (at 121.92 35.56 0) (effects (font (size 1 1)) (justify left) (hide yes)))
+(instances (project "Laser Controllerv2_only_for_pcb_test" (path "/d54d297e-dc0d-4b80-be70-d4630411b2f0" (reference "R_DACCLRA1") (unit 1)))))
+	(label "+3V3" (at 121.92 31.75 0) (effects (font (size 1 1)) (justify left bottom)) (uuid "47f55771-9bc8-4851-99dc-3d7185c26a7b"))
+	(label "DAC_CLR_3V3" (at 121.92 39.37 0) (effects (font (size 1 1)) (justify left bottom)) (uuid "7cb3c8e9-06fc-43e7-9db3-df3ec0c52bd9"))
+	(symbol (lib_id "Device:R") (at 45.72 52.07 0) (unit 1) (in_bom yes) (on_board yes) (dnp no) (uuid "b7cfeca4-c336-4f71-a69f-98821a2690df")
+(property "Reference" "R_DACSCLKB1" (at 49.53 50.8 0) (effects (font (size 1 1)) (justify left)))
+(property "Value" "10k" (at 49.53 53.34 0) (effects (font (size 1 1)) (justify left)))
+(property "Footprint" "Resistor_SMD:R_1206_3216Metric" (at 45.72 52.07 0) (effects (font (size 1 1)) (justify left) (hide yes)))
+(property "Tolerance" "1%" (at 45.72 52.07 0) (effects (font (size 1 1)) (justify left) (hide yes)))
+(instances (project "Laser Controllerv2_only_for_pcb_test" (path "/d54d297e-dc0d-4b80-be70-d4630411b2f0" (reference "R_DACSCLKB1") (unit 1)))))
+	(label "DAC_SCLK_5V" (at 45.72 48.26 0) (effects (font (size 1 1)) (justify left bottom)) (uuid "4d1a7410-f2a0-4902-9719-ceda077e862e"))
+	(label "AGND (from Galvo Board)" (at 45.72 55.88 0) (effects (font (size 1 1)) (justify left bottom)) (uuid "3bd288ab-4dc9-4772-a159-4b9c63603731"))
+	(symbol (lib_id "Device:R") (at 83.82 52.07 0) (unit 1) (in_bom yes) (on_board yes) (dnp no) (uuid "4ebdc967-462e-48f1-a058-2ef4bf7ad468")
+(property "Reference" "R_DACDINB1" (at 87.63 50.8 0) (effects (font (size 1 1)) (justify left)))
+(property "Value" "10k" (at 87.63 53.34 0) (effects (font (size 1 1)) (justify left)))
+(property "Footprint" "Resistor_SMD:R_1206_3216Metric" (at 83.82 52.07 0) (effects (font (size 1 1)) (justify left) (hide yes)))
+(property "Tolerance" "1%" (at 83.82 52.07 0) (effects (font (size 1 1)) (justify left) (hide yes)))
+(instances (project "Laser Controllerv2_only_for_pcb_test" (path "/d54d297e-dc0d-4b80-be70-d4630411b2f0" (reference "R_DACDINB1") (unit 1)))))
+	(label "DAC_DIN_5V" (at 83.82 48.26 0) (effects (font (size 1 1)) (justify left bottom)) (uuid "efd9f5d6-3044-47bc-b986-5bfd788ec5eb"))
+	(label "AGND (from Galvo Board)" (at 83.82 55.88 0) (effects (font (size 1 1)) (justify left bottom)) (uuid "0be7153a-602a-431f-98dd-8158dfd8ec46"))
+	(symbol (lib_id "Device:R") (at 121.92 52.07 0) (unit 1) (in_bom yes) (on_board yes) (dnp no) (uuid "62eb6dba-608f-44dc-b3ac-8d809fd3de82")
+(property "Reference" "R_DACSYNCB1" (at 125.73 50.8 0) (effects (font (size 1 1)) (justify left)))
+(property "Value" "10k" (at 125.73 53.34 0) (effects (font (size 1 1)) (justify left)))
+(property "Footprint" "Resistor_SMD:R_1206_3216Metric" (at 121.92 52.07 0) (effects (font (size 1 1)) (justify left) (hide yes)))
+(property "Tolerance" "1%" (at 121.92 52.07 0) (effects (font (size 1 1)) (justify left) (hide yes)))
+(instances (project "Laser Controllerv2_only_for_pcb_test" (path "/d54d297e-dc0d-4b80-be70-d4630411b2f0" (reference "R_DACSYNCB1") (unit 1)))))
+	(label "+5V_ANA" (at 121.92 48.26 0) (effects (font (size 1 1)) (justify left bottom)) (uuid "00058545-60a9-41d6-90f4-79e70d060ed0"))
+	(label "DAC_SYNC_5V" (at 121.92 55.88 0) (effects (font (size 1 1)) (justify left bottom)) (uuid "3ffed414-bc1c-499b-849c-1638540a30ad"))
+	(symbol (lib_id "Device:C") (at 190.5 25.4 0) (unit 1) (in_bom yes) (on_board yes) (dnp no) (uuid "ade564ad-0273-4a48-9f95-f4e2c0404a13")
+(property "Reference" "C_DACLVA1" (at 194.31 24.13 0) (effects (font (size 1 1)) (justify left)))
+(property "Value" "100nF" (at 194.31 26.67 0) (effects (font (size 1 1)) (justify left)))
+(property "Footprint" "Capacitor_SMD:C_1206_3216Metric" (at 190.5 25.4 0) (effects (font (size 1 1)) (justify left) (hide yes)))
+(property "Voltage" "50V" (at 190.5 25.4 0) (effects (font (size 1 1)) (justify left) (hide yes)))
+(property "Dielectric" "X7R" (at 190.5 25.4 0) (effects (font (size 1 1)) (justify left) (hide yes)))
+(property "Tolerance" "10%" (at 190.5 25.4 0) (effects (font (size 1 1)) (justify left) (hide yes)))
+(property "Layout" "Place directly at U_DACLV1 supply pins with short AGND return." (at 190.5 25.4 0) (effects (font (size 1 1)) (justify left) (hide yes)))
+(instances (project "Laser Controllerv2_only_for_pcb_test" (path "/d54d297e-dc0d-4b80-be70-d4630411b2f0" (reference "C_DACLVA1") (unit 1)))))
+	(label "+3V3" (at 190.5 21.59 0) (effects (font (size 1 1)) (justify left bottom)) (uuid "787d8668-da2e-4c81-b24f-6c957ca9ab56"))
+	(label "AGND (from Galvo Board)" (at 190.5 29.21 0) (effects (font (size 1 1)) (justify left bottom)) (uuid "af2c2c38-c8cd-4385-9505-0a211593a4a1"))
+	(symbol (lib_id "Device:C") (at 312.42 55.88 0) (unit 1) (in_bom yes) (on_board yes) (dnp no) (uuid "22646a52-4113-4890-bad4-4314e1750a83")
+(property "Reference" "C_DACLVB1" (at 316.23 54.61 0) (effects (font (size 1 1)) (justify left)))
+(property "Value" "100nF" (at 316.23 57.15 0) (effects (font (size 1 1)) (justify left)))
+(property "Footprint" "Capacitor_SMD:C_1206_3216Metric" (at 312.42 55.88 0) (effects (font (size 1 1)) (justify left) (hide yes)))
+(property "Voltage" "50V" (at 312.42 55.88 0) (effects (font (size 1 1)) (justify left) (hide yes)))
+(property "Dielectric" "X7R" (at 312.42 55.88 0) (effects (font (size 1 1)) (justify left) (hide yes)))
+(property "Tolerance" "10%" (at 312.42 55.88 0) (effects (font (size 1 1)) (justify left) (hide yes)))
+(property "Layout" "Place directly at U_DACLV1 supply pins with short AGND return." (at 312.42 55.88 0) (effects (font (size 1 1)) (justify left) (hide yes)))
+(instances (project "Laser Controllerv2_only_for_pcb_test" (path "/d54d297e-dc0d-4b80-be70-d4630411b2f0" (reference "C_DACLVB1") (unit 1)))))
+	(label "+5V_ANA" (at 312.42 52.07 0) (effects (font (size 1 1)) (justify left bottom)) (uuid "e96d8b93-1c28-4d87-8386-437517120fb2"))
+	(label "AGND (from Galvo Board)" (at 312.42 59.69 0) (effects (font (size 1 1)) (justify left bottom)) (uuid "aafe2b42-f71d-425d-825b-5988b99eea25"))
+	(label "+3V3" (at 257.81 20.32 0) (effects (font (size 1 1)) (justify right bottom)) (uuid "7b58d974-480f-42d5-8c24-f99056bef9a8"))
+	(label "+5V_ANA" (at 262.89 20.32 0) (effects (font (size 1 1)) (justify left bottom)) (uuid "102e8400-f658-42d4-83f8-7783e93bf50c"))
+	(label "AGND (from Galvo Board)" (at 260.35 76.2 0) (effects (font (size 1 1)) (justify left bottom)) (uuid "7078e035-1a13-49cd-a3ab-34043e8bb9f6"))
+	(label "AGND (from Galvo Board)" (at 250.19 68.58 0) (effects (font (size 1 1)) (justify right bottom)) (uuid "1c638e8f-aaf6-4026-8b14-54114dc39aaf"))
+	(label "+3V3" (at 250.19 71.12 0) (effects (font (size 1 1)) (justify right bottom)) (uuid "dedea677-779d-47b1-b19b-cc20079c65db"))
+	(label "DAC_UNUSED" (at 250.19 50.8 0) (effects (font (size 1 1)) (justify right bottom)) (uuid "1b327d65-c6e7-47da-a7f0-8e1311021892"))
+	(no_connect (at 270.51 50.8) (uuid "5ab2084c-5213-45f3-bdad-b9f41ab40b03"))
+	(label "DAC_UNUSED" (at 250.19 55.88 0) (effects (font (size 1 1)) (justify right bottom)) (uuid "3f133cf8-a5ad-48d3-b3b8-c3367755cfa5"))
+	(no_connect (at 270.51 55.88) (uuid "8cb036c3-3888-4e5c-929b-8367fa291dfb"))
+	(label "DAC_UNUSED" (at 250.19 60.96 0) (effects (font (size 1 1)) (justify right bottom)) (uuid "e2514ae2-8c15-4f8e-856b-09de9a92f4a5"))
+	(no_connect (at 270.51 60.96) (uuid "a937f63e-afd9-4e27-86e6-c47ff8a84730"))
+	(label "DAC_UNUSED" (at 250.19 66.04 0) (effects (font (size 1 1)) (justify right bottom)) (uuid "954385e7-e895-4534-b873-d37c6fe05c20"))
+	(no_connect (at 270.51 66.04) (uuid "d3335bb2-2af5-4194-85bc-7978e5ef67fd"))
+	(symbol (lib_id "Device:R") (at 203.2 55.88 0) (unit 1) (in_bom yes) (on_board yes) (dnp no) (uuid "6c2ff17e-2e8f-4117-9646-727da8d63b45")
+(property "Reference" "R_DACUNUSED1" (at 207.01 54.61 0) (effects (font (size 1 1)) (justify left)))
+(property "Value" "10k" (at 207.01 57.15 0) (effects (font (size 1 1)) (justify left)))
+(property "Footprint" "Resistor_SMD:R_1206_3216Metric" (at 203.2 55.88 0) (effects (font (size 1 1)) (justify left) (hide yes)))
+(property "Tolerance" "1%" (at 203.2 55.88 0) (effects (font (size 1 1)) (justify left) (hide yes)))
+(property "Description" "Bias unused A5-A8 low; B5-B8 remain unconnected." (at 203.2 55.88 0) (effects (font (size 1 1)) (justify left) (hide yes)))
+(instances (project "Laser Controllerv2_only_for_pcb_test" (path "/d54d297e-dc0d-4b80-be70-d4630411b2f0" (reference "R_DACUNUSED1") (unit 1)))))
+	(label "DAC_UNUSED" (at 203.2 52.07 0) (effects (font (size 1 1)) (justify left bottom)) (uuid "74314619-998d-49ff-b1be-1184b352b598"))
+	(label "AGND (from Galvo Board)" (at 203.2 59.69 0) (effects (font (size 1 1)) (justify left bottom)) (uuid "adafb4d4-19c4-4f22-bca1-69536ea10649"))
+	(text "DAC INPUT DEFAULTS / 3V3" (at 45.72 24.13 0) (effects (font (size 1.27 1.27)) (justify left bottom)) (uuid "0c196577-0de5-4f43-a852-5b3fc33962af"))
+	(text "DAC OUTPUT DEFAULTS / 5V" (at 45.72 44.45 0) (effects (font (size 1.27 1.27)) (justify left bottom)) (uuid "f1442033-98b0-4a94-917c-31cc372a0f25"))
+	(wire (pts (xy 270.51 30.48) (xy 276.86 30.48)) (stroke (width 0) (type default)) (uuid "dacf00d0-0000-4000-8000-000000000003"))
+	(wire (pts (xy 270.51 35.56) (xy 276.86 35.56)) (stroke (width 0) (type default)) (uuid "dacf00d0-0000-4000-8000-000000000004"))
+	(wire (pts (xy 270.51 40.64) (xy 276.86 40.64)) (stroke (width 0) (type default)) (uuid "dacf00d0-0000-4000-8000-000000000005"))
+	(wire (pts (xy 270.51 45.72) (xy 276.86 45.72)) (stroke (width 0) (type default)) (uuid "dacf00d0-0000-4000-8000-000000000006"))
+	(label "DAC_CLR_5V" (at 203.2 36.83 0) (effects (font (size 1 1)) (justify left bottom)) (uuid "dacf00d1-0000-4000-8000-000000000001"))
+	(label "+5V_ANA" (at 203.2 44.45 0) (effects (font (size 1 1)) (justify left bottom)) (uuid "dacf00d1-0000-4000-8000-000000000002"))
 )

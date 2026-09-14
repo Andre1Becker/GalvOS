@@ -100,10 +100,56 @@ versioned in Git. The pre-existing untracked `agents.md` belongs to the user.
 
 ## Next actions
 
-1. Specify and implement guaranteed DAC level translation while preserving
-   analog range; verify reset and partial-power behavior.
+1. Qualify the implemented DAC level translation on the future PCB: source/PCB
+   timing, rail limits, reset and partial-power behavior require measurement.
 2. Resolve safety ownership with the user, then design and validate independent
    default-off gating, watchdog and interlock behavior against actual hardware.
 3. Complete buck/input-protection, connector, fan/DMX and analog-range design.
 4. Produce and verify the matched PCB after mechanical and electrical interfaces
    are settled; regenerate manufacturing outputs only after release gates pass.
+
+## 2026-09-14 — DAC interface implemented; physical qualification open
+
+- Previous goal turn: **progress**; commit `b769c0b` and its engineering-review
+  tag are present. The only unrelated worktree file remains `agents.md`.
+- Confirmed firmware uses SPI mode 1 at 40 MHz and actively drives GPIO13 as
+  DAC /CLR. The current schematic leaves GPIO13 unconnected and pulls DAC /CLR
+  to +3V3, so both voltage compatibility and reset connectivity need correction.
+- Selected the standard KiCad `Logic_LevelTranslator:SN74LVC8T245`, strapped
+  permanently A-to-B, with +3V3 on VCCA and the DAC's filtered +5V_ANA on VCCB.
+  Manufacturer specifies partial-power-down protection, supply isolation and
+  0.5–4.4 ns A-to-B delay for 3.3 V to 5 V over -40 to +85 C. The output supply
+  follows the DAC supply to avoid driving a live 5 V signal into an unpowered DAC.
+- Planned fixed startup bias: SYNC/CLR high, SCLK/DIN low on each side;
+  unused inputs biased low, unused outputs no-connect, local supply bypass and
+  series source termination. GPIO numbering and firmware frequency stay intact.
+- Timing qualification must include source skew, pulse widths, CS high/hold
+  times and PCB loading. A fast part alone is not proof of the 40 MHz link.
+
+### Implemented and checked
+
+- Added U_DACLV1 and its two local bypass capacitors, four 22 ohm source
+  resistors, seven new 10 kohm signal-bias resistors and one unused-input bias.
+- Reconnected GPIO13 to translated CLR. Existing R3 now pulls DAC CLR to DAC
+  AVDD; its resistance and footprint are preserved.
+- Native translator symbol/package pins checked against the TI table; direction
+  is fixed A-to-B, OE is low, both VCCB pins and all three ground pins are wired.
+- The new circuit and affected DAC/MCU drawing areas were rendered and inspected;
+  labels and resistor fields were adjusted for legibility. Two displaced C_ANA1
+  fields were returned to their component without changing its connections.
+- KiCad ERC: zero violations, with all severities and no new exclusions.
+- Export: 116 components / 104 nets including intentionally unconnected pins.
+- `hardware/tests/check_dac_interface.py` passes the new export and rejects the
+  baseline lacking a translator. The baseline comparison verifies every existing
+  value/footprint and every unrelated net membership, not only component counts.
+- Negative topology checks also reject a direct MCU-to-5V bypass and a wrong
+  direction strap. Source hash and results: `hardware/reviews/2026-09-14-dac-checks.json`.
+- Repeated ERC and the connectivity check from an archive of the staged files
+  in a different directory: both passed; project/library relocation still works.
+- Timing analysis leaves only 0.6 ns ideal SCLK pulse-width budget before source
+  and PCB effects at 40 MHz. It is explicitly not a measured pass. Manual CS
+  timing and complete partial-power behavior remain qualification requirements.
+- Details and reproduction: [DAC interface review](hardware/reviews/2026-09-14-dac-interface.md).
+- Previous-turn classification for the next continuation: **progress**. The
+  overall production-PCB goal remains active; safety architecture, external
+  specifications, matched layout and physical tests are still outstanding.
