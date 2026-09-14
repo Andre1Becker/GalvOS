@@ -1,5 +1,34 @@
 # GalvOS production PCB work log
 
+## 2026-09-14 — Release input boundary revalidated
+
+- Previous goal turn made progress through 58d27e5 (SMD export guard).
+  This turn makes no engineering change and does not count status/logging
+  as progress toward physical qualification. No live export job is pending.
+- Fresh canonical netlist still has J_ESTOP1.1 connected only to U1.J2_17
+  (GPIO47), GPIO38 connected to U_WD1 reset, and timer output reaching the
+  unspecified external SSR through R_SSRCTRL1. Safety firmware hashes match
+  the shutdown-boundary review: open E-stop accepted, override bypass and
+  retained ARM behavior remain unresolved. No independent shutdown proven.
+- Actual module footprint still explicitly marks 2.54 mm pitch, 22.86 mm
+  row spacing and body-to-grid alignment as provisional. The supplied
+  28 x 57 mm body size and 22 pins per row do not resolve those dimensions.
+- Required inputs before the affected design decisions:
+  1. Assembly method: service reflow, self-reflow/hot air, or soldering iron.
+  2. Exact ESP32 board supplier drawing or measured row-center spacing and
+     pin-grid offsets, plus USB/antenna and installed-height constraints.
+  3. External E-stop/key/enclosure wiring and actual SSR/relay model, including
+     which energy path is interrupted and any independent safety controller.
+- Assembly-process selection is already requested. Do not assume answers,
+  replace safety architecture, redesign firmware, or release manufacturing
+  data through automatic continuation. Remaining drawing polish cannot
+  substitute for these requirements. Existing PDF/images stay current.
+- Full objective remains unachieved. Thermal/load/timing remain excluded
+  and unverified. This is the first no-progress/input-boundary audit after
+  the productive assembly-export turn; not yet eligible to mark the goal
+  blocked under the three-consecutive-turn rule. User-owned agents.md stays
+  untracked and untouched.
+
 ## 2026-09-14 — Assembly export coverage and buck process gate
 
 - Previous goal turn made progress: published schematic-readability commit
