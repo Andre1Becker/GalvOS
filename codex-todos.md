@@ -380,6 +380,8 @@ versioned in Git. The pre-existing untracked `agents.md` belongs to the user.
   artifact hashes, commands and warnings; [remaining PCB plan](hardware/reviews/2026-09-14-v2-pcb-plan.md)
   tracks incomplete routing, ground/buck/thermal review, mechanics, antenna
   access, BOM/package qualification and independent review.
-- Version target: `hw-v2.0.2-draft`. No firmware or safety-circuit changes,
+- Published hardware commit `19553b4`, tag `hw-v2.0.2-draft`; remote main and
+  peeled tag were verified against the full local commit ID after atomic push.
+  No firmware or safety-circuit changes,
   Gerbers or fabrication/laser-operation release. Full production work remains
   incomplete; v1 perfboard experience does not close v2 safety gates.
