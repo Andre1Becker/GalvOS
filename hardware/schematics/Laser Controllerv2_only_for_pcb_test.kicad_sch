@@ -21977,7 +21977,7 @@
 				(justify bottom)
 			)
 		)
-		(property "Assembly" "Mounted via 2x 1x22 2.54mm female pin socket strip (footprint pads already match this pitch/spacing) - DevKit board plugs in, not soldered direct"
+		(property "Assembly" "Manual carrier assembly: 2x 1x22 female socket strips; 2.54mm pitch user-confirmed; 22.86mm row spacing and body alignment provisional. Plug in 28x57mm ESP32 DevKit; do not solder it directly."
 			(at 259.08 227.33 0)
 			(hide yes)
 			(show_name no)

@@ -1,5 +1,34 @@
 # GalvOS production PCB work log
 
+## 2026-09-14 — User inputs resumed: manual assembly, pitch and SSR
+
+- User confirmed manual assembly and 2.54 mm ESP32 pin pitch; delegated SSR
+  selection and described a two-wire standard emergency stop. This is new
+  input after the blocked audit, not evidence that every dependency closed.
+- Updated U1 Assembly in SCH/PCB and the local/placed footprint descriptions.
+  Pitch is now confirmed; 22.86 mm row spacing and body alignment remain
+  provisional. Exactly four metadata lines change; no pads/copper moved.
+- Researched Omron G3NA-D210B-UTU DC5-24 from its official datasheet. Candidate
+  for the proposed 12.6 V DC driver-feed branch only; user asked to confirm
+  that branch rather than mains interruption. Existing NE555 plus 330 ohms
+  cannot guarantee the SSR's 4 V input requirement. Output voltage drop,
+  leakage and conditional manufacturer current ratings prevent an
+  unconditional suitability claim. No purchase/installation approval.
+- Two-wire stop requires a latching, positively opening NC contact.
+  Existing open=OK firmware/override behavior is incompatible with simply
+  treating it as a safe NC loop. Independent shutdown and manual rearm
+  remain to be designed/qualified; ordinary SSR alone is insufficient.
+- Manual assembly still needs suitable tools for the concealed buck pad
+  and fine-pitch ICs; no arbitrary stencil/via changes were made.
+- Electrical XML unchanged except U1 Assembly field; exact geometry/source
+  preservation checked. ERC zero, DRC/parity zero errors/unconnected/parity,
+  one known buck warning. Seven interface checks and all 49 tests pass.
+  PDF refreshed; PCB images remain current. Firmware/KiBot untouched.
+- [Evidence and candidate limitations](hardware/reviews/2026-09-14-manual-assembly-ssr.md).
+  Commit/push metadata and PDF checkpoint. Preserve user-owned agents.md.
+  Thermal/load/timing exclusions remain; no fabrication/operation release.
+
+
 ## 2026-09-14 — Release input boundary revalidated
 
 - Previous goal turn made progress through 58d27e5 (SMD export guard).

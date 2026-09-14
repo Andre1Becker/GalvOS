@@ -8785,7 +8785,7 @@
 		(layer "F.Cu")
 		(uuid "4db61b63-6bed-403d-980f-a0cb58fe6e54")
 		(at 110 34)
-		(descr "ESP32-S3-N16R8 DevKit socket pair, two 22-pin rows; user-reported 28x57mm module body, provisionally centered on pin grid; 2.54mm pitch and 22.86mm row spacing remain to be verified; fit two female socket strips")
+		(descr "ESP32-S3-N16R8 DevKit socket pair, two 22-pin rows; user-reported 28x57mm module body, provisionally centered on pin grid; 2.54mm pitch user-confirmed; 22.86mm row spacing and body alignment remain to be verified; fit two female socket strips")
 		(property "Reference" "U1"
 			(at 0 -29.5 0)
 			(layer "F.SilkS")
@@ -8854,7 +8854,7 @@
 				)
 			)
 		)
-		(property "Assembly" "Mounted via 2x 1x22 2.54mm female pin socket strip (footprint pads already match this pitch/spacing) - DevKit board plugs in, not soldered direct"
+		(property "Assembly" "Manual carrier assembly: 2x 1x22 female socket strips; 2.54mm pitch user-confirmed; 22.86mm row spacing and body alignment provisional. Plug in 28x57mm ESP32 DevKit; do not solder it directly."
 			(at 0 0 0)
 			(layer "F.Fab")
 			(hide yes)

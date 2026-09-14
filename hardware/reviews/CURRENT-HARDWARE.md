@@ -14,14 +14,28 @@ mechanical, BOM/assembly, manufacturing-data and remaining safety/interface
 work. The exclusion does not imply a thermal/current/timing guarantee or
 fabrication/laser-operation approval.
 
+## Latest user inputs and SSR status
+
+Manual assembly by the user and ESP32 2.54 mm pitch are confirmed.
+The carrier still uses two 1x22 female socket strips; 22.86 mm row spacing
+and body alignment remain provisional. U1 Assembly/footprint descriptions
+now distinguish the confirmed and unconfirmed dimensions; geometry is exact.
+
+SSR preselection: Omron G3NA-D210B-UTU DC5-24 for the proposed DC driver-feed
+branch, **not a drop-in or purchase approval**. The present NE555/330-ohm
+drive does not guarantee its input requirement. Two-wire E-stop contact type,
+independent interruption and rearm remain unresolved. See
+[manufacturer evidence and constraints](2026-09-14-manual-assembly-ssr.md).
+PDF refreshed; PCB images unchanged because visible geometry is unchanged.
+
 ## Artifacts
 
 Paths are relative to `hardware/schematics/`.
 
 | Artifact | State | SHA-256 |
 |---|---|---|
-| `Laser Controllerv2_only_for_pcb_test.kicad_sch` | V2.0.10, readability update; 122 components, 110 nets | `adb9bf0af905d7a063de0bc2b287c3bc65b554794207a8d884ebd85c7f033f29` |
-| `Laser Controllerv2_only_for_pcb_test.kicad_pcb` | Routed v2 engineering draft with five ground zones | `267c312d4451f386fe3bcb2e500c779456d1787064c24c7be033837a4de578ee` |
+| `Laser Controllerv2_only_for_pcb_test.kicad_sch` | V2.0.10, readability update; 122 components, 110 nets | `8c1796266cc1843ee5e76cb9ab3a1025354a36771a9495bd96aa1e50c6ad0cc5` |
+| `Laser Controllerv2_only_for_pcb_test.kicad_pcb` | Routed v2 engineering draft with five ground zones | `b8111d778abc5b57ec3adb1bbc94060598fb87cc0d16e584e53e28c0bce4f47a` |
 | `Laser Controller.kicad_pcb` | Unchanged historical board; not the v2 layout | `9703ba1bf5343e8a77ab9dbb0781785384c4f238bedc52c1341898d9e9bbf6b2` |
 
 ## PDF and PCB views
@@ -118,8 +132,8 @@ The buck's 2.60 x 3.10 mm mask/paste opening matches TI's DDA0008J example
 for a 0.125 mm stencil; do not change it merely to suppress a type warning.
 The actual assembly process and via treatment need confirmation.
 See [assembly evidence and reproduction](2026-09-14-v2-assembly-export.md).
-The user has been asked to specify reflow service, self-reflow/hot-air, or
-primarily soldering-iron assembly. No production assembly files were issued.
+The user confirmed manual assembly; equipment/process for the concealed
+buck-pad joint still needs qualification. No production assembly files were issued.
 
 ## Reproduce
 
