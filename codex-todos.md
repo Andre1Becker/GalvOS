@@ -217,3 +217,26 @@ versioned in Git. The pre-existing untracked `agents.md` belongs to the user.
   checker passed; saved power calculations and source hashes were verified.
 - Overall production-PCB work remains unfinished; continue independent
   interface checks while awaiting power and safety contracts.
+
+## 2026-09-14 — package and assembly structural audit
+
+- Previous goal turn: **progress**, with power-path evidence committed as
+  `03071ec`. Existing user-owned `agents.md` remains untouched.
+- Fresh XML audit: all 116 components resolve to 21 existing footprints;
+  numbered pad sets match exported symbol pin sets for every component.
+  This does not complete pin-function, package or assembly qualification.
+- Checked custom DAC/OPA pitch, pad dimensions and numbering against TI
+  package/land examples. Dimensions differ, but no replacement was justified
+  merely by that difference; native generic alternatives also differ.
+- Distinguished the buck footprint's extended ground copper from its
+  package exposed pad and separate mask/paste geometry. Thermal assembly
+  qualification remains open. Recorded DevKit header geometry, not a claim
+  that an unspecified actual module fits or has adequate antenna clearance.
+- Found an actionable BOM mismatch: U6..U10 use DS18B20 sensor symbols/values
+  but JST three-pin connector footprints. All five are wired GND/1-Wire/+3V3.
+  Proposed generic connector representation preserving refs, pins, nets and
+  footprints; implementation awaits the bounded-design approval checkpoint.
+- Details and limitations:
+  [package audit](hardware/reviews/2026-09-14-package-audit.md).
+- Overall objective remains unfinished; this audit is not a manufacturing
+  release and does not settle power, safety or external connector contracts.
