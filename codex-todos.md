@@ -323,3 +323,30 @@ versioned in Git. The pre-existing untracked `agents.md` belongs to the user.
   an updated PCB. No new Gerbers, PCB release or firmware version produced.
 - Power/safety/external-module/mechanical inputs and physical qualification
   still govern the next substantial PCB-design work.
+
+## 2026-09-14 — v1 perfboard evidence and requested v2 PCB
+
+- User reports that the laser PSU supplies the fans and buck converter, and
+  that the v1-based perfboard implementation has operated without observed
+  errors. Record this as user-reported prototype experience, not a measured
+  qualification of the changed v2 circuitry or all fault conditions.
+- User explicitly requested creation of a v2 PCB. Proposed artifact:
+  `hardware/schematics/Laser Controllerv2_only_for_pcb_test.kicad_pcb`, matching
+  the existing v2 schematic/project basename, while preserving the legacy PCB.
+- Read-only geometry check found that three current legacy Edge.Cuts sides
+  describe a 175 x 115 mm rectangle, from (81.9039, 37.7544) to
+  (256.9039, 152.7544). The fourth side is displaced, running from
+  (82.5, 155.5) to (82.5, 40.5); it does not close the outline. Historical
+  `LAYOUT.md` dimensions of 118 x 90 mm are not the current PCB geometry.
+- A new v2 layout should not inherit the old copper/DRC defects. The existing
+  component/connector locations and a repaired 175 x 115 mm outline are
+  candidate starting geometry, not confirmed enclosure requirements.
+- The archived v1 netlist also places J2.1 and fan connector J5.2/J7.2 on
+  a net named `Buck +5V`. This does not establish the actual bench voltages
+  or whether the user's fan power bypasses the buck. Current v2 directly
+  connects fan power to the onboard buck's output.
+- Before selecting the v2 power routing, clarify the actual voltage at the
+  fan power input and at the buck input. Do not silently connect a 12 V fan
+  source to the v2 5 V rail, or assume the tested perfboard equals v2.
+- The PCB architectural design is in its brainstorming checkpoint; no new
+  PCB file, layout or manufacturing claim has been produced in this turn.

@@ -1,5 +1,10 @@
 # Laser Controller PCB — layout notes
 
+> **2026-09-14 geometry clarification:** the current PCB's three aligned
+> Edge.Cuts sides describe **175 x 115 mm**, not the historical 118 x 90 mm
+> stated below. The fourth side is displaced and does not close the outline.
+> These notes are historical and must not be used as verified v2 mechanics.
+
 > **2026-09-13: historical notes, not a fabrication release.** A fresh KiCad
 > 10.0.6 DRC of the current `Laser Controller.kicad_pcb`, with zones refilled,
 > reports 327 violations and 197 unconnected items, including shorts and invalid
