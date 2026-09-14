@@ -405,8 +405,9 @@ versioned in Git. The pre-existing untracked `agents.md` belongs to the user.
   Retained provisional 0.8 mm main fan/buck positive-rail routing as PowerDraft.
 - [Routing evidence](hardware/reviews/2026-09-14-v2-routing.md) and
   [current checkpoint](hardware/reviews/CURRENT-HARDWARE.md) document hashes,
-  tools, proof, warnings and remaining gates. Publication target:
-  `hw-v2.0.3-draft`; verify remote branch/tag after push.
+  tools, proof, warnings and remaining gates. Published hardware commit
+  `dcd5d71`, tag `hw-v2.0.3-draft`; remote main and peeled tag were verified
+  against the full local commit ID after the atomic push.
 - Full production goal remains active. Next priorities: MCU antenna/USB
   mechanics and DAC return boundary/R26, buck loop/feedback/thermal review,
   actual current/copper-weight sizing, package/BOM/assembly review and all
