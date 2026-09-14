@@ -7,7 +7,7 @@
 	(title_block
 		(title "GalvOS ESP32 Laser Controller - V2 engineering review")
 		(date "2026-09-14")
-		(rev "V2.0.7 DRAFT - NOT FOR FABRICATION")
+		(rev "V2.0.8 DRAFT - NOT FOR FABRICATION")
 	)
 	(lib_symbols
 (symbol "74xGxx:74LVC1G17"

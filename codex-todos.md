@@ -1,5 +1,48 @@
 # GalvOS production PCB work log
 
+## Latest checkpoint: V2.0.8 return copper and module envelope (2026-09-14)
+
+- Previous goal work made progress through isolated candidates; the intervening
+  SMD-count reply was read-only. Continued from that candidate, not from scratch.
+  Hardware V2.0.7 and its safety review remain the comparison baseline.
+- User supplied a 28 x 57 mm ESP32 module with 22 male pins per side. Updated
+  placed and library body/courtyard; carrier assembly remains two female 1x22
+  sockets. All 44 contact pads are unchanged. Body centering, 2.54 mm pitch
+  and 22.86 mm row spacing remain provisional; requested measured row spacing.
+  Antenna, USB and installed-height qualification remain open.
+- Moved R26 from (48,58) to (92.8,45) mm; added two local F.Cu return zones
+  and three AGND stitching vias. Preserved all SPI/signal copper. Geometric
+  opposite-layer overlap rises from 1.8–31.9% to 74.8–90.7% on the four DAC
+  input nets. This is not an impedance, return-current, timing or EMC proof.
+- The wider module collided with C_DMXLV1/C_SCANLV1. Moved/rotated both clear
+  while preserving VCC pad positions and capacitor-to-buffer VCC routes.
+  Adapted local ground routes and two distribution segments; corrected all
+  candidate shorts, isolated ground and silk/courtyard conflicts without
+  exclusions or weaker rules.
+- Fresh ERC: zero. Native all-track DRC/refill/parity: zero errors/unconnected
+  items, only the same three known package warnings. Six interface checkers,
+  33 unit tests, draft guard and native buck-input/unique-ID guard pass.
+- Exact preservation: 122 unchanged values/footprint assignments, 110 unchanged
+  electrical net memberships, 119 unchanged placements, all pad nets/geometry/
+  IDs and 1104 retained copper objects. Removed ten scoped old copper objects;
+  added fifteen. Final PCB: 1010 segments, 109 vias, five filled ground zones.
+  Project rules, firmware, historical PCB and KiBot are unchanged.
+- Read-only measurement reproduces from the adopted PCB; 0.05 mm sampling
+  differs by less than 0.3 percentage points. Excluding reference-ground nets
+  yields zero overlap. An in-memory native zone-deletion experiment crashed;
+  it is not counted as a successful negative check and did not write the PCB.
+- Evidence: [return/mechanics review](hardware/reviews/2026-09-14-v2-return-layout.md),
+  [measured values and hashes](hardware/reviews/2026-09-14-return-checks.json)
+  and [current hardware](hardware/reviews/CURRENT-HARDWARE.md). Combined
+  front/back copper and revised placements were rendered and inspected.
+- Relocated staged copy passes fresh export/ERC, six interface checkers,
+  33 unit tests, native DRC/parity/draft and buck-input/ID guards, exact
+  preservation and identical geometric measurements. Its source files match
+  the recorded hashes and it does not contain untracked user files.
+- Version/tag target: hw-v2.0.8-draft; remote references are verified at
+  publication. User-owned agents.md remains excluded.
+  No Gerbers or fabrication/laser-operation release; the full goal stays active.
+
 ## Latest review: shutdown boundary, hardware unchanged (2026-09-14)
 
 - Previous response was a status-only checkpoint, not implementation progress.

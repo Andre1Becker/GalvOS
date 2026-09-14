@@ -1,0 +1,155 @@
+{
+  "scope": "V2.0.8 engineering draft geometry evidence; NOT fabrication, timing, EMC or laser-operation approval",
+  "baseline_commit": "b4385e3a3fff1313cbd545e9392028e87c34ad1a",
+  "sha256": {
+    "hardware/schematics/Laser Controllerv2_only_for_pcb_test.kicad_sch": "1d5d3cf3a9f59ba76881ce68f85e1cc638fb315ea83b81be6628c56f01bc815a",
+    "hardware/schematics/Laser Controllerv2_only_for_pcb_test.kicad_pcb": "9211eece3d568552b271c6080eced92e04fe15dd79d211985cf1043c5bb49172",
+    "hardware/schematics/Laser Controllerv2_only_for_pcb_test.kicad_pro": "dc77f4155067018d81c509e667ad67642031a5cf69abe7181144c19c11bd3b1b",
+    "hardware/schematics/libraries/GalvOS.pretty/XCVR_ESP32-S3-N16R8-DevKit.kicad_mod": "68d3cde8ba451a6a44056114d188bfb4804c95f98f5043f2e9525df53cca4f3e",
+    "hardware/tests/measure_dac_return_layout.py": "a54a3d2722bbacb661989bda2a7bd26363035ff03d6df0733d7f974a279dd1e2"
+  },
+  "module": {
+    "user_reported_body_mm": [
+      28,
+      57
+    ],
+    "provisional_row_spacing_mm": 22.86,
+    "provisional_pin_pitch_mm": 2.54,
+    "pads": 44,
+    "assembly": "Two 1x22 female sockets; module carries male pin strips",
+    "body_centering": "Provisional; verify alignment to pin grid and antenna/USB geometry"
+  },
+  "preservation": {
+    "footprints": 122,
+    "unchanged_placements": 119,
+    "retained_copper": 1104,
+    "removed_copper": 10,
+    "added_copper": 15,
+    "segments": 1010,
+    "vias": 109,
+    "zones": 5,
+    "component_values_and_footprints_unchanged": true,
+    "electrical_nets_unchanged": 110,
+    "project_rules_unchanged": true
+  },
+  "baseline_measurement": {
+    "scope": "Geometric samples only; NOT a safety or production gate",
+    "sample_step_mm": 0.1,
+    "R26": {
+      "value": "0",
+      "position_mm": [
+        48,
+        58
+      ],
+      "pad_nets": {
+        "1": "AGND (from Galvo Board)",
+        "2": "5V GND Buck"
+      }
+    },
+    "signals": {
+      "/DAC_SCLK_3V3": {
+        "trace_length_mm": 37.434,
+        "over_ground_mm": 0.673,
+        "coverage_percent": 1.799
+      },
+      "/DAC_DIN_3V3": {
+        "trace_length_mm": 29.958,
+        "over_ground_mm": 0.673,
+        "coverage_percent": 2.247
+      },
+      "/DAC_SYNC_3V3": {
+        "trace_length_mm": 28.971,
+        "over_ground_mm": 8.737,
+        "coverage_percent": 30.157
+      },
+      "/DAC_CLR_3V3": {
+        "trace_length_mm": 32.983,
+        "over_ground_mm": 10.512,
+        "coverage_percent": 31.869
+      }
+    }
+  },
+  "v208_measurement": {
+    "scope": "Geometric samples only; NOT a safety or production gate",
+    "sample_step_mm": 0.1,
+    "R26": {
+      "value": "0",
+      "position_mm": [
+        92.8,
+        45
+      ],
+      "pad_nets": {
+        "1": "AGND (from Galvo Board)",
+        "2": "5V GND Buck"
+      }
+    },
+    "signals": {
+      "/DAC_SCLK_3V3": {
+        "trace_length_mm": 37.434,
+        "over_ground_mm": 28.301,
+        "coverage_percent": 75.602
+      },
+      "/DAC_DIN_3V3": {
+        "trace_length_mm": 29.958,
+        "over_ground_mm": 22.403,
+        "coverage_percent": 74.781
+      },
+      "/DAC_SYNC_3V3": {
+        "trace_length_mm": 28.971,
+        "over_ground_mm": 22.763,
+        "coverage_percent": 78.571
+      },
+      "/DAC_CLR_3V3": {
+        "trace_length_mm": 32.983,
+        "over_ground_mm": 29.908,
+        "coverage_percent": 90.677
+      }
+    }
+  },
+  "finer_sampling": {
+    "scope": "Geometric samples only; NOT a safety or production gate",
+    "sample_step_mm": 0.05,
+    "R26": {
+      "value": "0",
+      "position_mm": [
+        92.8,
+        45
+      ],
+      "pad_nets": {
+        "1": "AGND (from Galvo Board)",
+        "2": "5V GND Buck"
+      }
+    },
+    "signals": {
+      "/DAC_SCLK_3V3": {
+        "trace_length_mm": 37.434,
+        "over_ground_mm": 28.379,
+        "coverage_percent": 75.811
+      },
+      "/DAC_DIN_3V3": {
+        "trace_length_mm": 29.958,
+        "over_ground_mm": 22.321,
+        "coverage_percent": 74.508
+      },
+      "/DAC_SYNC_3V3": {
+        "trace_length_mm": 28.971,
+        "over_ground_mm": 22.698,
+        "coverage_percent": 78.346
+      },
+      "/DAC_CLR_3V3": {
+        "trace_length_mm": 32.983,
+        "over_ground_mm": 29.953,
+        "coverage_percent": 90.812
+      }
+    }
+  },
+  "negative_measurement": "With reference-ground selection empty, all four overlap measurements are zero. Query-only, separate host process; no PCB change.",
+  "checks": {
+    "erc": 0,
+    "drc_errors": 0,
+    "unconnected_items": 0,
+    "known_package_warnings": 3,
+    "interface_checkers": 6,
+    "unit_tests": 33
+  }
+}

@@ -3,7 +3,7 @@
 	(generator "pcbnew")
 	(generator_version "10.0")
 	(layer "F.Cu")
-	(descr "ESP32-S3-N16R8 DevKit socket pair, J1=22 pins, J2=22 pins, 2.54mm pitch, provisional 22.86mm row spacing; fit two female socket strips")
+	(descr "ESP32-S3-N16R8 DevKit socket pair, two 22-pin rows; user-reported 28x57mm module body, provisionally centered on pin grid; 2.54mm pitch and 22.86mm row spacing remain to be verified; fit two female socket strips")
 	(property "Reference" "REF**"
 		(at 0 -29.5 0)
 		(layer "F.SilkS")
@@ -51,8 +51,8 @@
 	(attr through_hole)
 	(duplicate_pad_numbers_are_jumpers no)
 	(fp_line
-		(start -12.7 -28)
-		(end 12.7 -28)
+		(start -14.1 -28.6)
+		(end 14.1 -28.6)
 		(stroke
 			(width 0.127)
 			(type solid)
@@ -61,8 +61,8 @@
 		(uuid "2a1b4b90-2c44-4983-86ab-06b164a85f14")
 	)
 	(fp_line
-		(start -12.7 28)
-		(end -12.7 -28)
+		(start -14.1 28.6)
+		(end -14.1 -28.6)
 		(stroke
 			(width 0.127)
 			(type solid)
@@ -71,8 +71,8 @@
 		(uuid "d8550d42-a083-4ed6-b618-d74bf8c8f8a2")
 	)
 	(fp_line
-		(start 12.7 -28)
-		(end 12.7 28)
+		(start 14.1 -28.6)
+		(end 14.1 28.6)
 		(stroke
 			(width 0.127)
 			(type solid)
@@ -81,8 +81,8 @@
 		(uuid "aaf93398-98a4-4068-ad18-abcb6f6cf85a")
 	)
 	(fp_line
-		(start 12.7 28)
-		(end -12.7 28)
+		(start 14.1 28.6)
+		(end -14.1 28.6)
 		(stroke
 			(width 0.127)
 			(type solid)
@@ -102,8 +102,8 @@
 		(uuid "f703ff7a-d3d4-42fc-950c-c7fa230c1200")
 	)
 	(fp_line
-		(start -12.95 -29.27)
-		(end 12.95 -29.27)
+		(start -14.5 -29.27)
+		(end 14.5 -29.27)
 		(stroke
 			(width 0.05)
 			(type solid)
@@ -112,8 +112,8 @@
 		(uuid "e0a9add8-7455-4c73-884a-caa048f102ad")
 	)
 	(fp_line
-		(start -12.95 29.27)
-		(end -12.95 -29.27)
+		(start -14.5 29.27)
+		(end -14.5 -29.27)
 		(stroke
 			(width 0.05)
 			(type solid)
@@ -122,8 +122,8 @@
 		(uuid "8ec4bcfb-3637-4131-957b-06aab4ed7b2f")
 	)
 	(fp_line
-		(start 12.95 -29.27)
-		(end 12.95 29.27)
+		(start 14.5 -29.27)
+		(end 14.5 29.27)
 		(stroke
 			(width 0.05)
 			(type solid)
@@ -132,8 +132,8 @@
 		(uuid "8d306805-cf0e-4e19-90b2-c1b883b040de")
 	)
 	(fp_line
-		(start 12.95 29.27)
-		(end -12.95 29.27)
+		(start 14.5 29.27)
+		(end -14.5 29.27)
 		(stroke
 			(width 0.05)
 			(type solid)
@@ -142,8 +142,8 @@
 		(uuid "28d1c2b4-eeb4-4feb-8978-82392835f673")
 	)
 	(fp_line
-		(start -12.7 -28)
-		(end 12.7 -28)
+		(start -14 -28.5)
+		(end 14 -28.5)
 		(stroke
 			(width 0.127)
 			(type solid)
@@ -152,8 +152,8 @@
 		(uuid "c4d391d5-0f73-4c7a-802c-bdea049070c7")
 	)
 	(fp_line
-		(start -12.7 28)
-		(end -12.7 -28)
+		(start -14 28.5)
+		(end -14 -28.5)
 		(stroke
 			(width 0.127)
 			(type solid)
@@ -162,8 +162,8 @@
 		(uuid "90ed889d-f646-4457-b8b3-322b6cb6fd0b")
 	)
 	(fp_line
-		(start 12.7 -28)
-		(end 12.7 28)
+		(start 14 -28.5)
+		(end 14 28.5)
 		(stroke
 			(width 0.127)
 			(type solid)
@@ -172,8 +172,8 @@
 		(uuid "8c4a20fb-f743-4a6f-adbc-b945f6eee326")
 	)
 	(fp_line
-		(start 12.7 28)
-		(end -12.7 28)
+		(start 14 28.5)
+		(end -14 28.5)
 		(stroke
 			(width 0.127)
 			(type solid)
