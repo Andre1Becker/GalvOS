@@ -1,5 +1,14 @@
 # GalvOS production PCB work log
 
+## Requested PDF and PCB images (2026-09-14)
+
+- User requested a schematic PDF and two to three PCB images directly in hardware/, then explicitly requested commit/push after completion. Paused the broader assembly investigation for this deliverable.
+- Exported GalvOS_V2.0.10_Schematic.pdf and native KiCad 3D Top, Bottom and Perspective PNGs from hardware commit f58ff53. All three PNGs are 2384 x 1568 pixels; inspected each and adjusted the perspective zoom to keep the whole board in frame.
+- The PDF is one vector page, 620 x 440 mm. Used a temporary export-only schematic copy with an enlarged page and shortened revision field plus separate draft warnings, avoiding the original right-edge/title clipping. Proved that only paper/title formatting differs; repository schematic, PCB and project hashes remain unchanged.
+- PDF text extraction confirms V2.0.10, both 1N4148W labels and the complete fabrication/laser-operation warnings. Rasterized and visually inspected the page. Existing schematic text overlaps are not redesigned by this export task.
+- Some components lack visible 3D models, notably the ESP32/socket assembly and some IC packages; the images show their pads/outlines, not a fully populated mechanical validation. No substitute geometry was invented.
+- Files linked from hardware/reviews/CURRENT-HARDWARE.md. Publish the assets and this record with an explicit scoped commit/push; leave user-owned agents.md untouched. Thermal/load/timing exclusions remain in force.
+
 ## Current user scope decision (2026-09-14)
 
 - User explicitly requested: ignore thermal, load and timing work. Do not pursue further calculations, optimization or qualification in those three areas unless requested again.

@@ -21,6 +21,23 @@ Paths are relative to `hardware/schematics/`.
 | `Laser Controllerv2_only_for_pcb_test.kicad_pcb` | Routed v2 engineering draft with five ground zones | `267c312d4451f386fe3bcb2e500c779456d1787064c24c7be033837a4de578ee` |
 | `Laser Controller.kicad_pcb` | Unchanged historical board; not the v2 layout | `9703ba1bf5343e8a77ab9dbb0781785384c4f238bedc52c1341898d9e9bbf6b2` |
 
+## PDF and PCB views
+
+Exports of V2.0.10 source commit `f58ff538b2cda6d26dd76c6a4b9417fa833b695b`,
+stored directly in `hardware/`:
+
+- [Schematic PDF](../GalvOS_V2.0.10_Schematic.pdf)
+- [PCB top](../GalvOS_V2.0.10_PCB_Top.png)
+- [PCB bottom](../GalvOS_V2.0.10_PCB_Bottom.png)
+- [PCB perspective](../GalvOS_V2.0.10_PCB_Perspective.png)
+
+The PDF uses a 620 x 440 mm export-only page and reformatted draft title
+fields to avoid clipping; circuit content and repository sources are
+unchanged. The native KiCad 10.0.6 PNGs are 2384 x 1568 pixels. Some parts
+have no visible 3D model (including the ESP32/socket assembly and some ICs),
+so these are CAD views, not proof of complete assembly or mechanical fit.
+All draft restrictions remain applicable.
+
 ## Implemented
 
 - V2.0.10 resolves the two trigger-diode package identities using standard 1N4148W symbols and explicit Diodes Incorporated 1N4148W-7-F manufacturer/MPN/assembly fields. SOD-123 geometry, all 122 placements, all 400 pad records, all 1115 copper objects and all 110 electrical nets are unchanged. Only two diode values/identities and metadata change. The negative-only clamps still do not qualify timer-input protection or laser safety. See [package/polarity review](2026-09-14-v2-diode-package.md).
