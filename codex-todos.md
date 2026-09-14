@@ -385,3 +385,30 @@ versioned in Git. The pre-existing untracked `agents.md` belongs to the user.
   No firmware or safety-circuit changes,
   Gerbers or fabrication/laser-operation release. Full production work remains
   incomplete; v1 perfboard experience does not close v2 safety gates.
+
+## 2026-09-14 — v2.0.3 fully connected routing draft
+
+- Improved local analog feedback/supply placement and added manual analog paths.
+  Offline routing preserved all 30 pre-router segments and all 116 footprints,
+  positions and pad nets. Fixed 69 undersized neckdowns and the R9 escape.
+- V2 PCB now has 964 trace segments, 103 vias and three filled/named ground
+  zones (AGND, power ground, local buck thermal copper). Native DRC after
+  refill reports zero unconnected items and no non-routing errors; one
+  buck footprint-type warning and two diode footprint-filter warnings remain.
+- Schematic component values, footprints and net memberships exactly match
+  v2.0.2. Only draft revision text changed. ERC and all interface tests pass.
+  Legacy PCB and firmware are unchanged.
+- Corrected actual project silk minimum from 0.00 to 0.10 mm: v2.0.2's
+  documentation overstated the persisted rule because native save/export
+  operations reset it. Added a draft-evidence guard and nine tests that reject
+  disabled/stale checks, relaxed minima, hidden errors and unexpected warnings.
+  Retained provisional 0.8 mm main fan/buck positive-rail routing as PowerDraft.
+- [Routing evidence](hardware/reviews/2026-09-14-v2-routing.md) and
+  [current checkpoint](hardware/reviews/CURRENT-HARDWARE.md) document hashes,
+  tools, proof, warnings and remaining gates. Publication target:
+  `hw-v2.0.3-draft`; verify remote branch/tag after push.
+- Full production goal remains active. Next priorities: MCU antenna/USB
+  mechanics and DAC return boundary/R26, buck loop/feedback/thermal review,
+  actual current/copper-weight sizing, package/BOM/assembly review and all
+  electrical/laser-safety blockers. User was asked for fan currents/models
+  and maximum 5 V load. No Gerbers or laser-operation release.
