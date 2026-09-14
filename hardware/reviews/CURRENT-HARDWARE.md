@@ -1,6 +1,9 @@
 # Current hardware checkpoint
 
-Version/tag: **hw-v2.0.10-draft** (2026-09-14).
+Electrical/PCB revision: **hw-v2.0.10-draft** (2026-09-14).
+Schematic presentation: readability update after export commit `995eb85`;
+see [drawing-only review](2026-09-14-v2-schematic-readability.md).
+The existing hardware tag is unchanged; Git records this presentation update.
 
 **FULLY CONNECTED ROUTING DRAFT — NOT FOR FABRICATION OR LASER OPERATION.**
 
@@ -17,28 +20,39 @@ Paths are relative to `hardware/schematics/`.
 
 | Artifact | State | SHA-256 |
 |---|---|---|
-| `Laser Controllerv2_only_for_pcb_test.kicad_sch` | V2.0.10; 122 components, 110 nets | `1c08ed228b0a761c93492e01701c795e6f5146387c1c72d1870124a35a81882e` |
+| `Laser Controllerv2_only_for_pcb_test.kicad_sch` | V2.0.10, readability update; 122 components, 110 nets | `adb9bf0af905d7a063de0bc2b287c3bc65b554794207a8d884ebd85c7f033f29` |
 | `Laser Controllerv2_only_for_pcb_test.kicad_pcb` | Routed v2 engineering draft with five ground zones | `267c312d4451f386fe3bcb2e500c779456d1787064c24c7be033837a4de578ee` |
 | `Laser Controller.kicad_pcb` | Unchanged historical board; not the v2 layout | `9703ba1bf5343e8a77ab9dbb0781785384c4f238bedc52c1341898d9e9bbf6b2` |
 
 ## PDF and PCB views
 
-Exports of V2.0.10 source commit `f58ff538b2cda6d26dd76c6a4b9417fa833b695b`,
-stored directly in `hardware/`:
+PCB views retain V2.0.10 source commit `f58ff538b2cda6d26dd76c6a4b9417fa833b695b`.
+The schematic PDF is refreshed directly from the current canonical schematic.
+All exports are stored directly in `hardware/`:
 
 - [Schematic PDF](../GalvOS_V2.0.10_Schematic.pdf)
 - [PCB top](../GalvOS_V2.0.10_PCB_Top.png)
 - [PCB bottom](../GalvOS_V2.0.10_PCB_Bottom.png)
 - [PCB perspective](../GalvOS_V2.0.10_PCB_Perspective.png)
 
-The PDF uses a 620 x 440 mm export-only page and reformatted draft title
-fields to avoid clipping; circuit content and repository sources are
-unchanged. The native KiCad 10.0.6 PNGs are 2384 x 1568 pixels. Some parts
+The canonical schematic now uses a 620 x 440 mm page and separate draft
+title warnings; no temporary export-only formatting is needed. Six IC
+reference/value pairs and 22 nearby labels have been repositioned/oriented
+for readability, with all electrical content preserved. Other legacy text
+overlaps remain; this is not a complete drawing-readability sign-off.
+The native KiCad 10.0.6 PNGs are unchanged at 2384 x 1568 pixels. Some parts
 have no visible 3D model (including the ESP32/socket assembly and some ICs),
 so these are CAD views, not proof of complete assembly or mechanical fit.
 All draft restrictions remain applicable.
 
 ## Implemented
+
+- Drawing-only update after V2.0.10: moved selected IC fields outside bodies,
+  hid two footprint display fields, oriented 22 labels outward, and fixed
+  canonical page/title clipping. All 122 component definitions, 110 named
+  nets/classes, pin mappings, wires and electrical anchors are unchanged;
+  PCB/project hashes match V2.0.10. PDF regenerated from the canonical source.
+  See [readability proof and remaining work](2026-09-14-v2-schematic-readability.md).
 
 - V2.0.10 resolves the two trigger-diode package identities using standard 1N4148W symbols and explicit Diodes Incorporated 1N4148W-7-F manufacturer/MPN/assembly fields. SOD-123 geometry, all 122 placements, all 400 pad records, all 1115 copper objects and all 110 electrical nets are unchanged. Only two diode values/identities and metadata change. The negative-only clamps still do not qualify timer-input protection or laser safety. See [package/polarity review](2026-09-14-v2-diode-package.md).
 

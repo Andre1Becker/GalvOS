@@ -1,5 +1,36 @@
 # GalvOS production PCB work log
 
+## 2026-09-14 — V2.0.10 schematic readability update
+
+- Previous turn only revalidated already-published exports (no engineering
+  change). Continued with the observed drawing defects, not another status
+  restatement. Preserved user-owned untracked agents.md.
+- Corrected the canonical page/title instead of relying on an export-only
+  workaround. Moved Reference/Value fields on U1, U2, U12, U_BUCK1, U_WD1
+  and U_SCAN1; hid U2/U12 Footprint display fields; oriented 22 adjacent
+  labels outward without moving their electrical anchors.
+- Isolated candidate inspected through native PDF/crops. Initial candidate
+  ERC lacked project-local libraries; copying the unchanged libraries/tables
+  and project configuration resolved all six environment-only warnings.
+  Final canonical ERC has zero findings.
+- Exact canonical XML comparison: all components/properties, library pin
+  definitions, library links and 110 named nets/classes unchanged.
+  Source structural comparison: only 30 drawing blocks differ; all other
+  797 root blocks, including all wires, remain exact. PCB and PRO hashes
+  unchanged. Seven interface checks and 41 unit tests pass; native DRC/parity
+  has zero errors, unconnected items or parity findings, and the existing
+  U_BUCK1 footprint-type warning only. No rule weakening.
+- Regenerated hardware/GalvOS_V2.0.10_Schematic.pdf from canonical source;
+  visually inspected the full page and changed IC regions. PCB PNGs remain
+  current because the PCB is byte-identical. Electrical revision/tag remains
+  V2.0.10; publish this presentation-only change as its own Git commit.
+- Evidence: [readability review](hardware/reviews/2026-09-14-v2-schematic-readability.md).
+  Other legacy text overlaps still need attention (especially passive
+  component labels and MCU pin labels). Mechanical/BOM/manufacturing and
+  independent laser-safety gates remain open. Thermal, load and timing are
+  excluded and unverified. No fabrication or laser-operation release.
+
+
 ## Requested PDF and PCB images (2026-09-14)
 
 - User requested a schematic PDF and two to three PCB images directly in hardware/, then explicitly requested commit/push after completion. Paused the broader assembly investigation for this deliverable.

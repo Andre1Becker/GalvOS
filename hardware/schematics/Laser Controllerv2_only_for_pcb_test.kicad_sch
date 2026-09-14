@@ -3,11 +3,13 @@
 	(generator "eeschema")
 	(generator_version "10.0")
 	(uuid "d54d297e-dc0d-4b80-be70-d4630411b2f0")
-	(paper "A2")
+	(paper "User" 620 440)
 	(title_block
 		(title "GalvOS ESP32 Laser Controller - V2 engineering review")
 		(date "2026-09-14")
-		(rev "V2.0.10 DRAFT - NOT FOR FABRICATION")
+		(rev "V2.0.10 DRAFT")
+		(comment 1 "ENGINEERING DRAFT - NOT FOR FABRICATION")
+		(comment 2 "NOT FOR LASER OPERATION")
 	)
 	(lib_symbols
 (symbol "74xGxx:74LVC1G17"
@@ -12809,12 +12811,12 @@
 		(uuid "002f0309-fe0f-413a-8e36-a1c4ae0147fe")
 	)
 	(label "5V GND Buck"
-		(at 544.83 250.19 90)
+		(at 544.83 250.19 0)
 		(effects
 			(font
 				(size 1.27 1.27)
 			)
-			(justify left)
+			(justify left bottom)
 		)
 		(uuid "0061a92f-b3de-4a43-874d-fd55f03cf048")
 	)
@@ -12980,12 +12982,12 @@
 		(uuid "1c0a6bf2-86f8-481e-b102-9fa819fae99f")
 	)
 	(label "Buck +5V"
-		(at 547.37 320.04 270)
+		(at 547.37 320.04 0)
 		(effects
 			(font
 				(size 1.27 1.27)
 			)
-			(justify right)
+			(justify left bottom)
 		)
 		(uuid "1e6439b0-313b-4be9-8a83-cb77136caa98")
 	)
@@ -13030,12 +13032,12 @@
 		(uuid "2559aa82-cfd4-4141-99b2-3b80fa9a6b39")
 	)
 	(label "FB_BUCK"
-		(at 554.99 121.92 180)
+		(at 554.99 121.92 0)
 		(effects
 			(font
 				(size 1.27 1.27)
 			)
-			(justify right)
+			(justify left bottom)
 		)
 		(uuid "2a7e9a40-87d8-4658-bd80-0575624c3085")
 	)
@@ -13045,7 +13047,7 @@
 			(font
 				(size 1.27 1.27)
 			)
-			(justify left)
+			(justify right bottom)
 		)
 		(uuid "2ae7b6f4-0aa7-4a49-b751-724de1a6f895")
 	)
@@ -13090,12 +13092,12 @@
 		(uuid "2cfe1713-15e9-48f7-ba19-ad3e9e0540d9")
 	)
 	(label "5V GND Buck"
-		(at 544.83 129.54 90)
+		(at 544.83 129.54 0)
 		(effects
 			(font
 				(size 1.27 1.27)
 			)
-			(justify left)
+			(justify left bottom)
 		)
 		(uuid "2f8f4b35-c80f-4cae-8ad4-1b9733b6205f")
 	)
@@ -13225,7 +13227,7 @@
 			(font
 				(size 1.27 1.27)
 			)
-			(justify left)
+			(justify right bottom)
 		)
 		(uuid "43959216-3543-4ff8-acdc-6b9061ea043e")
 	)
@@ -13305,17 +13307,17 @@
 			(font
 				(size 1.27 1.27)
 			)
-			(justify left)
+			(justify right bottom)
 		)
 		(uuid "598681c8-a420-40bc-bbba-0a82ea6dec79")
 	)
 	(label "WD_OUT"
-		(at 554.99 240.03 180)
+		(at 554.99 240.03 0)
 		(effects
 			(font
 				(size 1.27 1.27)
 			)
-			(justify right)
+			(justify left bottom)
 		)
 		(uuid "5aa53add-834b-45a8-b474-11812db8a909")
 	)
@@ -13450,12 +13452,12 @@
 		(uuid "7b713f79-ef02-4813-ab87-1b6862ad6b4c")
 	)
 	(label "5V GND Buck"
-		(at 544.83 340.36 90)
+		(at 544.83 340.36 0)
 		(effects
 			(font
 				(size 1.27 1.27)
 			)
-			(justify left)
+			(justify left bottom)
 		)
 		(uuid "7bc18678-eb3c-4b05-947e-bf9f318da47a")
 	)
@@ -13525,17 +13527,17 @@
 			(font
 				(size 1.27 1.27)
 			)
-			(justify left)
+			(justify right bottom)
 		)
 		(uuid "867b6d0d-7238-476e-b69a-e8003449f486")
 	)
 	(label "BOOT_BUCK"
-		(at 554.99 114.3 180)
+		(at 554.99 114.3 0)
 		(effects
 			(font
 				(size 1.27 1.27)
 			)
-			(justify right)
+			(justify left bottom)
 		)
 		(uuid "8c8759d8-2b1f-4a2e-b7d1-0cde255f46aa")
 	)
@@ -13552,12 +13554,12 @@
 		(uuid "8e7af307-f58f-4f7f-b544-053b40ab5316")
 	)
 	(label "SCAN_CONT"
-		(at 544.83 320.04 270)
+		(at 544.83 320.04 0)
 		(effects
 			(font
 				(size 1.27 1.27)
 			)
-			(justify right)
+			(justify right bottom)
 		)
 		(uuid "8e82dfce-2064-46fe-a3c9-28514c12b5a0")
 	)
@@ -13602,12 +13604,12 @@
 		(uuid "955e825e-008d-4bd7-9437-ee8076a5c734")
 	)
 	(label "Buck +5V"
-		(at 547.37 229.87 270)
+		(at 547.37 229.87 0)
 		(effects
 			(font
 				(size 1.27 1.27)
 			)
-			(justify right)
+			(justify left bottom)
 		)
 		(uuid "95d75314-e21a-48c7-a091-dc94e92679ef")
 	)
@@ -13677,7 +13679,7 @@
 			(font
 				(size 1.27 1.27)
 			)
-			(justify left)
+			(justify right bottom)
 		)
 		(uuid "a35359be-7b61-4cb0-a7c2-a4927ae00e65")
 	)
@@ -13727,7 +13729,7 @@
 			(font
 				(size 1.27 1.27)
 			)
-			(justify left)
+			(justify right bottom)
 		)
 		(uuid "b3bb57b0-6a4a-493b-b4bd-74af35f834c5")
 	)
@@ -13774,12 +13776,12 @@
 (label "Buck +5V" (at 88.9 397.51 0) (effects (font (size 1 1)) (justify left bottom)) (uuid "0445f60e-fad9-487c-9eb2-d859a549f8e7"))
 (wire (pts (xy 88.9 397.51) (xy 105.41 397.51)) (stroke (width 0) (type default)) (uuid "278b53e1-2ec5-4f77-bad2-d238140f039b"))
 	(label "SW_BUCK"
-		(at 554.99 116.84 180)
+		(at 554.99 116.84 0)
 		(effects
 			(font
 				(size 1.27 1.27)
 			)
-			(justify right)
+			(justify left bottom)
 		)
 		(uuid "bdfdbd75-bc63-4091-9dd7-099f05f82cef")
 	)
@@ -13809,7 +13811,7 @@
 			(font
 				(size 1.27 1.27)
 			)
-			(justify left)
+			(justify right bottom)
 		)
 		(uuid "c008e7bb-0836-46a5-b4b4-ac51ccfc1d7c")
 	)
@@ -13939,7 +13941,7 @@
 			(font
 				(size 1.27 1.27)
 			)
-			(justify left)
+			(justify right bottom)
 		)
 		(uuid "d669ad57-243d-46a5-915e-22eddd10c688")
 	)
@@ -13949,7 +13951,7 @@
 			(font
 				(size 1.27 1.27)
 			)
-			(justify left)
+			(justify right bottom)
 		)
 		(uuid "d678cbf8-95f1-4061-9efc-4dd2b25bd208")
 	)
@@ -14034,12 +14036,12 @@
 		(uuid "e7b8d24c-7523-40a0-9920-dff1bb668f2a")
 	)
 	(label "WD_CONT"
-		(at 544.83 229.87 270)
+		(at 544.83 229.87 0)
 		(effects
 			(font
 				(size 1.27 1.27)
 			)
-			(justify right)
+			(justify right bottom)
 		)
 		(uuid "f17189cb-a5f5-40b9-86be-88bc59a9cfdd")
 	)
@@ -14059,7 +14061,7 @@
 			(font
 				(size 1.27 1.27)
 			)
-			(justify left)
+			(justify right bottom)
 		)
 		(uuid "f22555aa-b1e2-4e9b-9103-3c0e93a52171")
 	)
@@ -14121,7 +14123,7 @@
 			(font
 				(size 1.27 1.27)
 			)
-			(justify left)
+			(justify right bottom)
 		)
 		(uuid "ff96a974-6fd6-4e54-9eec-3a36607dc4a3")
 	)
@@ -17297,7 +17299,7 @@
 		(fields_autoplaced yes)
 		(uuid "3fd04141-d998-40cd-816d-80f4a1beb3f5")
 		(property "Reference" "U2"
-			(at 257.81 146.05 0)
+			(at 257.81 142.24 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -17318,6 +17320,7 @@
 		)
 		(property "Footprint" "Footprint:DGS10"
 			(at 254.762 140.462 0)
+			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -19655,7 +19658,7 @@
 		(fields_autoplaced yes)
 		(uuid "77f4eecf-b12c-46ff-99f9-b9c601b7d406")
 		(property "Reference" "U12"
-			(at 160.02 96.52 0)
+			(at 160.02 85.09 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -19665,7 +19668,7 @@
 			)
 		)
 		(property "Value" "OPA4134UA_2K5"
-			(at 160.02 95.25 0)
+			(at 160.02 87.63 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -19676,6 +19679,7 @@
 		)
 		(property "Footprint" "Footprint:D14"
 			(at 160.02 107.95 0)
+			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -20558,25 +20562,23 @@
 		(dnp no)
 		(uuid "8ec42cf7-8353-4259-9867-98c9bb3a0c77")
 		(property "Reference" "U_SCAN1"
-			(at 544.83 317.5 0)
+			(at 544.83 312.42 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
-				(justify left)
 			)
 		)
 		(property "Value" "NE555D"
-			(at 544.83 316.23 0)
+			(at 544.83 314.96 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
-				(justify left)
 			)
 		)
 		(property "Footprint" "Package_SO:SOIC-8_3.9x4.9mm_P1.27mm"
@@ -20903,14 +20905,13 @@
 		(dnp no)
 		(uuid "95fe9fa0-2d42-446a-a5dc-f5ec8c293697")
 		(property "Reference" "U_WD1"
-			(at 544.83 226.06 0)
+			(at 544.83 222.25 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
-				(justify left)
 			)
 		)
 		(property "Value" "NE555D"
@@ -20921,7 +20922,6 @@
 				(font
 					(size 1.27 1.27)
 				)
-				(justify left)
 			)
 		)
 		(property "Footprint" "Package_SO:SOIC-8_3.9x4.9mm_P1.27mm"
@@ -21898,25 +21898,23 @@
 		(dnp no)
 		(uuid "aabd661c-d96e-4b38-9547-889674cc04b6")
 		(property "Reference" "U1"
-			(at 259.08 198.12 0)
+			(at 259.08 187.325 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
-				(justify left top)
 			)
 		)
 		(property "Value" "ESP32-S3-N16R8-DevKit"
-			(at 259.08 196.85 0)
+			(at 259.08 189.865 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
-				(justify left bottom)
 			)
 		)
 		(property "Footprint" "Footprint:XCVR_ESP32-S3-N16R8-DevKit"
@@ -25176,7 +25174,7 @@
 		(dnp no)
 		(uuid "fb8ce3e4-cabb-45d7-9b17-6e3eb8054988")
 		(property "Reference" "U_BUCK1"
-			(at 544.83 111.76 0)
+			(at 544.83 105.41 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -25186,7 +25184,7 @@
 			)
 		)
 		(property "Value" "LMR33630ADDA"
-			(at 544.83 110.49000000000001 0)
+			(at 544.83 107.95 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
