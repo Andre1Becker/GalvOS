@@ -413,3 +413,39 @@ versioned in Git. The pre-existing untracked `agents.md` belongs to the user.
   actual current/copper-weight sizing, package/BOM/assembly review and all
   electrical/laser-safety blockers. User was asked for fan currents/models
   and maximum 5 V load. No Gerbers or laser-operation release.
+
+## 2026-09-14 — v2.0.4 scan-status input protection
+
+- Confirmed the requested two 1x22 female socket strips were already specified
+  in U1's Assembly fields and 44 plated pads. Corrected the footprint's stale
+  21/20-pin description; pitch, holes and provisional 22.86 mm row spacing
+  are unchanged. Actual socket/board fit and antenna/USB clearance remain open.
+- Added U_SCANLV1 (SN74LVC1G17DBVR, MCU +3V3), R_SCANIN1 (10 kohm input
+  pull-down) and C_SCANLV1 (100 nF local bypass). Removed the direct
+  5 V NE555-to-GPIO39 connection while preserving noninverting HIGH=OK status.
+  This is input protection, not independent shutdown or qualified scan safety.
+- Verified the exact three-component netlist change against v2.0.3.
+  Existing DAC, fan-power and sensor/tach checks pass. New checker rejects
+  the old baseline; all eight new and nine existing unit tests pass.
+- PCB: 119 footprints, 991 segments, 107 vias, three filled/named ground
+  zones, no unconnected items. All 116 original footprints/positions/pad
+  geometry are preserved. All 1066 retained baseline copper items match after
+  the status-net rename; restored unrelated router normalization.
+- Native ERC: zero findings. DRC/parity and draft guard: only the same one
+  buck type warning and two diode filter warnings. Project rule file is
+  byte-identical to v2.0.3. Failed routing candidates were corrected; no
+  exclusions or weakened rules were used.
+- See [scan-stage evidence](hardware/reviews/2026-09-14-v2-scan-status.md)
+  and [current checkpoint](hardware/reviews/CURRENT-HARDWARE.md) for
+  manufacturer references, limits, hashes and reproduction commands.
+  Full timer/buffer logic margins, power sequencing, actual currents,
+  return-path/thermal/layout qualification and independent Class 4 safety
+  review remain open. Firmware and the historical PCB are unchanged.
+- Investigated both failed KiBot runs on the v2.0.3 commit: configured
+  schematic path does not exist; the upload failure follows from no output.
+  Workflow still selects the historical PCB and has a case-mismatched path
+  filter. Recorded [CI evidence](hardware/reviews/2026-09-14-kibot-ci.md).
+  Workflow changes await the user's answer; no manufacturing outputs generated.
+- Repeated netlist export, all four interface checks, seventeen unit tests,
+  zero-finding ERC and the same native DRC/parity/draft-guard result from a
+  relocated staged hardware copy, without the untracked user-owned agents.md.

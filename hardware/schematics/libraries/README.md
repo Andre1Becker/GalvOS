@@ -33,6 +33,12 @@ Pin numbering, geometry and nets did not change.
 
 The v1 schematic's embedded symbols are historical and were not updated.
 
+U1's existing Assembly field specifies two 1x22 female socket strips. The
+DevKit footprint description was corrected from 21/20 pins to 22/22 pins
+in v2.0.4; its 44 plated pads and geometry are unchanged. The retained
+22.86 mm row spacing remains provisional until checked on the actual board.
+See `hardware/reviews/2026-09-14-v2-scan-status.md` for the socket/fit boundary.
+
 ## Layout requirements for added capacitors
 
 - C9: 100 nF, X7R, 50 V, 10%, at OPA4134 U12 pin 11, returning to its analog

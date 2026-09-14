@@ -7,9 +7,226 @@
 	(title_block
 		(title "GalvOS ESP32 Laser Controller - V2 engineering review")
 		(date "2026-09-14")
-		(rev "V2.0.3 DRAFT - NOT FOR FABRICATION")
+		(rev "V2.0.4 DRAFT - NOT FOR FABRICATION")
 	)
 	(lib_symbols
+(symbol "74xGxx:74LVC1G17"
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(duplicate_pin_numbers_are_jumpers no)
+		(property "Reference" "U"
+			(at 0 3.81 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "74LVC1G17"
+			(at 0 -3.81 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" ""
+			(at -2.54 0 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" "https://www.ti.com/lit/ds/symlink/sn74lvc1g17.pdf"
+			(at 0 -6.35 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Description" "Single Schmitt Buffer Gate, Low-Voltage CMOS"
+			(at 0 0 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "ki_keywords" "Single Gate Buff Schmitt LVC CMOS"
+			(at 0 0 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "ki_fp_filters" "SOT?23* SOT?553* Texas?R-PDSO-G5?DCK* Texas?R-PDSO-N5?DRL* Texas?X2SON*0.8x0.8mm*P0.48mm*"
+			(at 0 0 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(symbol "74LVC1G17_0_1"
+			(polyline
+				(pts
+					(xy -7.62 6.35) (xy -7.62 -6.35) (xy 5.08 0) (xy -7.62 6.35)
+				)
+				(stroke
+					(width 0.254)
+					(type default)
+				)
+				(fill
+					(type background)
+				)
+			)
+			(polyline
+				(pts
+					(xy -3.81 -1.27) (xy -2.54 -1.27) (xy -2.54 1.27) (xy -1.27 1.27)
+				)
+				(stroke
+					(width 0.254)
+					(type default)
+				)
+				(fill
+					(type background)
+				)
+			)
+			(polyline
+				(pts
+					(xy -2.54 -1.27) (xy -1.27 -1.27) (xy -1.27 1.27) (xy 0 1.27)
+				)
+				(stroke
+					(width 0.254)
+					(type default)
+				)
+				(fill
+					(type background)
+				)
+			)
+		)
+		(symbol "74LVC1G17_1_1"
+			(pin no_connect line
+				(at -7.62 5.08 180)
+				(length 5.08)
+				(hide yes)
+				(name "NC"
+					(effects
+						(font
+							(size 1.27 1.27)
+						)
+					)
+				)
+				(number "1"
+					(effects
+						(font
+							(size 1.27 1.27)
+						)
+					)
+				)
+			)
+			(pin input line
+				(at -12.7 0 0)
+				(length 5.08)
+				(name ""
+					(effects
+						(font
+							(size 1.27 1.27)
+						)
+					)
+				)
+				(number "2"
+					(effects
+						(font
+							(size 1.27 1.27)
+						)
+					)
+				)
+			)
+			(pin power_in line
+				(at -5.08 -10.16 90)
+				(length 5.08)
+				(name "GND"
+					(effects
+						(font
+							(size 1.27 1.27)
+						)
+					)
+				)
+				(number "3"
+					(effects
+						(font
+							(size 1.27 1.27)
+						)
+					)
+				)
+			)
+			(pin output line
+				(at 10.16 0 180)
+				(length 5.08)
+				(name ""
+					(effects
+						(font
+							(size 1.27 1.27)
+						)
+					)
+				)
+				(number "4"
+					(effects
+						(font
+							(size 1.27 1.27)
+						)
+					)
+				)
+			)
+			(pin power_in line
+				(at -5.08 10.16 270)
+				(length 5.08)
+				(name "VCC"
+					(effects
+						(font
+							(size 1.27 1.27)
+						)
+					)
+				)
+				(number "5"
+					(effects
+						(font
+							(size 1.27 1.27)
+						)
+					)
+				)
+			)
+		)
+		(embedded_fonts no)
+	)
 		(symbol "Logic_LevelTranslator:SN74LVC8T245"
 				(exclude_from_sim no)
 				(in_bom yes)
@@ -12601,16 +12818,17 @@
 		)
 		(uuid "0061a92f-b3de-4a43-874d-fd55f03cf048")
 	)
-	(label "GPIO39"
-		(at 554.99 330.2 180)
+(label "SCAN_STATUS_5V"
+		(at 562.61 330.2 0)
 		(effects
 			(font
 				(size 1.27 1.27)
 			)
-			(justify right)
+			(justify left bottom)
 		)
 		(uuid "00c07584-8a9f-4a98-a129-4e04ae418247")
 	)
+(wire (pts (xy 554.99 330.2) (xy 562.61 330.2)) (stroke (width 0) (type default)) (uuid "af650a07-30b3-4fb2-9b3c-66b2d7b26c12"))
 	(label "Buck +5V"
 		(at 389.89 77.47 0)
 		(effects
@@ -25287,6 +25505,52 @@
 			(page "1")
 		)
 	)
+(symbol (lib_id "74xGxx:74LVC1G17") (at 444.5 350.52 0) (unit 1) (in_bom yes) (on_board yes) (dnp no)
+(uuid "da21ea8b-da0f-4035-94cc-37d2cf33b5a8")
+(property "Reference" "U_SCANLV1" (at 447.04 342.9 0) (effects (font (size 1 1))))
+(property "Value" "SN74LVC1G17DBVR" (at 447.04 365.76 0) (effects (font (size 1 1))))
+(property "Footprint" "Package_TO_SOT_SMD:SOT-23-5" (at 444.5 350.52 0) (hide yes) (effects (font (size 1 1))))
+(property "Datasheet" "https://www.ti.com/lit/ds/symlink/sn74lvc1g17.pdf" (at 444.5 350.52 0) (hide yes) (effects (font (size 1 1))))
+(property "Manufacturer" "Texas Instruments" (at 444.5 350.52 0) (hide yes) (effects (font (size 1 1))))
+(property "MPN" "SN74LVC1G17DBVR" (at 444.5 350.52 0) (hide yes) (effects (font (size 1 1))))
+(property "Layout" "5V-tolerant noninverting buffer; supply from MCU +3V3; local C_SCANLV1 to MCU power ground. Not an independent laser interlock." (at 444.5 350.52 0) (hide yes) (effects (font (size 1 1))))
+(instances (project "Laser Controllerv2_only_for_pcb_test" (path "/d54d297e-dc0d-4b80-be70-d4630411b2f0" (reference "U_SCANLV1") (unit 1)))))
+(symbol (lib_id "Device:R") (at 411.48 350.52 0) (unit 1) (in_bom yes) (on_board yes) (dnp no)
+(uuid "c2f31f77-c257-4f6d-9e4f-86f8082c4f26")
+(property "Reference" "R_SCANIN1" (at 414.02000000000004 342.9 0) (effects (font (size 1 1))))
+(property "Value" "10k" (at 414.02000000000004 365.76 0) (effects (font (size 1 1))))
+(property "Footprint" "Resistor_SMD:R_1206_3216Metric" (at 411.48 350.52 0) (hide yes) (effects (font (size 1 1))))
+(property "Tolerance" "1%" (at 411.48 350.52 0) (hide yes) (effects (font (size 1 1))))
+(property "Power" "0.25W" (at 411.48 350.52 0) (hide yes) (effects (font (size 1 1))))
+(property "Layout" "Bias the buffer input LOW if the timer output is disconnected." (at 411.48 350.52 0) (hide yes) (effects (font (size 1 1))))
+(instances (project "Laser Controllerv2_only_for_pcb_test" (path "/d54d297e-dc0d-4b80-be70-d4630411b2f0" (reference "R_SCANIN1") (unit 1)))))
+(symbol (lib_id "Device:C") (at 469.9 337.82 0) (unit 1) (in_bom yes) (on_board yes) (dnp no)
+(uuid "b07f993f-1244-4aae-af3e-31e19a427b41")
+(property "Reference" "C_SCANLV1" (at 469.9 327.66 0) (effects (font (size 1 1))))
+(property "Value" "100nF" (at 476.25 337.82 0) (effects (font (size 1 1))))
+(property "Footprint" "Capacitor_SMD:C_1206_3216Metric" (at 469.9 337.82 0) (hide yes) (effects (font (size 1 1))))
+(property "Voltage" "50V" (at 469.9 337.82 0) (hide yes) (effects (font (size 1 1))))
+(property "Dielectric" "X7R" (at 469.9 337.82 0) (hide yes) (effects (font (size 1 1))))
+(property "Tolerance" "10%" (at 469.9 337.82 0) (hide yes) (effects (font (size 1 1))))
+(property "Layout" "Place directly between U_SCANLV1.5 (+3V3) and U_SCANLV1.3 (MCU power ground)." (at 469.9 337.82 0) (hide yes) (effects (font (size 1 1))))
+(instances (project "Laser Controllerv2_only_for_pcb_test" (path "/d54d297e-dc0d-4b80-be70-d4630411b2f0" (reference "C_SCANLV1") (unit 1)))))
+(wire (pts (xy 431.8 350.52) (xy 419.1 350.52)) (stroke (width 0) (type default)) (uuid "c6f582ac-9c99-4efb-9796-f24ccea1cdf3"))
+(label "SCAN_STATUS_5V" (at 419.1 350.52 0) (effects (font (size 1 1)) (justify left bottom)) (uuid "8e0d51b8-bbf4-401c-9da7-29e5e71e788a"))
+(wire (pts (xy 454.66 350.52) (xy 464.82 350.52)) (stroke (width 0) (type default)) (uuid "d24dd86c-2ba8-4cd6-b288-f76d64f0b161"))
+(label "GPIO39" (at 464.82 350.52 180) (effects (font (size 1 1)) (justify right bottom)) (uuid "409d6781-f714-438b-963c-4325341dfdfb"))
+(wire (pts (xy 439.42 340.36) (xy 439.42 332.74)) (stroke (width 0) (type default)) (uuid "306e7733-455c-4303-ab7f-cc28a1cd0330"))
+(label "+3V3" (at 439.42 332.74 0) (effects (font (size 1 1)) (justify left bottom)) (uuid "1e50d5e8-2c3c-4708-b20e-6f400304f0d1"))
+(wire (pts (xy 439.42 360.68) (xy 439.42 369.57)) (stroke (width 0) (type default)) (uuid "a4fc1c77-ffcb-4075-9741-7fcca91aec8c"))
+(label "5V GND Buck" (at 439.42 369.57 0) (effects (font (size 1 1)) (justify left bottom)) (uuid "8c546fac-4140-4ea1-ac77-3311bfd73d8b"))
+(wire (pts (xy 411.48 346.71) (xy 398.78 346.71)) (stroke (width 0) (type default)) (uuid "1a3e7d88-21d6-4ed9-b996-1d261a5c2f57"))
+(label "SCAN_STATUS_5V" (at 398.78 346.71 0) (effects (font (size 1 1)) (justify left bottom)) (uuid "d67d5261-0110-41dc-9205-7c90e0c94085"))
+(wire (pts (xy 411.48 354.33) (xy 411.48 369.57)) (stroke (width 0) (type default)) (uuid "e397530c-f822-49f6-9a6c-5f2b5d2f6af6"))
+(label "5V GND Buck" (at 411.48 369.57 0) (effects (font (size 1 1)) (justify left bottom)) (uuid "e4e63eda-3c79-4693-a507-0b8953ce9ec0"))
+(wire (pts (xy 469.9 334.01) (xy 478.79 334.01)) (stroke (width 0) (type default)) (uuid "5d4b915a-729f-4381-b2b1-a44088cd7ec7"))
+(label "+3V3" (at 478.79 334.01 180) (effects (font (size 1 1)) (justify right bottom)) (uuid "65f2d9da-7941-4ee9-8268-ed7d31c84035"))
+(wire (pts (xy 469.9 341.63) (xy 478.79 341.63)) (stroke (width 0) (type default)) (uuid "4c092d73-c362-469d-92e0-3e89d70c37a5"))
+(label "5V GND Buck" (at 478.79 341.63 180) (effects (font (size 1 1)) (justify right bottom)) (uuid "0c934128-b845-4bef-bd16-3ff6373c4a84"))
+(text "3V3 scan-status input protection; not a safety interlock" (at 406.4 323.85 0) (effects (font (size 1.27 1.27)) (justify left)) (uuid "5acc38fc-a3ec-48ce-8a3a-f8a2ecf43782"))
 	(embedded_fonts no)
 	(symbol
 		(lib_id "Device:C")

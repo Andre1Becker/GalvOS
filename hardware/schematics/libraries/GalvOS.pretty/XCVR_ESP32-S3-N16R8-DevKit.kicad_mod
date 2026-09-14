@@ -3,7 +3,7 @@
 	(generator "pcbnew")
 	(generator_version "10.0")
 	(layer "F.Cu")
-	(descr "ESP32-S3-N16R8 Development Board, J1=21 pins, J2=20 pins, 2.54mm pitch, 22.86mm row spacing")
+	(descr "ESP32-S3-N16R8 DevKit socket pair, J1=22 pins, J2=22 pins, 2.54mm pitch, provisional 22.86mm row spacing; fit two female socket strips")
 	(property "Reference" "REF**"
 		(at 0 -29.5 0)
 		(layer "F.SilkS")
