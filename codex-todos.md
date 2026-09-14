@@ -350,3 +350,36 @@ versioned in Git. The pre-existing untracked `agents.md` belongs to the user.
   source to the v2 5 V rail, or assume the tested perfboard equals v2.
 - The PCB architectural design is in its brainstorming checkpoint; no new
   PCB file, layout or manufacturing claim has been produced in this turn.
+
+## 2026-09-14 — approved v2 board implementation started
+
+- User specified 12 V fans and 12.6 V buck input, then explicitly approved
+  dedicated external J4/J6 fan supplies, common ground, a separate two-layer
+  v2 PCB with provisional 175 x 115 mm mechanics, and versioned pushes.
+- Approved design and executable checkpoints are in
+  [v2 PCB plan](hardware/reviews/2026-09-14-v2-pcb-plan.md). Work stays in the
+  existing repository as requested; legacy PCB and `agents.md` are preserved.
+- Begin with a failing fan-power connectivity test and exact baseline proof;
+  then create the new board from the corrected schematic, not old copper.
+
+## 2026-09-14 — v2.0.2 placed PCB and first routing checkpoint
+
+- Implemented approved 12 V J4/J6 fan feeds and 12.6 V J2 buck-input marking.
+  Fan regression/baseline proof passes; all other net memberships and component
+  values/footprints are preserved. Five negative fan tests fail as expected.
+- Created the separate 175 x 115 mm, two-layer v2 PCB: 116 footprints,
+  15 initial track segments, no zones or added vias. Legacy PCB unchanged.
+  Fixed placement/silkscreen overlaps, added draft/polarity markings and explicit
+  provisional geometry rules; no current-rating or fabrication claim.
+- Fresh ERC: zero. DAC and sensor/tach checks pass.
+  Native PCB DRC: 251 unconnected items, one footprint-type warning.
+  Native parity: two diode footprint-filter warnings, no other mismatches.
+  Additional package/courtyard checks remain enabled; warnings are documented,
+  not excluded. Board rendering inspected.
+- See [current checkpoint](hardware/reviews/CURRENT-HARDWARE.md) for exact
+  artifact hashes, commands and warnings; [remaining PCB plan](hardware/reviews/2026-09-14-v2-pcb-plan.md)
+  tracks incomplete routing, ground/buck/thermal review, mechanics, antenna
+  access, BOM/package qualification and independent review.
+- Version target: `hw-v2.0.2-draft`. No firmware or safety-circuit changes,
+  Gerbers or fabrication/laser-operation release. Full production work remains
+  incomplete; v1 perfboard experience does not close v2 safety gates.

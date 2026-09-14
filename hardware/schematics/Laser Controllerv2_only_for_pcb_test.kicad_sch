@@ -7,7 +7,7 @@
 	(title_block
 		(title "GalvOS ESP32 Laser Controller - V2 engineering review")
 		(date "2026-09-14")
-		(rev "V2.0.1 DRAFT - NOT FOR FABRICATION")
+		(rev "V2.0.2 DRAFT - NOT FOR FABRICATION")
 	)
 	(lib_symbols
 		(symbol "Logic_LevelTranslator:SN74LVC8T245"
@@ -12801,7 +12801,7 @@
 		)
 		(uuid "247f48ca-c904-44eb-aeea-1b0d61b5e794")
 	)
-	(label "Buck +5V"
+	(label "FAN2_12V"
 		(at 420.37 123.19 180)
 		(effects
 			(font
@@ -13211,7 +13211,7 @@
 		)
 		(uuid "77998e18-53b4-4b95-bd99-5f6f931dda19")
 	)
-	(label "Buck +5V"
+	(label "FAN1_12V"
 		(at 441.96 100.33 90)
 		(effects
 			(font
@@ -13401,7 +13401,7 @@
 		)
 		(uuid "95d75314-e21a-48c7-a091-dc94e92679ef")
 	)
-	(label "Buck +5V"
+	(label "FAN1_12V"
 		(at 420.37 101.6 180)
 		(effects
 			(font
@@ -13711,7 +13711,7 @@
 		)
 		(uuid "d0a69743-b626-438b-ba44-b1aff8860bcb")
 	)
-	(label "Buck +5V"
+	(label "FAN2_12V"
 		(at 443.23 120.65 180)
 		(effects
 			(font
@@ -17383,7 +17383,7 @@
 				)
 			)
 		)
-		(property "Value" "PWR IN VIN_BUCK (10-30V)"
+		(property "Value" "12.6V IN (BUCK)"
 			(at 88.9 335.74 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -17415,7 +17415,7 @@
 				)
 			)
 		)
-		(property "Description" "PSU raw input, 10-30V, to onboard buck via D2 reverse-polarity protection"
+		(property "Description" "External 12.6V input to onboard buck through D2; fan 12V inputs are separate"
 			(at 449.58 245.11 0)
 			(hide yes)
 			(show_name no)
@@ -18643,7 +18643,7 @@
 				)
 			)
 		)
-		(property "Value" "FAN2 PWR IN"
+		(property "Value" "FAN2 12V IN"
 			(at 438.15 124.46 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -23027,7 +23027,7 @@
 				)
 			)
 		)
-		(property "Value" "FAN1 PWR IN"
+		(property "Value" "FAN1 12V IN"
 			(at 438.15 102.86999999999999 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -25087,7 +25087,7 @@
 		)
 		(uuid "ff72cff0-7e11-41c6-8b25-916b8d684ca5")
 	)
-	(text "BUCK CONVERTER LMR33630 - VIN 10-30V TO +5V"
+	(text "BUCK CONVERTER LMR33630 - 12.6V INPUT TO +5V"
 		(exclude_from_sim no)
 		(at 355.6 20.32 0)
 		(effects
