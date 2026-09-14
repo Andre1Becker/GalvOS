@@ -92,7 +92,8 @@ KiCad 10.0.6, native all-severity DRC with schematic parity and freshly refilled
 - No reported shorts, clearance/courtyard conflicts, undersized tracks, silk collisions, isolated copper or starved thermals.
 - DAC, sensor/tach, fan-power, scan-status, DMX, buck and trigger-diode interface checks pass. The diode checker also verifies only the two approved identity changes against V2.0.9; all electrical net memberships remain identical. Earlier optional baseline comparisons in individual historical reviews apply to their named revisions.
 - Input-layout guard proves the two explicit same-layer connections and unique copper IDs; negative checks reject the old duplicate-ID board and a candidate with the local VIN link removed. Its 8 mm/0.60 mm limits are project-local routing guards, not manufacturer electrical ratings.
-- Draft-evidence guard passes. Forty-one unit tests cover ten report/rule methods, eight scan-buffer cases, eleven DMX cases, five buck methods and seven diode methods (including parameterized cases). Resolved diode warnings are no longer allowed. A passing draft guard is not production approval.
+- Draft-evidence guard passes. Forty-nine unit tests cover ten report/rule methods, eight scan-buffer cases, eleven DMX cases, five buck methods seven diode methods and eight SMD-placement coverage methods (including
+  parameterized cases). Resolved diode warnings are no longer allowed. A passing draft guard is not production approval.
 - Combined front/back copper and the revised module outline/placements were rendered and inspected. Native inspection confirms five filled zones assigned to the intended ground nets. The read-only DAC overlap diagnostic records geometric improvement, not electrical qualification.
 - Current local verification includes export, seven interface checks, 41 unit tests, both native layout guards, ERC and native DRC/parity. Relocated-copy results are recorded in the current revision's review.
 
@@ -102,6 +103,23 @@ Remaining known warning:
 The former D_TRIGCL_SCAN1/D_TRIGCL_WD1 package warnings were resolved in V2.0.10. Reappearance is a failed draft gate; trigger-circuit electrical and safety qualification remains open.
 
 Correction to the v2.0.2 report: its committed project actually retained **0.00 mm** minimum silk clearance, despite the documented 0.10 mm intent. Native save/export operations reset this setting. V2.0.3 explicitly stores and verifies 0.10 mm; the new guard rejects the old/reset value and skipped checks. No findings were excluded.
+
+## Assembly export coverage
+
+The native SMD position export contains 97 parts. Do not add
+`--exclude-fp-th`: it removes U_BUCK1 because this SMD package contains
+plated holes. The new
+`hardware/tests/check_smd_placement_coverage.py` compares the actual PCB's
+populated SMD inventory with native CSV references, values, packages and
+sides. It passes the 97-row export and rejects the real 96-row negative
+export for the missing buck; it does not qualify coordinates or rotations.
+
+The buck's 2.60 x 3.10 mm mask/paste opening matches TI's DDA0008J example
+for a 0.125 mm stencil; do not change it merely to suppress a type warning.
+The actual assembly process and via treatment need confirmation.
+See [assembly evidence and reproduction](2026-09-14-v2-assembly-export.md).
+The user has been asked to specify reflow service, self-reflow/hot-air, or
+primarily soldering-iron assembly. No production assembly files were issued.
 
 ## Reproduce
 

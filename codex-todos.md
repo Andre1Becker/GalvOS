@@ -1,5 +1,32 @@
 # GalvOS production PCB work log
 
+## 2026-09-14 — Assembly export coverage and buck process gate
+
+- Previous goal turn made progress: published schematic-readability commit
+  3468b7b. Revalidated current design hashes and preserved user-owned agents.md.
+- Compared the placed buck pad/mask/paste geometry with TI DDA0008J board
+  and stencil examples. The central full aperture matches the 0.125 mm
+  stencil example; no evidence supports arbitrarily replacing it or
+  relabeling the SMD package as THT to hide the warning. Actual 0.30 mm holes
+  differ from TI's 0.20 mm typical example and need assembly-process review.
+- Found a reproducible native placement-export hazard: --smd-only includes
+  all 97 SMD parts; adding --exclude-fp-th drops U_BUCK1 (96 rows).
+  Added a PCB-derived CSV coverage/identity/side checker in hardware/tests.
+  Real full export passes; real filtered export fails specifically for the
+  missing buck. Eight new test methods and all 49 hardware tests pass.
+- Fresh BOM probe: 122 ungrouped rows, eight with explicit MPN/MP metadata.
+  This is metadata coverage, not complete part-selection qualification.
+- Asked user to specify assembly method (service reflow, self-reflow/hot air,
+  or mainly soldering iron). Buck exposed pad requires a solder joint;
+  stencil/via choices remain pending that information. No circuit,
+  footprint, routing, project-rule, firmware or KiBot changes.
+- [Review/reproduction](hardware/reviews/2026-09-14-v2-assembly-export.md).
+  Design hashes and published images/PDF unchanged. No Gerbers or final
+  assembly data issued. Coordinate/rotation qualification, mechanical fit,
+  full BOM and independent safety remain open. Thermal/load/timing remain
+  excluded and unverified. Commit/push this scoped verification checkpoint.
+
+
 ## 2026-09-14 — V2.0.10 schematic readability update
 
 - Previous turn only revalidated already-published exports (no engineering
