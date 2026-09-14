@@ -10,7 +10,7 @@
 	(title_block
 		(title "GalvOS Laser Controller V2")
 		(date "2026-09-14")
-		(rev "V2.0.6 DRAFT")
+		(rev "V2.0.7 DRAFT")
 		(comment 1 "NOT FOR FABRICATION OR LASER OPERATION")
 	)
 	(layers
@@ -393,11 +393,11 @@
 	(footprint "Capacitor_SMD:C_1210_3225Metric"
 		(layer "F.Cu")
 		(uuid "046154e5-e85a-4fbc-9e23-f4199deebc41")
-		(at 146 31)
+		(at 136.5 38.73 90)
 		(descr "Capacitor SMD 1210 (3225 Metric), square (rectangular) end terminal, IPC-7351 nominal, (Body size source: IPC-SM-782 page 76, https://www.pcb-3d.com/wordpress/wp-content/uploads/ipc-sm-782a_amendment_1_and_2.pdf)")
 		(tags "capacitor")
 		(property "Reference" "C_IN2"
-			(at 0 -2.3 0)
+			(at 4.03 0 0)
 			(layer "F.SilkS")
 			(uuid "1e856404-9fcd-4a65-8cfb-89e4e7684737")
 			(effects
@@ -408,7 +408,7 @@
 			)
 		)
 		(property "Value" "10uF"
-			(at 0 2.3 0)
+			(at 0 2.3 90)
 			(layer "F.Fab")
 			(uuid "4f5d64c1-1aa3-4b1d-b8a3-9445e2cd1e36")
 			(effects
@@ -419,7 +419,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 0 0 0)
+			(at 0 0 90)
 			(layer "F.Fab")
 			(hide yes)
 			(uuid "a4d10a07-3414-489a-81e4-6254bea47d1e")
@@ -430,7 +430,7 @@
 			)
 		)
 		(property "Description" "Unpolarized capacitor"
-			(at 0 0 0)
+			(at 0 0 90)
 			(layer "F.Fab")
 			(hide yes)
 			(uuid "8018f6d2-7170-4e9e-acf3-216870a95fd9")
@@ -441,7 +441,7 @@
 			)
 		)
 		(property "KiLib_Generator" "SMD_2terminal_chip_molded"
-			(at 0 0 0)
+			(at 0 0 90)
 			(layer "F.SilkS")
 			(hide yes)
 			(uuid "84955b33-832e-472e-a91e-7cf043c08750")
@@ -498,7 +498,7 @@
 			(uuid "4f87ad9a-a211-4f1f-b4ec-635300c1f2b8")
 		)
 		(fp_text user "${REFERENCE}"
-			(at 0 0 0)
+			(at 0 0 90)
 			(layer "F.Fab")
 			(uuid "16c0b7dd-fe88-4d48-a8e9-49b637344db1")
 			(effects
@@ -509,7 +509,7 @@
 			)
 		)
 		(pad "1" smd roundrect
-			(at -1.475 0)
+			(at -1.475 0 90)
 			(size 1.15 2.7)
 			(layers "F.Cu" "F.Mask" "F.Paste")
 			(roundrect_rratio 0.217391)
@@ -517,7 +517,7 @@
 			(uuid "ef27c2d2-87d1-4eb7-90d8-4c01e68e5635")
 		)
 		(pad "2" smd roundrect
-			(at 1.475 0)
+			(at 1.475 0 90)
 			(size 1.15 2.7)
 			(layers "F.Cu" "F.Mask" "F.Paste")
 			(roundrect_rratio 0.217391)
@@ -573,6 +573,7 @@
 			(effects
 				(font
 					(size 1.27 1.27)
+					(thickness 0.15)
 				)
 			)
 		)
@@ -584,6 +585,7 @@
 			(effects
 				(font
 					(size 1.27 1.27)
+					(thickness 0.15)
 				)
 			)
 		)
@@ -1041,6 +1043,7 @@
 			(effects
 				(font
 					(size 1.27 1.27)
+					(thickness 0.15)
 				)
 			)
 		)
@@ -6709,7 +6712,7 @@
 		(descr "Capacitor SMD 1206 (3216 Metric), square (rectangular) end terminal, IPC-7351 nominal, (Body size source: IPC-SM-782 page 76, https://www.pcb-3d.com/wordpress/wp-content/uploads/ipc-sm-782a_amendment_1_and_2.pdf)")
 		(tags "capacitor")
 		(property "Reference" "C_INHF1"
-			(at 3.23 -3.5 0)
+			(at 4.23 2.5 0)
 			(layer "F.SilkS")
 			(uuid "f3fbc5d2-e0e1-4715-aa64-5a128839d0cf")
 			(effects
@@ -6738,6 +6741,7 @@
 			(effects
 				(font
 					(size 1.27 1.27)
+					(thickness 0.15)
 				)
 			)
 		)
@@ -6749,6 +6753,7 @@
 			(effects
 				(font
 					(size 1.27 1.27)
+					(thickness 0.15)
 				)
 			)
 		)
@@ -7094,6 +7099,7 @@
 			(effects
 				(font
 					(size 1.27 1.27)
+					(thickness 0.15)
 				)
 			)
 		)
@@ -26282,7 +26288,7 @@
 			)
 		)
 	)
-	(gr_text "GalvOS V2.0.6 DRAFT"
+	(gr_text "GalvOS V2.0.7 DRAFT"
 		(at 108 73 0)
 		(layer "F.SilkS")
 		(uuid "07bc2118-00f8-4473-8453-8f0b4ee1cc95")
@@ -26566,14 +26572,6 @@
 		(uuid "4d8d7039-e14c-4016-873f-e6a2454e54f7")
 	)
 	(segment
-		(start 85.5913 39.0662)
-		(end 87.5251 41)
-		(width 0.25)
-		(layer "F.Cu")
-		(net "+3V3")
-		(uuid "4d8d7039-e14c-4016-873f-e6a2454e54f7")
-	)
-	(segment
 		(start 47.8658 100.227)
 		(end 58.087 100.227)
 		(width 0.25)
@@ -26628,14 +26626,6 @@
 		(layer "F.Cu")
 		(net "+3V3")
 		(uuid "5f7ebd49-a338-46cc-a824-a6d06fe77323")
-	)
-	(segment
-		(start 85.5912 39.0662)
-		(end 85.5913 39.0662)
-		(width 0.25)
-		(layer "F.Cu")
-		(net "+3V3")
-		(uuid "611b066b-564b-4016-8cf9-e53f3e148155")
 	)
 	(segment
 		(start 85.5912 39.0662)
@@ -27406,20 +27396,20 @@
 		(uuid "d15b54f9-07db-47a9-9365-4f3ac42c65d3")
 	)
 	(segment
-		(start 144.439 30.9138)
-		(end 144.525 31)
-		(width 0.8)
-		(layer "F.Cu")
-		(net "/VIN_BUCK")
-		(uuid "00e30f1f-3936-45f6-85cc-8390ab9a9b33")
-	)
-	(segment
 		(start 135.5375 44)
 		(end 135.538 44)
 		(width 0.25)
 		(layer "F.Cu")
 		(net "/VIN_BUCK")
 		(uuid "30a41747-b0b6-4d3e-b0fe-a83a1073dfe9")
+	)
+	(segment
+		(start 136.5 40.205)
+		(end 140 40.205)
+		(width 0.8)
+		(layer "F.Cu")
+		(net "/VIN_BUCK")
+		(uuid "5eaf0a2d-c403-4af5-a783-c1550432d947")
 	)
 	(segment
 		(start 140 40.205)
@@ -27462,14 +27452,6 @@
 		(uuid "cf7935c0-872b-40ad-83cc-f0c538a7bca8")
 	)
 	(segment
-		(start 143.447 30.9138)
-		(end 144.439 30.9138)
-		(width 0.8)
-		(layer "F.Cu")
-		(net "/VIN_BUCK")
-		(uuid "d7494038-9b34-44d6-9050-4f152327ac36")
-	)
-	(segment
 		(start 137.439 30.9138)
 		(end 137.525 31)
 		(width 0.8)
@@ -27484,14 +27466,6 @@
 		(layer "F.Cu")
 		(net "/VIN_BUCK")
 		(uuid "f6845a72-1204-4895-9087-1220423ead69")
-	)
-	(via
-		(at 143.447 30.9138)
-		(size 0.6)
-		(drill 0.3)
-		(layers "F.Cu" "B.Cu")
-		(net "/VIN_BUCK")
-		(uuid "26fbfb6e-3109-4533-a5ac-b82ac63f8090")
 	)
 	(via
 		(at 136.377 30.9138)
@@ -27732,14 +27706,6 @@
 		(layer "F.Cu")
 		(net "5V GND Buck")
 		(uuid "22340355-4d43-4ef1-bafc-b04b832cfe6f")
-	)
-	(segment
-		(start 147.561 30.9138)
-		(end 147.475 31)
-		(width 0.25)
-		(layer "F.Cu")
-		(net "5V GND Buck")
-		(uuid "226dd5b6-f0e8-4fe7-8f22-832cb3269d9b")
 	)
 	(segment
 		(start 23.62 92.62)
@@ -28126,6 +28092,14 @@
 		(uuid "8c4e8968-7736-4e6c-8ab3-7039425d7542")
 	)
 	(segment
+		(start 136.5 37.255)
+		(end 140 37.255)
+		(width 0.8)
+		(layer "F.Cu")
+		(net "5V GND Buck")
+		(uuid "8df2e2b6-cbc4-4056-b601-6c521e3b52c0")
+	)
+	(segment
 		(start 129.138 26.7)
 		(end 129.138 25.8765)
 		(width 0.25)
@@ -28284,14 +28258,6 @@
 		(layer "F.Cu")
 		(net "5V GND Buck")
 		(uuid "b1b47658-f4b7-4297-a111-82a16247ce49")
-	)
-	(segment
-		(start 148.59 30.9138)
-		(end 147.561 30.9138)
-		(width 0.25)
-		(layer "F.Cu")
-		(net "5V GND Buck")
-		(uuid "b3c3082a-23b2-4c4a-a6c5-99293435645b")
 	)
 	(segment
 		(start 46.7569 6.7569)
@@ -28660,14 +28626,6 @@
 		(layers "F.Cu" "B.Cu")
 		(net "5V GND Buck")
 		(uuid "37f448f6-977e-4a2b-8a72-aaa2c3ea3196")
-	)
-	(via
-		(at 148.59 30.9138)
-		(size 0.6)
-		(drill 0.3)
-		(layers "F.Cu" "B.Cu")
-		(net "5V GND Buck")
-		(uuid "48ff57d1-b151-4aab-b2a5-0b9bff865b12")
 	)
 	(via
 		(at 151.95 42.975)

@@ -1,5 +1,35 @@
 # GalvOS production PCB work log
 
+## Latest checkpoint: V2.0.7 local buck input capacitor (2026-09-14)
+
+- Previous goal turn made progress: V2.0.6 was committed/pushed as `5cde493`;
+  local HEAD, remote main and peeled `hw-v2.0.6-draft` matched.
+- Moved existing C_IN2 next to C_INHF1. Direct F.Cu VIN/ground paths to the
+  regulator are each 6.905 mm, with no vias in those local links. Six obsolete
+  capacitor stubs/vias were removed; two local 0.8 mm traces added. All values,
+  footprint types and electrical memberships remain identical to V2.0.6.
+- Exact object comparison exposed two +3V3 duplicate trace pairs with duplicate
+  IDs introduced by V2.0.5's UUID restoration; V2.0.6 retained them. Removed
+  one identical copy per pair, preserving occupied copper and connectivity.
+  The previous geometry-count proof did not check ID uniqueness; corrected
+  that gap with a new native layout/ID guard and negative checks.
+- Verified 121 unchanged placements, all pad geometry/nets and 1112 retained
+  unique copper objects. Final PCB has 122 footprints, 1008 segments, 106 vias
+  and three filled zones. Front-layer input-loop detail inspected.
+- Fresh ERC: zero findings. DRC/refill/parity: zero unconnected items/no errors,
+  only three known package warnings. Project rules are byte-identical.
+  Six interface checkers and 33 unit tests pass; native layout guard passes
+  and rejects the duplicate-ID baseline and a missing-link candidate.
+- Relocated staged-copy proof passes: fresh export/ERC, six interface checks,
+  33 tests, native input-layout/ID guard, DRC/parity/draft guard and exact
+  placement/pad/copper preservation. KiCad source/project files match the
+  working copy byte-for-byte; the electrical netlist exactly matches V2.0.6.
+- Version/tag: `hw-v2.0.7-draft`; remote verification is reported at handoff.
+  Source hashes, evidence and remaining gates are in CURRENT-HARDWARE.md
+  and 2026-09-14-v2-buck-input.md.
+- Actual loads, component derating, thermal/EMC and independent Class 4 safety
+  remain open. KiBot, firmware and legacy PCB are unchanged. Goal stays active.
+
 ## Latest checkpoint: V2.0.6 buck feedback/bypass (2026-09-14)
 
 - Previous goal turn made progress: V2.0.5 committed/pushed as `bf13b4b`,

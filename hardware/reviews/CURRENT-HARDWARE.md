@@ -1,6 +1,6 @@
 # Current hardware checkpoint
 
-Version/tag: **hw-v2.0.6-draft** (2026-09-14).
+Version/tag: **hw-v2.0.7-draft** (2026-09-14).
 
 **FULLY CONNECTED ROUTING DRAFT — NOT FOR FABRICATION OR LASER OPERATION.**
 
@@ -10,11 +10,14 @@ Paths are relative to `hardware/schematics/`.
 
 | Artifact | State | SHA-256 |
 |---|---|---|
-| `Laser Controllerv2_only_for_pcb_test.kicad_sch` | V2.0.6; 122 components, 110 nets | `ff2438cc4395a8f5dd5973e50ea31c1f352f72aff2edc10a18b16ecbf2de6dcb` |
-| `Laser Controllerv2_only_for_pcb_test.kicad_pcb` | Routed v2 engineering draft with three ground zones | `9d70ab139230b7a12aba90e70748f13c7fb63abf2d20ff48ec7f99d8bb0c7f51` |
+| `Laser Controllerv2_only_for_pcb_test.kicad_sch` | V2.0.7; 122 components, 110 nets | `e92f80b2c2eb07ac488f8748f1e45c8cb046f8f230c9b9100198b0ece4ccb37f` |
+| `Laser Controllerv2_only_for_pcb_test.kicad_pcb` | Routed v2 engineering draft with three ground zones | `8f4477ad75fe0f7b1899dd8e1304cf1b2b0bf4cbaac3f3813b198176316e91c2` |
 | `Laser Controller.kicad_pcb` | Unchanged historical board; not the v2 layout | `9703ba1bf5343e8a77ab9dbb0781785384c4f238bedc52c1341898d9e9bbf6b2` |
 
 ## Implemented
+
+- V2.0.7 relocates the existing C_IN2 10 uF capacitor beside C_INHF1. Its VIN and ground paths to U_BUCK1 are each 6.905 mm of direct F.Cu routing, without vias in those local connections. Six obsolete capacitor stubs/vias are removed and two 0.8 mm local traces added. All values, footprint types and electrical memberships are unchanged; 121 placements are retained.
+- The exact-object audit found two coincident +3V3 trace pairs carrying duplicate IDs since V2.0.5's UUID restoration. V2.0.7 removes one identical copy from each pair, without changing the occupied +3V3 copper geometry. All 1112 retained unique baseline copper objects match their original geometry/width/IDs. The new input-layout guard also rejects duplicate copper IDs.
 
 - V2.0.6 corrects C_INHF1 from 100 nF to TI's 220 nF / 50 V X7R requirement, specifies ceramic ratings for C_BOOT1/C_VCC1, and preserves every electrical net. R_FB1/R_FB2 move close to the buck FB pin; total FB trace length drops from 23.655 to 6.550 mm and its two vias are removed. The ground spur is replaced by a local return to the exposed-pad ground; BOOT/VCC traces widen from 0.25 to 0.40 mm. No load/current/thermal or loop-stability rating is established by this change.
 - Against V2.0.5: 120 placements, all pad geometry and all pad nets are preserved. Of 1128 old copper items, 1108 are unchanged, 17 obsolete feedback/ground/stub items are removed and three BOOT/VCC tracks are widened. Nine short front-layer tracks replace the removed routing. The only component value change is C_INHF1; no footprint is replaced or added.
@@ -25,7 +28,7 @@ Paths are relative to `hardware/schematics/`.
 - Preserve the approved external 12 V fan rails: J4.1–J5.2 and J6.1–J7.2, separate from each other and the buck positive rails. J2 supplies 12.6 V to the 5 V buck.
 - Added U_SCANLV1 (SN74LVC1G17DBVR), R_SCANIN1 (10 kohm input pull-down) and C_SCANLV1 (100 nF local bypass). The timer's 5 V output no longer directly drives GPIO39. The buffer uses MCU +3V3 and power ground, preserving HIGH=OK. Full supply/temperature/fault qualification remains open; see the scan-status review.
 - The earlier V2.0.4 change against v2.0.3 added exactly three components and changed only the status/3V3/power-ground memberships. All previous values, footprints and unrelated electrical memberships match. Firmware and shutdown/arming logic are unchanged.
-- PCB: 175 x 115 mm closed outline, two copper layers, nominal 1.6 mm thickness, 122 footprints, 1012 trace segments, 108 vias and three filled, named ground zones.
+- PCB: 175 x 115 mm closed outline, two copper layers, nominal 1.6 mm thickness, 122 footprints, 1008 trace segments, 106 vias and three filled, named ground zones.
 - In V2.0.4, all original 116 footprint placements and pad geometries are preserved. Removed one original GPIO39 segment at the MCU end and reassigned the other six status copper items to SCAN_STATUS_5V. All 1066 retained baseline copper items were verified exactly after that rename. Unrelated autorouter normalization was restored from the baseline.
 - U1 already specifies two 1x22 female socket strips; corrected the footprint's stale 21/20-pin description. Retained all 44 pads, 2.54 mm pitch and provisional 22.86 mm row spacing. Actual fit and antenna/USB clearance remain unqualified.
 - Repositioned seven analog parts for local feedback/supply routing; routed analog feedback, output and bypass connections manually. All 30 pre-autoroute segments survived the routing import exactly, along with every footprint position and pad net.
@@ -42,9 +45,10 @@ KiCad 10.0.6, native all-severity DRC with schematic parity and freshly refilled
 - Native schematic-parity section: **2 footprint-filter warnings**, no other mismatches.
 - No reported shorts, clearance/courtyard conflicts, undersized tracks, silk collisions, isolated copper or starved thermals.
 - DAC, sensor/tach, fan-power, scan-status, DMX and buck checks pass. The buck checker verifies unchanged net membership and only the input-bypass value change against V2.0.5. The DMX checker also verifies exactly the approved electrical delta against the v2.0.4 netlist.
+- Input-layout guard proves the two explicit same-layer connections and unique copper IDs; negative checks reject the old duplicate-ID board and a candidate with the local VIN link removed. Its 8 mm/0.60 mm limits are project-local routing guards, not manufacturer electrical ratings.
 - Draft-evidence guard passes. Thirty-three unit tests cover nine report/rule guards, eight scan-buffer cases, eleven DMX cases and five buck test methods (including five power-pin subcases). A passing draft guard is not a production approval.
 - Front and back routing and filled back copper were rendered and inspected. Native inspection confirms three zones are filled and assigned to the intended nets.
-- Export, all six interface checks, thirty-three unit tests, ERC and the same native DRC/parity result were reproduced from a relocated copy of the staged project without untracked user files.
+- Export, all six interface checks, thirty-three unit tests, the native input-layout guard, ERC and the same native DRC/parity result were reproduced from a relocated copy of the staged project without untracked user files.
 
 Known warnings remain visible:
 
@@ -76,6 +80,13 @@ PYTHONDONTWRITEBYTECODE=1 python hardware/tests/check_pcb_draft.py \
   'hardware/schematics/Laser Controllerv2_only_for_pcb_test.kicad_pro'
 ```
 
+Also run the native layout guard with KiCad's Python bindings:
+
+```sh
+/usr/bin/python -B hardware/tests/check_buck_input_layout.py \
+  'hardware/schematics/Laser Controllerv2_only_for_pcb_test.kicad_pcb'
+```
+
 PCB DRC deliberately collects the remaining warnings. Its process exit code alone is not proof. Read the report and run the draft guard; do not disable package warnings to obtain an apparent clean result.
 
 ## Release remains blocked by engineering work
@@ -84,4 +95,4 @@ Routing connectivity is complete, not production qualification. Review/refine th
 
 Existing circuit gates remain: independent Class 4 shutdown/rearm, E-stop/override behavior, RGB reset-off drive, DMX module/receiver/cable qualification and fan PWM contracts, analog output range, scan-fail limitations and full buffer/timer qualification, buck ratings and input protection. Physical testing is required. V1 perfboard operation does not qualify v2 or fault safety. No Gerbers were generated.
 
-See [buck feedback/bypass change](2026-09-14-v2-buck-layout.md), [DMX input change](2026-09-14-v2-dmx-input.md), [scan-status change](2026-09-14-v2-scan-status.md), [v2.0.3 routing evidence](2026-09-14-v2-routing.md), [remaining plan](2026-09-14-v2-pcb-plan.md) and `codex-todos.md`.
+See [local input-capacitor change](2026-09-14-v2-buck-input.md), [buck feedback/bypass change](2026-09-14-v2-buck-layout.md), [DMX input change](2026-09-14-v2-dmx-input.md), [scan-status change](2026-09-14-v2-scan-status.md), [v2.0.3 routing evidence](2026-09-14-v2-routing.md), [remaining plan](2026-09-14-v2-pcb-plan.md) and `codex-todos.md`.
