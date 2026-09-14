@@ -153,3 +153,37 @@ versioned in Git. The pre-existing untracked `agents.md` belongs to the user.
 - Previous-turn classification for the next continuation: **progress**. The
   overall production-PCB goal remains active; safety architecture, external
   specifications, matched layout and physical tests are still outstanding.
+
+## 2026-09-14 — analog transfer and scan-coupling audit
+
+- Continued from `68b3d4a`; preserved user-owned untracked `agents.md`.
+- Verified 17 exact analog net memberships, 21 component values and ground
+  connections on a fresh export. No schematic or firmware behavior changed.
+- Including the 100 ohm DAC source resistors gives nominal
+  `Vop = 5.462561881 - 2.178217822 * Vdac`. At center code the output is
+  +17.017 mV. Default clamp endpoints are +5.190351 / -5.156150 V unloaded,
+  outside the repository-stated +/-5 V galvo input range.
+- The configurable 0.91 output scale helps nominal range where applied but
+  is not a guaranteed voltage limit. Actual load, component tolerances and
+  error budget remain unresolved; no calibration values were changed.
+- Both 100 nF scan capacitors share the trigger node and couple the axes.
+  The unclamped ideal RC model predicts 0.259470 V at the other axis node
+  per 1 V DAC excitation at 10 kHz, and a 15.915 kHz differential-mode pole.
+  Equal-and-opposite command motion cancels at the trigger with nominal
+  matching. These are conditional model results, not hardware measurements.
+- Positive command edges can drive SCAN_TRIG above its 5 V supply in that
+  model; the fitted diode only limits negative voltage. NE555 upper-input
+  protection and loaded DAC behavior are not established.
+- Recorded resistor-only illustrative +/-1% corners, full RC equations,
+  source references, model limitations and prototype tests in
+  [analog audit](hardware/reviews/2026-09-14-analog-path.md); calculated
+  values and source hashes in `hardware/reviews/2026-09-14-analog-checks.json`.
+- Fresh KiCad ERC: zero violations. DAC connectivity/preservation checker:
+  pass against the pre-translator baseline. Numerical RC checks cover DC,
+  differential closed form, symmetry, cancellation and stable poles.
+- Next: establish independent shutdown/actual mirror-feedback ownership
+  before redesigning scan sensing; continue buck and interface audits while
+  external contracts are unresolved. Do not disconnect the existing sense
+  path as a waveform fix without a reviewed protection replacement.
+- Progress is analytical evidence and explicit release gates. Complete
+  analog qualification and the overall production PCB remain unfinished.

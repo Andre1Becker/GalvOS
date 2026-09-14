@@ -1,0 +1,63 @@
+{
+  "status": "analysis_only_not_released",
+  "source_commit": "68b3d4a",
+  "schematic_sha256": "1a01160112f6f8824b9dd158ffd85847ce2014c21dd0d4af20725a67be076cbc",
+  "export_sha256": "12568b22fbc61f1341ec84adf6cddc499d949dc01a9f14990d31a070a163ce65",
+  "erc_report_sha256": "5039b894fc2967f72c5f6f2ae7a94c02298c21559d29a2e1fb98307ea9926f31",
+  "verification": {
+    "components": 116,
+    "nets": 104,
+    "erc_violations_all_severities": 0,
+    "dac_interface_checker": "pass_including_pre_translator_baseline",
+    "one_off_exact_analog_net_checks": 17,
+    "one_off_component_value_checks": 21,
+    "rc_model_checks": ["dc", "differential_closed_form", "axis_symmetry", "trigger_cancellation", "stable_poles"],
+    "schematic_or_firmware_changed": false,
+    "bench_measurements": false
+  },
+  "nominal_dc": {
+    "reference_V": 2.5,
+    "dac_gain": 2,
+    "output_load": "open_circuit",
+    "opamp_model": "ideal",
+    "inverting_gain": 2.1782178217821784,
+    "intercept_V": 5.46256188118812,
+    "zero_code": 32870.4,
+    "center_code_output_V": 0.017017326732673,
+    "default_lower_clamp_output_V": 5.190351127397896,
+    "default_upper_clamp_output_V": -5.156150289101177,
+    "full_scale_output_V": -5.4283610428913995,
+    "mathematical_codes_within_5V_no_error_margin": [2784, 62957],
+    "dac_dc_current_uA_at_0V_and_5V": [-170.17326732673266, 324.8762376237624],
+    "reference_buffer_divider_current_uA": 156.25
+  },
+  "illustrative_resistor_corners": {
+    "assumption": "independent_plus_minus_1_percent_five_resistors_not_a_BOM_specification",
+    "active_devices_and_reference": "ideal",
+    "code_1638_output_bounds_V": [5.087802115282409, 5.294968882289289],
+    "code_32768_output_bounds_V": [-0.052105116408754704, 0.08426685269910372],
+    "code_63897_output_bounds_V": [-5.329781168926117, -4.9864618004449675]
+  },
+  "unclamped_rc_model": {
+    "limitations": "Ideal DAC sources and opamps; no semiconductor clamps, slew, leakage, parasitics or connector loads. Not complete-device simulation.",
+    "G_diagonal_S": [0.0101, 0.0101, 0.0001],
+    "C_matrix_nF": [[101, 0, -100], [0, 101, -100], [-100, -100, 200]],
+    "node_order": ["x", "y", "trigger"],
+    "x_excitation_rhs_S": [0.01, 0, 0],
+    "differential_pole_Hz": 15915.494309189533,
+    "time_constants_us": [0.098522144, 10, 2009.901478],
+    "frequency_response_columns": ["Hz", "abs_x_V_per_V", "abs_y_V_per_V", "abs_trigger_V_per_V"],
+    "frequency_response": [
+      [100, 0.988590, 0.002402, 0.386194],
+      [1000, 0.986231, 0.030489, 0.491073],
+      [10000, 0.877156, 0.259470, 0.492586],
+      [25000, 0.676267, 0.411383, 0.492549],
+      [50000, 0.560507, 0.464533, 0.492374],
+      [100000, 0.514262, 0.480751, 0.491669]
+    ],
+    "ideal_single_axis_minus_5V_step_trigger_min_V": 2.538144268657803,
+    "ideal_single_axis_plus_5V_step_trigger_max_V": 7.461855731342197,
+    "step_extremum_time_us_approx": 0.9776884015276898,
+    "equal_opposite_trigger_response": "zero_with_nominal_matching"
+  }
+}
