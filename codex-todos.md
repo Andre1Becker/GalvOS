@@ -1,5 +1,35 @@
 # GalvOS production PCB work log
 
+## Latest checkpoint: V2.0.6 buck feedback/bypass (2026-09-14)
+
+- Previous goal turn made progress: V2.0.5 committed/pushed as `bf13b4b`,
+  remote main and peeled `hw-v2.0.5-draft` verified equal to the local commit.
+- Rechecked the TI LMR33630 data sheet against the actual routed PCB. The
+  reference file hash matches the earlier audit; no unsupported 3 A or
+  10..30 V operating guarantee was adopted. Asked for maximum 5 V load and
+  both fan currents/models; these remain unconfirmed.
+- Corrected C_INHF1 to 220 nF/50 V/X7R; recorded ceramic requirements for
+  C_BOOT1/C_VCC1. Retained all net memberships and footprint types.
+- Moved R_FB1/R_FB2 near FB and shortened the full FB net from 23.655 to
+  6.550 mm with no vias. Added local ground return, removed obsolete spurs,
+  widened BOOT/VCC traces to 0.40 mm and adjusted three reference labels.
+- Native comparison proves 120 unchanged placements and all pad geometry/nets;
+  1108 old copper items unchanged, 17 removed, three widened, nine new local
+  segments. Board now has 122 footprints, 1012 segments, 108 vias, three filled
+  ground zones. Initial stub/silk findings were corrected before adoption.
+- Six interface checkers and 33 tests pass. ERC has zero findings. Native
+  all-track DRC/refill/parity has zero unconnected items/no errors and only
+  the three known package warnings. Project rules are unchanged.
+- See CURRENT-HARDWARE.md and 2026-09-14-v2-buck-layout.md for hashes,
+  manufacturer requirements and limits. Input hot loop, complete L/C/BOM,
+  real currents/thermal/loop response, mechanics and independent Class 4
+  safety still need qualification. KiBot remains unchanged pending approval.
+- Relocated staged-copy proof passes: fresh export/ERC, six interface checks,
+  33 tests, native DRC/parity/draft guard and exact scoped native preservation.
+  All three KiCad source/project files match the working copy byte-for-byte.
+- Version/tag for publication: `hw-v2.0.6-draft`; remote-reference verification
+  is reported at handoff. The full production goal remains active.
+
 ## Latest checkpoint: V2.0.5 DMX input protection (2026-09-14)
 
 - Previous goal turn was a status-only reply (no progress). Resumed from the
