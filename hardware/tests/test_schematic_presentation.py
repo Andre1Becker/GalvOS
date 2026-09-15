@@ -3,9 +3,10 @@
 from decimal import Decimal
 import unittest
 
-from check_schematic_presentation import (
+from hardware.tests.check_schematic_presentation import (
     SExprObject,
     check_chain,
+    check_document,
     check_fields,
     check_grid,
     parse_root_objects,
@@ -13,6 +14,15 @@ from check_schematic_presentation import (
 
 
 class SchematicPresentationTests(unittest.TestCase):
+    def test_canonical_profile_keeps_user_page_contract(self):
+        objects = parse_root_objects('(kicad_sch (paper "User" 620 440))')
+        check_document(objects, profile="canonical")
+
+    def test_visible_copy_requires_a1(self):
+        objects = parse_root_objects('(kicad_sch (paper "User" 620 440))')
+        with self.assertRaisesRegex(ValueError, "A1 landscape"):
+            check_document(objects, profile="visible-copy")
+
     def test_root_parser_ignores_parentheses_inside_strings(self):
         objects = parse_root_objects(
             '(kicad_sch (text "A (B)") (wire (pts (xy 1.27 2.54))))'
@@ -97,6 +107,23 @@ class SchematicPresentationTests(unittest.TestCase):
         )
 
         check_fields(objects)
+
+    def test_visible_copy_rejects_wire_through_reference_field(self):
+        objects = parse_root_objects(
+            '(kicad_sch (paper "A1") '
+            '(wire (pts (xy 5.08 7.62) (xy 15.24 7.62))))'
+        )
+        objects += parse_root_objects(
+            self.symbol(
+                reference="U1",
+                symbol_at=(Decimal("10.16"), Decimal("10.16"), 0),
+                reference_at=(Decimal("10.16"), Decimal("7.62"), 0),
+                value_at=(Decimal("10.16"), Decimal("12.70"), 0),
+            )
+        )
+
+        with self.assertRaisesRegex(ValueError, "wire.*U1 Reference"):
+            check_document(objects, profile="visible-copy")
 
     def test_rejects_fields_that_render_vertical_on_rotated_symbol(self):
         objects = parse_root_objects(

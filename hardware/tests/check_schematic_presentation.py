@@ -8,14 +8,25 @@ from pathlib import Path
 import re
 import sys
 
+if __package__ in (None, ""):
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
+from hardware.tools.kicad_schematic_geometry import (
+    segment_intersects_box,
+    text_field_box,
+)
+
 
 GRID = Decimal("1.27")
 GRID_TOLERANCE = Decimal("0.001")
+VISIBLE_COPY_DX = Decimal("100.33")
+VISIBLE_COPY_DY = Decimal("76.20")
 NUMBER = r"[-+]?\d+(?:\.\d+)?"
 AT_RE = re.compile(rf"\(at\s+({NUMBER})\s+({NUMBER})(?:\s+({NUMBER}))?")
 XY_RE = re.compile(rf"\(xy\s+({NUMBER})\s+({NUMBER})\)")
 PROPERTY_RE = re.compile(r'^\(property\s+"([^"]+)"\s+"([^"]*)"')
 LIB_ID_RE = re.compile(r'^\(lib_id\s+"([^"]+)"')
+FONT_SIZE_RE = re.compile(rf"\(size\s+({NUMBER})\s+({NUMBER})\)")
 
 COLUMNS = {
     "input": (Decimal("25.40"), Decimal("139.70")),
@@ -299,6 +310,56 @@ def check_fields(objects: list[SExprObject], refs: set[str] | None = None) -> No
         raise ValueError("; ".join(violations))
 
 
+def _field_box(
+    source: str, value: str, x: Decimal, y: Decimal
+) -> tuple[Decimal, Decimal, Decimal, Decimal]:
+    font_match = FONT_SIZE_RE.search(source)
+    font_x = Decimal(font_match.group(1)) if font_match else GRID
+    font_y = Decimal(font_match.group(2)) if font_match else GRID
+    justify = frozenset(
+        word
+        for word in ("left", "right", "top", "bottom")
+        if re.search(rf"\(justify\s+[^)]*\b{word}\b", source)
+    )
+    return text_field_box(
+        value,
+        x,
+        y,
+        max(GRID, font_x),
+        max(GRID, font_y),
+        justify,
+    )
+
+
+def check_field_wire_collisions(objects: list[SExprObject]) -> None:
+    wires = []
+    for obj in objects:
+        if obj.kind != "wire":
+            continue
+        points = [(Decimal(x), Decimal(y)) for x, y in XY_RE.findall(obj.source)]
+        wires.extend(zip(points, points[1:]))
+
+    violations = []
+    for reference, obj in _placed_symbols(objects).items():
+        if _is_helper(reference, _lib_id(obj)):
+            continue
+        for child in _direct_children(obj.source):
+            if child.kind != "property":
+                continue
+            header = PROPERTY_RE.match(child.source)
+            if header is None or header.group(1) not in {"Reference", "Value"}:
+                continue
+            if re.search(r"\(hide\s+yes\)", child.source):
+                continue
+            x, y, _ = _placement(child.source)
+            box = _field_box(child.source, header.group(2), x, y)
+            if any(segment_intersects_box(segment, box) for segment in wires):
+                violations.append(f"wire crosses {reference} {header.group(1)} field")
+
+    if violations:
+        raise ValueError("; ".join(violations))
+
+
 def check_chain(
     name: str,
     chain: tuple[str, ...],
@@ -312,15 +373,21 @@ def check_chain(
         raise ValueError(f"{name}: signal chain is not strictly left-to-right")
 
 
-def check_block(name: str, objects: list[SExprObject]) -> None:
+def check_block(
+    name: str,
+    objects: list[SExprObject],
+    *,
+    dx: Decimal = Decimal("0"),
+    dy: Decimal = Decimal("0"),
+) -> None:
     if name not in BLOCK_PLACEMENT:
         raise ValueError(f"Unknown presentation block: {name}")
 
     symbol_positions = placements(objects)
     violations = []
-    row_min, row_max = ROWS[name]
+    row_min, row_max = (value + dy for value in ROWS[name])
     for column, references in BLOCK_PLACEMENT[name].items():
-        column_min, column_max = COLUMNS[column]
+        column_min, column_max = (value + dx for value in COLUMNS[column])
         for reference in references:
             if reference not in symbol_positions:
                 violations.append(f"{name}: missing principal symbol {reference}")
@@ -341,38 +408,47 @@ def check_block(name: str, objects: list[SExprObject]) -> None:
         raise ValueError("; ".join(violations))
 
 
-def check(path: Path, block: str) -> None:
-    objects = parse_root_objects(Path(path).read_text(encoding="utf-8"))
+def check_document(
+    objects: list[SExprObject], *, profile: str = "canonical"
+) -> None:
+    if profile not in {"canonical", "visible-copy"}:
+        raise ValueError(f"Unknown presentation profile: {profile}")
     check_grid(objects)
+    if profile == "visible-copy":
+        papers = [obj.source.strip() for obj in objects if obj.kind == "paper"]
+        if papers != ['(paper "A1")']:
+            raise ValueError("visible copy must use A1 landscape")
+        check_field_wire_collisions(objects)
+    check_fields(objects)
+
+
+def check(path: Path, block: str, profile: str = "canonical") -> None:
+    objects = parse_root_objects(Path(path).read_text(encoding="utf-8"))
+    check_document(objects, profile=profile)
 
     selected = tuple(BLOCK_PLACEMENT) if block == "all" else (block,)
+    dx = VISIBLE_COPY_DX if profile == "visible-copy" else Decimal("0")
+    dy = VISIBLE_COPY_DY if profile == "visible-copy" else Decimal("0")
     for name in selected:
-        check_block(name, objects)
-
-    if block == "all":
-        check_fields(objects)
-    else:
-        refs = {
-            reference
-            for references in BLOCK_PLACEMENT[block].values()
-            for reference in references
-        }
-        check_fields(objects, refs)
+        check_block(name, objects, dx=dx, dy=dy)
 
 
 def main(argv: list[str]) -> int:
     parser = ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--profile", choices=("canonical", "visible-copy"), default="canonical"
+    )
     parser.add_argument("--block", choices=(*BLOCK_PLACEMENT, "all"), default="all")
     parser.add_argument("schematic", type=Path)
     args = parser.parse_args(argv[1:])
 
     try:
-        check(args.schematic, args.block)
+        check(args.schematic, args.block, args.profile)
     except (OSError, ValueError) as error:
         print(f"FAIL: {error}", file=sys.stderr)
         return 1
 
-    print(f"PASS: schematic presentation block={args.block}")
+    print(f"PASS: schematic presentation profile={args.profile} block={args.block}")
     return 0
 
 
