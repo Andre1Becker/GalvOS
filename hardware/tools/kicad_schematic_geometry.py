@@ -349,6 +349,7 @@ def _point(raw: tuple[str, str]) -> Point:
 def graph_for(
     wires: Iterable[tuple[tuple[str, str], tuple[str, str]]],
     junctions: Iterable[tuple[str, str]],
+    anchors: Iterable[tuple[str, str]] = (),
 ) -> WireGraph:
     """Build an orthogonal graph with KiCad-style unjoined X crossings."""
     segments: list[tuple[Point, Point, str]] = []
@@ -365,12 +366,13 @@ def graph_for(
         segments.append((start, end, axis))
 
     junction_points = {_point(item) for item in junctions}
+    anchor_points = {_point(item) for item in anchors}
     split_points: list[set[Point]] = [{start, end} for start, end, _ in segments]
 
     for index, (start, end, axis) in enumerate(segments):
         low_x, high_x = sorted((start[0], end[0]))
         low_y, high_y = sorted((start[1], end[1]))
-        for point in junction_points:
+        for point in junction_points | anchor_points:
             if low_x <= point[0] <= high_x and low_y <= point[1] <= high_y:
                 split_points[index].add(point)
         for other_index, (other_start, other_end, other_axis) in enumerate(segments):
