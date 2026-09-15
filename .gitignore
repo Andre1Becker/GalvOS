@@ -31,3 +31,4 @@ debug.log
 audit.log
 GalvOS.code-workspace
 .serena/
+.worktrees/
