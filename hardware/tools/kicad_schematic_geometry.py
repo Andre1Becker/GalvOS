@@ -10,7 +10,46 @@ from typing import Iterable
 
 
 Point = tuple[Decimal, Decimal]
+Segment = tuple[Point, Point]
+Box = tuple[Decimal, Decimal, Decimal, Decimal]
 PinRef = tuple[str, str]
+
+
+def text_field_box(
+    value: str,
+    x: Decimal,
+    y: Decimal,
+    font_x: Decimal,
+    font_y: Decimal,
+    justify: frozenset[str] = frozenset(),
+) -> Box:
+    width = max(font_x, font_x * Decimal("0.6") * max(len(value), 1))
+    height = font_y
+
+    if "left" in justify:
+        left, right = x, x + width
+    elif "right" in justify:
+        left, right = x - width, x
+    else:
+        left, right = x - width / 2, x + width / 2
+
+    if "top" in justify:
+        top, bottom = y, y + height
+    elif "bottom" in justify:
+        top, bottom = y - height, y
+    else:
+        top, bottom = y - height / 2, y + height / 2
+    return left, top, right, bottom
+
+
+def segment_intersects_box(segment: Segment, box: Box) -> bool:
+    start, end = segment
+    left, top, right, bottom = box
+    if start[1] == end[1]:
+        low, high = sorted((start[0], end[0]))
+        return top <= start[1] <= bottom and high >= left and low <= right
+    low, high = sorted((start[1], end[1]))
+    return left <= start[0] <= right and high >= top and low <= bottom
 
 
 @dataclass(frozen=True)
@@ -118,24 +157,24 @@ def transform_point(
 ) -> Point:
     """Apply KiCad symbol mirror and quadrant rotation to a local point."""
     x, y = local
-    if mirror == "x":
-        y = -y
-    elif mirror == "y":
-        x = -x
-    elif mirror is not None:
-        raise ValueError(f"unsupported mirror axis: {mirror}")
-
+    y = -y  # library coordinates are Y-up; schematic coordinates are Y-down
     normalized = angle % Decimal("360")
     if normalized == 0:
         rotated = (x, y)
     elif normalized == 90:
-        rotated = (-y, x)
+        rotated = (y, -x)
     elif normalized == 180:
         rotated = (-x, -y)
     elif normalized == 270:
-        rotated = (y, -x)
+        rotated = (-y, x)
     else:
         raise ValueError(f"non-quadrant symbol angle: {angle}")
+    if mirror == "x":
+        rotated = (rotated[0], -rotated[1])
+    elif mirror == "y":
+        rotated = (-rotated[0], rotated[1])
+    elif mirror is not None:
+        raise ValueError(f"unsupported mirror axis: {mirror}")
     return at[0] + rotated[0], at[1] + rotated[1]
 
 
@@ -279,6 +318,8 @@ def pin_endpoints(document: Document) -> dict[PinRef, Point]:
                 if prior is None or definition_unit == unit:
                     pin_definitions[number] = (local, definition_unit)
 
+        if not placed_numbers:
+            placed_numbers = set(pin_definitions)
         missing = placed_numbers - pin_definitions.keys()
         if missing:
             raise ValueError(f"{reference}: pin definitions missing for {sorted(missing)}")
@@ -333,12 +374,16 @@ class WireGraph:
         return self.union.find(self._node(point, axis))
 
     def degree(self, point: Point) -> int:
-        candidates = [node for node in self.union.parent if node[0] == point]
-        if not candidates:
-            raise KeyError(point)
+        node = self._node(point, None)
+        root = self.union.find(node)
+        candidates = [
+            candidate
+            for candidate in self.union.parent
+            if candidate[0] == point and self.union.find(candidate) == root
+        ]
         neighbors: set[tuple[Point, str]] = set()
-        for node in candidates:
-            neighbors.update(self.adjacency[node])
+        for candidate in candidates:
+            neighbors.update(self.adjacency[candidate])
         return len(neighbors)
 
 
@@ -403,9 +448,15 @@ def graph_for(
     points_by_axis: dict[Point, set[str]] = {}
     for point, axis in union.parent:
         points_by_axis.setdefault(point, set()).add(axis)
-    endpoints = {point for start, end, _ in segments for point in (start, end)}
     for point, axes in points_by_axis.items():
-        if axes == {"h", "v"} and (point in junction_points or point in endpoints):
+        endpoint_axes = {
+            axis
+            for start, end, axis in segments
+            if point in {start, end}
+        }
+        if axes == {"h", "v"} and (
+            point in junction_points or endpoint_axes == {"h", "v"}
+        ):
             union.union((point, "h"), (point, "v"))
 
     return WireGraph(union, adjacency)

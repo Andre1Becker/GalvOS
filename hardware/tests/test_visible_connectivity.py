@@ -54,6 +54,25 @@ class VisibleConnectivityTests(unittest.TestCase):
                 set(), [], [],
             )
 
+    def test_rejects_signal_graph_joining_power_net(self):
+        with self.assertRaisesRegex(ValueError, r"joins baseline nets \+3V3, /SIG"):
+            validate_connectivity(
+                {
+                    "/SIG": frozenset({("J1", "1"), ("U1", "1")}),
+                    "+3V3": frozenset({("J2", "1"), ("U2", "1")}),
+                },
+                {
+                    ("J1", "1"): point("10.16", "10.16"),
+                    ("U1", "1"): point("15.24", "10.16"),
+                    ("J2", "1"): point("20.32", "10.16"),
+                    ("U2", "1"): point("25.40", "10.16"),
+                },
+                [(point("10.16", "10.16"), point("25.40", "10.16"))],
+                set(),
+                [Label("label", "SIG", point("10.16", "10.16"), True)],
+                [],
+            )
+
     def test_crossing_without_junction_keeps_signals_separate(self):
         validate_connectivity(
             {"/H": frozenset({("J1", "1"), ("U1", "1")}),
@@ -66,6 +85,35 @@ class VisibleConnectivityTests(unittest.TestCase):
              (point("15.24", "10.16"), point("15.24", "20.32"))],
             set(), [], [],
         )
+
+    def test_t_contact_without_junction_keeps_signals_separate(self):
+        validate_connectivity(
+            {"/H": frozenset({("J1", "1"), ("U1", "1")}),
+             "/V": frozenset({("J2", "1"), ("U2", "1")})},
+            {("J1", "1"): point("10.16", "15.24"),
+             ("U1", "1"): point("20.32", "15.24"),
+             ("J2", "1"): point("15.24", "17.78"),
+             ("U2", "1"): point("15.24", "20.32")},
+            [(point("10.16", "15.24"), point("20.32", "15.24")),
+             (point("15.24", "15.24"), point("15.24", "20.32"))],
+            set(), [], [],
+        )
+
+    def test_ignores_hidden_power_labels(self):
+        report = validate_connectivity(
+            {"+3V3": frozenset({("J1", "1"), ("U1", "1")}),
+             "/+5V_ANA": frozenset({("J2", "1"), ("U2", "1")})},
+            {("J1", "1"): point("10.16", "10.16"),
+             ("U1", "1"): point("20.32", "10.16"),
+             ("J2", "1"): point("10.16", "20.32"),
+             ("U2", "1"): point("20.32", "20.32")},
+            [], set(),
+            [Label("global_label", "+3V3", point("10.16", "10.16"), True),
+             Label("label", "+5V_ANA", point("10.16", "20.32"), True),
+             Label("label", "+5V_ANA", point("20.32", "20.32"), True)],
+            [],
+        )
+        self.assertEqual(report.checked_signal_nets, 0)
 
     def test_rejects_visible_and_nonlocal_signal_labels(self):
         cases = [

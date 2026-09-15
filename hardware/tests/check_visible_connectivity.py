@@ -124,6 +124,12 @@ def validate_connectivity(
     checked = 0
     component_nets: dict[tuple[Point, str], set[str]] = {}
     for net_name, pins in baseline_nets.items():
+        for pin in pins:
+            component = pin_components.get(pin)
+            if component is not None:
+                component_nets.setdefault(component, set()).add(net_name)
+
+    for net_name, pins in baseline_nets.items():
         if len(pins) < 2 or net_name in POWER_NET_NAMES or net_name.startswith("unconnected-("):
             continue
         checked += 1
@@ -132,9 +138,6 @@ def validate_connectivity(
         if missing or len(components) != 1:
             detail = f"; missing pins {missing}" if missing else ""
             errors.append(f"{net_name}: not continuous{detail}")
-        for component in components:
-            component_nets.setdefault(component, set()).add(net_name)
-
     for names in component_nets.values():
         if len(names) > 1:
             errors.append("wire graph joins baseline nets " + ", ".join(sorted(names)))
@@ -143,11 +146,17 @@ def validate_connectivity(
     for label in labels:
         if not label.hidden:
             errors.append(f"{label.kind} {label.text!r}: visible label is forbidden")
+        baseline_name = (
+            normalize_local_label(label.text)
+            if label.kind == "label"
+            else label.text
+        )
+        if baseline_name in POWER_NET_NAMES or label.text in POWER_NET_NAMES:
+            continue
         if label.kind in {"global_label", "hierarchical_label"}:
             errors.append(f"{label.kind} {label.text!r}: forbidden signal label")
         if label.kind != "label" or graph is None:
             continue
-        baseline_name = normalize_local_label(label.text)
         if baseline_name not in baseline_nets:
             errors.append(f"hidden local label {label.text!r}: no locked baseline net")
             continue
@@ -171,7 +180,24 @@ def validate_connectivity(
         for point in sorted(candidate_points):
             try:
                 degree = graph.degree(point)
-            except (KeyError, ValueError):
+            except KeyError:
+                continue
+            except ValueError:
+                components = []
+                for axis in ("h", "v"):
+                    try:
+                        components.append(graph.component(point, axis=axis))
+                    except KeyError:
+                        pass
+                expected_nets = (
+                    set.intersection(
+                        *(component_nets.get(component, set()) for component in components)
+                    )
+                    if len(components) == 2
+                    else set()
+                )
+                if expected_nets and point not in junctions:
+                    errors.append(f"missing junction at {point}")
                 continue
             if degree >= 3 and point not in junctions:
                 errors.append(f"missing junction at {point}")
