@@ -33,8 +33,8 @@ jobs:
         uses: INTI-CMNB/KiBot@v2_k10
         with:
           config: 'galvos.kibot.yml'
-          board: 'hardware/schematics/Laser Controller.kicad_pcb'
-          schema: 'hardware/schematics/Laser Controller.kicad_sch'
+          board: 'hardware/schematics/Laser Controllerv2_only_for_pcb_test.kicad_pcb'
+          schema: 'hardware/schematics/Laser Controllerv2_only_for_pcb_test.kicad_sch'
           dir: 'output'
 
       - name: Upload manufacturing data
