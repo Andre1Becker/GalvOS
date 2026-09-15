@@ -1,5 +1,20 @@
 # Current hardware checkpoint
 
+## Schematic layout checkpoint (2026-09-15)
+
+The canonical V2.0.10 schematic now uses five aligned functional rows with
+left-to-right signal flow, top-to-bottom supply/return presentation, normalized
+Reference/Value fields and short exact-name labelled connections. The drawing
+contains the same 122 components and 110 nets as the pre-layout baseline; the
+PCB and KiCad project are byte-identical. See the
+[layout-aesthetics review](2026-09-15-v2-schematic-layout-aesthetics.md).
+
+This is a drawing-only revision after V2.0.10, not a new electrical release.
+ERC is zero; PCB DRC still contains only the documented `U_BUCK1`
+footprint-type warning. The SSR-only restart-interlock design remains
+unimplemented. The hardware remains an engineering draft, not approved for
+fabrication or laser operation.
+
 SSR-only architecture update (2026-09-15): the user confirmed the DC
 laser-driver branch, rejected an additional relay/contactor and approved
 elaboration of hardware stop gating plus restart interlock. The
@@ -10,8 +25,9 @@ does not yet implement that design. No fault-tolerant laser-safety or
 production approval is implied by the user's SSR-only choice.
 
 Electrical/PCB revision: **hw-v2.0.10-draft** (2026-09-14).
-Schematic presentation: readability update after export commit `995eb85`;
-see [drawing-only review](2026-09-14-v2-schematic-readability.md).
+Prior schematic presentation checkpoint: readability update after export
+commit `995eb85`; see the
+[previous drawing-only review](2026-09-14-v2-schematic-readability.md).
 The existing hardware tag is unchanged; Git records this presentation update.
 
 **FULLY CONNECTED ROUTING DRAFT — NOT FOR FABRICATION OR LASER OPERATION.**
@@ -43,7 +59,7 @@ Paths are relative to `hardware/schematics/`.
 
 | Artifact | State | SHA-256 |
 |---|---|---|
-| `Laser Controllerv2_only_for_pcb_test.kicad_sch` | V2.0.10, readability update; 122 components, 110 nets | `8c1796266cc1843ee5e76cb9ab3a1025354a36771a9495bd96aa1e50c6ad0cc5` |
+| `Laser Controllerv2_only_for_pcb_test.kicad_sch` | V2.0.10 drawing-only functional-row layout; 122 components, 110 nets | `d764afbc6f2769a81caffe049524bf031ad04c2a1837089bfe3f07989b93a58d` |
 | `Laser Controllerv2_only_for_pcb_test.kicad_pcb` | Routed v2 engineering draft with five ground zones | `b8111d778abc5b57ec3adb1bbc94060598fb87cc0d16e584e53e28c0bce4f47a` |
 | `Laser Controller.kicad_pcb` | Unchanged historical board; not the v2 layout | `9703ba1bf5343e8a77ab9dbb0781785384c4f238bedc52c1341898d9e9bbf6b2` |
 
@@ -115,10 +131,14 @@ KiCad 10.0.6, native all-severity DRC with schematic parity and freshly refilled
 - No reported shorts, clearance/courtyard conflicts, undersized tracks, silk collisions, isolated copper or starved thermals.
 - DAC, sensor/tach, fan-power, scan-status, DMX, buck and trigger-diode interface checks pass. The diode checker also verifies only the two approved identity changes against V2.0.9; all electrical net memberships remain identical. Earlier optional baseline comparisons in individual historical reviews apply to their named revisions.
 - Input-layout guard proves the two explicit same-layer connections and unique copper IDs; negative checks reject the old duplicate-ID board and a candidate with the local VIN link removed. Its 8 mm/0.60 mm limits are project-local routing guards, not manufacturer electrical ratings.
-- Draft-evidence guard passes. Forty-nine unit tests cover ten report/rule methods, eight scan-buffer cases, eleven DMX cases, five buck methods seven diode methods and eight SMD-placement coverage methods (including
-  parameterized cases). Resolved diode warnings are no longer allowed. A passing draft guard is not production approval.
+- Draft-evidence guard passes. Sixty-five unit tests include the schematic
+  electrical-preservation and presentation contracts plus the existing
+  report/rule, interface and SMD-placement coverage. Resolved diode warnings
+  remain disallowed. Passing the draft guard is not production approval.
 - Combined front/back copper and the revised module outline/placements were rendered and inspected. Native inspection confirms five filled zones assigned to the intended ground nets. The read-only DAC overlap diagnostic records geometric improvement, not electrical qualification.
-- Current local verification includes export, seven interface checks, 41 unit tests, both native layout guards, ERC and native DRC/parity. Relocated-copy results are recorded in the current revision's review.
+- Current local verification includes export, seven interface checks, 65 unit
+  tests, both native layout guards, ERC and native DRC/parity. Results are
+  recorded in the current layout-aesthetics review.
 
 Remaining known warning:
 
