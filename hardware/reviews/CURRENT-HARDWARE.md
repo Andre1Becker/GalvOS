@@ -1,5 +1,14 @@
 # Current hardware checkpoint
 
+SSR-only architecture update (2026-09-15): the user confirmed the DC
+laser-driver branch, rejected an additional relay/contactor and approved
+elaboration of hardware stop gating plus restart interlock. The
+[written design](../../docs/superpowers/specs/2026-09-15-ssr-only-design.md)
+awaits review before implementation planning. It reuses GPIO47; GPIO40 stays
+with the encoder. This is documentation only: the existing V2.0.10 circuit
+does not yet implement that design. No fault-tolerant laser-safety or
+production approval is implied by the user's SSR-only choice.
+
 Electrical/PCB revision: **hw-v2.0.10-draft** (2026-09-14).
 Schematic presentation: readability update after export commit `995eb85`;
 see [drawing-only review](2026-09-14-v2-schematic-readability.md).

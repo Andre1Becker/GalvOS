@@ -1,5 +1,33 @@
 # GalvOS production PCB work log
 
+## 2026-09-15 — SSR-only architecture approved; written design review
+
+- User confirmed switching only the 12.6 V laser-driver branch, rejected a
+  second electromechanical interrupt, and approved elaborating the SSR-only
+  inhibit with direct NC stop gating and deliberate restart. Fans/controller
+  remain supplied. These decisions supersede the earlier unanswered branch
+  question and relay recommendation, not the documented residual failures.
+- Read current hardware notes, safety/ARM paths and pin ownership. GPIO40
+  initially appeared spare in the PCB but is used by encoder.cpp; it remains
+  untouched. The design reuses GPIO47 for hardware-ready feedback instead.
+- Written architecture: NC contact removes SSR control supply; hardware
+  restart interlock requires LOW after fault recovery before a new HIGH.
+  Faults dominate ARM. Watchdog runs while disarmed to avoid a start-up
+  circular dependency. Firmware revokes stale ARM; override cannot bypass
+  stop/readiness, watchdog or explicit arming. Separate V2 build semantics
+  prevent silently changing the tested V1 wiring contract.
+- [Written design for review](docs/superpowers/specs/2026-09-15-ssr-only-design.md)
+  specifies interfaces, state transitions, limits and future proof cases.
+  Omron SSR remains a conditional candidate, not a purchase/release approval.
+  SSR conductive failure and a bridged stop circuit remain unhandled.
+- Brainstorming checklist: context, constraints, alternative discussion and
+  architecture approval complete; visual companion unnecessary. Written spec
+  and inline self-review complete. User review of the written spec is pending;
+  implementation planning follows only after that review.
+- Documentation only: no circuit, PCB, firmware, PDF or test changes. No claim
+  that the future acceptance tests have run. Thermal/load/timing exclusions
+  remain; no fabrication or laser-operation release. Preserve agents.md.
+
 ## 2026-09-14 — User inputs resumed: manual assembly, pitch and SSR
 
 - User confirmed manual assembly and 2.54 mm ESP32 pin pitch; delegated SSR
