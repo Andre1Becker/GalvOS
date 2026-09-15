@@ -1,7 +1,7 @@
 # V2.0.10 schematic layout-aesthetics review
 
-Date: 2026-09-15  
-Tool: KiCad 10.0.6  
+Date: 2026-09-15
+Tool: KiCad 10.0.6
 Scope: canonical schematic drawing only
 
 ## Result
@@ -21,8 +21,8 @@ implemented or implied by this work.
 
 | Artifact | Baseline SHA-256 | Final SHA-256 |
 |---|---|---|
-| Canonical schematic | `8c1796266cc1843ee5e76cb9ab3a1025354a36771a9495bd96aa1e50c6ad0cc5` | `d764afbc6f2769a81caffe049524bf031ad04c2a1837089bfe3f07989b93a58d` |
-| Schematic PDF | `bbfc5fb4335a76f11f08f506cf9931459e7073332e4c70010572443b0927156e` | `88613b68a5e593334f6ded815e0b2365e77bb926998c874cd35b63462e0bb6e3` |
+| Canonical schematic | `8c1796266cc1843ee5e76cb9ab3a1025354a36771a9495bd96aa1e50c6ad0cc5` | `4f36655a3db6b5c36ef65a4722ed1f9eb7d4c4fcdeb77973966a9bf6b506f086` |
+| Schematic PDF | `bbfc5fb4335a76f11f08f506cf9931459e7073332e4c70010572443b0927156e` | `c4b863705803ee55f5cea0628ce073e603d91b3b57d3fccb38cf3b6bce4ad9d6` |
 | Canonical PCB | `b8111d778abc5b57ec3adb1bbc94060598fb87cc0d16e584e53e28c0bce4f47a` | unchanged |
 | KiCad project | `dc77f4155067018d81c509e667ad67642031a5cf69abe7181144c19c11bd3b1b` | unchanged |
 
@@ -45,7 +45,7 @@ reduced text size so they do not dominate the drawing. No bus objects were
 introduced.
 
 Source-level wire metrics changed from 329 wire objects, including 91 segments
-longer than 20 mm and a 170.18 mm maximum, to 202 local stubs with a 3.81 mm
+longer than 20 mm and a 170.18 mm maximum, to 208 local stubs with a 3.81 mm
 maximum and zero segments longer than 20 mm. The final sheet contains 151 local
 labels and 71 global labels. Three embedded reference images, two decorative
 rectangles and their redundant connector annotations were removed.
@@ -57,13 +57,16 @@ DAC, all three laser channels and the buck path.
 
 ## Visual inspection
 
-The complete PDF and 240 dpi crops were inspected for all five rows. No
-Reference/Value-to-symbol or Reference/Value-to-wire collision remains, and no
-ambiguous long-wire crossing remains. The dense custom symbols U_DACLV1, U2
-and U12 retain their library-generated pin text; that pin text cannot be moved
-independently without changing the symbol libraries. Exact generated internal
-net labels are deliberately rendered at 0.508 mm and remain visible only as
-secondary implementation detail.
+The complete PDF and 240 dpi crops were inspected across all five rows. Rotated
+passive Reference/Value fields now render horizontally above/below the device,
+and the U15/U16/U17 Reference/Value, pin and power annotations are separated.
+No ambiguous long-wire crossing remains. The dense custom symbols `U_DACLV1`,
+`U2` and `U12` retain library-generated internal pin text and nearby
+power-annotation density; this review does not claim those library-owned pin
+texts are collision-free because they cannot be moved independently without
+changing the symbol libraries. Exact generated internal net labels are
+deliberately rendered at 0.508 mm: they remain visible but only as a secondary
+implementation detail.
 
 ## Verification evidence
 
@@ -73,7 +76,7 @@ secondary implementation detail.
 | Full presentation contract | PASS — all five blocks |
 | Native schematic ERC, all severities | PASS — 0 violations |
 | Fan-power, sensor/fan, DAC, scan, DMX, buck and trigger-diode interfaces | PASS — 7/7 |
-| Hardware unit tests | PASS — 65 tests |
+| Hardware unit tests | PASS — 69 tests |
 | Native PCB DRC with refill and schematic parity | 0 unconnected, 0 parity, 1 known warning |
 | PCB draft-evidence guard | PASS |
 | DAC source-layout guard | PASS — 2.796–6.352 mm source paths, no vias |

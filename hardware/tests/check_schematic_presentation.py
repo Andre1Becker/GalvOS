@@ -26,7 +26,7 @@ ROWS = {
     "power": (Decimal("25.40"), Decimal("88.90")),
     "io": (Decimal("101.60"), Decimal("165.10")),
     "analog": (Decimal("177.80"), Decimal("241.30")),
-    "laser": (Decimal("254.00"), Decimal("304.80")),
+    "laser": (Decimal("254.00"), Decimal("309.88")),
     "safety": (Decimal("317.50"), Decimal("381.00")),
 }
 BLOCK_PLACEMENT = {
@@ -255,6 +255,14 @@ def _horizontal(angle: Decimal) -> bool:
     return angle % Decimal("180") == 0
 
 
+def _field_is_rendered_horizontal(
+    symbol_angle: Decimal, field_angle: Decimal
+) -> bool:
+    # KiCad stores symbol-property angles in the symbol's local frame.
+    # Mirroring can reverse the angle, but cannot change its axis parity.
+    return _horizontal(symbol_angle + field_angle)
+
+
 def check_fields(objects: list[SExprObject], refs: set[str] | None = None) -> None:
     violations = []
     for reference, obj in _placed_symbols(objects).items():
@@ -277,21 +285,15 @@ def check_fields(objects: list[SExprObject], refs: set[str] | None = None) -> No
             ("Reference", reference_angle, reference_hidden),
             ("Value", value_angle, value_hidden),
         ):
-            if not hidden and not _horizontal(angle):
+            if not hidden and not _field_is_rendered_horizontal(symbol_angle, angle):
                 violations.append(f"{reference} {field_name} must be horizontal")
 
         if reference_hidden or value_hidden:
             continue
-        if _is_two_pin_passive(reference, lib_id) and not _horizontal(symbol_angle):
-            if rx >= sx:
-                violations.append(f"{reference} Reference must be left of symbol")
-            if vx <= sx:
-                violations.append(f"{reference} Value must be right of symbol")
-        else:
-            if ry >= sy:
-                violations.append(f"{reference} Reference must be above symbol")
-            if vy <= sy:
-                violations.append(f"{reference} Value must be below symbol")
+        if ry >= sy:
+            violations.append(f"{reference} Reference must be above symbol")
+        if vy <= sy:
+            violations.append(f"{reference} Value must be below symbol")
 
     if violations:
         raise ValueError("; ".join(violations))

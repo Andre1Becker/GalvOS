@@ -98,6 +98,57 @@ class SchematicPresentationTests(unittest.TestCase):
 
         check_fields(objects)
 
+    def test_rejects_fields_that_render_vertical_on_rotated_symbol(self):
+        objects = parse_root_objects(
+            self.symbol(
+                reference="R1",
+                symbol_at=(Decimal("10.16"), Decimal("10.16"), 270),
+                reference_at=(Decimal("5.08"), Decimal("10.16"), 0),
+                value_at=(Decimal("15.24"), Decimal("10.16"), 0),
+            )
+        )
+
+        with self.assertRaisesRegex(ValueError, "Reference.*horizontal"):
+            check_fields(objects)
+
+    def test_accepts_counter_rotated_fields_on_rotated_symbol(self):
+        objects = parse_root_objects(
+            self.symbol(
+                reference="R1",
+                symbol_at=(Decimal("10.16"), Decimal("10.16"), 270),
+                reference_at=(Decimal("10.16"), Decimal("7.62"), 90),
+                value_at=(Decimal("10.16"), Decimal("12.70"), 90),
+            )
+        )
+
+        check_fields(objects)
+
+    def test_rejects_rotated_passive_fields_inline_with_signal_path(self):
+        objects = parse_root_objects(
+            self.symbol(
+                reference="R1",
+                symbol_at=(Decimal("10.16"), Decimal("10.16"), 270),
+                reference_at=(Decimal("5.08"), Decimal("10.16"), 90),
+                value_at=(Decimal("15.24"), Decimal("10.16"), 90),
+            )
+        )
+
+        with self.assertRaisesRegex(ValueError, "Reference.*above"):
+            check_fields(objects)
+
+    def test_mirroring_does_not_change_horizontal_field_axis(self):
+        objects = parse_root_objects(
+            self.symbol(
+                reference="R1",
+                symbol_at=(Decimal("10.16"), Decimal("10.16"), 270),
+                reference_at=(Decimal("10.16"), Decimal("7.62"), 90),
+                value_at=(Decimal("10.16"), Decimal("12.70"), 90),
+                mirror="x",
+            )
+        )
+
+        check_fields(objects)
+
     def test_rejects_reversed_signal_chain(self):
         placements = {
             "J_DMX1": (Decimal("100"), Decimal("100")),
@@ -118,14 +169,15 @@ class SchematicPresentationTests(unittest.TestCase):
         check_chain("DMX", ("J_DMX1", "U_DMXLV1", "U1"), placements)
 
     @staticmethod
-    def symbol(reference, symbol_at, reference_at, value_at):
+    def symbol(reference, symbol_at, reference_at, value_at, mirror=None):
         sx, sy, sa = symbol_at
         rx, ry, ra = reference_at
         vx, vy, va = value_at
+        mirror_clause = f"\n            (mirror {mirror})" if mirror else ""
         return f'''(kicad_sch
           (symbol
             (lib_id "MCU_Module:Fixture")
-            (at {sx} {sy} {sa})
+            (at {sx} {sy} {sa}){mirror_clause}
             (uuid "fixture-{reference}")
             (property "Reference" "{reference}"
               (at {rx} {ry} {ra})
