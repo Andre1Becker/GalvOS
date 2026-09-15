@@ -43,6 +43,15 @@ class SchematicPresentationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "orthogonal"):
             check_grid(objects)
 
+    def test_accepts_serialization_noise_on_horizontal_wire(self):
+        objects = parse_root_objects(
+            "(kicad_sch (wire (pts "
+            "(xy 185.42000000000002 180.33999999999997) "
+            "(xy 196.85 180.34))))"
+        )
+
+        check_grid(objects)
+
     def test_rejects_electrical_bus(self):
         objects = parse_root_objects(
             '(kicad_sch (bus (pts (xy 1.27 2.54) (xy 5.08 2.54))))'

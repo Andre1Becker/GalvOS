@@ -150,6 +150,10 @@ def _on_grid(value: Decimal) -> bool:
     return abs(units - units.to_integral_value()) <= GRID_TOLERANCE
 
 
+def _same_coordinate(left: Decimal, right: Decimal) -> bool:
+    return abs(left - right) <= GRID_TOLERANCE
+
+
 def _object_id(obj: SExprObject) -> str:
     uuid = re.search(r'\(uuid\s+"([^"]+)"\)', obj.source)
     if uuid:
@@ -214,7 +218,9 @@ def check_grid(objects: list[SExprObject]) -> None:
                 (Decimal(x), Decimal(y)) for x, y in XY_RE.findall(obj.source)
             ]
             for start, end in zip(coordinates, coordinates[1:]):
-                if start[0] != end[0] and start[1] != end[1]:
+                if not _same_coordinate(start[0], end[0]) and not _same_coordinate(
+                    start[1], end[1]
+                ):
                     violations.append(f"{identifier}: wire is not orthogonal")
         elif obj.kind in ELECTRICAL_ANCHORS:
             x, y, _ = _placement(obj.source)
